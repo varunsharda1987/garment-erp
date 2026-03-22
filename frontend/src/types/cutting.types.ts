@@ -149,6 +149,7 @@ export interface CuttingBatch {
     cadAvgUsed: number | null;
     cadWidthUsed: number | null;
     actualWidth: number | null;
+    fabricConsumed?: number;
     fabricStock?: {
       id: string;
       rollNumbers?: string;
@@ -398,12 +399,33 @@ export interface CuttingLaySKU {
   size?: { id: string; sizeName: string; sortOrder?: number };
 }
 
+export interface CuttingLayFabric {
+  id: string;
+  cuttingBatchFabricId: string;
+  layerLength: number;
+  batchFabric?: {
+    id: string;
+    fabricStockId: string;
+    cadAvgUsed: number | null;
+    fabricStock?: {
+      id: string;
+      rollNumbers?: string;
+      fabricMaster?: {
+        id: string;
+        fabricCode: string;
+        fabricName: string;
+      };
+    };
+  };
+}
+
 export interface CuttingLay {
   id: string;
   cuttingBatchId: string;
   layDate: string;
   layNumber: number;
   layerLength: number;
+  numberOfLayers: number;
   totalPieces: number;
   remarks?: string;
   cuttingBatchFabricId?: string;
@@ -421,6 +443,7 @@ export interface CuttingLay {
       };
     };
   };
+  layFabrics?: CuttingLayFabric[];
   createdBy?: { id: string; name: string };
   createdAt: string;
   skuOutputs: CuttingLaySKU[];
@@ -428,10 +451,13 @@ export interface CuttingLay {
 
 export interface AddCuttingLayRequest {
   layDate: string;
-  layerLength: number;
+  numberOfLayers: number;
   remarks?: string;
+  fabricLengths?: { cuttingBatchFabricId: string; layerLength: number }[];
+  skuOutputs: { colorId: string | null; sizeId: string; piecesPerLayer: number }[];
+  // Legacy fields
+  layerLength?: number;
   cuttingBatchFabricId?: string;
-  skuOutputs: { colorId: string | null; sizeId: string; pieces: number }[];
 }
 
 // ============================================

@@ -450,6 +450,13 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   garmentPhysicalTestsApproved: 'approvedBy',
   orderSamplesCreated: 'createdBy',
   orderInspectionsDone: 'inspectedBy',
+  // Stock Production Order relations
+  stockProductionOrders: 'stockProductionOrder',
+  stockProductionOrderItems: 'stockProductionOrderItems',
+  // Sale Order relations
+  saleOrders: 'saleOrder',
+  saleOrderItems: 'saleOrderItems',
+  fgStockAllocations: 'allocations',
 };
 
 /**

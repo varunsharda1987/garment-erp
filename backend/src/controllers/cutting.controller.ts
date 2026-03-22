@@ -1626,16 +1626,29 @@ export const getCuttingChartData = async (req: Request, res: Response) => {
 
 // Helper: recalculate batch totals from all lays
 async function recalculateBatchTotals(tx: any, batchId: string) {
-  // Sum pieces per color+size across all lays
-  const laySkus = await tx.cutting_lay_skus.findMany({
-    where: { cuttingLay: { cuttingBatchId: batchId } },
-    select: { colorId: true, sizeId: true, pieces: true },
+  // Fetch all lays with their SKUs and per-fabric records
+  const lays = await tx.cutting_lays.findMany({
+    where: { cuttingBatchId: batchId },
+    select: {
+      id: true,
+      numberOfLayers: true,
+      layerLength: true,
+      cuttingBatchFabricId: true,
+      skuOutputs: { select: { colorId: true, sizeId: true, pieces: true } },
+      layFabrics: { select: { cuttingBatchFabricId: true, layerLength: true } },
+    },
   });
 
+  // cutQty per size = SUM(piecesPerLayer × numberOfLayers) across all lays
+  // "pieces" in cutting_lay_skus now represents piecesPerLayer
   const skuTotals = new Map<string, number>();
-  for (const ls of laySkus) {
-    const key = `${ls.colorId}|${ls.sizeId}`;
-    skuTotals.set(key, (skuTotals.get(key) || 0) + ls.pieces);
+  for (const lay of lays) {
+    const layers = lay.numberOfLayers || 1;
+    for (const sku of lay.skuOutputs) {
+      const key = `${sku.colorId}|${sku.sizeId}`;
+      const totalForSize = sku.pieces * layers;
+      skuTotals.set(key, (skuTotals.get(key) || 0) + totalForSize);
+    }
   }
 
   // Update each cutting_batch_skus record
@@ -1655,20 +1668,48 @@ async function recalculateBatchTotals(tx: any, batchId: string) {
     });
   }
 
-  // Sum all lay layer lengths → fabricConsumed
-  const lays = await tx.cutting_lays.findMany({
-    where: { cuttingBatchId: batchId },
-    select: { layerLength: true },
-  });
-  const totalFabricConsumed = lays.reduce(
-    (sum: number, l: any) => sum + Number(l.layerLength),
-    0
-  );
+  // Fabric consumption: use cutting_lay_fabrics if available, fallback to lay.layerLength
+  let totalFabricConsumed = 0;
+  const perFabricConsumed = new Map<string, number>();
+
+  for (const lay of lays) {
+    const layers = lay.numberOfLayers || 1;
+
+    if (lay.layFabrics && lay.layFabrics.length > 0) {
+      // New structure: per-fabric layer lengths
+      for (const lf of lay.layFabrics) {
+        const consumed = Number(lf.layerLength) * layers;
+        totalFabricConsumed += consumed;
+        const prev = perFabricConsumed.get(lf.cuttingBatchFabricId) || 0;
+        perFabricConsumed.set(lf.cuttingBatchFabricId, prev + consumed);
+      }
+    } else {
+      // Legacy: single layerLength on lay
+      const consumed = Number(lay.layerLength) * layers;
+      totalFabricConsumed += consumed;
+      if (lay.cuttingBatchFabricId) {
+        const prev = perFabricConsumed.get(lay.cuttingBatchFabricId) || 0;
+        perFabricConsumed.set(lay.cuttingBatchFabricId, prev + consumed);
+      }
+    }
+  }
 
   await tx.cutting_batches.update({
     where: { id: batchId },
     data: { fabricConsumed: totalFabricConsumed },
   });
+
+  // Update per-fabric consumption on cutting_batch_fabrics
+  const allFabrics = await tx.cutting_batch_fabrics.findMany({
+    where: { batchId },
+    select: { id: true },
+  });
+  for (const fabric of allFabrics) {
+    await tx.cutting_batch_fabrics.update({
+      where: { id: fabric.id },
+      data: { fabricConsumed: perFabricConsumed.get(fabric.id) || 0 },
+    });
+  }
 }
 
 // Add a cutting lay
@@ -1680,10 +1721,18 @@ export const addCuttingLay = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const { layDate, layerLength, remarks, skuOutputs, cuttingBatchFabricId } = req.body;
+    const {
+      layDate,
+      layerLength,        // fallback for single-fabric batches
+      numberOfLayers,
+      remarks,
+      skuOutputs,         // { colorId, sizeId, piecesPerLayer } OR legacy { pieces }
+      fabricLengths,      // [{ cuttingBatchFabricId, layerLength }] — per-fabric
+      cuttingBatchFabricId, // legacy single-fabric field
+    } = req.body;
 
-    if (!layDate || !layerLength || !skuOutputs || skuOutputs.length === 0) {
-      return res.status(400).json({ error: 'layDate, layerLength, and skuOutputs are required' });
+    if (!layDate || !numberOfLayers || !skuOutputs || skuOutputs.length === 0) {
+      return res.status(400).json({ error: 'layDate, numberOfLayers, and skuOutputs are required' });
     }
 
     const batch = await prisma.cutting_batches.findUnique({
@@ -1707,9 +1756,17 @@ export const addCuttingLay = async (req: Request, res: Response) => {
     });
     const layNumber = (maxLay?.layNumber || 0) + 1;
 
-    const totalPieces = skuOutputs.reduce((sum: number, s: any) => sum + (s.pieces || 0), 0);
+    // pieces field = piecesPerLayer (same concept, kept as 'pieces' in DB)
+    const layers = numberOfLayers || 1;
+    const piecesPerLayerTotal = skuOutputs.reduce(
+      (sum: number, s: any) => sum + (s.piecesPerLayer || s.pieces || 0), 0
+    );
+    const totalPieces = piecesPerLayerTotal * layers;
 
-    // Create lay + update totals in transaction
+    // Primary layer length for the lay record (first fabric or single value)
+    const primaryLayerLength = fabricLengths?.[0]?.layerLength || layerLength || 0;
+
+    // Create lay + per-fabric records + update totals in transaction
     const lay = await prisma.$transaction(async (tx) => {
       const newLay = await tx.cutting_lays.create({
         data: {
@@ -1717,7 +1774,8 @@ export const addCuttingLay = async (req: Request, res: Response) => {
           cuttingBatchFabricId: cuttingBatchFabricId || null,
           layDate: new Date(layDate),
           layNumber,
-          layerLength,
+          layerLength: primaryLayerLength,
+          numberOfLayers: layers,
           totalPieces,
           remarks,
           createdById: userId,
@@ -1725,10 +1783,29 @@ export const addCuttingLay = async (req: Request, res: Response) => {
             create: skuOutputs.map((s: any) => ({
               colorId: s.colorId || null,
               sizeId: s.sizeId,
-              pieces: s.pieces,
+              pieces: s.piecesPerLayer || s.pieces,  // store piecesPerLayer in pieces field
             })),
           },
         },
+      });
+
+      // Create per-fabric layer length records
+      if (fabricLengths && fabricLengths.length > 0) {
+        await tx.cutting_lay_fabrics.createMany({
+          data: fabricLengths.map((fl: any) => ({
+            cuttingLayId: newLay.id,
+            cuttingBatchFabricId: fl.cuttingBatchFabricId,
+            layerLength: fl.layerLength,
+          })),
+        });
+      }
+
+      // Recalculate batch totals
+      await recalculateBatchTotals(tx, id);
+
+      // Re-fetch with includes
+      return tx.cutting_lays.findUnique({
+        where: { id: newLay.id },
         include: {
           skuOutputs: {
             include: {
@@ -1737,28 +1814,27 @@ export const addCuttingLay = async (req: Request, res: Response) => {
             },
           },
           createdBy: { select: { id: true, firstName: true, lastName: true } },
-          batchFabric: {
+          layFabrics: {
             include: {
-              fabricStock: {
-                include: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } },
+              batchFabric: {
+                include: {
+                  fabricStock: {
+                    include: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } },
+                  },
+                },
               },
             },
           },
         },
       });
-
-      // Recalculate batch totals
-      await recalculateBatchTotals(tx, id);
-
-      return newLay;
     });
 
     res.status(201).json({
       data: {
         ...lay,
-        layerLength: Number(lay.layerLength),
-        createdBy: lay.createdBy
-          ? { id: lay.createdBy.id, name: `${lay.createdBy.firstName} ${lay.createdBy.lastName}` }
+        layerLength: Number(lay!.layerLength),
+        createdBy: lay!.createdBy
+          ? { id: lay!.createdBy.id, name: `${(lay!.createdBy as any).firstName} ${(lay!.createdBy as any).lastName}` }
           : null,
       },
     });
@@ -1788,6 +1864,17 @@ export const getCuttingLays = async (req: Request, res: Response) => {
           include: {
             fabricStock: {
               include: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } },
+            },
+          },
+        },
+        layFabrics: {
+          include: {
+            batchFabric: {
+              include: {
+                fabricStock: {
+                  include: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } },
+                },
+              },
             },
           },
         },
@@ -1878,11 +1965,30 @@ export const issueToStitching = async (req: Request, res: Response) => {
           where: { isActive: true },
           include: { skuBreakdown: true },
         },
+        additionalFabrics: {
+          include: {
+            fabricStock: {
+              include: { fabricMaster: { select: { fabricName: true } } },
+            },
+            _count: { select: { lays: true } },
+          },
+        },
       },
     });
 
     if (!batch) {
       return res.status(404).json({ error: 'Cutting batch not found' });
+    }
+
+    // Validate all fabrics have at least one lay before issuing
+    if (batch.additionalFabrics && batch.additionalFabrics.length > 0) {
+      const uncutFabrics = batch.additionalFabrics.filter((af: any) => af._count.lays === 0);
+      if (uncutFabrics.length > 0) {
+        const names = uncutFabrics.map((af: any) => af.fabricStock?.fabricMaster?.fabricName || 'Unknown').join(', ');
+        return res.status(400).json({
+          error: `Cannot issue to stitching: ${names} has no lays recorded. All fabrics must be cut before issuing.`,
+        });
+      }
     }
 
     // Calculate already issued per SKU

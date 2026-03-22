@@ -75,6 +75,7 @@ export const NAV_GROUPS: NavGroup[] = [
     iconName: 'ClipboardList',
     items: [
       { title: 'Orders', path: '/orders', iconName: 'ClipboardList', permission: 'orders' },
+      { title: 'Stock Production', path: '/stock-production-orders', iconName: 'Warehouse', permission: 'orders', keywords: ['spo', 'make to stock', 'mts', 'stock production'] },
       { title: 'Order BOM', path: '/order-bom', iconName: 'ListChecks', permission: 'orders' },
     ],
   },

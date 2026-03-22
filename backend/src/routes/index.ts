@@ -22,6 +22,7 @@ import customerSizePresetsRoutes from './customer-size-presets.routes';
 import supplierRoutes from './supplier.routes';
 import agentRoutes from './agent.routes';
 import agencyRoutes from './agency.routes';
+import stockProductionOrderRoutes from './stockProductionOrder.routes';
 import materialRoutes from './material.routes';
 import materialMasterRoutes from './material-master.routes';
 import laceRoutes from './lace.routes';
@@ -237,6 +238,9 @@ export function createApiRouter(): Router {
   router.use('/processing-stages', processingStageRoutes);
   router.use('/processing-movements', processingMovementRoutes);
   router.use('/processing-deliveries', processingDeliveryRoutes);
+
+  // Stock Production Orders (Make-to-Stock)
+  router.use('/stock-production-orders', stockProductionOrderRoutes);
 
   // Production
   router.use('/work-orders', workOrderRoutes);

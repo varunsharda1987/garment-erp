@@ -25,6 +25,7 @@ import { materialService } from './material.service';
 import { COMPANY_CONFIG } from '../config/company.config';
 import { gstService } from './gst.service';
 import { resolveRate } from './po-rate-resolver.service';
+import { logWarn } from '../utils/logger';
 
 /**
  * Ensure a materials record exists for a fabric_master entry.
@@ -474,7 +475,10 @@ async function ensureMaterialForPackaging(packagingId: string): Promise<{ id: st
  * Maps common abbreviations and variations to standard enum values
  */
 function normalizeUnit(unit: string | null | undefined): Unit {
-  if (!unit) return Unit.PIECE; // Default fallback
+  if (!unit) {
+    logWarn('[MRP] normalizeUnit called with null/undefined unit — defaulting to PIECE. This may cause incorrect quantity calculations if the actual unit is METER, YARD, or KILOGRAM. Fix: ensure all BOM items have a unit value set.');
+    return Unit.PIECE;
+  }
 
   const normalized = unit.toUpperCase().trim();
 
@@ -505,7 +509,12 @@ function normalizeUnit(unit: string | null | undefined): Unit {
     'BOXES': Unit.BOX,
   };
 
-  return unitMap[normalized] || Unit.PIECE; // Default to PIECE if unknown
+  if (unitMap[normalized]) {
+    return unitMap[normalized];
+  }
+
+  logWarn(`[MRP] normalizeUnit: unrecognized unit '${unit}' — defaulting to PIECE. Add a mapping for this unit in normalizeUnit() or fix the BOM data.`);
+  return Unit.PIECE;
 }
 
 /**

@@ -30,13 +30,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cuttingBatchService } from '@/services/cutting.service';
 import * as supplierService from '@/services/supplier.service';
 import type {
@@ -84,11 +77,13 @@ export default function CuttingDetail() {
 
   // Lay input form
   const [layDate, setLayDate] = useState(new Date().toISOString().split('T')[0]);
-  const [layerLength, setLayerLength] = useState<string>('');
+  const [layerLength, setLayerLength] = useState<string>(''); // single-fabric fallback
+  const [fabricLayerLengths, setFabricLayerLengths] = useState<Record<string, string>>({}); // per-fabric
+  const [numberOfLayers, setNumberOfLayers] = useState<string>('');
   const [layRemarks, setLayRemarks] = useState('');
-  const [layPieces, setLayPieces] = useState<Record<string, number>>({});
+  const [layPieces, setLayPieces] = useState<Record<string, number>>({}); // piecesPerLayer per size
   const [layChecked, setLayChecked] = useState<Record<string, boolean>>({});
-  const [layFabricId, setLayFabricId] = useState<string>('');
+  const [layFabricId, setLayFabricId] = useState<string>(''); // legacy
   const [isSavingLay, setIsSavingLay] = useState(false);
 
   // Issue to stitching
@@ -255,27 +250,50 @@ export default function CuttingDetail() {
   const handleSaveLay = async () => {
     if (!batch) return;
 
-    const length = parseFloat(layerLength);
-    if (!length || length <= 0) {
-      handleApiError(null, 'Please enter a valid layer length');
+    const layers = parseInt(numberOfLayers) || 0;
+    if (layers <= 0) {
+      handleApiError(null, 'Number of layers must be at least 1');
       return;
     }
 
-    const skuOutputs: AddCuttingLayRequest['skuOutputs'] = [];
+    const hasMultipleFabrics = batch.additionalFabrics && batch.additionalFabrics.length > 1;
 
+    // Build per-fabric lengths
+    let fabricLengths: { cuttingBatchFabricId: string; layerLength: number }[] | undefined;
+    if (hasMultipleFabrics) {
+      fabricLengths = [];
+      for (const af of batch.additionalFabrics!) {
+        const len = parseFloat(fabricLayerLengths[af.id] || '');
+        if (!len || len <= 0) {
+          const name = af.fabricStock?.fabricMaster?.fabricName || 'Fabric';
+          handleApiError(null, `Please enter layer length for ${name}`);
+          return;
+        }
+        fabricLengths.push({ cuttingBatchFabricId: af.id, layerLength: len });
+      }
+    } else {
+      const length = parseFloat(layerLength);
+      if (!length || length <= 0) {
+        handleApiError(null, 'Please enter a valid layer length');
+        return;
+      }
+    }
+
+    // Build skuOutputs with piecesPerLayer
+    const skuOutputs: AddCuttingLayRequest['skuOutputs'] = [];
     for (const sku of batch.skuOutputs || []) {
       const key = `${sku.colorId}|${sku.sizeId}`;
       if (layChecked[key] && (layPieces[key] || 0) > 0) {
         skuOutputs.push({
           colorId: sku.colorId,
           sizeId: sku.sizeId,
-          pieces: layPieces[key],
+          piecesPerLayer: layPieces[key],
         });
       }
     }
 
     if (skuOutputs.length === 0) {
-      handleApiError(null, 'Please select at least one size and enter pieces');
+      handleApiError(null, 'Please select at least one size and enter pieces per layer');
       return;
     }
 
@@ -283,15 +301,18 @@ export default function CuttingDetail() {
       setIsSavingLay(true);
       await cuttingBatchService.addLay(id!, {
         layDate,
-        layerLength: length,
+        numberOfLayers: layers,
+        layerLength: hasMultipleFabrics ? fabricLengths![0].layerLength : parseFloat(layerLength),
         remarks: layRemarks || undefined,
-        cuttingBatchFabricId: layFabricId || undefined,
+        fabricLengths,
         skuOutputs,
       });
       handleApiSuccess('Lay Saved', 'Cutting lay has been recorded.');
 
       // Reset form
       setLayerLength('');
+      setFabricLayerLengths({});
+      setNumberOfLayers('');
       setLayRemarks('');
       setLayPieces({});
       setLayChecked({});
@@ -397,6 +418,14 @@ export default function CuttingDetail() {
   const hasGoodPcs = totalGood > 0;
   const isInProgress = batch?.status === 'IN_PROGRESS';
   const isCompleted = batch?.status === 'COMPLETED';
+
+  // Check if all fabrics have at least one lay (for issue-to-stitching guard)
+  const uncutFabrics = batch?.additionalFabrics?.filter(af =>
+    !lays.some(lay => lay.cuttingBatchFabricId === af.id)
+  ) || [];
+  const allFabricsCut = batch?.additionalFabrics && batch.additionalFabrics.length > 0
+    ? uncutFabrics.length === 0
+    : true;
 
   if (isLoading) {
     return (
@@ -545,9 +574,20 @@ export default function CuttingDetail() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Cutting Progress</CardTitle>
             <div className="flex items-center gap-4 text-sm">
-              <span className="text-gray-500">
-                Fabric Used: <span className="font-semibold text-gray-900">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
-              </span>
+              {batch.additionalFabrics && batch.additionalFabrics.length > 1 ? (
+                <div className="flex flex-col items-end text-xs gap-0.5">
+                  {batch.additionalFabrics.map((af) => (
+                    <span key={af.id} className="text-gray-500">
+                      {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
+                      <span className="font-semibold text-gray-900">{(af.fabricConsumed || 0).toFixed(2)} m</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-gray-500">
+                  Fabric Used: <span className="font-semibold text-gray-900">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
+                </span>
+              )}
               <span className="text-gray-500">
                 Progress: <span className="font-semibold text-orange-600">{progressPercent}%</span>
               </span>
@@ -624,27 +664,9 @@ export default function CuttingDetail() {
               <Layers className="h-5 w-5 text-orange-600" />
               Add New Lay
             </CardTitle>
-            <CardDescription>Record a cutting lay — enter layer length and pieces per size</CardDescription>
+            <CardDescription>Record a cutting lay — enter number of layers, fabric lengths, and pieces per layer per size</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {batch.additionalFabrics && batch.additionalFabrics.length > 1 && (
-              <div className="space-y-1">
-                <Label className="text-sm font-medium">Fabric</Label>
-                <Select value={layFabricId} onValueChange={setLayFabricId}>
-                  <SelectTrigger className="w-full md:w-[400px]">
-                    <SelectValue placeholder="Select fabric for this lay" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {batch.additionalFabrics.map((af) => (
-                      <SelectItem key={af.id} value={af.id}>
-                        {af.fabricStock?.fabricMaster?.fabricName || af.fabricStock?.rollNumbers || 'Fabric'}{' '}
-                        {af.cadAvgUsed != null ? `(CAD Avg: ${Number(af.cadAvgUsed).toFixed(2)} m/pc)` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="space-y-1">
                 <Label className="text-sm">Lay Date</Label>
@@ -655,16 +677,29 @@ export default function CuttingDetail() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-sm">Layer Length (meters)</Label>
+                <Label className="text-sm">Number of Layers (plies)</Label>
                 <Input
                   type="number"
-                  step="0.01"
-                  placeholder="e.g. 5.50"
-                  value={layerLength}
-                  onChange={(e) => setLayerLength(e.target.value)}
+                  min={1}
+                  placeholder="e.g. 100"
+                  value={numberOfLayers}
+                  onChange={(e) => setNumberOfLayers(e.target.value)}
                 />
               </div>
-              <div className="col-span-2 space-y-1">
+              {/* Single-fabric: show single layer length */}
+              {(!batch.additionalFabrics || batch.additionalFabrics.length <= 1) && (
+                <div className="space-y-1">
+                  <Label className="text-sm">Layer Length (meters)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 5.50"
+                    value={layerLength}
+                    onChange={(e) => setLayerLength(e.target.value)}
+                  />
+                </div>
+              )}
+              <div className="space-y-1">
                 <Label className="text-sm">Remarks (optional)</Label>
                 <Input
                   value={layRemarks}
@@ -673,6 +708,45 @@ export default function CuttingDetail() {
                 />
               </div>
             </div>
+
+            {/* Multi-fabric: per-fabric layer lengths */}
+            {batch.additionalFabrics && batch.additionalFabrics.length > 1 && (
+              <>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Per-Fabric Layer Lengths</Label>
+                  <div className="space-y-2">
+                    {batch.additionalFabrics.map((af) => {
+                      const fabLen = parseFloat(fabricLayerLengths[af.id] || '') || 0;
+                      const layersNum = parseInt(numberOfLayers) || 0;
+                      const consumed = fabLen * layersNum;
+                      return (
+                        <div key={af.id} className="flex items-center gap-3">
+                          <span className="text-sm min-w-[200px]">
+                            {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}
+                            {af.cadAvgUsed != null && (
+                              <span className="text-gray-400 ml-1">(CAD: {Number(af.cadAvgUsed).toFixed(2)} m/pc)</span>
+                            )}
+                          </span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="w-32"
+                            placeholder="Length (m)"
+                            value={fabricLayerLengths[af.id] || ''}
+                            onChange={(e) => setFabricLayerLengths(prev => ({ ...prev, [af.id]: e.target.value }))}
+                          />
+                          <span className="text-sm text-gray-500">m</span>
+                          {consumed > 0 && (
+                            <span className="text-sm text-blue-600 font-medium">→ {consumed.toFixed(2)} m total</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
 
             <Separator />
 
@@ -683,13 +757,17 @@ export default function CuttingDetail() {
                     <TableHead className="w-10"></TableHead>
                     <TableHead>Size</TableHead>
                     <TableHead className="text-center">Remaining</TableHead>
-                    <TableHead className="text-center">Pieces</TableHead>
+                    <TableHead className="text-center">Pcs/Layer</TableHead>
+                    <TableHead className="text-center">Total Cut</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedSkus.map((sku) => {
                     const remaining = sku.toCut - (sku.cutQty || 0);
                     const key = `${sku.colorId}|${sku.sizeId}`;
+                    const pcsPerLayer = layPieces[key] || 0;
+                    const layersNum = parseInt(numberOfLayers) || 0;
+                    const totalCutForSize = pcsPerLayer * layersNum;
                     if (remaining <= 0) return null;
                     return (
                       <TableRow key={sku.id}>
@@ -708,16 +786,18 @@ export default function CuttingDetail() {
                             type="number"
                             className="w-24 mx-auto text-center"
                             min={0}
-                            max={remaining}
                             disabled={!layChecked[key]}
                             value={layPieces[key] || ''}
                             onChange={(e) =>
                               setLayPieces((prev) => ({
                                 ...prev,
-                                [key]: Math.min(parseInt(e.target.value) || 0, remaining),
+                                [key]: parseInt(e.target.value) || 0,
                               }))
                             }
                           />
+                        </TableCell>
+                        <TableCell className="text-center font-medium text-green-700">
+                          {layChecked[key] && totalCutForSize > 0 ? totalCutForSize : '-'}
                         </TableCell>
                       </TableRow>
                     );
@@ -751,33 +831,43 @@ export default function CuttingDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">Lay #</TableHead>
-                  {batch.additionalFabrics && batch.additionalFabrics.length > 1 && (
-                    <TableHead>Fabric</TableHead>
-                  )}
                   <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Layer Length</TableHead>
-                  <TableHead>Sizes Cut</TableHead>
+                  <TableHead className="text-right">Layers</TableHead>
+                  <TableHead>Fabric Used</TableHead>
+                  <TableHead>Pcs/Layer (per size)</TableHead>
                   <TableHead className="text-right">Total Pcs</TableHead>
                   <TableHead>Remarks</TableHead>
                   {isInProgress && <TableHead className="w-16"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lays.map((lay, idx) => (
+                {lays.map((lay, idx) => {
+                  const layers = lay.numberOfLayers || 1;
+                  return (
                   <TableRow key={lay.id}>
                     <TableCell className="font-mono font-medium">#{lay.layNumber}</TableCell>
-                    {batch.additionalFabrics && batch.additionalFabrics.length > 1 && (
-                      <TableCell className="text-sm">
-                        {lay.batchFabric?.fabricStock?.fabricMaster?.fabricName || '-'}
-                      </TableCell>
-                    )}
                     <TableCell>{format(new Date(lay.layDate), 'dd MMM yyyy')}</TableCell>
-                    <TableCell className="text-right">{lay.layerLength.toFixed(2)} m</TableCell>
+                    <TableCell className="text-right">{layers}</TableCell>
+                    <TableCell>
+                      {lay.layFabrics && lay.layFabrics.length > 0 ? (
+                        <div className="space-y-0.5 text-xs">
+                          {lay.layFabrics.map((lf) => (
+                            <div key={lf.id}>
+                              {lf.batchFabric?.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
+                              <span className="font-medium">{(Number(lf.layerLength) * layers).toFixed(2)} m</span>
+                              <span className="text-gray-400"> ({Number(lf.layerLength).toFixed(2)} × {layers})</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm">{(lay.layerLength * layers).toFixed(2)} m</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {lay.skuOutputs.map((s) => (
                           <Badge key={s.id} variant="secondary" className="text-xs">
-                            {s.size?.sizeName}: {s.pieces}
+                            {s.size?.sizeName}: {s.pieces}/layer = {s.pieces * layers}
                           </Badge>
                         ))}
                       </div>
@@ -799,7 +889,8 @@ export default function CuttingDetail() {
                       </TableCell>
                     )}
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -816,10 +907,17 @@ export default function CuttingDetail() {
                 Issue to Stitching
               </CardTitle>
               {!showIssueForm && (
-                <Button size="sm" onClick={handleOpenIssueForm}>
-                  <Package className="h-4 w-4 mr-2" />
-                  New Issue
-                </Button>
+                <div className="flex items-center gap-2">
+                  {!allFabricsCut && (
+                    <span className="text-xs text-red-600">
+                      {uncutFabrics.map(af => af.fabricStock?.fabricMaster?.fabricName || 'Fabric').join(', ')} not yet cut
+                    </span>
+                  )}
+                  <Button size="sm" onClick={handleOpenIssueForm} disabled={!allFabricsCut}>
+                    <Package className="h-4 w-4 mr-2" />
+                    New Issue
+                  </Button>
+                </div>
               )}
             </div>
           </CardHeader>

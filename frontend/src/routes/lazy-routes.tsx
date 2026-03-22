@@ -172,6 +172,8 @@ export const StockCountForm = lazy(() => import('../pages/StockCountForm'));
 export const WorkOrderList = lazy(() => import('../pages/WorkOrderList'));
 export const WorkOrderDetail = lazy(() => import('../pages/WorkOrderDetail'));
 export const WorkOrderForm = lazy(() => import('../pages/WorkOrderForm'));
+export const StockProductionOrderList = lazy(() => import('../pages/StockProductionOrderList'));
+export const StockProductionOrderDetail = lazy(() => import('../pages/StockProductionOrderDetail'));
 
 // ============================================================================
 // Production Status Dashboard

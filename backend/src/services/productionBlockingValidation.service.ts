@@ -311,10 +311,15 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
+    // Skip BOM validation for stock production (MTS) work orders without an order
+    if (!workOrder.orderId) {
+      return { isBlocked: false, blockers: [] };
+    }
+
     // Find the active approved/locked Order BOM
     const orderBom = await prisma.order_bom.findFirst({
       where: {
-        orderId: workOrder.orderId,
+        orderId: workOrder.orderId!,
         styleId: workOrder.styleId,
         isActive: true,
         status: { in: ['APPROVED', 'LOCKED'] },
@@ -552,11 +557,22 @@ class ProductionBlockingValidationService {
       };
     }
 
+    // Skip BOM readiness check for stock production (MTS) work orders without an order
+    if (!workOrder.orderId) {
+      return {
+        isReady: true,
+        totalMaterials: 0,
+        availableMaterials: 0,
+        hasApprovedBom: false,
+        missingMaterials: [],
+      };
+    }
+
     // Find the active approved/locked Order BOM for this order + style
     // Fetch ALL material types to give a complete readiness picture
     const orderBom = await prisma.order_bom.findFirst({
       where: {
-        orderId: workOrder.orderId,
+        orderId: workOrder.orderId!,
         styleId: workOrder.styleId,
         isActive: true,
         status: { in: ['APPROVED', 'LOCKED'] },

@@ -118,6 +118,15 @@ export default function CuttingChart() {
 
   const totalCutQty = sizesWithCutQty.reduce((sum, s) => sum + s.cutQty, 0);
 
+  // Check if all fabrics have PRODUCTION CAD (width + average)
+  const fabricsMissingCAD = useMemo(() => {
+    if (!chartData?.fabrics) return [];
+    return chartData.fabrics.filter(
+      (f: any) => !f.productionAverage || !f.productionWidth
+    );
+  }, [chartData]);
+  const hasProductionCAD = fabricsMissingCAD.length === 0;
+
   // Handle batch creation — one batch per selected fabric lot
   const handleCreateBatch = async () => {
     if (!chartData) return;
@@ -233,8 +242,13 @@ export default function CuttingChart() {
               Export PDF
             </Button>
           )}
+          {chartData && !hasProductionCAD && (
+            <span className="text-xs text-red-600 max-w-[300px] text-right">
+              Production CAD missing for: {fabricsMissingCAD.map((f: any) => f.part || f.fabricName).join(', ')}. Complete PRODUCTION CAD planning first.
+            </span>
+          )}
           {chartData && (
-            <Button onClick={handleCreateBatch} disabled={isSaving}>
+            <Button onClick={handleCreateBatch} disabled={isSaving || !hasProductionCAD}>
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Creating...' : 'Create Batch'}
             </Button>

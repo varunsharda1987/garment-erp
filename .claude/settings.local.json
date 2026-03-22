@@ -310,7 +310,9 @@
       "Bash(npx tsx -e \":*)",
       "Bash(1:*)",
       "Bash(/tmp/mrp_analysis.txt:*)",
-      "Read(//c//**)"
+      "Read(//c//**)",
+      "Bash(PGPASSWORD=postgres psql -U postgres -d garment_erp -c \"SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY started_at LIMIT 5;\")",
+      "Bash(npm outdated:*)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",
@@ -323,7 +325,8 @@
       "c:\\Users\\NEW\\garment-erp\\backend\\prisma",
       "c:\\tmp",
       "c:\\Users\\NEW\\garment-erp\\backend\\scripts",
-      "C:\\Users\\NEW\\garment-erp\\backend\\src\\services"
+      "C:\\Users\\NEW\\garment-erp\\backend\\src\\services",
+      "C:\\Users\\NEW\\.claude\\plans"
     ]
   },
   "model": "claude-opus-4-5-20251101"

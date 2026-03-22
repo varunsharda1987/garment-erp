@@ -14,7 +14,7 @@
 import prisma from '../config/database';
 import { COMPANY_CONFIG } from '../config/company.config';
 import { ValidationError } from '../errors';
-import { logDebug, logError } from '../utils/logger';
+import { logDebug, logError, logWarn } from '../utils/logger';
 import type {
   LineItemGSTResult,
   POGSTTotals,
@@ -456,7 +456,10 @@ class GSTServiceClass {
   getDefaultGSTRate(hsnCode?: string): number {
     // GST 2.0 (Sep 22, 2025): Default 5% for textiles/apparel (≤₹2,500)
     const DEFAULT_GARMENT_RATE = 5;
-    if (!hsnCode) return DEFAULT_GARMENT_RATE;
+    if (!hsnCode) {
+      logWarn('[GST] getDefaultGSTRate called without HSN code — defaulting to 5% GST. This may produce incorrect tax calculations. Fix: ensure all materials have an HSN code assigned, and migrate callers to use getGSTRate() instead of this deprecated method.');
+      return DEFAULT_GARMENT_RATE;
+    }
 
     const hsnPrefix = hsnCode.substring(0, 2);
     switch (hsnPrefix) {

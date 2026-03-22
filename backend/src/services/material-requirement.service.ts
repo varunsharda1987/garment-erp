@@ -6,6 +6,7 @@
 
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
+import { logWarn } from '../utils/logger';
 
 export interface MaterialRequirement {
   materialId: string;
@@ -37,7 +38,10 @@ export interface StyleRequirement {
  * Get available stock for a material across all warehouses
  */
 async function getAvailableStock(materialId: string): Promise<number> {
-  if (!materialId) return 0;
+  if (!materialId) {
+    logWarn('[MRP] getAvailableStock called with empty materialId — BOM item has no linked material record. Stock will be reported as 0, but this indicates incomplete BOM data that should be fixed at the source.');
+    return 0;
+  }
 
   const stockLevels = await prisma.stock_levels.aggregate({
     where: { materialId },
@@ -126,6 +130,10 @@ export async function calculateMaterialRequirement(
       materialId = bom.packagingId || '';
       materialCode = bom.packaging_master.packagingCode;
       materialName = bom.packaging_master.packagingName;
+    }
+
+    if (!materialId) {
+      logWarn(`[MRP] BOM item '${bom.componentName || bom.id}' for style '${style.styleCode}' has no linked material record. This item will have 0 available stock. Fix the BOM data to link a material master.`);
     }
 
     // Query actual stock from stock_levels table

@@ -128,7 +128,7 @@ export const createSample = async (req: Request, res: Response) => {
 
     // Admin override validation
     if (adminOverride) {
-      const userRole = (req as any).user?.role;
+      const userRole = req.user?.role;
       if (userRole !== 'ADMIN') {
         return res.status(403).json({ error: 'Only admins can override blocking rules' });
       }

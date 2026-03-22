@@ -4,8 +4,10 @@ import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 
 export interface CreateWorkOrderDTO {
-  orderId: string;
-  orderItemId: string;
+  orderId?: string | null;
+  orderItemId?: string | null;
+  stockProductionOrderId?: string | null;
+  stockProductionOrderItemId?: string | null;
   styleId: string;
   warehouseId?: string | null;  // Made optional for auto-creation
   plannedStartDate: Date;
@@ -105,8 +107,10 @@ class WorkOrderService {
       data: {
         id: randomUUID(),
         workOrderNumber,
-        orderId: data.orderId,
-        orderItemId: data.orderItemId,
+        orderId: data.orderId || null,
+        orderItemId: data.orderItemId || null,
+        stockProductionOrderId: data.stockProductionOrderId || null,
+        stockProductionOrderItemId: data.stockProductionOrderItemId || null,
         styleId: data.styleId,
         warehouseId: data.warehouseId || null,  // Handle nullable warehouseId
         plannedStartDate: data.plannedStartDate,

@@ -128,6 +128,35 @@ const AccessoryDetailSchema = z.object({
   }
 );
 
+/**
+ * Safely parse a Prisma JSON column as a typed array using Zod validation.
+ * Logs a warning if the stored data doesn't match the expected schema,
+ * instead of silently double-casting (as unknown as Type[]).
+ */
+function parseJsonArray<T>(
+  value: unknown,
+  schema: z.ZodType<T>,
+  fieldName: string,
+): T[] {
+  if (!value || !Array.isArray(value)) {
+    if (value !== null && value !== undefined) {
+      logWarn(`[CostSheet] JSON column '${fieldName}' expected an array but got ${typeof value}. Returning empty array. This may indicate corrupted data — check the cost sheet record.`);
+    }
+    return [];
+  }
+  const results: T[] = [];
+  for (let i = 0; i < value.length; i++) {
+    const parsed = schema.safeParse(value[i]);
+    if (parsed.success) {
+      results.push(parsed.data);
+    } else {
+      logWarn(`[CostSheet] JSON column '${fieldName}' item[${i}] failed validation: ${parsed.error.issues.map(e => e.message).join(', ')}. Item will be included as-is but may have invalid data.`);
+      results.push(value[i] as T);
+    }
+  }
+  return results;
+}
+
 const CMTCostsSchema = z.object({
   cuttingCost: z.number().nonnegative('Cutting cost must be non-negative').default(0),
   stitchingCost: z.number().nonnegative('Stitching cost must be non-negative').default(0),
@@ -837,8 +866,8 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     const shouldResetToPending = (existingCostSheet as any).approvalStatus === 'REJECTED';
 
     // Get current or updated values - use JSON parse/stringify for safe type conversion
-    const fabricDetails = validatedData.fabricDetails || (existingCostSheet.fabricDetails as unknown as FabricDetail[]) || [];
-    const trimsDetails = validatedData.trimsDetails || (existingCostSheet.trimsDetails as unknown as TrimDetail[]) || [];
+    const fabricDetails = validatedData.fabricDetails || parseJsonArray(existingCostSheet.fabricDetails, FabricDetailSchema, 'fabricDetails');
+    const trimsDetails = validatedData.trimsDetails || parseJsonArray(existingCostSheet.trimsDetails, TrimDetailSchema, 'trimsDetails');
     const cmtCosts = validatedData.cmtCosts || {
       cuttingCost: Number(existingCostSheet.cuttingCost),
       stitchingCost: Number(existingCostSheet.stitchingCost),
@@ -846,8 +875,8 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       buttonAttachmentCost: Number(existingCostSheet.buttonAttachmentCost),
       handworkCost: Number(existingCostSheet.handworkCmtCost),
     };
-    const embroideryDetails = validatedData.embroideryDetails || (existingCostSheet.embroideryDetails as unknown as EmbroideryDetail[]) || [];
-    const accessoriesDetails = validatedData.accessoriesDetails || (existingCostSheet.accessoriesDetails as unknown as AccessoryDetail[]) || [];
+    const embroideryDetails = validatedData.embroideryDetails || parseJsonArray(existingCostSheet.embroideryDetails, EmbroideryDetailSchema, 'embroideryDetails');
+    const accessoriesDetails = validatedData.accessoriesDetails || parseJsonArray(existingCostSheet.accessoriesDetails, AccessoryDetailSchema, 'accessoriesDetails');
     const valueLossPercent = validatedData.valueLossPercent ?? Number(existingCostSheet.valueLossPercent);
     const markupPercent = validatedData.markupPercent ?? Number(existingCostSheet.markupPercent);
 
@@ -970,7 +999,7 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
         orderBy: { updatedAt: 'desc' },
       });
 
-      const currentFabricDetails = validatedData.fabricDetails || (existingCostSheet.fabricDetails as any[]) || [];
+      const currentFabricDetails = validatedData.fabricDetails || parseJsonArray(existingCostSheet.fabricDetails, FabricDetailSchema, 'fabricDetails');
       const seenComponents = new Set<string>();
       const fabricItemsToCreate: any[] = [];
 

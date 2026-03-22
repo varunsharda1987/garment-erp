@@ -9,7 +9,7 @@
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { Prisma, order_bom, OrderBOMStatus } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -390,7 +390,17 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       const totalQuantity = quantityPerGarment * orderQuantity;
       const wastagePercent = Number(material.extraPercentage) || 2;
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-      const unitPrice = trimPrice?.trimRate || accessoryPrice?.accessoryRate || Number(material.unitPrice) || 0;
+      // Price resolution: try cost sheet trim price, then accessory price, then material's own unitPrice
+      let unitPrice = 0;
+      if (trimPrice?.trimRate) {
+        unitPrice = trimPrice.trimRate;
+      } else if (accessoryPrice?.accessoryRate) {
+        unitPrice = accessoryPrice.accessoryRate;
+      } else if (Number(material.unitPrice)) {
+        unitPrice = Number(material.unitPrice);
+      } else {
+        logWarn(`[OrderBOM] No price found for BOM item '${material.componentName || material.materialType}' (materialId: ${material.materialId || 'none'}). Unit price defaults to 0 — BOM total will be understated. Fix: add price in Cost Sheet trims/accessories or set unitPrice on the material.`);
+      }
       const totalCost = totalWithWastage * unitPrice;
 
       bomItems.push({

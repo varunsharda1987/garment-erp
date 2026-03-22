@@ -24,7 +24,7 @@ import {
   getPOsBySource,
   getPOSourceStats,
 } from '../services/po-status-manager.service';
-import { POSource, POCategory, Unit, ServiceType } from '@prisma/client';
+import { POSource, POCategory, Unit, ServiceType, PurchaseOrderStatus } from '@prisma/client';
 
 /**
  * POST /api/purchase-orders/unified
@@ -32,7 +32,7 @@ import { POSource, POCategory, Unit, ServiceType } from '@prisma/client';
  */
 export async function createUnifiedPOController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -160,7 +160,7 @@ export async function createUnifiedPOController(req: Request, res: Response) {
  */
 export async function validatePOInputController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -246,7 +246,7 @@ export async function getPOsBySourceController(req: Request, res: Response) {
     }
 
     const result = await getPOsBySource(source as POSource, {
-      status: status as any,
+      status: status as PurchaseOrderStatus | undefined,
       supplierId: supplierId as string,
       fromDate: fromDate ? new Date(fromDate as string) : undefined,
       toDate: toDate ? new Date(toDate as string) : undefined,
@@ -288,7 +288,7 @@ export async function getPOStatsController(req: Request, res: Response) {
  */
 export async function sendPOController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -313,7 +313,7 @@ export async function sendPOController(req: Request, res: Response) {
  */
 export async function acknowledgePOController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -338,7 +338,7 @@ export async function acknowledgePOController(req: Request, res: Response) {
  */
 export async function cancelPOController(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

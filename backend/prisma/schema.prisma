@@ -237,34 +237,36 @@ model season_master {
 }
 
 model color_options {
-  id                     String                   @id
-  styleId                String
-  colorName              String
-  colorCode              String?
-  sortOrder              Int                      @default(0)
-  isActive               Boolean                  @default(true)
-  colorMasterId          String?
-  asn_skus               asn_skus[]
-  carton_skus            carton_skus[]
-  color_master           color_master?            @relation(fields: [colorMasterId], references: [id])
-  styles                 styles                   @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  cutting_batch_skus     cutting_batch_skus[]
-  cutting_lay_skus       cutting_lay_skus[]
-  delivery_note_items    delivery_note_items[]
-  finished_goods_stock   finished_goods_stock[]
-  finishing_issue_skus   finishing_issue_skus[]
-  finishing_output_skus  finishing_output_skus[]
-  garment_physical_tests garment_physical_tests[]
-  order_item_breakup     order_item_breakup[]
-  polybag_skus           polybag_skus[]
-  sample_colorways       sample_colorways[]
-  sample_size_sets       sample_size_sets[]
-  stage_receipt_skus     stage_receipt_skus[]
-  stitching_issue_skus   stitching_issue_skus[]
-  stitching_output_skus  stitching_output_skus[]
-  style_variants         style_variants[]
-  transfer_slip_skus     transfer_slip_skus[]
-  work_order_breakup     work_order_breakup[]
+  id                           String                         @id
+  styleId                      String
+  colorName                    String
+  colorCode                    String?
+  sortOrder                    Int                            @default(0)
+  isActive                     Boolean                        @default(true)
+  colorMasterId                String?
+  asn_skus                     asn_skus[]
+  carton_skus                  carton_skus[]
+  color_master                 color_master?                  @relation(fields: [colorMasterId], references: [id])
+  styles                       styles                         @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  cutting_batch_skus           cutting_batch_skus[]
+  cutting_lay_skus             cutting_lay_skus[]
+  delivery_note_items          delivery_note_items[]
+  finished_goods_stock         finished_goods_stock[]
+  finishing_issue_skus         finishing_issue_skus[]
+  finishing_output_skus        finishing_output_skus[]
+  garment_physical_tests       garment_physical_tests[]
+  order_item_breakup           order_item_breakup[]
+  polybag_skus                 polybag_skus[]
+  sample_colorways             sample_colorways[]
+  sample_size_sets             sample_size_sets[]
+  stage_receipt_skus           stage_receipt_skus[]
+  stitching_issue_skus         stitching_issue_skus[]
+  stitching_output_skus        stitching_output_skus[]
+  style_variants               style_variants[]
+  transfer_slip_skus           transfer_slip_skus[]
+  work_order_breakup           work_order_breakup[]
+  stock_production_order_items stock_production_order_items[]
+  sale_order_items             sale_order_items[]
 
   @@index([styleId])
   @@index([colorMasterId])
@@ -340,6 +342,7 @@ model customers {
   quotations                     quotations[]
   samples                        samples[]
   credit_notes                   credit_notes[]
+  sale_orders                    sale_orders[]
 
   @@index([code])
   @@index([name])
@@ -571,31 +574,35 @@ model customer_size_category_presets {
 }
 
 model delivery_note_items {
-  id             String          @id
-  deliveryNoteId String
-  orderItemId    String
-  styleId        String
-  colorId        String
-  sizeId         String
-  variantId      String?
-  quantity       Int
-  cartons        Int?
-  remarks        String?
-  color_options  color_options   @relation(fields: [colorId], references: [id])
-  delivery_notes delivery_notes  @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
-  order_items    order_items     @relation(fields: [orderItemId], references: [id])
-  size_options   size_options    @relation(fields: [sizeId], references: [id])
-  styles         styles          @relation(fields: [styleId], references: [id])
-  style_variants style_variants? @relation(fields: [variantId], references: [id])
+  id               String            @id
+  deliveryNoteId   String
+  orderItemId      String?
+  saleOrderItemId  String?
+  styleId          String
+  colorId          String
+  sizeId           String
+  variantId        String?
+  quantity         Int
+  cartons          Int?
+  remarks          String?
+  color_options    color_options     @relation(fields: [colorId], references: [id])
+  delivery_notes   delivery_notes    @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  order_items      order_items?      @relation(fields: [orderItemId], references: [id])
+  sale_order_items sale_order_items? @relation(fields: [saleOrderItemId], references: [id])
+  size_options     size_options      @relation(fields: [sizeId], references: [id])
+  styles           styles            @relation(fields: [styleId], references: [id])
+  style_variants   style_variants?   @relation(fields: [variantId], references: [id])
 
   @@index([deliveryNoteId])
   @@index([orderItemId])
+  @@index([saleOrderItemId])
 }
 
 model delivery_notes {
   id                  String                @id
   deliveryNumber      String
-  orderId             String
+  orderId             String?
+  saleOrderId         String?
   customerId          String
   deliveryDate        DateTime              @default(now())
   vehicleNumber       String?
@@ -609,32 +616,35 @@ model delivery_notes {
   delivery_note_items delivery_note_items[]
   users               users                 @relation(fields: [createdById], references: [id])
   customers           customers             @relation(fields: [customerId], references: [id])
-  orders              orders                @relation(fields: [orderId], references: [id])
+  orders              orders?               @relation(fields: [orderId], references: [id])
+  sale_orders         sale_orders?          @relation(fields: [saleOrderId], references: [id])
   delivery_notes_ext  delivery_notes_ext?
 
   @@index([deliveryNumber])
   @@index([orderId])
+  @@index([saleOrderId])
   @@index([createdById])
   @@index([customerId])
 }
 
 model finished_goods_stock {
-  id             String          @id
-  styleId        String
-  colorId        String
-  sizeId         String
-  variantId      String?
-  quantity       Int
-  locationId     String
-  workOrderId    String?
-  receivedDate   DateTime        @default(now())
-  lastUpdated    DateTime        @default(now())
-  color_options  color_options   @relation(fields: [colorId], references: [id])
-  locations      locations       @relation(fields: [locationId], references: [id])
-  size_options   size_options    @relation(fields: [sizeId], references: [id])
-  styles         styles          @relation(fields: [styleId], references: [id])
-  style_variants style_variants? @relation(fields: [variantId], references: [id])
-  work_orders    work_orders?    @relation(fields: [workOrderId], references: [id])
+  id                   String                 @id
+  styleId              String
+  colorId              String
+  sizeId               String
+  variantId            String?
+  quantity             Int
+  locationId           String
+  workOrderId          String?
+  receivedDate         DateTime               @default(now())
+  lastUpdated          DateTime               @default(now())
+  color_options        color_options          @relation(fields: [colorId], references: [id])
+  locations            locations              @relation(fields: [locationId], references: [id])
+  size_options         size_options           @relation(fields: [sizeId], references: [id])
+  styles               styles                 @relation(fields: [styleId], references: [id])
+  style_variants       style_variants?        @relation(fields: [variantId], references: [id])
+  work_orders          work_orders?           @relation(fields: [workOrderId], references: [id])
+  fg_stock_allocations fg_stock_allocations[]
 
   @@unique([styleId, colorId, sizeId, locationId])
   @@index([locationId])
@@ -642,26 +652,26 @@ model finished_goods_stock {
 }
 
 model goods_receiving_notes {
-  id                                              String          @id
+  id                                              String            @id
   grnNumber                                       String
   poId                                            String
   supplierId                                      String
   warehouseId                                     String?
-  receivingDate                                   DateTime        @default(now())
+  receivingDate                                   DateTime          @default(now())
   invoiceNumber                                   String?
   invoiceDate                                     DateTime?
-  status                                          GRNStatus       @default(PENDING_QC)
+  status                                          GRNStatus         @default(PENDING_QC)
   remarks                                         String?
   receivedById                                    String
   approvedById                                    String?
-  createdAt                                       DateTime        @default(now())
-  users_goods_receiving_notes_approvedByIdTousers users?          @relation("goods_receiving_notes_approvedByIdTousers", fields: [approvedById], references: [id])
-  purchase_orders                                 purchase_orders @relation(fields: [poId], references: [id])
-  users_goods_receiving_notes_receivedByIdTousers users           @relation("goods_receiving_notes_receivedByIdTousers", fields: [receivedById], references: [id])
-  suppliers                                       suppliers       @relation(fields: [supplierId], references: [id])
-  warehouses                                      warehouses?     @relation(fields: [warehouseId], references: [id])
+  createdAt                                       DateTime          @default(now())
+  users_goods_receiving_notes_approvedByIdTousers users?            @relation("goods_receiving_notes_approvedByIdTousers", fields: [approvedById], references: [id])
+  purchase_orders                                 purchase_orders   @relation(fields: [poId], references: [id])
+  users_goods_receiving_notes_receivedByIdTousers users             @relation("goods_receiving_notes_receivedByIdTousers", fields: [receivedById], references: [id])
+  suppliers                                       suppliers         @relation(fields: [supplierId], references: [id])
+  warehouses                                      warehouses?       @relation(fields: [warehouseId], references: [id])
   grn_items                                       grn_items[]
-  job_work_orders                                  job_work_orders[]
+  job_work_orders                                 job_work_orders[]
 
   @@index([grnNumber])
   @@index([poId])
@@ -706,55 +716,58 @@ model inventory_stock {
 }
 
 model invoices {
-  id              String         @id
-  invoiceNumber   String         @unique
-  orderId         String
-  customerId      String
-  invoiceDate     DateTime       @default(now())
-  dueDate         DateTime
-  status          InvoiceStatus  @default(PENDING)
-  subtotal        Decimal        @db.Decimal(12, 2)
-  taxAmount       Decimal        @db.Decimal(12, 2)
-  totalAmount     Decimal        @db.Decimal(12, 2)
-  paidAmount      Decimal        @default(0) @db.Decimal(12, 2)
-  balanceAmount   Decimal        @db.Decimal(12, 2)
-  remarks         String?
-  createdById     String
-  createdAt       DateTime       @default(now())
-  cgstAmount      Decimal        @default(0) @db.Decimal(12, 2)
-  cgstRate        Decimal?       @db.Decimal(5, 2)
-  igstAmount      Decimal        @default(0) @db.Decimal(12, 2)
-  igstRate        Decimal?       @db.Decimal(5, 2)
-  isInterstate    Boolean        @default(false)
-  placeOfSupplyId String?
-  sgstAmount      Decimal        @default(0) @db.Decimal(12, 2)
-  sgstRate        Decimal?       @db.Decimal(5, 2)
+  id               String          @id
+  invoiceNumber    String          @unique
+  orderId          String?
+  saleOrderId      String?
+  customerId       String
+  invoiceDate      DateTime        @default(now())
+  dueDate          DateTime
+  status           InvoiceStatus   @default(PENDING)
+  subtotal         Decimal         @db.Decimal(12, 2)
+  taxAmount        Decimal         @db.Decimal(12, 2)
+  totalAmount      Decimal         @db.Decimal(12, 2)
+  paidAmount       Decimal         @default(0) @db.Decimal(12, 2)
+  balanceAmount    Decimal         @db.Decimal(12, 2)
+  remarks          String?
+  createdById      String
+  createdAt        DateTime        @default(now())
+  cgstAmount       Decimal         @default(0) @db.Decimal(12, 2)
+  cgstRate         Decimal?        @db.Decimal(5, 2)
+  igstAmount       Decimal         @default(0) @db.Decimal(12, 2)
+  igstRate         Decimal?        @db.Decimal(5, 2)
+  isInterstate     Boolean         @default(false)
+  placeOfSupplyId  String?
+  sgstAmount       Decimal         @default(0) @db.Decimal(12, 2)
+  sgstRate         Decimal?        @db.Decimal(5, 2)
   // E-Invoice fields
-  eInvoiceIrn       String?
-  eInvoiceAckNo     String?
-  eInvoiceAckDate   DateTime?
-  eInvoiceQrCode    String?   @db.Text
-  eInvoiceStatus    String?
+  eInvoiceIrn      String?
+  eInvoiceAckNo    String?
+  eInvoiceAckDate  DateTime?
+  eInvoiceQrCode   String?         @db.Text
+  eInvoiceStatus   String?
   // E-Way Bill fields
-  ewayBillNumber    String?
-  ewayBillDate      DateTime?
-  ewayBillValidTo   DateTime?
-  vehicleNumber     String?
-  transporterId     String?
-  transporterGstin  String?
+  ewayBillNumber   String?
+  ewayBillDate     DateTime?
+  ewayBillValidTo  DateTime?
+  vehicleNumber    String?
+  transporterId    String?
+  transporterGstin String?
   // Supply type
-  supplyType        SupplyType?
-  users           users          @relation(fields: [createdById], references: [id])
-  customers       customers      @relation(fields: [customerId], references: [id])
-  orders          orders         @relation(fields: [orderId], references: [id])
-  placeOfSupply   indian_states? @relation("InvoicePlaceOfSupply", fields: [placeOfSupplyId], references: [id])
-  payments        payments[]
-  invoice_items   invoice_items[]
-  credit_notes    credit_notes[]
+  supplyType       SupplyType?
+  users            users           @relation(fields: [createdById], references: [id])
+  customers        customers       @relation(fields: [customerId], references: [id])
+  orders           orders?         @relation(fields: [orderId], references: [id])
+  sale_orders      sale_orders?    @relation(fields: [saleOrderId], references: [id])
+  placeOfSupply    indian_states?  @relation("InvoicePlaceOfSupply", fields: [placeOfSupplyId], references: [id])
+  payments         payments[]
+  invoice_items    invoice_items[]
+  credit_notes     credit_notes[]
 
   @@index([customerId])
   @@index([invoiceNumber])
   @@index([orderId])
+  @@index([saleOrderId])
   @@index([placeOfSupplyId])
 }
 
@@ -777,8 +790,8 @@ model invoice_items {
   taxAmount   Decimal? @db.Decimal(12, 2)
   remarks     String?
 
-  invoice     invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  style       styles?  @relation(fields: [styleId], references: [id])
+  invoice invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  style   styles?  @relation(fields: [styleId], references: [id])
 
   @@index([invoiceId])
   @@index([styleId])
@@ -1118,7 +1131,7 @@ model purchase_order_items {
   // Service PO fields (used when materialId is null)
   serviceType                  ServiceType?
   serviceDescription           String?
-  printingType                 String?  // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
+  printingType                 String? // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
   // GST fields
   hsnCode                      String?
   gstRate                      Decimal?                       @db.Decimal(5, 2)
@@ -1375,6 +1388,8 @@ model size_options {
   style_variants                 style_variants[]
   transfer_slip_skus             transfer_slip_skus[]
   work_order_breakup             work_order_breakup[]
+  stock_production_order_items   stock_production_order_items[]
+  sale_order_items               sale_order_items[]
 
   @@index([styleId])
 }
@@ -2126,6 +2141,8 @@ model styles {
   season_master               season_master?              @relation(fields: [seasonId], references: [id])
   thread_style_associations   thread_style_associations[]
   work_orders                 work_orders[]
+  stock_production_orders     stock_production_orders[]
+  sale_order_items            sale_order_items[]
   // Lace processing relations
   laceStockOrigins            lace_stock[]                @relation("lace_stock_origin_style")
   laceAllocations             lace_stock_allocation[]     @relation("lace_allocation_style")
@@ -2556,6 +2573,14 @@ model users {
   // Credit/Debit Note relations
   credit_notes_created                                            credit_notes[]
   debit_notes_created                                             debit_notes[]
+  // Stock Production Order relations
+  spoCreated                                                      stock_production_orders[]         @relation("spo_createdBy")
+  spoApproved                                                     stock_production_orders[]         @relation("spo_approvedBy")
+  // Sale Order relations
+  soCreated                                                       sale_orders[]                     @relation("so_createdBy")
+  soApproved                                                      sale_orders[]                     @relation("so_approvedBy")
+  // FG Stock Allocation relations
+  fgAllocations                                                   fg_stock_allocations[]            @relation("fg_allocation_allocatedBy")
 
   @@index([email])
 }
@@ -2616,8 +2641,10 @@ model work_order_breakup {
 model work_orders {
   id                                    String                            @id
   workOrderNumber                       String
-  orderId                               String
-  orderItemId                           String
+  orderId                               String?
+  orderItemId                           String?
+  stockProductionOrderId                String?
+  stockProductionOrderItemId            String?
   styleId                               String
   warehouseId                           String?
   plannedStartDate                      DateTime
@@ -2660,8 +2687,10 @@ model work_orders {
   users_work_orders_approvedByIdTousers users?                            @relation("work_orders_approvedByIdTousers", fields: [approvedById], references: [id])
   users_work_orders_createdByIdTousers  users                             @relation("work_orders_createdByIdTousers", fields: [createdById], references: [id])
   warehouses                            warehouses?                       @relation(fields: [warehouseId], references: [id])
-  orders                                orders                            @relation(fields: [orderId], references: [id])
-  order_items                           order_items                       @relation(fields: [orderItemId], references: [id])
+  orders                                orders?                           @relation(fields: [orderId], references: [id])
+  order_items                           order_items?                      @relation(fields: [orderItemId], references: [id])
+  stock_production_orders               stock_production_orders?          @relation(fields: [stockProductionOrderId], references: [id])
+  stock_production_order_items          stock_production_order_items?     @relation(fields: [stockProductionOrderItemId], references: [id])
   styles                                styles                            @relation(fields: [styleId], references: [id])
   users_work_orders_userIdTousers       users?                            @relation("work_orders_userIdTousers", fields: [userId], references: [id])
   // Service POs linked to this work order
@@ -2682,6 +2711,134 @@ model work_orders {
   // Performance: composite indexes for common query patterns
   @@index([orderId, status])
   @@index([styleId, status])
+  @@index([stockProductionOrderId])
+}
+
+// ============================================
+// STOCK PRODUCTION ORDERS (Make-to-Stock)
+// ============================================
+
+/// Stock Production Order - Triggers production without a customer
+model stock_production_orders {
+  id            String                     @id @default(uuid())
+  spoNumber     String                     @unique
+  styleId       String
+  totalQuantity Int
+  targetDate    DateTime?
+  status        StockProductionOrderStatus @default(DRAFT)
+  priority      Priority                   @default(MEDIUM)
+  remarks       String?
+  createdById   String
+  approvedById  String?
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  isActive      Boolean                    @default(true)
+
+  style       styles                         @relation(fields: [styleId], references: [id])
+  createdBy   users                          @relation("spo_createdBy", fields: [createdById], references: [id])
+  approvedBy  users?                         @relation("spo_approvedBy", fields: [approvedById], references: [id])
+  items       stock_production_order_items[]
+  work_orders work_orders[]
+
+  @@index([styleId])
+  @@index([status])
+  @@index([spoNumber])
+}
+
+/// Stock Production Order Items - Size/color breakdown for stock production
+model stock_production_order_items {
+  id                     String  @id @default(uuid())
+  stockProductionOrderId String
+  colorId                String?
+  sizeId                 String
+  quantity               Int
+  completedQuantity      Int     @default(0)
+
+  stockProductionOrder stock_production_orders @relation(fields: [stockProductionOrderId], references: [id], onDelete: Cascade)
+  color                color_options?          @relation(fields: [colorId], references: [id])
+  size                 size_options            @relation(fields: [sizeId], references: [id])
+  work_orders          work_orders[]
+
+  @@unique([stockProductionOrderId, colorId, sizeId])
+  @@index([stockProductionOrderId])
+}
+
+// ============================================
+// SALE ORDERS (Sell from Stock)
+// ============================================
+
+/// Sale Order - Sell from existing FG Stock without triggering production
+model sale_orders {
+  id               String          @id @default(uuid())
+  saleOrderNumber  String          @unique
+  customerId       String
+  saleDate         DateTime        @default(now())
+  expectedShipDate DateTime?
+  status           SaleOrderStatus @default(DRAFT)
+  subtotal         Decimal         @default(0) @db.Decimal(12, 2)
+  taxAmount        Decimal         @default(0) @db.Decimal(12, 2)
+  totalAmount      Decimal         @default(0) @db.Decimal(12, 2)
+  remarks          String?
+  createdById      String
+  approvedById     String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  isActive         Boolean         @default(true)
+
+  customer       customers          @relation(fields: [customerId], references: [id])
+  createdBy      users              @relation("so_createdBy", fields: [createdById], references: [id])
+  approvedBy     users?             @relation("so_approvedBy", fields: [approvedById], references: [id])
+  items          sale_order_items[]
+  delivery_notes delivery_notes[]
+  invoices       invoices[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([saleOrderNumber])
+}
+
+/// Sale Order Items - Line items with FG stock allocation tracking
+model sale_order_items {
+  id            String  @id @default(uuid())
+  saleOrderId   String
+  styleId       String
+  colorId       String?
+  sizeId        String
+  quantity      Int
+  unitPrice     Decimal @default(0) @db.Decimal(10, 2)
+  totalPrice    Decimal @default(0) @db.Decimal(12, 2)
+  allocatedQty  Int     @default(0)
+  dispatchedQty Int     @default(0)
+  remarks       String?
+
+  saleOrder           sale_orders            @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
+  style               styles                 @relation(fields: [styleId], references: [id])
+  color               color_options?         @relation(fields: [colorId], references: [id])
+  size                size_options           @relation(fields: [sizeId], references: [id])
+  allocations         fg_stock_allocations[]
+  delivery_note_items delivery_note_items[]
+
+  @@unique([saleOrderId, styleId, colorId, sizeId])
+  @@index([saleOrderId])
+  @@index([styleId])
+}
+
+/// FG Stock Allocations - Reserve finished goods for sale order items
+model fg_stock_allocations {
+  id              String   @id @default(uuid())
+  saleOrderItemId String
+  fgStockId       String
+  allocatedQty    Int
+  status          String   @default("ALLOCATED")
+  allocatedAt     DateTime @default(now())
+  allocatedById   String
+
+  saleOrderItem sale_order_items     @relation(fields: [saleOrderItemId], references: [id], onDelete: Cascade)
+  fgStock       finished_goods_stock @relation(fields: [fgStockId], references: [id])
+  allocatedBy   users                @relation("fg_allocation_allocatedBy", fields: [allocatedById], references: [id])
+
+  @@index([saleOrderItemId])
+  @@index([fgStockId])
 }
 
 /// Work Order Service Requirements - Track service requirements at work order level
@@ -2977,7 +3134,7 @@ model material_requirements {
   processorId         String? // FK to suppliers (for PROCESSING type)
   linkedRequirementId String? // Links PROCESSING to its parent GREIGE requirement
   processingCost      Decimal? @db.Decimal(12, 2)
-  printingType        String?  // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
+  printingType        String? // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
 
   createdBy            users                   @relation("mrp_requirement_createdBy", fields: [createdById], references: [id])
   materials            materials               @relation(fields: [materialId], references: [id])
@@ -3393,43 +3550,43 @@ model export_templates {
 /// Greige Master - Raw, unfinished fabric specifications
 /// This represents fabric straight from the loom before any processing
 model greige_master {
-  id                       String                @id @default(uuid())
+  id                       String                       @id @default(uuid())
   greigeCode               String
   greigeName               String
   yarnCount                String?
   construction             String?
   composition              String
   weaveType                String?
-  greigeWidth              Decimal               @db.Decimal(10, 2)
-  expectedFinishedWidthMin Decimal?              @db.Decimal(10, 2)
-  expectedFinishedWidthMax Decimal?              @db.Decimal(10, 2)
-  averageShrinkagePercent  Decimal?              @default(8) @db.Decimal(5, 2)
+  greigeWidth              Decimal                      @db.Decimal(10, 2)
+  expectedFinishedWidthMin Decimal?                     @db.Decimal(10, 2)
+  expectedFinishedWidthMax Decimal?                     @db.Decimal(10, 2)
+  averageShrinkagePercent  Decimal?                     @default(8) @db.Decimal(5, 2)
   gsmRange                 String?
-  costPerMeter             Decimal?              @db.Decimal(10, 2)
+  costPerMeter             Decimal?                     @db.Decimal(10, 2)
   moq                      Int?
   leadTimeDays             Int?
   supplierId               String?
   description              String?
   notes                    String?
-  isActive                 Boolean               @default(true)
+  isActive                 Boolean                      @default(true)
   createdById              String
-  createdAt                DateTime              @default(now())
-  updatedAt                DateTime              @updatedAt
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
   genericGreigeName        String?
-  defaultCutableWidth      Decimal?              @db.Decimal(10, 2)
+  defaultCutableWidth      Decimal?                     @db.Decimal(10, 2)
   finishedFabrics          fabric_master[]
-  fabricProcessing         fabric_processing[]   @relation("ProcessingGreige")
-  fabricProcurements       fabric_procurement[]  @relation("ProcurementGreige")
-  fabricWidthCads          fabric_width_cad[]    @relation("fabric_width_cad_greige")
-  createdBy                users                 @relation("greige_master_createdBy", fields: [createdById], references: [id])
-  defaultSupplier          suppliers?            @relation("greige_default_supplier", fields: [supplierId], references: [id])
+  fabricProcessing         fabric_processing[]          @relation("ProcessingGreige")
+  fabricProcurements       fabric_procurement[]         @relation("ProcurementGreige")
+  fabricWidthCads          fabric_width_cad[]           @relation("fabric_width_cad_greige")
+  createdBy                users                        @relation("greige_master_createdBy", fields: [createdById], references: [id])
+  defaultSupplier          suppliers?                   @relation("greige_default_supplier", fields: [supplierId], references: [id])
   suppliers                greige_suppliers[]
   materials                materials[]
   processing_batch         processing_batch[]
-  processorRateCards       processor_rate_card[] @relation("greige_rate_cards")
-  styleFabrics             style_fabrics[]       @relation("style_fabrics_selectedGreige")
+  processorRateCards       processor_rate_card[]        @relation("greige_rate_cards")
+  styleFabrics             style_fabrics[]              @relation("style_fabrics_selectedGreige")
   greigeStock              greige_stock[]
-  orderBomItems            order_bom_items[]     @relation("bom_item_greige")
+  orderBomItems            order_bom_items[]            @relation("bom_item_greige")
   costingFabricItems       style_costing_fabric_items[]
 
   @@index([supplierId])
@@ -3481,12 +3638,12 @@ model greige_stock {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  greige       greige_master       @relation(fields: [greigeId], references: [id])
-  procurement  fabric_procurement? @relation("GreigeStockProcurement", fields: [procurementId], references: [id])
-  supplier     suppliers?          @relation("GreigeStockSupplier", fields: [supplierId], references: [id])
-  createdBy       users               @relation("greige_stock_createdBy", fields: [createdById], references: [id])
-  challanItems    challan_items[]
-  jobWorkOrders   job_work_orders[]
+  greige        greige_master       @relation(fields: [greigeId], references: [id])
+  procurement   fabric_procurement? @relation("GreigeStockProcurement", fields: [procurementId], references: [id])
+  supplier      suppliers?          @relation("GreigeStockSupplier", fields: [supplierId], references: [id])
+  createdBy     users               @relation("greige_stock_createdBy", fields: [createdById], references: [id])
+  challanItems  challan_items[]
+  jobWorkOrders job_work_orders[]
 
   @@unique([greigeId, procurementId, greigeWidth, qualityGrade])
   @@index([greigeId])
@@ -3967,40 +4124,40 @@ model fabric_stock {
 /// Fabric Processing - Tracks greige→finished lifecycle with mill-specific shrinkage patterns
 /// Records variance from expected shrinkage for mill performance tracking
 model fabric_processing {
-  id                       String             @id @default(uuid())
+  id                       String              @id @default(uuid())
   procurementId            String?
   processingMillId         String
   processingType           String
   batchNumber              String?
   processSpecifications    String?
   greigeId                 String
-  greigeQuantitySent       Decimal            @db.Decimal(10, 2)
-  greigeWidth              Decimal?           @db.Decimal(10, 2)
-  expectedFinishedWidthMin Decimal?           @db.Decimal(10, 2)
-  expectedFinishedWidthMax Decimal?           @db.Decimal(10, 2)
-  expectedShrinkagePercent Decimal?           @db.Decimal(5, 2)
-  actualFinishedWidth      Decimal?           @db.Decimal(10, 2)
-  actualQuantityReceived   Decimal?           @db.Decimal(10, 2)
-  actualShrinkagePercent   Decimal?           @db.Decimal(5, 2)
-  processingLossMeters     Decimal?           @db.Decimal(10, 2)
-  widthVarianceInches      Decimal?           @db.Decimal(10, 2)
-  shrinkageVariancePercent Decimal?           @db.Decimal(5, 2)
-  millAvgShrinkage         Decimal?           @db.Decimal(5, 2)
-  varianceFromMillAvg      Decimal?           @db.Decimal(5, 2)
-  greigeCost               Decimal?           @db.Decimal(10, 2)
-  processingCost           Decimal?           @db.Decimal(10, 2)
-  totalFinishedCost        Decimal?           @db.Decimal(10, 2)
-  costPerMeter             Decimal?           @db.Decimal(10, 2)
+  greigeQuantitySent       Decimal             @db.Decimal(10, 2)
+  greigeWidth              Decimal?            @db.Decimal(10, 2)
+  expectedFinishedWidthMin Decimal?            @db.Decimal(10, 2)
+  expectedFinishedWidthMax Decimal?            @db.Decimal(10, 2)
+  expectedShrinkagePercent Decimal?            @db.Decimal(5, 2)
+  actualFinishedWidth      Decimal?            @db.Decimal(10, 2)
+  actualQuantityReceived   Decimal?            @db.Decimal(10, 2)
+  actualShrinkagePercent   Decimal?            @db.Decimal(5, 2)
+  processingLossMeters     Decimal?            @db.Decimal(10, 2)
+  widthVarianceInches      Decimal?            @db.Decimal(10, 2)
+  shrinkageVariancePercent Decimal?            @db.Decimal(5, 2)
+  millAvgShrinkage         Decimal?            @db.Decimal(5, 2)
+  varianceFromMillAvg      Decimal?            @db.Decimal(5, 2)
+  greigeCost               Decimal?            @db.Decimal(10, 2)
+  processingCost           Decimal?            @db.Decimal(10, 2)
+  totalFinishedCost        Decimal?            @db.Decimal(10, 2)
+  costPerMeter             Decimal?            @db.Decimal(10, 2)
   finishedFabricId         String?
   sentDate                 DateTime?
   expectedReturnDate       DateTime?
   actualReturnDate         DateTime?
-  processingStatus         String             @default("SENT")
+  processingStatus         String              @default("SENT")
   qualityNotes             String?
   rejectionReason          String?
   createdById              String
-  createdAt                DateTime           @default(now())
-  updatedAt                DateTime           @updatedAt
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
   createdBy                users               @relation("fabric_processing_createdBy", fields: [createdById], references: [id])
   finishedFabric           fabric_master?      @relation("ProcessingResult", fields: [finishedFabricId], references: [id])
   greigeMaster             greige_master       @relation("ProcessingGreige", fields: [greigeId], references: [id])
@@ -5103,16 +5260,18 @@ model cutting_batches {
 
 /// Cutting Batch Fabrics - junction table for multi-fabric batches
 model cutting_batch_fabrics {
-  id            String          @id @default(uuid())
-  batchId       String
-  fabricStockId String
-  cadAvgUsed    Decimal?        @db.Decimal(10, 4)
-  cadWidthUsed  Decimal?        @db.Decimal(10, 2)
-  actualWidth   Decimal?        @db.Decimal(10, 2)
-  createdAt     DateTime        @default(now())
-  batch         cutting_batches @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  fabricStock   fabric_stock    @relation(fields: [fabricStockId], references: [id])
-  lays          cutting_lays[]
+  id             String                @id @default(uuid())
+  batchId        String
+  fabricStockId  String
+  cadAvgUsed     Decimal?              @db.Decimal(10, 4)
+  cadWidthUsed   Decimal?              @db.Decimal(10, 2)
+  actualWidth    Decimal?              @db.Decimal(10, 2)
+  fabricConsumed Decimal               @default(0) @db.Decimal(10, 2)
+  createdAt      DateTime              @default(now())
+  batch          cutting_batches       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  fabricStock    fabric_stock          @relation(fields: [fabricStockId], references: [id])
+  lays           cutting_lays[]        @relation("LegacyLayFabric")
+  layFabrics     cutting_lay_fabrics[]
 
   @@unique([batchId, fabricStockId])
   @@map("cutting_batch_fabrics")
@@ -5155,38 +5314,53 @@ model cutting_batch_defects {
 
 /// Cutting Lay - Individual cutting event (lay) within a batch
 model cutting_lays {
-  id             String            @id @default(uuid())
-  cuttingBatchId String
-  layDate        DateTime
-  layNumber      Int
-  layerLength    Decimal           @db.Decimal(10, 2)
-  totalPieces    Int               @default(0)
-  remarks        String?
-  createdById            String
-  cuttingBatchFabricId   String?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
+  id                   String   @id @default(uuid())
+  cuttingBatchId       String
+  layDate              DateTime
+  layNumber            Int
+  layerLength          Decimal  @db.Decimal(10, 2)
+  numberOfLayers       Int      @default(1)
+  totalPieces          Int      @default(0)
+  remarks              String?
+  createdById          String
+  cuttingBatchFabricId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  skuOutputs     cutting_lay_skus[]
-  cuttingBatch   cutting_batches        @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
-  createdBy      users                  @relation("CuttingLayCreator", fields: [createdById], references: [id])
-  batchFabric    cutting_batch_fabrics?  @relation(fields: [cuttingBatchFabricId], references: [id])
+  skuOutputs   cutting_lay_skus[]
+  layFabrics   cutting_lay_fabrics[]
+  cuttingBatch cutting_batches        @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
+  createdBy    users                  @relation("CuttingLayCreator", fields: [createdById], references: [id])
+  batchFabric  cutting_batch_fabrics? @relation("LegacyLayFabric", fields: [cuttingBatchFabricId], references: [id])
 
   @@index([cuttingBatchId])
   @@index([layDate])
 }
 
+/// Cutting Lay Fabrics - Per-fabric layer length within a lay
+model cutting_lay_fabrics {
+  id                   String                @id @default(uuid())
+  cuttingLayId         String
+  cuttingBatchFabricId String
+  layerLength          Decimal               @db.Decimal(10, 2)
+  cuttingLay           cutting_lays          @relation(fields: [cuttingLayId], references: [id], onDelete: Cascade)
+  batchFabric          cutting_batch_fabrics @relation(fields: [cuttingBatchFabricId], references: [id])
+
+  @@unique([cuttingLayId, cuttingBatchFabricId])
+  @@map("cutting_lay_fabrics")
+}
+
 /// Cutting Lay SKU - Per-size pieces in a cutting lay
 model cutting_lay_skus {
-  id           String         @id @default(uuid())
+  id           String  @id @default(uuid())
   cuttingLayId String
   colorId      String?
   sizeId       String
   pieces       Int
 
-  cuttingLay   cutting_lays   @relation(fields: [cuttingLayId], references: [id], onDelete: Cascade)
-  color        color_options? @relation(fields: [colorId], references: [id])
-  size         size_options   @relation(fields: [sizeId], references: [id])
+  cuttingLay cutting_lays   @relation(fields: [cuttingLayId], references: [id], onDelete: Cascade)
+  color      color_options? @relation(fields: [colorId], references: [id])
+  size       size_options   @relation(fields: [sizeId], references: [id])
 
   @@unique([cuttingLayId, colorId, sizeId])
   @@index([cuttingLayId])
@@ -5232,14 +5406,14 @@ model transfer_slips {
 
 /// Transfer Slip SKU - SKU breakdown per transfer slip
 model transfer_slip_skus {
-  id             String          @id @default(uuid())
+  id             String         @id @default(uuid())
   transferSlipId String
   colorId        String?
   sizeId         String
   quantity       Int
-  color          color_options?  @relation(fields: [colorId], references: [id])
-  size           size_options?   @relation(fields: [sizeId], references: [id])
-  transferSlip   transfer_slips  @relation(fields: [transferSlipId], references: [id], onDelete: Cascade)
+  color          color_options? @relation(fields: [colorId], references: [id])
+  size           size_options?  @relation(fields: [sizeId], references: [id])
+  transferSlip   transfer_slips @relation(fields: [transferSlipId], references: [id], onDelete: Cascade)
 
   @@unique([transferSlipId, colorId, sizeId])
   @@index([transferSlipId])
@@ -5629,66 +5803,66 @@ model lab_dips {
 
 /// Job Work Order - Print/Dye job work tracking
 model job_work_orders {
-  id                  String                            @id @default(uuid())
-  jobWorkNumber       String
-  processType         String
-  labDipId            String
-  styleId             String
-  fabricId            String
-  millId              String
-  fabricStockLotId    String
-  fabricType          String
-  reprocessReason     String?
-  qtySentMeters       Decimal                           @db.Decimal(10, 2)
-  sentWidthInches     Decimal                           @db.Decimal(10, 2)
-  sentDate            DateTime?
-  challanNumber       String?
-  vehicleNumber       String?
-  expectedReturnDate  DateTime?
-  expectedShrinkage   Decimal?                          @db.Decimal(5, 2)
-  agreedRatePerMeter  Decimal                           @db.Decimal(10, 2)
-  qtyReceivedMeters   Decimal?                          @db.Decimal(10, 2)
-  receivedWidthInches Decimal?                          @db.Decimal(10, 2)
-  receivedDate        DateTime?
-  receivedChallan     String?
-  invoiceNumber       String?
-  actualShrinkage     Decimal?                          @db.Decimal(5, 2)
-  widthVariance       Decimal?                          @db.Decimal(10, 2)
-  qualityGrade        String?
-  colorMatchStatus    String?
-  defectMeters        Decimal?                          @db.Decimal(10, 2)
-  defectType          String?
-  actualRate          Decimal?                          @db.Decimal(10, 2)
-  status              JobWorkStatus                     @default(READY_TO_SEND)
-  remarks             String?
-  workOrderId         String?
-  createdById         String
-  createdAt           DateTime                          @default(now())
-  updatedAt           DateTime                          @updatedAt
-  isActive            Boolean                           @default(true)
-  finishedFabricId    String?                           // FK to auto-created finished fabric_master
-  thanCount           Int?                              // Number of thans (folded bundles) received
-  foldLengthCm        Decimal?                          @db.Decimal(5, 2) // "L" - actual fold length in cm
-  calculatedActualMeters Decimal?                       @db.Decimal(10, 2) // thanCount × foldLengthCm / 100
-  outwardChallanId    String? // FK to new challans table (outbound)
-  inwardChallanId     String? // FK to new challans table (inbound)
-  purchaseOrderId     String?                           @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)
-  greigeStockLotId    String?                           @db.VarChar(50) // FK to greige_stock (source greige)
-  grnId               String?                           @db.VarChar(50) // FK to GRN if received via GRN path
-  createdBy           users                             @relation(fields: [createdById], references: [id])
-  fabric              fabric_master                     @relation(fields: [fabricId], references: [id])
-  finishedFabric      fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
-  fabricStockLot      fabric_stock                      @relation(fields: [fabricStockLotId], references: [id])
-  labDip              lab_dips                          @relation(fields: [labDipId], references: [id])
-  mill                suppliers                         @relation("JobWorkMill", fields: [millId], references: [id])
-  style               styles                            @relation(fields: [styleId], references: [id])
-  workOrder           work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])
-  outwardChallan      challans?                         @relation("JobWorkOutwardChallan", fields: [outwardChallanId], references: [id])
-  inwardChallan       challans?                         @relation("JobWorkInwardChallan", fields: [inwardChallanId], references: [id])
-  purchaseOrder       purchase_orders?                  @relation("JobWorkPurchaseOrder", fields: [purchaseOrderId], references: [id])
-  greigeStockLot      greige_stock?                     @relation(fields: [greigeStockLotId], references: [id])
-  grn                 goods_receiving_notes?            @relation(fields: [grnId], references: [id])
-  serviceRequirements work_order_service_requirements[]
+  id                     String                            @id @default(uuid())
+  jobWorkNumber          String
+  processType            String
+  labDipId               String
+  styleId                String
+  fabricId               String
+  millId                 String
+  fabricStockLotId       String
+  fabricType             String
+  reprocessReason        String?
+  qtySentMeters          Decimal                           @db.Decimal(10, 2)
+  sentWidthInches        Decimal                           @db.Decimal(10, 2)
+  sentDate               DateTime?
+  challanNumber          String?
+  vehicleNumber          String?
+  expectedReturnDate     DateTime?
+  expectedShrinkage      Decimal?                          @db.Decimal(5, 2)
+  agreedRatePerMeter     Decimal                           @db.Decimal(10, 2)
+  qtyReceivedMeters      Decimal?                          @db.Decimal(10, 2)
+  receivedWidthInches    Decimal?                          @db.Decimal(10, 2)
+  receivedDate           DateTime?
+  receivedChallan        String?
+  invoiceNumber          String?
+  actualShrinkage        Decimal?                          @db.Decimal(5, 2)
+  widthVariance          Decimal?                          @db.Decimal(10, 2)
+  qualityGrade           String?
+  colorMatchStatus       String?
+  defectMeters           Decimal?                          @db.Decimal(10, 2)
+  defectType             String?
+  actualRate             Decimal?                          @db.Decimal(10, 2)
+  status                 JobWorkStatus                     @default(READY_TO_SEND)
+  remarks                String?
+  workOrderId            String?
+  createdById            String
+  createdAt              DateTime                          @default(now())
+  updatedAt              DateTime                          @updatedAt
+  isActive               Boolean                           @default(true)
+  finishedFabricId       String? // FK to auto-created finished fabric_master
+  thanCount              Int? // Number of thans (folded bundles) received
+  foldLengthCm           Decimal?                          @db.Decimal(5, 2) // "L" - actual fold length in cm
+  calculatedActualMeters Decimal?                          @db.Decimal(10, 2) // thanCount × foldLengthCm / 100
+  outwardChallanId       String? // FK to new challans table (outbound)
+  inwardChallanId        String? // FK to new challans table (inbound)
+  purchaseOrderId        String?                           @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)
+  greigeStockLotId       String?                           @db.VarChar(50) // FK to greige_stock (source greige)
+  grnId                  String?                           @db.VarChar(50) // FK to GRN if received via GRN path
+  createdBy              users                             @relation(fields: [createdById], references: [id])
+  fabric                 fabric_master                     @relation(fields: [fabricId], references: [id])
+  finishedFabric         fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
+  fabricStockLot         fabric_stock                      @relation(fields: [fabricStockLotId], references: [id])
+  labDip                 lab_dips                          @relation(fields: [labDipId], references: [id])
+  mill                   suppliers                         @relation("JobWorkMill", fields: [millId], references: [id])
+  style                  styles                            @relation(fields: [styleId], references: [id])
+  workOrder              work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])
+  outwardChallan         challans?                         @relation("JobWorkOutwardChallan", fields: [outwardChallanId], references: [id])
+  inwardChallan          challans?                         @relation("JobWorkInwardChallan", fields: [inwardChallanId], references: [id])
+  purchaseOrder          purchase_orders?                  @relation("JobWorkPurchaseOrder", fields: [purchaseOrderId], references: [id])
+  greigeStockLot         greige_stock?                     @relation(fields: [greigeStockLotId], references: [id])
+  grn                    goods_receiving_notes?            @relation(fields: [grnId], references: [id])
+  serviceRequirements    work_order_service_requirements[]
 
   @@index([labDipId])
   @@index([styleId])
@@ -7069,10 +7243,10 @@ model challans {
   challanDate   DateTime    @default(now())
 
   // Source context
-  orderId             String?
-  productionRunId     String? // work_orders.id
-  purchaseOrderId     String? // Linked PO (for outsourced work)
-  fabricProcessingId  String? // FK to fabric_processing (greige→processor→fabric tracking)
+  orderId            String?
+  productionRunId    String? // work_orders.id
+  purchaseOrderId    String? // Linked PO (for outsourced work)
+  fabricProcessingId String? // FK to fabric_processing (greige→processor→fabric tracking)
 
   // From/To
   fromType String // WAREHOUSE, DEPARTMENT, VENDOR
@@ -7166,12 +7340,12 @@ model challan_items {
 
   remarks String?
 
-  challan              challans                          @relation(fields: [challanId], references: [id], onDelete: Cascade)
-  greigeStock          greige_stock?                     @relation(fields: [greigeStockId], references: [id])
-  fabricStock          fabric_stock?                     @relation(fields: [fabricStockId], references: [id])
-  laceStock            lace_stock?                       @relation(fields: [laceStockId], references: [id])
-  materialRequirement  material_requirements?            @relation(fields: [materialRequirementId], references: [id])
-  serviceRequirement   work_order_service_requirements?  @relation(fields: [serviceRequirementId], references: [id])
+  challan             challans                         @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  greigeStock         greige_stock?                    @relation(fields: [greigeStockId], references: [id])
+  fabricStock         fabric_stock?                    @relation(fields: [fabricStockId], references: [id])
+  laceStock           lace_stock?                      @relation(fields: [laceStockId], references: [id])
+  materialRequirement material_requirements?           @relation(fields: [materialRequirementId], references: [id])
+  serviceRequirement  work_order_service_requirements? @relation(fields: [serviceRequirementId], references: [id])
 
   @@index([challanId])
   @@index([itemType])
@@ -7383,6 +7557,24 @@ enum OrderStatus {
   DISPATCHED
   CANCELLED
   SPLIT // Parent production run that has been split into children
+}
+
+enum StockProductionOrderStatus {
+  DRAFT
+  APPROVED
+  IN_PRODUCTION
+  COMPLETED
+  CANCELLED
+}
+
+enum SaleOrderStatus {
+  DRAFT
+  CONFIRMED
+  PARTIALLY_ALLOCATED
+  FULLY_ALLOCATED
+  PARTIALLY_DISPATCHED
+  DISPATCHED
+  CANCELLED
 }
 
 enum PaymentMethod {
@@ -7994,10 +8186,10 @@ model credit_notes {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  invoice  invoices  @relation(fields: [invoiceId], references: [id])
-  customer customers @relation(fields: [customerId], references: [id])
-  createdBy users    @relation(fields: [createdById], references: [id])
-  items    credit_note_items[]
+  invoice   invoices            @relation(fields: [invoiceId], references: [id])
+  customer  customers           @relation(fields: [customerId], references: [id])
+  createdBy users               @relation(fields: [createdById], references: [id])
+  items     credit_note_items[]
 
   @@index([invoiceId])
   @@index([customerId])
@@ -8006,19 +8198,19 @@ model credit_notes {
 }
 
 model credit_note_items {
-  id            String       @id @default(uuid())
+  id            String   @id @default(uuid())
   creditNoteId  String
   invoiceItemId String?
   description   String
   hsnCode       String?
   quantity      Int
-  unitPrice     Decimal      @db.Decimal(10, 2)
-  totalPrice    Decimal      @db.Decimal(12, 2)
-  gstRate       Decimal?     @db.Decimal(5, 2)
-  cgstAmount    Decimal?     @db.Decimal(12, 2)
-  sgstAmount    Decimal?     @db.Decimal(12, 2)
-  igstAmount    Decimal?     @db.Decimal(12, 2)
-  taxAmount     Decimal?     @db.Decimal(12, 2)
+  unitPrice     Decimal  @db.Decimal(10, 2)
+  totalPrice    Decimal  @db.Decimal(12, 2)
+  gstRate       Decimal? @db.Decimal(5, 2)
+  cgstAmount    Decimal? @db.Decimal(12, 2)
+  sgstAmount    Decimal? @db.Decimal(12, 2)
+  igstAmount    Decimal? @db.Decimal(12, 2)
+  taxAmount     Decimal? @db.Decimal(12, 2)
 
   creditNote credit_notes @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
 
@@ -8045,9 +8237,9 @@ model debit_notes {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  purchaseOrder purchase_orders? @relation(fields: [poId], references: [id])
-  supplier      suppliers        @relation(fields: [supplierId], references: [id])
-  createdBy     users            @relation(fields: [createdById], references: [id])
+  purchaseOrder purchase_orders?   @relation(fields: [poId], references: [id])
+  supplier      suppliers          @relation(fields: [supplierId], references: [id])
+  createdBy     users              @relation(fields: [createdById], references: [id])
   items         debit_note_items[]
 
   @@index([poId])
@@ -8057,19 +8249,19 @@ model debit_notes {
 }
 
 model debit_note_items {
-  id          String      @id @default(uuid())
+  id          String   @id @default(uuid())
   debitNoteId String
   poItemId    String?
   description String
   hsnCode     String?
-  quantity    Decimal     @db.Decimal(10, 3)
-  unitPrice   Decimal     @db.Decimal(10, 2)
-  totalPrice  Decimal     @db.Decimal(12, 2)
-  gstRate     Decimal?    @db.Decimal(5, 2)
-  cgstAmount  Decimal?    @db.Decimal(12, 2)
-  sgstAmount  Decimal?    @db.Decimal(12, 2)
-  igstAmount  Decimal?    @db.Decimal(12, 2)
-  taxAmount   Decimal?    @db.Decimal(12, 2)
+  quantity    Decimal  @db.Decimal(10, 3)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  totalPrice  Decimal  @db.Decimal(12, 2)
+  gstRate     Decimal? @db.Decimal(5, 2)
+  cgstAmount  Decimal? @db.Decimal(12, 2)
+  sgstAmount  Decimal? @db.Decimal(12, 2)
+  igstAmount  Decimal? @db.Decimal(12, 2)
+  taxAmount   Decimal? @db.Decimal(12, 2)
 
   debitNote debit_notes @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
 
@@ -8096,25 +8288,25 @@ enum TDSStatus {
 }
 
 model tds_entries {
-  id              String    @id @default(uuid())
-  invoiceId       String?
-  paymentId       String?
-  deductorName    String    // Customer who deducts TDS
-  deducteeName    String    // Our company name
-  tdsSection      String    // "194C", "194J", etc.
-  tdsRate         Decimal   @db.Decimal(5, 2)
-  grossAmount     Decimal   @db.Decimal(12, 2)
-  tdsAmount       Decimal   @db.Decimal(12, 2)
-  netAmount       Decimal   @db.Decimal(12, 2)
-  certificateNo   String?
-  deductionDate   DateTime
-  financialYear   String    // "2025-26"
-  quarter         Int       // 1,2,3,4
-  status          TDSStatus @default(PENDING)
-  remarks         String?
-  createdById     String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  invoiceId     String?
+  paymentId     String?
+  deductorName  String // Customer who deducts TDS
+  deducteeName  String // Our company name
+  tdsSection    String // "194C", "194J", etc.
+  tdsRate       Decimal   @db.Decimal(5, 2)
+  grossAmount   Decimal   @db.Decimal(12, 2)
+  tdsAmount     Decimal   @db.Decimal(12, 2)
+  netAmount     Decimal   @db.Decimal(12, 2)
+  certificateNo String?
+  deductionDate DateTime
+  financialYear String // "2025-26"
+  quarter       Int // 1,2,3,4
+  status        TDSStatus @default(PENDING)
+  remarks       String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([invoiceId])
   @@index([financialYear, quarter])
@@ -8122,21 +8314,21 @@ model tds_entries {
 }
 
 model tcs_entries {
-  id              String   @id @default(uuid())
-  invoiceId       String?
-  customerName    String
-  tcsSection      String   // "206C(1H)"
-  tcsRate         Decimal  @db.Decimal(5, 2)
-  saleAmount      Decimal  @db.Decimal(12, 2)
-  tcsAmount       Decimal  @db.Decimal(12, 2)
-  collectionDate  DateTime
-  financialYear   String
-  quarter         Int
-  status          String   @default("PENDING")
-  remarks         String?
-  createdById     String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  invoiceId      String?
+  customerName   String
+  tcsSection     String // "206C(1H)"
+  tcsRate        Decimal  @db.Decimal(5, 2)
+  saleAmount     Decimal  @db.Decimal(12, 2)
+  tcsAmount      Decimal  @db.Decimal(12, 2)
+  collectionDate DateTime
+  financialYear  String
+  quarter        Int
+  status         String   @default("PENDING")
+  remarks        String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([invoiceId])
   @@index([financialYear, quarter])

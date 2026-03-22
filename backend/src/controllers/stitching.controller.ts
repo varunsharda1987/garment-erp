@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { Prisma } from '@prisma/client';
+import { Prisma, StitchingIssueStatus } from '@prisma/client';
 
 // ============================================
 // Helper Functions
@@ -163,7 +163,7 @@ export const getAllStitchingIssues = async (req: Request, res: Response) => {
     }
 
     if (status) {
-      where.status = status as any;
+      where.status = status as StitchingIssueStatus;
     }
 
     if (workOrderId) {
@@ -942,10 +942,10 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
         woMap.set(woId, {
           workOrderId: woId,
           workOrderNumber: issue.workOrder?.workOrderNumber || '',
-          styleCode: (issue.workOrder as any)?.styles?.styleCode || '',
-          styleName: (issue.workOrder as any)?.styles?.styleName || '',
-          customerName: (issue.workOrder as any)?.orders?.customers?.name || '',
-          orderNumber: (issue.workOrder as any)?.orders?.orderNumber || '',
+          styleCode: issue.workOrder?.styles?.styleCode || '',
+          styleName: issue.workOrder?.styles?.styleName || '',
+          customerName: issue.workOrder?.orders?.customers?.name || '',
+          orderNumber: issue.workOrder?.orders?.orderNumber || '',
           issueDates: [],
           endDates: [],
           statuses: [],

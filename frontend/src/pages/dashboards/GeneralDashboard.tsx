@@ -4,8 +4,9 @@
  * Also used as Admin dashboard with role switcher
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ShoppingCart, Factory, Package, Users, TrendingUp, FileText, AlertTriangle } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -29,52 +30,30 @@ interface DashboardStats {
 export default function GeneralDashboard() {
   const navigate = useNavigate();
   const { userRole, isAdmin } = usePermissions();
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [viewAsRole, setViewAsRole] = useState<string>('all');
-  const [stats, setStats] = useState<DashboardStats>({
-    totalOrders: 0,
-    activeWorkOrders: 0,
-    lowStockItems: 0,
-    activeCustomers: 0,
-    pendingQuotations: 0,
-    outstandingInvoices: 0,
-    monthlyRevenue: 0,
-    overdueOrders: 0,
+
+  const {
+    data: apiStats,
+    isLoading,
+    dataUpdatedAt,
+    refetch,
+  } = useQuery<DashboardStats>({
+    queryKey: ['dashboard-general-stats'],
+    queryFn: () => api.get('/dashboard/general-stats').then((r) => r.data.data),
   });
 
-  const fetchDashboardData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch summary data from various endpoints
-      const [ordersRes, workOrdersRes, customersRes] = await Promise.all([
-        api.get('/orders', { params: { limit: 1 } }),
-        api.get('/work-orders', { params: { limit: 1, status: 'IN_PRODUCTION' } }),
-        api.get('/customers', { params: { limit: 1, isActive: true } }),
-      ]);
-
-      setStats({
-        totalOrders: ordersRes.data.pagination?.total || 0,
-        activeWorkOrders: workOrdersRes.data.pagination?.total || 0,
-        lowStockItems: 12, // Placeholder
-        activeCustomers: customersRes.data.pagination?.total || 0,
-        pendingQuotations: 8, // Placeholder
-        outstandingInvoices: 250000, // Placeholder
-        monthlyRevenue: 1500000, // Placeholder
-        overdueOrders: 3, // Placeholder
-      });
-
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const stats: DashboardStats = {
+    totalOrders: apiStats?.totalOrders ?? 0,
+    activeWorkOrders: apiStats?.activeWorkOrders ?? 0,
+    lowStockItems: apiStats?.lowStockItems ?? 0,
+    activeCustomers: apiStats?.activeCustomers ?? 0,
+    pendingQuotations: apiStats?.pendingQuotations ?? 0,
+    outstandingInvoices: apiStats?.outstandingInvoices ?? 0,
+    monthlyRevenue: apiStats?.monthlyRevenue ?? 0,
+    overdueOrders: apiStats?.overdueOrders ?? 0,
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : new Date();
 
   const handleRoleSwitch = (role: string) => {
     setViewAsRole(role);
@@ -98,7 +77,7 @@ export default function GeneralDashboard() {
     <DashboardLayout
       title={isAdmin ? 'Admin Dashboard' : `${roleDisplayName} Dashboard`}
       subtitle="System-wide overview and key metrics"
-      onRefresh={fetchDashboardData}
+      onRefresh={() => refetch()}
       isLoading={isLoading}
       lastUpdated={lastUpdated}
       headerActions={

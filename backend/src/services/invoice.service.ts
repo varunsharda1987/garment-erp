@@ -5,7 +5,7 @@
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { InvoiceStatus, PaymentMethod, invoices, payments } from '@prisma/client';
-import { ConflictError, NotFoundError, ValidationError } from '../errors';
+import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
@@ -32,7 +32,7 @@ export interface CreateInvoiceDTO {
   dueDate: Date;
   subtotal: number;
   taxAmount?: number; // Now optional - will be auto-calculated if not provided
-  taxRate?: number; // Optional tax rate (defaults to 12% for garments)
+  taxRate?: number; // Optional tax rate (5% for garments ≤₹2,500/piece, 18% for >₹2,500)
   totalAmount?: number; // Now optional - will be calculated
   placeOfSupplyId?: string; // Optional place of supply override
   remarks?: string;
@@ -321,6 +321,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
             lineTotal: totalPrice,
             hsnSacCode: hsnCode,
             isInterstate,
+            unitPrice: item.unitPrice,
           });
 
           headerCgst += gst.cgstAmount;
@@ -401,7 +402,8 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         return invoice!;
       } else {
         // ===== Header-level GST calculation (backward compatible) =====
-        const taxRate = data.taxRate || 12;
+        // Base rate 5% for garments ≤₹2,500; per-item calculation (above) handles price slab properly
+        const taxRate = data.taxRate || 5;
         const gstCalc = await gstService.calculateGST(data.subtotal, taxRate, COMPANY_STATE_ID, placeOfSupplyId);
 
         const taxAmount = data.taxAmount !== undefined ? data.taxAmount : gstCalc.totalTax;
@@ -598,6 +600,16 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         throw new ValidationError('Cannot delete invoice with recorded payments');
       }
 
+      // Check if invoice has credit notes
+      const creditNotes = await this.prisma.credit_notes.count({
+        where: { invoiceId: id, status: { not: 'CANCELLED' } },
+      });
+      if (creditNotes > 0) {
+        throw new ValidationError(
+          `Cannot delete invoice with ${creditNotes} active credit note(s). Cancel them first.`
+        );
+      }
+
       await this.model.delete({
         where: { id },
       });
@@ -625,6 +637,21 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
 
       if (data.amount <= 0) {
         throw new ValidationError('Payment amount must be greater than 0');
+      }
+
+      // Check for duplicate payment (same invoice + same amount within last 24 hours)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentDuplicate = await this.prisma.payments.findFirst({
+        where: {
+          invoiceId: data.invoiceId,
+          amount: data.amount,
+          createdAt: { gte: oneDayAgo },
+        },
+      });
+      if (recentDuplicate) {
+        throw new BusinessError(
+          `Possible duplicate payment detected. A payment of ₹${data.amount} for this invoice was already recorded at ${recentDuplicate.createdAt.toISOString()}. If this is intentional, please use a different amount or contact admin.`
+        );
       }
 
       // Create payment record

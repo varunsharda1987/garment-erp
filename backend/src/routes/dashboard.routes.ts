@@ -1,6 +1,13 @@
 // Dashboard routes
 import { Router } from 'express';
-import { getDashboardSummary, getStylesByStage } from '../controllers/dashboard.controller';
+import {
+  getDashboardSummary,
+  getStylesByStage,
+  getGeneralDashboardStats,
+  getProductionDashboardStats,
+  getAccountsDashboardStats,
+  getSalesDashboardStats,
+} from '../controllers/dashboard.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 
@@ -22,5 +29,11 @@ router.get('/summary', asyncHandler(getDashboardSummary));
  * @access  Protected - All authenticated users
  */
 router.get('/stage/:stage', asyncHandler(getStylesByStage));
+
+// Stats endpoints for individual dashboards
+router.get('/general-stats', asyncHandler(getGeneralDashboardStats));
+router.get('/production-stats', asyncHandler(getProductionDashboardStats));
+router.get('/accounts-stats', asyncHandler(getAccountsDashboardStats));
+router.get('/sales-stats', asyncHandler(getSalesDashboardStats));
 
 export default router;

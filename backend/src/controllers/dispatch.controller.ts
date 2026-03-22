@@ -263,6 +263,47 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   }
   const { orderId, customerId, deliveryDate, remarks, items } = req.body;
 
+  // Validate dispatch quantities against order
+  if (orderId && items?.length > 0) {
+    // Get order with its items to know ordered quantities
+    const order = await prisma.orders.findUnique({
+      where: { id: orderId },
+      include: { order_items: true },
+    });
+
+    if (order) {
+      // Get already-dispatched quantities for this order
+      const existingDeliveryItems = await prisma.delivery_note_items.findMany({
+        where: {
+          delivery_notes: {
+            orderId,
+          },
+        },
+        select: { styleId: true, colorId: true, sizeId: true, quantity: true },
+      });
+
+      // Build dispatched map: styleId-colorId-sizeId → total dispatched
+      const dispatchedMap = new Map<string, number>();
+      for (const di of existingDeliveryItems) {
+        const key = `${di.styleId || ''}-${di.colorId || ''}-${di.sizeId || ''}`;
+        dispatchedMap.set(key, (dispatchedMap.get(key) || 0) + di.quantity);
+      }
+
+      // Get total ordered quantity
+      const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
+      const totalAlreadyDispatched = Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0);
+      const totalNewDispatch = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+
+      if (totalAlreadyDispatched + totalNewDispatch > totalOrdered) {
+        throw new ValidationError(
+          `Dispatch quantity (${totalNewDispatch}) would exceed order limit. ` +
+            `Ordered: ${totalOrdered}, already dispatched: ${totalAlreadyDispatched}, ` +
+            `remaining: ${totalOrdered - totalAlreadyDispatched}`
+        );
+      }
+    }
+  }
+
   const deliveryNumber = await generateDeliveryNumber();
 
   const note = await prisma.delivery_notes.create({

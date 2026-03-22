@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ProductionStage } from '@prisma/client';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { logError } from '../utils/logger';
 
 /**
  * Get dashboard summary with real production counts
@@ -110,4 +110,165 @@ export const getStylesByStage = async (req: Request, res: Response): Promise<voi
       message: 'Failed to fetch styles',
     });
   }
+};
+
+/**
+ * General dashboard stats — replaces hardcoded placeholder values
+ * GET /api/dashboard/general-stats
+ */
+export const getGeneralDashboardStats = async (req: Request, res: Response): Promise<void> => {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [lowStockItems, pendingQuotations, outstandingInvoices, monthlyRevenue, overdueOrders] = await Promise.all([
+    // Low stock: materials with quantity < 10 (configurable threshold)
+    prisma.stock_levels.count({
+      where: { quantity: { lt: 10 } },
+    }),
+
+    // Draft/pending quotations
+    prisma.quotations.count({
+      where: { status: 'DRAFT' },
+    }),
+
+    // Outstanding invoices (pending or overdue) — sum of balance
+    prisma.invoices.aggregate({
+      where: { status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] } },
+      _sum: { balanceAmount: true },
+    }),
+
+    // Monthly revenue — paid invoices this month
+    prisma.invoices.aggregate({
+      where: {
+        status: 'PAID',
+        createdAt: { gte: startOfMonth },
+      },
+      _sum: { totalAmount: true },
+    }),
+
+    // Overdue orders — past delivery date and not completed/cancelled/dispatched
+    prisma.orders.count({
+      where: {
+        expectedDeliveryDate: { lt: now },
+        status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] },
+      },
+    }),
+  ]);
+
+  res.json({
+    data: {
+      lowStockItems,
+      pendingQuotations,
+      outstandingInvoices: Number(outstandingInvoices._sum?.balanceAmount || 0),
+      monthlyRevenue: Number(monthlyRevenue._sum?.totalAmount || 0),
+      overdueOrders,
+    },
+  });
+};
+
+/**
+ * Production dashboard stats — replaces Math.random() placeholders
+ * GET /api/dashboard/production-stats
+ */
+export const getProductionDashboardStats = async (req: Request, res: Response): Promise<void> => {
+  const [cuttingQueue, stitchingActive, finishingActive] = await Promise.all([
+    // Cutting queue: pending work orders without active cutting batches
+    prisma.work_orders.count({
+      where: {
+        status: { in: ['PENDING', 'IN_PRODUCTION'] },
+        cutting_batches: { none: {} },
+      },
+    }),
+
+    // Active stitching issues
+    prisma.stitching_issues.count({
+      where: { status: 'IN_PROGRESS' },
+    }),
+
+    // Active finishing issues
+    prisma.finishing_issues.count({
+      where: { status: 'IN_PROGRESS' },
+    }),
+  ]);
+
+  res.json({
+    data: {
+      cuttingQueue,
+      stitchingActive,
+      finishingActive,
+    },
+  });
+};
+
+/**
+ * Accounts dashboard stats — replaces hardcoded financial values
+ * GET /api/dashboard/accounts-stats
+ */
+export const getAccountsDashboardStats = async (req: Request, res: Response): Promise<void> => {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [monthlyCollections, totalReceivables, totalPayables] = await Promise.all([
+    // Monthly collections (payments received this month)
+    prisma.payments.aggregate({
+      where: {
+        paymentDate: { gte: startOfMonth },
+      },
+      _sum: { amount: true },
+    }),
+
+    // Total receivables (outstanding invoice balances)
+    prisma.invoices.aggregate({
+      where: { status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] } },
+      _sum: { balanceAmount: true },
+    }),
+
+    // Total payables (active POs not fully received — approximate)
+    prisma.purchase_orders.aggregate({
+      where: { status: { in: ['DRAFT', 'SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED'] } },
+      _sum: { totalAmount: true },
+    }),
+  ]);
+
+  res.json({
+    data: {
+      monthlyCollections: Number(monthlyCollections._sum?.amount || 0),
+      totalReceivables: Number(totalReceivables._sum?.balanceAmount || 0),
+      totalPayables: Number(totalPayables._sum?.totalAmount || 0),
+    },
+  });
+};
+
+/**
+ * Sales dashboard stats — replaces hardcoded style counts
+ * GET /api/dashboard/sales-stats
+ */
+export const getSalesDashboardStats = async (req: Request, res: Response): Promise<void> => {
+  const [stylesPendingCosting, activeOrders, totalCustomers] = await Promise.all([
+    // Styles without approved cost sheets
+    prisma.styles.count({
+      where: {
+        status: 'ACTIVE',
+        style_costing: { none: { isApproved: true } },
+      },
+    }),
+
+    // Active orders (not completed/cancelled)
+    prisma.orders.count({
+      where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } },
+    }),
+
+    // Active customers
+    prisma.customers.count({
+      where: { isActive: true },
+    }),
+  ]);
+
+  res.json({
+    data: {
+      stylesPendingCosting,
+      activeOrders,
+      totalCustomers,
+    },
+  });
 };

@@ -3,8 +3,8 @@
  * Dashboard for PRODUCTION_MANAGER and FACTORY_SUPERVISOR roles
  */
 
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Factory, Scissors, CheckSquare, Send, AlertTriangle, ClipboardList, Clock, TrendingUp } from 'lucide-react';
 import { DashboardLayout, DashboardSection } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -39,74 +39,36 @@ interface PipelineStage {
   color: string;
 }
 
+interface ProductionDashboardData {
+  stats: ProductionStats;
+  activeWorkOrders: WorkOrderSummary[];
+}
+
 export default function ProductionDashboard() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [stats, setStats] = useState<ProductionStats>({
-    ordersInProduction: 0,
-    todayDispatchTarget: 0,
-    cuttingQueue: 0,
-    stitchingActive: 0,
-    finishingActive: 0,
-    overdueOrders: 0,
+
+  const {
+    data: dashboardData,
+    isLoading,
+    dataUpdatedAt,
+    refetch,
+  } = useQuery<ProductionDashboardData>({
+    queryKey: ['dashboard-production-stats'],
+    queryFn: () => api.get('/dashboard/production-stats').then((r) => r.data.data),
   });
-  const [activeWorkOrders, setActiveWorkOrders] = useState<WorkOrderSummary[]>([]);
 
-  const fetchDashboardData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch production stats - using existing endpoints
-      const [workOrdersRes] = await Promise.all([
-        api.get('/work-orders', { params: { limit: 100, status: 'IN_PRODUCTION' } }),
-      ]);
-
-      const workOrders = workOrdersRes.data.data || [];
-
-      // Calculate stats from work orders
-      const inProduction = workOrders.filter((wo: { status: string }) => wo.status === 'IN_PRODUCTION').length;
-      const today = new Date().toISOString().split('T')[0];
-      const dueToday = workOrders.filter((wo: { plannedEndDate?: string }) =>
-        wo.plannedEndDate?.startsWith(today)
-      ).length;
-      const overdue = workOrders.filter((wo: { plannedEndDate?: string; status: string }) => {
-        if (!wo.plannedEndDate) return false;
-        return new Date(wo.plannedEndDate) < new Date() && wo.status !== 'COMPLETED';
-      }).length;
-
-      setStats({
-        ordersInProduction: inProduction,
-        todayDispatchTarget: dueToday,
-        cuttingQueue: Math.floor(Math.random() * 10) + 5, // Placeholder - replace with actual API
-        stitchingActive: Math.floor(Math.random() * 15) + 10,
-        finishingActive: Math.floor(Math.random() * 8) + 3,
-        overdueOrders: overdue,
-      });
-
-      // Set active work orders for table
-      setActiveWorkOrders(
-        workOrders.slice(0, 10).map((wo: Record<string, unknown>) => ({
-          id: wo.id as string,
-          orderNumber: (wo.workOrderNumber as string) || 'N/A',
-          styleName: (wo.style as { styleNumber?: string })?.styleNumber || 'N/A',
-          totalQuantity: (wo.totalQuantity as number) || 0,
-          completedQuantity: (wo.completedQuantity as number) || 0,
-          status: wo.status as string,
-          dueDate: (wo.plannedEndDate as string) || '',
-        }))
-      );
-
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to fetch production dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const stats: ProductionStats = {
+    ordersInProduction: dashboardData?.stats?.ordersInProduction ?? 0,
+    todayDispatchTarget: dashboardData?.stats?.todayDispatchTarget ?? 0,
+    cuttingQueue: dashboardData?.stats?.cuttingQueue ?? 0,
+    stitchingActive: dashboardData?.stats?.stitchingActive ?? 0,
+    finishingActive: dashboardData?.stats?.finishingActive ?? 0,
+    overdueOrders: dashboardData?.stats?.overdueOrders ?? 0,
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const activeWorkOrders: WorkOrderSummary[] = dashboardData?.activeWorkOrders ?? [];
+
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : new Date();
 
   const pipelineStages: PipelineStage[] = [
     { name: 'Cutting', count: stats.cuttingQueue, icon: Scissors, color: 'bg-blue-500' },
@@ -129,7 +91,7 @@ export default function ProductionDashboard() {
     <DashboardLayout
       title="Production Dashboard"
       subtitle="Monitor production floor operations and work order status"
-      onRefresh={fetchDashboardData}
+      onRefresh={() => refetch()}
       isLoading={isLoading}
       lastUpdated={lastUpdated}
     >

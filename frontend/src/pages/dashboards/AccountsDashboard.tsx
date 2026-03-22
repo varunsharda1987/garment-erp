@@ -3,8 +3,8 @@
  * Dashboard for ACCOUNTS role
  */
 
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { FileText, DollarSign, AlertTriangle, TrendingUp, Clock, Receipt, BarChart3 } from 'lucide-react';
 import { DashboardLayout, DashboardSection } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -41,115 +41,45 @@ interface AgingBucket {
   color: string;
 }
 
+interface AccountsDashboardData {
+  stats: AccountsStats;
+  recentInvoices: InvoiceSummary[];
+  agingData: AgingBucket[];
+}
+
+const emptyAging: AgingBucket[] = [
+  { label: '0-30 Days', amount: 0, count: 0, color: 'bg-green-500' },
+  { label: '31-60 Days', amount: 0, count: 0, color: 'bg-yellow-500' },
+  { label: '61-90 Days', amount: 0, count: 0, color: 'bg-orange-500' },
+  { label: '90+ Days', amount: 0, count: 0, color: 'bg-red-500' },
+];
+
 export default function AccountsDashboard() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [stats, setStats] = useState<AccountsStats>({
-    outstandingInvoices: 0,
-    overdueAmount: 0,
-    monthlyCollections: 0,
-    pendingInvoices: 0,
-    gstPayable: 0,
-    totalReceivables: 0,
+
+  const {
+    data: dashboardData,
+    isLoading,
+    dataUpdatedAt,
+    refetch,
+  } = useQuery<AccountsDashboardData>({
+    queryKey: ['dashboard-accounts-stats'],
+    queryFn: () => api.get('/dashboard/accounts-stats').then((r) => r.data.data),
   });
-  const [recentInvoices, setRecentInvoices] = useState<InvoiceSummary[]>([]);
-  const [agingData, setAgingData] = useState<AgingBucket[]>([]);
 
-  const fetchDashboardData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch invoices
-      const invoicesRes = await api.get('/invoices', { params: { limit: 50 } });
-      const invoices = invoicesRes.data.data || [];
-
-      // Calculate stats
-      const outstanding = invoices
-        .filter((inv: { status: string }) => inv.status !== 'PAID')
-        .reduce((sum: number, inv: { balanceAmount?: number }) => sum + (inv.balanceAmount || 0), 0);
-
-      const today = new Date();
-      const overdue = invoices
-        .filter((inv: { dueDate?: string; status: string }) => {
-          if (!inv.dueDate || inv.status === 'PAID') return false;
-          return new Date(inv.dueDate) < today;
-        })
-        .reduce((sum: number, inv: { balanceAmount?: number }) => sum + (inv.balanceAmount || 0), 0);
-
-      const pendingCount = invoices.filter(
-        (inv: { status: string }) => inv.status === 'PENDING' || inv.status === 'PARTIALLY_PAID'
-      ).length;
-
-      // Calculate GST (placeholder - would need actual calculation)
-      const gst = invoices.reduce(
-        (sum: number, inv: { cgstAmount?: number; sgstAmount?: number; igstAmount?: number }) =>
-          sum + (inv.cgstAmount || 0) + (inv.sgstAmount || 0) + (inv.igstAmount || 0),
-        0
-      );
-
-      setStats({
-        outstandingInvoices: outstanding,
-        overdueAmount: overdue,
-        monthlyCollections: 450000, // Placeholder
-        pendingInvoices: pendingCount,
-        gstPayable: gst,
-        totalReceivables: outstanding,
-      });
-
-      // Calculate aging buckets
-      const aging: AgingBucket[] = [
-        { label: '0-30 Days', amount: 0, count: 0, color: 'bg-green-500' },
-        { label: '31-60 Days', amount: 0, count: 0, color: 'bg-yellow-500' },
-        { label: '61-90 Days', amount: 0, count: 0, color: 'bg-orange-500' },
-        { label: '90+ Days', amount: 0, count: 0, color: 'bg-red-500' },
-      ];
-
-      invoices.forEach((inv: { dueDate?: string; status: string; balanceAmount?: number }) => {
-        if (inv.status === 'PAID' || !inv.dueDate) return;
-        const daysDue = Math.floor((today.getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24));
-        const amount = inv.balanceAmount || 0;
-
-        if (daysDue <= 30) {
-          aging[0].amount += amount;
-          aging[0].count++;
-        } else if (daysDue <= 60) {
-          aging[1].amount += amount;
-          aging[1].count++;
-        } else if (daysDue <= 90) {
-          aging[2].amount += amount;
-          aging[2].count++;
-        } else {
-          aging[3].amount += amount;
-          aging[3].count++;
-        }
-      });
-
-      setAgingData(aging);
-
-      // Set recent invoices
-      setRecentInvoices(
-        invoices.slice(0, 5).map((inv: Record<string, unknown>) => ({
-          id: inv.id as string,
-          invoiceNumber: (inv.invoiceNumber as string) || 'N/A',
-          customerName: (inv.customer as { name?: string })?.name || 'N/A',
-          totalAmount: (inv.totalAmount as number) || 0,
-          balanceAmount: (inv.balanceAmount as number) || 0,
-          status: inv.status as string,
-          dueDate: (inv.dueDate as string) || '',
-        }))
-      );
-
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to fetch accounts dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const stats: AccountsStats = {
+    outstandingInvoices: dashboardData?.stats?.outstandingInvoices ?? 0,
+    overdueAmount: dashboardData?.stats?.overdueAmount ?? 0,
+    monthlyCollections: dashboardData?.stats?.monthlyCollections ?? 0,
+    pendingInvoices: dashboardData?.stats?.pendingInvoices ?? 0,
+    gstPayable: dashboardData?.stats?.gstPayable ?? 0,
+    totalReceivables: dashboardData?.stats?.totalReceivables ?? 0,
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const recentInvoices: InvoiceSummary[] = dashboardData?.recentInvoices ?? [];
+  const agingData: AgingBucket[] = dashboardData?.agingData ?? emptyAging;
+
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : new Date();
 
   const getInvoiceStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
@@ -167,7 +97,7 @@ export default function AccountsDashboard() {
     <DashboardLayout
       title="Accounts Dashboard"
       subtitle="Monitor invoices, payments, and financial health"
-      onRefresh={fetchDashboardData}
+      onRefresh={() => refetch()}
       isLoading={isLoading}
       lastUpdated={lastUpdated}
     >

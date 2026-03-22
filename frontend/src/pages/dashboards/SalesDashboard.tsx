@@ -3,8 +3,8 @@
  * Dashboard for SALES and MERCHANDISER roles
  */
 
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ShoppingCart, FileText, Users, Calendar, DollarSign, TrendingUp, Clock, Shirt } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -42,103 +42,38 @@ interface QuotationSummary {
   [key: string]: unknown;
 }
 
+interface SalesDashboardData {
+  stats: SalesStats;
+  recentOrders: OrderSummary[];
+  pendingQuotations: QuotationSummary[];
+}
+
 export default function SalesDashboard() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const [stats, setStats] = useState<SalesStats>({
-    activeOrders: 0,
-    pendingQuotations: 0,
-    activeCustomers: 0,
-    upcomingDeliveries: 0,
-    monthlyRevenue: 0,
-    stylesPendingCosting: 0,
+
+  const {
+    data: dashboardData,
+    isLoading,
+    dataUpdatedAt,
+    refetch,
+  } = useQuery<SalesDashboardData>({
+    queryKey: ['dashboard-sales-stats'],
+    queryFn: () => api.get('/dashboard/sales-stats').then((r) => r.data.data),
   });
-  const [recentOrders, setRecentOrders] = useState<OrderSummary[]>([]);
-  const [pendingQuotations, setPendingQuotations] = useState<QuotationSummary[]>([]);
 
-  const fetchDashboardData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch data from existing endpoints
-      const [ordersRes, quotationsRes, customersRes] = await Promise.all([
-        api.get('/orders', { params: { limit: 10 } }),
-        api.get('/quotations', { params: { limit: 10, status: 'SENT' } }),
-        api.get('/customers', { params: { limit: 1, isActive: true } }),
-      ]);
-
-      const orders = ordersRes.data.data || [];
-      const quotations = quotationsRes.data.data || [];
-      const customerTotal = customersRes.data.pagination?.total || 0;
-
-      // Calculate stats
-      const activeOrderCount = orders.filter((o: { status: string }) =>
-        ['PENDING', 'IN_PRODUCTION', 'CONFIRMED'].includes(o.status)
-      ).length;
-
-      const pendingQuotCount = quotations.filter(
-        (q: { status: string }) => q.status === 'SENT' || q.status === 'DRAFT'
-      ).length;
-
-      // Calculate upcoming deliveries (next 7 days)
-      const nextWeek = new Date();
-      nextWeek.setDate(nextWeek.getDate() + 7);
-      const upcoming = orders.filter((o: { expectedDeliveryDate?: string; status: string }) => {
-        if (!o.expectedDeliveryDate) return false;
-        const deliveryDate = new Date(o.expectedDeliveryDate);
-        return deliveryDate >= new Date() && deliveryDate <= nextWeek && o.status !== 'COMPLETED';
-      }).length;
-
-      // Calculate monthly revenue
-      const thisMonth = new Date().getMonth();
-      const monthlyRev = orders
-        .filter((o: { createdAt: string }) => new Date(o.createdAt).getMonth() === thisMonth)
-        .reduce((sum: number, o: { totalAmount?: number }) => sum + (o.totalAmount || 0), 0);
-
-      setStats({
-        activeOrders: activeOrderCount,
-        pendingQuotations: pendingQuotCount,
-        activeCustomers: customerTotal,
-        upcomingDeliveries: upcoming,
-        monthlyRevenue: monthlyRev,
-        stylesPendingCosting: 5, // Placeholder - replace with actual API
-      });
-
-      // Set recent orders
-      setRecentOrders(
-        orders.slice(0, 5).map((o: Record<string, unknown>) => ({
-          id: o.id as string,
-          orderNumber: (o.orderNumber as string) || 'N/A',
-          customerName: (o.customer as { name?: string })?.name || 'N/A',
-          totalAmount: (o.totalAmount as number) || 0,
-          status: o.status as string,
-          deliveryDate: (o.expectedDeliveryDate as string) || '',
-        }))
-      );
-
-      // Set pending quotations
-      setPendingQuotations(
-        quotations.slice(0, 5).map((q: Record<string, unknown>) => ({
-          id: q.id as string,
-          quotationNumber: (q.quotationNumber as string) || 'N/A',
-          customerName: (q.customer as { name?: string })?.name || 'N/A',
-          totalAmount: (q.totalAmount as number) || 0,
-          status: q.status as string,
-          validUntil: (q.validUntil as string) || '',
-        }))
-      );
-
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error('Failed to fetch sales dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  const stats: SalesStats = {
+    activeOrders: dashboardData?.stats?.activeOrders ?? 0,
+    pendingQuotations: dashboardData?.stats?.pendingQuotations ?? 0,
+    activeCustomers: dashboardData?.stats?.activeCustomers ?? 0,
+    upcomingDeliveries: dashboardData?.stats?.upcomingDeliveries ?? 0,
+    monthlyRevenue: dashboardData?.stats?.monthlyRevenue ?? 0,
+    stylesPendingCosting: dashboardData?.stats?.stylesPendingCosting ?? 0,
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const recentOrders: OrderSummary[] = dashboardData?.recentOrders ?? [];
+  const pendingQuotations: QuotationSummary[] = dashboardData?.pendingQuotations ?? [];
+
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : new Date();
 
   const getOrderStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
@@ -170,7 +105,7 @@ export default function SalesDashboard() {
     <DashboardLayout
       title="Sales Dashboard"
       subtitle="Monitor orders, quotations, and customer relationships"
-      onRefresh={fetchDashboardData}
+      onRefresh={() => refetch()}
       isLoading={isLoading}
       lastUpdated={lastUpdated}
     >

@@ -9,6 +9,7 @@ import {
   downloadTemplate
 } from '../controllers/packaging.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.use(authenticateToken);
  * @desc    Create a single packaging item
  * @access  Private
  */
-router.post('/', createPackaging);
+router.post('/', asyncHandler(createPackaging));
 
 /**
  * @route   GET /api/materials/packaging
@@ -28,41 +29,41 @@ router.post('/', createPackaging);
  * @access  Private
  * @query   page, limit, search, supplierId
  */
-router.get('/', getAllPackaging);
+router.get('/', asyncHandler(getAllPackaging));
 
 /**
  * @route   GET /api/materials/packaging/template
  * @desc    Download Excel template for bulk import
  * @access  Private
  */
-router.get('/template', downloadTemplate);
+router.get('/template', asyncHandler(downloadTemplate));
 
 /**
  * @route   GET /api/materials/packaging/:id
  * @desc    Get single packaging item by ID
  * @access  Private
  */
-router.get('/:id', getPackagingById);
+router.get('/:id', asyncHandler(getPackagingById));
 
 /**
  * @route   PUT /api/materials/packaging/:id
  * @desc    Update packaging item
  * @access  Private
  */
-router.put('/:id', updatePackaging);
+router.put('/:id', asyncHandler(updatePackaging));
 
 /**
  * @route   DELETE /api/materials/packaging/:id
  * @desc    Delete packaging item
  * @access  Private
  */
-router.delete('/:id', deletePackaging);
+router.delete('/:id', asyncHandler(deletePackaging));
 
 /**
  * @route   POST /api/materials/packaging/bulk-import
  * @desc    Bulk import packaging items from Excel
  * @access  Private
  */
-router.post('/bulk-import', bulkImportPackaging);
+router.post('/bulk-import', asyncHandler(bulkImportPackaging));
 
 export default router;

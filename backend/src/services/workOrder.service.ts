@@ -153,6 +153,14 @@ class WorkOrderService {
             unitPrice: true,
           },
         },
+        stock_production_orders: {
+          select: {
+            id: true,
+            spoNumber: true,
+            status: true,
+            totalQuantity: true,
+          },
+        },
         styles: {
           select: {
             id: true,
@@ -268,6 +276,14 @@ class WorkOrderService {
             itemDescription: true,
             totalQuantity: true,
             unitPrice: true,
+          },
+        },
+        stock_production_orders: {
+          select: {
+            id: true,
+            spoNumber: true,
+            status: true,
+            totalQuantity: true,
           },
         },
         styles: {

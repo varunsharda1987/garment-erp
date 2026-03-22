@@ -9,6 +9,7 @@ import {
   downloadTemplate
 } from '../controllers/other-material.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -16,14 +17,14 @@ const router = Router();
 router.use(authenticateToken);
 
 // CRUD routes
-router.post('/', createOtherMaterial);
-router.get('/', getAllOtherMaterials);
-router.get('/template', downloadTemplate);
-router.get('/:id', getOtherMaterialById);
-router.put('/:id', updateOtherMaterial);
-router.delete('/:id', deleteOtherMaterial);
+router.post('/', asyncHandler(createOtherMaterial));
+router.get('/', asyncHandler(getAllOtherMaterials));
+router.get('/template', asyncHandler(downloadTemplate));
+router.get('/:id', asyncHandler(getOtherMaterialById));
+router.put('/:id', asyncHandler(updateOtherMaterial));
+router.delete('/:id', asyncHandler(deleteOtherMaterial));
 
 // Bulk operations
-router.post('/bulk-import', bulkImportOtherMaterials);
+router.post('/bulk-import', asyncHandler(bulkImportOtherMaterials));
 
 export default router;

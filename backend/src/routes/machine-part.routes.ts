@@ -9,6 +9,7 @@ import {
   downloadTemplate
 } from '../controllers/machine-part.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -16,14 +17,14 @@ const router = Router();
 router.use(authenticateToken);
 
 // CRUD routes
-router.post('/', createMachinePart);
-router.get('/', getAllMachineParts);
-router.get('/template', downloadTemplate);
-router.get('/:id', getMachinePartById);
-router.put('/:id', updateMachinePart);
-router.delete('/:id', deleteMachinePart);
+router.post('/', asyncHandler(createMachinePart));
+router.get('/', asyncHandler(getAllMachineParts));
+router.get('/template', asyncHandler(downloadTemplate));
+router.get('/:id', asyncHandler(getMachinePartById));
+router.put('/:id', asyncHandler(updateMachinePart));
+router.delete('/:id', asyncHandler(deleteMachinePart));
 
 // Bulk operations
-router.post('/bulk-import', bulkImportMachineParts);
+router.post('/bulk-import', asyncHandler(bulkImportMachineParts));
 
 export default router;

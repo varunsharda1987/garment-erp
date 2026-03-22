@@ -174,6 +174,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Sales & Billing',
     iconName: 'Receipt',
     items: [
+      { title: 'Sale Orders', path: '/sale-orders', iconName: 'ShoppingBag', permission: 'orders', keywords: ['sale', 'stock sale', 'sell from stock'] },
       { title: 'Quotations', path: '/quotations', iconName: 'FileText', permission: 'quotations' },
       { title: 'Invoices', path: '/invoices', iconName: 'Receipt', permission: 'invoices' },
     ],

@@ -9,6 +9,7 @@ import {
   downloadTemplate
 } from '../controllers/button.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.use(authenticateToken);
  * @desc    Create a single button item
  * @access  Private
  */
-router.post('/', createButton);
+router.post('/', asyncHandler(createButton));
 
 /**
  * @route   GET /api/materials/button
@@ -28,41 +29,41 @@ router.post('/', createButton);
  * @access  Private
  * @query   page, limit, search, supplierId
  */
-router.get('/', getAllButtons);
+router.get('/', asyncHandler(getAllButtons));
 
 /**
  * @route   GET /api/materials/button/template
  * @desc    Download Excel template for bulk import
  * @access  Private
  */
-router.get('/template', downloadTemplate);
+router.get('/template', asyncHandler(downloadTemplate));
 
 /**
  * @route   GET /api/materials/button/:id
  * @desc    Get single button item by ID
  * @access  Private
  */
-router.get('/:id', getButtonById);
+router.get('/:id', asyncHandler(getButtonById));
 
 /**
  * @route   PUT /api/materials/button/:id
  * @desc    Update button item
  * @access  Private
  */
-router.put('/:id', updateButton);
+router.put('/:id', asyncHandler(updateButton));
 
 /**
  * @route   DELETE /api/materials/button/:id
  * @desc    Delete button item
  * @access  Private
  */
-router.delete('/:id', deleteButton);
+router.delete('/:id', asyncHandler(deleteButton));
 
 /**
  * @route   POST /api/materials/button/bulk-import
  * @desc    Bulk import button items from Excel
  * @access  Private
  */
-router.post('/bulk-import', bulkImportButtons);
+router.post('/bulk-import', asyncHandler(bulkImportButtons));
 
 export default router;

@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { gstService } from './gst.service';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 
 // ============================================
 // Types
@@ -70,7 +71,7 @@ export class DebitNoteService {
    */
   async create(data: DebitNoteCreateInput, userId: string) {
     if (!data.items || data.items.length === 0) {
-      throw new Error('At least one item is required');
+      throw new ValidationError('At least one item is required');
     }
 
     // Determine interstate status
@@ -318,11 +319,11 @@ export class DebitNoteService {
     });
 
     if (!debitNote) {
-      throw new Error('Debit note not found');
+      throw new NotFoundError('Debit note');
     }
 
     if (debitNote.status !== 'DRAFT') {
-      throw new Error('Only DRAFT debit notes can be approved');
+      throw new BusinessError('Only DRAFT debit notes can be approved');
     }
 
     return prisma.debit_notes.update({
@@ -364,11 +365,11 @@ export class DebitNoteService {
     });
 
     if (!debitNote) {
-      throw new Error('Debit note not found');
+      throw new NotFoundError('Debit note');
     }
 
     if (debitNote.status !== 'DRAFT') {
-      throw new Error('Only DRAFT debit notes can be cancelled');
+      throw new BusinessError('Only DRAFT debit notes can be cancelled');
     }
 
     return prisma.debit_notes.update({
@@ -410,11 +411,11 @@ export class DebitNoteService {
     });
 
     if (!debitNote) {
-      throw new Error('Debit note not found');
+      throw new NotFoundError('Debit note');
     }
 
     if (debitNote.status !== 'DRAFT') {
-      throw new Error('Only DRAFT debit notes can be deleted');
+      throw new BusinessError('Only DRAFT debit notes can be deleted');
     }
 
     // Items are cascade-deleted via the relation

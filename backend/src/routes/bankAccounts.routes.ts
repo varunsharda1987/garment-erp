@@ -8,6 +8,7 @@ import {
   deleteBankAccount,
 } from '../controllers/bankAccounts.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -15,18 +16,18 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new bank account
-router.post('/', createBankAccount);
+router.post('/', asyncHandler(createBankAccount));
 
 // Get all bank accounts with pagination and filters
-router.get('/', getAllBankAccounts);
+router.get('/', asyncHandler(getAllBankAccounts));
 
 // Get bank account by ID
-router.get('/:id', getBankAccountById);
+router.get('/:id', asyncHandler(getBankAccountById));
 
 // Update bank account
-router.put('/:id', updateBankAccount);
+router.put('/:id', asyncHandler(updateBankAccount));
 
 // Delete bank account (soft delete)
-router.delete('/:id', deleteBankAccount);
+router.delete('/:id', asyncHandler(deleteBankAccount));
 
 export default router;

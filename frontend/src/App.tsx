@@ -86,6 +86,8 @@ import {
   WorkOrderForm,
   StockProductionOrderList,
   StockProductionOrderDetail,
+  SaleOrderList,
+  SaleOrderDetail,
   GreigeList,
   GreigeDetail,
   GreigeForm,
@@ -516,6 +518,8 @@ function App() {
             {/* Production Planning (Phase 5.4) */}
             <Route path="/stock-production-orders" element={<StockProductionOrderList />} />
             <Route path="/stock-production-orders/:id" element={<StockProductionOrderDetail />} />
+            <Route path="/sale-orders" element={<SaleOrderList />} />
+            <Route path="/sale-orders/:id" element={<SaleOrderDetail />} />
             <Route path="/production/work-orders" element={<WorkOrderList />} />
             <Route path="/production/work-orders/:id" element={<WorkOrderDetail />} />
             {/* Work orders are auto-created with orders - redirect to list */}

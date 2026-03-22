@@ -8,6 +8,7 @@ import {
   deleteCostCenter,
 } from '../controllers/costCenters.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -15,18 +16,18 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new cost center
-router.post('/', createCostCenter);
+router.post('/', asyncHandler(createCostCenter));
 
 // Get all cost centers with pagination and filters
-router.get('/', getAllCostCenters);
+router.get('/', asyncHandler(getAllCostCenters));
 
 // Get cost center by ID
-router.get('/:id', getCostCenterById);
+router.get('/:id', asyncHandler(getCostCenterById));
 
 // Update cost center
-router.put('/:id', updateCostCenter);
+router.put('/:id', asyncHandler(updateCostCenter));
 
 // Delete cost center (soft delete)
-router.delete('/:id', deleteCostCenter);
+router.delete('/:id', asyncHandler(deleteCostCenter));
 
 export default router;

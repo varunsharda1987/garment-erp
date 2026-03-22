@@ -9,6 +9,7 @@ import {
   downloadTemplate
 } from '../controllers/label.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.use(authenticateToken);
  * @desc    Create a single label item
  * @access  Private
  */
-router.post('/', createLabel);
+router.post('/', asyncHandler(createLabel));
 
 /**
  * @route   GET /api/materials/label
@@ -28,41 +29,41 @@ router.post('/', createLabel);
  * @access  Private
  * @query   page, limit, search, supplierId
  */
-router.get('/', getAllLabel);
+router.get('/', asyncHandler(getAllLabel));
 
 /**
  * @route   GET /api/materials/label/template
  * @desc    Download Excel template for bulk import
  * @access  Private
  */
-router.get('/template', downloadTemplate);
+router.get('/template', asyncHandler(downloadTemplate));
 
 /**
  * @route   GET /api/materials/label/:id
  * @desc    Get single label item by ID
  * @access  Private
  */
-router.get('/:id', getLabelById);
+router.get('/:id', asyncHandler(getLabelById));
 
 /**
  * @route   PUT /api/materials/label/:id
  * @desc    Update label item
  * @access  Private
  */
-router.put('/:id', updateLabel);
+router.put('/:id', asyncHandler(updateLabel));
 
 /**
  * @route   DELETE /api/materials/label/:id
  * @desc    Delete label item
  * @access  Private
  */
-router.delete('/:id', deleteLabel);
+router.delete('/:id', asyncHandler(deleteLabel));
 
 /**
  * @route   POST /api/materials/label/bulk-import
  * @desc    Bulk import label items from Excel
  * @access  Private
  */
-router.post('/bulk-import', bulkImportLabel);
+router.post('/bulk-import', asyncHandler(bulkImportLabel));
 
 export default router;

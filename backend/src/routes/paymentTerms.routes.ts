@@ -8,6 +8,7 @@ import {
   deletePaymentTerm,
 } from '../controllers/paymentTerms.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -15,18 +16,18 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new payment term
-router.post('/', createPaymentTerm);
+router.post('/', asyncHandler(createPaymentTerm));
 
 // Get all payment terms with pagination and filters
-router.get('/', getAllPaymentTerms);
+router.get('/', asyncHandler(getAllPaymentTerms));
 
 // Get payment term by ID
-router.get('/:id', getPaymentTermById);
+router.get('/:id', asyncHandler(getPaymentTermById));
 
 // Update payment term
-router.put('/:id', updatePaymentTerm);
+router.put('/:id', asyncHandler(updatePaymentTerm));
 
 // Delete payment term (soft delete)
-router.delete('/:id', deletePaymentTerm);
+router.delete('/:id', asyncHandler(deletePaymentTerm));
 
 export default router;

@@ -2,165 +2,129 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 export const createCostCenter = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } = req.body;
-    const userId = req.user?.userId;
+  const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } = req.body;
 
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized', message: 'User not authenticated' });
-      return;
-    }
-
-    const existing = await prisma.cost_centers.findFirst({ where: { costCenterCode, isActive: true } });
-    if (existing) {
-      res.status(400).json({ error: 'Validation Error', message: 'Cost center code already exists' });
-      return;
-    }
-
-    const costCenter = await prisma.cost_centers.create({
-      data: {
-        costCenterCode,
-        costCenterName,
-        costCenterType,
-        departmentId: departmentId || null,
-        locationId: locationId || null,
-        budgetAmount: budgetAmount ? parseFloat(budgetAmount) : null,
-        description: description || null,
-        isActive: true,
-        createdById: userId,
-      },
-      include: {
-        locations: { select: { id: true, locationCode: true, locationName: true } },
-        users: { select: { id: true, firstName: true, lastName: true } },
-      },
-    });
-
-    res.status(201).json({ data: costCenter, message: 'Cost center created successfully' });
-  } catch (error) {
-    logError('Create cost center error:', error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to create cost center' });
+  const existing = await prisma.cost_centers.findFirst({ where: { costCenterCode, isActive: true } });
+  if (existing) {
+    throw new ConflictError('Cost center code already exists');
   }
+
+  const costCenter = await prisma.cost_centers.create({
+    data: {
+      costCenterCode,
+      costCenterName,
+      costCenterType,
+      departmentId: departmentId || null,
+      locationId: locationId || null,
+      budgetAmount: budgetAmount ? parseFloat(budgetAmount) : null,
+      description: description || null,
+      isActive: true,
+      createdById: req.user!.userId,
+    },
+    include: {
+      locations: { select: { id: true, locationCode: true, locationName: true } },
+      users: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
+
+  res.status(201).json({ data: costCenter, message: 'Cost center created successfully' });
 };
 
 export const getAllCostCenters = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { page = '1', limit = '20', search = '', costCenterType, locationId } = req.query;
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
+  const { page = '1', limit = '20', search = '', costCenterType, locationId } = req.query;
+  const pageNum = parseInt(page as string);
+  const limitNum = parseInt(limit as string);
+  const skip = (pageNum - 1) * limitNum;
 
-    const where: Prisma.cost_centersWhereInput = { isActive: true };
+  const where: Prisma.cost_centersWhereInput = { isActive: true };
 
-    if (search) {
-      where.OR = [
-        { costCenterCode: { contains: search as string, mode: 'insensitive' } },
-        { costCenterName: { contains: search as string, mode: 'insensitive' } },
-      ];
-    }
-
-    if (costCenterType) where.costCenterType = costCenterType as string;
-    if (locationId) where.locationId = locationId as string;
-
-    const [costCenters, total] = await Promise.all([
-      prisma.cost_centers.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy: { costCenterCode: 'asc' },
-        include: {
-          locations: { select: { id: true, locationCode: true, locationName: true } },
-        },
-      }),
-      prisma.cost_centers.count({ where }),
-    ]);
-
-    res.json({ data: costCenters, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
-  } catch (error) {
-    logError('Get cost centers error:', error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch cost centers' });
+  if (search) {
+    where.OR = [
+      { costCenterCode: { contains: search as string, mode: 'insensitive' } },
+      { costCenterName: { contains: search as string, mode: 'insensitive' } },
+    ];
   }
+
+  if (costCenterType) where.costCenterType = costCenterType as string;
+  if (locationId) where.locationId = locationId as string;
+
+  const [costCenters, total] = await Promise.all([
+    prisma.cost_centers.findMany({
+      where,
+      skip,
+      take: limitNum,
+      orderBy: { costCenterCode: 'asc' },
+      include: {
+        locations: { select: { id: true, locationCode: true, locationName: true } },
+      },
+    }),
+    prisma.cost_centers.count({ where }),
+  ]);
+
+  res.json({ data: costCenters, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
 };
 
 export const getCostCenterById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const costCenter = await prisma.cost_centers.findUnique({
-      where: { id },
-      include: {
-        locations: true,
-        users: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-    });
+  const { id } = req.params;
+  const costCenter = await prisma.cost_centers.findUnique({
+    where: { id },
+    include: {
+      locations: true,
+      users: { select: { id: true, firstName: true, lastName: true, email: true } },
+    },
+  });
 
-    if (!costCenter) {
-      res.status(404).json({ error: 'Not Found', message: 'Cost center not found' });
-      return;
-    }
-
-    res.json({ data: costCenter });
-  } catch (error) {
-    logError('Get cost center error:', error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch cost center' });
+  if (!costCenter) {
+    throw new NotFoundError('CostCenter', id);
   }
+
+  res.json({ data: costCenter });
 };
 
 export const updateCostCenter = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } = req.body;
+  const { id } = req.params;
+  const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } = req.body;
 
-    const existing = await prisma.cost_centers.findUnique({ where: { id } });
-    if (!existing) {
-      res.status(404).json({ error: 'Not Found', message: 'Cost center not found' });
-      return;
-    }
-
-    if (costCenterCode !== existing.costCenterCode) {
-      const codeExists = await prisma.cost_centers.findFirst({ where: { costCenterCode, isActive: true } });
-      if (codeExists) {
-        res.status(400).json({ error: 'Validation Error', message: 'Cost center code already exists' });
-        return;
-      }
-    }
-
-    const costCenter = await prisma.cost_centers.update({
-      where: { id },
-      data: {
-        costCenterCode,
-        costCenterName,
-        costCenterType,
-        departmentId: departmentId || null,
-        locationId: locationId || null,
-        budgetAmount: budgetAmount ? parseFloat(budgetAmount) : null,
-        description: description || null,
-      },
-      include: { locations: true },
-    });
-
-    res.json({ data: costCenter, message: 'Cost center updated successfully' });
-  } catch (error) {
-    logError('Update cost center error:', error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update cost center' });
+  const existing = await prisma.cost_centers.findUnique({ where: { id } });
+  if (!existing) {
+    throw new NotFoundError('CostCenter', id);
   }
+
+  if (costCenterCode !== existing.costCenterCode) {
+    const codeExists = await prisma.cost_centers.findFirst({ where: { costCenterCode, isActive: true } });
+    if (codeExists) {
+      throw new ConflictError('Cost center code already exists');
+    }
+  }
+
+  const costCenter = await prisma.cost_centers.update({
+    where: { id },
+    data: {
+      costCenterCode,
+      costCenterName,
+      costCenterType,
+      departmentId: departmentId || null,
+      locationId: locationId || null,
+      budgetAmount: budgetAmount ? parseFloat(budgetAmount) : null,
+      description: description || null,
+    },
+    include: { locations: true },
+  });
+
+  res.json({ data: costCenter, message: 'Cost center updated successfully' });
 };
 
 export const deleteCostCenter = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const costCenter = await prisma.cost_centers.findUnique({ where: { id } });
+  const { id } = req.params;
+  const costCenter = await prisma.cost_centers.findUnique({ where: { id } });
 
-    if (!costCenter) {
-      res.status(404).json({ error: 'Not Found', message: 'Cost center not found' });
-      return;
-    }
-
-    await prisma.cost_centers.update({ where: { id }, data: { isActive: false } });
-    res.json({ message: 'Cost center deleted successfully' });
-  } catch (error) {
-    logError('Delete cost center error:', error);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to delete cost center' });
+  if (!costCenter) {
+    throw new NotFoundError('CostCenter', id);
   }
+
+  await prisma.cost_centers.update({ where: { id }, data: { isActive: false } });
+  res.json({ message: 'Cost center deleted successfully' });
 };

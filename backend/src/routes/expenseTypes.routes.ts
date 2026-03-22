@@ -8,6 +8,7 @@ import {
   deleteExpenseType,
 } from '../controllers/expenseTypes.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -15,18 +16,18 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new expense type
-router.post('/', createExpenseType);
+router.post('/', asyncHandler(createExpenseType));
 
 // Get all expense types with pagination and filters
-router.get('/', getAllExpenseTypes);
+router.get('/', asyncHandler(getAllExpenseTypes));
 
 // Get expense type by ID
-router.get('/:id', getExpenseTypeById);
+router.get('/:id', asyncHandler(getExpenseTypeById));
 
 // Update expense type
-router.put('/:id', updateExpenseType);
+router.put('/:id', asyncHandler(updateExpenseType));
 
 // Delete expense type (soft delete)
-router.delete('/:id', deleteExpenseType);
+router.delete('/:id', asyncHandler(deleteExpenseType));
 
 export default router;

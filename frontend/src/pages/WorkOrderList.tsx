@@ -112,11 +112,22 @@ export default function WorkOrderList() {
     },
     {
       key: 'order',
-      header: 'Order',
+      header: 'Order / Source',
       render: (wo) => (
         <div>
-          <div className="font-medium text-gray-900">{wo.orders?.orderNumber || '-'}</div>
-          <div className="text-xs text-gray-500">{wo.orders?.customers?.name || '-'}</div>
+          {wo.orders ? (
+            <>
+              <div className="font-medium text-gray-900">{wo.orders.orderNumber}</div>
+              <div className="text-xs text-gray-500">{wo.orders.customers?.name || '-'}</div>
+            </>
+          ) : wo.stockProductionOrderId ? (
+            <>
+              <div className="font-medium text-blue-700">{wo.stockProductionOrder?.spoNumber || 'Stock Production'}</div>
+              <div className="text-xs text-blue-500">Make-to-Stock</div>
+            </>
+          ) : (
+            <div className="text-gray-400">-</div>
+          )}
         </div>
       ),
     },

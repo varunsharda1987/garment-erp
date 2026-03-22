@@ -9,6 +9,7 @@ import {
   deleteTax,
 } from '../controllers/taxMasters.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -16,21 +17,21 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new tax
-router.post('/', createTax);
+router.post('/', asyncHandler(createTax));
 
 // Get all taxes with pagination and filters
-router.get('/', getAllTaxes);
+router.get('/', asyncHandler(getAllTaxes));
 
 // Get applicable taxes for a specific date
-router.get('/applicable', getApplicableTaxes);
+router.get('/applicable', asyncHandler(getApplicableTaxes));
 
 // Get tax by ID
-router.get('/:id', getTaxById);
+router.get('/:id', asyncHandler(getTaxById));
 
 // Update tax
-router.put('/:id', updateTax);
+router.put('/:id', asyncHandler(updateTax));
 
 // Delete tax (soft delete)
-router.delete('/:id', deleteTax);
+router.delete('/:id', asyncHandler(deleteTax));
 
 export default router;

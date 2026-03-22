@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 
 // Type for supplier input
 interface MachinePartSupplierInput {
@@ -17,620 +18,560 @@ interface MachinePartSupplierInput {
  * Supports multiple suppliers via suppliers array
  */
 export const createMachinePart = async (req: Request, res: Response) => {
-  try {
-    const {
-      partName,
-      partNumber,
-      category,
-      machine,
-      brand,
-      model,
-      specifications,
-      pricePerUnit,
-      supplierId,
-      description,
-      suppliers = []
-    } = req.body;
+  const {
+    partName,
+    partNumber,
+    category,
+    machine,
+    brand,
+    model,
+    specifications,
+    pricePerUnit,
+    supplierId,
+    description,
+    suppliers = []
+  } = req.body;
 
-    // Auto-generate part code
-    const partCode = await generateCode('PART', 'machine_part_master', 'partCode');
+  // Auto-generate part code
+  const partCode = await generateCode('PART', 'machine_part_master', 'partCode');
 
-    // Auto-generate partName if not provided
-    let finalPartName = partName;
-    if (!finalPartName || finalPartName.trim() === '') {
-      const parts = [];
-      if (partNumber) parts.push(`[${partNumber}]`);
-      if (machine) parts.push(machine);
-      if (brand) parts.push(brand);
-      parts.push('Part');
-      finalPartName = parts.join(' ').trim() || `Machine Part ${partCode}`;
-    }
-
-    // Get Machine Parts category ID
-    const machinePartCategory = await prisma.material_categories.findFirst({
-      where: { name: 'Machine Parts' }
-    });
-
-    if (!machinePartCategory) {
-      return res.status(500).json({ error: 'Machine Parts category not found. Please create it first.' });
-    }
-
-    // Create machine_part_master entry with suppliers using Prisma
-    const partRecord = await prisma.machine_part_master.create({
-      data: {
-        partCode,
-        partName: finalPartName,
-        partNumber: partNumber || null,
-        category: category || null,
-        machine: machine || null,
-        brand: brand || null,
-        model: model || null,
-        specifications: specifications || null,
-        pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : null,
-        supplierId: supplierId || null,
-        description: description || null,
-        isActive: true,
-        // Create supplier relationships
-        machinePartSuppliers: {
-          create: suppliers.map((s: MachinePartSupplierInput) => ({
-            supplierId: s.supplierId,
-            isPreferred: s.isPreferred || false,
-            isActive: s.isActive !== undefined ? s.isActive : true,
-            notes: s.notes || null,
-            pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
-          })),
-        },
-      },
-      include: {
-        machinePartSuppliers: {
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                contactPerson: true,
-                email: true,
-                phone: true,
-                isActive: true,
-              }
-            }
-          },
-          orderBy: { isPreferred: 'desc' }
-        }
-      }
-    });
-
-    // Create corresponding material entry
-    const materialEntry = await prisma.materials.create({
-      data: {
-        id: `mat-${partCode.toLowerCase()}`,
-        code: partCode,
-        name: finalPartName,
-        materialType: 'MACHINE_PART',
-        machinePartId: partRecord.id,
-        categoryId: machinePartCategory.id,
-        unit: 'PIECE',
-        isActive: true,
-      }
-    });
-
-    res.status(201).json({
-      machinePart: partRecord,
-      material: materialEntry,
-      message: 'Machine part created successfully'
-    });
-
-  } catch (error: unknown) {
-    console.error('Error creating machine part:', error);
-    res.status(500).json({
-      error: 'Failed to create machine part',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+  // Auto-generate partName if not provided
+  let finalPartName = partName;
+  if (!finalPartName || finalPartName.trim() === '') {
+    const parts = [];
+    if (partNumber) parts.push(`[${partNumber}]`);
+    if (machine) parts.push(machine);
+    if (brand) parts.push(brand);
+    parts.push('Part');
+    finalPartName = parts.join(' ').trim() || `Machine Part ${partCode}`;
   }
+
+  // Get Machine Parts category ID
+  const machinePartCategory = await prisma.material_categories.findFirst({
+    where: { name: 'Machine Parts' }
+  });
+
+  if (!machinePartCategory) {
+    throw new BusinessError('Machine Parts category not found. Please create it first.');
+  }
+
+  // Create machine_part_master entry with suppliers using Prisma
+  const partRecord = await prisma.machine_part_master.create({
+    data: {
+      partCode,
+      partName: finalPartName,
+      partNumber: partNumber || null,
+      category: category || null,
+      machine: machine || null,
+      brand: brand || null,
+      model: model || null,
+      specifications: specifications || null,
+      pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : null,
+      supplierId: supplierId || null,
+      description: description || null,
+      isActive: true,
+      // Create supplier relationships
+      machinePartSuppliers: {
+        create: suppliers.map((s: MachinePartSupplierInput) => ({
+          supplierId: s.supplierId,
+          isPreferred: s.isPreferred || false,
+          isActive: s.isActive !== undefined ? s.isActive : true,
+          notes: s.notes || null,
+          pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
+        })),
+      },
+    },
+    include: {
+      machinePartSuppliers: {
+        include: {
+          supplier: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              contactPerson: true,
+              email: true,
+              phone: true,
+              isActive: true,
+            }
+          }
+        },
+        orderBy: { isPreferred: 'desc' }
+      }
+    }
+  });
+
+  // Create corresponding material entry
+  const materialEntry = await prisma.materials.create({
+    data: {
+      id: `mat-${partCode.toLowerCase()}`,
+      code: partCode,
+      name: finalPartName,
+      materialType: 'MACHINE_PART',
+      machinePartId: partRecord.id,
+      categoryId: machinePartCategory.id,
+      unit: 'PIECE',
+      isActive: true,
+    }
+  });
+
+  res.status(201).json({
+    machinePart: partRecord,
+    material: materialEntry,
+    message: 'Machine part created successfully'
+  });
 };
 
 /**
  * Get all machine parts with pagination and search
  */
 export const getAllMachineParts = async (req: Request, res: Response) => {
-  try {
-    const {
-      page = 1,
-      limit = 10,
-      search = '',
-      supplierId = ''
-    } = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    search = '',
+    supplierId = ''
+  } = req.query;
 
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
-    const offset = (pageNum - 1) * limitNum;
+  const pageNum = Number(page);
+  const limitNum = Number(limit);
+  const offset = (pageNum - 1) * limitNum;
 
-    // Build where clause
-    const where: {
-      isActive: boolean;
-      OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
-      machinePartSuppliers?: { some: { supplierId: string; isActive: boolean } };
-    } = { isActive: true };
+  // Build where clause
+  const where: {
+    isActive: boolean;
+    OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
+    machinePartSuppliers?: { some: { supplierId: string; isActive: boolean } };
+  } = { isActive: true };
 
-    if (search) {
-      where.OR = [
-        { partName: { contains: String(search), mode: 'insensitive' } },
-        { partCode: { contains: String(search), mode: 'insensitive' } },
-        { partNumber: { contains: String(search), mode: 'insensitive' } },
-        { category: { contains: String(search), mode: 'insensitive' } }
-      ];
-    }
-
-    // Filter by supplier via junction table
-    if (supplierId) {
-      where.machinePartSuppliers = {
-        some: {
-          supplierId: String(supplierId),
-          isActive: true
-        }
-      };
-    }
-
-    // Get total count
-    const total = await prisma.machine_part_master.count({ where });
-
-    // Get machine parts with relations
-    const machineParts = await prisma.machine_part_master.findMany({
-      where,
-      include: {
-        materials: {
-          select: { id: true, code: true }
-        },
-        machinePartSuppliers: {
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                contactPerson: true,
-                email: true,
-                phone: true,
-                isActive: true,
-              }
-            }
-          },
-          orderBy: { isPreferred: 'desc' }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: offset,
-      take: limitNum
-    });
-
-    // Transform to match expected format
-    const transformedParts = machineParts.map((item: any) => ({
-      ...item,
-      materialId: item.materials[0]?.id || null,
-      materialCode: item.materials[0]?.code || null,
-      materials: undefined,
-      // Keep machinePartSuppliers - serializer will rename
-    }));
-
-    res.json({
-      data: transformedParts,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        totalPages: Math.ceil(total / limitNum)
-      }
-    });
-
-  } catch (error: unknown) {
-    console.error('Error fetching machine parts:', error);
-    res.status(500).json({
-      error: 'Failed to fetch machine parts',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+  if (search) {
+    where.OR = [
+      { partName: { contains: String(search), mode: 'insensitive' } },
+      { partCode: { contains: String(search), mode: 'insensitive' } },
+      { partNumber: { contains: String(search), mode: 'insensitive' } },
+      { category: { contains: String(search), mode: 'insensitive' } }
+    ];
   }
+
+  // Filter by supplier via junction table
+  if (supplierId) {
+    where.machinePartSuppliers = {
+      some: {
+        supplierId: String(supplierId),
+        isActive: true
+      }
+    };
+  }
+
+  // Get total count
+  const total = await prisma.machine_part_master.count({ where });
+
+  // Get machine parts with relations
+  const machineParts = await prisma.machine_part_master.findMany({
+    where,
+    include: {
+      materials: {
+        select: { id: true, code: true }
+      },
+      machinePartSuppliers: {
+        include: {
+          supplier: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              contactPerson: true,
+              email: true,
+              phone: true,
+              isActive: true,
+            }
+          }
+        },
+        orderBy: { isPreferred: 'desc' }
+      }
+    },
+    orderBy: { createdAt: 'desc' },
+    skip: offset,
+    take: limitNum
+  });
+
+  // Transform to match expected format
+  const transformedParts = machineParts.map((item: any) => ({
+    ...item,
+    materialId: item.materials[0]?.id || null,
+    materialCode: item.materials[0]?.code || null,
+    materials: undefined,
+    // Keep machinePartSuppliers - serializer will rename
+  }));
+
+  res.json({
+    data: transformedParts,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages: Math.ceil(total / limitNum)
+    }
+  });
 };
 
 /**
  * Get machine part by ID
  */
 export const getMachinePartById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const machinePart = await prisma.machine_part_master.findUnique({
-      where: { id },
-      include: {
-        materials: {
-          select: { id: true, code: true }
-        },
-        machinePartSuppliers: {
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                contactPerson: true,
-                email: true,
-                phone: true,
-                isActive: true,
-              }
+  const machinePart = await prisma.machine_part_master.findUnique({
+    where: { id },
+    include: {
+      materials: {
+        select: { id: true, code: true }
+      },
+      machinePartSuppliers: {
+        include: {
+          supplier: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              contactPerson: true,
+              email: true,
+              phone: true,
+              isActive: true,
             }
-          },
-          orderBy: { isPreferred: 'desc' }
-        }
+          }
+        },
+        orderBy: { isPreferred: 'desc' }
       }
-    });
-
-    if (!machinePart) {
-      return res.status(404).json({ error: 'Machine part not found' });
     }
+  });
 
-    // Transform to match expected format
-    const transformed = {
-      ...machinePart,
-      materialId: machinePart.materials[0]?.id || null,
-      materialCode: machinePart.materials[0]?.code || null,
-      materials: undefined,
-    };
-
-    res.json(transformed);
-
-  } catch (error: unknown) {
-    console.error('Error fetching machine part:', error);
-    res.status(500).json({
-      error: 'Failed to fetch machine part',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+  if (!machinePart) {
+    throw new NotFoundError('Machine part', id);
   }
+
+  // Transform to match expected format
+  const transformed = {
+    ...machinePart,
+    materialId: machinePart.materials[0]?.id || null,
+    materialCode: machinePart.materials[0]?.code || null,
+    materials: undefined,
+  };
+
+  res.json(transformed);
 };
 
 /**
  * Update machine part
  */
 export const updateMachinePart = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const {
-      partName,
-      partNumber,
-      category,
-      machine,
-      brand,
-      model,
-      specifications,
-      pricePerUnit,
-      supplierId,
-      description,
-      isActive,
-      suppliers
-    } = req.body;
+  const { id } = req.params;
+  const {
+    partName,
+    partNumber,
+    category,
+    machine,
+    brand,
+    model,
+    specifications,
+    pricePerUnit,
+    supplierId,
+    description,
+    isActive,
+    suppliers
+  } = req.body;
 
-    // Check if machine part exists
-    const existing = await prisma.machine_part_master.findUnique({
-      where: { id }
+  // Check if machine part exists
+  const existing = await prisma.machine_part_master.findUnique({
+    where: { id }
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Machine part', id);
+  }
+
+  // Update suppliers if provided (delete-and-recreate pattern)
+  if (suppliers !== undefined && Array.isArray(suppliers)) {
+    await prisma.machine_part_suppliers.deleteMany({
+      where: { machinePartId: id }
     });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'Machine part not found' });
-    }
-
-    // Update suppliers if provided (delete-and-recreate pattern)
-    if (suppliers !== undefined && Array.isArray(suppliers)) {
-      await prisma.machine_part_suppliers.deleteMany({
-        where: { machinePartId: id }
+    if (suppliers.length > 0) {
+      await prisma.machine_part_suppliers.createMany({
+        data: suppliers.map((s: MachinePartSupplierInput) => ({
+          machinePartId: id,
+          supplierId: s.supplierId,
+          isPreferred: s.isPreferred || false,
+          isActive: s.isActive !== undefined ? s.isActive : true,
+          notes: s.notes || null,
+          pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
+        }))
       });
-
-      if (suppliers.length > 0) {
-        await prisma.machine_part_suppliers.createMany({
-          data: suppliers.map((s: MachinePartSupplierInput) => ({
-            machinePartId: id,
-            supplierId: s.supplierId,
-            isPreferred: s.isPreferred || false,
-            isActive: s.isActive !== undefined ? s.isActive : true,
-            notes: s.notes || null,
-            pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
-          }))
-        });
-      }
     }
+  }
 
-    // Update machine part
-    const updated = await prisma.machine_part_master.update({
-      where: { id },
-      data: {
-        ...(partName !== undefined && { partName }),
-        ...(partNumber !== undefined && { partNumber: partNumber || null }),
-        ...(category !== undefined && { category: category || null }),
-        ...(machine !== undefined && { machine: machine || null }),
-        ...(brand !== undefined && { brand: brand || null }),
-        ...(model !== undefined && { model: model || null }),
-        ...(specifications !== undefined && { specifications: specifications || null }),
-        ...(pricePerUnit !== undefined && { pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : null }),
-        ...(supplierId !== undefined && { supplierId: supplierId || null }),
-        ...(description !== undefined && { description: description || null }),
-        ...(isActive !== undefined && { isActive }),
+  // Update machine part
+  const updated = await prisma.machine_part_master.update({
+    where: { id },
+    data: {
+      ...(partName !== undefined && { partName }),
+      ...(partNumber !== undefined && { partNumber: partNumber || null }),
+      ...(category !== undefined && { category: category || null }),
+      ...(machine !== undefined && { machine: machine || null }),
+      ...(brand !== undefined && { brand: brand || null }),
+      ...(model !== undefined && { model: model || null }),
+      ...(specifications !== undefined && { specifications: specifications || null }),
+      ...(pricePerUnit !== undefined && { pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : null }),
+      ...(supplierId !== undefined && { supplierId: supplierId || null }),
+      ...(description !== undefined && { description: description || null }),
+      ...(isActive !== undefined && { isActive }),
+    },
+    include: {
+      materials: {
+        select: { id: true, code: true }
       },
-      include: {
-        materials: {
-          select: { id: true, code: true }
-        },
-        machinePartSuppliers: {
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                contactPerson: true,
-                email: true,
-                phone: true,
-                isActive: true,
-              }
+      machinePartSuppliers: {
+        include: {
+          supplier: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              contactPerson: true,
+              email: true,
+              phone: true,
+              isActive: true,
             }
-          },
-          orderBy: { isPreferred: 'desc' }
-        }
+          }
+        },
+        orderBy: { isPreferred: 'desc' }
       }
-    });
-
-    // Update material name if partName changed
-    if (partName) {
-      await prisma.materials.updateMany({
-        where: { machinePartId: id },
-        data: { name: partName }
-      });
     }
+  });
 
-    // Transform response
-    const transformed = {
-      ...updated,
-      materialId: updated.materials[0]?.id || null,
-      materialCode: updated.materials[0]?.code || null,
-      materials: undefined,
-    };
-
-    res.json({
-      machinePart: transformed,
-      message: 'Machine part updated successfully'
-    });
-
-  } catch (error: unknown) {
-    console.error('Error updating machine part:', error);
-    res.status(500).json({
-      error: 'Failed to update machine part',
-      details: error instanceof Error ? error.message : 'Unknown error'
+  // Update material name if partName changed
+  if (partName) {
+    await prisma.materials.updateMany({
+      where: { machinePartId: id },
+      data: { name: partName }
     });
   }
+
+  // Transform response
+  const transformed = {
+    ...updated,
+    materialId: updated.materials[0]?.id || null,
+    materialCode: updated.materials[0]?.code || null,
+    materials: undefined,
+  };
+
+  res.json({
+    machinePart: transformed,
+    message: 'Machine part updated successfully'
+  });
 };
 
 /**
  * Delete machine part
  */
 export const deleteMachinePart = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    // Check if machine part exists
-    const existing = await prisma.machine_part_master.findUnique({
-      where: { id }
-    });
+  // Check if machine part exists
+  const existing = await prisma.machine_part_master.findUnique({
+    where: { id }
+  });
 
-    if (!existing) {
-      return res.status(404).json({ error: 'Machine part not found' });
-    }
-
-    // Check if used in any BOM
-    const bomUsage = await prisma.order_bom_items.count({
-      where: {
-        materialId: id
-      }
-    });
-
-    if (bomUsage > 0) {
-      return res.status(400).json({
-        error: 'Cannot delete machine part',
-        message: `This machine part is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
-      });
-    }
-
-    // Delete material entry first (FK constraint)
-    await prisma.materials.deleteMany({
-      where: { machinePartId: id }
-    });
-
-    // Delete machine part (cascade will delete machine_part_suppliers)
-    await prisma.machine_part_master.delete({
-      where: { id }
-    });
-
-    res.json({ message: 'Machine part deleted successfully' });
-
-  } catch (error: unknown) {
-    console.error('Error deleting machine part:', error);
-    res.status(500).json({
-      error: 'Failed to delete machine part',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+  if (!existing) {
+    throw new NotFoundError('Machine part', id);
   }
+
+  // Check if used in any BOM
+  const bomUsage = await prisma.order_bom_items.count({
+    where: {
+      materialId: id
+    }
+  });
+
+  if (bomUsage > 0) {
+    throw new ValidationError(`Cannot delete machine part. This machine part is used in ${bomUsage} BOM(s). Please remove from BOMs first.`);
+  }
+
+  // Delete material entry first (FK constraint)
+  await prisma.materials.deleteMany({
+    where: { machinePartId: id }
+  });
+
+  // Delete machine part (cascade will delete machine_part_suppliers)
+  await prisma.machine_part_master.delete({
+    where: { id }
+  });
+
+  res.json({ message: 'Machine part deleted successfully' });
 };
 
 /**
  * Bulk import machine parts from Excel
  */
 export const bulkImportMachineParts = async (req: Request, res: Response) => {
-  try {
-    const { data, createStock = false } = req.body;
+  const { data, createStock = false } = req.body;
 
-    if (!data || !Array.isArray(data) || data.length === 0) {
-      return res.status(400).json({ error: 'No data provided for import' });
-    }
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    throw new ValidationError('No data provided for import');
+  }
 
-    // Get Machine Parts category
-    const machinePartCategory = await prisma.material_categories.findFirst({
-      where: { name: 'Machine Parts' }
+  // Get Machine Parts category
+  const machinePartCategory = await prisma.material_categories.findFirst({
+    where: { name: 'Machine Parts' }
+  });
+
+  if (!machinePartCategory) {
+    throw new BusinessError('Machine Parts category not found');
+  }
+
+  // Pre-generate all part codes
+  const codes = await generateBatchCodes('PART', 'machine_part_master', 'partCode', data.length);
+
+  // Get default warehouse if creating stock
+  let defaultWarehouse: any = null;
+  if (createStock) {
+    defaultWarehouse = await prisma.warehouses.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'asc' }
     });
+  }
 
-    if (!machinePartCategory) {
-      return res.status(500).json({ error: 'Machine Parts category not found' });
-    }
+  const results: any[] = [];
 
-    // Pre-generate all part codes
-    const codes = await generateBatchCodes('PART', 'machine_part_master', 'partCode', data.length);
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const partCode = codes[i];
 
-    // Get default warehouse if creating stock
-    let defaultWarehouse: any = null;
-    if (createStock) {
-      defaultWarehouse = await prisma.warehouses.findFirst({
-        where: { isActive: true },
-        orderBy: { createdAt: 'asc' }
-      });
-    }
-
-    const results: any[] = [];
-
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
-      const partCode = codes[i];
-
-      try {
-        // Validate required field
-        if (!row.partName || row.partName.trim() === '') {
-          results.push({
-            success: false,
-            row: i + 1,
-            error: 'Part name is required'
-          });
-          continue;
-        }
-
-        // Create machine part using Prisma
-        const partRecord = await prisma.machine_part_master.create({
-          data: {
-            partCode,
-            partName: row.partName,
-            partNumber: row.partNumber || null,
-            category: row.category || null,
-            machine: row.machine || null,
-            brand: row.brand || null,
-            model: row.model || null,
-            specifications: row.specifications || null,
-            pricePerUnit: row.pricePerUnit ? parseFloat(row.pricePerUnit) : null,
-            description: row.description || null,
-            isActive: true,
-          }
-        });
-
-        // Create material
-        const materialId = `mat-${partCode.toLowerCase()}`;
-        await prisma.materials.create({
-          data: {
-            id: materialId,
-            code: partCode,
-            name: row.partName,
-            materialType: 'MACHINE_PART',
-            machinePartId: partRecord.id,
-            categoryId: machinePartCategory.id,
-            unit: 'PIECE',
-            isActive: true,
-          }
-        });
-
-        // Create stock if requested
-        let stockCreated = false;
-        if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
-          await prisma.stock_levels.create({
-            data: {
-              warehouseId: defaultWarehouse.id,
-              materialId,
-              quantity: parseFloat(row.stockQuantity),
-              unit: 'PIECE',
-              reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
-              maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-            }
-          });
-          stockCreated = true;
-        }
-
-        results.push({
-          success: true,
-          row: i + 1,
-          partCode,
-          materialCode: partCode,
-          partName: row.partName,
-          stockCreated
-        });
-
-      } catch (error: any) {
+    try {
+      // Validate required field
+      if (!row.partName || row.partName.trim() === '') {
         results.push({
           success: false,
           row: i + 1,
-          partCode,
-          error: error.message
+          error: 'Part name is required'
         });
+        continue;
       }
+
+      // Create machine part using Prisma
+      const partRecord = await prisma.machine_part_master.create({
+        data: {
+          partCode,
+          partName: row.partName,
+          partNumber: row.partNumber || null,
+          category: row.category || null,
+          machine: row.machine || null,
+          brand: row.brand || null,
+          model: row.model || null,
+          specifications: row.specifications || null,
+          pricePerUnit: row.pricePerUnit ? parseFloat(row.pricePerUnit) : null,
+          description: row.description || null,
+          isActive: true,
+        }
+      });
+
+      // Create material
+      const materialId = `mat-${partCode.toLowerCase()}`;
+      await prisma.materials.create({
+        data: {
+          id: materialId,
+          code: partCode,
+          name: row.partName,
+          materialType: 'MACHINE_PART',
+          machinePartId: partRecord.id,
+          categoryId: machinePartCategory.id,
+          unit: 'PIECE',
+          isActive: true,
+        }
+      });
+
+      // Create stock if requested
+      let stockCreated = false;
+      if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
+        await prisma.stock_levels.create({
+          data: {
+            warehouseId: defaultWarehouse.id,
+            materialId,
+            quantity: parseFloat(row.stockQuantity),
+            unit: 'PIECE',
+            reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
+            maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
+          }
+        });
+        stockCreated = true;
+      }
+
+      results.push({
+        success: true,
+        row: i + 1,
+        partCode,
+        materialCode: partCode,
+        partName: row.partName,
+        stockCreated
+      });
+
+    } catch (error: any) {
+      results.push({
+        success: false,
+        row: i + 1,
+        partCode,
+        error: error.message
+      });
     }
-
-    const summary = {
-      total: data.length,
-      success: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length
-    };
-
-    res.json({
-      results,
-      summary,
-      message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
-    });
-
-  } catch (error: any) {
-    console.error('Error in bulk import:', error);
-    res.status(500).json({ error: 'Bulk import failed', details: error.message });
   }
+
+  const summary = {
+    total: data.length,
+    success: results.filter(r => r.success).length,
+    failed: results.filter(r => !r.success).length
+  };
+
+  res.json({
+    results,
+    summary,
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+  });
 };
 
 /**
  * Download Excel template for bulk import
  */
 export const downloadTemplate = async (req: Request, res: Response) => {
-  try {
-    const template = {
-      columns: [
-        { field: 'partName', header: 'Part Name', required: true, description: 'Name of the machine part (Required)' },
-        { field: 'partNumber', header: 'Part Number', required: false, description: 'Manufacturer part number (Optional)' },
-        { field: 'category', header: 'Category', required: false, description: 'Part category (Optional)' },
-        { field: 'machine', header: 'Machine', required: false, description: 'Machine name/type (Optional)' },
-        { field: 'brand', header: 'Brand', required: false, description: 'Brand name (Optional)' },
-        { field: 'model', header: 'Model', required: false, description: 'Model number (Optional)' },
-        { field: 'specifications', header: 'Specifications', required: false, description: 'Technical specifications (Optional)' },
-        { field: 'pricePerUnit', header: 'Price Per Unit', required: false, description: 'Price per unit (Optional)' },
-        { field: 'description', header: 'Description', required: false, description: 'Description (Optional)' },
-        { field: 'stockQuantity', header: 'Stock Quantity', required: false, description: 'Initial stock quantity (Optional)' },
-        { field: 'locationCode', header: 'Location Code', required: false, description: 'Warehouse location code (Optional)' }
-      ],
-      exampleData: [
-        {
-          partName: 'Needle Set Industrial',
-          partNumber: 'DBx1-16',
-          category: 'Needle',
-          machine: 'Single Needle Lockstitch',
-          brand: 'Groz-Beckert',
-          model: 'DBx1',
-          specifications: 'Size 16, Sharp Point',
-          pricePerUnit: 2.50,
-          description: 'Industrial sewing machine needle',
-          stockQuantity: 500,
-          locationCode: 'WH-01-B'
-        }
-      ]
-    };
+  const template = {
+    columns: [
+      { field: 'partName', header: 'Part Name', required: true, description: 'Name of the machine part (Required)' },
+      { field: 'partNumber', header: 'Part Number', required: false, description: 'Manufacturer part number (Optional)' },
+      { field: 'category', header: 'Category', required: false, description: 'Part category (Optional)' },
+      { field: 'machine', header: 'Machine', required: false, description: 'Machine name/type (Optional)' },
+      { field: 'brand', header: 'Brand', required: false, description: 'Brand name (Optional)' },
+      { field: 'model', header: 'Model', required: false, description: 'Model number (Optional)' },
+      { field: 'specifications', header: 'Specifications', required: false, description: 'Technical specifications (Optional)' },
+      { field: 'pricePerUnit', header: 'Price Per Unit', required: false, description: 'Price per unit (Optional)' },
+      { field: 'description', header: 'Description', required: false, description: 'Description (Optional)' },
+      { field: 'stockQuantity', header: 'Stock Quantity', required: false, description: 'Initial stock quantity (Optional)' },
+      { field: 'locationCode', header: 'Location Code', required: false, description: 'Warehouse location code (Optional)' }
+    ],
+    exampleData: [
+      {
+        partName: 'Needle Set Industrial',
+        partNumber: 'DBx1-16',
+        category: 'Needle',
+        machine: 'Single Needle Lockstitch',
+        brand: 'Groz-Beckert',
+        model: 'DBx1',
+        specifications: 'Size 16, Sharp Point',
+        pricePerUnit: 2.50,
+        description: 'Industrial sewing machine needle',
+        stockQuantity: 500,
+        locationCode: 'WH-01-B'
+      }
+    ]
+  };
 
-    res.json(template);
-
-  } catch (error: any) {
-    console.error('Error generating template:', error);
-    res.status(500).json({ error: 'Failed to generate template', details: error.message });
-  }
+  res.json(template);
 };

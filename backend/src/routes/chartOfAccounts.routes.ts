@@ -9,6 +9,7 @@ import {
   deleteAccount,
 } from '../controllers/chartOfAccounts.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -16,21 +17,21 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new account
-router.post('/', createAccount);
+router.post('/', asyncHandler(createAccount));
 
 // Get all accounts with pagination and filters
-router.get('/', getAllAccounts);
+router.get('/', asyncHandler(getAllAccounts));
 
 // Get account hierarchy (tree structure)
-router.get('/hierarchy', getAccountHierarchy);
+router.get('/hierarchy', asyncHandler(getAccountHierarchy));
 
 // Get account by ID
-router.get('/:id', getAccountById);
+router.get('/:id', asyncHandler(getAccountById));
 
 // Update account
-router.put('/:id', updateAccount);
+router.put('/:id', asyncHandler(updateAccount));
 
 // Delete account (soft delete)
-router.delete('/:id', deleteAccount);
+router.delete('/:id', asyncHandler(deleteAccount));
 
 export default router;

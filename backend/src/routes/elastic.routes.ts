@@ -9,6 +9,7 @@ import {
   downloadTemplate
 } from '../controllers/elastic.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.use(authenticateToken);
  * @desc    Create a single elastic item
  * @access  Private
  */
-router.post('/', createElastic);
+router.post('/', asyncHandler(createElastic));
 
 /**
  * @route   GET /api/materials/elastic
@@ -28,41 +29,41 @@ router.post('/', createElastic);
  * @access  Private
  * @query   page, limit, search, supplierId
  */
-router.get('/', getAllElastic);
+router.get('/', asyncHandler(getAllElastic));
 
 /**
  * @route   GET /api/materials/elastic/template
  * @desc    Download Excel template for bulk import
  * @access  Private
  */
-router.get('/template', downloadTemplate);
+router.get('/template', asyncHandler(downloadTemplate));
 
 /**
  * @route   GET /api/materials/elastic/:id
  * @desc    Get single elastic item by ID
  * @access  Private
  */
-router.get('/:id', getElasticById);
+router.get('/:id', asyncHandler(getElasticById));
 
 /**
  * @route   PUT /api/materials/elastic/:id
  * @desc    Update elastic item
  * @access  Private
  */
-router.put('/:id', updateElastic);
+router.put('/:id', asyncHandler(updateElastic));
 
 /**
  * @route   DELETE /api/materials/elastic/:id
  * @desc    Delete elastic item
  * @access  Private
  */
-router.delete('/:id', deleteElastic);
+router.delete('/:id', asyncHandler(deleteElastic));
 
 /**
  * @route   POST /api/materials/elastic/bulk-import
  * @desc    Bulk import elastic items from Excel
  * @access  Private
  */
-router.post('/bulk-import', bulkImportElastic);
+router.post('/bulk-import', asyncHandler(bulkImportElastic));
 
 export default router;

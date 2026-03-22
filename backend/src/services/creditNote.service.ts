@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { gstService } from './gst.service';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 
 interface CreditNoteCreateInput {
   invoiceId: string;
@@ -70,7 +71,7 @@ export class CreditNoteService {
       });
 
       if (!invoice) {
-        throw new Error('Invoice not found');
+        throw new NotFoundError('Invoice');
       }
 
       const isInterstate = invoice.isInterstate;
@@ -296,11 +297,11 @@ export class CreditNoteService {
     });
 
     if (!creditNote) {
-      throw new Error('Credit note not found');
+      throw new NotFoundError('Credit note');
     }
 
     if (creditNote.status !== 'DRAFT') {
-      throw new Error('Only DRAFT credit notes can be approved');
+      throw new BusinessError('Only DRAFT credit notes can be approved');
     }
 
     return prisma.credit_notes.update({
@@ -332,11 +333,11 @@ export class CreditNoteService {
     });
 
     if (!creditNote) {
-      throw new Error('Credit note not found');
+      throw new NotFoundError('Credit note');
     }
 
     if (creditNote.status !== 'DRAFT') {
-      throw new Error('Only DRAFT credit notes can be cancelled');
+      throw new BusinessError('Only DRAFT credit notes can be cancelled');
     }
 
     return prisma.credit_notes.update({
@@ -368,11 +369,11 @@ export class CreditNoteService {
     });
 
     if (!creditNote) {
-      throw new Error('Credit note not found');
+      throw new NotFoundError('Credit note');
     }
 
     if (creditNote.status !== 'DRAFT') {
-      throw new Error('Only DRAFT credit notes can be deleted');
+      throw new BusinessError('Only DRAFT credit notes can be deleted');
     }
 
     return prisma.credit_notes.delete({

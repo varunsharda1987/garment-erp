@@ -11,6 +11,7 @@ import {
   getLatestExchangeRate,
 } from '../controllers/currencies.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -18,28 +19,28 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new currency
-router.post('/', createCurrency);
+router.post('/', asyncHandler(createCurrency));
 
 // Get all currencies
-router.get('/', getAllCurrencies);
+router.get('/', asyncHandler(getAllCurrencies));
 
 // Get currency by code
-router.get('/:code', getCurrencyByCode);
+router.get('/:code', asyncHandler(getCurrencyByCode));
 
 // Update currency
-router.put('/:code', updateCurrency);
+router.put('/:code', asyncHandler(updateCurrency));
 
 // Delete currency (soft delete)
-router.delete('/:code', deleteCurrency);
+router.delete('/:code', asyncHandler(deleteCurrency));
 
 // Exchange rates sub-routes
 // Get latest exchange rate for currency
-router.get('/:code/exchange-rates/latest', getLatestExchangeRate);
+router.get('/:code/exchange-rates/latest', asyncHandler(getLatestExchangeRate));
 
 // Add exchange rate
-router.post('/:code/exchange-rates', addExchangeRate);
+router.post('/:code/exchange-rates', asyncHandler(addExchangeRate));
 
 // Get exchange rates for currency
-router.get('/:code/exchange-rates', getExchangeRates);
+router.get('/:code/exchange-rates', asyncHandler(getExchangeRates));
 
 export default router;

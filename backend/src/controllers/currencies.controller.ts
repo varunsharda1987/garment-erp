@@ -2,65 +2,53 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { RateType, Prisma } from '@prisma/client';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 /**
  * Create new currency
  * POST /api/currencies
  */
 export const createCurrency = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const {
-      currencyCode,
-      currencyName,
-      currencySymbol,
-      isBaseCurrency,
-      decimalPlaces,
-    } = req.body;
+  const {
+    currencyCode,
+    currencyName,
+    currencySymbol,
+    isBaseCurrency,
+    decimalPlaces,
+  } = req.body;
 
-    // Check if currency code already exists
-    const existingCurrency = await prisma.currencies.findUnique({
-      where: { currencyCode },
-    });
+  // Check if currency code already exists
+  const existingCurrency = await prisma.currencies.findUnique({
+    where: { currencyCode },
+  });
 
-    if (existingCurrency) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Currency code already exists',
-      });
-      return;
-    }
+  if (existingCurrency) {
+    throw new ConflictError('Currency code already exists');
+  }
 
-    // If setting as base currency, unset existing base
-    if (isBaseCurrency) {
-      await prisma.currencies.updateMany({
-        where: { isBaseCurrency: true },
-        data: { isBaseCurrency: false },
-      });
-    }
-
-    const currency = await prisma.currencies.create({
-      data: {
-        currencyCode: currencyCode.toUpperCase(),
-        currencyName,
-        currencySymbol,
-        isBaseCurrency: isBaseCurrency || false,
-        decimalPlaces: decimalPlaces || 2,
-        isActive: true,
-      },
-    });
-
-    res.status(201).json({
-      data: currency,
-      message: 'Currency created successfully',
-    });
-  } catch (error) {
-    logError('Create currency error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to create currency',
+  // If setting as base currency, unset existing base
+  if (isBaseCurrency) {
+    await prisma.currencies.updateMany({
+      where: { isBaseCurrency: true },
+      data: { isBaseCurrency: false },
     });
   }
+
+  const currency = await prisma.currencies.create({
+    data: {
+      currencyCode: currencyCode.toUpperCase(),
+      currencyName,
+      currencySymbol,
+      isBaseCurrency: isBaseCurrency || false,
+      decimalPlaces: decimalPlaces || 2,
+      isActive: true,
+    },
+  });
+
+  res.status(201).json({
+    data: currency,
+    message: 'Currency created successfully',
+  });
 };
 
 /**
@@ -68,39 +56,31 @@ export const createCurrency = async (req: Request, res: Response): Promise<void>
  * GET /api/currencies
  */
 export const getAllCurrencies = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { activeOnly = 'true' } = req.query;
+  const { activeOnly = 'true' } = req.query;
 
-    const where: Prisma.currenciesWhereInput = {};
+  const where: Prisma.currenciesWhereInput = {};
 
-    if (activeOnly === 'true') {
-      where.isActive = true;
-    }
+  if (activeOnly === 'true') {
+    where.isActive = true;
+  }
 
-    const currencies = await prisma.currencies.findMany({
-      where,
-      orderBy: { currencyCode: 'asc' },
-      include: {
-        _count: {
-          select: {
-            customers: true,
-            suppliers: true,
-            exchange_rates: true,
-          },
+  const currencies = await prisma.currencies.findMany({
+    where,
+    orderBy: { currencyCode: 'asc' },
+    include: {
+      _count: {
+        select: {
+          customers: true,
+          suppliers: true,
+          exchange_rates: true,
         },
       },
-    });
+    },
+  });
 
-    res.json({
-      data: currencies,
-    });
-  } catch (error) {
-    logError('Get currencies error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch currencies',
-    });
-  }
+  res.json({
+    data: currencies,
+  });
 };
 
 /**
@@ -108,41 +88,29 @@ export const getAllCurrencies = async (req: Request, res: Response): Promise<voi
  * GET /api/currencies/:code
  */
 export const getCurrencyByCode = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { code } = req.params;
+  const { code } = req.params;
 
-    const currency = await prisma.currencies.findUnique({
-      where: { currencyCode: code.toUpperCase() },
-      include: {
-        exchange_rates: {
-          orderBy: { effectiveDate: 'desc' },
-          take: 10,
-        },
-        _count: {
-          select: {
-            customers: true,
-            suppliers: true,
-          },
+  const currency = await prisma.currencies.findUnique({
+    where: { currencyCode: code.toUpperCase() },
+    include: {
+      exchange_rates: {
+        orderBy: { effectiveDate: 'desc' },
+        take: 10,
+      },
+      _count: {
+        select: {
+          customers: true,
+          suppliers: true,
         },
       },
-    });
+    },
+  });
 
-    if (!currency) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Currency not found',
-      });
-      return;
-    }
-
-    res.json({ data: currency });
-  } catch (error) {
-    logError('Get currency error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch currency',
-    });
+  if (!currency) {
+    throw new NotFoundError('Currency', code);
   }
+
+  res.json({ data: currency });
 };
 
 /**
@@ -150,51 +118,39 @@ export const getCurrencyByCode = async (req: Request, res: Response): Promise<vo
  * PUT /api/currencies/:code
  */
 export const updateCurrency = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { code } = req.params;
-    const { currencyName, currencySymbol, isBaseCurrency, decimalPlaces } = req.body;
+  const { code } = req.params;
+  const { currencyName, currencySymbol, isBaseCurrency, decimalPlaces } = req.body;
 
-    const existingCurrency = await prisma.currencies.findUnique({
-      where: { currencyCode: code.toUpperCase() },
-    });
+  const existingCurrency = await prisma.currencies.findUnique({
+    where: { currencyCode: code.toUpperCase() },
+  });
 
-    if (!existingCurrency) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Currency not found',
-      });
-      return;
-    }
+  if (!existingCurrency) {
+    throw new NotFoundError('Currency', code);
+  }
 
-    // If setting as base currency, unset existing base
-    if (isBaseCurrency && !existingCurrency.isBaseCurrency) {
-      await prisma.currencies.updateMany({
-        where: { isBaseCurrency: true },
-        data: { isBaseCurrency: false },
-      });
-    }
-
-    const currency = await prisma.currencies.update({
-      where: { currencyCode: code.toUpperCase() },
-      data: {
-        currencyName,
-        currencySymbol,
-        isBaseCurrency,
-        decimalPlaces,
-      },
-    });
-
-    res.json({
-      data: currency,
-      message: 'Currency updated successfully',
-    });
-  } catch (error) {
-    logError('Update currency error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to update currency',
+  // If setting as base currency, unset existing base
+  if (isBaseCurrency && !existingCurrency.isBaseCurrency) {
+    await prisma.currencies.updateMany({
+      where: { isBaseCurrency: true },
+      data: { isBaseCurrency: false },
     });
   }
+
+  const currency = await prisma.currencies.update({
+    where: { currencyCode: code.toUpperCase() },
+    data: {
+      currencyName,
+      currencySymbol,
+      isBaseCurrency,
+      decimalPlaces,
+    },
+  });
+
+  res.json({
+    data: currency,
+    message: 'Currency updated successfully',
+  });
 };
 
 /**
@@ -202,63 +158,45 @@ export const updateCurrency = async (req: Request, res: Response): Promise<void>
  * DELETE /api/currencies/:code
  */
 export const deleteCurrency = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { code } = req.params;
+  const { code } = req.params;
 
-    const currency = await prisma.currencies.findUnique({
-      where: { currencyCode: code.toUpperCase() },
-      include: {
-        _count: {
-          select: {
-            customers: true,
-            suppliers: true,
-          },
+  const currency = await prisma.currencies.findUnique({
+    where: { currencyCode: code.toUpperCase() },
+    include: {
+      _count: {
+        select: {
+          customers: true,
+          suppliers: true,
         },
       },
-    });
+    },
+  });
 
-    if (!currency) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Currency not found',
-      });
-      return;
-    }
-
-    // Cannot delete base currency
-    if (currency.isBaseCurrency) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Cannot delete base currency',
-      });
-      return;
-    }
-
-    // Check if in use
-    const inUse = currency._count.customers > 0 || currency._count.suppliers > 0;
-    if (inUse) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: `Cannot delete currency. It is used by ${currency._count.customers} customers and ${currency._count.suppliers} suppliers.`,
-      });
-      return;
-    }
-
-    await prisma.currencies.update({
-      where: { currencyCode: code.toUpperCase() },
-      data: { isActive: false },
-    });
-
-    res.json({
-      message: 'Currency deleted successfully',
-    });
-  } catch (error) {
-    logError('Delete currency error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to delete currency',
-    });
+  if (!currency) {
+    throw new NotFoundError('Currency', code);
   }
+
+  // Cannot delete base currency
+  if (currency.isBaseCurrency) {
+    throw new ValidationError('Cannot delete base currency');
+  }
+
+  // Check if in use
+  const inUse = currency._count.customers > 0 || currency._count.suppliers > 0;
+  if (inUse) {
+    throw new ConflictError(
+      `Cannot delete currency. It is used by ${currency._count.customers} customers and ${currency._count.suppliers} suppliers.`
+    );
+  }
+
+  await prisma.currencies.update({
+    where: { currencyCode: code.toUpperCase() },
+    data: { isActive: false },
+  });
+
+  res.json({
+    message: 'Currency deleted successfully',
+  });
 };
 
 // ============================================
@@ -270,58 +208,37 @@ export const deleteCurrency = async (req: Request, res: Response): Promise<void>
  * POST /api/currencies/:code/exchange-rates
  */
 export const addExchangeRate = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { code } = req.params;
-    const { effectiveDate, rateType, exchangeRate } = req.body;
+  const { code } = req.params;
+  const { effectiveDate, rateType, exchangeRate } = req.body;
 
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    // Verify currency exists
-    const currency = await prisma.currencies.findUnique({
-      where: { currencyCode: code.toUpperCase() },
-    });
+  // Verify currency exists
+  const currency = await prisma.currencies.findUnique({
+    where: { currencyCode: code.toUpperCase() },
+  });
 
-    if (!currency) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Currency not found',
-      });
-      return;
-    }
-
-    const rate = await prisma.exchange_rates.create({
-      data: {
-        currencyCode: code.toUpperCase(),
-        effectiveDate: new Date(effectiveDate),
-        rateType: rateType as RateType,
-        exchangeRate: parseFloat(exchangeRate),
-        createdById: userId || null,
-      },
-      include: {
-        currencies: true,
-      },
-    });
-
-    res.status(201).json({
-      data: rate,
-      message: 'Exchange rate added successfully',
-    });
-  } catch (error: unknown) {
-    const prismaError = error as { code?: string };
-    if (prismaError.code === 'P2002') {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Exchange rate for this currency, date, and type already exists',
-      });
-      return;
-    }
-
-    logError('Add exchange rate error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to add exchange rate',
-    });
+  if (!currency) {
+    throw new NotFoundError('Currency', code);
   }
+
+  const rate = await prisma.exchange_rates.create({
+    data: {
+      currencyCode: code.toUpperCase(),
+      effectiveDate: new Date(effectiveDate),
+      rateType: rateType as RateType,
+      exchangeRate: parseFloat(exchangeRate),
+      createdById: userId || null,
+    },
+    include: {
+      currencies: true,
+    },
+  });
+
+  res.status(201).json({
+    data: rate,
+    message: 'Exchange rate added successfully',
+  });
 };
 
 /**
@@ -329,53 +246,45 @@ export const addExchangeRate = async (req: Request, res: Response): Promise<void
  * GET /api/currencies/:code/exchange-rates
  */
 export const getExchangeRates = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { code } = req.params;
-    const { fromDate, toDate, rateType } = req.query;
+  const { code } = req.params;
+  const { fromDate, toDate, rateType } = req.query;
 
-    const where: Prisma.exchange_ratesWhereInput = {
-      currencyCode: code.toUpperCase(),
-    };
+  const where: Prisma.exchange_ratesWhereInput = {
+    currencyCode: code.toUpperCase(),
+  };
 
-    if (fromDate || toDate) {
-      const effectiveDateFilter: { gte?: Date; lte?: Date } = {};
-      if (fromDate) {
-        effectiveDateFilter.gte = new Date(fromDate as string);
-      }
-      if (toDate) {
-        effectiveDateFilter.lte = new Date(toDate as string);
-      }
-      where.effectiveDate = effectiveDateFilter;
+  if (fromDate || toDate) {
+    const effectiveDateFilter: { gte?: Date; lte?: Date } = {};
+    if (fromDate) {
+      effectiveDateFilter.gte = new Date(fromDate as string);
     }
-
-    if (rateType) {
-      where.rateType = rateType as RateType;
+    if (toDate) {
+      effectiveDateFilter.lte = new Date(toDate as string);
     }
+    where.effectiveDate = effectiveDateFilter;
+  }
 
-    const rates = await prisma.exchange_rates.findMany({
-      where,
-      orderBy: { effectiveDate: 'desc' },
-      include: {
-        currencies: {
-          select: {
-            currencyCode: true,
-            currencyName: true,
-            currencySymbol: true,
-          },
+  if (rateType) {
+    where.rateType = rateType as RateType;
+  }
+
+  const rates = await prisma.exchange_rates.findMany({
+    where,
+    orderBy: { effectiveDate: 'desc' },
+    include: {
+      currencies: {
+        select: {
+          currencyCode: true,
+          currencyName: true,
+          currencySymbol: true,
         },
       },
-    });
+    },
+  });
 
-    res.json({
-      data: rates,
-    });
-  } catch (error) {
-    logError('Get exchange rates error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch exchange rates',
-    });
-  }
+  res.json({
+    data: rates,
+  });
 };
 
 /**
@@ -383,36 +292,24 @@ export const getExchangeRates = async (req: Request, res: Response): Promise<voi
  * GET /api/currencies/:code/exchange-rates/latest
  */
 export const getLatestExchangeRate = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { code } = req.params;
-    const { rateType = 'AVERAGE' } = req.query;
+  const { code } = req.params;
+  const { rateType = 'AVERAGE' } = req.query;
 
-    const rate = await prisma.exchange_rates.findFirst({
-      where: {
-        currencyCode: code.toUpperCase(),
-        rateType: rateType as RateType,
-        effectiveDate: { lte: new Date() },
-      },
-      orderBy: { effectiveDate: 'desc' },
-      include: {
-        currencies: true,
-      },
-    });
+  const rate = await prisma.exchange_rates.findFirst({
+    where: {
+      currencyCode: code.toUpperCase(),
+      rateType: rateType as RateType,
+      effectiveDate: { lte: new Date() },
+    },
+    orderBy: { effectiveDate: 'desc' },
+    include: {
+      currencies: true,
+    },
+  });
 
-    if (!rate) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'No exchange rate found for this currency',
-      });
-      return;
-    }
-
-    res.json({ data: rate });
-  } catch (error) {
-    logError('Get latest exchange rate error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch latest exchange rate',
-    });
+  if (!rate) {
+    throw new NotFoundError('Exchange rate');
   }
+
+  res.json({ data: rate });
 };

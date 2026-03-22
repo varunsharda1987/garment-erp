@@ -110,8 +110,10 @@ export interface ProductionTracking {
 export interface WorkOrder {
   id: string;
   workOrderNumber: string;
-  orderId: string;
-  orderItemId: string;
+  orderId: string | null;
+  orderItemId: string | null;
+  stockProductionOrderId?: string | null;
+  stockProductionOrderItemId?: string | null;
   styleId: string;
   warehouseId: string | null;  // Nullable - can be assigned later
   plannedStartDate: string;
@@ -146,6 +148,12 @@ export interface WorkOrder {
     totalQuantity: number;
     unitPrice: number;
     totalPrice?: number;
+  };
+  stockProductionOrder?: {
+    id: string;
+    spoNumber: string;
+    status?: string;
+    totalQuantity?: number;
   };
   style?: {
     id: string;
@@ -201,8 +209,10 @@ export interface WorkOrder {
 
 // DTOs for API requests
 export interface CreateWorkOrderDTO {
-  orderId: string;
-  orderItemId: string;
+  orderId?: string | null;
+  orderItemId?: string | null;
+  stockProductionOrderId?: string | null;
+  stockProductionOrderItemId?: string | null;
   styleId: string;
   warehouseId?: string | null;  // Optional - can be assigned later
   plannedStartDate: string | Date;

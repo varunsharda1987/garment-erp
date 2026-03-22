@@ -7,6 +7,7 @@ import {
   deleteTestTemplate,
 } from '../controllers/testTemplates.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import {
   createTestTemplateSchema,
@@ -20,10 +21,10 @@ const router = Router();
 router.use(authenticateToken);
 
 // Routes
-router.post('/', validateBody(createTestTemplateSchema), createTestTemplate);
-router.get('/', validateQuery(testTemplateQuerySchema), getAllTestTemplates);
-router.get('/:id', getTestTemplateById);
-router.put('/:id', validateBody(updateTestTemplateSchema), updateTestTemplate);
-router.delete('/:id', deleteTestTemplate);
+router.post('/', validateBody(createTestTemplateSchema), asyncHandler(createTestTemplate));
+router.get('/', validateQuery(testTemplateQuerySchema), asyncHandler(getAllTestTemplates));
+router.get('/:id', asyncHandler(getTestTemplateById));
+router.put('/:id', validateBody(updateTestTemplateSchema), asyncHandler(updateTestTemplate));
+router.delete('/:id', asyncHandler(deleteTestTemplate));
 
 export default router;

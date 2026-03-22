@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   // Stitching Issue endpoints
   getAllStitchingIssues,
@@ -31,30 +32,30 @@ router.use(authenticateToken);
 // ============================================
 // SUMMARY ROUTES (must be before parameterized routes)
 // ============================================
-router.get('/summary', getSummary);
-router.get('/summary/work-order/:workOrderId', getSummaryByWorkOrder);
-router.get('/summary/manager/:managerId', getSummaryByManager);
-router.get('/style-size-summary', getStyleSizeSummary);
-router.get('/pending-transfer-slips', getAvailableTransferSlips);
-router.get('/available-managers', getAvailableManagers);
+router.get('/summary', asyncHandler(getSummary));
+router.get('/summary/work-order/:workOrderId', asyncHandler(getSummaryByWorkOrder));
+router.get('/summary/manager/:managerId', asyncHandler(getSummaryByManager));
+router.get('/style-size-summary', asyncHandler(getStyleSizeSummary));
+router.get('/pending-transfer-slips', asyncHandler(getAvailableTransferSlips));
+router.get('/available-managers', asyncHandler(getAvailableManagers));
 
 // ============================================
 // STITCHING ISSUE ROUTES
 // ============================================
 
 // List and CRUD
-router.get('/issues', getAllStitchingIssues);
-router.get('/issues/:id', getStitchingIssueById);
-router.post('/issues', createStitchingIssue);
-router.put('/issues/:id', updateStitchingIssue);
-router.delete('/issues/:id', deleteStitchingIssue);
+router.get('/issues', asyncHandler(getAllStitchingIssues));
+router.get('/issues/:id', asyncHandler(getStitchingIssueById));
+router.post('/issues', asyncHandler(createStitchingIssue));
+router.put('/issues/:id', asyncHandler(updateStitchingIssue));
+router.delete('/issues/:id', asyncHandler(deleteStitchingIssue));
 
 // Workflow actions
-router.post('/issues/:id/receive', receiveFromCutting);
-router.post('/issues/:id/start', startStitchingIssue);
-router.post('/issues/:id/daily-output', recordDailyOutput);
-router.post('/issues/:id/complete', completeStitchingIssue);
-router.post('/issues/:id/reopen', reopenStitchingIssue);
-router.post('/issues/:id/generate-transfer-slip', generateTransferSlip);
+router.post('/issues/:id/receive', asyncHandler(receiveFromCutting));
+router.post('/issues/:id/start', asyncHandler(startStitchingIssue));
+router.post('/issues/:id/daily-output', asyncHandler(recordDailyOutput));
+router.post('/issues/:id/complete', asyncHandler(completeStitchingIssue));
+router.post('/issues/:id/reopen', asyncHandler(reopenStitchingIssue));
+router.post('/issues/:id/generate-transfer-slip', asyncHandler(generateTransferSlip));
 
 export default router;

@@ -14,6 +14,7 @@ import documentGeneratorService from '../services/document-generator.service';
 import prisma from '../config/database';
 import path from 'path';
 import fs from 'fs';
+import { ValidationError, NotFoundError } from '../errors';
 
 // Clean up expired temp catalogue files (older than 24 hours) on startup
 function cleanupTempCatalogues() {
@@ -44,31 +45,23 @@ class DocumentController {
    * GET /api/documents/invoices/:id/pdf
    */
   async generateInvoicePDF(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const includeImages = req.query.includeImages === 'true';
+    const { id } = req.params;
+    const includeImages = req.query.includeImages === 'true';
 
-      const pdfBuffer = await documentGeneratorService.generateInvoicePDF(id, { includeImages });
+    const pdfBuffer = await documentGeneratorService.generateInvoicePDF(id, { includeImages });
 
-      // Get invoice number for filename
-      const invoice = await prisma.invoices.findUnique({
-        where: { id },
-        select: { invoiceNumber: true }
-      });
+    // Get invoice number for filename
+    const invoice = await prisma.invoices.findUnique({
+      where: { id },
+      select: { invoiceNumber: true }
+    });
 
-      const filename = `TaxInvoice_${invoice?.invoiceNumber || id}.pdf`;
+    const filename = `TaxInvoice_${invoice?.invoiceNumber || id}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating invoice PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate PDF'
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 
   /**
@@ -76,30 +69,22 @@ class DocumentController {
    * GET /api/documents/invoices/:id/excel
    */
   async generateInvoiceExcel(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
+    const { id } = req.params;
 
-      const excelBuffer = await documentGeneratorService.generateInvoiceExcel(id);
+    const excelBuffer = await documentGeneratorService.generateInvoiceExcel(id);
 
-      // Get invoice number for filename
-      const invoice = await prisma.invoices.findUnique({
-        where: { id },
-        select: { invoiceNumber: true }
-      });
+    // Get invoice number for filename
+    const invoice = await prisma.invoices.findUnique({
+      where: { id },
+      select: { invoiceNumber: true }
+    });
 
-      const filename = `TaxInvoice_${invoice?.invoiceNumber || id}.xlsx`;
+    const filename = `TaxInvoice_${invoice?.invoiceNumber || id}.xlsx`;
 
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', excelBuffer.length);
-      res.send(excelBuffer);
-    } catch (error) {
-      console.error('Error generating invoice Excel:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate Excel'
-      });
-    }
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', excelBuffer.length);
+    res.send(excelBuffer);
   }
 
   /**
@@ -107,62 +92,48 @@ class DocumentController {
    * GET /api/documents/invoices/:id/whatsapp-link
    */
   async getInvoiceWhatsAppLink(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const { phone } = req.query;
+    const { id } = req.params;
+    const { phone } = req.query;
 
-      if (!phone || typeof phone !== 'string') {
-        return res.status(400).json({
-          success: false,
-          message: 'Phone number is required'
-        });
-      }
-
-      // Get invoice details
-      const invoice = await prisma.invoices.findUnique({
-        where: { id },
-        select: {
-          invoiceNumber: true,
-          customers: {
-            select: { name: true }
-          }
-        }
-      });
-
-      if (!invoice) {
-        return res.status(404).json({
-          success: false,
-          message: 'Invoice not found'
-        });
-      }
-
-      // Generate download URL (adjust based on your deployment)
-      const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
-      const downloadUrl = `${baseUrl}/api/documents/invoices/${id}/pdf`;
-
-      const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
-        phone,
-        'Tax Invoice',
-        `Invoice ${invoice.invoiceNumber}`,
-        downloadUrl
-      );
-
-      res.json({
-        success: true,
-        data: {
-          whatsappUrl,
-          downloadUrl,
-          invoiceNumber: invoice.invoiceNumber,
-          customerName: invoice.customers?.name
-        }
-      });
-    } catch (error) {
-      console.error('Error generating WhatsApp link:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate link'
-      });
+    if (!phone || typeof phone !== 'string') {
+      throw new ValidationError('Phone number is required');
     }
+
+    // Get invoice details
+    const invoice = await prisma.invoices.findUnique({
+      where: { id },
+      select: {
+        invoiceNumber: true,
+        customers: {
+          select: { name: true }
+        }
+      }
+    });
+
+    if (!invoice) {
+      throw new NotFoundError('Invoice', id);
+    }
+
+    // Generate download URL (adjust based on your deployment)
+    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const downloadUrl = `${baseUrl}/api/documents/invoices/${id}/pdf`;
+
+    const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
+      phone,
+      'Tax Invoice',
+      `Invoice ${invoice.invoiceNumber}`,
+      downloadUrl
+    );
+
+    res.json({
+      success: true,
+      data: {
+        whatsappUrl,
+        downloadUrl,
+        invoiceNumber: invoice.invoiceNumber,
+        customerName: invoice.customers?.name
+      }
+    });
   }
 
   /**
@@ -170,31 +141,23 @@ class DocumentController {
    * GET /api/documents/quotations/:id/proforma
    */
   async generateProformaPDF(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const includeImages = req.query.includeImages === 'true';
+    const { id } = req.params;
+    const includeImages = req.query.includeImages === 'true';
 
-      const pdfBuffer = await documentGeneratorService.generateProformaPDF(id, { includeImages });
+    const pdfBuffer = await documentGeneratorService.generateProformaPDF(id, { includeImages });
 
-      // Get quotation number for filename
-      const quotation = await prisma.quotations.findUnique({
-        where: { id },
-        select: { quotationNumber: true }
-      });
+    // Get quotation number for filename
+    const quotation = await prisma.quotations.findUnique({
+      where: { id },
+      select: { quotationNumber: true }
+    });
 
-      const filename = `ProformaInvoice_${quotation?.quotationNumber || id}.pdf`;
+    const filename = `ProformaInvoice_${quotation?.quotationNumber || id}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating proforma PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate PDF'
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 
   /**
@@ -202,31 +165,23 @@ class DocumentController {
    * GET /api/documents/orders/:id/order-form
    */
   async generateOrderFormPDF(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const includeImages = req.query.includeImages === 'true';
+    const { id } = req.params;
+    const includeImages = req.query.includeImages === 'true';
 
-      const pdfBuffer = await documentGeneratorService.generateOrderFormPDF(id, { includeImages });
+    const pdfBuffer = await documentGeneratorService.generateOrderFormPDF(id, { includeImages });
 
-      // Get order number for filename
-      const order = await prisma.orders.findUnique({
-        where: { id },
-        select: { orderNumber: true }
-      });
+    // Get order number for filename
+    const order = await prisma.orders.findUnique({
+      where: { id },
+      select: { orderNumber: true }
+    });
 
-      const filename = `OrderForm_${order?.orderNumber || id}.pdf`;
+    const filename = `OrderForm_${order?.orderNumber || id}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating order form PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate PDF'
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 
   /**
@@ -234,55 +189,47 @@ class DocumentController {
    * POST /api/documents/catalogue/generate
    */
   async generateCataloguePDF(req: Request, res: Response) {
-    try {
-      const {
-        styleIds,
-        categoryIds,
-        brandCategoryIds,
-        seasons,
-        priceRange,
-        priceDisplay = 'b2b',
-        showFabricDetails = false,
-        showSizeRange = true,
-        includeIndex = false,
-        columnsPerPage = 2,
-        catalogueName = 'Product Catalogue'
-      } = req.body;
+    const {
+      styleIds,
+      categoryIds,
+      brandCategoryIds,
+      seasons,
+      priceRange,
+      priceDisplay = 'b2b',
+      showFabricDetails = false,
+      showSizeRange = true,
+      includeIndex = false,
+      columnsPerPage = 2,
+      catalogueName = 'Product Catalogue'
+    } = req.body;
 
-      // Build filters
-      const filters = {
-        styleIds,
-        categoryIds,
-        brandCategoryIds,
-        seasons,
-        priceRange
-      };
+    // Build filters
+    const filters = {
+      styleIds,
+      categoryIds,
+      brandCategoryIds,
+      seasons,
+      priceRange
+    };
 
-      // Build options
-      const options = {
-        priceDisplay,
-        showFabricDetails,
-        showSizeRange,
-        includeIndex,
-        columnsPerPage,
-        catalogueName
-      };
+    // Build options
+    const options = {
+      priceDisplay,
+      showFabricDetails,
+      showSizeRange,
+      includeIndex,
+      columnsPerPage,
+      catalogueName
+    };
 
-      const pdfBuffer = await documentGeneratorService.generateCataloguePDF(filters, options);
+    const pdfBuffer = await documentGeneratorService.generateCataloguePDF(filters, options);
 
-      const filename = `Catalogue_${catalogueName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const filename = `Catalogue_${catalogueName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating catalogue PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate catalogue'
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 
   /**
@@ -290,53 +237,45 @@ class DocumentController {
    * POST /api/documents/catalogue/store
    */
   async generateAndStoreCataloguePDF(req: Request, res: Response) {
-    try {
-      const {
-        styleIds,
-        categoryIds,
-        brandCategoryIds,
-        seasons,
-        priceRange,
-        priceDisplay = 'b2b',
-        showFabricDetails = false,
-        showSizeRange = true,
-        includeIndex = false,
-        columnsPerPage = 2,
-        catalogueName = 'Product Catalogue'
-      } = req.body;
+    const {
+      styleIds,
+      categoryIds,
+      brandCategoryIds,
+      seasons,
+      priceRange,
+      priceDisplay = 'b2b',
+      showFabricDetails = false,
+      showSizeRange = true,
+      includeIndex = false,
+      columnsPerPage = 2,
+      catalogueName = 'Product Catalogue'
+    } = req.body;
 
-      // Build filters and options
-      const filters = { styleIds, categoryIds, brandCategoryIds, seasons, priceRange };
-      const options = { priceDisplay, showFabricDetails, showSizeRange, includeIndex, columnsPerPage, catalogueName };
+    // Build filters and options
+    const filters = { styleIds, categoryIds, brandCategoryIds, seasons, priceRange };
+    const options = { priceDisplay, showFabricDetails, showSizeRange, includeIndex, columnsPerPage, catalogueName };
 
-      const pdfBuffer = await documentGeneratorService.generateCataloguePDF(filters, options);
+    const pdfBuffer = await documentGeneratorService.generateCataloguePDF(filters, options);
 
-      // Generate unique ID and save to temp directory
-      const { v4: uuidv4 } = await import('uuid');
-      const catalogueId = uuidv4();
-      const tempDir = path.join(__dirname, '../../uploads/temp-catalogues');
+    // Generate unique ID and save to temp directory
+    const { v4: uuidv4 } = await import('uuid');
+    const catalogueId = uuidv4();
+    const tempDir = path.join(__dirname, '../../uploads/temp-catalogues');
 
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-
-      const filename = `catalogue_${catalogueId}.pdf`;
-      fs.writeFileSync(path.join(tempDir, filename), pdfBuffer);
-
-      res.json({
-        success: true,
-        data: {
-          catalogueId,
-          expiresIn: '24 hours'
-        }
-      });
-    } catch (error) {
-      console.error('Error storing catalogue:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to store catalogue'
-      });
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
     }
+
+    const filename = `catalogue_${catalogueId}.pdf`;
+    fs.writeFileSync(path.join(tempDir, filename), pdfBuffer);
+
+    res.json({
+      success: true,
+      data: {
+        catalogueId,
+        expiresIn: '24 hours'
+      }
+    });
   }
 
   /**
@@ -344,34 +283,23 @@ class DocumentController {
    * GET /api/documents/catalogue/:id/download
    */
   async getTempCataloguePDF(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const filepath = path.join(__dirname, '../../uploads/temp-catalogues', `catalogue_${id}.pdf`);
+    const { id } = req.params;
+    const filepath = path.join(__dirname, '../../uploads/temp-catalogues', `catalogue_${id}.pdf`);
 
-      if (!fs.existsSync(filepath)) {
-        return res.status(404).json({
+    if (!fs.existsSync(filepath)) {
+      throw new NotFoundError('Catalogue');
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="Catalogue.pdf"');
+    res.sendFile(filepath, (err) => {
+      if (err && !res.headersSent) {
+        res.status(404).json({
           success: false,
-          message: 'Catalogue expired or not found'
+          message: 'Catalogue file could not be read'
         });
       }
-
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="Catalogue.pdf"');
-      res.sendFile(filepath, (err) => {
-        if (err && !res.headersSent) {
-          res.status(404).json({
-            success: false,
-            message: 'Catalogue file could not be read'
-          });
-        }
-      });
-    } catch (error) {
-      console.error('Error downloading catalogue:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to download catalogue'
-      });
-    }
+    });
   }
 
   /**
@@ -379,50 +307,36 @@ class DocumentController {
    * GET /api/documents/catalogue/:id/whatsapp-link
    */
   async getCatalogueWhatsAppLink(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const { phone, catalogueName } = req.query;
+    const { id } = req.params;
+    const { phone, catalogueName } = req.query;
 
-      if (!phone || typeof phone !== 'string') {
-        return res.status(400).json({
-          success: false,
-          message: 'Phone number is required'
-        });
-      }
-
-      // Verify catalogue exists
-      const filepath = path.join(__dirname, '../../uploads/temp-catalogues', `catalogue_${id}.pdf`);
-      if (!fs.existsSync(filepath)) {
-        return res.status(404).json({
-          success: false,
-          message: 'Catalogue expired or not found'
-        });
-      }
-
-      const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
-      const downloadUrl = `${baseUrl}/api/documents/catalogue/${id}/download`;
-
-      const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
-        phone,
-        'Style Catalogue',
-        (catalogueName as string) || 'Product Catalogue',
-        downloadUrl
-      );
-
-      res.json({
-        success: true,
-        data: {
-          whatsappUrl,
-          downloadUrl
-        }
-      });
-    } catch (error) {
-      console.error('Error generating WhatsApp link:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate link'
-      });
+    if (!phone || typeof phone !== 'string') {
+      throw new ValidationError('Phone number is required');
     }
+
+    // Verify catalogue exists
+    const filepath = path.join(__dirname, '../../uploads/temp-catalogues', `catalogue_${id}.pdf`);
+    if (!fs.existsSync(filepath)) {
+      throw new NotFoundError('Catalogue');
+    }
+
+    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const downloadUrl = `${baseUrl}/api/documents/catalogue/${id}/download`;
+
+    const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
+      phone,
+      'Style Catalogue',
+      (catalogueName as string) || 'Product Catalogue',
+      downloadUrl
+    );
+
+    res.json({
+      success: true,
+      data: {
+        whatsappUrl,
+        downloadUrl
+      }
+    });
   }
 
   /**
@@ -430,60 +344,46 @@ class DocumentController {
    * GET /api/documents/quotations/:id/whatsapp-link
    */
   async getQuotationWhatsAppLink(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const { phone } = req.query;
+    const { id } = req.params;
+    const { phone } = req.query;
 
-      if (!phone || typeof phone !== 'string') {
-        return res.status(400).json({
-          success: false,
-          message: 'Phone number is required'
-        });
-      }
-
-      const quotation = await prisma.quotations.findUnique({
-        where: { id },
-        select: {
-          quotationNumber: true,
-          customers: {
-            select: { name: true }
-          }
-        }
-      });
-
-      if (!quotation) {
-        return res.status(404).json({
-          success: false,
-          message: 'Quotation not found'
-        });
-      }
-
-      const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
-      const downloadUrl = `${baseUrl}/api/documents/quotations/${id}/proforma`;
-
-      const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
-        phone,
-        'Proforma Invoice',
-        `Quotation ${quotation.quotationNumber}`,
-        downloadUrl
-      );
-
-      res.json({
-        success: true,
-        data: {
-          whatsappUrl,
-          downloadUrl,
-          quotationNumber: quotation.quotationNumber,
-          customerName: quotation.customers?.name
-        }
-      });
-    } catch (error) {
-      console.error('Error generating WhatsApp link:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate link'
-      });
+    if (!phone || typeof phone !== 'string') {
+      throw new ValidationError('Phone number is required');
     }
+
+    const quotation = await prisma.quotations.findUnique({
+      where: { id },
+      select: {
+        quotationNumber: true,
+        customers: {
+          select: { name: true }
+        }
+      }
+    });
+
+    if (!quotation) {
+      throw new NotFoundError('Quotation', id);
+    }
+
+    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const downloadUrl = `${baseUrl}/api/documents/quotations/${id}/proforma`;
+
+    const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
+      phone,
+      'Proforma Invoice',
+      `Quotation ${quotation.quotationNumber}`,
+      downloadUrl
+    );
+
+    res.json({
+      success: true,
+      data: {
+        whatsappUrl,
+        downloadUrl,
+        quotationNumber: quotation.quotationNumber,
+        customerName: quotation.customers?.name
+      }
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -495,30 +395,22 @@ class DocumentController {
    * GET /api/documents/styles/:styleId/tech-pack-pdf
    */
   async generateTechPackPDF(req: Request, res: Response) {
-    try {
-      const { styleId } = req.params;
+    const { styleId } = req.params;
 
-      const pdfBuffer = await documentGeneratorService.generateTechPackPDF(styleId);
+    const pdfBuffer = await documentGeneratorService.generateTechPackPDF(styleId);
 
-      // Get style code for filename
-      const style = await prisma.styles.findUnique({
-        where: { id: styleId },
-        select: { styleCode: true }
-      });
+    // Get style code for filename
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      select: { styleCode: true }
+    });
 
-      const filename = `TechPack_${style?.styleCode || styleId}.pdf`;
+    const filename = `TechPack_${style?.styleCode || styleId}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating tech pack PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate tech pack'
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -531,31 +423,20 @@ class DocumentController {
    * Body: { styleIds: string[], options: LineSheetOptions }
    */
   async generateLineSheetPDF(req: Request, res: Response) {
-    try {
-      const { styleIds, options } = req.body;
+    const { styleIds, options } = req.body;
 
-      if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'styleIds array is required'
-        });
-      }
-
-      const pdfBuffer = await documentGeneratorService.generateLineSheetPDF(styleIds, options || {});
-
-      const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.pdf`;
-
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating line sheet PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate line sheet'
-      });
+    if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
+      throw new ValidationError('styleIds array is required');
     }
+
+    const pdfBuffer = await documentGeneratorService.generateLineSheetPDF(styleIds, options || {});
+
+    const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 
   /**
@@ -564,31 +445,20 @@ class DocumentController {
    * Body: { styleIds: string[], options: LineSheetOptions }
    */
   async generateLineSheetExcel(req: Request, res: Response) {
-    try {
-      const { styleIds, options } = req.body;
+    const { styleIds, options } = req.body;
 
-      if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'styleIds array is required'
-        });
-      }
-
-      const excelBuffer = await documentGeneratorService.generateLineSheetExcel(styleIds, options || {});
-
-      const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.xlsx`;
-
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', excelBuffer.length);
-      res.send(excelBuffer);
-    } catch (error) {
-      console.error('Error generating line sheet Excel:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate line sheet'
-      });
+    if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
+      throw new ValidationError('styleIds array is required');
     }
+
+    const excelBuffer = await documentGeneratorService.generateLineSheetExcel(styleIds, options || {});
+
+    const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', excelBuffer.length);
+    res.send(excelBuffer);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -600,30 +470,22 @@ class DocumentController {
    * GET /api/documents/purchase-orders/:id/pdf
    */
   async generatePurchaseOrderPDF(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
+    const { id } = req.params;
 
-      const pdfBuffer = await documentGeneratorService.generatePurchaseOrderPDF(id);
+    const pdfBuffer = await documentGeneratorService.generatePurchaseOrderPDF(id);
 
-      // Get PO number for filename
-      const purchaseOrder = await prisma.purchase_orders.findUnique({
-        where: { id },
-        select: { poNumber: true }
-      });
+    // Get PO number for filename
+    const purchaseOrder = await prisma.purchase_orders.findUnique({
+      where: { id },
+      select: { poNumber: true }
+    });
 
-      const filename = `PurchaseOrder_${purchaseOrder?.poNumber || id}.pdf`;
+    const filename = `PurchaseOrder_${purchaseOrder?.poNumber || id}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating purchase order PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate PDF'
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 
   /**
@@ -631,127 +493,97 @@ class DocumentController {
    * GET /api/documents/purchase-orders/:id/whatsapp-link
    */
   async getPurchaseOrderWhatsAppLink(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const { phone } = req.query;
+    const { id } = req.params;
+    const { phone } = req.query;
 
-      if (!phone || typeof phone !== 'string') {
-        return res.status(400).json({
-          success: false,
-          message: 'Phone number is required'
-        });
-      }
-
-      // Get PO details
-      const purchaseOrder = await prisma.purchase_orders.findUnique({
-        where: { id },
-        select: {
-          poNumber: true,
-          suppliers: {
-            select: { name: true }
-          }
-        }
-      });
-
-      if (!purchaseOrder) {
-        return res.status(404).json({
-          success: false,
-          message: 'Purchase Order not found'
-        });
-      }
-
-      // Generate download URL
-      const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
-      const downloadUrl = `${baseUrl}/api/documents/purchase-orders/${id}/pdf`;
-
-      const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
-        phone,
-        'Purchase Order',
-        `PO ${purchaseOrder.poNumber}`,
-        downloadUrl
-      );
-
-      res.json({
-        success: true,
-        data: {
-          whatsappUrl,
-          downloadUrl,
-          poNumber: purchaseOrder.poNumber,
-          supplierName: purchaseOrder.suppliers?.name
-        }
-      });
-    } catch (error) {
-      console.error('Error generating WhatsApp link:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate link'
-      });
+    if (!phone || typeof phone !== 'string') {
+      throw new ValidationError('Phone number is required');
     }
+
+    // Get PO details
+    const purchaseOrder = await prisma.purchase_orders.findUnique({
+      where: { id },
+      select: {
+        poNumber: true,
+        suppliers: {
+          select: { name: true }
+        }
+      }
+    });
+
+    if (!purchaseOrder) {
+      throw new NotFoundError('PurchaseOrder', id);
+    }
+
+    // Generate download URL
+    const baseUrl = process.env.API_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const downloadUrl = `${baseUrl}/api/documents/purchase-orders/${id}/pdf`;
+
+    const whatsappUrl = documentGeneratorService.generateWhatsAppLink(
+      phone,
+      'Purchase Order',
+      `PO ${purchaseOrder.poNumber}`,
+      downloadUrl
+    );
+
+    res.json({
+      success: true,
+      data: {
+        whatsappUrl,
+        downloadUrl,
+        poNumber: purchaseOrder.poNumber,
+        supplierName: purchaseOrder.suppliers?.name
+      }
+    });
   }
   /**
    * Generate Cutting Chart PDF
    * GET /api/documents/cutting-chart/:workOrderId/pdf
    */
   async generateCuttingChartPDF(req: Request, res: Response) {
-    try {
-      const { workOrderId } = req.params;
-      const { colorId, extraPercent } = req.query;
+    const { workOrderId } = req.params;
+    const { colorId, extraPercent } = req.query;
 
-      const pdfBuffer = await documentGeneratorService.generateCuttingChartPDF(
-        workOrderId,
-        colorId as string | undefined,
-        {
-          extraPercent: extraPercent ? parseFloat(extraPercent as string) : 1,
-        }
-      );
+    const pdfBuffer = await documentGeneratorService.generateCuttingChartPDF(
+      workOrderId,
+      colorId as string | undefined,
+      {
+        extraPercent: extraPercent ? parseFloat(extraPercent as string) : 1,
+      }
+    );
 
-      const workOrder = await prisma.work_orders.findUnique({
-        where: { id: workOrderId },
-        select: { workOrderNumber: true },
-      });
+    const workOrder = await prisma.work_orders.findUnique({
+      where: { id: workOrderId },
+      select: { workOrderNumber: true },
+    });
 
-      const filename = `CuttingChart_${workOrder?.workOrderNumber || workOrderId}.pdf`;
+    const filename = `CuttingChart_${workOrder?.workOrderNumber || workOrderId}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating cutting chart PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate cutting chart PDF',
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
   /**
    * Generate Transfer Slip PDF
    * GET /api/documents/transfer-slips/:id/pdf
    */
   async generateTransferSlipPDF(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
+    const { id } = req.params;
 
-      const pdfBuffer = await documentGeneratorService.generateTransferSlipPDF(id);
+    const pdfBuffer = await documentGeneratorService.generateTransferSlipPDF(id);
 
-      const slip = await prisma.transfer_slips.findUnique({
-        where: { id },
-        select: { slipNumber: true },
-      });
+    const slip = await prisma.transfer_slips.findUnique({
+      where: { id },
+      select: { slipNumber: true },
+    });
 
-      const filename = `TransferSlip_${slip?.slipNumber || id}.pdf`;
+    const filename = `TransferSlip_${slip?.slipNumber || id}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating transfer slip PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate transfer slip PDF',
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 
   /**
@@ -759,29 +591,21 @@ class DocumentController {
    * GET /api/documents/challans/:id/pdf
    */
   async generateChallanPDF(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
+    const { id } = req.params;
 
-      const pdfBuffer = await documentGeneratorService.generateChallanPDF(id);
+    const pdfBuffer = await documentGeneratorService.generateChallanPDF(id);
 
-      const challan = await prisma.challans.findUnique({
-        where: { id },
-        select: { challanNumber: true },
-      });
+    const challan = await prisma.challans.findUnique({
+      where: { id },
+      select: { challanNumber: true },
+    });
 
-      const filename = `Challan_${challan?.challanNumber || id}.pdf`;
+    const filename = `Challan_${challan?.challanNumber || id}.pdf`;
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-      res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating challan PDF:', error);
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to generate challan PDF',
-      });
-    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   }
 }
 

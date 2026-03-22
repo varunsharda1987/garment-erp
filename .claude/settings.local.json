@@ -319,7 +319,12 @@
       "Bash(bash /tmp/final_count.sh)",
       "Read(//c/Users/NEW/garment-erp/BEGIN {\n  print \"\"\"\"\"\"\"\"=== COMPLEX \\(> 20 routes\\) ===\"\"\"\"\"\"\"\"\n}\n$1 > 20 {\n  printf \"\"\"\"\"\"\"\"%3d routes: %s/**)",
       "Read(//c/Users/NEW/garment-erp/BEGIN {\n  print \"\"\"\"\"\"\"\"/n=== MEDIUM \\(10-20 routes\\) ===\"\"\"\"\"\"\"\"\n}\n$1 >= 10 && $1 <= 20 {\n  printf \"\"\"\"\"\"\"\"%3d routes: %s/**)",
-      "Read(//c/Users/NEW/garment-erp/BEGIN {\n  print \"\"\"\"\"\"\"\"/n=== SIMPLE \\(< 10 routes\\) ===\"\"\"\"\"\"\"\"\n}\n$1 < 10 {\n  printf \"\"\"\"\"\"\"\"%3d routes: %s/**)"
+      "Read(//c/Users/NEW/garment-erp/BEGIN {\n  print \"\"\"\"\"\"\"\"/n=== SIMPLE \\(< 10 routes\\) ===\"\"\"\"\"\"\"\"\n}\n$1 < 10 {\n  printf \"\"\"\"\"\"\"\"%3d routes: %s/**)",
+      "Bash(python3 transform-fabric.py)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/NEW/garment-erp/backend/src/controllers/**)",
+      "Read(//c/Users/NEW/garment-erp/backend/src/routes/**)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",

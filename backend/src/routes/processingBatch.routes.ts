@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import * as processingBatchController from '../controllers/processingBatch.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -9,13 +10,13 @@ const router = Router();
 router.use(authenticateToken);
 
 // Batch management
-router.post('/', processingBatchController.createBatch);
-router.get('/', processingBatchController.getAllBatches);
-router.get('/summary/job-work', processingBatchController.getJobWorkSummary);
-router.get('/processor/:processorId', processingBatchController.getBatchesByProcessor);
-router.get('/:id', processingBatchController.getBatchById);
-router.put('/:id', processingBatchController.updateBatch);
-router.post('/:id/cancel', processingBatchController.cancelBatch);
-router.post('/:id/complete', processingBatchController.completeBatch);
+router.post('/', asyncHandler(processingBatchController.createBatch));
+router.get('/', asyncHandler(processingBatchController.getAllBatches));
+router.get('/summary/job-work', asyncHandler(processingBatchController.getJobWorkSummary));
+router.get('/processor/:processorId', asyncHandler(processingBatchController.getBatchesByProcessor));
+router.get('/:id', asyncHandler(processingBatchController.getBatchById));
+router.put('/:id', asyncHandler(processingBatchController.updateBatch));
+router.post('/:id/cancel', asyncHandler(processingBatchController.cancelBatch));
+router.post('/:id/complete', asyncHandler(processingBatchController.completeBatch));
 
 export default router;

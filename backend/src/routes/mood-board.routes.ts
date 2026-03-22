@@ -4,6 +4,7 @@
  */
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import { uploadStyleImage } from '../middleware/upload.middleware';
 import {
   create,
@@ -20,16 +21,16 @@ import {
 const router = Router();
 
 // Mood board CRUD
-router.get('/', authenticateToken, getAll);
-router.post('/', authenticateToken, create);
-router.get('/:id', authenticateToken, getById);
-router.patch('/:id', authenticateToken, update);
-router.delete('/:id', authenticateToken, deleteMoodBoard);
+router.get('/', authenticateToken, asyncHandler(getAll));
+router.post('/', authenticateToken, asyncHandler(create));
+router.get('/:id', authenticateToken, asyncHandler(getById));
+router.patch('/:id', authenticateToken, asyncHandler(update));
+router.delete('/:id', authenticateToken, asyncHandler(deleteMoodBoard));
 
 // Item management
-router.post('/:id/items', authenticateToken, uploadStyleImage, addItem);
-router.post('/:id/items/bulk-update', authenticateToken, bulkUpdateItems);
-router.patch('/:id/items/:itemId', authenticateToken, updateItem);
-router.delete('/:id/items/:itemId', authenticateToken, deleteItem);
+router.post('/:id/items', authenticateToken, uploadStyleImage, asyncHandler(addItem));
+router.post('/:id/items/bulk-update', authenticateToken, asyncHandler(bulkUpdateItems));
+router.patch('/:id/items/:itemId', authenticateToken, asyncHandler(updateItem));
+router.delete('/:id/items/:itemId', authenticateToken, asyncHandler(deleteItem));
 
 export default router;

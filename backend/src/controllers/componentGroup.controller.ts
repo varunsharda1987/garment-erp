@@ -6,6 +6,7 @@ import {
   reorderComponentGroupsSchema,
 } from '../types/componentGroup.types';
 import { z } from 'zod';
+import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 export class ComponentGroupController {
   /**
@@ -24,27 +25,16 @@ export class ComponentGroupController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation error',
-          errors: error.issues,
-        });
+        throw new ValidationError('Validation error', { errors: error.issues as any });
       }
 
       if (error instanceof Error) {
         if (error.message.includes('already exists')) {
-          return res.status(409).json({
-            success: false,
-            message: error.message,
-          });
+          throw new ConflictError(error.message);
         }
       }
 
-      console.error('Error creating component group:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create component group',
-      });
+      throw error;
     }
   }
 
@@ -53,25 +43,17 @@ export class ComponentGroupController {
    * GET /api/component-groups
    */
   async getComponentGroups(req: Request, res: Response) {
-    try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const search = req.query.search as string | undefined;
-      const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const search = req.query.search as string | undefined;
+    const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
 
-      const result = await componentGroupService.getComponentGroups(page, limit, search, isActive);
+    const result = await componentGroupService.getComponentGroups(page, limit, search, isActive);
 
-      res.json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      console.error('Error fetching component groups:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch component groups',
-      });
-    }
+    res.json({
+      success: true,
+      ...result,
+    });
   }
 
   /**
@@ -79,28 +61,17 @@ export class ComponentGroupController {
    * GET /api/component-groups/:id
    */
   async getComponentGroupById(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const componentGroup = await componentGroupService.getComponentGroupById(id);
+    const { id } = req.params;
+    const componentGroup = await componentGroupService.getComponentGroupById(id);
 
-      if (!componentGroup) {
-        return res.status(404).json({
-          success: false,
-          message: 'Component group not found',
-        });
-      }
-
-      res.json({
-        success: true,
-        data: componentGroup,
-      });
-    } catch (error) {
-      console.error('Error fetching component group:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch component group',
-      });
+    if (!componentGroup) {
+      throw new NotFoundError('Component group', id);
     }
+
+    res.json({
+      success: true,
+      data: componentGroup,
+    });
   }
 
   /**
@@ -108,28 +79,17 @@ export class ComponentGroupController {
    * GET /api/component-groups/code/:code
    */
   async getComponentGroupByCode(req: Request, res: Response) {
-    try {
-      const { code } = req.params;
-      const componentGroup = await componentGroupService.getComponentGroupByCode(code);
+    const { code } = req.params;
+    const componentGroup = await componentGroupService.getComponentGroupByCode(code);
 
-      if (!componentGroup) {
-        return res.status(404).json({
-          success: false,
-          message: 'Component group not found',
-        });
-      }
-
-      res.json({
-        success: true,
-        data: componentGroup,
-      });
-    } catch (error) {
-      console.error('Error fetching component group:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch component group',
-      });
+    if (!componentGroup) {
+      throw new NotFoundError('Component group', code);
     }
+
+    res.json({
+      success: true,
+      data: componentGroup,
+    });
   }
 
   /**
@@ -150,34 +110,20 @@ export class ComponentGroupController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation error',
-          errors: error.issues,
-        });
+        throw new ValidationError('Validation error', { errors: error.issues as any });
       }
 
       if (error instanceof Error) {
         if (error.message === 'Component group not found') {
-          return res.status(404).json({
-            success: false,
-            message: error.message,
-          });
+          throw new NotFoundError('Component group', req.params.id);
         }
 
         if (error.message.includes('already exists')) {
-          return res.status(409).json({
-            success: false,
-            message: error.message,
-          });
+          throw new ConflictError(error.message);
         }
       }
 
-      console.error('Error updating component group:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update component group',
-      });
+      throw error;
     }
   }
 
@@ -198,25 +144,15 @@ export class ComponentGroupController {
     } catch (error) {
       if (error instanceof Error) {
         if (error.message === 'Component group not found') {
-          return res.status(404).json({
-            success: false,
-            message: error.message,
-          });
+          throw new NotFoundError('Component group', req.params.id);
         }
 
         if (error.message.includes('Cannot delete')) {
-          return res.status(400).json({
-            success: false,
-            message: error.message,
-          });
+          throw new ValidationError(error.message);
         }
       }
 
-      console.error('Error deleting component group:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to delete component group',
-      });
+      throw error;
     }
   }
 
@@ -235,18 +171,10 @@ export class ComponentGroupController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation error',
-          errors: error.issues,
-        });
+        throw new ValidationError('Validation error', { errors: error.issues as any });
       }
 
-      console.error('Error reordering component groups:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to reorder component groups',
-      });
+      throw error;
     }
   }
 
@@ -255,23 +183,15 @@ export class ComponentGroupController {
    * GET /api/component-groups/:id/components
    */
   async getComponentsByGroup(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+    const { id } = req.params;
+    const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
 
-      const components = await componentGroupService.getComponentsByGroup(id, isActive);
+    const components = await componentGroupService.getComponentsByGroup(id, isActive);
 
-      res.json({
-        success: true,
-        data: components,
-      });
-    } catch (error) {
-      console.error('Error fetching components by group:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch components',
-      });
-    }
+    res.json({
+      success: true,
+      data: components,
+    });
   }
 }
 

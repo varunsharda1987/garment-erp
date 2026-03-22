@@ -5,44 +5,39 @@
 import { Request, Response } from 'express';
 import { designerDashboardService } from '../services/designer-dashboard.service';
 import { ValidationError } from '../errors';
-import { logError } from '../utils/logger';
 
 /**
  * Get dashboard data (combined endpoint)
  * GET /api/designer/dashboard
  */
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const userId = req.user?.userId;
-    const includeTeam = req.query.includeTeam === 'true';
+  const userId = req.user?.userId;
+  const includeTeam = req.query.includeTeam === 'true';
 
-    // Get stats for the user (or all if includeTeam)
-    const stats = await designerDashboardService.getDashboardStats(includeTeam ? undefined : userId);
+  // Get stats for the user (or all if includeTeam)
+  const stats = await designerDashboardService.getDashboardStats(includeTeam ? undefined : userId);
 
-    // Get recent styles
-    const recentStyles = await designerDashboardService.getRecentStyles(includeTeam ? undefined : userId, 10);
+  // Get recent styles
+  const recentStyles = await designerDashboardService.getRecentStyles(includeTeam ? undefined : userId, 10);
 
-    // Get team activity
-    const activity = await designerDashboardService.getTeamActivity(10);
+  // Get team activity
+  const activity = await designerDashboardService.getTeamActivity(10);
 
-    // Get styles by season
-    const stylesBySeason = await designerDashboardService.getStylesBySeason();
+  // Get styles by season
+  const stylesBySeason = await designerDashboardService.getStylesBySeason();
 
-    // Get mood boards summary
-    const moodBoards = await designerDashboardService.getMoodBoardsSummary(includeTeam ? undefined : userId, 5);
+  // Get mood boards summary
+  const moodBoards = await designerDashboardService.getMoodBoardsSummary(includeTeam ? undefined : userId, 5);
 
-    res.status(200).json({
-      data: {
-        stats,
-        recentStyles,
-        activity,
-        stylesBySeason,
-        moodBoards,
-      },
-    });
-  } catch (error) {
-    handleError(res, error, 'Failed to get dashboard data');
-  }
+  res.status(200).json({
+    data: {
+      stats,
+      recentStyles,
+      activity,
+      stylesBySeason,
+      moodBoards,
+    },
+  });
 };
 
 /**
@@ -50,16 +45,12 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
  * GET /api/designer/activity
  */
 export const getActivity = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const limit = parseInt(req.query.limit as string) || 20;
-    const activity = await designerDashboardService.getTeamActivity(limit);
+  const limit = parseInt(req.query.limit as string) || 20;
+  const activity = await designerDashboardService.getTeamActivity(limit);
 
-    res.status(200).json({
-      data: activity,
-    });
-  } catch (error) {
-    handleError(res, error, 'Failed to get activity feed');
-  }
+  res.status(200).json({
+    data: activity,
+  });
 };
 
 /**
@@ -67,26 +58,22 @@ export const getActivity = async (req: Request, res: Response): Promise<void> =>
  * GET /api/designer/my-styles
  */
 export const getMyStyles = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      throw new ValidationError('User authentication required');
-    }
-
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const status = req.query.status as string;
-
-    const result = await designerDashboardService.getMyStyles(userId, page, limit, status);
-
-    res.status(200).json({
-      data: result.data,
-      pagination: result.pagination,
-    });
-  } catch (error) {
-    handleError(res, error, 'Failed to get my styles');
+  if (!userId) {
+    throw new ValidationError('User authentication required');
   }
+
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const status = req.query.status as string;
+
+  const result = await designerDashboardService.getMyStyles(userId, page, limit, status);
+
+  res.status(200).json({
+    data: result.data,
+    pagination: result.pagination,
+  });
 };
 
 /**
@@ -94,15 +81,11 @@ export const getMyStyles = async (req: Request, res: Response): Promise<void> =>
  * GET /api/designer/styles-by-season
  */
 export const getStylesBySeason = async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const data = await designerDashboardService.getStylesBySeason();
+  const data = await designerDashboardService.getStylesBySeason();
 
-    res.status(200).json({
-      data,
-    });
-  } catch (error) {
-    handleError(res, error, 'Failed to get styles by season');
-  }
+  res.status(200).json({
+    data,
+  });
 };
 
 /**
@@ -110,26 +93,10 @@ export const getStylesBySeason = async (_req: Request, res: Response): Promise<v
  * GET /api/designer/styles-by-customer
  */
 export const getStylesByCustomer = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const limit = parseInt(req.query.limit as string) || 10;
-    const data = await designerDashboardService.getStylesByCustomer(limit);
+  const limit = parseInt(req.query.limit as string) || 10;
+  const data = await designerDashboardService.getStylesByCustomer(limit);
 
-    res.status(200).json({
-      data,
-    });
-  } catch (error) {
-    handleError(res, error, 'Failed to get styles by customer');
-  }
+  res.status(200).json({
+    data,
+  });
 };
-
-/**
- * Error handler helper
- */
-function handleError(res: Response, error: unknown, defaultMessage: string): void {
-  if (error instanceof ValidationError) {
-    res.status(400).json({ error: error.message });
-  } else {
-    logError(defaultMessage, error instanceof Error ? error : new Error(String(error)));
-    res.status(500).json({ error: defaultMessage });
-  }
-}

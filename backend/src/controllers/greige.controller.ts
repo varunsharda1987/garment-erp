@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
 import {
   RawGreigeData,
   SerializedGreige,
@@ -9,6 +9,7 @@ import {
   GreigeWhereClause,
   GreigeUpdateData,
 } from '../types/greige.types';
+import { ValidationError, NotFoundError } from '../errors';
 
 /**
  * Greige Master Controller
@@ -30,7 +31,6 @@ const serializeGreige = (greige: RawGreigeData): SerializedGreige => {
 
 // Get all greige masters with pagination and filters
 export const getAllGreigeMasters = async (req: Request, res: Response) => {
-  try {
     const {
       page = 1,
       limit = 50,
@@ -140,15 +140,10 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching greige masters:', error);
-    res.status(500).json({ error: 'Failed to fetch greige masters' });
-  }
 };
 
 // Get single greige master by ID
 export const getGreigeMasterById = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const greigeMaster = await prisma.greige_master.findUnique({
@@ -189,25 +184,20 @@ export const getGreigeMasterById = async (req: Request, res: Response) => {
     });
 
     if (!greigeMaster) {
-      return res.status(404).json({ error: 'Greige master not found' });
+      throw new NotFoundError('Greige master', id);
     }
 
     // Serialize Decimal fields to numbers
     const serialized = serializeGreige(greigeMaster);
 
     res.json(serialized);
-  } catch (error: unknown) {
-    logError('Error fetching greige master:', error);
-    res.status(500).json({ error: 'Failed to fetch greige master' });
-  }
 };
 
 // Create new greige master
 export const createGreigeMaster = async (req: Request, res: Response) => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const {
@@ -235,9 +225,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
 
     // Validate required fields
     if (!greigeCode || !greigeName || !composition || !greigeWidth) {
-      return res.status(400).json({
-        error: 'Missing required fields: greigeCode, greigeName, composition, greigeWidth',
-      });
+      throw new ValidationError('Missing required fields: greigeCode, greigeName, composition, greigeWidth');
     }
 
     // Check if greige code already exists
@@ -246,7 +234,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     });
 
     if (existingGreige) {
-      return res.status(400).json({ error: 'Greige code already exists' });
+      throw new ValidationError('Greige code already exists');
     }
 
     const greigeMaster = await prisma.greige_master.create({
@@ -314,15 +302,10 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     });
 
     res.status(201).json(greigeMaster);
-  } catch (error: unknown) {
-    logError('Error creating greige master:', error);
-    res.status(500).json({ error: 'Failed to create greige master' });
-  }
 };
 
 // Update greige master
 export const updateGreigeMaster = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const {
       greigeCode,
@@ -353,7 +336,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     });
 
     if (!existingGreige) {
-      return res.status(404).json({ error: 'Greige master not found' });
+      throw new NotFoundError('Greige master', id);
     }
 
     // If updating code, check for duplicates
@@ -363,7 +346,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
       });
 
       if (duplicateCode) {
-        return res.status(400).json({ error: 'Greige code already exists' });
+        throw new ValidationError('Greige code already exists');
       }
     }
 
@@ -445,15 +428,10 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     });
 
     res.json(updatedGreige);
-  } catch (error: unknown) {
-    logError('Error updating greige master:', error);
-    res.status(500).json({ error: 'Failed to update greige master' });
-  }
 };
 
 // Delete greige master
 export const deleteGreigeMaster = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     // Check if greige exists
@@ -469,14 +447,12 @@ export const deleteGreigeMaster = async (req: Request, res: Response) => {
     });
 
     if (!existingGreige) {
-      return res.status(404).json({ error: 'Greige master not found' });
+      throw new NotFoundError('Greige master', id);
     }
 
     // Check if greige has finished fabrics
     if (existingGreige._count.finishedFabrics > 0) {
-      return res.status(400).json({
-        error: `Cannot delete greige master with ${existingGreige._count.finishedFabrics} linked finished fabrics. Please delete or reassign the fabrics first.`,
-      });
+      throw new ValidationError(`Cannot delete greige master with ${existingGreige._count.finishedFabrics} linked finished fabrics. Please delete or reassign the fabrics first.`);
     }
 
     await prisma.greige_master.delete({
@@ -484,15 +460,10 @@ export const deleteGreigeMaster = async (req: Request, res: Response) => {
     });
 
     res.json({ message: 'Greige master deleted successfully' });
-  } catch (error: unknown) {
-    logError('Error deleting greige master:', error);
-    res.status(500).json({ error: 'Failed to delete greige master' });
-  }
 };
 
 // Get greige statistics
 export const getGreigeStatistics = async (req: Request, res: Response) => {
-  try {
     const totalGreige = await prisma.greige_master.count();
     const activeGreige = await prisma.greige_master.count({
       where: { isActive: true },
@@ -530,15 +501,10 @@ export const getGreigeStatistics = async (req: Request, res: Response) => {
         count: Number(item.count),
       })),
     });
-  } catch (error: unknown) {
-    logError('Error fetching greige statistics:', error);
-    res.status(500).json({ error: 'Failed to fetch statistics' });
-  }
 };
 
 // Get pricing history for a greige from fabric_procurement
 export const getGreigePricingHistory = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const { limit = 5 } = req.query;
 
@@ -548,7 +514,7 @@ export const getGreigePricingHistory = async (req: Request, res: Response) => {
     });
 
     if (!greige) {
-      return res.status(404).json({ error: 'Greige master not found' });
+      throw new NotFoundError('Greige master', id);
     }
 
     // Get last N procurements for this greige
@@ -590,24 +556,19 @@ export const getGreigePricingHistory = async (req: Request, res: Response) => {
       greigeCode: greige.greigeCode,
       pricingHistory,
     });
-  } catch (error: unknown) {
-    logError('Error fetching greige pricing history:', error);
-    res.status(500).json({ error: 'Failed to fetch pricing history' });
-  }
 };
 
 // Bulk import greige masters from Excel
 export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
-  try {
     const { greiges } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     if (!greiges || !Array.isArray(greiges)) {
-      return res.status(400).json({ error: 'Invalid data format. Expected array of greiges.' });
+      throw new ValidationError('Invalid data format. Expected array of greiges.');
     }
 
     const results = {
@@ -686,15 +647,10 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
       },
       errors: results.errors,
     });
-  } catch (error: unknown) {
-    logError('Bulk import error:', error);
-    res.status(500).json({ error: 'Failed to import greige masters' });
-  }
 };
 
 // Export all greige masters to Excel format (JSON)
 export const exportGreigeMasters = async (req: Request, res: Response) => {
-  try {
     const greigeMasters = await prisma.greige_master.findMany({
       where: { isActive: true },
       orderBy: { greigeCode: 'asc' },
@@ -754,10 +710,6 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
       data: exportData,
       totalRecords: exportData.length,
     });
-  } catch (error: unknown) {
-    logError('Export error:', error);
-    res.status(500).json({ error: 'Failed to export greige masters' });
-  }
 };
 
 /**
@@ -765,7 +717,6 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
  * GET /api/fabric-management/greige/generic-names
  */
 export const getGenericGreigeNames = async (req: Request, res: Response) => {
-  try {
     const { isActive = 'true' } = req.query;
 
     // Build where clause
@@ -790,15 +741,10 @@ export const getGenericGreigeNames = async (req: Request, res: Response) => {
       .filter((name): name is string => name !== null && name.trim() !== '');
 
     res.json({ names });
-  } catch (error: unknown) {
-    logError('Error fetching generic greige names:', error);
-    res.status(500).json({ error: 'Failed to fetch generic greige names' });
-  }
 };
 
 // Get next auto-generated greige code
 export const getNextGreigeCode = async (req: Request, res: Response) => {
-  try {
     const lastGreige = await prisma.greige_master.findFirst({
       orderBy: { greigeCode: 'desc' },
       select: { greigeCode: true },
@@ -808,8 +754,4 @@ export const getNextGreigeCode = async (req: Request, res: Response) => {
       : 0;
     const nextCode = `GRG-${String(lastNumber + 1).padStart(4, '0')}`;
     return res.json({ code: nextCode });
-  } catch (error: unknown) {
-    logError('Error generating next greige code:', error);
-    return res.status(500).json({ error: 'Failed to generate greige code' });
-  }
 };

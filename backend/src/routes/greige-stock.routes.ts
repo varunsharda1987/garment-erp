@@ -1,7 +1,8 @@
 // Greige Stock Routes
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import StyleStockController from '../controllers/style-stock.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import { UserRole } from '@prisma/client';
 
 const router = Router();
@@ -15,7 +16,7 @@ router.post(
   '/stock-entry',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.INVENTORY),
-  (req, res) => StyleStockController.createGreigeStock(req, res)
+  asyncHandler((req: Request, res: Response) => StyleStockController.createGreigeStock(req, res))
 );
 
 /**
@@ -23,13 +24,13 @@ router.post(
  * @desc    Get generic greige stock (not tied to any style)
  * @access  Protected - All authenticated users
  */
-router.get('/generic-stock', authenticateToken, (req, res) => StyleStockController.getGenericGreigeStock(req, res));
+router.get('/generic-stock', authenticateToken, asyncHandler((req: Request, res: Response) => StyleStockController.getGenericGreigeStock(req, res)));
 
 /**
  * @route   GET /api/greige/summary
  * @desc    Get greige stock summary for unified dashboard
  * @access  Protected - All authenticated users
  */
-router.get('/summary', authenticateToken, (req, res) => StyleStockController.getGreigeStockSummary(req, res));
+router.get('/summary', authenticateToken, asyncHandler((req: Request, res: Response) => StyleStockController.getGreigeStockSummary(req, res)));
 
 export default router;

@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   calculateRequirements,
   generateFabricPO,
@@ -21,16 +22,16 @@ const router = Router();
 router.use(authenticateToken);
 
 // Calculate requirements from cost sheet
-router.get('/calculate', calculateRequirements);
+router.get('/calculate', asyncHandler(calculateRequirements));
 
 // Generate POs
-router.post('/generate/fabric', generateFabricPO);
-router.post('/generate/greige', generateGreigePO);
-router.post('/generate/processing', generateProcessingPO);
-router.post('/generate/trims', generateTrimsPO);
+router.post('/generate/fabric', asyncHandler(generateFabricPO));
+router.post('/generate/greige', asyncHandler(generateGreigePO));
+router.post('/generate/processing', asyncHandler(generateProcessingPO));
+router.post('/generate/trims', asyncHandler(generateTrimsPO));
 
 // Get status and history
-router.get('/status/:costSheetId', getGenerationStatus);
-router.get('/history/:costSheetId', getGenerationHistory);
+router.get('/status/:costSheetId', asyncHandler(getGenerationStatus));
+router.get('/history/:costSheetId', asyncHandler(getGenerationHistory));
 
 export default router;

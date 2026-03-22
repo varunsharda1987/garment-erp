@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   getPermissionMatrix,
   getRoles,
@@ -36,43 +37,43 @@ router.use(authorize(UserRole.ADMIN));
  * @route GET /api/permissions/matrix
  * @desc Get complete permission matrix (DB-backed)
  */
-router.get('/matrix', getPermissionMatrix);
+router.get('/matrix', asyncHandler(getPermissionMatrix));
 
 /**
  * @route GET /api/permissions/roles
  * @desc Get all roles with descriptions
  */
-router.get('/roles', getRoles);
+router.get('/roles', asyncHandler(getRoles));
 
 /**
  * @route GET /api/permissions/roles/:role
  * @desc Get permissions for a specific role
  */
-router.get('/roles/:role', getRolePermissions);
+router.get('/roles/:role', asyncHandler(getRolePermissions));
 
 /**
  * @route GET /api/permissions/modules
  * @desc Get all modules and their permissions
  */
-router.get('/modules', getModules);
+router.get('/modules', asyncHandler(getModules));
 
 /**
  * @route GET /api/permissions/definitions
  * @desc Get permission definitions (metadata)
  */
-router.get('/definitions', getPermissionDefinitions);
+router.get('/definitions', asyncHandler(getPermissionDefinitions));
 
 /**
  * @route GET /api/permissions/check/:role/:permission
  * @desc Check if a role has a specific permission
  */
-router.get('/check/:role/:permission', checkPermission);
+router.get('/check/:role/:permission', asyncHandler(checkPermission));
 
 /**
  * @route GET /api/permissions/audit-log
  * @desc Get permission change audit log
  */
-router.get('/audit-log', getAuditLog);
+router.get('/audit-log', asyncHandler(getAuditLog));
 
 // ============================================
 // WRITE ENDPOINTS
@@ -83,25 +84,25 @@ router.get('/audit-log', getAuditLog);
  * @desc Toggle single permission
  * @body { role: UserRole, permissionKey: string, allowed: boolean }
  */
-router.patch('/toggle', togglePermission);
+router.patch('/toggle', asyncHandler(togglePermission));
 
 /**
  * @route POST /api/permissions/bulk-update
  * @desc Bulk update multiple permissions
  * @body { updates: [{ role, permissionKey, allowed }] }
  */
-router.post('/bulk-update', bulkUpdatePermissions);
+router.post('/bulk-update', asyncHandler(bulkUpdatePermissions));
 
 /**
  * @route POST /api/permissions/reset-defaults
  * @desc Reset all permissions to config defaults
  */
-router.post('/reset-defaults', resetToDefaults);
+router.post('/reset-defaults', asyncHandler(resetToDefaults));
 
 /**
  * @route POST /api/permissions/seed
  * @desc Seed permissions from config (one-time setup)
  */
-router.post('/seed', seedPermissions);
+router.post('/seed', asyncHandler(seedPermissions));
 
 export default router;

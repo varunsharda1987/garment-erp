@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import processorRateV2Service from '../services/processor-rate-v2.service';
 import { serialize } from '../utils/serializer';
+import { ValidationError, NotFoundError } from '../errors';
 import {
   ProcessingTypeV2,
   PrintingTypeV2,
@@ -19,20 +20,12 @@ import {
  * Get all DYEING/PRINTING processors
  */
 export async function getProcessors(req: Request, res: Response) {
-  try {
-    const processors = await processorRateV2Service.getAllDyeingPrintingProcessors();
+  const processors = await processorRateV2Service.getAllDyeingPrintingProcessors();
 
-    res.json(serialize({
-      success: true,
-      data: processors,
-    }));
-  } catch (error: any) {
-    console.error('Error fetching processors:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch processors',
-    });
-  }
+  res.json(serialize({
+    success: true,
+    data: processors,
+  }));
 }
 
 /**
@@ -41,44 +34,30 @@ export async function getProcessors(req: Request, res: Response) {
  * For PRINTING, printingType query param specifies which printing sub-type to get
  */
 export async function getProcessorMatrix(req: Request, res: Response) {
-  try {
-    const { processorId } = req.params;
-    const { processingType, printingType } = req.query;
+  const { processorId } = req.params;
+  const { processingType, printingType } = req.query;
 
-    if (!processingType || !['DYEING', 'PRINTING'].includes(processingType as string)) {
-      return res.status(400).json({
-        success: false,
-        error: 'processingType query parameter must be DYEING or PRINTING',
-      });
-    }
-
-    // Validate printingType for PRINTING
-    if (processingType === 'PRINTING') {
-      if (printingType && !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-        return res.status(400).json({
-          success: false,
-          error: `printingType must be one of: ${PRINTING_TYPES.join(', ')}`,
-        });
-      }
-    }
-
-    const matrix = await processorRateV2Service.getProcessorRateMatrix(
-      processorId,
-      processingType as ProcessingTypeV2,
-      processingType === 'PRINTING' ? (printingType as PrintingTypeV2 || 'PIGMENT') : undefined
-    );
-
-    res.json(serialize({
-      success: true,
-      data: matrix,
-    }));
-  } catch (error: any) {
-    console.error('Error fetching processor matrix:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch processor matrix',
-    });
+  if (!processingType || !['DYEING', 'PRINTING'].includes(processingType as string)) {
+    throw new ValidationError('processingType query parameter must be DYEING or PRINTING');
   }
+
+  // Validate printingType for PRINTING
+  if (processingType === 'PRINTING') {
+    if (printingType && !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
+      throw new ValidationError(`printingType must be one of: ${PRINTING_TYPES.join(', ')}`);
+    }
+  }
+
+  const matrix = await processorRateV2Service.getProcessorRateMatrix(
+    processorId,
+    processingType as ProcessingTypeV2,
+    processingType === 'PRINTING' ? (printingType as PrintingTypeV2 || 'PIGMENT') : undefined
+  );
+
+  res.json(serialize({
+    success: true,
+    data: matrix,
+  }));
 }
 
 /**
@@ -86,20 +65,12 @@ export async function getProcessorMatrix(req: Request, res: Response) {
  * Get all active greige fabrics for row population
  */
 export async function getGreigesForRateCard(req: Request, res: Response) {
-  try {
-    const greiges = await processorRateV2Service.getGreigeFabricsForRateCard();
+  const greiges = await processorRateV2Service.getGreigeFabricsForRateCard();
 
-    res.json(serialize({
-      success: true,
-      data: greiges,
-    }));
-  } catch (error: any) {
-    console.error('Error fetching greiges:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch greiges',
-    });
-  }
+  res.json(serialize({
+    success: true,
+    data: greiges,
+  }));
 }
 
 /**
@@ -107,51 +78,34 @@ export async function getGreigesForRateCard(req: Request, res: Response) {
  * Update slab definitions for a processor
  */
 export async function updateSlabs(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not authenticated',
-      });
-    }
-
-    const { processorId } = req.params;
-    const { processingType, slabs } = req.body;
-
-    if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
-      return res.status(400).json({
-        success: false,
-        error: 'processingType must be DYEING or PRINTING',
-      });
-    }
-
-    if (!Array.isArray(slabs) || slabs.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'slabs must be a non-empty array',
-      });
-    }
-
-    const updatedSlabs = await processorRateV2Service.updateProcessorSlabs(
-      processorId,
-      processingType as ProcessingTypeV2,
-      slabs,
-      userId
-    );
-
-    res.json(serialize({
-      success: true,
-      data: updatedSlabs,
-      message: 'Slabs updated successfully',
-    }));
-  } catch (error: any) {
-    console.error('Error updating slabs:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to update slabs',
-    });
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { processorId } = req.params;
+  const { processingType, slabs } = req.body;
+
+  if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
+    throw new ValidationError('processingType must be DYEING or PRINTING');
+  }
+
+  if (!Array.isArray(slabs) || slabs.length === 0) {
+    throw new ValidationError('slabs must be a non-empty array');
+  }
+
+  const updatedSlabs = await processorRateV2Service.updateProcessorSlabs(
+    processorId,
+    processingType as ProcessingTypeV2,
+    slabs,
+    userId
+  );
+
+  res.json(serialize({
+    success: true,
+    data: updatedSlabs,
+    message: 'Slabs updated successfully',
+  }));
 }
 
 /**
@@ -160,61 +114,44 @@ export async function updateSlabs(req: Request, res: Response) {
  * For PRINTING, printingType in body specifies which printing sub-type to save
  */
 export async function saveMatrix(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not authenticated',
-      });
-    }
-
-    const { processorId } = req.params;
-    const { processingType, printingType, slabs, rates, shrinkages, deletedGreigeIds } = req.body;
-
-    if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
-      return res.status(400).json({
-        success: false,
-        error: 'processingType must be DYEING or PRINTING',
-      });
-    }
-
-    // Validate printingType for PRINTING
-    if (processingType === 'PRINTING') {
-      if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-        return res.status(400).json({
-          success: false,
-          error: `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`,
-        });
-      }
-    }
-
-    const request: SaveMatrixRequest = {
-      slabs: slabs || [],
-      rates: rates || [],
-      shrinkages: shrinkages || [],
-      deletedGreigeIds: deletedGreigeIds || [],
-    };
-
-    await processorRateV2Service.saveProcessorRateMatrix(
-      processorId,
-      processingType as ProcessingTypeV2,
-      processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
-      request,
-      userId
-    );
-
-    res.json(serialize({
-      success: true,
-      message: 'Rate matrix saved successfully',
-    }));
-  } catch (error: any) {
-    console.error('Error saving matrix:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to save rate matrix',
-    });
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { processorId } = req.params;
+  const { processingType, printingType, slabs, rates, shrinkages, deletedGreigeIds } = req.body;
+
+  if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
+    throw new ValidationError('processingType must be DYEING or PRINTING');
+  }
+
+  // Validate printingType for PRINTING
+  if (processingType === 'PRINTING') {
+    if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
+      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+    }
+  }
+
+  const request: SaveMatrixRequest = {
+    slabs: slabs || [],
+    rates: rates || [],
+    shrinkages: shrinkages || [],
+    deletedGreigeIds: deletedGreigeIds || [],
+  };
+
+  await processorRateV2Service.saveProcessorRateMatrix(
+    processorId,
+    processingType as ProcessingTypeV2,
+    processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
+    request,
+    userId
+  );
+
+  res.json(serialize({
+    success: true,
+    message: 'Rate matrix saved successfully',
+  }));
 }
 
 /**
@@ -223,70 +160,47 @@ export async function saveMatrix(req: Request, res: Response) {
  * For PRINTING, printingType specifies which printing sub-type to copy
  */
 export async function copyRates(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not authenticated',
-      });
-    }
-
-    const { sourceProcessorId, targetProcessorId, processingType, printingType, copySlabs, copyRates: copyRatesFlag } = req.body;
-
-    if (!sourceProcessorId || !targetProcessorId) {
-      return res.status(400).json({
-        success: false,
-        error: 'sourceProcessorId and targetProcessorId are required',
-      });
-    }
-
-    if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
-      return res.status(400).json({
-        success: false,
-        error: 'processingType must be DYEING or PRINTING',
-      });
-    }
-
-    // Validate printingType for PRINTING
-    if (processingType === 'PRINTING') {
-      if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-        return res.status(400).json({
-          success: false,
-          error: `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`,
-        });
-      }
-    }
-
-    if (sourceProcessorId === targetProcessorId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Source and target processor must be different',
-      });
-    }
-
-    const input: CopyRatesInput = {
-      sourceProcessorId,
-      targetProcessorId,
-      processingType: processingType as ProcessingTypeV2,
-      printingType: processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
-      copySlabs: copySlabs !== false, // Default to true
-      copyRates: copyRatesFlag === true, // Default to false
-    };
-
-    await processorRateV2Service.copyProcessorRates(input, userId);
-
-    res.json(serialize({
-      success: true,
-      message: 'Rates copied successfully',
-    }));
-  } catch (error: any) {
-    console.error('Error copying rates:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to copy rates',
-    });
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { sourceProcessorId, targetProcessorId, processingType, printingType, copySlabs, copyRates: copyRatesFlag } = req.body;
+
+  if (!sourceProcessorId || !targetProcessorId) {
+    throw new ValidationError('sourceProcessorId and targetProcessorId are required');
+  }
+
+  if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
+    throw new ValidationError('processingType must be DYEING or PRINTING');
+  }
+
+  // Validate printingType for PRINTING
+  if (processingType === 'PRINTING') {
+    if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
+      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+    }
+  }
+
+  if (sourceProcessorId === targetProcessorId) {
+    throw new ValidationError('Source and target processor must be different');
+  }
+
+  const input: CopyRatesInput = {
+    sourceProcessorId,
+    targetProcessorId,
+    processingType: processingType as ProcessingTypeV2,
+    printingType: processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
+    copySlabs: copySlabs !== false, // Default to true
+    copyRates: copyRatesFlag === true, // Default to false
+  };
+
+  await processorRateV2Service.copyProcessorRates(input, userId);
+
+  res.json(serialize({
+    success: true,
+    message: 'Rates copied successfully',
+  }));
 }
 
 /**
@@ -295,54 +209,37 @@ export async function copyRates(req: Request, res: Response) {
  * For PRINTING, printingType specifies which printing sub-type to add the greige to
  */
 export async function addGreige(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not authenticated',
-      });
-    }
-
-    const { processorId, greigeId } = req.params;
-    const { processingType, printingType } = req.body;
-
-    if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
-      return res.status(400).json({
-        success: false,
-        error: 'processingType must be DYEING or PRINTING',
-      });
-    }
-
-    // Validate printingType for PRINTING
-    if (processingType === 'PRINTING') {
-      if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-        return res.status(400).json({
-          success: false,
-          error: `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`,
-        });
-      }
-    }
-
-    await processorRateV2Service.addGreigeToProcessor(
-      processorId,
-      processingType as ProcessingTypeV2,
-      processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
-      greigeId,
-      userId
-    );
-
-    res.json(serialize({
-      success: true,
-      message: 'Greige added successfully',
-    }));
-  } catch (error: any) {
-    console.error('Error adding greige:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to add greige',
-    });
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { processorId, greigeId } = req.params;
+  const { processingType, printingType } = req.body;
+
+  if (!processingType || !['DYEING', 'PRINTING'].includes(processingType)) {
+    throw new ValidationError('processingType must be DYEING or PRINTING');
+  }
+
+  // Validate printingType for PRINTING
+  if (processingType === 'PRINTING') {
+    if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
+      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+    }
+  }
+
+  await processorRateV2Service.addGreigeToProcessor(
+    processorId,
+    processingType as ProcessingTypeV2,
+    processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
+    greigeId,
+    userId
+  );
+
+  res.json(serialize({
+    success: true,
+    message: 'Greige added successfully',
+  }));
 }
 
 /**
@@ -351,45 +248,31 @@ export async function addGreige(req: Request, res: Response) {
  * For PRINTING, printingType query param specifies which printing sub-type to remove from
  */
 export async function removeGreige(req: Request, res: Response) {
-  try {
-    const { processorId, greigeId } = req.params;
-    const { processingType, printingType } = req.query;
+  const { processorId, greigeId } = req.params;
+  const { processingType, printingType } = req.query;
 
-    if (!processingType || !['DYEING', 'PRINTING'].includes(processingType as string)) {
-      return res.status(400).json({
-        success: false,
-        error: 'processingType query parameter must be DYEING or PRINTING',
-      });
-    }
-
-    // Validate printingType for PRINTING
-    if (processingType === 'PRINTING') {
-      if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-        return res.status(400).json({
-          success: false,
-          error: `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`,
-        });
-      }
-    }
-
-    await processorRateV2Service.removeGreigeFromProcessor(
-      processorId,
-      processingType as ProcessingTypeV2,
-      processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
-      greigeId
-    );
-
-    res.json(serialize({
-      success: true,
-      message: 'Greige removed successfully',
-    }));
-  } catch (error: any) {
-    console.error('Error removing greige:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to remove greige',
-    });
+  if (!processingType || !['DYEING', 'PRINTING'].includes(processingType as string)) {
+    throw new ValidationError('processingType query parameter must be DYEING or PRINTING');
   }
+
+  // Validate printingType for PRINTING
+  if (processingType === 'PRINTING') {
+    if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
+      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+    }
+  }
+
+  await processorRateV2Service.removeGreigeFromProcessor(
+    processorId,
+    processingType as ProcessingTypeV2,
+    processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
+    greigeId
+  );
+
+  res.json(serialize({
+    success: true,
+    message: 'Greige removed successfully',
+  }));
 }
 
 /**
@@ -397,20 +280,12 @@ export async function removeGreige(req: Request, res: Response) {
  * Get summary dashboard data for all processors
  */
 export async function getSummary(req: Request, res: Response) {
-  try {
-    const summary = await processorRateV2Service.getProcessorRateCardSummary();
+  const summary = await processorRateV2Service.getProcessorRateCardSummary();
 
-    res.json(serialize({
-      success: true,
-      data: summary,
-    }));
-  } catch (error: any) {
-    console.error('Error fetching summary:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch summary',
-    });
-  }
+  res.json(serialize({
+    success: true,
+    data: summary,
+  }));
 }
 
 /**
@@ -419,59 +294,39 @@ export async function getSummary(req: Request, res: Response) {
  * For PRINTING, printingType specifies which printing sub-type rate to lookup
  */
 export async function lookupRate(req: Request, res: Response) {
-  try {
-    const { processorId, processingType, printingType, greigeId, quantityMeters } = req.body;
+  const { processorId, processingType, printingType, greigeId, quantityMeters } = req.body;
 
-    if (!processorId || !processingType || !greigeId || !quantityMeters) {
-      return res.status(400).json({
-        success: false,
-        error: 'processorId, processingType, greigeId, and quantityMeters are required',
-      });
-    }
-
-    if (!['DYEING', 'PRINTING'].includes(processingType)) {
-      return res.status(400).json({
-        success: false,
-        error: 'processingType must be DYEING or PRINTING',
-      });
-    }
-
-    // Validate printingType for PRINTING
-    if (processingType === 'PRINTING') {
-      if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-        return res.status(400).json({
-          success: false,
-          error: `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`,
-        });
-      }
-    }
-
-    const result = await processorRateV2Service.lookupRate({
-      processorId,
-      processingType: processingType as ProcessingTypeV2,
-      printingType: processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
-      greigeId,
-      quantityMeters: parseFloat(quantityMeters),
-    });
-
-    if (!result) {
-      return res.status(404).json({
-        success: false,
-        error: 'No matching rate found',
-      });
-    }
-
-    res.json(serialize({
-      success: true,
-      data: result,
-    }));
-  } catch (error: any) {
-    console.error('Error looking up rate:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to lookup rate',
-    });
+  if (!processorId || !processingType || !greigeId || !quantityMeters) {
+    throw new ValidationError('processorId, processingType, greigeId, and quantityMeters are required');
   }
+
+  if (!['DYEING', 'PRINTING'].includes(processingType)) {
+    throw new ValidationError('processingType must be DYEING or PRINTING');
+  }
+
+  // Validate printingType for PRINTING
+  if (processingType === 'PRINTING') {
+    if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
+      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+    }
+  }
+
+  const result = await processorRateV2Service.lookupRate({
+    processorId,
+    processingType: processingType as ProcessingTypeV2,
+    printingType: processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined,
+    greigeId,
+    quantityMeters: parseFloat(quantityMeters),
+  });
+
+  if (!result) {
+    throw new NotFoundError('Rate', `processor=${processorId}, greige=${greigeId}`);
+  }
+
+  res.json(serialize({
+    success: true,
+    data: result,
+  }));
 }
 
 // ==========================================
@@ -483,20 +338,12 @@ export async function lookupRate(req: Request, res: Response) {
  * Get all greige lace items for row population
  */
 export async function getGreigeLacesForRateCard(req: Request, res: Response) {
-  try {
-    const laces = await processorRateV2Service.getGreigeLaceForRateCard();
+  const laces = await processorRateV2Service.getGreigeLaceForRateCard();
 
-    res.json(serialize({
-      success: true,
-      data: laces,
-    }));
-  } catch (error: any) {
-    console.error('Error fetching greige laces:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch greige laces',
-    });
-  }
+  res.json(serialize({
+    success: true,
+    data: laces,
+  }));
 }
 
 /**
@@ -504,22 +351,14 @@ export async function getGreigeLacesForRateCard(req: Request, res: Response) {
  * Get lace rate matrix for a processor (DYEING only)
  */
 export async function getLaceProcessorMatrix(req: Request, res: Response) {
-  try {
-    const { processorId } = req.params;
+  const { processorId } = req.params;
 
-    const matrix = await processorRateV2Service.getLaceProcessorRateMatrix(processorId);
+  const matrix = await processorRateV2Service.getLaceProcessorRateMatrix(processorId);
 
-    res.json(serialize({
-      success: true,
-      data: matrix,
-    }));
-  } catch (error: any) {
-    console.error('Error fetching lace processor matrix:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch lace processor matrix',
-    });
-  }
+  res.json(serialize({
+    success: true,
+    data: matrix,
+  }));
 }
 
 /**
@@ -527,43 +366,29 @@ export async function getLaceProcessorMatrix(req: Request, res: Response) {
  * Bulk save lace rate matrix
  */
 export async function saveLaceMatrix(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not authenticated',
-      });
-    }
-
-    const { processorId } = req.params;
-    const { rates } = req.body;
-
-    if (!Array.isArray(rates)) {
-      return res.status(400).json({
-        success: false,
-        error: 'rates must be an array',
-      });
-    }
-
-    const result = await processorRateV2Service.saveLaceRateMatrix(
-      processorId,
-      rates,
-      userId
-    );
-
-    res.json(serialize({
-      success: true,
-      message: `Lace rate matrix saved successfully. ${result.saved} saved, ${result.skipped} skipped.`,
-      data: result,
-    }));
-  } catch (error: any) {
-    console.error('Error saving lace matrix:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to save lace rate matrix',
-    });
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { processorId } = req.params;
+  const { rates } = req.body;
+
+  if (!Array.isArray(rates)) {
+    throw new ValidationError('rates must be an array');
+  }
+
+  const result = await processorRateV2Service.saveLaceRateMatrix(
+    processorId,
+    rates,
+    userId
+  );
+
+  res.json(serialize({
+    success: true,
+    message: `Lace rate matrix saved successfully. ${result.saved} saved, ${result.skipped} skipped.`,
+    data: result,
+  }));
 }
 
 /**
@@ -571,34 +396,23 @@ export async function saveLaceMatrix(req: Request, res: Response) {
  * Add a greige lace row to processor's matrix
  */
 export async function addLace(req: Request, res: Response) {
-  try {
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not authenticated',
-      });
-    }
-
-    const { processorId, laceId } = req.params;
-
-    await processorRateV2Service.addLaceToProcessor(
-      processorId,
-      laceId,
-      userId
-    );
-
-    res.json(serialize({
-      success: true,
-      message: 'Greige lace added successfully',
-    }));
-  } catch (error: any) {
-    console.error('Error adding lace:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to add lace',
-    });
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { processorId, laceId } = req.params;
+
+  await processorRateV2Service.addLaceToProcessor(
+    processorId,
+    laceId,
+    userId
+  );
+
+  res.json(serialize({
+    success: true,
+    message: 'Greige lace added successfully',
+  }));
 }
 
 /**
@@ -606,25 +420,17 @@ export async function addLace(req: Request, res: Response) {
  * Remove a greige lace row from processor's matrix
  */
 export async function removeLace(req: Request, res: Response) {
-  try {
-    const { processorId, laceId } = req.params;
+  const { processorId, laceId } = req.params;
 
-    await processorRateV2Service.removeLaceFromProcessor(
-      processorId,
-      laceId
-    );
+  await processorRateV2Service.removeLaceFromProcessor(
+    processorId,
+    laceId
+  );
 
-    res.json(serialize({
-      success: true,
-      message: 'Greige lace removed successfully',
-    }));
-  } catch (error: any) {
-    console.error('Error removing lace:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to remove lace',
-    });
-  }
+  res.json(serialize({
+    success: true,
+    message: 'Greige lace removed successfully',
+  }));
 }
 
 /**
@@ -632,40 +438,26 @@ export async function removeLace(req: Request, res: Response) {
  * Lookup rate for lace costing
  */
 export async function lookupLaceRate(req: Request, res: Response) {
-  try {
-    const { processorId, laceId, quantityMeters } = req.body;
+  const { processorId, laceId, quantityMeters } = req.body;
 
-    if (!laceId || !quantityMeters) {
-      return res.status(400).json({
-        success: false,
-        error: 'laceId and quantityMeters are required',
-      });
-    }
-
-    const result = await processorRateV2Service.lookupLaceRate({
-      processorId, // Optional - will use SYSTEM_DEFAULT if not provided
-      laceId,
-      quantityMeters: parseFloat(quantityMeters),
-    });
-
-    if (!result) {
-      return res.status(404).json({
-        success: false,
-        error: 'No matching lace rate found',
-      });
-    }
-
-    res.json(serialize({
-      success: true,
-      data: result,
-    }));
-  } catch (error: any) {
-    console.error('Error looking up lace rate:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to lookup lace rate',
-    });
+  if (!laceId || !quantityMeters) {
+    throw new ValidationError('laceId and quantityMeters are required');
   }
+
+  const result = await processorRateV2Service.lookupLaceRate({
+    processorId, // Optional - will use SYSTEM_DEFAULT if not provided
+    laceId,
+    quantityMeters: parseFloat(quantityMeters),
+  });
+
+  if (!result) {
+    throw new NotFoundError('LaceRate', laceId);
+  }
+
+  res.json(serialize({
+    success: true,
+    data: result,
+  }));
 }
 
 export default {

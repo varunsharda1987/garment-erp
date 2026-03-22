@@ -11,6 +11,7 @@ import { version } from '../../package.json';
 import { logError } from '../utils/logger';
 import prisma from '../config/database';
 import { runAllCleanupTasks } from '../services/file-cleanup.service';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -67,7 +68,7 @@ interface HealthCheck {
   error?: string;
 }
 
-router.get('/readiness', async (req: Request, res: Response) => {
+router.get('/readiness', asyncHandler(async (req: Request, res: Response) => {
   const checks: Record<string, HealthCheck> = {};
 
   try {
@@ -105,7 +106,7 @@ router.get('/readiness', async (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     checks,
   });
-});
+}));
 
 /**
  * @swagger
@@ -136,77 +137,69 @@ router.get('/liveness', (req: Request, res: Response) => {
  *       200:
  *         description: Metrics data
  */
-router.get('/metrics', async (req: Request, res: Response) => {
-  try {
-    // System metrics
-    const systemMetrics = {
-      platform: os.platform(),
-      arch: os.arch(),
-      nodeVersion: process.version,
-      cpus: os.cpus().length,
-      totalMemory: `${Math.round(os.totalmem() / 1024 / 1024)}MB`,
-      freeMemory: `${Math.round(os.freemem() / 1024 / 1024)}MB`,
-      uptime: `${Math.round(os.uptime())}s`,
-    };
+router.get('/metrics', asyncHandler(async (req: Request, res: Response) => {
+  // System metrics
+  const systemMetrics = {
+    platform: os.platform(),
+    arch: os.arch(),
+    nodeVersion: process.version,
+    cpus: os.cpus().length,
+    totalMemory: `${Math.round(os.totalmem() / 1024 / 1024)}MB`,
+    freeMemory: `${Math.round(os.freemem() / 1024 / 1024)}MB`,
+    uptime: `${Math.round(os.uptime())}s`,
+  };
 
-    // Process metrics
-    const memUsage = process.memoryUsage();
-    const processMetrics = {
-      pid: process.pid,
-      uptime: `${Math.round(process.uptime())}s`,
-      memory: {
-        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
-        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
-        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
-        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
-      },
-    };
+  // Process metrics
+  const memUsage = process.memoryUsage();
+  const processMetrics = {
+    pid: process.pid,
+    uptime: `${Math.round(process.uptime())}s`,
+    memory: {
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+    },
+  };
 
-    // Database metrics
-    interface DbCountResult {
-      users_count?: number;
-      customers_count?: number;
-      suppliers_count?: number;
-      orders_count?: number;
-    }
-    let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string } = {};
-    try {
-      const dbStart = Date.now();
-      const result = await prisma.$queryRaw<DbCountResult[]>`
-        SELECT
-          (SELECT count(*) FROM "Users") as users_count,
-          (SELECT count(*) FROM "Customers") as customers_count,
-          (SELECT count(*) FROM "Suppliers") as suppliers_count,
-          (SELECT count(*) FROM "Orders") as orders_count
-      `;
-      const dbDuration = Date.now() - dbStart;
-
-      databaseMetrics = {
-        responseTime: `${dbDuration}ms`,
-        counts: result[0] || {},
-      };
-    } catch (error: unknown) {
-      databaseMetrics = {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-
-    res.status(200).json({
-      timestamp: new Date().toISOString(),
-      version,
-      environment: process.env.NODE_ENV || 'development',
-      system: systemMetrics,
-      process: processMetrics,
-      database: databaseMetrics,
-    });
-  } catch (error: unknown) {
-    logError('Error getting metrics:', error);
-    res.status(500).json({
-      error: 'Failed to retrieve metrics',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+  // Database metrics
+  interface DbCountResult {
+    users_count?: number;
+    customers_count?: number;
+    suppliers_count?: number;
+    orders_count?: number;
   }
-});
+  let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string } = {};
+  try {
+    const dbStart = Date.now();
+    const result = await prisma.$queryRaw<DbCountResult[]>`
+      SELECT
+        (SELECT count(*) FROM "Users") as users_count,
+        (SELECT count(*) FROM "Customers") as customers_count,
+        (SELECT count(*) FROM "Suppliers") as suppliers_count,
+        (SELECT count(*) FROM "Orders") as orders_count
+    `;
+    const dbDuration = Date.now() - dbStart;
+
+    databaseMetrics = {
+      responseTime: `${dbDuration}ms`,
+      counts: result[0] || {},
+    };
+  } catch (error: unknown) {
+    databaseMetrics = {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+
+  res.status(200).json({
+    timestamp: new Date().toISOString(),
+    version,
+    environment: process.env.NODE_ENV || 'development',
+    system: systemMetrics,
+    process: processMetrics,
+    database: databaseMetrics,
+  });
+}));
 
 /**
  * @swagger
@@ -237,21 +230,13 @@ router.get('/version', (req: Request, res: Response) => {
  *       200:
  *         description: Cleanup results
  */
-router.post('/cleanup', async (req: Request, res: Response) => {
-  try {
-    const results = await runAllCleanupTasks();
-    res.status(200).json({
-      status: 'success',
-      timestamp: new Date().toISOString(),
-      results,
-    });
-  } catch (error: unknown) {
-    logError('Error running cleanup tasks:', error);
-    res.status(500).json({
-      error: 'Cleanup failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
+router.post('/cleanup', asyncHandler(async (req: Request, res: Response) => {
+  const results = await runAllCleanupTasks();
+  res.status(200).json({
+    status: 'success',
+    timestamp: new Date().toISOString(),
+    results,
+  });
+}));
 
 export default router;

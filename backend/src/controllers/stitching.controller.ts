@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, StitchingIssueStatus } from '@prisma/client';
 
@@ -137,7 +138,6 @@ const issueIncludeOptions = {
 // ============================================
 
 export const getAllStitchingIssues = async (req: Request, res: Response) => {
-  try {
     const {
       page = 1,
       limit = 20,
@@ -204,10 +204,6 @@ export const getAllStitchingIssues = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / Number(limit)),
       },
     });
-  } catch (error) {
-    console.error('Error fetching stitching issues:', error);
-    res.status(500).json({ error: 'Failed to fetch stitching issues' });
-  }
 };
 
 // ============================================
@@ -215,7 +211,6 @@ export const getAllStitchingIssues = async (req: Request, res: Response) => {
 // ============================================
 
 export const getStitchingIssueById = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const [issue, transferSlip] = await Promise.all([
@@ -230,7 +225,7 @@ export const getStitchingIssueById = async (req: Request, res: Response) => {
     ]);
 
     if (!issue) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     const transformed = transformStitchingIssue(issue);
@@ -240,10 +235,6 @@ export const getStitchingIssueById = async (req: Request, res: Response) => {
         transferSlip: transferSlip || null,
       },
     });
-  } catch (error) {
-    console.error('Error fetching stitching issue:', error);
-    res.status(500).json({ error: 'Failed to fetch stitching issue' });
-  }
 };
 
 // ============================================
@@ -251,10 +242,9 @@ export const getStitchingIssueById = async (req: Request, res: Response) => {
 // ============================================
 
 export const createStitchingIssue = async (req: Request, res: Response) => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
     const {
       workOrderId,
@@ -275,7 +265,7 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
     });
 
     if (!workOrder) {
-      return res.status(400).json({ error: 'Work order not found' });
+      throw new ValidationError('Work order not found');
     }
 
     const issueNumber = await generateIssueNumber(workOrder.workOrderNumber);
@@ -319,10 +309,6 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
     }
 
     res.status(201).json({ data: transformStitchingIssue(issue) });
-  } catch (error) {
-    console.error('Error creating stitching issue:', error);
-    res.status(500).json({ error: 'Failed to create stitching issue' });
-  }
 };
 
 // ============================================
@@ -330,7 +316,6 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
 // ============================================
 
 export const updateStitchingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const updateData = req.body;
 
@@ -340,11 +325,11 @@ export const updateStitchingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     if (existing.status === 'COMPLETED') {
-      return res.status(400).json({ error: 'Cannot update completed issue' });
+      throw new ValidationError('Cannot update completed issue');
     }
 
     const issue = await prisma.stitching_issues.update({
@@ -360,10 +345,6 @@ export const updateStitchingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformStitchingIssue(issue) });
-  } catch (error) {
-    console.error('Error updating stitching issue:', error);
-    res.status(500).json({ error: 'Failed to update stitching issue' });
-  }
 };
 
 // ============================================
@@ -371,7 +352,6 @@ export const updateStitchingIssue = async (req: Request, res: Response) => {
 // ============================================
 
 export const deleteStitchingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.stitching_issues.findUnique({
@@ -380,11 +360,11 @@ export const deleteStitchingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     if (existing.status !== 'PENDING_RECEIPT') {
-      return res.status(400).json({ error: 'Can only delete pending issues' });
+      throw new ValidationError('Can only delete pending issues');
     }
 
     await prisma.stitching_issues.delete({
@@ -392,10 +372,6 @@ export const deleteStitchingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ message: 'Stitching issue deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting stitching issue:', error);
-    res.status(500).json({ error: 'Failed to delete stitching issue' });
-  }
 };
 
 // ============================================
@@ -404,7 +380,6 @@ export const deleteStitchingIssue = async (req: Request, res: Response) => {
 
 // Receive from cutting
 export const receiveFromCutting = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const { transferSlipId, skuReceived } = req.body;
 
@@ -414,11 +389,11 @@ export const receiveFromCutting = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     if (existing.status !== 'PENDING_RECEIPT') {
-      return res.status(400).json({ error: 'Can only receive for pending issues' });
+      throw new ValidationError('Can only receive for pending issues');
     }
 
     const issue = await prisma.stitching_issues.update({
@@ -436,15 +411,10 @@ export const receiveFromCutting = async (req: Request, res: Response) => {
     }
 
     res.json({ data: transformStitchingIssue(issue) });
-  } catch (error) {
-    console.error('Error receiving from cutting:', error);
-    res.status(500).json({ error: 'Failed to receive from cutting' });
-  }
 };
 
 // Start stitching
 export const startStitchingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.stitching_issues.findUnique({
@@ -453,11 +423,11 @@ export const startStitchingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     if (existing.status !== 'RECEIVED') {
-      return res.status(400).json({ error: 'Can only start received items' });
+      throw new ValidationError('Can only start received items');
     }
 
     const issue = await prisma.stitching_issues.update({
@@ -470,19 +440,14 @@ export const startStitchingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformStitchingIssue(issue) });
-  } catch (error) {
-    console.error('Error starting stitching:', error);
-    res.status(500).json({ error: 'Failed to start stitching' });
-  }
 };
 
 // Record daily output
 export const recordDailyOutput = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
     const { outputDate, componentId, skuOutputs, remarks } = req.body;
 
@@ -492,11 +457,11 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     if (existing.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Can only record output for in-progress issues' });
+      throw new ValidationError('Can only record output for in-progress issues');
     }
 
     // Create daily output record - stitching_daily_outputs doesn't have aggregate fields
@@ -529,15 +494,10 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
     });
 
     res.json({ data: dailyOutput });
-  } catch (error) {
-    console.error('Error recording daily output:', error);
-    res.status(500).json({ error: 'Failed to record daily output' });
-  }
 };
 
 // Complete stitching issue
 export const completeStitchingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.stitching_issues.findUnique({
@@ -546,11 +506,11 @@ export const completeStitchingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     if (existing.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Can only complete in-progress issues' });
+      throw new ValidationError('Can only complete in-progress issues');
     }
 
     // Validate that at least some output has been recorded
@@ -574,15 +534,10 @@ export const completeStitchingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformStitchingIssue(issue) });
-  } catch (error) {
-    console.error('Error completing stitching:', error);
-    res.status(500).json({ error: 'Failed to complete stitching' });
-  }
 };
 
 // Reopen a completed stitching issue (back to IN_PROGRESS)
 export const reopenStitchingIssue = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.stitching_issues.findUnique({
@@ -591,11 +546,11 @@ export const reopenStitchingIssue = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     if (existing.status !== 'COMPLETED') {
-      return res.status(400).json({ error: 'Can only reopen completed issues' });
+      throw new ValidationError('Can only reopen completed issues');
     }
 
     // Check no transfer slip has been generated
@@ -618,19 +573,14 @@ export const reopenStitchingIssue = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformStitchingIssue(issue) });
-  } catch (error) {
-    console.error('Error reopening stitching issue:', error);
-    res.status(500).json({ error: 'Failed to reopen stitching issue' });
-  }
 };
 
 // Generate transfer slip to finishing
 export const generateTransferSlip = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const issue = await prisma.stitching_issues.findUnique({
@@ -647,11 +597,11 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     });
 
     if (!issue) {
-      return res.status(404).json({ error: 'Stitching issue not found' });
+      throw new NotFoundError('Stitching issue', id);
     }
 
     if (issue.status !== 'COMPLETED') {
-      return res.status(400).json({ error: 'Can only generate transfer slip for completed issues' });
+      throw new ValidationError('Can only generate transfer slip for completed issues');
     }
 
     // Generate slip number
@@ -715,10 +665,6 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
         slipNumber: transferSlip.slipNumber,
       },
     });
-  } catch (error) {
-    console.error('Error generating transfer slip:', error);
-    res.status(500).json({ error: 'Failed to generate transfer slip' });
-  }
 };
 
 // ============================================
@@ -726,7 +672,6 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
 // ============================================
 
 export const getSummary = async (req: Request, res: Response) => {
-  try {
     const [statusCounts, byManager, skuTotals, outputTotals] = await Promise.all([
       prisma.stitching_issues.groupBy({
         by: ['status'],
@@ -778,14 +723,9 @@ export const getSummary = async (req: Request, res: Response) => {
         }),
       },
     });
-  } catch (error) {
-    console.error('Error fetching stitching summary:', error);
-    res.status(500).json({ error: 'Failed to fetch stitching summary' });
-  }
 };
 
 export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
-  try {
     const { workOrderId } = req.params;
 
     const [statusCounts, issues] = await Promise.all([
@@ -835,14 +775,9 @@ export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
         byManager: [],
       },
     });
-  } catch (error) {
-    console.error('Error fetching stitching summary by work order:', error);
-    res.status(500).json({ error: 'Failed to fetch stitching summary' });
-  }
 };
 
 export const getSummaryByManager = async (req: Request, res: Response) => {
-  try {
     const { managerId } = req.params;
 
     const [statusCounts, issues] = await Promise.all([
@@ -891,15 +826,10 @@ export const getSummaryByManager = async (req: Request, res: Response) => {
         byManager: [],
       },
     });
-  } catch (error) {
-    console.error('Error fetching stitching summary by manager:', error);
-    res.status(500).json({ error: 'Failed to fetch stitching summary' });
-  }
 };
 
 // Style-size-wise summary across all active stitching issues
 export const getStyleSizeSummary = async (req: Request, res: Response) => {
-  try {
     const issues = await prisma.stitching_issues.findMany({
       where: { isActive: true },
       include: {
@@ -1058,15 +988,10 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     });
 
     res.json({ data });
-  } catch (error) {
-    console.error('Error fetching style-size summary:', error);
-    res.status(500).json({ error: 'Failed to fetch style-size summary' });
-  }
 };
 
 // Get available transfer slips from cutting (pending receipt)
 export const getAvailableTransferSlips = async (req: Request, res: Response) => {
-  try {
     const slips = await prisma.transfer_slips.findMany({
       where: {
         fromStage: 'CUTTING',
@@ -1111,15 +1036,10 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
         })),
       })),
     });
-  } catch (error) {
-    console.error('Error fetching available transfer slips:', error);
-    res.status(500).json({ error: 'Failed to fetch available transfer slips' });
-  }
 };
 
 // Get available stitching contractors (suppliers with STITCHING_CONTRACTOR category)
 export const getAvailableManagers = async (req: Request, res: Response) => {
-  try {
     const contractors = await prisma.suppliers.findMany({
       where: {
         isActive: true,
@@ -1138,8 +1058,4 @@ export const getAvailableManagers = async (req: Request, res: Response) => {
     });
 
     res.json({ data: contractors });
-  } catch (error) {
-    console.error('Error fetching stitching contractors:', error);
-    res.status(500).json({ error: 'Failed to fetch stitching contractors' });
-  }
 };

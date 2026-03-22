@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getMasterDataSummary } from '../controllers/masterDataDashboard.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -10,6 +11,6 @@ const router = Router();
  */
 
 // Get summary of all master data types
-router.get('/summary', authenticateToken, getMasterDataSummary);
+router.get('/summary', authenticateToken, asyncHandler(getMasterDataSummary));
 
 export default router;

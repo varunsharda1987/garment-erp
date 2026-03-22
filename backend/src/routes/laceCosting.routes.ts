@@ -9,6 +9,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   calculateSingleLaceCost,
   calculateBatchLaceCosts,
@@ -26,7 +27,7 @@ router.use(authenticateToken);
  * @access  Private
  * @body    laceId, quantityPerGarment, orderQuantity?, wastagePercent?, styleId?, costSheetId?
  */
-router.post('/calculate', calculateSingleLaceCost);
+router.post('/calculate', asyncHandler(calculateSingleLaceCost));
 
 /**
  * @route   POST /api/lace-costing/batch-calculate
@@ -34,7 +35,7 @@ router.post('/calculate', calculateSingleLaceCost);
  * @access  Private
  * @body    laceItems[], orderQuantity?, styleId?, costSheetId?
  */
-router.post('/batch-calculate', calculateBatchLaceCosts);
+router.post('/batch-calculate', asyncHandler(calculateBatchLaceCosts));
 
 /**
  * @route   POST /api/lace-costing/validate-po
@@ -48,6 +49,6 @@ router.post('/batch-calculate', calculateBatchLaceCosts);
  * - labDipId: string | null - Lab dip ID if exists
  * - message: string - Descriptive message
  */
-router.post('/validate-po', validateLaceCostingForPO);
+router.post('/validate-po', asyncHandler(validateLaceCostingForPO));
 
 export default router;

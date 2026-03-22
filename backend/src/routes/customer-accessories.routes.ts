@@ -10,6 +10,7 @@ import {
   cloneAccessoryPreset,
 } from '../controllers/customer-accessories.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -22,21 +23,21 @@ router.use(authenticate);
  * @access  All authenticated users
  * @query   isActive - Filter by active status (true/false)
  */
-router.get('/:customerId/accessory-presets', getCustomerAccessoryPresets);
+router.get('/:customerId/accessory-presets', asyncHandler(getCustomerAccessoryPresets));
 
 /**
  * @route   GET /api/customers/:customerId/accessory-presets/default
  * @desc    Get the default accessory preset for a customer
  * @access  All authenticated users
  */
-router.get('/:customerId/accessory-presets/default', getDefaultAccessoryPreset);
+router.get('/:customerId/accessory-presets/default', asyncHandler(getDefaultAccessoryPreset));
 
 /**
  * @route   GET /api/customers/:customerId/accessory-presets/:presetId
  * @desc    Get a specific accessory preset by ID
  * @access  All authenticated users
  */
-router.get('/:customerId/accessory-presets/:presetId', getCustomerAccessoryPresetById);
+router.get('/:customerId/accessory-presets/:presetId', asyncHandler(getCustomerAccessoryPresetById));
 
 /**
  * @route   POST /api/customers/:customerId/accessory-presets
@@ -47,7 +48,7 @@ router.get('/:customerId/accessory-presets/:presetId', getCustomerAccessoryPrese
 router.post(
   '/:customerId/accessory-presets',
   authorize('ADMIN', 'MERCHANDISER'),
-  createAccessoryPreset
+  asyncHandler(createAccessoryPreset)
 );
 
 /**
@@ -58,7 +59,7 @@ router.post(
 router.put(
   '/:customerId/accessory-presets/:presetId',
   authorize('ADMIN', 'MERCHANDISER'),
-  updateAccessoryPreset
+  asyncHandler(updateAccessoryPreset)
 );
 
 /**
@@ -69,7 +70,7 @@ router.put(
 router.delete(
   '/:customerId/accessory-presets/:presetId',
   authorize('ADMIN'),
-  deleteAccessoryPreset
+  asyncHandler(deleteAccessoryPreset)
 );
 
 /**
@@ -80,7 +81,7 @@ router.delete(
 router.post(
   '/:customerId/accessory-presets/:presetId/set-default',
   authorize('ADMIN', 'MERCHANDISER'),
-  setDefaultPreset
+  asyncHandler(setDefaultPreset)
 );
 
 /**
@@ -92,7 +93,7 @@ router.post(
 router.post(
   '/:customerId/accessory-presets/:presetId/clone',
   authorize('ADMIN', 'MERCHANDISER'),
-  cloneAccessoryPreset
+  asyncHandler(cloneAccessoryPreset)
 );
 
 export default router;

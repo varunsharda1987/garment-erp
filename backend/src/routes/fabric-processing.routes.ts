@@ -13,6 +13,7 @@ import {
   getMillPerformance,
 } from '../controllers/fabric-processing.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -21,18 +22,18 @@ router.use(authenticateToken);
 
 // GET /api/processing/mill-performance - Mill performance analytics
 // Must come BEFORE /:id route to avoid conflict
-router.get('/mill-performance', getMillPerformance);
+router.get('/mill-performance', asyncHandler(getMillPerformance));
 
 // GET /api/processing - List all processing batches with filters
-router.get('/', listProcessingBatches);
+router.get('/', asyncHandler(listProcessingBatches));
 
 // GET /api/processing/:id - Get processing batch details
-router.get('/:id', getProcessingDetails);
+router.get('/:id', asyncHandler(getProcessingDetails));
 
 // POST /api/processing - Send greige for processing
-router.post('/', sendForProcessing);
+router.post('/', asyncHandler(sendForProcessing));
 
 // PUT /api/processing/:id/receive - Receive finished fabric
-router.put('/:id/receive', receiveFinishedFabric);
+router.put('/:id/receive', asyncHandler(receiveFinishedFabric));
 
 export default router;

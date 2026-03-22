@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
@@ -169,7 +170,6 @@ const generateLabDipNumber = async (processType: string, styleCode: string): Pro
 
 // Get all lab dips
 export const getAllLabDips = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const {
       page = '1',
       limit = '10',
@@ -240,14 +240,10 @@ export const getAllLabDips = async (req: Request, res: Response, next: NextFunct
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Get lab dip by ID
 export const getLabDipById = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
 
     const labDip = await prisma.lab_dips.findUnique({
@@ -261,24 +257,20 @@ export const getLabDipById = async (req: Request, res: Response, next: NextFunct
     });
 
     if (!labDip) {
-      return res.status(404).json({ error: 'Lab dip not found' });
+      throw new NotFoundError('Lab dip', id);
     }
 
     const transformed = transformLabDip(labDip as any);
     transformed.jobWorkOrders = (labDip as any).jobWorkOrders?.map(transformJobWorkOrder) || [];
 
     res.json({ data: transformed });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Create lab dip
 export const createLabDip = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const {
@@ -303,7 +295,7 @@ export const createLabDip = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!style) {
-      return res.status(404).json({ error: 'Style not found' });
+      throw new NotFoundError('Style', styleId);
     }
 
     const labDipNumber = await generateLabDipNumber(processType, style.styleCode);
@@ -330,14 +322,10 @@ export const createLabDip = async (req: Request, res: Response, next: NextFuncti
     });
 
     res.status(201).json({ data: transformLabDip(labDip as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Update lab dip
 export const updateLabDip = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const {
       designArtwork,
@@ -357,12 +345,12 @@ export const updateLabDip = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Lab dip not found' });
+      throw new NotFoundError('Lab dip', id);
     }
 
     // Don't allow update if already approved
     if (existing.status === 'APPROVED') {
-      return res.status(400).json({ error: 'Cannot update an approved lab dip' });
+      throw new ValidationError('Cannot update an approved lab dip');
     }
 
     const updateData: any = {};
@@ -388,14 +376,10 @@ export const updateLabDip = async (req: Request, res: Response, next: NextFuncti
     });
 
     res.json({ data: transformLabDip(labDip as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Delete lab dip
 export const deleteLabDip = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.lab_dips.findUnique({
@@ -404,31 +388,27 @@ export const deleteLabDip = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Lab dip not found' });
+      throw new NotFoundError('Lab dip', id);
     }
 
     // Don't allow delete if job work orders exist
     if ((existing as any).jobWorkOrders?.length > 0) {
-      return res.status(400).json({ error: 'Cannot delete lab dip with existing job work orders' });
+      throw new ValidationError('Cannot delete lab dip with existing job work orders');
     }
 
     await prisma.lab_dips.delete({ where: { id } });
 
     res.json({ message: 'Lab dip deleted successfully' });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Approve lab dip
 export const approveLabDip = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const userId = req.user?.userId;
     const { approvedSampleNo, colorMatchRating, remarks } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const existing = await prisma.lab_dips.findUnique({
@@ -436,11 +416,11 @@ export const approveLabDip = async (req: Request, res: Response, next: NextFunct
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Lab dip not found' });
+      throw new NotFoundError('Lab dip', id);
     }
 
     if (existing.status === 'APPROVED') {
-      return res.status(400).json({ error: 'Lab dip is already approved' });
+      throw new ValidationError('Lab dip is already approved');
     }
 
     const labDip = await prisma.lab_dips.update({
@@ -457,24 +437,20 @@ export const approveLabDip = async (req: Request, res: Response, next: NextFunct
     });
 
     res.json({ data: transformLabDip(labDip as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Reject lab dip
 export const rejectLabDip = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const userId = req.user?.userId;
     const { rejectionReason, remarks } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     if (!rejectionReason) {
-      return res.status(400).json({ error: 'Rejection reason is required' });
+      throw new ValidationError('Rejection reason is required');
     }
 
     const existing = await prisma.lab_dips.findUnique({
@@ -482,11 +458,11 @@ export const rejectLabDip = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Lab dip not found' });
+      throw new NotFoundError('Lab dip', id);
     }
 
     if (existing.status === 'APPROVED') {
-      return res.status(400).json({ error: 'Cannot reject an approved lab dip' });
+      throw new ValidationError('Cannot reject an approved lab dip');
     }
 
     const labDip = await prisma.lab_dips.update({
@@ -500,14 +476,10 @@ export const rejectLabDip = async (req: Request, res: Response, next: NextFuncti
     });
 
     res.json({ data: transformLabDip(labDip as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Request resubmission
 export const requestResubmit = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const { remarks } = req.body;
 
@@ -516,7 +488,7 @@ export const requestResubmit = async (req: Request, res: Response, next: NextFun
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Lab dip not found' });
+      throw new NotFoundError('Lab dip', id);
     }
 
     const labDip = await prisma.lab_dips.update({
@@ -529,14 +501,10 @@ export const requestResubmit = async (req: Request, res: Response, next: NextFun
     });
 
     res.json({ data: transformLabDip(labDip as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Get approved lab dips
 export const getApprovedLabDips = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { processType = 'PRINTING', styleId } = req.query;
 
     const where: Prisma.lab_dipsWhereInput = {
@@ -555,14 +523,10 @@ export const getApprovedLabDips = async (req: Request, res: Response, next: Next
     });
 
     res.json({ data: labDips.map(transformLabDip) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Search lab dips
 export const searchLabDips = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { q, processType = 'PRINTING' } = req.query;
 
     if (!q || (q as string).length < 2) {
@@ -583,9 +547,6 @@ export const searchLabDips = async (req: Request, res: Response, next: NextFunct
     });
 
     res.json({ data: labDips.map(transformLabDip) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // ============================================
@@ -611,7 +572,6 @@ const generateJobWorkNumber = async (processType: string, styleCode: string): Pr
 
 // Get all print jobs
 export const getAllPrintJobs = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const {
       page = '1',
       limit = '10',
@@ -687,14 +647,10 @@ export const getAllPrintJobs = async (req: Request, res: Response, next: NextFun
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Get print job by ID
 export const getPrintJobById = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
 
     const job = await prisma.job_work_orders.findUnique({
@@ -703,21 +659,17 @@ export const getPrintJobById = async (req: Request, res: Response, next: NextFun
     });
 
     if (!job) {
-      return res.status(404).json({ error: 'Print job not found' });
+      throw new NotFoundError('Print job', id);
     }
 
     res.json({ data: transformJobWorkOrder(job as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Create print job
 export const createPrintJob = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const {
@@ -743,11 +695,11 @@ export const createPrintJob = async (req: Request, res: Response, next: NextFunc
     });
 
     if (!labDip) {
-      return res.status(404).json({ error: 'Lab dip not found' });
+      throw new NotFoundError('Lab dip', labDipId);
     }
 
     if (labDip.status !== 'APPROVED') {
-      return res.status(400).json({ error: 'Lab dip must be approved before creating a job' });
+      throw new ValidationError('Lab dip must be approved before creating a job');
     }
 
     // Get fabric stock to validate
@@ -756,11 +708,11 @@ export const createPrintJob = async (req: Request, res: Response, next: NextFunc
     });
 
     if (!fabricStock) {
-      return res.status(404).json({ error: 'Fabric stock lot not found' });
+      throw new NotFoundError('Fabric stock lot', fabricStockLotId);
     }
 
     if (Number(fabricStock.quantityAvailable) < qtySentMeters) {
-      return res.status(400).json({ error: 'Insufficient fabric stock' });
+      throw new ValidationError('Insufficient fabric stock');
     }
 
     const jobWorkNumber = await generateJobWorkNumber(processType, (labDip as any).style.styleCode);
@@ -789,14 +741,10 @@ export const createPrintJob = async (req: Request, res: Response, next: NextFunc
     });
 
     res.status(201).json({ data: transformJobWorkOrder(job as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Update print job
 export const updatePrintJob = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const {
       fabricStockLotId,
@@ -815,12 +763,12 @@ export const updatePrintJob = async (req: Request, res: Response, next: NextFunc
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Print job not found' });
+      throw new NotFoundError('Print job', id);
     }
 
     // Don't allow update if already sent
     if (existing.sentDate) {
-      return res.status(400).json({ error: 'Cannot update a job that has already been sent to mill' });
+      throw new ValidationError('Cannot update a job that has already been sent to mill');
     }
 
     const updateData: any = {};
@@ -842,14 +790,10 @@ export const updatePrintJob = async (req: Request, res: Response, next: NextFunc
     });
 
     res.json({ data: transformJobWorkOrder(job as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Delete print job
 export const deletePrintJob = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.job_work_orders.findUnique({
@@ -857,25 +801,21 @@ export const deletePrintJob = async (req: Request, res: Response, next: NextFunc
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Print job not found' });
+      throw new NotFoundError('Print job', id);
     }
 
     // Don't allow delete if already sent
     if (existing.sentDate) {
-      return res.status(400).json({ error: 'Cannot delete a job that has already been sent to mill' });
+      throw new ValidationError('Cannot delete a job that has already been sent to mill');
     }
 
     await prisma.job_work_orders.delete({ where: { id } });
 
     res.json({ message: 'Print job deleted successfully' });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Send fabric to mill
 export const sendToMill = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const { sentDate, challanNumber, vehicleNumber } = req.body;
     const userId = (req as any).user?.userId || (req as any).user?.id;
@@ -910,11 +850,11 @@ export const sendToMill = async (req: Request, res: Response, next: NextFunction
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Print job not found' });
+      throw new NotFoundError('Print job', id);
     }
 
     if (existing.sentDate) {
-      return res.status(400).json({ error: 'Fabric has already been sent to mill' });
+      throw new ValidationError('Fabric has already been sent to mill');
     }
 
     // Update fabric stock - reduce available quantity
@@ -1027,14 +967,10 @@ export const sendToMill = async (req: Request, res: Response, next: NextFunction
     });
 
     res.json({ data: transformJobWorkOrder(job as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Receive fabric from mill
 export const receiveFromMill = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const {
       qtyReceivedMeters,
@@ -1051,15 +987,15 @@ export const receiveFromMill = async (req: Request, res: Response, next: NextFun
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Print job not found' });
+      throw new NotFoundError('Print job', id);
     }
 
     if (!existing.sentDate) {
-      return res.status(400).json({ error: 'Fabric has not been sent to mill yet' });
+      throw new ValidationError('Fabric has not been sent to mill yet');
     }
 
     if (existing.receivedDate) {
-      return res.status(400).json({ error: 'Fabric has already been received' });
+      throw new ValidationError('Fabric has already been received');
     }
 
     // Calculate actual meters from than measurement if provided
@@ -1112,14 +1048,10 @@ export const receiveFromMill = async (req: Request, res: Response, next: NextFun
     });
 
     res.json({ data: transformJobWorkOrder(job as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Quality check
 export const qualityCheck = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const {
       qualityGrade,
@@ -1135,11 +1067,11 @@ export const qualityCheck = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Print job not found' });
+      throw new NotFoundError('Print job', id);
     }
 
     if (!existing.receivedDate) {
-      return res.status(400).json({ error: 'Fabric has not been received yet' });
+      throw new ValidationError('Fabric has not been received yet');
     }
 
     const job = await prisma.job_work_orders.update({
@@ -1157,14 +1089,10 @@ export const qualityCheck = async (req: Request, res: Response, next: NextFuncti
     });
 
     res.json({ data: transformJobWorkOrder(job as any) });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Update stock after quality check — creates fabric_stock entry for finished fabric
 export const updateStock = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const userId = (req as any).user?.userId || (req as any).user?.id;
 
@@ -1177,15 +1105,15 @@ export const updateStock = async (req: Request, res: Response, next: NextFunctio
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Print job not found' });
+      throw new NotFoundError('Print job', id);
     }
 
     if (existing.status !== 'QUALITY_CHECKED') {
-      return res.status(400).json({ error: 'Quality check must be completed first' });
+      throw new ValidationError('Quality check must be completed first');
     }
 
     if (!existing.finishedFabricId) {
-      return res.status(400).json({ error: 'No finished fabric linked. Was sendToMill completed properly?' });
+      throw new ValidationError('No finished fabric linked. Was sendToMill completed properly?');
     }
 
     const goodQty = Number(existing.qtyReceivedMeters) - Number(existing.defectMeters || 0);
@@ -1268,9 +1196,6 @@ export const updateStock = async (req: Request, res: Response, next: NextFunctio
         fabricFinishType: 'PRINTED',
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // ============================================
@@ -1393,7 +1318,6 @@ const computeProcessPOStatus = (po: any): string => {
 
 // 1. Get all Process POs for Printing
 export const getProcessPOs = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const {
       page = '1',
       limit = '10',
@@ -1473,14 +1397,10 @@ export const getProcessPOs = async (req: Request, res: Response, next: NextFunct
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // 2. Get single Process PO by ID
 export const getProcessPOById = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
 
     const po = await prisma.purchase_orders.findUnique({
@@ -1489,7 +1409,7 @@ export const getProcessPOById = async (req: Request, res: Response, next: NextFu
     });
 
     if (!po) {
-      return res.status(404).json({ error: 'Process PO not found' });
+      throw new NotFoundError('Process PO', id);
     }
 
     const result = {
@@ -1498,17 +1418,13 @@ export const getProcessPOById = async (req: Request, res: Response, next: NextFu
     };
 
     res.json({ data: result });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // 3. Create Process PO (PO + Job Work Order together)
 export const createProcessPO = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const {
@@ -1525,11 +1441,11 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
     } = req.body;
 
     if (!labDipId || !qtySentMeters || !sentWidthInches || !agreedRatePerMeter) {
-      return res.status(400).json({ error: 'Missing required fields: labDipId, qtySentMeters, sentWidthInches, agreedRatePerMeter' });
+      throw new ValidationError('Missing required fields: labDipId, qtySentMeters, sentWidthInches, agreedRatePerMeter');
     }
 
     if (!greigeStockLotId && !fabricStockLotId) {
-      return res.status(400).json({ error: 'Either greigeStockLotId or fabricStockLotId is required' });
+      throw new ValidationError('Either greigeStockLotId or fabricStockLotId is required');
     }
 
     // Validate lab dip exists and is APPROVED
@@ -1543,11 +1459,11 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
     });
 
     if (!labDip) {
-      return res.status(404).json({ error: 'Lab dip not found' });
+      throw new NotFoundError('Lab dip', labDipId);
     }
 
     if (labDip.status !== 'APPROVED') {
-      return res.status(400).json({ error: 'Lab dip must be approved before creating a Process PO' });
+      throw new ValidationError('Lab dip must be approved before creating a Process PO');
     }
 
     // Validate stock source (greige_stock preferred, fabric_stock as fallback)
@@ -1559,7 +1475,7 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
       });
 
       if (!greigeStock) {
-        return res.status(404).json({ error: 'Greige stock lot not found' });
+        throw new NotFoundError('Greige stock lot', greigeStockLotId);
       }
 
       if (Number(greigeStock.quantityAvailable) < qtySentMeters) {
@@ -1576,7 +1492,7 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
       });
 
       if (!fabricStock) {
-        return res.status(404).json({ error: 'Fabric stock lot not found' });
+        throw new NotFoundError('Fabric stock lot', fabricStockLotId);
       }
     } else {
       // If no fabricStockLotId provided, find or use the first available fabric stock
@@ -1697,14 +1613,10 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
         processPOStatus: computeProcessPOStatus(result),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // 4. Delete Process PO (only DRAFT/READY_TO_SEND)
 export const deleteProcessPO = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
 
     const po = await prisma.purchase_orders.findUnique({
@@ -1715,7 +1627,7 @@ export const deleteProcessPO = async (req: Request, res: Response, next: NextFun
     });
 
     if (!po) {
-      return res.status(404).json({ error: 'Process PO not found' });
+      throw new NotFoundError('Process PO', id);
     }
 
     const job = (po as any).jobWorkOrder;
@@ -1742,20 +1654,16 @@ export const deleteProcessPO = async (req: Request, res: Response, next: NextFun
     });
 
     res.json({ message: 'Process PO deleted successfully' });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // 5. Send Process PO to Mill (dispatch greige + auto OUTWARD challan)
 export const sendProcessPO = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const { sentDate, challanNumber, vehicleNumber } = req.body;
     const userId = (req as any).user?.userId || (req as any).user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const po = await prisma.purchase_orders.findUnique({
@@ -1794,12 +1702,12 @@ export const sendProcessPO = async (req: Request, res: Response, next: NextFunct
     });
 
     if (!po) {
-      return res.status(404).json({ error: 'Process PO not found' });
+      throw new NotFoundError('Process PO', id);
     }
 
     const job = (po as any).jobWorkOrder;
     if (!job) {
-      return res.status(400).json({ error: 'No job work order linked to this PO' });
+      throw new ValidationError('No job work order linked to this PO');
     }
 
     if (job.status !== 'READY_TO_SEND') {
@@ -1931,7 +1839,6 @@ export const sendProcessPO = async (req: Request, res: Response, next: NextFunct
       outwardChallanId = challan.id;
     } catch (challanError) {
       // Log but don't fail the send operation if challan creation fails
-      console.error('Failed to create outward challan:', challanError);
     }
 
     // Update job work order
@@ -1965,14 +1872,10 @@ export const sendProcessPO = async (req: Request, res: Response, next: NextFunct
         processPOStatus: computeProcessPOStatus(fullPO),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // 6. Receive Process PO from Mill (receive fabric + auto INWARD challan)
 export const receiveProcessPO = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const {
       qtyReceivedMeters,
@@ -1986,7 +1889,7 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
     const userId = (req as any).user?.userId || (req as any).user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const po = await prisma.purchase_orders.findUnique({
@@ -2002,7 +1905,7 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
     });
 
     if (!po) {
-      return res.status(404).json({ error: 'Process PO not found' });
+      throw new NotFoundError('Process PO', id);
     }
 
     // Conflict guard: check if already received via GRN
@@ -2017,7 +1920,7 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
 
     const job = (po as any).jobWorkOrder;
     if (!job) {
-      return res.status(400).json({ error: 'No job work order linked to this PO' });
+      throw new ValidationError('No job work order linked to this PO');
     }
 
     if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
@@ -2025,7 +1928,7 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
     }
 
     if (job.receivedDate) {
-      return res.status(400).json({ error: 'Fabric has already been received' });
+      throw new ValidationError('Fabric has already been received');
     }
 
     // Calculate actual meters from than measurement if provided
@@ -2084,7 +1987,6 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
       });
       inwardChallanId = challan.id;
     } catch (challanError) {
-      console.error('Failed to create inward challan:', challanError);
     }
 
     // Update job work order
@@ -2118,14 +2020,10 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
         processPOStatus: computeProcessPOStatus(fullPO),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // 7. Quality Check for Process PO
 export const qualityCheckProcessPO = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const {
       qualityGrade,
@@ -2144,16 +2042,16 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, next: N
     });
 
     if (!po) {
-      return res.status(404).json({ error: 'Process PO not found' });
+      throw new NotFoundError('Process PO', id);
     }
 
     const job = (po as any).jobWorkOrder;
     if (!job) {
-      return res.status(400).json({ error: 'No job work order linked to this PO' });
+      throw new ValidationError('No job work order linked to this PO');
     }
 
     if (!job.receivedDate) {
-      return res.status(400).json({ error: 'Fabric has not been received yet' });
+      throw new ValidationError('Fabric has not been received yet');
     }
 
     if (job.status !== 'RECEIVED') {
@@ -2185,14 +2083,10 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, next: N
         processPOStatus: computeProcessPOStatus(fullPO),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // 8. Update Stock for Process PO (create fabric_stock entries)
 export const updateStockProcessPO = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const userId = (req as any).user?.userId || (req as any).user?.id;
 
@@ -2211,20 +2105,20 @@ export const updateStockProcessPO = async (req: Request, res: Response, next: Ne
     });
 
     if (!po) {
-      return res.status(404).json({ error: 'Process PO not found' });
+      throw new NotFoundError('Process PO', id);
     }
 
     const job = (po as any).jobWorkOrder;
     if (!job) {
-      return res.status(400).json({ error: 'No job work order linked to this PO' });
+      throw new ValidationError('No job work order linked to this PO');
     }
 
     if (job.status !== 'QUALITY_CHECKED') {
-      return res.status(400).json({ error: 'Quality check must be completed first' });
+      throw new ValidationError('Quality check must be completed first');
     }
 
     if (!job.finishedFabricId) {
-      return res.status(400).json({ error: 'No finished fabric linked. Was sendProcessPO completed properly?' });
+      throw new ValidationError('No finished fabric linked. Was sendProcessPO completed properly?');
     }
 
     const goodQty = Number(job.qtyReceivedMeters) - Number(job.defectMeters || 0);
@@ -2336,24 +2230,20 @@ export const updateStockProcessPO = async (req: Request, res: Response, next: Ne
         fabricFinishType: 'PRINTED',
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // 9. Return Unprocessed (greige returned without processing → credit back to greige_stock)
 export const returnUnprocessedProcessPO = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { id } = req.params;
     const { returnedQtyMeters, returnDate, remarks } = req.body;
     const userId = (req as any).user?.userId || (req as any).user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     if (!returnedQtyMeters || returnedQtyMeters <= 0) {
-      return res.status(400).json({ error: 'returnedQtyMeters is required and must be > 0' });
+      throw new ValidationError('returnedQtyMeters is required and must be > 0');
     }
 
     const po = await prisma.purchase_orders.findUnique({
@@ -2370,12 +2260,12 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, ne
     });
 
     if (!po) {
-      return res.status(404).json({ error: 'Process PO not found' });
+      throw new NotFoundError('Process PO', id);
     }
 
     const job = (po as any).jobWorkOrder;
     if (!job) {
-      return res.status(400).json({ error: 'No job work order linked to this PO' });
+      throw new ValidationError('No job work order linked to this PO');
     }
 
     if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
@@ -2420,7 +2310,6 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, ne
       });
       inwardChallanId = challan.id;
     } catch (challanError) {
-      console.error('Failed to create return challan:', challanError);
     }
 
     // Update job status — use CANCELLED since RETURNED is not in enum
@@ -2461,9 +2350,6 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, ne
         inwardChallanId,
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // ============================================
@@ -2472,7 +2358,6 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, ne
 
 // Get printing summary
 export const getSummary = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const processType = 'PRINTING';
 
     const [
@@ -2511,14 +2396,10 @@ export const getSummary = async (req: Request, res: Response, next: NextFunction
         })),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Get summary by style
 export const getSummaryByStyle = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { styleId } = req.params;
     const processType = 'PRINTING';
 
@@ -2558,14 +2439,10 @@ export const getSummaryByStyle = async (req: Request, res: Response, next: NextF
         })),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };
 
 // Get summary by mill
 export const getSummaryByMill = async (req: Request, res: Response, next: NextFunction) => {
-  try {
     const { millId } = req.params;
     const processType = 'PRINTING';
 
@@ -2605,7 +2482,4 @@ export const getSummaryByMill = async (req: Request, res: Response, next: NextFu
         })),
       },
     });
-  } catch (error) {
-    next(error);
-  }
 };

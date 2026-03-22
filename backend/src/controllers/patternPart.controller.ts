@@ -8,6 +8,7 @@ import {
   updateComponentPatternPartSchema,
 } from '../types/patternPart.types';
 import { z } from 'zod';
+import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 export class PatternPartController {
   /**
@@ -26,27 +27,16 @@ export class PatternPartController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation error',
-          errors: error.issues,
-        });
+        throw new ValidationError('Validation error', { errors: error.issues });
       }
 
       if (error instanceof Error) {
         if (error.message.includes('already exists')) {
-          return res.status(409).json({
-            success: false,
-            message: error.message,
-          });
+          throw new ConflictError(error.message);
         }
       }
 
-      console.error('Error creating pattern part:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create pattern part',
-      });
+      throw error;
     }
   }
 
@@ -55,25 +45,17 @@ export class PatternPartController {
    * GET /api/pattern-parts
    */
   async getPatternParts(req: Request, res: Response) {
-    try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const search = req.query.search as string | undefined;
-      const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const search = req.query.search as string | undefined;
+    const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
 
-      const result = await patternPartService.getPatternParts(page, limit, search, isActive);
+    const result = await patternPartService.getPatternParts(page, limit, search, isActive);
 
-      res.json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      console.error('Error fetching pattern parts:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch pattern parts',
-      });
-    }
+    res.json({
+      success: true,
+      ...result,
+    });
   }
 
   /**
@@ -81,28 +63,17 @@ export class PatternPartController {
    * GET /api/pattern-parts/:id
    */
   async getPatternPartById(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const patternPart = await patternPartService.getPatternPartById(id);
+    const { id } = req.params;
+    const patternPart = await patternPartService.getPatternPartById(id);
 
-      if (!patternPart) {
-        return res.status(404).json({
-          success: false,
-          message: 'Pattern part not found',
-        });
-      }
-
-      res.json({
-        success: true,
-        data: patternPart,
-      });
-    } catch (error) {
-      console.error('Error fetching pattern part:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch pattern part',
-      });
+    if (!patternPart) {
+      throw new NotFoundError('Pattern part', id);
     }
+
+    res.json({
+      success: true,
+      data: patternPart,
+    });
   }
 
   /**
@@ -110,28 +81,17 @@ export class PatternPartController {
    * GET /api/pattern-parts/code/:code
    */
   async getPatternPartByCode(req: Request, res: Response) {
-    try {
-      const { code } = req.params;
-      const patternPart = await patternPartService.getPatternPartByCode(code);
+    const { code } = req.params;
+    const patternPart = await patternPartService.getPatternPartByCode(code);
 
-      if (!patternPart) {
-        return res.status(404).json({
-          success: false,
-          message: 'Pattern part not found',
-        });
-      }
-
-      res.json({
-        success: true,
-        data: patternPart,
-      });
-    } catch (error) {
-      console.error('Error fetching pattern part:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch pattern part',
-      });
+    if (!patternPart) {
+      throw new NotFoundError('Pattern part', code);
     }
+
+    res.json({
+      success: true,
+      data: patternPart,
+    });
   }
 
   /**
@@ -152,34 +112,20 @@ export class PatternPartController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation error',
-          errors: error.issues,
-        });
+        throw new ValidationError('Validation error', { errors: error.issues });
       }
 
       if (error instanceof Error) {
         if (error.message === 'Pattern part not found') {
-          return res.status(404).json({
-            success: false,
-            message: error.message,
-          });
+          throw new NotFoundError('Pattern part', req.params.id);
         }
 
         if (error.message.includes('already exists')) {
-          return res.status(409).json({
-            success: false,
-            message: error.message,
-          });
+          throw new ConflictError(error.message);
         }
       }
 
-      console.error('Error updating pattern part:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update pattern part',
-      });
+      throw error;
     }
   }
 
@@ -200,25 +146,15 @@ export class PatternPartController {
     } catch (error) {
       if (error instanceof Error) {
         if (error.message === 'Pattern part not found') {
-          return res.status(404).json({
-            success: false,
-            message: error.message,
-          });
+          throw new NotFoundError('Pattern part', req.params.id);
         }
 
         if (error.message.includes('Cannot delete')) {
-          return res.status(400).json({
-            success: false,
-            message: error.message,
-          });
+          throw new ValidationError(error.message);
         }
       }
 
-      console.error('Error deleting pattern part:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to delete pattern part',
-      });
+      throw error;
     }
   }
 
@@ -237,18 +173,10 @@ export class PatternPartController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation error',
-          errors: error.issues,
-        });
+        throw new ValidationError('Validation error', { errors: error.issues });
       }
 
-      console.error('Error reordering pattern parts:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to reorder pattern parts',
-      });
+      throw error;
     }
   }
 
@@ -257,21 +185,13 @@ export class PatternPartController {
    * GET /api/components/:componentId/pattern-parts
    */
   async getPatternPartsByComponent(req: Request, res: Response) {
-    try {
-      const { componentId } = req.params;
-      const patternParts = await patternPartService.getPatternPartsByComponent(componentId);
+    const { componentId } = req.params;
+    const patternParts = await patternPartService.getPatternPartsByComponent(componentId);
 
-      res.json({
-        success: true,
-        data: patternParts,
-      });
-    } catch (error) {
-      console.error('Error fetching pattern parts for component:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch pattern parts',
-      });
-    }
+    res.json({
+      success: true,
+      data: patternParts,
+    });
   }
 
   /**
@@ -295,27 +215,19 @@ export class PatternPartController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation error',
-          errors: error.issues,
-        });
+        throw new ValidationError('Validation error', { errors: error.issues });
       }
 
       if (error instanceof Error) {
-        if (error.message.includes('not found') || error.message.includes('already associated')) {
-          return res.status(400).json({
-            success: false,
-            message: error.message,
-          });
+        if (error.message.includes('not found')) {
+          throw new ValidationError(error.message);
+        }
+        if (error.message.includes('already associated')) {
+          throw new ConflictError(error.message);
         }
       }
 
-      console.error('Error adding pattern part to component:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to add pattern part to component',
-      });
+      throw error;
     }
   }
 
@@ -341,27 +253,16 @@ export class PatternPartController {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation error',
-          errors: error.issues,
-        });
+        throw new ValidationError('Validation error', { errors: error.issues });
       }
 
       if (error instanceof Error) {
         if (error.message.includes('not found')) {
-          return res.status(404).json({
-            success: false,
-            message: error.message,
-          });
+          throw new NotFoundError('Component pattern part association');
         }
       }
 
-      console.error('Error updating component pattern part:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update pattern part association',
-      });
+      throw error;
     }
   }
 
@@ -382,18 +283,11 @@ export class PatternPartController {
     } catch (error) {
       if (error instanceof Error) {
         if (error.message.includes('not found')) {
-          return res.status(404).json({
-            success: false,
-            message: error.message,
-          });
+          throw new NotFoundError('Component pattern part association');
         }
       }
 
-      console.error('Error removing pattern part from component:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to remove pattern part from component',
-      });
+      throw error;
     }
   }
 }

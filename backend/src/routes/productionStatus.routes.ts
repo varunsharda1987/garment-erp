@@ -14,6 +14,7 @@ import {
   deleteOrderItemCosting,
 } from '../controllers/orderProductionStatus.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -23,13 +24,13 @@ router.use(authenticateToken);
 // ============================================
 // Style-centric routes (existing)
 // ============================================
-router.get('/', getAllProductionStatus);
-router.get('/summary', getProductionStatusSummary);
+router.get('/', asyncHandler(getAllProductionStatus));
+router.get('/summary', asyncHandler(getProductionStatusSummary));
 
 // ============================================
 // Order-centric routes (new)
 // ============================================
-router.get('/by-order', getOrderStatusList);
-router.get('/by-order/summary', getOrderStatusSummary);
+router.get('/by-order', asyncHandler(getOrderStatusList));
+router.get('/by-order/summary', asyncHandler(getOrderStatusSummary));
 
 export default router;

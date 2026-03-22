@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { logInfo, logError, logDebug } from '../utils/logger';
 import { normalizeId, isUUID } from '../utils/id-helper';
 import {
   FabricSupplierInput,
@@ -8,6 +8,7 @@ import {
   FabricUpdateData,
 } from '../types/fabric.types';
 import { materialService } from '../services/material.service';
+import { ValidationError, NotFoundError } from '../errors';
 
 /**
  * Fabric Master Controller
@@ -16,7 +17,6 @@ import { materialService } from '../services/material.service';
 
 // Get all fabric masters with pagination and filters
 export const getAllFabricMasters = async (req: Request, res: Response) => {
-  try {
     const {
       page = 1,
       limit = 50,
@@ -160,15 +160,11 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / limitNum),
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching fabric masters', error);
-    res.status(500).json({ error: 'Failed to fetch fabric masters' });
-  }
+
 };
 
 // Get single fabric master by ID
 export const getFabricMasterById = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const normalizedId = normalizeId(id);
 
@@ -252,22 +248,18 @@ export const getFabricMasterById = async (req: Request, res: Response) => {
     }
 
     if (!fabricMaster) {
-      return res.status(404).json({ error: 'Fabric master not found' });
+      throw new NotFoundError('Fabric master not found');
     }
 
     res.json(fabricMaster);
-  } catch (error: unknown) {
-    logError('Error fetching fabric master', error);
-    res.status(500).json({ error: 'Failed to fetch fabric master' });
-  }
+
 };
 
 // Create new fabric master
 export const createFabricMaster = async (req: Request, res: Response) => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const {
@@ -304,9 +296,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
 
     // Validate required fields (greigeId is optional for stock/generic fabrics)
     if (!fabricCode || !fabricName || !actualWidth) {
-      return res.status(400).json({
-        error: 'Missing required fields: fabricCode, fabricName, actualWidth',
-      });
+      throw new ValidationError('Missing required fields: fabricCode, fabricName, actualWidth');
     }
 
     // Check if fabric code already exists
@@ -315,7 +305,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     });
 
     if (existingFabric) {
-      return res.status(400).json({ error: 'Fabric code already exists' });
+      throw new ValidationError('Fabric code already exists');
     }
 
     // Verify greige exists if provided
@@ -326,7 +316,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       });
 
       if (!greige) {
-        return res.status(400).json({ error: 'Greige master not found' });
+        throw new ValidationError('Greige master not found');
       }
     }
 
@@ -409,15 +399,11 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     }
 
     res.status(201).json(fabricMaster);
-  } catch (error: unknown) {
-    logError('Error creating fabric master', error);
-    res.status(500).json({ error: 'Failed to create fabric master' });
-  }
+
 };
 
 // Update fabric master
 export const updateFabricMaster = async (req: Request, res: Response) => {
-  try {
     let { id } = req.params;
     const {
       fabricCode,
@@ -463,7 +449,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
     }
 
     if (!existingFabric) {
-      return res.status(404).json({ error: 'Fabric master not found' });
+      throw new NotFoundError('Fabric master not found');
     }
 
     // If updating code, check for duplicates
@@ -473,7 +459,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       });
 
       if (duplicateCode) {
-        return res.status(400).json({ error: 'Fabric code already exists' });
+        throw new ValidationError('Fabric code already exists');
       }
     }
 
@@ -485,7 +471,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
       });
 
       if (!greige) {
-        return res.status(400).json({ error: 'Greige master not found' });
+        throw new ValidationError('Greige master not found');
       }
     }
 
@@ -578,15 +564,11 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
     }
 
     res.json(updatedFabric);
-  } catch (error: unknown) {
-    logError('Error updating fabric master', error);
-    res.status(500).json({ error: 'Failed to update fabric master' });
-  }
+
 };
 
 // Delete fabric master
 export const deleteFabricMaster = async (req: Request, res: Response) => {
-  try {
     let { id } = req.params;
 
     // Check if fabric exists (try lowercase for non-UUID IDs)
@@ -616,7 +598,7 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
     }
 
     if (!existingFabric) {
-      return res.status(404).json({ error: 'Fabric master not found' });
+      throw new NotFoundError('Fabric master not found');
     }
 
     // Check for dependencies that would block deletion
@@ -649,11 +631,7 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
     if (dependencies?._count.job_work_orders) blockingDeps.push(`${dependencies._count.job_work_orders} job work order(s)`);
 
     if (blockingDeps.length > 0) {
-      return res.status(400).json({
-        error: 'Cannot delete fabric with existing references',
-        details: `This fabric has: ${blockingDeps.join(', ')}`,
-        suggestion: 'Consider deactivating the fabric instead of deleting it, or remove the dependent records first.',
-      });
+      throw new ValidationError(`Cannot delete fabric with existing references. This fabric has: ${blockingDeps.join(', ')}. Consider deactivating the fabric instead.`);
     }
 
     // CAD entries will be automatically deleted due to onDelete: Cascade
@@ -665,15 +643,11 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
       message: 'Fabric master deleted successfully',
       deletedCADs: existingFabric._count.widthCADs,
     });
-  } catch (error: unknown) {
-    logError('Error deleting fabric master', error);
-    res.status(500).json({ error: 'Failed to delete fabric master' });
-  }
+
 };
 
 // Get fabric statistics
 export const getFabricStatistics = async (req: Request, res: Response) => {
-  try {
     const totalFabrics = await prisma.fabric_master.count();
     const activeFabrics = await prisma.fabric_master.count({
       where: { isActive: true },
@@ -711,15 +685,11 @@ export const getFabricStatistics = async (req: Request, res: Response) => {
         count: Number(item.count),
       })),
     });
-  } catch (error: unknown) {
-    logError('Error fetching fabric statistics', error);
-    res.status(500).json({ error: 'Failed to fetch statistics' });
-  }
+
 };
 
 // Get fabrics by greige ID
 export const getFabricsByGreigeId = async (req: Request, res: Response) => {
-  try {
     const { greigeId } = req.params;
 
     const fabrics = await prisma.fabric_master.findMany({
@@ -737,15 +707,11 @@ export const getFabricsByGreigeId = async (req: Request, res: Response) => {
     });
 
     res.json(fabrics);
-  } catch (error: unknown) {
-    logError('Error fetching fabrics by greige', error);
-    res.status(500).json({ error: 'Failed to fetch fabrics' });
-  }
+
 };
 
 // Get pricing history for a fabric from fabric_procurement
 export const getFabricPricingHistory = async (req: Request, res: Response) => {
-  try {
     let { id } = req.params;
     const { limit = 5 } = req.query;
 
@@ -762,7 +728,7 @@ export const getFabricPricingHistory = async (req: Request, res: Response) => {
     }
 
     if (!fabric) {
-      return res.status(404).json({ error: 'Fabric master not found' });
+      throw new NotFoundError('Fabric master not found');
     }
 
     // Get last N procurements for this fabric
@@ -804,24 +770,20 @@ export const getFabricPricingHistory = async (req: Request, res: Response) => {
       fabricCode: fabric.fabricCode,
       pricingHistory,
     });
-  } catch (error: unknown) {
-    logError('Error fetching fabric pricing history', error);
-    res.status(500).json({ error: 'Failed to fetch pricing history' });
-  }
+
 };
 
 // Bulk import fabric masters from Excel
 export const bulkImportFabricMasters = async (req: Request, res: Response) => {
-  try {
     const { fabrics } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     if (!fabrics || !Array.isArray(fabrics)) {
-      return res.status(400).json({ error: 'Invalid data format. Expected array of fabrics.' });
+      throw new ValidationError('Invalid data format. Expected array of fabrics.');
     }
 
     const results = {
@@ -997,15 +959,11 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
       },
       errors: results.errors,
     });
-  } catch (error: unknown) {
-    logError('Bulk import error', error);
-    res.status(500).json({ error: 'Failed to import fabric masters' });
-  }
+
 };
 
 // Export all fabric masters to Excel format (JSON)
 export const exportFabricMasters = async (req: Request, res: Response) => {
-  try {
     const fabricMasters = await prisma.fabric_master.findMany({
       where: { isActive: true },
       orderBy: { fabricCode: 'asc' },
@@ -1068,10 +1026,7 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
       data: exportData,
       totalRecords: exportData.length,
     });
-  } catch (error: unknown) {
-    logError('Export error', error);
-    res.status(500).json({ error: 'Failed to export fabric masters' });
-  }
+
 };
 
 /**
@@ -1083,11 +1038,10 @@ export const exportFabricMasters = async (req: Request, res: Response) => {
  * - stock: FAB-STK-{Seq} (e.g., FAB-STK-0001)
  */
 export const getNextFabricCode = async (req: Request, res: Response) => {
-  try {
     const { source, styleCode } = req.query;
 
     if (!source) {
-      return res.status(400).json({ error: 'Source type is required' });
+      throw new ValidationError('Source type is required');
     }
 
     let prefix: string;
@@ -1095,7 +1049,7 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
     switch (source) {
       case 'style_linked':
         if (!styleCode) {
-          return res.status(400).json({ error: 'Style code is required for style_linked source' });
+          throw new ValidationError('Style code is required for style_linked source');
         }
         prefix = `FAB-${styleCode}-`;
         break;
@@ -1103,7 +1057,7 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
         prefix = 'FAB-STK-';
         break;
       default:
-        return res.status(400).json({ error: 'Invalid source type. Must be style_linked or stock' });
+        throw new ValidationError('Invalid source type. Must be style_linked or stock');
     }
 
     // Find the highest sequence number for this prefix
@@ -1136,10 +1090,7 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
     const nextCode = `${prefix}${seqStr}`;
 
     res.json({ nextCode });
-  } catch (error: unknown) {
-    logError('Error generating next fabric code', error);
-    res.status(500).json({ error: 'Failed to generate next fabric code' });
-  }
+
 };
 
 /**
@@ -1151,7 +1102,6 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
  * 2. greige_master.greigeName (extracts fabric type from name like "Cambric 40×40 / 92×88 / 48")
  */
 export const getGenericFabricNames = async (req: Request, res: Response) => {
-  try {
     const { isActive = 'true' } = req.query;
 
     // Build where clause for fabric_master
@@ -1208,10 +1158,7 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
       data: allNames,
       count: allNames.length,
     });
-  } catch (error: unknown) {
-    logError('Error fetching generic fabric names', error);
-    res.status(500).json({ error: 'Failed to fetch generic fabric names' });
-  }
+
 };
 
 // ============================================
@@ -1223,7 +1170,6 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
  * GET /api/fabric-management/fabric/:id/style-allocations
  */
 export const getStyleAllocations = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     // Verify fabric exists
@@ -1233,7 +1179,7 @@ export const getStyleAllocations = async (req: Request, res: Response) => {
     });
 
     if (!fabric) {
-      return res.status(404).json({ error: 'Fabric not found' });
+      throw new NotFoundError('Fabric not found');
     }
 
     // Get all style_fabrics where this fabric is allocated
@@ -1303,10 +1249,7 @@ export const getStyleAllocations = async (req: Request, res: Response) => {
       allocations: transformedAllocations,
       totalAllocations: transformedAllocations.length,
     });
-  } catch (error: unknown) {
-    logError('Error fetching style allocations', error);
-    res.status(500).json({ error: 'Failed to fetch style allocations' });
-  }
+
 };
 
 /**
@@ -1322,13 +1265,12 @@ export const getStyleAllocations = async (req: Request, res: Response) => {
  * }
  */
 export const allocateToStyle = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params; // fabricId
     const { componentId, patternPartIds = [], hasEmbroidery = false, embroideryId, notes } = req.body;
 
     // Validate required fields
     if (!componentId) {
-      return res.status(400).json({ error: 'componentId is required' });
+      throw new ValidationError('componentId is required');
     }
 
     // Verify fabric exists
@@ -1338,7 +1280,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
     });
 
     if (!fabric) {
-      return res.status(404).json({ error: 'Fabric not found' });
+      throw new NotFoundError('Fabric not found');
     }
 
     // Verify component exists and get style info
@@ -1352,7 +1294,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
     });
 
     if (!component) {
-      return res.status(404).json({ error: 'Component not found' });
+      throw new NotFoundError('Component not found');
     }
 
     // Check if this fabric is already allocated to this component
@@ -1364,10 +1306,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
     });
 
     if (existingAllocation) {
-      return res.status(400).json({
-        error: 'This fabric is already allocated to this component',
-        existingAllocationId: existingAllocation.id,
-      });
+      throw new ValidationError('This fabric is already allocated to this component');
     }
 
     // Validate pattern parts if provided
@@ -1378,7 +1317,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
       });
 
       if (validPatternParts.length !== patternPartIds.length) {
-        return res.status(400).json({ error: 'One or more pattern parts not found' });
+        throw new ValidationError('One or more pattern parts not found');
       }
     }
 
@@ -1389,7 +1328,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
         select: { id: true },
       });
       if (!embroideryExists) {
-        return res.status(400).json({ error: 'Embroidery design not found' });
+        throw new ValidationError('Embroidery design not found');
       }
     }
 
@@ -1541,10 +1480,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
         })),
       },
     });
-  } catch (error: unknown) {
-    logError('Error allocating fabric to style', error);
-    res.status(500).json({ error: 'Failed to allocate fabric to style' });
-  }
+
 };
 
 /**
@@ -1552,7 +1488,6 @@ export const allocateToStyle = async (req: Request, res: Response) => {
  * DELETE /api/fabric-management/fabric/:id/style-allocations/:styleFabricId
  */
 export const removeStyleAllocation = async (req: Request, res: Response) => {
-  try {
     const { id, styleFabricId } = req.params;
 
     // Verify the style_fabrics record exists and belongs to this fabric
@@ -1570,11 +1505,11 @@ export const removeStyleAllocation = async (req: Request, res: Response) => {
     });
 
     if (!styleFabric) {
-      return res.status(404).json({ error: 'Style allocation not found' });
+      throw new NotFoundError('Style allocation not found');
     }
 
     if (styleFabric.fabricId !== id) {
-      return res.status(400).json({ error: 'This allocation does not belong to the specified fabric' });
+      throw new ValidationError('This allocation does not belong to the specified fabric');
     }
 
     // Delete the style_fabrics record (cascades to style_pattern_parts)
@@ -1593,10 +1528,7 @@ export const removeStyleAllocation = async (req: Request, res: Response) => {
         componentName: styleFabric.style_components?.componentName,
       },
     });
-  } catch (error: unknown) {
-    logError('Error removing style allocation', error);
-    res.status(500).json({ error: 'Failed to remove style allocation' });
-  }
+
 };
 
 /**
@@ -1605,7 +1537,6 @@ export const removeStyleAllocation = async (req: Request, res: Response) => {
  * Body: { patternPartIds: string[] }
  */
 export const updateAllocationPatternParts = async (req: Request, res: Response) => {
-  try {
     const { id, allocationId } = req.params;
     const { patternPartIds = [] } = req.body;
 
@@ -1615,11 +1546,11 @@ export const updateAllocationPatternParts = async (req: Request, res: Response) 
     });
 
     if (!styleFabric) {
-      return res.status(404).json({ error: 'Style allocation not found' });
+      throw new NotFoundError('Style allocation not found');
     }
 
     if (styleFabric.fabricId !== id) {
-      return res.status(400).json({ error: 'This allocation does not belong to the specified fabric' });
+      throw new ValidationError('This allocation does not belong to the specified fabric');
     }
 
     // Delete existing pattern parts and recreate with new selection
@@ -1666,8 +1597,5 @@ export const updateAllocationPatternParts = async (req: Request, res: Response) 
         patternPart: sp.patternPart,
       })) || [],
     });
-  } catch (error: unknown) {
-    logError('Error updating allocation pattern parts', error);
-    res.status(500).json({ error: 'Failed to update pattern parts' });
-  }
+
 };

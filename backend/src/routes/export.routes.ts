@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import * as exportController from '../controllers/export.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -14,6 +15,6 @@ router.use(authenticateToken);
  * @access  Private
  * @body    { format: 'csv' | 'excel' | 'pdf', templateId?: string, filters?: object }
  */
-router.post('/:module', exportController.exportData);
+router.post('/:module', asyncHandler(exportController.exportData));
 
 export default router;

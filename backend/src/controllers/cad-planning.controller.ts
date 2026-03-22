@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { NotFoundError, ValidationError } from '../errors';
 import { Prisma, CADStatus, FabricFinishType } from '@prisma/client';
 import prisma from '../config/database';
 import { logError, logInfo } from '../utils/logger';
@@ -215,7 +216,6 @@ async function validateCADModification(
  * Query params: page, limit
  */
 export async function getPendingCADStyles(req: Request, res: Response) {
-  try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;
@@ -299,14 +299,6 @@ export async function getPendingCADStyles(req: Request, res: Response) {
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching pending CAD styles:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch pending CAD styles',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -320,7 +312,6 @@ export async function getPendingCADStyles(req: Request, res: Response) {
  * 3. For SEPARATE mode, generates one set of options per component
  */
 export async function generateCADOptions(req: Request, res: Response) {
-  try {
     const {
       styleId,
       genericGreigeName,
@@ -475,14 +466,6 @@ export async function generateCADOptions(req: Request, res: Response) {
       options,
       recommendedOption: options.find((opt) => opt.isPreferred)?.cadId || options[0]?.cadId,
     });
-  } catch (error: unknown) {
-    logError('Error generating CAD options:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to generate CAD options',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -491,7 +474,6 @@ export async function generateCADOptions(req: Request, res: Response) {
  * Body: { cadId, fabricRate, unit? }
  */
 export async function calculateCADCost(req: Request, res: Response) {
-  try {
     const { cadId, fabricRate, unit = 'meters' } = req.body;
 
     // Get CAD details
@@ -542,14 +524,6 @@ export async function calculateCADCost(req: Request, res: Response) {
       success: true,
       data: result,
     });
-  } catch (error: unknown) {
-    logError('Error calculating CAD cost:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to calculate CAD cost',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -558,7 +532,6 @@ export async function calculateCADCost(req: Request, res: Response) {
  * Body: { styleId, cadId, fabricId, approvalNotes? }
  */
 export async function approveCAD(req: Request, res: Response) {
-  try {
     const { styleId, cadId, fabricId, approvalNotes } = req.body;
 
     // Verify style exists
@@ -662,14 +635,6 @@ export async function approveCAD(req: Request, res: Response) {
         approvedCadDate: updatedStyle.approvedCadDate,
       },
     });
-  } catch (error: unknown) {
-    logError('Error approving CAD:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to approve CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -681,7 +646,6 @@ export async function approveCAD(req: Request, res: Response) {
  * NEW: Auto-calculates layerMarginMeters based on cadMeters if not explicitly provided
  */
 export async function updateCADValues(req: Request, res: Response) {
-  try {
     const { cadId } = req.params;
     const parsedCadId = parseInt(cadId, 10);
 
@@ -773,25 +737,6 @@ export async function updateCADValues(req: Request, res: Response) {
         processingPricePerMeter: updated.processingPricePerMeter ? Number(updated.processingPricePerMeter) : null,
       },
     });
-  } catch (error: unknown) {
-    logError('Error updating CAD values:', error);
-
-    // Handle approval/locked errors with 403 Forbidden
-    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: error.message,
-        statusCode: 403,
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to update CAD values',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -800,7 +745,6 @@ export async function updateCADValues(req: Request, res: Response) {
  * Query params: genericGreigeName
  */
 export async function getGreigeOptionsForGeneric(req: Request, res: Response) {
-  try {
     const { genericGreigeName } = req.query;
 
     if (!genericGreigeName) {
@@ -841,14 +785,6 @@ export async function getGreigeOptionsForGeneric(req: Request, res: Response) {
       options: greigeOptions,
       total: greigeOptions.length,
     });
-  } catch (error: unknown) {
-    logError('Error fetching greige options:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch greige options',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -856,7 +792,6 @@ export async function getGreigeOptionsForGeneric(req: Request, res: Response) {
  * GET /api/styles/:styleId/cad-summary
  */
 export async function getStyleCADSummary(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
 
     const style = await prisma.styles.findUnique({
@@ -930,14 +865,6 @@ export async function getStyleCADSummary(req: Request, res: Response) {
         components,
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching style CAD summary:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch style CAD summary',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -951,7 +878,6 @@ export async function getStyleCADSummary(req: Request, res: Response) {
  * - CAD options for each group (if greige selected)
  */
 export async function getEnhancedCADPlanning(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
 
     // Get style with all fabric data and variants for size options
@@ -1319,14 +1245,6 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
         missingGreigeNames: missingGreigeNames.length > 0 ? missingGreigeNames : undefined,
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching enhanced CAD planning data:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch CAD planning data',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -1335,7 +1253,6 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
  * Body: { groupKey, greigeId, averagingMode }
  */
 export async function selectGreigeForGroup(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
     const { groupKey, greigeId, averagingMode = 'COMBINED' } = req.body;
 
@@ -1473,14 +1390,6 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
         fabricId: fabric.id,
       },
     });
-  } catch (error: unknown) {
-    logError('Error selecting greige for group:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to select greige',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -1491,7 +1400,6 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
  * Allows users to add custom width CAD entries that may not be pre-defined
  */
 export async function addCADWidth(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
     const { groupKey, fabricId, cutableWidth, greigeId, componentName } = req.body;
 
@@ -1653,14 +1561,6 @@ export async function addCADWidth(req: Request, res: Response) {
         sizeBreakdowns: [],
       },
     });
-  } catch (error: unknown) {
-    logError('Error adding CAD width:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to add CAD width',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -1668,7 +1568,6 @@ export async function addCADWidth(req: Request, res: Response) {
  * DELETE /api/styles/cad-planning/cad/:cadId
  */
 export async function deleteCADWidth(req: Request, res: Response) {
-  try {
     const { cadId } = req.params;
     const parsedCadId = parseInt(cadId, 10);
 
@@ -1707,25 +1606,6 @@ export async function deleteCADWidth(req: Request, res: Response) {
       success: true,
       message: 'CAD width deleted successfully',
     });
-  } catch (error: unknown) {
-    logError('Error deleting CAD width:', error);
-
-    // Handle approval/locked errors with 403 Forbidden
-    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: error.message,
-        statusCode: 403,
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to delete CAD width',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -1739,7 +1619,6 @@ export async function deleteCADWidth(req: Request, res: Response) {
  * - Greige/fabric details
  */
 export async function getCADGroupDetails(req: Request, res: Response) {
-  try {
     const { styleId, groupKey } = req.params;
 
     // Parse groupKey
@@ -1946,14 +1825,6 @@ export async function getCADGroupDetails(req: Request, res: Response) {
           : (fabricMaster?.actualWidth ? Number(fabricMaster.actualWidth) - 2 : 54),
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching CAD group details:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch CAD group details',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -1966,7 +1837,6 @@ export async function getCADGroupDetails(req: Request, res: Response) {
  * Auto-calculates piecesPerMarker from sum of sizeBreakdowns quantities
  */
 export async function updateCADValuesWithBreakdown(req: Request, res: Response) {
-  try {
     const { cadId } = req.params;
     const parsedCadId = parseInt(cadId, 10);
 
@@ -2115,25 +1985,6 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
         })),
       },
     });
-  } catch (error: unknown) {
-    logError('Error updating CAD values:', error);
-
-    // Handle approval/locked errors with 403 Forbidden
-    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: error.message,
-        statusCode: 403,
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to update CAD values',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -2141,7 +1992,6 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
  * PUT /api/styles/cad-planning/cad/:cadId/set-preferred
  */
 export async function setPreferredCAD(req: Request, res: Response) {
-  try {
     const { cadId } = req.params;
 
     // Get the CAD record
@@ -2176,14 +2026,6 @@ export async function setPreferredCAD(req: Request, res: Response) {
       success: true,
       message: 'Preferred CAD width updated',
     });
-  } catch (error: unknown) {
-    logError('Error setting preferred CAD:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to set preferred CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -2197,7 +2039,6 @@ export async function setPreferredCAD(req: Request, res: Response) {
  * - Grouped by fabric/component for easy comparison
  */
 export async function getStyleCADHistory(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
 
     // Get style info
@@ -2392,14 +2233,6 @@ export async function getStyleCADHistory(req: Request, res: Response) {
         cadGroups: Object.values(cadGroups),
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching CAD history:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch CAD history',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 // ============================================================================
@@ -2411,7 +2244,6 @@ export async function getStyleCADHistory(req: Request, res: Response) {
  * GET /api/styles/:styleId/fabrics/:fabricId/pattern-parts
  */
 export async function getStyleFabricPatternParts(req: Request, res: Response) {
-  try {
     const { styleId, fabricId } = req.params;
 
     // Verify style and fabric exist
@@ -2490,14 +2322,6 @@ export async function getStyleFabricPatternParts(req: Request, res: Response) {
         hasEmbroideryParts: assignedParts.some((p) => p.goesToEmbroidery),
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching style fabric pattern parts:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch pattern parts',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -2506,7 +2330,6 @@ export async function getStyleFabricPatternParts(req: Request, res: Response) {
  * Body: { patternParts: [{ patternPartId, quantity?, goesToEmbroidery?, notes? }] }
  */
 export async function assignPatternParts(req: Request, res: Response) {
-  try {
     const { styleId, fabricId } = req.params;
     const { patternParts } = req.body;
 
@@ -2580,14 +2403,6 @@ export async function assignPatternParts(req: Request, res: Response) {
         hasEmbroideryParts: assignedParts.some((p) => p.goesToEmbroidery),
       },
     });
-  } catch (error: unknown) {
-    logError('Error assigning pattern parts:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to assign pattern parts',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -2596,7 +2411,6 @@ export async function assignPatternParts(req: Request, res: Response) {
  * Body: { quantity?, goesToEmbroidery?, notes? }
  */
 export async function updatePatternPartAssignment(req: Request, res: Response) {
-  try {
     const { styleId, partId } = req.params;
     const { quantity, goesToEmbroidery, notes } = req.body;
 
@@ -2646,14 +2460,6 @@ export async function updatePatternPartAssignment(req: Request, res: Response) {
         notes: updated.notes,
       },
     });
-  } catch (error: unknown) {
-    logError('Error updating pattern part assignment:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to update pattern part assignment',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -2661,7 +2467,6 @@ export async function updatePatternPartAssignment(req: Request, res: Response) {
  * DELETE /api/styles/:styleId/pattern-parts/:partId
  */
 export async function deletePatternPartAssignment(req: Request, res: Response) {
-  try {
     const { styleId, partId } = req.params;
 
     // Verify assignment exists and belongs to this style
@@ -2691,14 +2496,6 @@ export async function deletePatternPartAssignment(req: Request, res: Response) {
       success: true,
       message: 'Pattern part assignment deleted successfully',
     });
-  } catch (error: unknown) {
-    logError('Error deleting pattern part assignment:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to delete pattern part assignment',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -2707,7 +2504,6 @@ export async function deletePatternPartAssignment(req: Request, res: Response) {
  * Copies pattern parts from component_pattern_parts to style_pattern_parts
  */
 export async function assignPatternPartsFromComponent(req: Request, res: Response) {
-  try {
     const { styleId, fabricId } = req.params;
 
     // Verify style fabric exists
@@ -2841,14 +2637,6 @@ export async function assignPatternPartsFromComponent(req: Request, res: Respons
         hasEmbroideryParts: false,
       },
     });
-  } catch (error: unknown) {
-    logError('Error copying pattern parts from component:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to copy pattern parts from component',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 // ============================================================================
@@ -2860,7 +2648,6 @@ export async function assignPatternPartsFromComponent(req: Request, res: Respons
  * GET /api/styles/:styleId/fabrics/:fabricId/embroidery-cad
  */
 export async function getEmbroideryCad(req: Request, res: Response) {
-  try {
     const { styleId, fabricId } = req.params;
 
     // Verify style fabric exists
@@ -2954,14 +2741,6 @@ export async function getEmbroideryCad(req: Request, res: Response) {
         } : null,
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching embroidery CAD:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch embroidery CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -2972,7 +2751,6 @@ export async function getEmbroideryCad(req: Request, res: Response) {
  *         sizeBreakdowns?: [{ sizeName, sizeId?, quantity }] }
  */
 export async function createOrUpdateEmbroideryCad(req: Request, res: Response) {
-  try {
     const { styleId, fabricId } = req.params;
     const {
       fabricWidthCadId,
@@ -3130,14 +2908,6 @@ export async function createOrUpdateEmbroideryCad(req: Request, res: Response) {
         })),
       },
     });
-  } catch (error: unknown) {
-    logError('Error creating/updating embroidery CAD:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to save embroidery CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -3145,7 +2915,6 @@ export async function createOrUpdateEmbroideryCad(req: Request, res: Response) {
  * DELETE /api/styles/:styleId/fabrics/:fabricId/embroidery-cad
  */
 export async function deleteEmbroideryCad(req: Request, res: Response) {
-  try {
     const { styleId, fabricId } = req.params;
 
     // Verify style fabric exists
@@ -3191,14 +2960,6 @@ export async function deleteEmbroideryCad(req: Request, res: Response) {
       success: true,
       message: 'Embroidery CAD deleted successfully',
     });
-  } catch (error: unknown) {
-    logError('Error deleting embroidery CAD:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to delete embroidery CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -3206,7 +2967,6 @@ export async function deleteEmbroideryCad(req: Request, res: Response) {
  * GET /api/styles/:styleId/fabrics/:fabricId/total-cad
  */
 export async function getTotalFabricCad(req: Request, res: Response) {
-  try {
     const { styleId, fabricId } = req.params;
 
     // Get style fabric with its CAD
@@ -3280,14 +3040,6 @@ export async function getTotalFabricCad(req: Request, res: Response) {
         },
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching total fabric CAD:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch total fabric CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 // ============================================================================
@@ -3300,7 +3052,6 @@ export async function getTotalFabricCad(req: Request, res: Response) {
  * GET /api/styles/:styleId/cad-table
  */
 export async function getCADTableData(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
 
     // Performance optimization: Run style query and fabric stock query in parallel
@@ -3744,14 +3495,6 @@ export async function getCADTableData(req: Request, res: Response) {
         stockSummary,
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching CAD table data:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch CAD table data',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -3759,7 +3502,6 @@ export async function getCADTableData(req: Request, res: Response) {
  * POST /api/styles/:styleId/cad-table/row
  */
 export async function addCADTableRow(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
     const {
       purpose = 'COSTING', // Default to COSTING mode (no stock required) - renamed from PLANNING
@@ -3973,14 +3715,6 @@ export async function addCADTableRow(req: Request, res: Response) {
         ? `PRODUCTION CAD row created with stock (Width: ${stockCutableWidth}")`
         : 'CAD row created successfully',
     });
-  } catch (error: unknown) {
-    logError('Error adding CAD table row:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to add CAD row',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -3994,7 +3728,6 @@ export async function addCADTableRow(req: Request, res: Response) {
  * - All fabrics must have same embroidery status (all plain OR all same embroideryId)
  */
 export async function addCombinedCADRow(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
     const { styleFabricIds, purpose = 'COSTING', fabricStockId } = req.body; // Default to COSTING mode (no stock required) - renamed from PLANNING
 
@@ -4219,14 +3952,6 @@ export async function addCombinedCADRow(req: Request, res: Response) {
         ? `PRODUCTION combined CAD row created with stock (Width: ${stockCutableWidth}")`
         : `Combined CAD row created for ${styleFabrics.length} components: ${combinedComponents}`,
     });
-  } catch (error: unknown) {
-    logError('Error adding combined CAD row:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to add combined CAD row',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -4234,7 +3959,6 @@ export async function addCombinedCADRow(req: Request, res: Response) {
  * PUT /api/styles/:styleId/cad-table/row/:rowId
  */
 export async function updateCADTableRow(req: Request, res: Response) {
-  try {
     const { styleId, rowId } = req.params;
     const parsedRowId = parseInt(rowId, 10);
 
@@ -4673,25 +4397,6 @@ export async function updateCADTableRow(req: Request, res: Response) {
           ? 'CAD row updated and fabric costing auto-calculated'
           : 'CAD row updated successfully',
     });
-  } catch (error: unknown) {
-    logError('Error updating CAD table row:', error);
-
-    // Handle approval/locked errors with 403 Forbidden
-    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: error.message,
-        statusCode: 403,
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to update CAD row',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -4699,7 +4404,6 @@ export async function updateCADTableRow(req: Request, res: Response) {
  * DELETE /api/styles/:styleId/cad-table/row/:rowId
  */
 export async function deleteCADTableRow(req: Request, res: Response) {
-  try {
     const { styleId, rowId } = req.params;
     const parsedRowId = parseInt(rowId, 10);
 
@@ -4761,25 +4465,6 @@ export async function deleteCADTableRow(req: Request, res: Response) {
       success: true,
       message: 'CAD row deleted successfully',
     });
-  } catch (error: unknown) {
-    logError('Error deleting CAD table row:', error);
-
-    // Handle approval/locked errors with 403 Forbidden
-    if (error instanceof Error && (error.message.includes('approved') || error.message.includes('locked'))) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden',
-        message: error.message,
-        statusCode: 403,
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to delete CAD row',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -4788,7 +4473,6 @@ export async function deleteCADTableRow(req: Request, res: Response) {
  * Admin only - for variance > 3%
  */
 export async function approveProductionVariance(req: Request, res: Response) {
-  try {
     const { rowId } = req.params;
     const { action, notes } = req.body; // action: 'APPROVE' | 'REJECT'
     const userId = req.user?.userId;
@@ -4871,14 +4555,6 @@ export async function approveProductionVariance(req: Request, res: Response) {
       },
       message: `Variance ${action === 'APPROVE' ? 'approved' : 'rejected'} successfully`,
     });
-  } catch (error: unknown) {
-    logError('Error approving PRODUCTION variance:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to process variance approval',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -4887,7 +4563,6 @@ export async function approveProductionVariance(req: Request, res: Response) {
  * Admin dashboard endpoint
  */
 export async function getPendingVarianceApprovals(req: Request, res: Response) {
-  try {
     const { styleId, orderId } = req.query;
 
     const whereClause: any = {
@@ -4954,14 +4629,6 @@ export async function getPendingVarianceApprovals(req: Request, res: Response) {
       data: formattedApprovals,
       count: formattedApprovals.length,
     });
-  } catch (error: unknown) {
-    logError('Error fetching pending variance approvals:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch pending variance approvals',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -4969,7 +4636,6 @@ export async function getPendingVarianceApprovals(req: Request, res: Response) {
  * GET /api/styles/cad-table/greige/:greigeId/widths
  */
 export async function getGreigeWidths(req: Request, res: Response) {
-  try {
     const { greigeId } = req.params;
 
     const greige = await prisma.greige_master.findUnique({
@@ -5005,14 +4671,6 @@ export async function getGreigeWidths(req: Request, res: Response) {
         availableWidths: widths,
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching greige widths:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch greige widths',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -5022,7 +4680,6 @@ export async function getGreigeWidths(req: Request, res: Response) {
  * @route GET /api/styles/:styleId/components/:componentId/cad-pattern-parts
  */
 export async function getCADPatternPartsForComponent(req: Request, res: Response) {
-  try {
     const { styleId, componentId } = req.params;
 
     // 1. Get the component with style_fabrics, CAD rows, and stylePatternParts
@@ -5189,14 +4846,6 @@ export async function getCADPatternPartsForComponent(req: Request, res: Response
         masterPatternParts,
       },
     });
-  } catch (error: unknown) {
-    logError('Error fetching CAD pattern parts for component:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch CAD pattern parts',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 // ============================================
@@ -5208,7 +4857,6 @@ export async function getCADPatternPartsForComponent(req: Request, res: Response
  * POST /api/styles/:styleId/cad-table/row/:rowId/approve
  */
 export async function approveCADPurpose(req: Request, res: Response) {
-  try {
     const { styleId, rowId } = req.params;
     const { approvalNotes } = req.body;
     const userId = (req as any).user?.userId;
@@ -5293,14 +4941,6 @@ export async function approveCADPurpose(req: Request, res: Response) {
         approvedAt: updated.approvedAt,
       },
     });
-  } catch (error: unknown) {
-    logError('Error approving CAD purpose:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to approve CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -5308,7 +4948,6 @@ export async function approveCADPurpose(req: Request, res: Response) {
  * POST /api/styles/:styleId/cad-table/row/:rowId/reject
  */
 export async function rejectCADPurpose(req: Request, res: Response) {
-  try {
     const { styleId, rowId } = req.params;
     const { rejectionNotes } = req.body;
     const userId = (req as any).user?.userId;
@@ -5385,14 +5024,6 @@ export async function rejectCADPurpose(req: Request, res: Response) {
         rejectionNotes: updated.approvalNotes,
       },
     });
-  } catch (error: unknown) {
-    logError('Error rejecting CAD purpose:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to reject CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -5400,7 +5031,6 @@ export async function rejectCADPurpose(req: Request, res: Response) {
  * POST /api/styles/:styleId/cad-table/planning/:rowId/create-version
  */
 export async function createPlanningVersion(req: Request, res: Response) {
-  try {
     const { styleId, rowId } = req.params;
     const { versionReason } = req.body;
     const userId = (req as any).user?.userId;
@@ -5483,14 +5113,6 @@ export async function createPlanningVersion(req: Request, res: Response) {
         baseVersion: baseCad.version,
       },
     });
-  } catch (error: unknown) {
-    logError('Error creating CAD version:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to create new CAD version',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -5498,7 +5120,6 @@ export async function createPlanningVersion(req: Request, res: Response) {
  * POST /api/styles/:styleId/cad-table/copy
  */
 export async function copyCADPurpose(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
     const { sourceCadId, targetPurpose, styleFabricId, componentId, patternPartId } = req.body;
     const userId = (req as any).user?.userId;
@@ -5625,14 +5246,6 @@ export async function copyCADPurpose(req: Request, res: Response) {
         approvalStatus: 'PENDING',
       },
     });
-  } catch (error: unknown) {
-    logError('Error copying CAD purpose:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to copy CAD',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -5645,7 +5258,6 @@ export async function copyCADPurpose(req: Request, res: Response) {
  * - children: All records copied from the current record
  */
 export async function getCADLineage(req: Request, res: Response) {
-  try {
     const { rowId } = req.params;
 
     // Fetch current CAD with source and children
@@ -5696,14 +5308,6 @@ export async function getCADLineage(req: Request, res: Response) {
       success: true,
       data: lineage,
     });
-  } catch (error: unknown) {
-    logError('Error fetching CAD lineage:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch CAD lineage',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -5711,7 +5315,6 @@ export async function getCADLineage(req: Request, res: Response) {
  * POST /api/styles/:styleId/cad-table/link-stock
  */
 export async function linkCADToStock(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
     const { cadId, fabricStockId, procurementId, planningCadWidth } = req.body;
 
@@ -5800,14 +5403,6 @@ export async function linkCADToStock(req: Request, res: Response) {
         variancePercent: updated.variancePercent,
       },
     });
-  } catch (error: unknown) {
-    logError('Error linking CAD to stock:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to link CAD to stock',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -5816,7 +5411,6 @@ export async function linkCADToStock(req: Request, res: Response) {
  * POST /api/styles/:styleId/cad-planning/production-from-stock
  */
 export async function createProductionCADFromStock(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
     const {
       fabricStockId,
@@ -5979,14 +5573,6 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
         patternPart: newCAD.patternPart,
       },
     });
-  } catch (error: unknown) {
-    logError('Error creating PRODUCTION CAD from stock:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to create PRODUCTION CAD from stock',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 /**
@@ -5995,7 +5581,6 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
  * GET /api/styles/:styleId/cad-planning/order-history
  */
 export async function getCADOrderHistory(req: Request, res: Response) {
-  try {
     const { styleId } = req.params;
 
     // Query order items that have selected CAD for this style
@@ -6196,14 +5781,6 @@ export async function getCADOrderHistory(req: Request, res: Response) {
         totalCADs: cadSummary.length,
       },
     });
-  } catch (error: unknown) {
-    logError('Error getting CAD order history:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to get CAD order history',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
 }
 
 // ============================================
@@ -6217,7 +5794,6 @@ export async function getCADOrderHistory(req: Request, res: Response) {
  * since CAD planning happens during both phases
  */
 export async function getCADStatusCounts(req: Request, res: Response) {
-  try {
     // Cache CAD status counts for 2 minutes (frequently accessed, changes rarely)
     const result = await cachedQuery(
       cacheKeys.cad.statusCounts,
@@ -6254,13 +5830,6 @@ export async function getCADStatusCounts(req: Request, res: Response) {
       success: true,
       data: result,
     });
-  } catch (error) {
-    console.error('Error getting CAD status counts:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to get CAD status counts',
-    });
-  }
 }
 
 /**
@@ -6273,7 +5842,6 @@ export async function getCADStatusCounts(req: Request, res: Response) {
  * - IN_PROGRESS merged into PENDING tab
  */
 export async function getStylesForCADPlanning(req: Request, res: Response) {
-  try {
     const {
       status = 'PENDING',
       page = '1',
@@ -6539,11 +6107,4 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
         },
       },
     });
-  } catch (error) {
-    console.error('Error getting styles for CAD planning:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to get styles for CAD planning',
-    });
-  }
 }

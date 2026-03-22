@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import * as templateController from '../controllers/template.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -14,42 +15,42 @@ router.use(authenticateToken);
  * @access  Private (Admin)
  * @body    { moduleName, templateName, description?, columnConfig, isDefault? }
  */
-router.post('/', templateController.createTemplate);
+router.post('/', asyncHandler(templateController.createTemplate));
 
 /**
  * @route   GET /api/templates?module=customers
  * @desc    Get all templates for a module (via query param)
  * @access  Private
  */
-router.get('/', templateController.getTemplates);
+router.get('/', asyncHandler(templateController.getTemplates));
 
 /**
  * @route   GET /api/templates/modules
  * @desc    Get list of available modules
  * @access  Private
  */
-router.get('/modules', templateController.getAvailableModules);
+router.get('/modules', asyncHandler(templateController.getAvailableModules));
 
 /**
  * @route   GET /api/templates/columns/:moduleName
  * @desc    Get available columns for a module
  * @access  Private
  */
-router.get('/columns/:moduleName', templateController.getAvailableColumns);
+router.get('/columns/:moduleName', asyncHandler(templateController.getAvailableColumns));
 
 /**
  * @route   GET /api/templates/module/:moduleName
  * @desc    Get all templates for a specific module (via path param)
  * @access  Private
  */
-router.get('/module/:moduleName', templateController.getModuleTemplates);
+router.get('/module/:moduleName', asyncHandler(templateController.getModuleTemplates));
 
 /**
  * @route   GET /api/templates/:id
  * @desc    Get a single template by ID
  * @access  Private
  */
-router.get('/:id', templateController.getTemplateById);
+router.get('/:id', asyncHandler(templateController.getTemplateById));
 
 /**
  * @route   PUT /api/templates/:id
@@ -57,13 +58,13 @@ router.get('/:id', templateController.getTemplateById);
  * @access  Private (Admin)
  * @body    { templateName?, description?, columnConfig?, isDefault? }
  */
-router.put('/:id', templateController.updateTemplate);
+router.put('/:id', asyncHandler(templateController.updateTemplate));
 
 /**
  * @route   DELETE /api/templates/:id
  * @desc    Delete a template (soft delete)
  * @access  Private (Admin)
  */
-router.delete('/:id', templateController.deleteTemplate);
+router.delete('/:id', asyncHandler(templateController.deleteTemplate));
 
 export default router;

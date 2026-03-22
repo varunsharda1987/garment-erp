@@ -4,6 +4,7 @@
  */
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   getDashboard,
   getActivity,
@@ -15,10 +16,10 @@ import {
 const router = Router();
 
 // Dashboard routes
-router.get('/dashboard', authenticateToken, getDashboard);
-router.get('/activity', authenticateToken, getActivity);
-router.get('/my-styles', authenticateToken, getMyStyles);
-router.get('/styles-by-season', authenticateToken, getStylesBySeason);
-router.get('/styles-by-customer', authenticateToken, getStylesByCustomer);
+router.get('/dashboard', authenticateToken, asyncHandler(getDashboard));
+router.get('/activity', authenticateToken, asyncHandler(getActivity));
+router.get('/my-styles', authenticateToken, asyncHandler(getMyStyles));
+router.get('/styles-by-season', authenticateToken, asyncHandler(getStylesBySeason));
+router.get('/styles-by-customer', authenticateToken, asyncHandler(getStylesByCustomer));
 
 export default router;

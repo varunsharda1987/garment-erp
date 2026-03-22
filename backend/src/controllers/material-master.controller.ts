@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as materialMasterService from '../services/material-master.service';
 import { MaterialType } from '@prisma/client';
+import { NotFoundError, ValidationError } from '../errors';
 
 /**
  * Unified Material Master Controller
@@ -10,135 +11,90 @@ import { MaterialType } from '@prisma/client';
 
 // GET /api/materials?type=LACE&active=true&search=floral
 export const getAllMaterials = async (req: Request, res: Response) => {
-  try {
-    const { type, active, search, supplierId } = req.query;
+  const { type, active, search, supplierId } = req.query;
 
-    const materials = await materialMasterService.findAll({
-      materialType: type as MaterialType,
-      isActive: active === 'true',
-      searchTerm: search as string,
-      supplierId: supplierId as string,
-    });
+  const materials = await materialMasterService.findAll({
+    materialType: type as MaterialType,
+    isActive: active === 'true',
+    searchTerm: search as string,
+    supplierId: supplierId as string,
+  });
 
-    res.json(materials);
-  } catch (error: any) {
-    console.error('Error fetching materials:', error);
-    res.status(500).json({ error: error.message });
-  }
+  res.json(materials);
 };
 
 // GET /api/materials/:id
 export const getMaterialById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const material = await materialMasterService.findById(parseInt(id));
+  const { id } = req.params;
+  const material = await materialMasterService.findById(parseInt(id));
 
-    if (!material) {
-      return res.status(404).json({ error: 'Material not found' });
-    }
-
-    res.json(material);
-  } catch (error: any) {
-    console.error('Error fetching material:', error);
-    res.status(500).json({ error: error.message });
+  if (!material) {
+    throw new NotFoundError('Material', id);
   }
+
+  res.json(material);
 };
 
 // POST /api/materials
 export const createMaterial = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    const material = await materialMasterService.create(req.body, userId);
-
-    res.status(201).json(material);
-  } catch (error: any) {
-    console.error('Error creating material:', error);
-    res.status(400).json({ error: error.message });
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const material = await materialMasterService.create(req.body, userId);
+
+  res.status(201).json(material);
 };
 
 // PUT /api/materials/:id
 export const updateMaterial = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const material = await materialMasterService.update(parseInt(id), req.body);
+  const { id } = req.params;
+  const material = await materialMasterService.update(parseInt(id), req.body);
 
-    res.json(material);
-  } catch (error: any) {
-    console.error('Error updating material:', error);
-    res.status(400).json({ error: error.message });
-  }
+  res.json(material);
 };
 
 // DELETE /api/materials/:id (soft delete)
 export const deleteMaterial = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    await materialMasterService.softDelete(parseInt(id));
+  const { id } = req.params;
+  await materialMasterService.softDelete(parseInt(id));
 
-    res.status(204).send();
-  } catch (error: any) {
-    console.error('Error deleting material:', error);
-    res.status(400).json({ error: error.message });
-  }
+  res.status(204).send();
 };
 
 // GET /api/materials/:id/suppliers
 export const getMaterialSuppliers = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const suppliers = await materialMasterService.getSuppliers(parseInt(id));
+  const { id } = req.params;
+  const suppliers = await materialMasterService.getSuppliers(parseInt(id));
 
-    res.json(suppliers);
-  } catch (error: any) {
-    console.error('Error fetching material suppliers:', error);
-    res.status(500).json({ error: error.message });
-  }
+  res.json(suppliers);
 };
 
 // POST /api/materials/:id/suppliers
 export const addMaterialSupplier = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const mapping = await materialMasterService.addSupplier(
-      parseInt(id),
-      req.body
-    );
+  const { id } = req.params;
+  const mapping = await materialMasterService.addSupplier(
+    parseInt(id),
+    req.body
+  );
 
-    res.status(201).json(mapping);
-  } catch (error: any) {
-    console.error('Error adding material supplier:', error);
-    res.status(400).json({ error: error.message });
-  }
+  res.status(201).json(mapping);
 };
 
 // Type-specific operations
 
 // GET /api/materials/types
 export const getMaterialTypes = async (req: Request, res: Response) => {
-  try {
-    const types = Object.values(MaterialType);
-    res.json(types);
-  } catch (error: any) {
-    console.error('Error fetching material types:', error);
-    res.status(500).json({ error: error.message });
-  }
+  const types = Object.values(MaterialType);
+  res.json(types);
 };
 
 // GET /api/materials/types/:type/count
 export const getMaterialCountByType = async (req: Request, res: Response) => {
-  try {
-    const { type } = req.params;
-    const count = await materialMasterService.countByType(type as MaterialType);
+  const { type } = req.params;
+  const count = await materialMasterService.countByType(type as MaterialType);
 
-    res.json({ type, count });
-  } catch (error: any) {
-    console.error('Error counting materials by type:', error);
-    res.status(500).json({ error: error.message });
-  }
+  res.json({ type, count });
 };

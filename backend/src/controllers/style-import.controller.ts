@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 import StyleImportService from '../services/style-import.service';
 import { StyleImportCSVRow } from '../types/style-import.types';
 import * as XLSX from 'xlsx';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { ValidationError } from '../errors';
 
 class StyleImportController {
   /**
@@ -13,63 +13,46 @@ class StyleImportController {
    * POST /api/styles/import
    */
   async importStyles(req: Request, res: Response) {
-    try {
-      const { overwriteExisting, skipDuplicates } = req.body;
-      const userId = req.user?.userId || 'system';
+    const { overwriteExisting, skipDuplicates } = req.body;
+    const userId = req.user?.userId || 'system';
 
-      // Check if file was uploaded
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: 'No file uploaded. Please upload a CSV or Excel file.',
-        });
-      }
-
-      // Parse the file
-      let csvRows: StyleImportCSVRow[];
-
-      if (req.file.mimetype === 'text/csv' || req.file.originalname.endsWith('.csv')) {
-        // Parse CSV
-        csvRows = this.parseCSV(req.file.buffer);
-      } else if (
-        req.file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        req.file.originalname.endsWith('.xlsx')
-      ) {
-        // Parse Excel
-        csvRows = this.parseExcel(req.file.buffer);
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid file format. Please upload a CSV or Excel file.',
-        });
-      }
-
-      if (csvRows.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'File is empty or has no valid data.',
-        });
-      }
-
-      // Generate import batch ID
-      const importBatchId = `IMP-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-
-      // Process import
-      const result = await StyleImportService.importStylesFromCSV(
-        csvRows,
-        importBatchId,
-        userId,
-        { overwriteExisting, skipDuplicates }
-      );
-
-      return res.status(result.success ? 200 : 207).json(result);
-    } catch (error: unknown) {
-      logError('Style import error:', error);
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to import styles',
-      });
+    // Check if file was uploaded
+    if (!req.file) {
+      throw new ValidationError('No file uploaded. Please upload a CSV or Excel file.');
     }
+
+    // Parse the file
+    let csvRows: StyleImportCSVRow[];
+
+    if (req.file.mimetype === 'text/csv' || req.file.originalname.endsWith('.csv')) {
+      // Parse CSV
+      csvRows = this.parseCSV(req.file.buffer);
+    } else if (
+      req.file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      req.file.originalname.endsWith('.xlsx')
+    ) {
+      // Parse Excel
+      csvRows = this.parseExcel(req.file.buffer);
+    } else {
+      throw new ValidationError('Invalid file format. Please upload a CSV or Excel file.');
+    }
+
+    if (csvRows.length === 0) {
+      throw new ValidationError('File is empty or has no valid data.');
+    }
+
+    // Generate import batch ID
+    const importBatchId = `IMP-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+    // Process import
+    const result = await StyleImportService.importStylesFromCSV(
+      csvRows,
+      importBatchId,
+      userId,
+      { overwriteExisting, skipDuplicates }
+    );
+
+    return res.status(result.success ? 200 : 207).json(result);
   }
 
   /**
@@ -77,22 +60,14 @@ class StyleImportController {
    * GET /api/styles/import/:batchId
    */
   async getImportStatus(req: Request, res: Response) {
-    try {
-      const { batchId } = req.params;
+    const { batchId } = req.params;
 
-      const status = await StyleImportService.getImportStatus(batchId);
+    const status = await StyleImportService.getImportStatus(batchId);
 
-      return res.status(200).json({
-        success: true,
-        data: status,
-      });
-    } catch (error: unknown) {
-      logError('Get import status error:', error);
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to get import status',
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      data: status,
+    });
   }
 
   /**
@@ -100,20 +75,12 @@ class StyleImportController {
    * POST /api/styles/import/:batchId/retry
    */
   async retryImport(req: Request, res: Response) {
-    try {
-      const { batchId } = req.params;
-      const userId = req.user?.userId || 'system';
+    const { batchId } = req.params;
+    const userId = req.user?.userId || 'system';
 
-      const result = await StyleImportService.retryFailedImports(batchId, userId);
+    const result = await StyleImportService.retryFailedImports(batchId, userId);
 
-      return res.status(200).json(result);
-    } catch (error: unknown) {
-      logError('Retry import error:', error);
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to retry import',
-      });
-    }
+    return res.status(200).json(result);
   }
 
   /**
@@ -122,112 +89,104 @@ class StyleImportController {
    * Updated to use new simplified format with master lookups
    */
   async downloadTemplate(req: Request, res: Response) {
-    try {
-      // Define column headers with their required/optional status
-      // New simplified format - one row per size variant
-      const columns = [
-        // Required fields
-        { header: 'StyleCode', required: true },
-        { header: 'CustomerName', required: true },
-        { header: 'BrandName', required: true },
-        { header: 'Size', required: true },
-        // Optional fields
-        { header: 'StyleName', required: false },
-        { header: 'Season', required: false },
-        { header: 'Gender', required: false },
-        { header: 'BuyerCategory', required: false },
-        { header: 'BuyerSubCategory', required: false },
-        { header: 'BuyerSubSubCategory', required: false },
-        { header: 'InternalCategory', required: false },
-      ];
+    // Define column headers with their required/optional status
+    // New simplified format - one row per size variant
+    const columns = [
+      // Required fields
+      { header: 'StyleCode', required: true },
+      { header: 'CustomerName', required: true },
+      { header: 'BrandName', required: true },
+      { header: 'Size', required: true },
+      // Optional fields
+      { header: 'StyleName', required: false },
+      { header: 'Season', required: false },
+      { header: 'Gender', required: false },
+      { header: 'BuyerCategory', required: false },
+      { header: 'BuyerSubCategory', required: false },
+      { header: 'BuyerSubSubCategory', required: false },
+      { header: 'InternalCategory', required: false },
+    ];
 
-      // Create header row
-      const headerRow = columns.map(col => col.header);
+    // Create header row
+    const headerRow = columns.map(col => col.header);
 
-      // Create Required/Optional indicator row
-      const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
+    // Create Required/Optional indicator row
+    const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
 
-      // Sample data rows - one row per size
-      const sampleData = [
-        // Style COS009 with 4 sizes
-        ['COS009', 'ABC Corp', 'Fabindia', 'S', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-        ['COS009', 'ABC Corp', 'Fabindia', 'M', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-        ['COS009', 'ABC Corp', 'Fabindia', 'L', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-        ['COS009', 'ABC Corp', 'Fabindia', 'XL', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-        // Style COS009B (different colorway) with 4 sizes
-        ['COS009B', 'ABC Corp', 'Fabindia', 'S', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-        ['COS009B', 'ABC Corp', 'Fabindia', 'M', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-        ['COS009B', 'ABC Corp', 'Fabindia', 'L', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-        ['COS009B', 'ABC Corp', 'Fabindia', 'XL', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-      ];
+    // Sample data rows - one row per size
+    const sampleData = [
+      // Style COS009 with 4 sizes
+      ['COS009', 'ABC Corp', 'Fabindia', 'S', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      ['COS009', 'ABC Corp', 'Fabindia', 'M', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      ['COS009', 'ABC Corp', 'Fabindia', 'L', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      ['COS009', 'ABC Corp', 'Fabindia', 'XL', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      // Style COS009B (different colorway) with 4 sizes
+      ['COS009B', 'ABC Corp', 'Fabindia', 'S', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      ['COS009B', 'ABC Corp', 'Fabindia', 'M', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      ['COS009B', 'ABC Corp', 'Fabindia', 'L', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      ['COS009B', 'ABC Corp', 'Fabindia', 'XL', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+    ];
 
-      // Create Excel workbook
-      const wb = XLSX.utils.book_new();
+    // Create Excel workbook
+    const wb = XLSX.utils.book_new();
 
-      // Create sheet data with headers, required/optional row, and sample data
-      const sheetData = [headerRow, requiredRow, ...sampleData];
-      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    // Create sheet data with headers, required/optional row, and sample data
+    const sheetData = [headerRow, requiredRow, ...sampleData];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
-      // Set column widths for better readability
-      const colWidths = columns.map(col => ({ wch: Math.max(col.header.length + 2, 20) }));
-      ws['!cols'] = colWidths;
+    // Set column widths for better readability
+    const colWidths = columns.map(col => ({ wch: Math.max(col.header.length + 2, 20) }));
+    ws['!cols'] = colWidths;
 
-      XLSX.utils.book_append_sheet(wb, ws, 'Style Import Template');
+    XLSX.utils.book_append_sheet(wb, ws, 'Style Import Template');
 
-      // Add instructions sheet
-      const instructionsData = [
-        ['Style Import Template Instructions'],
-        [''],
-        ['REQUIRED FIELDS:'],
-        ['StyleCode', 'Unique style identifier (colorways are separate styles, e.g., COS009, COS009B)'],
-        ['CustomerName', 'Customer/Buyer name - MUST exist in the Customers master'],
-        ['BrandName', 'Brand name - will be created if not exists'],
-        ['Size', 'Size for this variant (one row per size) - S, M, L, XL, 4Y, etc.'],
-        [''],
-        ['OPTIONAL FIELDS:'],
-        ['StyleName', 'Display name (defaults to StyleCode if not provided)'],
-        ['Season', 'Season identifier (e.g., Summer 2025, Winter 2024)'],
-        ['Gender', 'MEN, WOMEN, KIDS, or UNISEX (defaults to UNISEX)'],
-        ['BuyerCategory', 'Buyer\'s category (e.g., Ethnic Wear)'],
-        ['BuyerSubCategory', 'Buyer\'s sub-category (e.g., Kurta Sets)'],
-        ['BuyerSubSubCategory', 'Buyer\'s sub-sub-category (e.g., Full Sleeve)'],
-        ['InternalCategory', 'Your internal category for organization'],
-        [''],
-        ['AUTO-GENERATED FIELDS:'],
-        ['InternalCode', 'System generates: STY-YYYYMM-XXXX'],
-        ['SKU', 'System generates: {StyleCode}{Size} (e.g., COS009S)'],
-        ['Barcode', 'Same as SKU'],
-        [''],
-        ['NOTES:'],
-        ['- Each row represents one size variant'],
-        ['- Style-level data (name, season, etc.) is taken from the first row for each StyleCode'],
-        ['- Customer MUST exist in the system before import'],
-        ['- Brand categories are created automatically if they don\'t exist'],
-      ];
-      const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
-      wsInstructions['!cols'] = [{ wch: 25 }, { wch: 80 }];
-      XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+    // Add instructions sheet
+    const instructionsData = [
+      ['Style Import Template Instructions'],
+      [''],
+      ['REQUIRED FIELDS:'],
+      ['StyleCode', 'Unique style identifier (colorways are separate styles, e.g., COS009, COS009B)'],
+      ['CustomerName', 'Customer/Buyer name - MUST exist in the Customers master'],
+      ['BrandName', 'Brand name - will be created if not exists'],
+      ['Size', 'Size for this variant (one row per size) - S, M, L, XL, 4Y, etc.'],
+      [''],
+      ['OPTIONAL FIELDS:'],
+      ['StyleName', 'Display name (defaults to StyleCode if not provided)'],
+      ['Season', 'Season identifier (e.g., Summer 2025, Winter 2024)'],
+      ['Gender', 'MEN, WOMEN, KIDS, or UNISEX (defaults to UNISEX)'],
+      ['BuyerCategory', 'Buyer\'s category (e.g., Ethnic Wear)'],
+      ['BuyerSubCategory', 'Buyer\'s sub-category (e.g., Kurta Sets)'],
+      ['BuyerSubSubCategory', 'Buyer\'s sub-sub-category (e.g., Full Sleeve)'],
+      ['InternalCategory', 'Your internal category for organization'],
+      [''],
+      ['AUTO-GENERATED FIELDS:'],
+      ['InternalCode', 'System generates: STY-YYYYMM-XXXX'],
+      ['SKU', 'System generates: {StyleCode}{Size} (e.g., COS009S)'],
+      ['Barcode', 'Same as SKU'],
+      [''],
+      ['NOTES:'],
+      ['- Each row represents one size variant'],
+      ['- Style-level data (name, season, etc.) is taken from the first row for each StyleCode'],
+      ['- Customer MUST exist in the system before import'],
+      ['- Brand categories are created automatically if they don\'t exist'],
+    ];
+    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
+    wsInstructions['!cols'] = [{ wch: 25 }, { wch: 80 }];
+    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
 
-      // Generate buffer
-      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    // Generate buffer
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      );
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename=style_import_template.xlsx'
-      );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=style_import_template.xlsx'
+    );
 
-      return res.send(buffer);
-    } catch (error: unknown) {
-      logError('Download template error:', error);
-      return res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to download template',
-      });
-    }
+    return res.send(buffer);
   }
 
   /**

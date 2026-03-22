@@ -6,8 +6,9 @@
 
 import { Router, Request, Response } from 'express';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import { getJob, getJobStatus, getQueueStats, isQueueAvailable } from '../jobs';
-import { logError } from '../utils/logger';
+import { NotFoundError } from '../errors';
 
 const router = Router();
 
@@ -48,29 +49,22 @@ router.get(
   '/stats',
   authenticateToken,
   authorize('ADMIN', 'PRODUCTION_MANAGER'),
-  async (req: Request, res: Response) => {
-    try {
-      const stats = await getQueueStats();
+  asyncHandler(async (req: Request, res: Response) => {
+    const stats = await getQueueStats();
 
-      if (!stats) {
-        res.json({
-          available: false,
-          message: 'Queue not available',
-        });
-        return;
-      }
-
+    if (!stats) {
       res.json({
-        available: true,
-        stats,
+        available: false,
+        message: 'Queue not available',
       });
-    } catch (error) {
-      logError('Error getting queue stats:', error);
-      res.status(500).json({
-        error: 'Failed to get queue statistics',
-      });
+      return;
     }
-  }
+
+    res.json({
+      available: true,
+      stats,
+    });
+  })
 );
 
 /**
@@ -93,30 +87,19 @@ router.get(
  *       404:
  *         description: Job not found
  */
-router.get('/:jobId', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { jobId } = req.params;
-    const status = await getJobStatus(jobId);
+router.get('/:jobId', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const { jobId } = req.params;
+  const status = await getJobStatus(jobId);
 
-    if (!status) {
-      res.status(404).json({
-        error: 'Job not found',
-        message: `No job found with ID: ${jobId}`,
-      });
-      return;
-    }
-
-    res.json({
-      jobId,
-      ...status,
-    });
-  } catch (error) {
-    logError('Error getting job status:', error);
-    res.status(500).json({
-      error: 'Failed to get job status',
-    });
+  if (!status) {
+    throw new NotFoundError('Job', jobId);
   }
-});
+
+  res.json({
+    jobId,
+    ...status,
+  });
+}));
 
 /**
  * @swagger
@@ -142,40 +125,29 @@ router.get(
   '/:jobId/details',
   authenticateToken,
   authorize('ADMIN', 'PRODUCTION_MANAGER'),
-  async (req: Request, res: Response) => {
-    try {
-      const { jobId } = req.params;
-      const job = await getJob(jobId);
+  asyncHandler(async (req: Request, res: Response) => {
+    const { jobId } = req.params;
+    const job = await getJob(jobId);
 
-      if (!job) {
-        res.status(404).json({
-          error: 'Job not found',
-          message: `No job found with ID: ${jobId}`,
-        });
-        return;
-      }
-
-      const state = await job.getState();
-
-      res.json({
-        id: job.id,
-        name: job.name,
-        data: job.data,
-        state,
-        progress: job.progress,
-        attemptsMade: job.attemptsMade,
-        processedOn: job.processedOn,
-        finishedOn: job.finishedOn,
-        returnvalue: job.returnvalue,
-        failedReason: job.failedReason,
-      });
-    } catch (error) {
-      logError('Error getting job details:', error);
-      res.status(500).json({
-        error: 'Failed to get job details',
-      });
+    if (!job) {
+      throw new NotFoundError('Job', jobId);
     }
-  }
+
+    const state = await job.getState();
+
+    res.json({
+      id: job.id,
+      name: job.name,
+      data: job.data,
+      state,
+      progress: job.progress,
+      attemptsMade: job.attemptsMade,
+      processedOn: job.processedOn,
+      finishedOn: job.finishedOn,
+      returnvalue: job.returnvalue,
+      failedReason: job.failedReason,
+    });
+  })
 );
 
 export default router;

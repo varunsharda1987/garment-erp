@@ -1,6 +1,7 @@
 import express from 'express';
 import { patternPartController } from '../controllers/patternPart.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router({ mergeParams: true }); // mergeParams to access :componentId from parent router
 
@@ -8,15 +9,15 @@ const router = express.Router({ mergeParams: true }); // mergeParams to access :
 router.use(authenticateToken);
 
 // Get pattern parts for a component
-router.get('/', patternPartController.getPatternPartsByComponent.bind(patternPartController));
+router.get('/', asyncHandler(patternPartController.getPatternPartsByComponent.bind(patternPartController)));
 
 // Add pattern part to component
-router.post('/', patternPartController.addPatternPartToComponent.bind(patternPartController));
+router.post('/', asyncHandler(patternPartController.addPatternPartToComponent.bind(patternPartController)));
 
 // Update component-pattern part association
-router.put('/:patternPartId', patternPartController.updateComponentPatternPart.bind(patternPartController));
+router.put('/:patternPartId', asyncHandler(patternPartController.updateComponentPatternPart.bind(patternPartController)));
 
 // Remove pattern part from component
-router.delete('/:patternPartId', patternPartController.removePatternPartFromComponent.bind(patternPartController));
+router.delete('/:patternPartId', asyncHandler(patternPartController.removePatternPartFromComponent.bind(patternPartController)));
 
 export default router;

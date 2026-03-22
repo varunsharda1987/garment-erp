@@ -7,6 +7,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   createLabDip,
   getLabDips,
@@ -28,7 +29,7 @@ router.use(authenticateToken);
  * @access  Private
  * @body    greigeLaceId, targetColor, processorId, sampleQuantity
  */
-router.post('/', createLabDip);
+router.post('/', asyncHandler(createLabDip));
 
 /**
  * @route   GET /api/lace-lab-dips
@@ -36,28 +37,28 @@ router.post('/', createLabDip);
  * @access  Private
  * @query   status, greigeLaceId, processorId, styleId, costSheetId, page, limit
  */
-router.get('/', getLabDips);
+router.get('/', asyncHandler(getLabDips));
 
 /**
  * @route   GET /api/lace-lab-dips/approved/:greigeLaceId
  * @desc    Get approved lab dips for a greige lace (for processor selection)
  * @access  Private
  */
-router.get('/approved/:greigeLaceId', getApprovedForLace);
+router.get('/approved/:greigeLaceId', asyncHandler(getApprovedForLace));
 
 /**
  * @route   GET /api/lace-lab-dips/:id
  * @desc    Get single lace lab dip by ID
  * @access  Private
  */
-router.get('/:id', getLabDipById);
+router.get('/:id', asyncHandler(getLabDipById));
 
 /**
  * @route   PUT /api/lace-lab-dips/:id
  * @desc    Update lace lab dip details
  * @access  Private
  */
-router.put('/:id', updateLabDip);
+router.put('/:id', asyncHandler(updateLabDip));
 
 /**
  * @route   POST /api/lace-lab-dips/:id/status
@@ -72,13 +73,13 @@ router.put('/:id', updateLabDip);
  * - AWAITING_BUYER_APPROVAL -> APPROVED | REJECTED
  * - REJECTED -> PENDING (restart process)
  */
-router.post('/:id/status', updateStatus);
+router.post('/:id/status', asyncHandler(updateStatus));
 
 /**
  * @route   DELETE /api/lace-lab-dips/:id
  * @desc    Delete lab dip (only if PENDING status)
  * @access  Private
  */
-router.delete('/:id', deleteLabDip);
+router.delete('/:id', asyncHandler(deleteLabDip));
 
 export default router;

@@ -9,6 +9,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   createIssueNote,
   recordConsumptionController,
@@ -34,21 +35,21 @@ router.use(authenticateToken);
  * @access  Private
  * @query   orderId, styleId, stockId, laceId, status, search, page, limit
  */
-router.get('/', getIssueNotesController);
+router.get('/', asyncHandler(getIssueNotesController));
 
 /**
  * @route   GET /api/lace-issue-notes/order/:orderId
  * @desc    Get issue notes for a specific order
  * @access  Private
  */
-router.get('/order/:orderId', getIssueNotesByOrderController);
+router.get('/order/:orderId', asyncHandler(getIssueNotesByOrderController));
 
 /**
  * @route   GET /api/lace-issue-notes/:id
  * @desc    Get issue note by ID
  * @access  Private
  */
-router.get('/:id', getIssueNoteByIdController);
+router.get('/:id', asyncHandler(getIssueNoteByIdController));
 
 // ============================================================================
 // COMMANDS
@@ -60,7 +61,7 @@ router.get('/:id', getIssueNoteByIdController);
  * @access  Private
  * @body    orderId, styleId, stockId, laceId, issuedQuantity, cuttingBatchId?, notes?
  */
-router.post('/', createIssueNote);
+router.post('/', asyncHandler(createIssueNote));
 
 /**
  * @route   POST /api/lace-issue-notes/:id/consume
@@ -68,7 +69,7 @@ router.post('/', createIssueNote);
  * @access  Private
  * @body    consumedQuantity, notes?
  */
-router.post('/:id/consume', recordConsumptionController);
+router.post('/:id/consume', asyncHandler(recordConsumptionController));
 
 /**
  * @route   POST /api/lace-issue-notes/:id/return
@@ -76,13 +77,13 @@ router.post('/:id/consume', recordConsumptionController);
  * @access  Private
  * @body    returnQuantity, notes?
  */
-router.post('/:id/return', returnToStockController);
+router.post('/:id/return', asyncHandler(returnToStockController));
 
 /**
  * @route   POST /api/lace-issue-notes/:id/close
  * @desc    Close an issue note (finalize - all material accounted for)
  * @access  Private
  */
-router.post('/:id/close', closeIssueNoteController);
+router.post('/:id/close', asyncHandler(closeIssueNoteController));
 
 export default router;

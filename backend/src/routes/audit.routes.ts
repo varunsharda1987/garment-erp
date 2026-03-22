@@ -6,12 +6,12 @@
 
 import { Router, Request, Response } from 'express';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   getAuditLogsForEntity,
   getAuditLogsByUser,
   getRecentAuditLogs,
 } from '../services/audit.service';
-import { logError } from '../utils/logger';
 
 const router = Router();
 
@@ -41,28 +41,20 @@ const router = Router();
  *       200:
  *         description: List of audit logs
  */
-router.get('/', authenticateToken, authorize('ADMIN', 'PRODUCTION_MANAGER'), async (req: Request, res: Response) => {
-  try {
-    const limit = parseInt(req.query.limit as string) || 100;
-    const entityType = req.query.entityType as string | undefined;
-    const action = req.query.action as string | undefined;
+router.get('/', authenticateToken, authorize('ADMIN', 'PRODUCTION_MANAGER'), asyncHandler(async (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string) || 100;
+  const entityType = req.query.entityType as string | undefined;
+  const action = req.query.action as string | undefined;
 
-    const logs = await getRecentAuditLogs({ limit, entityType, action });
+  const logs = await getRecentAuditLogs({ limit, entityType, action });
 
-    res.status(200).json({
-      data: logs,
-      pagination: {
-        limit,
-      },
-    });
-  } catch (error) {
-    logError('Error fetching audit logs:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to fetch audit logs',
-    });
-  }
-});
+  res.status(200).json({
+    data: logs,
+    pagination: {
+      limit,
+    },
+  });
+}));
 
 /**
  * @swagger
@@ -101,31 +93,23 @@ router.get(
   '/entity/:entityType/:entityId',
   authenticateToken,
   authorize('ADMIN', 'PRODUCTION_MANAGER'),
-  async (req: Request, res: Response) => {
-    try {
-      const { entityType, entityId } = req.params;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+  asyncHandler(async (req: Request, res: Response) => {
+    const { entityType, entityId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
 
-      const { logs, total } = await getAuditLogsForEntity(entityType, entityId, { limit, offset });
+    const { logs, total } = await getAuditLogsForEntity(entityType, entityId, { limit, offset });
 
-      res.status(200).json({
-        data: logs,
-        pagination: {
-          page: Math.floor(offset / limit) + 1,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      });
-    } catch (error) {
-      logError('Error fetching entity audit logs:', error);
-      res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Failed to fetch audit logs',
-      });
-    }
-  }
+    res.status(200).json({
+      data: logs,
+      pagination: {
+        page: Math.floor(offset / limit) + 1,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  })
 );
 
 /**
@@ -160,31 +144,23 @@ router.get(
   '/user/:userId',
   authenticateToken,
   authorize('ADMIN'),
-  async (req: Request, res: Response) => {
-    try {
-      const { userId } = req.params;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+  asyncHandler(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
 
-      const { logs, total } = await getAuditLogsByUser(userId, { limit, offset });
+    const { logs, total } = await getAuditLogsByUser(userId, { limit, offset });
 
-      res.status(200).json({
-        data: logs,
-        pagination: {
-          page: Math.floor(offset / limit) + 1,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      });
-    } catch (error) {
-      logError('Error fetching user audit logs:', error);
-      res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Failed to fetch audit logs',
-      });
-    }
-  }
+    res.status(200).json({
+      data: logs,
+      pagination: {
+        page: Math.floor(offset / limit) + 1,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  })
 );
 
 export default router;

@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import * as processingDeliveryController from '../controllers/processingDelivery.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -9,17 +10,17 @@ const router = Router();
 router.use(authenticateToken);
 
 // Delivery management
-router.post('/', processingDeliveryController.createDelivery);
-router.get('/', processingDeliveryController.getAllDeliveries);
-router.get('/pending-qc', processingDeliveryController.getPendingQCDeliveries);
-router.get('/summary', processingDeliveryController.getDeliverySummary);
-router.get('/batch/:batchId', processingDeliveryController.getDeliveriesByBatch);
-router.get('/stage/:stageId', processingDeliveryController.getDeliveriesByStage);
-router.get('/:id', processingDeliveryController.getDeliveryById);
-router.put('/:id', processingDeliveryController.updateDelivery);
-router.post('/:id/qc', processingDeliveryController.performQC);
-router.post('/:id/accept', processingDeliveryController.acceptDelivery);
-router.post('/:id/reject', processingDeliveryController.rejectDelivery);
-router.delete('/:id', processingDeliveryController.deleteDelivery);
+router.post('/', asyncHandler(processingDeliveryController.createDelivery));
+router.get('/', asyncHandler(processingDeliveryController.getAllDeliveries));
+router.get('/pending-qc', asyncHandler(processingDeliveryController.getPendingQCDeliveries));
+router.get('/summary', asyncHandler(processingDeliveryController.getDeliverySummary));
+router.get('/batch/:batchId', asyncHandler(processingDeliveryController.getDeliveriesByBatch));
+router.get('/stage/:stageId', asyncHandler(processingDeliveryController.getDeliveriesByStage));
+router.get('/:id', asyncHandler(processingDeliveryController.getDeliveryById));
+router.put('/:id', asyncHandler(processingDeliveryController.updateDelivery));
+router.post('/:id/qc', asyncHandler(processingDeliveryController.performQC));
+router.post('/:id/accept', asyncHandler(processingDeliveryController.acceptDelivery));
+router.post('/:id/reject', asyncHandler(processingDeliveryController.rejectDelivery));
+router.delete('/:id', asyncHandler(processingDeliveryController.deleteDelivery));
 
 export default router;

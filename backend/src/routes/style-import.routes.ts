@@ -1,8 +1,9 @@
 // Style Import routes
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import StyleImportController from '../controllers/style-import.controller';
 import StyleStockController from '../controllers/style-stock.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import { UserRole } from '@prisma/client';
 import multer from 'multer';
 
@@ -44,7 +45,7 @@ router.post(
   '/import',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   upload.single('file'),
-  (req, res) => StyleImportController.importStyles(req, res)
+  asyncHandler((req: Request, res: Response) => StyleImportController.importStyles(req, res))
 );
 
 /**
@@ -52,14 +53,14 @@ router.post(
  * @desc    Download sample CSV template
  * @access  Protected - All authenticated users
  */
-router.get('/import/template', (req, res) => StyleImportController.downloadTemplate(req, res));
+router.get('/import/template', asyncHandler((req: Request, res: Response) => StyleImportController.downloadTemplate(req, res)));
 
 /**
  * @route   GET /api/styles/import/:batchId
  * @desc    Get import status and summary
  * @access  Protected - All authenticated users
  */
-router.get('/import/:batchId', (req, res) => StyleImportController.getImportStatus(req, res));
+router.get('/import/:batchId', asyncHandler((req: Request, res: Response) => StyleImportController.getImportStatus(req, res)));
 
 /**
  * @route   POST /api/styles/import/:batchId/retry
@@ -69,7 +70,7 @@ router.get('/import/:batchId', (req, res) => StyleImportController.getImportStat
 router.post(
   '/import/:batchId/retry',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  (req, res) => StyleImportController.retryImport(req, res)
+  asyncHandler((req: Request, res: Response) => StyleImportController.retryImport(req, res))
 );
 
 // ============================================
@@ -84,7 +85,7 @@ router.post(
 router.post(
   '/:styleId/stock-entry',
   authorize(UserRole.ADMIN, UserRole.INVENTORY),
-  (req, res) => StyleStockController.createStyleStock(req, res)
+  asyncHandler((req: Request, res: Response) => StyleStockController.createStyleStock(req, res))
 );
 
 /**
@@ -92,21 +93,21 @@ router.post(
  * @desc    Get stock availability for style
  * @access  Protected - All authenticated users
  */
-router.get('/:styleId/stock', (req, res) => StyleStockController.getStyleStock(req, res));
+router.get('/:styleId/stock', asyncHandler((req: Request, res: Response) => StyleStockController.getStyleStock(req, res)));
 
 /**
  * @route   GET /api/styles/:styleId/fabrics
  * @desc    Get fabrics used in style
  * @access  Protected - All authenticated users
  */
-router.get('/:styleId/fabrics', (req, res) => StyleStockController.getStyleFabrics(req, res));
+router.get('/:styleId/fabrics', asyncHandler((req: Request, res: Response) => StyleStockController.getStyleFabrics(req, res)));
 
 /**
  * @route   POST /api/styles/bulk-stock
  * @desc    Get stock for multiple styles (for reports)
  * @access  Protected - All authenticated users
  */
-router.post('/bulk-stock', (req, res) => StyleStockController.getBulkStyleStock(req, res));
+router.post('/bulk-stock', asyncHandler((req: Request, res: Response) => StyleStockController.getBulkStyleStock(req, res)));
 
 // ============================================
 // FABRIC QUERY ROUTES
@@ -117,14 +118,14 @@ router.post('/bulk-stock', (req, res) => StyleStockController.getBulkStyleStock(
  * @desc    Get styles that use this fabric
  * @access  Protected - All authenticated users
  */
-router.get('/fabrics/:fabricId/styles', (req, res) => StyleStockController.getFabricStyles(req, res));
+router.get('/fabrics/:fabricId/styles', asyncHandler((req: Request, res: Response) => StyleStockController.getFabricStyles(req, res)));
 
 /**
  * @route   GET /api/fabrics/:fabricId/stock-history
  * @desc    Get stock origin history for fabric
  * @access  Protected - All authenticated users
  */
-router.get('/fabrics/:fabricId/stock-history', (req, res) => StyleStockController.getFabricStockHistory(req, res));
+router.get('/fabrics/:fabricId/stock-history', asyncHandler((req: Request, res: Response) => StyleStockController.getFabricStockHistory(req, res)));
 
 // ============================================
 // GREIGE STOCK ROUTES
@@ -139,7 +140,7 @@ router.get('/fabrics/:fabricId/stock-history', (req, res) => StyleStockControlle
 router.post(
   '/greige/stock-entry',
   authorize(UserRole.ADMIN, UserRole.INVENTORY),
-  (req, res) => StyleStockController.createGreigeStock(req, res)
+  asyncHandler((req: Request, res: Response) => StyleStockController.createGreigeStock(req, res))
 );
 
 /**
@@ -148,6 +149,6 @@ router.post(
  * @desc    Get generic greige stock (not tied to any style)
  * @access  Protected - All authenticated users
  */
-router.get('/greige/generic-stock', (req, res) => StyleStockController.getGenericGreigeStock(req, res));
+router.get('/greige/generic-stock', asyncHandler((req: Request, res: Response) => StyleStockController.getGenericGreigeStock(req, res)));
 
 export default router;

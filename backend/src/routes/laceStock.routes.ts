@@ -9,6 +9,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   createStock,
   getStocks,
@@ -38,14 +39,14 @@ router.use(authenticateToken);
  * @access  Private
  * @query   minAgeDays - Minimum age in days (default: 90)
  */
-router.get('/reports/aging', getAgingReport);
+router.get('/reports/aging', asyncHandler(getAgingReport));
 
 /**
  * @route   GET /api/lace-stock/reports/utilization
  * @desc    Get stock utilization report (cross-style reuse statistics)
  * @access  Private
  */
-router.get('/reports/utilization', getUtilizationReport);
+router.get('/reports/utilization', asyncHandler(getUtilizationReport));
 
 // ============================================================================
 // ALLOCATION OPERATIONS
@@ -57,7 +58,7 @@ router.get('/reports/utilization', getUtilizationReport);
  * @access  Private
  * @body    quantityConsumed, notes?
  */
-router.post('/allocations/:allocationId/consume', consumeStockController);
+router.post('/allocations/:allocationId/consume', asyncHandler(consumeStockController));
 
 /**
  * @route   POST /api/lace-stock/allocations/:allocationId/return
@@ -65,7 +66,7 @@ router.post('/allocations/:allocationId/consume', consumeStockController);
  * @access  Private
  * @body    quantityToReturn, notes?
  */
-router.post('/allocations/:allocationId/return', returnStockController);
+router.post('/allocations/:allocationId/return', asyncHandler(returnStockController));
 
 // ============================================================================
 // STOCK CRUD
@@ -78,7 +79,7 @@ router.post('/allocations/:allocationId/return', returnStockController);
  * @body    laceId, quantityAvailable, weightedAvgCost, purchaseCost?,
  *          lotNumber?, dyeLotNumber?, shadeNote?, originStyleId?, etc.
  */
-router.post('/', createStock);
+router.post('/', asyncHandler(createStock));
 
 /**
  * @route   GET /api/lace-stock
@@ -87,7 +88,7 @@ router.post('/', createStock);
  * @query   laceId, originStyleId, originOrderId, status, stockType,
  *          qualityGrade, warehouseLocation, minQuantity, search, page, limit
  */
-router.get('/', getStocks);
+router.get('/', asyncHandler(getStocks));
 
 /**
  * @route   GET /api/lace-stock/available/:laceId
@@ -95,21 +96,21 @@ router.get('/', getStocks);
  * @access  Private
  * @query   minQuantity - Filter for minimum available quantity
  */
-router.get('/available/:laceId', getAvailableStock);
+router.get('/available/:laceId', asyncHandler(getAvailableStock));
 
 /**
  * @route   GET /api/lace-stock/:id
  * @desc    Get stock by ID with full details
  * @access  Private
  */
-router.get('/:id', getStock);
+router.get('/:id', asyncHandler(getStock));
 
 /**
  * @route   GET /api/lace-stock/:id/transactions
  * @desc    Get transaction history for a stock lot
  * @access  Private
  */
-router.get('/:id/transactions', getTransactions);
+router.get('/:id/transactions', asyncHandler(getTransactions));
 
 /**
  * @route   POST /api/lace-stock/:id/allocate
@@ -117,7 +118,7 @@ router.get('/:id/transactions', getTransactions);
  * @access  Private
  * @body    orderId, styleId, styleCode?, quantityToAllocate, allocationType?, notes?
  */
-router.post('/:id/allocate', allocateStockController);
+router.post('/:id/allocate', asyncHandler(allocateStockController));
 
 /**
  * @route   POST /api/lace-stock/:id/transfer
@@ -125,6 +126,6 @@ router.post('/:id/allocate', allocateStockController);
  * @access  Private
  * @body    toOrderId, toStyleId, toStyleCode?, quantityToTransfer, transferNotes?
  */
-router.post('/:id/transfer', transferStockController);
+router.post('/:id/transfer', asyncHandler(transferStockController));
 
 export default router;

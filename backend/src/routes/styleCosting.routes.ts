@@ -28,6 +28,7 @@ import {
   bulkAddLaceItemsController,
 } from '../controllers/styleCostingLaceItems.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ router.post(
   '/',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  createCostSheet
+  asyncHandler(createCostSheet)
 );
 
 /**
@@ -56,7 +57,7 @@ router.post(
   '/generate/:styleId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  generateCostSheetFromStyle
+  asyncHandler(generateCostSheetFromStyle)
 );
 
 /**
@@ -64,7 +65,7 @@ router.post(
  * @desc    Get all cost sheets with filtering and pagination
  * @access  Private
  */
-router.get('/', authenticateToken, getAllCostSheets);
+router.get('/', authenticateToken, asyncHandler(getAllCostSheets));
 
 /**
  * @route   GET /api/style-costing/budget-suggestions/:styleId
@@ -77,7 +78,7 @@ router.get(
   '/budget-suggestions/:styleId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  getBudgetSuggestions
+  asyncHandler(getBudgetSuggestions)
 );
 
 /**
@@ -85,21 +86,21 @@ router.get(
  * @desc    Get cost sheet by ID
  * @access  Private
  */
-router.get('/:id', authenticateToken, getCostSheetById);
+router.get('/:id', authenticateToken, asyncHandler(getCostSheetById));
 
 /**
  * @route   GET /api/style-costing/style/:styleId
  * @desc    Get cost sheet by style ID
  * @access  Private
  */
-router.get('/style/:styleId', authenticateToken, getCostSheetByStyle);
+router.get('/style/:styleId', authenticateToken, asyncHandler(getCostSheetByStyle));
 
 /**
  * @route   GET /api/style-costing/style/:styleId/grouped
  * @desc    Get all cost sheets for a style grouped by width combination
  * @access  Private
  */
-router.get('/style/:styleId/grouped', authenticateToken, getCostSheetsGroupedByWidth);
+router.get('/style/:styleId/grouped', authenticateToken, asyncHandler(getCostSheetsGroupedByWidth));
 
 /**
  * @route   PUT /api/style-costing/:id
@@ -110,7 +111,7 @@ router.put(
   '/:id',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  updateCostSheet
+  asyncHandler(updateCostSheet)
 );
 
 /**
@@ -122,7 +123,7 @@ router.patch(
   '/:id/approve',
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for cost sheet approval
-  approveCostSheet
+  asyncHandler(approveCostSheet)
 );
 
 /**
@@ -134,7 +135,7 @@ router.delete(
   '/:id',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER),
-  deleteCostSheet
+  asyncHandler(deleteCostSheet)
 );
 
 // ============================================================================
@@ -151,7 +152,7 @@ router.post(
   '/:id/create-version',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  createCostSheetVersion
+  asyncHandler(createCostSheetVersion)
 );
 
 /**
@@ -159,14 +160,14 @@ router.post(
  * @desc    Get all cost sheet versions for a style
  * @access  Private
  */
-router.get('/style/:styleId/versions', authenticateToken, getCostSheetVersions);
+router.get('/style/:styleId/versions', authenticateToken, asyncHandler(getCostSheetVersions));
 
 /**
  * @route   GET /api/style-costing/compare/:id1/:id2
  * @desc    Compare two cost sheet versions
  * @access  Private
  */
-router.get('/compare/:id1/:id2', authenticateToken, compareCostSheetVersions);
+router.get('/compare/:id1/:id2', authenticateToken, asyncHandler(compareCostSheetVersions));
 
 // ============================================================================
 // PROCUREMENT & VARIANCE TRACKING ROUTES (Phase 2B)
@@ -182,7 +183,7 @@ router.post(
   '/copy',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  copyCostSheetForProcurement
+  asyncHandler(copyCostSheetForProcurement)
 );
 
 /**
@@ -195,7 +196,7 @@ router.patch(
   '/:id/actuals',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  updateActuals
+  asyncHandler(updateActuals)
 );
 
 /**
@@ -208,7 +209,7 @@ router.post(
   '/variance/:id/approve',
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for variance approval
-  approveVariance
+  asyncHandler(approveVariance)
 );
 
 // ============================================================================
@@ -224,7 +225,7 @@ router.post(
   '/:costingId/lace-items',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  addLaceItem
+  asyncHandler(addLaceItem)
 );
 
 /**
@@ -236,7 +237,7 @@ router.post(
   '/:costingId/lace-items/bulk',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  bulkAddLaceItemsController
+  asyncHandler(bulkAddLaceItemsController)
 );
 
 /**
@@ -247,7 +248,7 @@ router.post(
 router.post(
   '/:costingId/lace-items/calculate-options',
   authenticateToken,
-  calculateLaceOptions
+  asyncHandler(calculateLaceOptions)
 );
 
 /**
@@ -255,14 +256,14 @@ router.post(
  * @desc    Get all lace items for a cost sheet
  * @access  Private
  */
-router.get('/:costingId/lace-items', authenticateToken, getLaceItems);
+router.get('/:costingId/lace-items', authenticateToken, asyncHandler(getLaceItems));
 
 /**
  * @route   GET /api/style-costing/:costingId/lace-items/:itemId
  * @desc    Get single lace item by ID
  * @access  Private
  */
-router.get('/:costingId/lace-items/:itemId', authenticateToken, getLaceItem);
+router.get('/:costingId/lace-items/:itemId', authenticateToken, asyncHandler(getLaceItem));
 
 /**
  * @route   PUT /api/style-costing/:costingId/lace-items/:itemId
@@ -273,7 +274,7 @@ router.put(
   '/:costingId/lace-items/:itemId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  updateLaceItemController
+  asyncHandler(updateLaceItemController)
 );
 
 /**
@@ -285,7 +286,7 @@ router.delete(
   '/:costingId/lace-items/:itemId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  deleteLaceItem
+  asyncHandler(deleteLaceItem)
 );
 
 export default router;

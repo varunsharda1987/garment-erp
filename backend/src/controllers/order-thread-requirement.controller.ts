@@ -6,6 +6,7 @@
 
 import { Request, Response } from 'express';
 import * as orderThreadRequirementService from '../services/order-thread-requirement.service';
+import { NotFoundError } from '../errors';
 
 // ==================== CRUD ENDPOINTS ====================
 
@@ -14,24 +15,16 @@ import * as orderThreadRequirementService from '../services/order-thread-require
  * Create a new thread requirement for an order
  */
 export async function createThreadRequirement(req: Request, res: Response) {
-  try {
-    const { orderId } = req.params;
-    const data = { ...req.body, orderId };
+  const { orderId } = req.params;
+  const data = { ...req.body, orderId };
 
-    const requirement = await orderThreadRequirementService.createThreadRequirement(data);
+  const requirement = await orderThreadRequirementService.createThreadRequirement(data);
 
-    res.status(201).json({
-      success: true,
-      data: requirement,
-      message: 'Thread requirement created successfully',
-    });
-  } catch (error: any) {
-    console.error('Error creating thread requirement:', error);
-    res.status(400).json({
-      success: false,
-      error: error.message || 'Failed to create thread requirement',
-    });
-  }
+  res.status(201).json({
+    success: true,
+    data: requirement,
+    message: 'Thread requirement created successfully',
+  });
 }
 
 /**
@@ -39,30 +32,22 @@ export async function createThreadRequirement(req: Request, res: Response) {
  * Get all thread requirements for an order
  */
 export async function getThreadRequirements(req: Request, res: Response) {
-  try {
-    const { orderId } = req.params;
+  const { orderId } = req.params;
 
-    const requirements = await orderThreadRequirementService.getThreadRequirements(orderId);
+  const requirements = await orderThreadRequirementService.getThreadRequirements(orderId);
 
-    // Calculate summary
-    const summary = {
-      totalLineItems: requirements.length,
-      totalMeters: requirements.reduce((sum, r) => sum + r.totalMeters, 0),
-      totalCost: requirements.reduce((sum, r) => sum + (r.totalCost || 0), 0),
-    };
+  // Calculate summary
+  const summary = {
+    totalLineItems: requirements.length,
+    totalMeters: requirements.reduce((sum, r) => sum + r.totalMeters, 0),
+    totalCost: requirements.reduce((sum, r) => sum + (r.totalCost || 0), 0),
+  };
 
-    res.json({
-      success: true,
-      data: requirements,
-      summary,
-    });
-  } catch (error: any) {
-    console.error('Error fetching thread requirements:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch thread requirements',
-    });
-  }
+  res.json({
+    success: true,
+    data: requirements,
+    summary,
+  });
 }
 
 /**
@@ -70,29 +55,18 @@ export async function getThreadRequirements(req: Request, res: Response) {
  * Get a single thread requirement by ID
  */
 export async function getThreadRequirement(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const requirement = await orderThreadRequirementService.getThreadRequirement(id);
+  const requirement = await orderThreadRequirementService.getThreadRequirement(id);
 
-    if (!requirement) {
-      return res.status(404).json({
-        success: false,
-        error: 'Thread requirement not found',
-      });
-    }
-
-    res.json({
-      success: true,
-      data: requirement,
-    });
-  } catch (error: any) {
-    console.error('Error fetching thread requirement:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch thread requirement',
-    });
+  if (!requirement) {
+    throw new NotFoundError('Thread requirement', id);
   }
+
+  res.json({
+    success: true,
+    data: requirement,
+  });
 }
 
 /**
@@ -100,24 +74,16 @@ export async function getThreadRequirement(req: Request, res: Response) {
  * Update a thread requirement
  */
 export async function updateThreadRequirement(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-    const data = req.body;
+  const { id } = req.params;
+  const data = req.body;
 
-    const requirement = await orderThreadRequirementService.updateThreadRequirement(id, data);
+  const requirement = await orderThreadRequirementService.updateThreadRequirement(id, data);
 
-    res.json({
-      success: true,
-      data: requirement,
-      message: 'Thread requirement updated successfully',
-    });
-  } catch (error: any) {
-    console.error('Error updating thread requirement:', error);
-    res.status(400).json({
-      success: false,
-      error: error.message || 'Failed to update thread requirement',
-    });
-  }
+  res.json({
+    success: true,
+    data: requirement,
+    message: 'Thread requirement updated successfully',
+  });
 }
 
 /**
@@ -125,22 +91,14 @@ export async function updateThreadRequirement(req: Request, res: Response) {
  * Delete a thread requirement
  */
 export async function deleteThreadRequirement(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    await orderThreadRequirementService.deleteThreadRequirement(id);
+  await orderThreadRequirementService.deleteThreadRequirement(id);
 
-    res.json({
-      success: true,
-      message: 'Thread requirement deleted successfully',
-    });
-  } catch (error: any) {
-    console.error('Error deleting thread requirement:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to delete thread requirement',
-    });
-  }
+  res.json({
+    success: true,
+    message: 'Thread requirement deleted successfully',
+  });
 }
 
 // ==================== SHORTAGE DETECTION ====================
@@ -150,26 +108,18 @@ export async function deleteThreadRequirement(req: Request, res: Response) {
  * Check stock shortages for all thread requirements in an order
  */
 export async function checkShortages(req: Request, res: Response) {
-  try {
-    const { orderId } = req.params;
+  const { orderId } = req.params;
 
-    const shortages = await orderThreadRequirementService.checkShortages(orderId);
+  const shortages = await orderThreadRequirementService.checkShortages(orderId);
 
-    res.json({
-      success: true,
-      data: shortages,
-      summary: {
-        totalShortages: shortages.length,
-        hasShortages: shortages.length > 0,
-      },
-    });
-  } catch (error: any) {
-    console.error('Error checking shortages:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to check shortages',
-    });
-  }
+  res.json({
+    success: true,
+    data: shortages,
+    summary: {
+      totalShortages: shortages.length,
+      hasShortages: shortages.length > 0,
+    },
+  });
 }
 
 // ==================== SKU GENERATION ====================
@@ -179,22 +129,14 @@ export async function checkShortages(req: Request, res: Response) {
  * Generate style-specific SKU for a thread
  */
 export async function generateStyleSpecificSKU(req: Request, res: Response) {
-  try {
-    const { orderId, threadId } = req.params;
+  const { orderId, threadId } = req.params;
 
-    const sku = await orderThreadRequirementService.generateStyleSpecificSKU(threadId, orderId);
+  const sku = await orderThreadRequirementService.generateStyleSpecificSKU(threadId, orderId);
 
-    res.json({
-      success: true,
-      data: { sku },
-    });
-  } catch (error: any) {
-    console.error('Error generating SKU:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to generate SKU',
-    });
-  }
+  res.json({
+    success: true,
+    data: { sku },
+  });
 }
 
 export default {

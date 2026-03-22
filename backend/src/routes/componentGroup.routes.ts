@@ -1,6 +1,7 @@
 import express from 'express';
 import { componentGroupController } from '../controllers/componentGroup.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -8,27 +9,27 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create a new component group
-router.post('/', componentGroupController.createComponentGroup.bind(componentGroupController));
+router.post('/', asyncHandler(componentGroupController.createComponentGroup.bind(componentGroupController)));
 
 // Reorder component groups (must be before /:id routes to avoid conflict)
-router.post('/reorder', componentGroupController.reorderComponentGroups.bind(componentGroupController));
+router.post('/reorder', asyncHandler(componentGroupController.reorderComponentGroups.bind(componentGroupController)));
 
 // Get all component groups with pagination
-router.get('/', componentGroupController.getComponentGroups.bind(componentGroupController));
+router.get('/', asyncHandler(componentGroupController.getComponentGroups.bind(componentGroupController)));
 
 // Get component group by code
-router.get('/code/:code', componentGroupController.getComponentGroupByCode.bind(componentGroupController));
+router.get('/code/:code', asyncHandler(componentGroupController.getComponentGroupByCode.bind(componentGroupController)));
 
 // Get components in a specific group
-router.get('/:id/components', componentGroupController.getComponentsByGroup.bind(componentGroupController));
+router.get('/:id/components', asyncHandler(componentGroupController.getComponentsByGroup.bind(componentGroupController)));
 
 // Get component group by ID
-router.get('/:id', componentGroupController.getComponentGroupById.bind(componentGroupController));
+router.get('/:id', asyncHandler(componentGroupController.getComponentGroupById.bind(componentGroupController)));
 
 // Update component group
-router.put('/:id', componentGroupController.updateComponentGroup.bind(componentGroupController));
+router.put('/:id', asyncHandler(componentGroupController.updateComponentGroup.bind(componentGroupController)));
 
 // Delete component group (soft delete)
-router.delete('/:id', componentGroupController.deleteComponentGroup.bind(componentGroupController));
+router.delete('/:id', asyncHandler(componentGroupController.deleteComponentGroup.bind(componentGroupController)));
 
 export default router;

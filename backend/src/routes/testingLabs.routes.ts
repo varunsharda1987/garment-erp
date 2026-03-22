@@ -8,6 +8,7 @@ import {
   getLabStats,
 } from '../controllers/testingLabs.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import {
   createTestingLabSchema,
@@ -21,11 +22,11 @@ const router = Router();
 router.use(authenticateToken);
 
 // Routes
-router.post('/', validateBody(createTestingLabSchema), createTestingLab);
-router.get('/', validateQuery(testingLabQuerySchema), getAllTestingLabs);
-router.get('/:id', getTestingLabById);
-router.get('/:id/stats', getLabStats);
-router.put('/:id', validateBody(updateTestingLabSchema), updateTestingLab);
-router.delete('/:id', deleteTestingLab);
+router.post('/', validateBody(createTestingLabSchema), asyncHandler(createTestingLab));
+router.get('/', validateQuery(testingLabQuerySchema), asyncHandler(getAllTestingLabs));
+router.get('/:id', asyncHandler(getTestingLabById));
+router.get('/:id/stats', asyncHandler(getLabStats));
+router.put('/:id', validateBody(updateTestingLabSchema), asyncHandler(updateTestingLab));
+router.delete('/:id', asyncHandler(deleteTestingLab));
 
 export default router;

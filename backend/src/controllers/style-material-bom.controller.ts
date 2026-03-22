@@ -2,8 +2,9 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { MaterialType, MaterialUsageCategory, Prisma } from '@prisma/client';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
+import { ValidationError, NotFoundError } from '../errors';
 
 /**
  * Search materials by type and query string
@@ -11,15 +12,10 @@ import { randomUUID } from 'crypto';
  * Query params: type (MaterialType), query (string), limit (number)
  */
 export const searchMaterials = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { type, query, limit = 20 } = req.query;
 
     if (!type) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Material type is required'
-      });
-      return;
+      throw new ValidationError('Material type is required');
     }
 
     const materialType = type as MaterialType;
@@ -312,11 +308,7 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
         break;
 
       default:
-        res.status(400).json({
-          error: 'Invalid Material Type',
-          message: `Material type ${materialType} is not supported for BOM`
-        });
-        return;
+        throw new ValidationError(`Material type ${materialType} is not supported for BOM`);
     }
 
     logInfo(`Found ${materials.length} materials for type ${materialType}`);
@@ -325,14 +317,6 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
       materials,
       count: materials.length
     });
-
-  } catch (error: any) {
-    logError('Error searching materials:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: error.message
-    });
-  }
 };
 
 /**
@@ -340,15 +324,10 @@ export const searchMaterials = async (req: Request, res: Response): Promise<void
  * GET /api/styles/materials/by-code/:materialCode
  */
 export const getMaterialByCode = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { materialCode } = req.params;
 
     if (!materialCode) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'Material code is required'
-      });
-      return;
+      throw new ValidationError('Material code is required');
     }
 
     logDebug(`Fetching material by code: ${materialCode}`);
@@ -575,22 +554,10 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
     }
 
     if (!material) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: `Material with code ${materialCode} not found`
-      });
-      return;
+      throw new NotFoundError('Material', materialCode);
     }
 
     res.json({ material });
-
-  } catch (error: any) {
-    logError('Error fetching material by code:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: error.message
-    });
-  }
 };
 
 /**
@@ -598,7 +565,6 @@ export const getMaterialByCode = async (req: Request, res: Response): Promise<vo
  * GET /api/styles/:styleId/bom
  */
 export const getStyleBOM = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { styleId } = req.params;
 
     logDebug(`Fetching BOM for style: ${styleId}`);
@@ -610,11 +576,7 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
     });
 
     if (!style) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Style not found'
-      });
-      return;
+      throw new NotFoundError('Style', styleId);
     }
 
     // Get all BOM items with material details
@@ -719,14 +681,6 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
         totalMaterialCost: totalMaterialCost.toFixed(2)
       }
     });
-
-  } catch (error: any) {
-    logError('Error fetching style BOM:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: error.message
-    });
-  }
 };
 
 /**
@@ -734,7 +688,6 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
  * POST /api/styles/:styleId/materials
  */
 export const addMaterialToBOM = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { styleId } = req.params;
     const {
       materialCode,
@@ -749,11 +702,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
 
     // Validation
     if (!materialCode || !usageCategory || !quantityPerGarment || !unit) {
-      res.status(400).json({
-        error: 'Validation Error',
-        message: 'materialCode, usageCategory, quantityPerGarment, and unit are required'
-      });
-      return;
+      throw new ValidationError('materialCode, usageCategory, quantityPerGarment, and unit are required');
     }
 
     // Verify style exists
@@ -762,11 +711,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
     });
 
     if (!style) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Style not found'
-      });
-      return;
+      throw new NotFoundError('Style', styleId);
     }
 
     // Fetch material details by code
@@ -788,8 +733,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       });
 
       if (!lace) {
-        res.status(404).json({ error: 'Not Found', message: 'Lace material not found' });
-        return;
+        throw new NotFoundError('Lace material', materialCode);
       }
 
       materialId = lace.materials[0]?.id;
@@ -803,8 +747,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       });
 
       if (!button) {
-        res.status(404).json({ error: 'Not Found', message: 'Button material not found' });
-        return;
+        throw new NotFoundError('Button material', materialCode);
       }
 
       materialId = button.materials[0]?.id;
@@ -818,8 +761,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       });
 
       if (!thread) {
-        res.status(404).json({ error: 'Not Found', message: 'Thread material not found' });
-        return;
+        throw new NotFoundError('Thread material', materialCode);
       }
 
       materialId = thread.materials[0]?.id;
@@ -833,8 +775,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       });
 
       if (!zipper) {
-        res.status(404).json({ error: 'Not Found', message: 'Zipper material not found' });
-        return;
+        throw new NotFoundError('Zipper material', materialCode);
       }
 
       materialId = zipper.materials[0]?.id;
@@ -848,8 +789,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       });
 
       if (!elastic) {
-        res.status(404).json({ error: 'Not Found', message: 'Elastic material not found' });
-        return;
+        throw new NotFoundError('Elastic material', materialCode);
       }
 
       materialId = elastic.materials[0]?.id;
@@ -863,8 +803,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       });
 
       if (!label) {
-        res.status(404).json({ error: 'Not Found', message: 'Label material not found' });
-        return;
+        throw new NotFoundError('Label material', materialCode);
       }
 
       materialId = label.materials[0]?.id;
@@ -878,8 +817,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       });
 
       if (!pkg) {
-        res.status(404).json({ error: 'Not Found', message: 'Packaging material not found' });
-        return;
+        throw new NotFoundError('Packaging material', materialCode);
       }
 
       materialId = pkg.materials[0]?.id;
@@ -887,19 +825,11 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
       materialType = 'PACKAGING';
       unitPrice = parseFloat(pkg.pricePerPiece?.toString() || '0');
     } else {
-      res.status(400).json({
-        error: 'Invalid Material Code',
-        message: 'Material code format not recognized'
-      });
-      return;
+      throw new ValidationError('Material code format not recognized');
     }
 
     if (!materialId) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'Material not found in materials table'
-      });
-      return;
+      throw new NotFoundError('Material', materialCode);
     }
 
     // Calculate total cost
@@ -951,14 +881,6 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
         totalCost: bomEntry.totalCost?.toString()
       }
     });
-
-  } catch (error: any) {
-    logError('Error adding material to BOM:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: error.message
-    });
-  }
 };
 
 /**
@@ -966,7 +888,6 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
  * PUT /api/styles/:styleId/materials/:bomId
  */
 export const updateBOMItem = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { styleId, bomId } = req.params;
     const { componentName, quantityPerGarment, unit, notes, isActive } = req.body;
 
@@ -981,11 +902,7 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
     });
 
     if (!existing) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'BOM item not found'
-      });
-      return;
+      throw new NotFoundError('BOM item', bomId);
     }
 
     // Recalculate total cost if quantity changed
@@ -1024,14 +941,6 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
         isActive: updated.isActive
       }
     });
-
-  } catch (error: any) {
-    logError('Error updating BOM item:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: error.message
-    });
-  }
 };
 
 /**
@@ -1039,7 +948,6 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
  * DELETE /api/styles/:styleId/materials/:bomId
  */
 export const deleteBOMItem = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { styleId, bomId } = req.params;
 
     logDebug(`Deleting BOM item: ${bomId} from style ${styleId}`);
@@ -1053,11 +961,7 @@ export const deleteBOMItem = async (req: Request, res: Response): Promise<void> 
     });
 
     if (!existing) {
-      res.status(404).json({
-        error: 'Not Found',
-        message: 'BOM item not found'
-      });
-      return;
+      throw new NotFoundError('BOM item', bomId);
     }
 
     // Soft delete by setting isActive = false
@@ -1073,12 +977,4 @@ export const deleteBOMItem = async (req: Request, res: Response): Promise<void> 
     res.json({
       message: 'BOM item deleted successfully'
     });
-
-  } catch (error: any) {
-    logError('Error deleting BOM item:', error);
-    res.status(500).json({
-      error: 'Server Error',
-      message: error.message
-    });
-  }
 };

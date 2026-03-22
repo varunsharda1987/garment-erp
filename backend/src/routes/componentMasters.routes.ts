@@ -9,6 +9,7 @@ import {
   getCategories,
 } from '../controllers/componentMasters.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -16,21 +17,21 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new component master
-router.post('/', createComponentMaster);
+router.post('/', asyncHandler(createComponentMaster));
 
 // Get all component masters with pagination and filters
-router.get('/', getAllComponentMasters);
+router.get('/', asyncHandler(getAllComponentMasters));
 
 // Get all categories
-router.get('/categories', getCategories);
+router.get('/categories', asyncHandler(getCategories));
 
 // Get component master by ID
-router.get('/:id', getComponentMasterById);
+router.get('/:id', asyncHandler(getComponentMasterById));
 
 // Update component master
-router.put('/:id', updateComponentMaster);
+router.put('/:id', asyncHandler(updateComponentMaster));
 
 // Delete component master (soft delete)
-router.delete('/:id', deleteComponentMaster);
+router.delete('/:id', asyncHandler(deleteComponentMaster));
 
 export default router;

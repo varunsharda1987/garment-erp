@@ -7,18 +7,20 @@
  * - RAG configuration
  */
 
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import { embeddingService } from '../services/ai/embedding.service';
 import { indexingService } from '../services/ai/indexing.service';
 import { ragService } from '../services/ai/rag.service';
-import { logError, logInfo } from '../utils/logger';
+import { logInfo } from '../utils/logger';
+import { ValidationError } from '../errors';
 
 const router = Router();
 
 // Protect all routes and require ADMIN role
 router.use(authenticateToken);
-router.use((req, res, next) => {
+router.use((req: Request, res: Response, next) => {
   if (req.user?.role !== 'ADMIN') {
     return res.status(403).json({
       error: 'Forbidden',
@@ -32,284 +34,194 @@ router.use((req, res, next) => {
  * GET /api/ai-admin/status
  * Get AI subsystem status
  */
-router.get('/status', async (req, res) => {
-  try {
-    const embeddingInitialized = embeddingService.isInitialized();
-    const embeddingInfo = embeddingService.getProviderInfo();
-    const ragAvailable = ragService.isAvailable();
+router.get('/status', asyncHandler(async (req: Request, res: Response) => {
+  const embeddingInitialized = embeddingService.isInitialized();
+  const embeddingInfo = embeddingService.getProviderInfo();
+  const ragAvailable = ragService.isAvailable();
 
-    res.json({
-      embedding: {
-        initialized: embeddingInitialized,
-        provider: embeddingInfo?.name || null,
-        dimension: embeddingInfo?.dimension || null,
-      },
-      rag: {
-        available: ragAvailable,
-        config: ragService.getConfig(),
-      },
-    });
-  } catch (error) {
-    logError('[AI Admin] Status error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to get AI status',
-    });
-  }
-});
+  res.json({
+    embedding: {
+      initialized: embeddingInitialized,
+      provider: embeddingInfo?.name || null,
+      dimension: embeddingInfo?.dimension || null,
+    },
+    rag: {
+      available: ragAvailable,
+      config: ragService.getConfig(),
+    },
+  });
+}));
 
 /**
  * POST /api/ai-admin/initialize
  * Initialize embedding service
  */
-router.post('/initialize', async (req, res) => {
-  try {
-    const success = await embeddingService.initialize();
+router.post('/initialize', asyncHandler(async (req: Request, res: Response) => {
+  const success = await embeddingService.initialize();
 
-    if (success) {
-      const info = embeddingService.getProviderInfo();
-      logInfo('[AI Admin] Embedding service initialized');
-      res.json({
-        success: true,
-        message: 'Embedding service initialized',
-        provider: info?.name,
-        dimension: info?.dimension,
-      });
-    } else {
-      res.json({
-        success: false,
-        message: 'Failed to initialize embedding service. Check configuration.',
-      });
-    }
-  } catch (error) {
-    logError('[AI Admin] Initialize error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to initialize embedding service',
+  if (success) {
+    const info = embeddingService.getProviderInfo();
+    logInfo('[AI Admin] Embedding service initialized');
+    res.json({
+      success: true,
+      message: 'Embedding service initialized',
+      provider: info?.name,
+      dimension: info?.dimension,
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'Failed to initialize embedding service. Check configuration.',
     });
   }
-});
+}));
 
 /**
  * GET /api/ai-admin/stats
  * Get indexing statistics
  */
-router.get('/stats', async (req, res) => {
-  try {
-    if (!embeddingService.isInitialized()) {
-      return res.json({
-        initialized: false,
-        message: 'Embedding service not initialized',
-        stats: null,
-      });
-    }
-
-    const stats = await indexingService.getStats();
-
-    res.json({
-      initialized: true,
-      stats,
-    });
-  } catch (error) {
-    logError('[AI Admin] Stats error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to get indexing stats',
+router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
+  if (!embeddingService.isInitialized()) {
+    return res.json({
+      initialized: false,
+      message: 'Embedding service not initialized',
+      stats: null,
     });
   }
-});
+
+  const stats = await indexingService.getStats();
+
+  res.json({
+    initialized: true,
+    stats,
+  });
+}));
 
 /**
  * POST /api/ai-admin/index/guides
  * Index process guides and help documents
  */
-router.post('/index/guides', async (req, res) => {
-  try {
-    if (!embeddingService.isInitialized()) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Embedding service not initialized. Call /initialize first.',
-      });
-    }
-
-    logInfo('[AI Admin] Starting process guides indexing');
-    const result = await indexingService.indexProcessGuides();
-
-    res.json({
-      success: true,
-      message: `Indexed ${result.indexed} process guides`,
-      result,
-    });
-  } catch (error) {
-    logError('[AI Admin] Index guides error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to index process guides',
-    });
+router.post('/index/guides', asyncHandler(async (req: Request, res: Response) => {
+  if (!embeddingService.isInitialized()) {
+    throw new ValidationError('Embedding service not initialized. Call /initialize first.');
   }
-});
+
+  logInfo('[AI Admin] Starting process guides indexing');
+  const result = await indexingService.indexProcessGuides();
+
+  res.json({
+    success: true,
+    message: `Indexed ${result.indexed} process guides`,
+    result,
+  });
+}));
 
 /**
  * POST /api/ai-admin/index/styles
  * Index styles from database
  */
-router.post('/index/styles', async (req, res) => {
-  try {
-    if (!embeddingService.isInitialized()) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Embedding service not initialized. Call /initialize first.',
-      });
-    }
-
-    logInfo('[AI Admin] Starting styles indexing');
-    const result = await indexingService.indexStyles();
-
-    res.json({
-      success: true,
-      message: `Indexed ${result.indexed} styles`,
-      result,
-    });
-  } catch (error) {
-    logError('[AI Admin] Index styles error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to index styles',
-    });
+router.post('/index/styles', asyncHandler(async (req: Request, res: Response) => {
+  if (!embeddingService.isInitialized()) {
+    throw new ValidationError('Embedding service not initialized. Call /initialize first.');
   }
-});
+
+  logInfo('[AI Admin] Starting styles indexing');
+  const result = await indexingService.indexStyles();
+
+  res.json({
+    success: true,
+    message: `Indexed ${result.indexed} styles`,
+    result,
+  });
+}));
 
 /**
  * POST /api/ai-admin/index/all
  * Full reindex of all content
  */
-router.post('/index/all', async (req, res) => {
-  try {
-    if (!embeddingService.isInitialized()) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Embedding service not initialized. Call /initialize first.',
-      });
-    }
-
-    logInfo('[AI Admin] Starting full reindex');
-    const results = await indexingService.indexAll();
-
-    const totalIndexed = results.reduce((sum, r) => sum + r.indexed, 0);
-    const totalFailed = results.reduce((sum, r) => sum + r.failed, 0);
-    const totalDuration = results.reduce((sum, r) => sum + r.duration, 0);
-
-    res.json({
-      success: true,
-      message: `Indexed ${totalIndexed} documents (${totalFailed} failed) in ${totalDuration}ms`,
-      results,
-    });
-  } catch (error) {
-    logError('[AI Admin] Index all error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to run full reindex',
-    });
+router.post('/index/all', asyncHandler(async (req: Request, res: Response) => {
+  if (!embeddingService.isInitialized()) {
+    throw new ValidationError('Embedding service not initialized. Call /initialize first.');
   }
-});
+
+  logInfo('[AI Admin] Starting full reindex');
+  const results = await indexingService.indexAll();
+
+  const totalIndexed = results.reduce((sum, r) => sum + r.indexed, 0);
+  const totalFailed = results.reduce((sum, r) => sum + r.failed, 0);
+  const totalDuration = results.reduce((sum, r) => sum + r.duration, 0);
+
+  res.json({
+    success: true,
+    message: `Indexed ${totalIndexed} documents (${totalFailed} failed) in ${totalDuration}ms`,
+    results,
+  });
+}));
 
 /**
  * POST /api/ai-admin/search
  * Test RAG search functionality
  */
-router.post('/search', async (req, res) => {
-  try {
-    if (!embeddingService.isInitialized()) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Embedding service not initialized',
-      });
-    }
-
-    const { query, limit = 5, documentType } = req.body;
-
-    if (!query) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Query is required',
-      });
-    }
-
-    const results = await embeddingService.searchSimilar(query, limit, documentType);
-
-    res.json({
-      query,
-      results,
-      count: results.length,
-    });
-  } catch (error) {
-    logError('[AI Admin] Search error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to search documents',
-    });
+router.post('/search', asyncHandler(async (req: Request, res: Response) => {
+  if (!embeddingService.isInitialized()) {
+    throw new ValidationError('Embedding service not initialized');
   }
-});
+
+  const { query, limit = 5, documentType } = req.body;
+
+  if (!query) {
+    throw new ValidationError('Query is required');
+  }
+
+  const results = await embeddingService.searchSimilar(query, limit, documentType);
+
+  res.json({
+    query,
+    results,
+    count: results.length,
+  });
+}));
 
 /**
  * DELETE /api/ai-admin/documents/:type
  * Delete all documents of a specific type
  */
-router.delete('/documents/:type', async (req, res) => {
-  try {
-    if (!embeddingService.isInitialized()) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Embedding service not initialized',
-      });
-    }
-
-    const { type } = req.params;
-
-    const deleted = await embeddingService.deleteDocumentsByType(type);
-
-    logInfo(`[AI Admin] Deleted ${deleted} documents of type: ${type}`);
-
-    res.json({
-      success: true,
-      message: `Deleted ${deleted} documents of type: ${type}`,
-      deleted,
-    });
-  } catch (error) {
-    logError('[AI Admin] Delete documents error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to delete documents',
-    });
+router.delete('/documents/:type', asyncHandler(async (req: Request, res: Response) => {
+  if (!embeddingService.isInitialized()) {
+    throw new ValidationError('Embedding service not initialized');
   }
-});
+
+  const { type } = req.params;
+
+  const deleted = await embeddingService.deleteDocumentsByType(type);
+
+  logInfo(`[AI Admin] Deleted ${deleted} documents of type: ${type}`);
+
+  res.json({
+    success: true,
+    message: `Deleted ${deleted} documents of type: ${type}`,
+    deleted,
+  });
+}));
 
 /**
  * PUT /api/ai-admin/rag/config
  * Update RAG configuration
  */
-router.put('/rag/config', async (req, res) => {
-  try {
-    const { maxDocuments, minSimilarity } = req.body;
+router.put('/rag/config', asyncHandler(async (req: Request, res: Response) => {
+  const { maxDocuments, minSimilarity } = req.body;
 
-    const config: Record<string, unknown> = {};
-    if (typeof maxDocuments === 'number') config.maxDocuments = maxDocuments;
-    if (typeof minSimilarity === 'number') config.minSimilarity = minSimilarity;
+  const config: Record<string, unknown> = {};
+  if (typeof maxDocuments === 'number') config.maxDocuments = maxDocuments;
+  if (typeof minSimilarity === 'number') config.minSimilarity = minSimilarity;
 
-    ragService.setConfig(config);
+  ragService.setConfig(config);
 
-    res.json({
-      success: true,
-      message: 'RAG configuration updated',
-      config: ragService.getConfig(),
-    });
-  } catch (error) {
-    logError('[AI Admin] RAG config error:', error);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to update RAG configuration',
-    });
-  }
-});
+  res.json({
+    success: true,
+    message: 'RAG configuration updated',
+    config: ragService.getConfig(),
+  });
+}));
 
 export default router;

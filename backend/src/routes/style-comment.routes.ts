@@ -4,6 +4,7 @@
  */
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   createComment,
   getComments,
@@ -15,12 +16,12 @@ import {
 const router = Router();
 
 // Activity feed (static route must come before parameterized routes)
-router.get('/comments/activity', authenticateToken, getRecentActivity);
+router.get('/comments/activity', authenticateToken, asyncHandler(getRecentActivity));
 
 // Style-specific comment routes
-router.get('/:styleId/comments', authenticateToken, getComments);
-router.post('/:styleId/comments', authenticateToken, createComment);
-router.patch('/:styleId/comments/:commentId', authenticateToken, updateComment);
-router.delete('/:styleId/comments/:commentId', authenticateToken, deleteComment);
+router.get('/:styleId/comments', authenticateToken, asyncHandler(getComments));
+router.post('/:styleId/comments', authenticateToken, asyncHandler(createComment));
+router.patch('/:styleId/comments/:commentId', authenticateToken, asyncHandler(updateComment));
+router.delete('/:styleId/comments/:commentId', authenticateToken, asyncHandler(deleteComment));
 
 export default router;

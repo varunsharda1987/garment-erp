@@ -17,6 +17,7 @@
 
 import { Router } from 'express';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   createUnifiedPOController,
   validatePOInputController,
@@ -44,7 +45,7 @@ router.use(authenticateToken);
 router.post(
   '/unified',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
-  createUnifiedPOController
+  asyncHandler(createUnifiedPOController)
 );
 
 /**
@@ -54,7 +55,7 @@ router.post(
 router.post(
   '/validate',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
-  validatePOInputController
+  asyncHandler(validatePOInputController)
 );
 
 /**
@@ -64,7 +65,7 @@ router.post(
 router.post(
   '/check-duplicates',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
-  checkDuplicatesController
+  asyncHandler(checkDuplicatesController)
 );
 
 // ============================================
@@ -78,7 +79,7 @@ router.post(
 router.patch(
   '/:id/send',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
-  sendPOController
+  asyncHandler(sendPOController)
 );
 
 /**
@@ -88,7 +89,7 @@ router.patch(
 router.patch(
   '/:id/acknowledge',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
-  acknowledgePOController
+  asyncHandler(acknowledgePOController)
 );
 
 /**
@@ -98,7 +99,7 @@ router.patch(
 router.patch(
   '/:id/cancel',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
-  cancelPOController
+  asyncHandler(cancelPOController)
 );
 
 // ============================================
@@ -112,7 +113,7 @@ router.patch(
 router.get(
   '/category-mapping/material/:materialType',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
-  getMaterialCategoryMappingController
+  asyncHandler(getMaterialCategoryMappingController)
 );
 
 /**
@@ -122,7 +123,7 @@ router.get(
 router.get(
   '/category-mapping/service/:serviceType',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
-  getServiceCategoryMappingController
+  asyncHandler(getServiceCategoryMappingController)
 );
 
 export default router;

@@ -2,6 +2,7 @@
 import express from 'express';
 import * as stockCountController from '../controllers/stockCount.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -9,19 +10,19 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // GET routes
-router.get('/', stockCountController.getAllStockCounts);
-router.get('/summary/:warehouseId', stockCountController.getCountSummary);
-router.get('/:id/variance', stockCountController.getVarianceReport);
-router.get('/:id', stockCountController.getStockCountById);
+router.get('/', asyncHandler(stockCountController.getAllStockCounts));
+router.get('/summary/:warehouseId', asyncHandler(stockCountController.getCountSummary));
+router.get('/:id/variance', asyncHandler(stockCountController.getVarianceReport));
+router.get('/:id', asyncHandler(stockCountController.getStockCountById));
 
 // POST routes
-router.post('/', stockCountController.createStockCount);
-router.post('/:id/start', stockCountController.startCounting);
-router.post('/:id/verify', stockCountController.verifyStockCount);
-router.post('/:id/approve', stockCountController.approveStockCount);
-router.post('/:id/cancel', stockCountController.cancelStockCount);
+router.post('/', asyncHandler(stockCountController.createStockCount));
+router.post('/:id/start', asyncHandler(stockCountController.startCounting));
+router.post('/:id/verify', asyncHandler(stockCountController.verifyStockCount));
+router.post('/:id/approve', asyncHandler(stockCountController.approveStockCount));
+router.post('/:id/cancel', asyncHandler(stockCountController.cancelStockCount));
 
 // PUT routes
-router.put('/:countId/items/:itemId', stockCountController.updateCountItem);
+router.put('/:countId/items/:itemId', asyncHandler(stockCountController.updateCountItem));
 
 export default router;

@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { register, login, getCurrentUser } from '../controllers/auth.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import { authLimiter } from '../middleware/security.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { registerSchema, loginSchema } from '../schemas/auth.schema';
@@ -50,7 +51,7 @@ const router = Router();
  *       429:
  *         description: Too many registration attempts
  */
-router.post('/register', authLimiter, validateBody(registerSchema), register);
+router.post('/register', authLimiter, validateBody(registerSchema), asyncHandler(register));
 
 /**
  * @swagger
@@ -90,7 +91,7 @@ router.post('/register', authLimiter, validateBody(registerSchema), register);
  *       429:
  *         description: Too many login attempts
  */
-router.post('/login', authLimiter, validateBody(loginSchema), login);
+router.post('/login', authLimiter, validateBody(loginSchema), asyncHandler(login));
 
 /**
  * @swagger
@@ -113,6 +114,6 @@ router.post('/login', authLimiter, validateBody(loginSchema), login);
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
-router.get('/me', authenticateToken, getCurrentUser);
+router.get('/me', authenticateToken, asyncHandler(getCurrentUser));
 
 export default router;

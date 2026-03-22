@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import mrpController from '../controllers/mrp.controller';
 import * as vendorSuggestionController from '../controllers/vendor-suggestion.controller';
 
@@ -23,14 +24,14 @@ router.use(authenticateToken);
  * @access  Private
  * @body    { orderId: string, orderItemId?: string, requiredDate: string, checkStock?: boolean }
  */
-router.post('/calculate', mrpController.calculateRequirements);
+router.post('/calculate', asyncHandler(mrpController.calculateRequirements));
 
 /**
  * @route   GET /api/mrp/dashboard
  * @desc    Get MRP dashboard statistics
  * @access  Private
  */
-router.get('/dashboard', mrpController.getDashboardStats);
+router.get('/dashboard', asyncHandler(mrpController.getDashboardStats));
 
 // ============================================
 // REQUIREMENTS CRUD
@@ -42,7 +43,7 @@ router.get('/dashboard', mrpController.getDashboardStats);
  * @access  Private
  * @query   requirementType
  */
-router.get('/requirements/styles', mrpController.getDistinctRequirementStyles);
+router.get('/requirements/styles', asyncHandler(mrpController.getDistinctRequirementStyles));
 
 /**
  * @route   GET /api/mrp/requirements
@@ -51,7 +52,7 @@ router.get('/requirements/styles', mrpController.getDistinctRequirementStyles);
  * @query   orderId, orderItemId, materialId, supplierId, styleId, status, source,
  *          requiredDateFrom, requiredDateTo, hasShortfall, search, page, limit, sortBy, sortOrder
  */
-router.get('/requirements', mrpController.getRequirements);
+router.get('/requirements', asyncHandler(mrpController.getRequirements));
 
 /**
  * @route   POST /api/mrp/requirements
@@ -59,21 +60,21 @@ router.get('/requirements', mrpController.getRequirements);
  * @access  Private
  * @body    { materialId: string, quantity: number, unit: string, requiredDate: string, preferredSupplierId?: string }
  */
-router.post('/requirements', mrpController.createManualRequirement);
+router.post('/requirements', asyncHandler(mrpController.createManualRequirement));
 
 /**
  * @route   GET /api/mrp/requirements/:id
  * @desc    Get a single requirement by ID
  * @access  Private
  */
-router.get('/requirements/:id', mrpController.getRequirementById);
+router.get('/requirements/:id', asyncHandler(mrpController.getRequirementById));
 
 /**
  * @route   DELETE /api/mrp/requirements/:id
  * @desc    Cancel a requirement
  * @access  Private
  */
-router.delete('/requirements/:id', mrpController.cancelRequirement);
+router.delete('/requirements/:id', asyncHandler(mrpController.cancelRequirement));
 
 // ============================================
 // REQUIREMENT ACTIONS
@@ -85,7 +86,7 @@ router.delete('/requirements/:id', mrpController.cancelRequirement);
  * @access  Private
  * @body    { quantity: number, warehouseId?: string }
  */
-router.post('/requirements/:id/allocate-stock', mrpController.allocateStock);
+router.post('/requirements/:id/allocate-stock', asyncHandler(mrpController.allocateStock));
 
 /**
  * @route   POST /api/mrp/requirements/:id/link-po
@@ -93,7 +94,7 @@ router.post('/requirements/:id/allocate-stock', mrpController.allocateStock);
  * @access  Private
  * @body    { purchaseOrderId: string, purchaseOrderItemId: string, allocatedQuantity: number }
  */
-router.post('/requirements/:id/link-po', mrpController.linkToPO);
+router.post('/requirements/:id/link-po', asyncHandler(mrpController.linkToPO));
 
 /**
  * @route   POST /api/mrp/requirements/:id/convert-to-greige
@@ -101,7 +102,7 @@ router.post('/requirements/:id/link-po', mrpController.linkToPO);
  * @access  Private
  * @body    { processorId: string, greigeId: string, processingCost?: number, greigeCost?: number }
  */
-router.post('/requirements/:id/convert-to-greige', mrpController.convertToGreigeProcessing);
+router.post('/requirements/:id/convert-to-greige', asyncHandler(mrpController.convertToGreigeProcessing));
 
 /**
  * @route   PATCH /api/mrp/requirements/:id/status
@@ -109,7 +110,7 @@ router.post('/requirements/:id/convert-to-greige', mrpController.convertToGreige
  * @access  Private
  * @body    { status: MaterialRequirementStatus }
  */
-router.patch('/requirements/:id/status', mrpController.updateStatus);
+router.patch('/requirements/:id/status', asyncHandler(mrpController.updateStatus));
 
 // ============================================
 // PO GENERATION
@@ -121,7 +122,7 @@ router.patch('/requirements/:id/status', mrpController.updateStatus);
  * @access  Private
  * @body    { requirementIds: string[], supplierId: string, expectedDeliveryDate: string, remarks?: string, consolidate?: boolean }
  */
-router.post('/generate-po', mrpController.generatePO);
+router.post('/generate-po', asyncHandler(mrpController.generatePO));
 
 /**
  * @route   POST /api/mrp/group-by-supplier
@@ -129,7 +130,7 @@ router.post('/generate-po', mrpController.generatePO);
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/group-by-supplier', mrpController.groupBySupplier);
+router.post('/group-by-supplier', asyncHandler(mrpController.groupBySupplier));
 
 /**
  * @route   POST /api/mrp/preview-pos
@@ -137,7 +138,7 @@ router.post('/group-by-supplier', mrpController.groupBySupplier);
  * @access  Private
  * @body    { groups: [{ supplierId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }] }
  */
-router.post('/preview-pos', mrpController.previewPOs);
+router.post('/preview-pos', asyncHandler(mrpController.previewPOs));
 
 /**
  * @route   POST /api/mrp/generate-pos-bulk
@@ -145,7 +146,7 @@ router.post('/preview-pos', mrpController.previewPOs);
  * @access  Private
  * @body    { groups: [{ supplierId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }] }
  */
-router.post('/generate-pos-bulk', mrpController.bulkGeneratePO);
+router.post('/generate-pos-bulk', asyncHandler(mrpController.bulkGeneratePO));
 
 /**
  * @route   POST /api/mrp/validate-bulk-po
@@ -153,7 +154,7 @@ router.post('/generate-pos-bulk', mrpController.bulkGeneratePO);
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/validate-bulk-po', mrpController.validateBulkPO);
+router.post('/validate-bulk-po', asyncHandler(mrpController.validateBulkPO));
 
 // ============================================
 // ORDER-LEVEL ENDPOINTS
@@ -164,7 +165,7 @@ router.post('/validate-bulk-po', mrpController.validateBulkPO);
  * @desc    Get requirements summary for an order
  * @access  Private
  */
-router.get('/orders/:orderId/summary', mrpController.getOrderRequirementsSummary);
+router.get('/orders/:orderId/summary', asyncHandler(mrpController.getOrderRequirementsSummary));
 
 // ============================================
 // VENDOR SUGGESTIONS
@@ -176,7 +177,7 @@ router.get('/orders/:orderId/summary', mrpController.getOrderRequirementsSummary
  * @access  Private
  * @body    { materialId: string }
  */
-router.post('/vendor-suggestions/material', vendorSuggestionController.suggestForMaterial);
+router.post('/vendor-suggestions/material', asyncHandler(vendorSuggestionController.suggestForMaterial));
 
 /**
  * @route   POST /api/mrp/vendor-suggestions/requirements
@@ -184,7 +185,7 @@ router.post('/vendor-suggestions/material', vendorSuggestionController.suggestFo
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/vendor-suggestions/requirements', vendorSuggestionController.suggestForRequirements);
+router.post('/vendor-suggestions/requirements', asyncHandler(vendorSuggestionController.suggestForRequirements));
 
 /**
  * @route   POST /api/mrp/vendor-suggestions/bulk-assign
@@ -192,7 +193,7 @@ router.post('/vendor-suggestions/requirements', vendorSuggestionController.sugge
  * @access  Private
  * @body    { assignments: [{ requirementId: string, supplierId: string }] }
  */
-router.post('/vendor-suggestions/bulk-assign', vendorSuggestionController.bulkAssign);
+router.post('/vendor-suggestions/bulk-assign', asyncHandler(vendorSuggestionController.bulkAssign));
 
 /**
  * @route   POST /api/mrp/vendor-suggestions/auto-assign
@@ -200,7 +201,7 @@ router.post('/vendor-suggestions/bulk-assign', vendorSuggestionController.bulkAs
  * @access  Private
  * @body    { requirementIds: string[], minConfidence?: 'high' | 'medium' }
  */
-router.post('/vendor-suggestions/auto-assign', vendorSuggestionController.autoAssign);
+router.post('/vendor-suggestions/auto-assign', asyncHandler(vendorSuggestionController.autoAssign));
 
 /**
  * @route   GET /api/mrp/vendor-suggestions/suppliers-by-type
@@ -208,7 +209,7 @@ router.post('/vendor-suggestions/auto-assign', vendorSuggestionController.autoAs
  * @access  Private
  * @query   materialType (e.g., GREIGE, BUTTON, THREAD)
  */
-router.get('/vendor-suggestions/suppliers-by-type', vendorSuggestionController.getSuppliersByType);
+router.get('/vendor-suggestions/suppliers-by-type', asyncHandler(vendorSuggestionController.getSuppliersByType));
 
 // ============================================
 // PROCESSING REQUIREMENT PROCESSOR ASSIGNMENT
@@ -220,7 +221,7 @@ router.get('/vendor-suggestions/suppliers-by-type', vendorSuggestionController.g
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/processing-assignment/suggest', vendorSuggestionController.suggestProcessorsForProcessing);
+router.post('/processing-assignment/suggest', asyncHandler(vendorSuggestionController.suggestProcessorsForProcessing));
 
 /**
  * @route   POST /api/mrp/processing-assignment/bulk-assign
@@ -228,7 +229,7 @@ router.post('/processing-assignment/suggest', vendorSuggestionController.suggest
  * @access  Private
  * @body    { assignments: [{ requirementId: string, processorId: string }] }
  */
-router.post('/processing-assignment/bulk-assign', vendorSuggestionController.bulkAssignProcessorsForProcessing);
+router.post('/processing-assignment/bulk-assign', asyncHandler(vendorSuggestionController.bulkAssignProcessorsForProcessing));
 
 /**
  * @route   POST /api/mrp/processing-assignment/auto-assign
@@ -236,13 +237,13 @@ router.post('/processing-assignment/bulk-assign', vendorSuggestionController.bul
  * @access  Private
  * @body    { requirementIds: string[], minConfidence?: 'high' | 'medium' }
  */
-router.post('/processing-assignment/auto-assign', vendorSuggestionController.autoAssignProcessorsForProcessing);
+router.post('/processing-assignment/auto-assign', asyncHandler(vendorSuggestionController.autoAssignProcessorsForProcessing));
 
 /**
  * @route   GET /api/mrp/processing-assignment/processors
  * @desc    Get list of processor suppliers (DYEING_PRINTING, WASHING, etc.)
  * @access  Private
  */
-router.get('/processing-assignment/processors', vendorSuggestionController.getProcessorList);
+router.get('/processing-assignment/processors', asyncHandler(vendorSuggestionController.getProcessorList));
 
 export default router;

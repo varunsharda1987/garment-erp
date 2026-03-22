@@ -5,6 +5,7 @@ import {
   getStylesByStage,
 } from '../controllers/dashboard.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -16,13 +17,13 @@ router.use(authenticateToken);
  * @desc    Get dashboard summary with counts per stage
  * @access  Protected - All authenticated users
  */
-router.get('/summary', getDashboardSummary);
+router.get('/summary', asyncHandler(getDashboardSummary));
 
 /**
  * @route   GET /api/dashboard/stage/:stage
  * @desc    Get styles in a specific production stage (for drill-down)
  * @access  Protected - All authenticated users
  */
-router.get('/stage/:stage', getStylesByStage);
+router.get('/stage/:stage', asyncHandler(getStylesByStage));
 
 export default router;

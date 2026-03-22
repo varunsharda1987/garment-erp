@@ -13,6 +13,7 @@ import {
   deleteOrderItemCosting,
 } from '../controllers/orderProductionStatus.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -23,27 +24,27 @@ router.use(authenticateToken);
 // CAD Selection
 // ============================================
 // Select CAD width for an order item
-router.patch('/:id/select-cad', selectCadForOrder);
+router.patch('/:id/select-cad', asyncHandler(selectCadForOrder));
 
 // ============================================
 // Inheritance Settings
 // ============================================
 // Toggle sample/inspection inheritance
-router.patch('/:id/inheritance', updateInheritanceSettings);
+router.patch('/:id/inheritance', asyncHandler(updateInheritanceSettings));
 
 // ============================================
 // Costing
 // ============================================
 // Get order item costing
-router.get('/:id/costing', getOrderItemCosting);
+router.get('/:id/costing', asyncHandler(getOrderItemCosting));
 
 // Recalculate costing based on selected CAD
-router.post('/:id/recalculate-costing', recalculateOrderCosting);
+router.post('/:id/recalculate-costing', asyncHandler(recalculateOrderCosting));
 
 // Get costing comparison (base style vs order-specific)
-router.get('/:id/costing-comparison', getCostingComparison);
+router.get('/:id/costing-comparison', asyncHandler(getCostingComparison));
 
 // Delete order item costing (revert to style costing)
-router.delete('/:id/costing', deleteOrderItemCosting);
+router.delete('/:id/costing', asyncHandler(deleteOrderItemCosting));
 
 export default router;

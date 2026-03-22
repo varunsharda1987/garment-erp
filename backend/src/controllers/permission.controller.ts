@@ -3,9 +3,10 @@
  * Handles permission matrix and management endpoints
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { UserRole } from '@prisma/client';
 import { PermissionService } from '../services/permission.service';
+import { ValidationError } from '../errors';
 import {
   PERMISSIONS,
   MODULES,
@@ -19,18 +20,13 @@ import {
  */
 export const getPermissionMatrix = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const matrix = await PermissionService.getPermissionMatrix();
-    res.json({
-      success: true,
-      data: matrix,
-    });
-  } catch (error) {
-    next(error);
-  }
+  const matrix = await PermissionService.getPermissionMatrix();
+  res.json({
+    success: true,
+    data: matrix,
+  });
 };
 
 /**
@@ -38,24 +34,19 @@ export const getPermissionMatrix = async (
  */
 export const getRoles = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const roles = Object.values(UserRole).map((role) => ({
-      role,
-      ...ROLE_CONFIG[role],
-      permissionCount: getConfigPermissions(role).length,
-      totalPermissions: Object.keys(PERMISSIONS).length,
-    }));
+  const roles = Object.values(UserRole).map((role) => ({
+    role,
+    ...ROLE_CONFIG[role],
+    permissionCount: getConfigPermissions(role).length,
+    totalPermissions: Object.keys(PERMISSIONS).length,
+  }));
 
-    res.json({
-      success: true,
-      data: roles,
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.json({
+    success: true,
+    data: roles,
+  });
 };
 
 /**
@@ -63,36 +54,27 @@ export const getRoles = async (
  */
 export const getRolePermissions = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const { role } = req.params;
+  const { role } = req.params;
 
-    if (!Object.values(UserRole).includes(role as UserRole)) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid role',
-      });
-      return;
-    }
-
-    const permissions = await PermissionService.getPermissionsForRole(role as UserRole);
-    const roleConfig = ROLE_CONFIG[role as UserRole];
-
-    res.json({
-      success: true,
-      data: {
-        role,
-        ...roleConfig,
-        permissions,
-        permissionCount: permissions.length,
-        totalPermissions: Object.keys(PERMISSIONS).length,
-      },
-    });
-  } catch (error) {
-    next(error);
+  if (!Object.values(UserRole).includes(role as UserRole)) {
+    throw new ValidationError('Invalid role');
   }
+
+  const permissions = await PermissionService.getPermissionsForRole(role as UserRole);
+  const roleConfig = ROLE_CONFIG[role as UserRole];
+
+  res.json({
+    success: true,
+    data: {
+      role,
+      ...roleConfig,
+      permissions,
+      permissionCount: permissions.length,
+      totalPermissions: Object.keys(PERMISSIONS).length,
+    },
+  });
 };
 
 /**
@@ -100,23 +82,18 @@ export const getRolePermissions = async (
  */
 export const getModules = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const modules = Object.entries(MODULES).map(([key, value]) => ({
-      key,
-      ...value,
-      permissions: PERMISSION_GROUPS[key as keyof typeof MODULES] || [],
-    }));
+  const modules = Object.entries(MODULES).map(([key, value]) => ({
+    key,
+    ...value,
+    permissions: PERMISSION_GROUPS[key as keyof typeof MODULES] || [],
+  }));
 
-    res.json({
-      success: true,
-      data: modules,
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.json({
+    success: true,
+    data: modules,
+  });
 };
 
 /**
@@ -124,36 +101,27 @@ export const getModules = async (
  */
 export const checkPermission = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const { role, permission } = req.params;
+  const { role, permission } = req.params;
 
-    if (!Object.values(UserRole).includes(role as UserRole)) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid role',
-      });
-      return;
-    }
-
-    const hasAccess = await PermissionService.hasPermission(
-      role as UserRole,
-      permission
-    );
-
-    res.json({
-      success: true,
-      data: {
-        role,
-        permission,
-        hasAccess,
-      },
-    });
-  } catch (error) {
-    next(error);
+  if (!Object.values(UserRole).includes(role as UserRole)) {
+    throw new ValidationError('Invalid role');
   }
+
+  const hasAccess = await PermissionService.hasPermission(
+    role as UserRole,
+    permission
+  );
+
+  res.json({
+    success: true,
+    data: {
+      role,
+      permission,
+      hasAccess,
+    },
+  });
 };
 
 /**
@@ -161,40 +129,27 @@ export const checkPermission = async (
  */
 export const togglePermission = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const { role, permissionKey, allowed } = req.body;
+  const { role, permissionKey, allowed } = req.body;
 
-    if (!Object.values(UserRole).includes(role as UserRole)) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid role',
-      });
-      return;
-    }
-
-    const result = await PermissionService.togglePermission(
-      { role, permissionKey, allowed },
-      req
-    );
-
-    if (!result.success) {
-      res.status(400).json({
-        success: false,
-        error: result.message,
-      });
-      return;
-    }
-
-    res.json({
-      success: true,
-      message: result.message,
-    });
-  } catch (error) {
-    next(error);
+  if (!Object.values(UserRole).includes(role as UserRole)) {
+    throw new ValidationError('Invalid role');
   }
+
+  const result = await PermissionService.togglePermission(
+    { role, permissionKey, allowed },
+    req
+  );
+
+  if (!result.success) {
+    throw new ValidationError(result.message || 'Failed to toggle permission');
+  }
+
+  res.json({
+    success: true,
+    message: result.message,
+  });
 };
 
 /**
@@ -202,29 +157,20 @@ export const togglePermission = async (
  */
 export const bulkUpdatePermissions = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const { updates } = req.body;
+  const { updates } = req.body;
 
-    if (!Array.isArray(updates) || updates.length === 0) {
-      res.status(400).json({
-        success: false,
-        error: 'Updates array is required',
-      });
-      return;
-    }
-
-    const result = await PermissionService.bulkUpdatePermissions({ updates }, req);
-
-    res.json({
-      success: result.success,
-      data: result,
-    });
-  } catch (error) {
-    next(error);
+  if (!Array.isArray(updates) || updates.length === 0) {
+    throw new ValidationError('Updates array is required');
   }
+
+  const result = await PermissionService.bulkUpdatePermissions({ updates }, req);
+
+  res.json({
+    success: result.success,
+    data: result,
+  });
 };
 
 /**
@@ -232,20 +178,15 @@ export const bulkUpdatePermissions = async (
  */
 export const resetToDefaults = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const result = await PermissionService.resetToDefaults(req);
+  const result = await PermissionService.resetToDefaults(req);
 
-    res.json({
-      success: true,
-      message: `Reset ${result.reset} permissions to defaults`,
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.json({
+    success: true,
+    message: `Reset ${result.reset} permissions to defaults`,
+    data: result,
+  });
 };
 
 /**
@@ -253,27 +194,22 @@ export const resetToDefaults = async (
  */
 export const getPermissionDefinitions = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const matrix = await PermissionService.getPermissionMatrix();
+  const matrix = await PermissionService.getPermissionMatrix();
 
-    res.json({
-      success: true,
-      data: {
-        permissions: matrix.permissions.map((p) => ({
-          permissionKey: p.permissionKey,
-          displayName: p.displayName,
-          description: p.description,
-          moduleGroup: p.moduleGroup,
-        })),
-        modules: matrix.modules,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.json({
+    success: true,
+    data: {
+      permissions: matrix.permissions.map((p) => ({
+        permissionKey: p.permissionKey,
+        displayName: p.displayName,
+        description: p.description,
+        moduleGroup: p.moduleGroup,
+      })),
+      modules: matrix.modules,
+    },
+  });
 };
 
 /**
@@ -281,26 +217,21 @@ export const getPermissionDefinitions = async (
  */
 export const getAuditLog = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const { limit, offset, role, permissionKey } = req.query;
+  const { limit, offset, role, permissionKey } = req.query;
 
-    const result = await PermissionService.getAuditLog({
-      limit: limit ? parseInt(limit as string) : 50,
-      offset: offset ? parseInt(offset as string) : 0,
-      role: role as UserRole | undefined,
-      permissionKey: permissionKey as string | undefined,
-    });
+  const result = await PermissionService.getAuditLog({
+    limit: limit ? parseInt(limit as string) : 50,
+    offset: offset ? parseInt(offset as string) : 0,
+    role: role as UserRole | undefined,
+    permissionKey: permissionKey as string | undefined,
+  });
 
-    res.json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    next(error);
-  }
+  res.json({
+    success: true,
+    data: result,
+  });
 };
 
 /**
@@ -308,29 +239,24 @@ export const getAuditLog = async (
  */
 export const seedPermissions = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) => {
-  try {
-    const isSeeded = await PermissionService.isDatabaseSeeded();
+  const isSeeded = await PermissionService.isDatabaseSeeded();
 
-    if (isSeeded) {
-      res.json({
-        success: true,
-        message: 'Permissions already seeded',
-        data: { created: 0, skipped: 0 },
-      });
-      return;
-    }
-
-    const result = await PermissionService.seedFromConfig();
-
+  if (isSeeded) {
     res.json({
       success: true,
-      message: `Seeded ${result.created} permissions`,
-      data: result,
+      message: 'Permissions already seeded',
+      data: { created: 0, skipped: 0 },
     });
-  } catch (error) {
-    next(error);
+    return;
   }
+
+  const result = await PermissionService.seedFromConfig();
+
+  res.json({
+    success: true,
+    message: `Seeded ${result.created} permissions`,
+    data: result,
+  });
 };

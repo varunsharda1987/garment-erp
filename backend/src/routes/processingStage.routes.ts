@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import * as processingStageController from '../controllers/processingStage.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -9,16 +10,16 @@ const router = Router();
 router.use(authenticateToken);
 
 // Stage management
-router.post('/', processingStageController.createStage);
-router.get('/', processingStageController.getAllStages);
-router.get('/batch/:batchId', processingStageController.getStagesByBatch);
-router.get('/processor/:processorId', processingStageController.getStagesByProcessor);
-router.get('/processor/:processorId/summary', processingStageController.getProcessorSummary);
-router.get('/:id', processingStageController.getStageById);
-router.put('/:id', processingStageController.updateStage);
-router.patch('/:id/status', processingStageController.updateStageStatus);
-router.post('/:id/complete', processingStageController.completeStage);
-router.post('/:id/rework', processingStageController.markForRework);
-router.delete('/:id', processingStageController.deleteStage);
+router.post('/', asyncHandler(processingStageController.createStage));
+router.get('/', asyncHandler(processingStageController.getAllStages));
+router.get('/batch/:batchId', asyncHandler(processingStageController.getStagesByBatch));
+router.get('/processor/:processorId', asyncHandler(processingStageController.getStagesByProcessor));
+router.get('/processor/:processorId/summary', asyncHandler(processingStageController.getProcessorSummary));
+router.get('/:id', asyncHandler(processingStageController.getStageById));
+router.put('/:id', asyncHandler(processingStageController.updateStage));
+router.patch('/:id/status', asyncHandler(processingStageController.updateStageStatus));
+router.post('/:id/complete', asyncHandler(processingStageController.completeStage));
+router.post('/:id/rework', asyncHandler(processingStageController.markForRework));
+router.delete('/:id', asyncHandler(processingStageController.deleteStage));
 
 export default router;

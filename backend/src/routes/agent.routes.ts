@@ -13,6 +13,7 @@ import {
   searchAgents,
 } from '../controllers/agent.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
@@ -24,41 +25,41 @@ router.use(authenticateToken);
  * @desc    Search agents for dropdown (minimal data)
  * @access  Private (Authenticated users)
  */
-router.get('/search', searchAgents);
+router.get('/search', asyncHandler(searchAgents));
 
 /**
  * @route   POST /api/agents
  * @desc    Create new agent
  * @access  Private (Authenticated users)
  */
-router.post('/', createAgent);
+router.post('/', asyncHandler(createAgent));
 
 /**
  * @route   GET /api/agents
  * @desc    Get all agents with pagination and filters
  * @access  Private (Authenticated users)
  */
-router.get('/', getAllAgents);
+router.get('/', asyncHandler(getAllAgents));
 
 /**
  * @route   GET /api/agents/:id
  * @desc    Get agent by ID
  * @access  Private (Authenticated users)
  */
-router.get('/:id', getAgentById);
+router.get('/:id', asyncHandler(getAgentById));
 
 /**
  * @route   PUT /api/agents/:id
  * @desc    Update agent
  * @access  Private (Authenticated users)
  */
-router.put('/:id', updateAgent);
+router.put('/:id', asyncHandler(updateAgent));
 
 /**
  * @route   DELETE /api/agents/:id
  * @desc    Delete agent (soft delete)
  * @access  Private (Authenticated users)
  */
-router.delete('/:id', deleteAgent);
+router.delete('/:id', asyncHandler(deleteAgent));
 
 export default router;

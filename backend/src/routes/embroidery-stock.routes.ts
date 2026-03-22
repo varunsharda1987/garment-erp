@@ -4,6 +4,7 @@
  */
 
 import { Router } from 'express';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   sendOut,
   receive,
@@ -19,18 +20,18 @@ import {
 const router = Router();
 
 // Send-out/Receive Operations
-router.post('/send-out', sendOut);
-router.post('/receive', receive);
+router.post('/send-out', asyncHandler(sendOut));
+router.post('/receive', asyncHandler(receive));
 
 // Send-out Records
-router.get('/send-outs', getSendOuts);
-router.get('/send-outs/:id', getSendOutById);
-router.post('/send-outs/:id/cancel', cancelSendOut);
+router.get('/send-outs', asyncHandler(getSendOuts));
+router.get('/send-outs/:id', asyncHandler(getSendOutById));
+router.post('/send-outs/:id/cancel', asyncHandler(cancelSendOut));
 
 // Stock Queries
-router.get('/by-style/:styleId', getStockByStyle);
-router.get('/by-embroidery/:embroideryId', getStockByEmbroidery);
-router.get('/pending', getPendingSendOuts);
-router.get('/summary', getStockSummary);
+router.get('/by-style/:styleId', asyncHandler(getStockByStyle));
+router.get('/by-embroidery/:embroideryId', asyncHandler(getStockByEmbroidery));
+router.get('/pending', asyncHandler(getPendingSendOuts));
+router.get('/summary', asyncHandler(getStockSummary));
 
 export default router;

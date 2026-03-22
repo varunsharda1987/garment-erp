@@ -1,5 +1,6 @@
 import express from 'express';
 import * as materialMasterController from '../controllers/material-master.controller';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
@@ -12,28 +13,28 @@ const router = express.Router();
 
 // Get all materials with filters
 // Query params: type (MaterialType), active (boolean), search (string), supplierId (string)
-router.get('/', materialMasterController.getAllMaterials);
+router.get('/', asyncHandler(materialMasterController.getAllMaterials));
 
 // Get material types enum
-router.get('/types', materialMasterController.getMaterialTypes);
+router.get('/types', asyncHandler(materialMasterController.getMaterialTypes));
 
 // Get material count by type
-router.get('/types/:type/count', materialMasterController.getMaterialCountByType);
+router.get('/types/:type/count', asyncHandler(materialMasterController.getMaterialCountByType));
 
 // Get single material by ID
-router.get('/:id', materialMasterController.getMaterialById);
+router.get('/:id', asyncHandler(materialMasterController.getMaterialById));
 
 // Create new material
-router.post('/', materialMasterController.createMaterial);
+router.post('/', asyncHandler(materialMasterController.createMaterial));
 
 // Update material
-router.put('/:id', materialMasterController.updateMaterial);
+router.put('/:id', asyncHandler(materialMasterController.updateMaterial));
 
 // Soft delete material
-router.delete('/:id', materialMasterController.deleteMaterial);
+router.delete('/:id', asyncHandler(materialMasterController.deleteMaterial));
 
 // Supplier management
-router.get('/:id/suppliers', materialMasterController.getMaterialSuppliers);
-router.post('/:id/suppliers', materialMasterController.addMaterialSupplier);
+router.get('/:id/suppliers', asyncHandler(materialMasterController.getMaterialSuppliers));
+router.post('/:id/suppliers', asyncHandler(materialMasterController.addMaterialSupplier));
 
 export default router;

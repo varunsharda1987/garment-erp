@@ -9,31 +9,32 @@ import {
   setAsDefault,
   clonePreset,
 } from '../controllers/customer-size-presets.controller';
+import { asyncHandler } from '../middleware/error.middleware';
 
 const router = express.Router();
 
 // Get all size category presets for a customer
-router.get('/customers/:customerId/size-category-presets', getAllPresetsForCustomer);
+router.get('/customers/:customerId/size-category-presets', asyncHandler(getAllPresetsForCustomer));
 
 // Get default size category preset for a customer
-router.get('/customers/:customerId/size-category-presets/default', getDefaultPreset);
+router.get('/customers/:customerId/size-category-presets/default', asyncHandler(getDefaultPreset));
 
 // Get a specific size category preset
-router.get('/customers/:customerId/size-category-presets/:presetId', getPresetById);
+router.get('/customers/:customerId/size-category-presets/:presetId', asyncHandler(getPresetById));
 
 // Create a new size category preset
-router.post('/customers/:customerId/size-category-presets', createPreset);
+router.post('/customers/:customerId/size-category-presets', asyncHandler(createPreset));
 
 // Update a size category preset
-router.put('/customers/:customerId/size-category-presets/:presetId', updatePreset);
+router.put('/customers/:customerId/size-category-presets/:presetId', asyncHandler(updatePreset));
 
 // Delete a size category preset
-router.delete('/customers/:customerId/size-category-presets/:presetId', deletePreset);
+router.delete('/customers/:customerId/size-category-presets/:presetId', asyncHandler(deletePreset));
 
 // Set a preset as default
-router.post('/customers/:customerId/size-category-presets/:presetId/set-default', setAsDefault);
+router.post('/customers/:customerId/size-category-presets/:presetId/set-default', asyncHandler(setAsDefault));
 
 // Clone a size category preset
-router.post('/customers/:customerId/size-category-presets/:presetId/clone', clonePreset);
+router.post('/customers/:customerId/size-category-presets/:presetId/clone', asyncHandler(clonePreset));
 
 export default router;

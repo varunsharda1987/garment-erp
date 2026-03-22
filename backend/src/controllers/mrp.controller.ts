@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import { NotFoundError, ValidationError } from '../errors';
 import mrpService from '../services/mrp.service';
 import { MaterialRequirementStatus } from '@prisma/client';
 import {
@@ -20,23 +21,19 @@ import {
  * POST /api/mrp/calculate
  */
 export const calculateRequirements = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const data: CalculateRequirementsRequest = req.body;
 
     if (!data.orderId) {
-      res.status(400).json({ success: false, error: 'orderId is required' });
-      return;
+      throw new ValidationError('orderId is required');
     }
 
     if (!data.requiredDate) {
-      res.status(400).json({ success: false, error: 'requiredDate is required' });
-      return;
+      throw new ValidationError('requiredDate is required');
     }
 
     const result = await mrpService.calculateRequirementsFromOrder(
@@ -64,13 +61,6 @@ export const calculateRequirements = async (req: Request, res: Response): Promis
         warning: `All BOM items were skipped. Check material linkages.`,
       } : {}),
     });
-  } catch (error: any) {
-    console.error('Error calculating requirements:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to calculate requirements',
-    });
-  }
 };
 
 /**
@@ -78,21 +68,15 @@ export const calculateRequirements = async (req: Request, res: Response): Promis
  * POST /api/mrp/requirements
  */
 export const createManualRequirement = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const data: CreateManualRequirementRequest = req.body;
 
     if (!data.materialId || !data.quantity || !data.unit || !data.requiredDate) {
-      res.status(400).json({
-        success: false,
-        error: 'materialId, quantity, unit, and requiredDate are required',
-      });
-      return;
+      throw new ValidationError('materialId, quantity, unit, and requiredDate are required');
     }
 
     const requirement = await mrpService.createManualRequirement(data, userId);
@@ -102,13 +86,6 @@ export const createManualRequirement = async (req: Request, res: Response): Prom
       data: requirement,
       message: `Requirement ${requirement.requirementNumber} created`,
     });
-  } catch (error: any) {
-    console.error('Error creating manual requirement:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to create requirement',
-    });
-  }
 };
 
 /**
@@ -116,7 +93,6 @@ export const createManualRequirement = async (req: Request, res: Response): Prom
  * GET /api/mrp/requirements
  */
 export const getRequirements = async (req: Request, res: Response): Promise<void> => {
-  try {
     const filters: RequirementFilters = {
       orderId: req.query.orderId as string,
       orderItemId: req.query.orderItemId as string,
@@ -153,13 +129,6 @@ export const getRequirements = async (req: Request, res: Response): Promise<void
         totalPages: Math.ceil(total / (filters.limit || 20)),
       },
     });
-  } catch (error: any) {
-    console.error('Error getting requirements:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch requirements',
-    });
-  }
 };
 
 /**
@@ -167,24 +136,15 @@ export const getRequirements = async (req: Request, res: Response): Promise<void
  * GET /api/mrp/requirements/:id
  */
 export const getRequirementById = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { id } = req.params;
 
     const requirement = await mrpService.getRequirementById(id);
 
     if (!requirement) {
-      res.status(404).json({ success: false, error: 'Requirement not found' });
-      return;
+      throw new NotFoundError('Requirement', id);
     }
 
     res.json({ success: true, data: requirement });
-  } catch (error: any) {
-    console.error('Error getting requirement:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch requirement',
-    });
-  }
 };
 
 /**
@@ -192,19 +152,11 @@ export const getRequirementById = async (req: Request, res: Response): Promise<v
  * GET /api/mrp/orders/:orderId/summary
  */
 export const getOrderRequirementsSummary = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { orderId } = req.params;
 
     const summary = await mrpService.getOrderRequirementsSummary(orderId);
 
     res.json({ success: true, data: summary });
-  } catch (error: any) {
-    console.error('Error getting order requirements summary:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch summary',
-    });
-  }
 };
 
 /**
@@ -212,17 +164,9 @@ export const getOrderRequirementsSummary = async (req: Request, res: Response): 
  * GET /api/mrp/dashboard
  */
 export const getDashboardStats = async (req: Request, res: Response): Promise<void> => {
-  try {
     const stats = await mrpService.getDashboardStats();
 
     res.json({ success: true, data: stats });
-  } catch (error: any) {
-    console.error('Error getting dashboard stats:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to fetch dashboard stats',
-    });
-  }
 };
 
 /**
@@ -230,19 +174,16 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
  * POST /api/mrp/requirements/:id/allocate-stock
  */
 export const allocateStock = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const { id } = req.params;
     const { quantity, warehouseId } = req.body;
 
     if (!quantity || quantity <= 0) {
-      res.status(400).json({ success: false, error: 'Valid quantity is required' });
-      return;
+      throw new ValidationError('Valid quantity is required');
     }
 
     const data: AllocateStockRequest = {
@@ -258,13 +199,6 @@ export const allocateStock = async (req: Request, res: Response): Promise<void> 
       data: requirement,
       message: `Allocated ${quantity} units from stock`,
     });
-  } catch (error: any) {
-    console.error('Error allocating stock:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to allocate stock',
-    });
-  }
 };
 
 /**
@@ -272,28 +206,23 @@ export const allocateStock = async (req: Request, res: Response): Promise<void> 
  * POST /api/mrp/generate-po
  */
 export const generatePO = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const data: GeneratePOFromRequirementsRequest = req.body;
 
     if (!data.requirementIds || data.requirementIds.length === 0) {
-      res.status(400).json({ success: false, error: 'At least one requirement ID is required' });
-      return;
+      throw new ValidationError('At least one requirement ID is required');
     }
 
     if (!data.supplierId) {
-      res.status(400).json({ success: false, error: 'Supplier ID is required' });
-      return;
+      throw new ValidationError('Supplier ID is required');
     }
 
     if (!data.expectedDeliveryDate) {
-      res.status(400).json({ success: false, error: 'Expected delivery date is required' });
-      return;
+      throw new ValidationError('Expected delivery date is required');
     }
 
     const result = await mrpService.generatePOFromRequirements(data, userId);
@@ -303,13 +232,6 @@ export const generatePO = async (req: Request, res: Response): Promise<void> => 
       data: result,
       message: `Purchase Order ${result.purchaseOrder.poNumber} created with ${result.totalItems} items`,
     });
-  } catch (error: any) {
-    console.error('Error generating PO:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to generate purchase order',
-    });
-  }
 };
 
 /**
@@ -317,22 +239,16 @@ export const generatePO = async (req: Request, res: Response): Promise<void> => 
  * POST /api/mrp/requirements/:id/link-po
  */
 export const linkToPO = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const { id } = req.params;
     const { purchaseOrderId, purchaseOrderItemId, allocatedQuantity } = req.body;
 
     if (!purchaseOrderId || !purchaseOrderItemId || !allocatedQuantity) {
-      res.status(400).json({
-        success: false,
-        error: 'purchaseOrderId, purchaseOrderItemId, and allocatedQuantity are required',
-      });
-      return;
+      throw new ValidationError('purchaseOrderId, purchaseOrderItemId, and allocatedQuantity are required');
     }
 
     const data: LinkRequirementToPORequest = {
@@ -349,13 +265,6 @@ export const linkToPO = async (req: Request, res: Response): Promise<void> => {
       data: requirement,
       message: 'Requirement linked to PO item',
     });
-  } catch (error: any) {
-    console.error('Error linking to PO:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to link requirement to PO',
-    });
-  }
 };
 
 /**
@@ -363,19 +272,16 @@ export const linkToPO = async (req: Request, res: Response): Promise<void> => {
  * PATCH /api/mrp/requirements/:id/status
  */
 export const updateStatus = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const { id } = req.params;
     const { status } = req.body;
 
     if (!status) {
-      res.status(400).json({ success: false, error: 'Status is required' });
-      return;
+      throw new ValidationError('Status is required');
     }
 
     // Validate status value
@@ -395,13 +301,6 @@ export const updateStatus = async (req: Request, res: Response): Promise<void> =
       data: requirement,
       message: `Requirement status updated to ${status}`,
     });
-  } catch (error: any) {
-    console.error('Error updating status:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to update requirement status',
-    });
-  }
 };
 
 /**
@@ -409,11 +308,9 @@ export const updateStatus = async (req: Request, res: Response): Promise<void> =
  * DELETE /api/mrp/requirements/:id
  */
 export const cancelRequirement = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const { id } = req.params;
@@ -425,13 +322,6 @@ export const cancelRequirement = async (req: Request, res: Response): Promise<vo
       data: requirement,
       message: 'Requirement cancelled',
     });
-  } catch (error: any) {
-    console.error('Error cancelling requirement:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to cancel requirement',
-    });
-  }
 };
 
 /**
@@ -439,15 +329,10 @@ export const cancelRequirement = async (req: Request, res: Response): Promise<vo
  * POST /api/mrp/group-by-supplier
  */
 export const groupBySupplier = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { requirementIds } = req.body;
 
     if (!Array.isArray(requirementIds) || requirementIds.length === 0) {
-      res.status(400).json({
-        success: false,
-        error: 'requirementIds must be a non-empty array',
-      });
-      return;
+      throw new ValidationError('requirementIds must be a non-empty array');
     }
 
     const result = await mrpService.groupRequirementsBySupplier(requirementIds);
@@ -466,13 +351,6 @@ export const groupBySupplier = async (req: Request, res: Response): Promise<void
         summary: result.summary,
       },
     });
-  } catch (error: any) {
-    console.error('Error grouping requirements:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to group requirements by supplier',
-    });
-  }
 };
 
 /**
@@ -480,21 +358,15 @@ export const groupBySupplier = async (req: Request, res: Response): Promise<void
  * POST /api/mrp/generate-pos-bulk
  */
 export const bulkGeneratePO = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const { groups } = req.body;
 
     if (!Array.isArray(groups) || groups.length === 0) {
-      res.status(400).json({
-        success: false,
-        error: 'groups must be a non-empty array',
-      });
-      return;
+      throw new ValidationError('groups must be a non-empty array');
     }
 
     const result = await mrpService.generatePOsBySupplier(groups, userId);
@@ -506,13 +378,6 @@ export const bulkGeneratePO = async (req: Request, res: Response): Promise<void>
         result.errors.length > 0 ? ` (${result.errors.length} error(s))` : ''
       }`,
     });
-  } catch (error: any) {
-    console.error('Error generating bulk POs:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to generate bulk Purchase Orders',
-    });
-  }
 };
 
 /**
@@ -520,15 +385,10 @@ export const bulkGeneratePO = async (req: Request, res: Response): Promise<void>
  * POST /api/mrp/validate-bulk-po
  */
 export const validateBulkPO = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { requirementIds } = req.body;
 
     if (!Array.isArray(requirementIds) || requirementIds.length === 0) {
-      res.status(400).json({
-        success: false,
-        error: 'requirementIds must be a non-empty array',
-      });
-      return;
+      throw new ValidationError('requirementIds must be a non-empty array');
     }
 
     const result = await mrpService.validateBulkPOGeneration(requirementIds);
@@ -537,27 +397,15 @@ export const validateBulkPO = async (req: Request, res: Response): Promise<void>
       success: true,
       data: result,
     });
-  } catch (error: any) {
-    console.error('Error validating bulk PO:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to validate bulk PO generation',
-    });
-  }
 };
 
 /**
  * Get distinct styles that have material requirements (for filter dropdown)
  */
 export const getDistinctRequirementStyles = async (req: Request, res: Response): Promise<void> => {
-  try {
     const requirementType = req.query.requirementType as string | undefined;
     const styles = await mrpService.getDistinctRequirementStyles(requirementType);
     res.json({ success: true, data: styles });
-  } catch (error: any) {
-    console.error('Error fetching distinct requirement styles:', error);
-    res.status(500).json({ success: false, error: error.message || 'Failed to fetch styles' });
-  }
 };
 
 /**
@@ -565,19 +413,16 @@ export const getDistinctRequirementStyles = async (req: Request, res: Response):
  * POST /api/mrp/requirements/:id/convert-to-greige
  */
 export const convertToGreigeProcessing = async (req: Request, res: Response): Promise<void> => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      res.status(401).json({ success: false, error: 'Authentication required' });
-      return;
+      throw new ValidationError('Authentication required');
     }
 
     const { id } = req.params;
     const { processorId, greigeId, processingCost, greigeCost } = req.body;
 
     if (!processorId || !greigeId) {
-      res.status(400).json({ success: false, error: 'processorId and greigeId are required' });
-      return;
+      throw new ValidationError('processorId and greigeId are required');
     }
 
     const result = await mrpService.convertToGreigeProcessing(
@@ -591,13 +436,6 @@ export const convertToGreigeProcessing = async (req: Request, res: Response): Pr
       data: result,
       message: 'Requirement converted to GREIGE + PROCESSING workflow',
     });
-  } catch (error: any) {
-    console.error('Error converting to greige processing:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to convert requirement',
-    });
-  }
 };
 
 /**
@@ -605,15 +443,10 @@ export const convertToGreigeProcessing = async (req: Request, res: Response): Pr
  * POST /api/mrp/preview-pos
  */
 export const previewPOs = async (req: Request, res: Response): Promise<void> => {
-  try {
     const { groups } = req.body;
 
     if (!Array.isArray(groups) || groups.length === 0) {
-      res.status(400).json({
-        success: false,
-        error: 'groups must be a non-empty array',
-      });
-      return;
+      throw new ValidationError('groups must be a non-empty array');
     }
 
     const result = await mrpService.previewPOsFromRequirements({ groups });
@@ -622,13 +455,6 @@ export const previewPOs = async (req: Request, res: Response): Promise<void> => 
       success: true,
       data: result,
     });
-  } catch (error: any) {
-    console.error('Error previewing POs:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to preview Purchase Orders',
-    });
-  }
 };
 
 export default {

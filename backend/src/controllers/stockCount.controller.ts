@@ -6,7 +6,7 @@ import stockCountService, {
 } from '../services/stockCount.service';
 import { CountType, CountStatus, Unit } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { NotFoundError, ValidationError } from '../errors';
 
 // ============================================
 // Types for Stock Count Controller
@@ -26,30 +26,22 @@ interface StockCountFilters {
  * @access Private
  */
 export const getAllStockCounts = async (req: Request, res: Response) => {
-  try {
-    const { warehouseId, status, countType, startDate, endDate } = req.query;
+  const { warehouseId, status, countType, startDate, endDate } = req.query;
 
-    const filters: StockCountFilters = {};
-    if (warehouseId) filters.warehouseId = warehouseId as string;
-    if (status) filters.status = status as CountStatus;
-    if (countType) filters.countType = countType as CountType;
-    if (startDate) filters.startDate = new Date(startDate as string);
-    if (endDate) filters.endDate = new Date(endDate as string);
+  const filters: StockCountFilters = {};
+  if (warehouseId) filters.warehouseId = warehouseId as string;
+  if (status) filters.status = status as CountStatus;
+  if (countType) filters.countType = countType as CountType;
+  if (startDate) filters.startDate = new Date(startDate as string);
+  if (endDate) filters.endDate = new Date(endDate as string);
 
-    const stockCounts = await stockCountService.getAllStockCounts(filters);
+  const stockCounts = await stockCountService.getAllStockCounts(filters);
 
-    res.json({
-      success: true,
-      data: stockCounts,
-      count: stockCounts.length,
-    });
-  } catch (error: unknown) {
-    logError('Get all stock counts error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch stock counts',
-    });
-  }
+  res.json({
+    success: true,
+    data: stockCounts,
+    count: stockCounts.length,
+  });
 };
 
 /**
@@ -58,24 +50,14 @@ export const getAllStockCounts = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getStockCountById = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const stockCount = await stockCountService.getStockCountById(id);
+  const stockCount = await stockCountService.getStockCountById(id);
 
-    res.json({
-      success: true,
-      data: stockCount,
-    });
-  } catch (error: unknown) {
-    logError('Get stock count by ID error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch stock count';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    data: stockCount,
+  });
 };
 
 /**
@@ -84,56 +66,39 @@ export const getStockCountById = async (req: Request, res: Response) => {
  * @access Private (Inventory Manager)
  */
 export const createStockCount = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated',
-      });
-    }
-
-    const { warehouseId, countType, countDate, remarks, materialIds } = req.body;
-
-    // Validation
-    if (!warehouseId || !countType) {
-      return res.status(400).json({
-        success: false,
-        message: 'Warehouse and count type are required',
-      });
-    }
-
-    if ((countType === 'PARTIAL' || countType === 'SPOT_CHECK') && (!materialIds || materialIds.length === 0)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Material IDs are required for PARTIAL or SPOT_CHECK counts',
-      });
-    }
-
-    const countData: CreateStockCountDTO = {
-      warehouseId,
-      countType: countType as CountType,
-      countDate: countDate ? new Date(countDate) : undefined,
-      remarks,
-      countedById: userId,
-      materialIds,
-    };
-
-    const stockCount = await stockCountService.createStockCount(countData);
-
-    res.status(201).json({
-      success: true,
-      message: 'Stock count created successfully',
-      data: stockCount,
-    });
-  } catch (error: unknown) {
-    logError('Create stock count error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to create stock count',
-    });
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { warehouseId, countType, countDate, remarks, materialIds } = req.body;
+
+  // Validation
+  if (!warehouseId || !countType) {
+    throw new ValidationError('Warehouse and count type are required');
+  }
+
+  if ((countType === 'PARTIAL' || countType === 'SPOT_CHECK') && (!materialIds || materialIds.length === 0)) {
+    throw new ValidationError('Material IDs are required for PARTIAL or SPOT_CHECK counts');
+  }
+
+  const countData: CreateStockCountDTO = {
+    warehouseId,
+    countType: countType as CountType,
+    countDate: countDate ? new Date(countDate) : undefined,
+    remarks,
+    countedById: userId,
+    materialIds,
+  };
+
+  const stockCount = await stockCountService.createStockCount(countData);
+
+  res.status(201).json({
+    success: true,
+    message: 'Stock count created successfully',
+    data: stockCount,
+  });
 };
 
 /**
@@ -142,25 +107,15 @@ export const createStockCount = async (req: Request, res: Response) => {
  * @access Private
  */
 export const startCounting = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const stockCount = await stockCountService.startCounting(id);
+  const stockCount = await stockCountService.startCounting(id);
 
-    res.json({
-      success: true,
-      message: 'Stock count started successfully',
-      data: stockCount,
-    });
-  } catch (error: unknown) {
-    logError('Start counting error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to start counting';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    message: 'Stock count started successfully',
+    data: stockCount,
+  });
 };
 
 /**
@@ -169,32 +124,21 @@ export const startCounting = async (req: Request, res: Response) => {
  * @access Private
  */
 export const updateCountItem = async (req: Request, res: Response) => {
-  try {
-    const { itemId } = req.params;
-    const { physicalQuantity, remarks } = req.body;
+  const { itemId } = req.params;
+  const { physicalQuantity, remarks } = req.body;
 
-    const updateData: UpdateCountItemDTO = {
-      physicalQuantity: physicalQuantity !== undefined ? new Decimal(physicalQuantity) : undefined,
-      remarks,
-    };
+  const updateData: UpdateCountItemDTO = {
+    physicalQuantity: physicalQuantity !== undefined ? new Decimal(physicalQuantity) : undefined,
+    remarks,
+  };
 
-    const item = await stockCountService.updateCountItem(itemId, updateData);
+  const item = await stockCountService.updateCountItem(itemId, updateData);
 
-    res.json({
-      success: true,
-      message: 'Count item updated successfully',
-      data: item,
-    });
-  } catch (error: unknown) {
-    logError('Update count item error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to update count item';
-    const statusCode = errorMessage.includes('not found') ? 404 :
-                       errorMessage.includes('Cannot update') ? 400 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    message: 'Count item updated successfully',
+    data: item,
+  });
 };
 
 /**
@@ -203,35 +147,21 @@ export const updateCountItem = async (req: Request, res: Response) => {
  * @access Private (Supervisor)
  */
 export const verifyStockCount = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated',
-      });
-    }
-
-    const { id } = req.params;
-
-    const stockCount = await stockCountService.verifyStockCount(id, userId);
-
-    res.json({
-      success: true,
-      message: 'Stock count verified successfully',
-      data: stockCount,
-    });
-  } catch (error: unknown) {
-    logError('Verify stock count error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to verify stock count';
-    const statusCode = errorMessage.includes('not found') ? 404 :
-                       errorMessage.includes('must be') ? 400 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { id } = req.params;
+
+  const stockCount = await stockCountService.verifyStockCount(id, userId);
+
+  res.json({
+    success: true,
+    message: 'Stock count verified successfully',
+    data: stockCount,
+  });
 };
 
 /**
@@ -240,35 +170,21 @@ export const verifyStockCount = async (req: Request, res: Response) => {
  * @access Private (Manager only)
  */
 export const approveStockCount = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.userId;
+  const userId = req.user?.userId;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated',
-      });
-    }
-
-    const { id } = req.params;
-
-    const result = await stockCountService.approveStockCount(id, userId);
-
-    res.json({
-      success: true,
-      message: `Stock count approved successfully. ${result.adjustmentCount} adjustments created.`,
-      data: result,
-    });
-  } catch (error: unknown) {
-    logError('Approve stock count error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to approve stock count';
-    const statusCode = errorMessage.includes('not found') ? 404 :
-                       errorMessage.includes('must be') ? 400 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
   }
+
+  const { id } = req.params;
+
+  const result = await stockCountService.approveStockCount(id, userId);
+
+  res.json({
+    success: true,
+    message: `Stock count approved successfully. ${result.adjustmentCount} adjustments created.`,
+    data: result,
+  });
 };
 
 /**
@@ -277,26 +193,15 @@ export const approveStockCount = async (req: Request, res: Response) => {
  * @access Private
  */
 export const cancelStockCount = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const stockCount = await stockCountService.cancelStockCount(id);
+  const stockCount = await stockCountService.cancelStockCount(id);
 
-    res.json({
-      success: true,
-      message: 'Stock count cancelled successfully',
-      data: stockCount,
-    });
-  } catch (error: unknown) {
-    logError('Cancel stock count error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to cancel stock count';
-    const statusCode = errorMessage.includes('not found') ? 404 :
-                       errorMessage.includes('Cannot cancel') ? 400 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    message: 'Stock count cancelled successfully',
+    data: stockCount,
+  });
 };
 
 /**
@@ -305,24 +210,14 @@ export const cancelStockCount = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getVarianceReport = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    const report = await stockCountService.getVarianceReport(id);
+  const report = await stockCountService.getVarianceReport(id);
 
-    res.json({
-      success: true,
-      data: report,
-    });
-  } catch (error: unknown) {
-    logError('Get variance report error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch variance report';
-    const statusCode = errorMessage.includes('not found') ? 404 : 500;
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-    });
-  }
+  res.json({
+    success: true,
+    data: report,
+  });
 };
 
 /**
@@ -331,32 +226,21 @@ export const getVarianceReport = async (req: Request, res: Response) => {
  * @access Private
  */
 export const getCountSummary = async (req: Request, res: Response) => {
-  try {
-    const { warehouseId } = req.params;
-    const { startDate, endDate } = req.query;
+  const { warehouseId } = req.params;
+  const { startDate, endDate } = req.query;
 
-    if (!startDate || !endDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Start date and end date are required',
-      });
-    }
-
-    const summary = await stockCountService.getCountSummary(
-      warehouseId,
-      new Date(startDate as string),
-      new Date(endDate as string)
-    );
-
-    res.json({
-      success: true,
-      data: summary,
-    });
-  } catch (error: unknown) {
-    logError('Get count summary error:', error);
-    res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : 'Failed to fetch count summary',
-    });
+  if (!startDate || !endDate) {
+    throw new ValidationError('Start date and end date are required');
   }
+
+  const summary = await stockCountService.getCountSummary(
+    warehouseId,
+    new Date(startDate as string),
+    new Date(endDate as string)
+  );
+
+  res.json({
+    success: true,
+    data: summary,
+  });
 };

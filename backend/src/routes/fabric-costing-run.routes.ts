@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { asyncHandler } from '../middleware/error.middleware';
 import {
   getRunsByStyle,
   getRunById,
@@ -19,18 +20,18 @@ const router = Router();
 router.use(authenticateToken);
 
 // GET /api/fabric-costing-runs/style/:styleId - Get all runs for a style
-router.get('/style/:styleId', getRunsByStyle);
+router.get('/style/:styleId', asyncHandler(getRunsByStyle));
 
 // POST /api/fabric-costing-runs/style/:styleId - Create new run
-router.post('/style/:styleId', createRun);
+router.post('/style/:styleId', asyncHandler(createRun));
 
 // GET /api/fabric-costing-runs/:runId - Get single run with details
-router.get('/:runId', getRunById);
+router.get('/:runId', asyncHandler(getRunById));
 
 // DELETE /api/fabric-costing-runs/:runId - Delete run
-router.delete('/:runId', deleteRun);
+router.delete('/:runId', asyncHandler(deleteRun));
 
 // PATCH /api/fabric-costing-runs/:runId/recalculate - Recalculate totals
-router.patch('/:runId/recalculate', updateRunTotals);
+router.patch('/:runId/recalculate', asyncHandler(updateRunTotals));
 
 export default router;

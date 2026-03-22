@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 
@@ -159,7 +160,6 @@ const batchIncludeOptions = {
 // ============================================
 
 export const getAllCuttingBatches = async (req: Request, res: Response) => {
-  try {
     const {
       page = 1,
       limit = 20,
@@ -226,10 +226,6 @@ export const getAllCuttingBatches = async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / Number(limit)),
       },
     });
-  } catch (error) {
-    console.error('Error fetching cutting batches:', error);
-    res.status(500).json({ error: 'Failed to fetch cutting batches' });
-  }
 };
 
 // ============================================
@@ -237,7 +233,6 @@ export const getAllCuttingBatches = async (req: Request, res: Response) => {
 // ============================================
 
 export const getCuttingBatchById = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const batch = await prisma.cutting_batches.findUnique({
@@ -249,14 +244,10 @@ export const getCuttingBatchById = async (req: Request, res: Response) => {
     });
 
     if (!batch) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     res.json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error fetching cutting batch:', error);
-    res.status(500).json({ error: 'Failed to fetch cutting batch' });
-  }
 };
 
 // ============================================
@@ -264,10 +255,9 @@ export const getCuttingBatchById = async (req: Request, res: Response) => {
 // ============================================
 
 export const createCuttingBatch = async (req: Request, res: Response) => {
-  try {
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
     const {
       workOrderId,
@@ -293,25 +283,22 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     });
 
     if (!workOrder) {
-      return res.status(400).json({ error: 'Work order not found' });
+      throw new ValidationError('Work order not found');
     }
 
     // Validate SKU outputs
     if (!skuOutputs || skuOutputs.length === 0) {
-      return res.status(400).json({ error: 'At least one SKU output is required' });
+      throw new ValidationError('At least one SKU output is required');
     }
     for (const sku of skuOutputs) {
       if (!sku.sizeId) {
-        return res.status(400).json({ error: 'Each SKU output must have a valid sizeId' });
+        throw new ValidationError('Each SKU output must have a valid sizeId');
       }
     }
 
     // Validate cadAverageUsed is present and > 0 (must come from PRODUCTION CAD planning)
     if (!cadAverageUsed || Number(cadAverageUsed) <= 0) {
-      return res.status(400).json({
-        error: 'CAD average is required and must be greater than 0. Complete PRODUCTION CAD planning first.',
-        blockerType: 'CAD_AVERAGE_MISSING',
-      });
+      throw new ValidationError('CAD average is required and must be greater than 0. Complete PRODUCTION CAD planning first.');
     }
 
     // Get component name if provided
@@ -376,10 +363,6 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     }
 
     res.status(201).json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error creating cutting batch:', error);
-    res.status(500).json({ error: 'Failed to create cutting batch' });
-  }
 };
 
 // ============================================
@@ -387,7 +370,6 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
 // ============================================
 
 export const updateCuttingBatch = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const updateData = req.body;
 
@@ -398,11 +380,11 @@ export const updateCuttingBatch = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (existing.status === 'COMPLETED') {
-      return res.status(400).json({ error: 'Cannot update completed batch' });
+      throw new ValidationError('Cannot update completed batch');
     }
 
     const batch = await prisma.cutting_batches.update({
@@ -415,10 +397,6 @@ export const updateCuttingBatch = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error updating cutting batch:', error);
-    res.status(500).json({ error: 'Failed to update cutting batch' });
-  }
 };
 
 // ============================================
@@ -426,7 +404,6 @@ export const updateCuttingBatch = async (req: Request, res: Response) => {
 // ============================================
 
 export const deleteCuttingBatch = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     // Check if batch exists and is in PENDING status
@@ -436,11 +413,11 @@ export const deleteCuttingBatch = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (existing.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Can only delete pending batches' });
+      throw new ValidationError('Can only delete pending batches');
     }
 
     await prisma.cutting_batches.delete({
@@ -448,10 +425,6 @@ export const deleteCuttingBatch = async (req: Request, res: Response) => {
     });
 
     res.json({ message: 'Cutting batch deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting cutting batch:', error);
-    res.status(500).json({ error: 'Failed to delete cutting batch' });
-  }
 };
 
 // ============================================
@@ -460,7 +433,6 @@ export const deleteCuttingBatch = async (req: Request, res: Response) => {
 
 // Start cutting batch (PENDING -> IN_PROGRESS)
 export const startCuttingBatch = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.cutting_batches.findUnique({
@@ -469,11 +441,11 @@ export const startCuttingBatch = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (existing.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Can only start pending batches' });
+      throw new ValidationError('Can only start pending batches');
     }
 
     const batch = await prisma.cutting_batches.update({
@@ -483,15 +455,10 @@ export const startCuttingBatch = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error starting cutting batch:', error);
-    res.status(500).json({ error: 'Failed to start cutting batch' });
-  }
 };
 
 // Record cutting output
 export const recordCuttingOutput = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const { skuOutputs, defects, fabricConsumed, remarks } = req.body;
 
@@ -501,11 +468,11 @@ export const recordCuttingOutput = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (existing.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Can only record output for in-progress batches' });
+      throw new ValidationError('Can only record output for in-progress batches');
     }
 
     // Update SKU outputs and add defects in transaction
@@ -554,15 +521,10 @@ export const recordCuttingOutput = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error recording cutting output:', error);
-    res.status(500).json({ error: 'Failed to record cutting output' });
-  }
 };
 
 // Complete cutting batch (IN_PROGRESS -> COMPLETED)
 export const completeCuttingBatch = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const { actualAverage, remarks } = req.body;
 
@@ -574,11 +536,11 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (existing.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Can only complete in-progress batches' });
+      throw new ValidationError('Can only complete in-progress batches');
     }
 
     // Calculate total cut quantity
@@ -611,15 +573,10 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error completing cutting batch:', error);
-    res.status(500).json({ error: 'Failed to complete cutting batch' });
-  }
 };
 
 // Put batch on hold
 export const holdCuttingBatch = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const { reason } = req.body;
 
@@ -629,11 +586,11 @@ export const holdCuttingBatch = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (existing.status === 'COMPLETED') {
-      return res.status(400).json({ error: 'Cannot put completed batches on hold' });
+      throw new ValidationError('Cannot put completed batches on hold');
     }
 
     const batch = await prisma.cutting_batches.update({
@@ -646,15 +603,10 @@ export const holdCuttingBatch = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error holding cutting batch:', error);
-    res.status(500).json({ error: 'Failed to put cutting batch on hold' });
-  }
 };
 
 // Resume cutting batch (ON_HOLD -> IN_PROGRESS)
 export const resumeCuttingBatch = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
 
     const existing = await prisma.cutting_batches.findUnique({
@@ -663,11 +615,11 @@ export const resumeCuttingBatch = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (existing.status !== 'ON_HOLD') {
-      return res.status(400).json({ error: 'Can only resume batches that are on hold' });
+      throw new ValidationError('Can only resume batches that are on hold');
     }
 
     const batch = await prisma.cutting_batches.update({
@@ -677,15 +629,10 @@ export const resumeCuttingBatch = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error resuming cutting batch:', error);
-    res.status(500).json({ error: 'Failed to resume cutting batch' });
-  }
 };
 
 // Cancel cutting batch
 export const cancelCuttingBatch = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const { reason } = req.body;
 
@@ -695,11 +642,11 @@ export const cancelCuttingBatch = async (req: Request, res: Response) => {
     });
 
     if (!existing) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (existing.status === 'COMPLETED') {
-      return res.status(400).json({ error: 'Cannot cancel completed batches' });
+      throw new ValidationError('Cannot cancel completed batches');
     }
 
     const batch = await prisma.cutting_batches.update({
@@ -712,19 +659,14 @@ export const cancelCuttingBatch = async (req: Request, res: Response) => {
     });
 
     res.json({ data: transformCuttingBatch(batch) });
-  } catch (error) {
-    console.error('Error cancelling cutting batch:', error);
-    res.status(500).json({ error: 'Failed to cancel cutting batch' });
-  }
 };
 
 // Generate transfer slip
 export const generateTransferSlip = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params;
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const batch = await prisma.cutting_batches.findUnique({
@@ -736,11 +678,11 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     });
 
     if (!batch) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (batch.status !== 'COMPLETED') {
-      return res.status(400).json({ error: 'Can only generate transfer slip for completed batches' });
+      throw new ValidationError('Can only generate transfer slip for completed batches');
     }
 
     // Generate slip number
@@ -789,10 +731,6 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
         slipNumber: transferSlip.slipNumber,
       },
     });
-  } catch (error) {
-    console.error('Error generating transfer slip:', error);
-    res.status(500).json({ error: 'Failed to generate transfer slip' });
-  }
 };
 
 // ============================================
@@ -800,7 +738,6 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
 // ============================================
 
 export const getSummary = async (req: Request, res: Response) => {
-  try {
     const [statusCounts, totals, byWorkOrder] = await Promise.all([
       // Status counts
       prisma.cutting_batches.groupBy({
@@ -860,14 +797,9 @@ export const getSummary = async (req: Request, res: Response) => {
         }),
       },
     });
-  } catch (error) {
-    console.error('Error fetching cutting summary:', error);
-    res.status(500).json({ error: 'Failed to fetch cutting summary' });
-  }
 };
 
 export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
-  try {
     const { workOrderId } = req.params;
 
     const [statusCounts, totals, batches] = await Promise.all([
@@ -913,15 +845,10 @@ export const getSummaryByWorkOrder = async (req: Request, res: Response) => {
         byWorkOrder: [],
       },
     });
-  } catch (error) {
-    console.error('Error fetching cutting summary by work order:', error);
-    res.status(500).json({ error: 'Failed to fetch cutting summary' });
-  }
 };
 
 // Get available work orders for cutting
 export const getAvailableWorkOrders = async (req: Request, res: Response) => {
-  try {
     const workOrders = await prisma.work_orders.findMany({
       where: {
         status: {
@@ -1005,15 +932,10 @@ export const getAvailableWorkOrders = async (req: Request, res: Response) => {
     }).filter((wo) => wo.pendingQty > 0);
 
     res.json({ data: result });
-  } catch (error) {
-    console.error('Error fetching available work orders:', error);
-    res.status(500).json({ error: 'Failed to fetch available work orders' });
-  }
 };
 
 // Get available fabric stock for cutting
 export const getAvailableFabricStock = async (req: Request, res: Response) => {
-  try {
     const { fabricId } = req.params;
 
     const stock = await prisma.fabric_stock.findMany({
@@ -1047,10 +969,6 @@ export const getAvailableFabricStock = async (req: Request, res: Response) => {
         fabricName: s.fabricMaster?.fabricName || '',
       })),
     });
-  } catch (error) {
-    console.error('Error fetching available fabric stock:', error);
-    res.status(500).json({ error: 'Failed to fetch available fabric stock' });
-  }
 };
 
 // ============================================
@@ -1609,15 +1527,10 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
 // ============================================
 
 export const getCuttingChartData = async (req: Request, res: Response) => {
-  try {
     const { workOrderId } = req.params;
     const { colorId } = req.query;
     const chartData = await buildCuttingChartData(workOrderId, colorId as string | undefined);
     res.json({ data: chartData });
-  } catch (error) {
-    console.error('Error fetching cutting chart data:', error);
-    res.status(500).json({ error: 'Failed to fetch cutting chart data' });
-  }
 };
 
 // ============================================
@@ -1714,11 +1627,10 @@ async function recalculateBatchTotals(tx: any, batchId: string) {
 
 // Add a cutting lay
 export const addCuttingLay = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params; // batch id
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const {
@@ -1732,7 +1644,7 @@ export const addCuttingLay = async (req: Request, res: Response) => {
     } = req.body;
 
     if (!layDate || !numberOfLayers || !skuOutputs || skuOutputs.length === 0) {
-      return res.status(400).json({ error: 'layDate, numberOfLayers, and skuOutputs are required' });
+      throw new ValidationError('layDate, numberOfLayers, and skuOutputs are required');
     }
 
     const batch = await prisma.cutting_batches.findUnique({
@@ -1741,11 +1653,11 @@ export const addCuttingLay = async (req: Request, res: Response) => {
     });
 
     if (!batch) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (batch.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Can only add lays to in-progress batches' });
+      throw new ValidationError('Can only add lays to in-progress batches');
     }
 
     // Get next lay number
@@ -1838,15 +1750,10 @@ export const addCuttingLay = async (req: Request, res: Response) => {
           : null,
       },
     });
-  } catch (error) {
-    console.error('Error adding cutting lay:', error);
-    res.status(500).json({ error: 'Failed to add cutting lay' });
-  }
 };
 
 // Get all lays for a batch
 export const getCuttingLays = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params; // batch id
 
     const lays = await prisma.cutting_lays.findMany({
@@ -1890,15 +1797,10 @@ export const getCuttingLays = async (req: Request, res: Response) => {
           : null,
       })),
     });
-  } catch (error) {
-    console.error('Error fetching cutting lays:', error);
-    res.status(500).json({ error: 'Failed to fetch cutting lays' });
-  }
 };
 
 // Delete a cutting lay (only latest)
 export const deleteCuttingLay = async (req: Request, res: Response) => {
-  try {
     const { id, layId } = req.params; // batch id, lay id
 
     const batch = await prisma.cutting_batches.findUnique({
@@ -1907,11 +1809,11 @@ export const deleteCuttingLay = async (req: Request, res: Response) => {
     });
 
     if (!batch) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     if (batch.status !== 'IN_PROGRESS') {
-      return res.status(400).json({ error: 'Can only delete lays from in-progress batches' });
+      throw new ValidationError('Can only delete lays from in-progress batches');
     }
 
     // Verify this is the latest lay
@@ -1922,7 +1824,7 @@ export const deleteCuttingLay = async (req: Request, res: Response) => {
     });
 
     if (!latestLay || latestLay.id !== layId) {
-      return res.status(400).json({ error: 'Can only delete the most recent lay' });
+      throw new ValidationError('Can only delete the most recent lay');
     }
 
     await prisma.$transaction(async (tx) => {
@@ -1931,10 +1833,6 @@ export const deleteCuttingLay = async (req: Request, res: Response) => {
     });
 
     res.json({ message: 'Lay deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting cutting lay:', error);
-    res.status(500).json({ error: 'Failed to delete cutting lay' });
-  }
 };
 
 // ============================================
@@ -1943,17 +1841,16 @@ export const deleteCuttingLay = async (req: Request, res: Response) => {
 
 // Issue cut pieces to stitching
 export const issueToStitching = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params; // batch id
     const userId = req.user?.userId;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      throw new ValidationError('User not authenticated');
     }
 
     const { issuedToId, issueDate, remarks, skuOutputs } = req.body;
 
     if (!issuedToId || !skuOutputs || skuOutputs.length === 0) {
-      return res.status(400).json({ error: 'issuedToId and skuOutputs are required' });
+      throw new ValidationError('issuedToId and skuOutputs are required');
     }
 
     const batch = await prisma.cutting_batches.findUnique({
@@ -1977,7 +1874,7 @@ export const issueToStitching = async (req: Request, res: Response) => {
     });
 
     if (!batch) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     // Validate all fabrics have at least one lay before issuing
@@ -2077,15 +1974,10 @@ export const issueToStitching = async (req: Request, res: Response) => {
         skuBreakdown: transferSlip.skuBreakdown,
       },
     });
-  } catch (error) {
-    console.error('Error issuing to stitching:', error);
-    res.status(500).json({ error: 'Failed to issue to stitching' });
-  }
 };
 
 // Get stitching issues summary for a batch
 export const getStitchingIssues = async (req: Request, res: Response) => {
-  try {
     const { id } = req.params; // batch id
 
     const batch = await prisma.cutting_batches.findUnique({
@@ -2115,7 +2007,7 @@ export const getStitchingIssues = async (req: Request, res: Response) => {
     });
 
     if (!batch) {
-      return res.status(404).json({ error: 'Cutting batch not found' });
+      throw new NotFoundError('CuttingBatch', id);
     }
 
     // Calculate issued per SKU
@@ -2167,15 +2059,10 @@ export const getStitchingIssues = async (req: Request, res: Response) => {
     }));
 
     res.json({ data: { perSku, issues } });
-  } catch (error) {
-    console.error('Error fetching stitching issues:', error);
-    res.status(500).json({ error: 'Failed to fetch stitching issues' });
-  }
 };
 
 // Get style/size-wise cutting summary with days tracking
 export const getStyleSizeSummary = async (req: Request, res: Response) => {
-  try {
     const batches = await prisma.cutting_batches.findMany({
       where: { isActive: true },
       include: {
@@ -2308,8 +2195,4 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     });
 
     res.json({ data });
-  } catch (error) {
-    console.error('Error fetching cutting style-size summary:', error);
-    res.status(500).json({ error: 'Failed to fetch cutting style-size summary' });
-  }
 };

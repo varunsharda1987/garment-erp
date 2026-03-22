@@ -7,7 +7,7 @@
 
 import { Router } from 'express';
 import {
-  // List operations
+  // List & query operations
   getPendingCADStyles,
   getStylesForCADPlanning,
   getCADStatusCounts,
@@ -16,13 +16,13 @@ import {
   getStyleCADHistory,
   getCADTableData,
   getCADOrderHistory,
-
+  getGreigeOptionsForGeneric,
+  getGreigeWidths,
   // CAD generation and calculation
   generateCADOptions,
   calculateCADCost,
   selectGreigeForGroup,
-
-  // CAD row operations
+  // CAD row CRUD
   addCADWidth,
   deleteCADWidth,
   addCADTableRow,
@@ -33,8 +33,8 @@ import {
   updateCADValuesWithBreakdown,
   setPreferredCAD,
   getCADGroupDetails,
-
-  // Approval operations
+} from '../controllers/cad-planning.controller';
+import {
   approveCAD,
   approveCADPurpose,
   rejectCADPurpose,
@@ -42,32 +42,24 @@ import {
   copyCADPurpose,
   getCADLineage,
   linkCADToStock,
-
-  // Production CAD from stock
-  createProductionCADFromStock,
-
-  // Greige operations
-  getGreigeOptionsForGeneric,
-  getGreigeWidths,
-
-  // Pattern parts
+} from '../controllers/cad-approval.controller';
+import {
   getStyleFabricPatternParts,
   assignPatternParts,
   updatePatternPartAssignment,
   deletePatternPartAssignment,
   assignPatternPartsFromComponent,
   getCADPatternPartsForComponent,
-
-  // Embroidery CAD
+} from '../controllers/cad-pattern-parts.controller';
+import {
   getEmbroideryCad,
   createOrUpdateEmbroideryCad,
   deleteEmbroideryCad,
   getTotalFabricCad,
-
-  // PRODUCTION Variance Approval
+  createProductionCADFromStock,
   approveProductionVariance,
   getPendingVarianceApprovals,
-} from '../controllers/cad-planning.controller';
+} from '../controllers/cad-embroidery.controller';
 import { approveCADPlan } from '../controllers/style.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

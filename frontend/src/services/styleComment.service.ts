@@ -26,29 +26,16 @@ export const styleCommentService = {
   /**
    * Create a new comment
    */
-  createComment: async (
-    styleId: string,
-    data: CreateStyleCommentDTO
-  ): Promise<StyleComment> => {
-    const response = await api.post<StyleCommentResponse>(
-      `/styles/${styleId}/comments`,
-      data
-    );
+  createComment: async (styleId: string, data: CreateStyleCommentDTO): Promise<StyleComment> => {
+    const response = await api.post<StyleCommentResponse>(`/styles/${styleId}/comments`, data);
     return response.data.data;
   },
 
   /**
    * Update a comment
    */
-  updateComment: async (
-    styleId: string,
-    commentId: string,
-    data: UpdateStyleCommentDTO
-  ): Promise<StyleComment> => {
-    const response = await api.patch<StyleCommentResponse>(
-      `/styles/${styleId}/comments/${commentId}`,
-      data
-    );
+  updateComment: async (styleId: string, commentId: string, data: UpdateStyleCommentDTO): Promise<StyleComment> => {
+    const response = await api.patch<StyleCommentResponse>(`/styles/${styleId}/comments/${commentId}`, data);
     return response.data.data;
   },
 
@@ -63,10 +50,9 @@ export const styleCommentService = {
    * Get recent activity (comments across all styles)
    */
   getRecentActivity: async (limit?: number): Promise<StyleCommentActivity[]> => {
-    const response = await api.get<StyleCommentActivityResponse>(
-      `/styles/comments/activity`,
-      { params: { limit: limit || 20 } }
-    );
+    const response = await api.get<StyleCommentActivityResponse>(`/styles/comments/activity`, {
+      params: { limit: limit || 20 },
+    });
     return response.data.data;
   },
 };

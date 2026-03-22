@@ -107,9 +107,7 @@ export function useConfirmDialog() {
             <AlertDialogDescription>{state.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancel}>
-              {state.cancelText}
-            </AlertDialogCancel>
+            <AlertDialogCancel onClick={handleCancel}>{state.cancelText}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirm}
               className={state.destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}

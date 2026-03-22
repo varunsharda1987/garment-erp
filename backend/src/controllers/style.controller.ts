@@ -53,8 +53,7 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
     const hasCadLinked = style.style_components?.some((c: any) =>
       c.style_fabrics?.some((sf: any) => sf.fabricCADId != null)
     );
-    const effectiveCadStatus =
-      style.cadStatus === 'APPROVED' && !hasCadLinked ? 'PENDING' : style.cadStatus;
+    const effectiveCadStatus = style.cadStatus === 'APPROVED' && !hasCadLinked ? 'PENDING' : style.cadStatus;
     return { ...style, effectiveCadStatus };
   });
 
@@ -77,11 +76,14 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
   const approvedCostingOptions = await styleService.getApprovedFabricCostingRates(id);
 
   // Create a map of styleFabricId -> approved costing data for quick lookup
-  const approvedCostingMap = new Map<string, {
-    totalCostPerMeter: number;
-    cadMeters: number;
-    cutableWidth: number;
-  }>();
+  const approvedCostingMap = new Map<
+    string,
+    {
+      totalCostPerMeter: number;
+      cadMeters: number;
+      cutableWidth: number;
+    }
+  >();
 
   for (const option of approvedCostingOptions) {
     if (option.styleFabricId && option.totalCostPerMeter) {
@@ -142,8 +144,8 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     style_components?: StyleComponent[];
   };
 
-  const styleFabricsFlat = styleWithComponents.style_components?.flatMap(
-    (comp: StyleComponent) =>
+  const styleFabricsFlat =
+    styleWithComponents.style_components?.flatMap((comp: StyleComponent) =>
       comp.style_fabrics.map((fab: StyleFabric) => ({
         id: fab.id,
         componentId: fab.componentId,
@@ -161,35 +163,36 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
         usableWidth: fab.usableWidth,
         allowCombinedCutting: fab.allowCombinedCutting !== false,
       }))
-  ) || [];
+    ) || [];
 
   // Also flatten components for frontend compatibility - include fabrics for StyleDetail view
   // Now includes approved fabric costing rates if available
-  const components = styleWithComponents.style_components?.map((comp: StyleComponent) => ({
-    id: comp.id,
-    componentName: comp.componentName,
-    componentType: comp.componentType,
-    sortOrder: comp.sortOrder,
-    fabrics: comp.style_fabrics.map((fab: StyleFabric) => {
-      // Look up approved costing data for this fabric
-      const approvedCosting = approvedCostingMap.get(fab.id);
+  const components =
+    styleWithComponents.style_components?.map((comp: StyleComponent) => ({
+      id: comp.id,
+      componentName: comp.componentName,
+      componentType: comp.componentType,
+      sortOrder: comp.sortOrder,
+      fabrics: comp.style_fabrics.map((fab: StyleFabric) => {
+        // Look up approved costing data for this fabric
+        const approvedCosting = approvedCostingMap.get(fab.id);
 
-      return {
-        id: fab.id,
-        fabricName: fab.genericGreigeName || fab.fabricName || fab.fabric?.fabricName,
-        fabricType: fab.fabricFinishType,
-        genericGreigeName: fab.genericGreigeName,
-        fabricFinishType: fab.fabricFinishType,
-        hasEmbroidery: fab.hasEmbroidery || false,
-        embroideryId: fab.embroideryId,
-        embroidery: fab.embroidery,
-        fabricWidth: approvedCosting?.cutableWidth || fab.usableWidth,
-        cadAverageMeters: approvedCosting?.cadMeters || fab.quantityNeeded,
-        // Use approved fabric costing rate if available
-        unitPrice: approvedCosting?.totalCostPerMeter || null,
-      };
-    }),
-  })) || [];
+        return {
+          id: fab.id,
+          fabricName: fab.genericGreigeName || fab.fabricName || fab.fabric?.fabricName,
+          fabricType: fab.fabricFinishType,
+          genericGreigeName: fab.genericGreigeName,
+          fabricFinishType: fab.fabricFinishType,
+          hasEmbroidery: fab.hasEmbroidery || false,
+          embroideryId: fab.embroideryId,
+          embroidery: fab.embroidery,
+          fabricWidth: approvedCosting?.cutableWidth || fab.usableWidth,
+          cadAverageMeters: approvedCosting?.cadMeters || fab.quantityNeeded,
+          // Use approved fabric costing rate if available
+          unitPrice: approvedCosting?.totalCostPerMeter || null,
+        };
+      }),
+    })) || [];
 
   res.status(200).json({
     data: {

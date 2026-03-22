@@ -120,9 +120,7 @@ export const updateStockLevel = async (req: Request, res: Response) => {
 export const getMaterialsBelowReorderLevel = async (req: Request, res: Response) => {
   const { warehouseId } = req.query;
 
-  const materials = await stockLevelService.getMaterialsBelowReorderLevel(
-    warehouseId as string | undefined
-  );
+  const materials = await stockLevelService.getMaterialsBelowReorderLevel(warehouseId as string | undefined);
 
   res.json({
     success: true,
@@ -156,9 +154,7 @@ export const getStockAgingReport = async (req: Request, res: Response) => {
 export const getStockValuationReport = async (req: Request, res: Response) => {
   const { warehouseId } = req.query;
 
-  const report = await stockLevelService.getStockValuationReport(
-    warehouseId as string | undefined
-  );
+  const report = await stockLevelService.getStockValuationReport(warehouseId as string | undefined);
 
   res.json({
     success: true,

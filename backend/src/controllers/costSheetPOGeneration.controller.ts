@@ -36,18 +36,9 @@ export const calculateRequirements = async (req: Request, res: Response) => {
     );
 
     // Calculate order quantities with default allowance
-    const fabricOrderQtys = costSheetPOGenerationService.calculateOrderQuantities(
-      requirements.fabricItems,
-      3
-    );
-    const greigeOrderQtys = costSheetPOGenerationService.calculateOrderQuantities(
-      requirements.greigeItems,
-      3
-    );
-    const trimsOrderQtys = costSheetPOGenerationService.calculateOrderQuantities(
-      requirements.trimsItems,
-      3
-    );
+    const fabricOrderQtys = costSheetPOGenerationService.calculateOrderQuantities(requirements.fabricItems, 3);
+    const greigeOrderQtys = costSheetPOGenerationService.calculateOrderQuantities(requirements.greigeItems, 3);
+    const trimsOrderQtys = costSheetPOGenerationService.calculateOrderQuantities(requirements.trimsItems, 3);
 
     res.json({
       success: true,
@@ -61,8 +52,7 @@ export const calculateRequirements = async (req: Request, res: Response) => {
   } catch (error: unknown) {
     logError('Calculate requirements error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to calculate requirements';
-    const statusCode = errorMessage.includes('not found') ? 404 :
-                       errorMessage.includes('approved') ? 400 : 500;
+    const statusCode = errorMessage.includes('not found') ? 404 : errorMessage.includes('approved') ? 400 : 500;
     res.status(statusCode).json({
       success: false,
       message: errorMessage,

@@ -123,11 +123,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
 
       navigate('/seasons');
     } catch (err: unknown) {
-      const errorMessage = handleApiError(
-        err,
-        `Failed to ${isNewSeason ? 'create' : 'update'} season`,
-        false
-      );
+      const errorMessage = handleApiError(err, `Failed to ${isNewSeason ? 'create' : 'update'} season`, false);
       setError(errorMessage);
     } finally {
       setIsSaving(false);
@@ -148,20 +144,14 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/seasons')}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => navigate('/seasons')} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Seasons
         </Button>
         <div className="flex items-center gap-3">
           <Calendar className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">
-              {isNewSeason ? 'Add New Season' : 'Edit Season'}
-            </h1>
+            <h1 className="text-2xl font-bold">{isNewSeason ? 'Add New Season' : 'Edit Season'}</h1>
             {!isNewSeason && watchCode && (
               <Badge variant="outline" className="mt-1 font-mono">
                 {watchCode}
@@ -171,11 +161,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 text-red-700 p-4 rounded-md mb-6">
-          {error}
-        </div>
-      )}
+      {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-6">{error}</div>}
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Card>
@@ -217,9 +203,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  SS = Spring/Summer, AW = Autumn/Winter
-                </p>
+                <p className="text-xs text-muted-foreground">SS = Spring/Summer, AW = Autumn/Winter</p>
               </div>
 
               <div className="space-y-2">
@@ -258,12 +242,8 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
                   className="font-mono uppercase"
                   disabled={!isNewSeason}
                 />
-                {errors.code && (
-                  <p className="text-sm text-red-500">{errors.code.message}</p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Auto-generated from type and year
-                </p>
+                {errors.code && <p className="text-sm text-red-500">{errors.code.message}</p>}
+                <p className="text-xs text-muted-foreground">Auto-generated from type and year</p>
               </div>
 
               <div className="space-y-2">
@@ -275,9 +255,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
                   {...register('name', { required: 'Season name is required' })}
                   placeholder="e.g., Spring/Summer 2026"
                 />
-                {errors.name && (
-                  <p className="text-sm text-red-500">{errors.name.message}</p>
-                )}
+                {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
               </div>
             </div>
 
@@ -287,15 +265,9 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
                 <Label htmlFor="isActive" className="text-base font-medium">
                   Active Status
                 </Label>
-                <p className="text-sm text-muted-foreground">
-                  Inactive seasons won't appear in dropdown selections
-                </p>
+                <p className="text-sm text-muted-foreground">Inactive seasons won't appear in dropdown selections</p>
               </div>
-              <Switch
-                id="isActive"
-                checked={isActive}
-                onCheckedChange={setIsActive}
-              />
+              <Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} />
             </div>
 
             {/* Preview */}
@@ -320,11 +292,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
 
             {/* Actions */}
             <div className="flex justify-end gap-4 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/seasons')}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/seasons')}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSaving}>

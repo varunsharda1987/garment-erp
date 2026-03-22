@@ -1,10 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type ProcessCategory =
-  | 'pre-production'
-  | 'order-management'
-  | 'production'
-  | 'fulfillment';
+export type ProcessCategory = 'pre-production' | 'order-management' | 'production' | 'fulfillment';
 
 export interface ProcessPrerequisite {
   stage?: string; // prerequisite stage ID

@@ -125,7 +125,20 @@ export const deleteMoodBoard = async (req: Request, res: Response): Promise<void
  */
 export const addItem = async (req: MulterRequest, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { itemType, colorHex, fabricId, styleId, title, caption, positionX, positionY, width, height, rotation, zIndex } = req.body;
+  const {
+    itemType,
+    colorHex,
+    fabricId,
+    styleId,
+    title,
+    caption,
+    positionX,
+    positionY,
+    width,
+    height,
+    rotation,
+    zIndex,
+  } = req.body;
 
   if (!itemType) {
     throw new ValidationError('Item type is required');

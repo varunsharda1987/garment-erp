@@ -40,7 +40,11 @@ export interface ProductCategoryHierarchy extends product_category_master {
 // Service
 // ============================================
 
-class ProductCategoryServiceClass extends BaseService<product_category_master, CreateProductCategoryDTO, UpdateProductCategoryDTO> {
+class ProductCategoryServiceClass extends BaseService<
+  product_category_master,
+  CreateProductCategoryDTO,
+  UpdateProductCategoryDTO
+> {
   protected readonly modelName = 'product_category_master';
   protected readonly entityName = 'Product Category';
 

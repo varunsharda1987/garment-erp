@@ -18,7 +18,8 @@ export default function MaterialDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -107,9 +108,7 @@ export default function MaterialDetail() {
                   />
                 </div>
                 <p className="text-gray-600">Material Code: {material.code}</p>
-                {material.category && (
-                  <p className="text-gray-500 text-sm">Category: {material.category.name}</p>
-                )}
+                {material.category && <p className="text-gray-500 text-sm">Category: {material.category.name}</p>}
               </div>
               {material.image && (
                 <img
@@ -142,7 +141,9 @@ export default function MaterialDetail() {
                   <AlertTriangle className="h-4 w-4 text-yellow-500" />
                   <div>
                     <label className="text-sm font-medium text-gray-600">Reorder Level</label>
-                    <p className="text-gray-900">{material.reorderLevel} {UnitLabels[material.unit] || material.unit}</p>
+                    <p className="text-gray-900">
+                      {material.reorderLevel} {UnitLabels[material.unit] || material.unit}
+                    </p>
                   </div>
                 </div>
               )}
@@ -183,7 +184,9 @@ export default function MaterialDetail() {
           )}
 
           {/* Suppliers */}
-          <Card className={material.categoryData && Object.keys(material.categoryData).length > 0 ? '' : 'lg:col-span-1'}>
+          <Card
+            className={material.categoryData && Object.keys(material.categoryData).length > 0 ? '' : 'lg:col-span-1'}
+          >
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Building2 className="h-5 w-5" />
@@ -202,9 +205,7 @@ export default function MaterialDetail() {
                         </div>
                         <div className="flex gap-2">
                           {supplierRel.isPreferred && (
-                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
-                              Preferred
-                            </span>
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">Preferred</span>
                           )}
                           <StatusBadge
                             status={supplierRel.isActive ? 'Active' : 'Inactive'}
@@ -215,9 +216,7 @@ export default function MaterialDetail() {
                       {supplierRel.supplier.contactPerson && (
                         <p className="text-sm text-gray-600 mt-1">Contact: {supplierRel.supplier.contactPerson}</p>
                       )}
-                      {supplierRel.notes && (
-                        <p className="text-sm text-gray-500 mt-1 italic">{supplierRel.notes}</p>
-                      )}
+                      {supplierRel.notes && <p className="text-sm text-gray-500 mt-1 italic">{supplierRel.notes}</p>}
                     </div>
                   ))}
                 </div>
@@ -245,17 +244,13 @@ export default function MaterialDetail() {
                           <p className="font-medium text-gray-900">
                             {stock.location?.locationName || 'Unknown Location'}
                           </p>
-                          <p className="text-sm text-gray-500">
-                            {stock.location?.locationCode}
-                          </p>
+                          <p className="text-sm text-gray-500">{stock.location?.locationCode}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-semibold text-gray-900">
                             {stock.quantity.toLocaleString('en-IN')}
                           </p>
-                          <p className="text-sm text-gray-500">
-                            {UnitLabels[stock.unit] || stock.unit}
-                          </p>
+                          <p className="text-sm text-gray-500">{UnitLabels[stock.unit] || stock.unit}</p>
                         </div>
                       </div>
                     </div>

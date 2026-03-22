@@ -78,15 +78,9 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                 <th className="text-right p-3 font-semibold">Wastage</th>
                 <th className="text-right p-3 font-semibold">Efficiency</th>
                 <th className="text-right p-3 font-semibold">Cost/Piece</th>
-                {orderQuantity > 1 && (
-                  <th className="text-right p-3 font-semibold">
-                    Total ({orderQuantity} pcs)
-                  </th>
-                )}
+                {orderQuantity > 1 && <th className="text-right p-3 font-semibold">Total ({orderQuantity} pcs)</th>}
                 <th className="text-center p-3 font-semibold">Status</th>
-                {onSelectWidth && (
-                  <th className="text-center p-3 font-semibold">Select</th>
-                )}
+                {onSelectWidth && <th className="text-center p-3 font-semibold">Select</th>}
               </tr>
             </thead>
             <tbody>
@@ -96,14 +90,11 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                 const rowClass = isSelected
                   ? 'bg-green-100 border-green-300'
                   : isCheapest
-                  ? 'bg-yellow-50'
-                  : 'bg-white';
+                    ? 'bg-yellow-50'
+                    : 'bg-white';
 
                 return (
-                  <tr
-                    key={comp.width}
-                    className={`border-b hover:bg-gray-50 transition-colors ${rowClass}`}
-                  >
+                  <tr key={comp.width} className={`border-b hover:bg-gray-50 transition-colors ${rowClass}`}>
                     <td className="p-3 font-medium">
                       {comp.width}"
                       {comp.isPreferred && (
@@ -117,17 +108,9 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                       {comp.consumption.toFixed(3)} {comp.unit}
                     </td>
                     <td className="text-right p-3">{comp.wastage.toFixed(1)}%</td>
-                    <td className="text-right p-3">
-                      {comp.efficiency > 0 ? `${comp.efficiency.toFixed(1)}%` : '-'}
-                    </td>
-                    <td className="text-right p-3 font-semibold">
-                      ₹{comp.costPerPiece.toFixed(2)}
-                    </td>
-                    {orderQuantity > 1 && (
-                      <td className="text-right p-3 font-medium">
-                        ₹{comp.totalCost.toFixed(2)}
-                      </td>
-                    )}
+                    <td className="text-right p-3">{comp.efficiency > 0 ? `${comp.efficiency.toFixed(1)}%` : '-'}</td>
+                    <td className="text-right p-3 font-semibold">₹{comp.costPerPiece.toFixed(2)}</td>
+                    {orderQuantity > 1 && <td className="text-right p-3 font-medium">₹{comp.totalCost.toFixed(2)}</td>}
                     <td className="text-center p-3">
                       {isCheapest && (
                         <Badge className="gap-1 bg-yellow-500">
@@ -148,9 +131,7 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                           type="button"
                           onClick={() => onSelectWidth(comp.width, comp.consumption)}
                           className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                            isSelected
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                            isSelected ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                           }`}
                         >
                           {isSelected ? 'Selected' : 'Use This'}
@@ -169,12 +150,9 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
           <div className="mt-4 p-3 bg-white rounded border border-green-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">
-                  💰 Cost Savings Analysis
-                </p>
+                <p className="text-sm font-medium text-gray-700">💰 Cost Savings Analysis</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Comparing cheapest ({cheapest.width}") vs preferred (
-                  {preferred?.width || 'N/A'}")
+                  Comparing cheapest ({cheapest.width}") vs preferred ({preferred?.width || 'N/A'}")
                 </p>
               </div>
               <div className="text-right">
@@ -191,9 +169,7 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-green-600 font-medium">
-                    ✓ Using optimal width
-                  </p>
+                  <p className="text-sm text-green-600 font-medium">✓ Using optimal width</p>
                 )}
               </div>
             </div>

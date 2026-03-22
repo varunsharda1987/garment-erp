@@ -10,7 +10,7 @@ import { logInfo, logError } from '../utils/logger';
 import { CreateGRNDTO, GRNFilters, ProcessingQCData } from '../types/grn.types';
 import { NotFoundError, ValidationError } from '../errors';
 import { updateCostSheetActuals } from '../services/costSheet.service';
-import prisma from '../config/database';  // Use singleton to avoid connection pool leak
+import prisma from '../config/database'; // Use singleton to avoid connection pool leak
 
 /**
  * @route GET /api/grn
@@ -18,18 +18,7 @@ import prisma from '../config/database';  // Use singleton to avoid connection p
  * @access Private
  */
 export const getAllGRNs = async (req: Request, res: Response) => {
-  const {
-    poId,
-    supplierId,
-    status,
-    search,
-    startDate,
-    endDate,
-    page,
-    limit,
-    sortBy,
-    sortOrder,
-  } = req.query;
+  const { poId, supplierId, status, search, startDate, endDate, page, limit, sortBy, sortOrder } = req.query;
 
   const filters: GRNFilters = {
     poId: poId as string | undefined,

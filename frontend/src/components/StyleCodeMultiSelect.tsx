@@ -66,7 +66,15 @@ export function StyleCodeMultiSelect({
     try {
       setIsLoading(true);
       setError(null);
-      const response = await styleService.getAllStyles(1, 20, search || undefined, undefined, undefined, undefined, 'ACTIVE');
+      const response = await styleService.getAllStyles(
+        1,
+        20,
+        search || undefined,
+        undefined,
+        undefined,
+        undefined,
+        'ACTIVE'
+      );
       const styleOptions: StyleOption[] = response.data.map((style) => ({
         id: style.id,
         styleCode: style.styleCode,
@@ -130,10 +138,7 @@ export function StyleCodeMultiSelect({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -173,9 +178,7 @@ export function StyleCodeMultiSelect({
   };
 
   // Filter out already selected options
-  const availableOptions = options.filter(
-    (option) => !value.includes(option.styleCode)
-  );
+  const availableOptions = options.filter((option) => !value.includes(option.styleCode));
 
   return (
     <div className={cn('space-y-2', className)} ref={containerRef}>
@@ -199,17 +202,9 @@ export function StyleCodeMultiSelect({
         >
           {/* Selected style badges */}
           {selectedStyles.map((style) => (
-            <Badge
-              key={style.styleCode}
-              variant="secondary"
-              className="flex items-center gap-1 px-2 py-1 text-xs"
-            >
+            <Badge key={style.styleCode} variant="secondary" className="flex items-center gap-1 px-2 py-1 text-xs">
               <span className="font-medium">{style.styleCode}</span>
-              {style.styleName && (
-                <span className="text-gray-500 max-w-[100px] truncate">
-                  - {style.styleName}
-                </span>
-              )}
+              {style.styleName && <span className="text-gray-500 max-w-[100px] truncate">- {style.styleName}</span>}
               {!disabled && (
                 <button
                   type="button"
@@ -240,10 +235,7 @@ export function StyleCodeMultiSelect({
               className="border-0 p-0 h-6 focus-visible:ring-0 shadow-none"
             />
             <ChevronDown
-              className={cn(
-                'h-4 w-4 text-gray-400 transition-transform',
-                isOpen && 'transform rotate-180'
-              )}
+              className={cn('h-4 w-4 text-gray-400 transition-transform', isOpen && 'transform rotate-180')}
             />
           </div>
         </div>
@@ -260,14 +252,10 @@ export function StyleCodeMultiSelect({
                 <span className="ml-2 text-sm text-gray-500">Loading styles...</span>
               </div>
             ) : error ? (
-              <div className="px-3 py-4 text-sm text-red-600 text-center">
-                {error}
-              </div>
+              <div className="px-3 py-4 text-sm text-red-600 text-center">{error}</div>
             ) : availableOptions.length === 0 ? (
               <div className="px-3 py-4 text-sm text-gray-500 text-center">
-                {searchTerm
-                  ? 'No styles found matching your search'
-                  : 'No styles available'}
+                {searchTerm ? 'No styles found matching your search' : 'No styles available'}
               </div>
             ) : (
               <ul className="py-1">
@@ -279,11 +267,7 @@ export function StyleCodeMultiSelect({
                   >
                     <div>
                       <span className="font-medium text-sm">{style.styleCode}</span>
-                      {style.styleName && (
-                        <span className="text-gray-500 text-sm ml-2">
-                          - {style.styleName}
-                        </span>
-                      )}
+                      {style.styleName && <span className="text-gray-500 text-sm ml-2">- {style.styleName}</span>}
                     </div>
                   </li>
                 ))}
@@ -293,9 +277,7 @@ export function StyleCodeMultiSelect({
         )}
       </div>
 
-      {helpText && (
-        <p className="text-xs text-gray-500">{helpText}</p>
-      )}
+      {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
     </div>
   );
 }

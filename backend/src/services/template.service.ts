@@ -30,11 +30,11 @@ class TemplateService {
       await prisma.export_templates.updateMany({
         where: {
           moduleName,
-          isDefault: true
+          isDefault: true,
         },
         data: {
-          isDefault: false
-        }
+          isDefault: false,
+        },
       });
     }
 
@@ -45,7 +45,7 @@ class TemplateService {
         description,
         columnConfig: columnConfig as any, // Prisma JSON type
         isDefault: isDefault || false,
-        createdById
+        createdById,
       },
       include: {
         users: {
@@ -53,10 +53,10 @@ class TemplateService {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+      },
     });
 
     return template;
@@ -69,7 +69,7 @@ class TemplateService {
     const templates = await prisma.export_templates.findMany({
       where: {
         moduleName,
-        isActive: true
+        isActive: true,
       },
       include: {
         users: {
@@ -77,14 +77,11 @@ class TemplateService {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
       },
-      orderBy: [
-        { isDefault: 'desc' },
-        { createdAt: 'desc' }
-      ]
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
 
     return templates;
@@ -98,8 +95,8 @@ class TemplateService {
       where: {
         moduleName,
         isDefault: true,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     return template;
@@ -117,10 +114,10 @@ class TemplateService {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+      },
     });
 
     return template;
@@ -142,11 +139,11 @@ class TemplateService {
         where: {
           moduleName: template.moduleName,
           isDefault: true,
-          id: { not: id }
+          id: { not: id },
         },
         data: {
-          isDefault: false
-        }
+          isDefault: false,
+        },
       });
     }
 
@@ -156,7 +153,7 @@ class TemplateService {
         ...(data.templateName && { templateName: data.templateName }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.columnConfig && { columnConfig: data.columnConfig as any }),
-        ...(data.isDefault !== undefined && { isDefault: data.isDefault })
+        ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
       },
       include: {
         users: {
@@ -164,10 +161,10 @@ class TemplateService {
             id: true,
             firstName: true,
             lastName: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+      },
     });
 
     return updated;
@@ -180,8 +177,8 @@ class TemplateService {
     const template = await prisma.export_templates.update({
       where: { id },
       data: {
-        isActive: false
-      }
+        isActive: false,
+      },
     });
 
     return template;
@@ -207,7 +204,7 @@ class TemplateService {
       { value: 'currencies', label: 'Currencies' },
       { value: 'cost_centers', label: 'Cost Centers' },
       { value: 'expense_types', label: 'Expense Types' },
-      { value: 'bank_accounts', label: 'Bank Accounts' }
+      { value: 'bank_accounts', label: 'Bank Accounts' },
     ];
   }
 
@@ -232,7 +229,7 @@ class TemplateService {
         { fieldName: 'shippingAddress', displayName: 'Shipping Address', type: 'text' },
         { fieldName: 'gstNumber', displayName: 'GST Number', type: 'text' },
         { fieldName: 'creditLimit', displayName: 'Credit Limit', type: 'number' },
-        { fieldName: 'creditDays', displayName: 'Credit Days', type: 'number' }
+        { fieldName: 'creditDays', displayName: 'Credit Days', type: 'number' },
       ],
       suppliers: [
         { fieldName: 'code', displayName: 'Supplier Code (Auto-generated if empty)', type: 'text' },
@@ -247,7 +244,7 @@ class TemplateService {
         { fieldName: 'rating', displayName: 'Rating', type: 'number' },
         { fieldName: 'bankName', displayName: 'Bank Name', type: 'text' },
         { fieldName: 'bankAccountNumber', displayName: 'Bank Account Number', type: 'text' },
-        { fieldName: 'ifscCode', displayName: 'IFSC Code', type: 'text' }
+        { fieldName: 'ifscCode', displayName: 'IFSC Code', type: 'text' },
       ],
       materials: [
         { fieldName: 'code', displayName: 'Material Code', type: 'text' },
@@ -256,7 +253,7 @@ class TemplateService {
         { fieldName: 'description', displayName: 'Description', type: 'text' },
         { fieldName: 'unit', displayName: 'Unit', type: 'text' },
         { fieldName: 'costPerUnit', displayName: 'Cost Per Unit', type: 'number' },
-        { fieldName: 'reorderLevel', displayName: 'Reorder Level', type: 'number' }
+        { fieldName: 'reorderLevel', displayName: 'Reorder Level', type: 'number' },
       ],
       lace: [
         { fieldName: 'laceCode', displayName: 'Lace Code (Auto-generated if empty)', type: 'text' },
@@ -268,7 +265,7 @@ class TemplateService {
         { fieldName: 'color', displayName: 'Color', type: 'text' },
         { fieldName: 'composition', displayName: 'Composition', type: 'text' },
         { fieldName: 'pricePerMeter', displayName: 'Price Per Meter', type: 'number' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       buttons: [
         { fieldName: 'buttonCode', displayName: 'Button Code (Auto-generated if empty)', type: 'text' },
@@ -282,7 +279,7 @@ class TemplateService {
         { fieldName: 'shape', displayName: 'Shape', type: 'text' },
         { fieldName: 'pricePerPiece', displayName: 'Price Per Piece', type: 'number' },
         { fieldName: 'pricePerGross', displayName: 'Price Per Gross', type: 'number' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       threads: [
         { fieldName: 'threadCode', displayName: 'Thread Code (Auto-generated if empty)', type: 'text' },
@@ -296,7 +293,7 @@ class TemplateService {
         { fieldName: 'threadType', displayName: 'Thread Type', type: 'text' },
         { fieldName: 'coneSize', displayName: 'Cone Size', type: 'text' },
         { fieldName: 'pricePerCone', displayName: 'Price Per Cone', type: 'number' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       zippers: [
         { fieldName: 'zipperCode', displayName: 'Zipper Code (Auto-generated if empty)', type: 'text' },
@@ -310,11 +307,15 @@ class TemplateService {
         { fieldName: 'sliderType', displayName: 'Slider Type', type: 'text' },
         { fieldName: 'tapeWidth', displayName: 'Tape Width (mm)', type: 'number' },
         { fieldName: 'pricePerPiece', displayName: 'Price Per Piece', type: 'number' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       elastic: [
         { fieldName: 'elasticCode', displayName: 'Elastic Code (Auto-generated if empty)', type: 'text' },
-        { fieldName: 'elasticName', displayName: 'Elastic Name (Auto-generated from attributes if empty)', type: 'text' },
+        {
+          fieldName: 'elasticName',
+          displayName: 'Elastic Name (Auto-generated from attributes if empty)',
+          type: 'text',
+        },
         { fieldName: 'supplierCode', displayName: 'Supplier Code', type: 'text' },
         { fieldName: 'buyerCode', displayName: 'Buyer Code', type: 'text' },
         { fieldName: 'width', displayName: 'Width (mm)', type: 'number' },
@@ -323,7 +324,7 @@ class TemplateService {
         { fieldName: 'composition', displayName: 'Composition', type: 'text' },
         { fieldName: 'elasticType', displayName: 'Elastic Type (Woven/Knitted/Braided)', type: 'text' },
         { fieldName: 'pricePerMeter', displayName: 'Price Per Meter', type: 'number' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       labels: [
         { fieldName: 'labelCode', displayName: 'Label Code (Auto-generated if empty)', type: 'text' },
@@ -338,7 +339,7 @@ class TemplateService {
         { fieldName: 'color', displayName: 'Color', type: 'text' },
         { fieldName: 'pricePerPiece', displayName: 'Price Per Piece', type: 'number' },
         { fieldName: 'pricePerHundred', displayName: 'Price Per Hundred', type: 'number' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       chart_of_accounts: [
         { fieldName: 'accountCode', displayName: 'Account Code', type: 'text' },
@@ -347,37 +348,37 @@ class TemplateService {
         { fieldName: 'accountGroup', displayName: 'Account Group', type: 'text' },
         { fieldName: 'description', displayName: 'Description', type: 'text' },
         { fieldName: 'isSystemAccount', displayName: 'System Account', type: 'text' },
-        { fieldName: 'isActive', displayName: 'Status', type: 'text' }
+        { fieldName: 'isActive', displayName: 'Status', type: 'text' },
       ],
       tax_masters: [
         { fieldName: 'taxCode', displayName: 'Tax Code', type: 'text' },
         { fieldName: 'taxName', displayName: 'Tax Name', type: 'text' },
         { fieldName: 'taxRate', displayName: 'Tax Rate', type: 'number' },
         { fieldName: 'taxType', displayName: 'Tax Type', type: 'text' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       payment_terms: [
         { fieldName: 'code', displayName: 'Code', type: 'text' },
         { fieldName: 'name', displayName: 'Name', type: 'text' },
         { fieldName: 'days', displayName: 'Days', type: 'number' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       currencies: [
         { fieldName: 'code', displayName: 'Currency Code', type: 'text' },
         { fieldName: 'name', displayName: 'Currency Name', type: 'text' },
         { fieldName: 'symbol', displayName: 'Symbol', type: 'text' },
-        { fieldName: 'exchangeRate', displayName: 'Exchange Rate', type: 'number' }
+        { fieldName: 'exchangeRate', displayName: 'Exchange Rate', type: 'number' },
       ],
       cost_centers: [
         { fieldName: 'code', displayName: 'Code', type: 'text' },
         { fieldName: 'name', displayName: 'Name', type: 'text' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       expense_types: [
         { fieldName: 'code', displayName: 'Code', type: 'text' },
         { fieldName: 'name', displayName: 'Name', type: 'text' },
         { fieldName: 'category', displayName: 'Category', type: 'text' },
-        { fieldName: 'description', displayName: 'Description', type: 'text' }
+        { fieldName: 'description', displayName: 'Description', type: 'text' },
       ],
       bank_accounts: [
         { fieldName: 'accountName', displayName: 'Account Name', type: 'text' },
@@ -386,7 +387,7 @@ class TemplateService {
         { fieldName: 'branchName', displayName: 'Branch Name', type: 'text' },
         { fieldName: 'ifscCode', displayName: 'IFSC Code', type: 'text' },
         { fieldName: 'accountType', displayName: 'Account Type', type: 'text' },
-        { fieldName: 'openingBalance', displayName: 'Opening Balance', type: 'number' }
+        { fieldName: 'openingBalance', displayName: 'Opening Balance', type: 'number' },
       ],
       styles: [
         // Required fields
@@ -425,15 +426,15 @@ class TemplateService {
         { fieldName: 'customerName', displayName: 'Customer Name', type: 'text' },
         { fieldName: 'status', displayName: 'Status', type: 'text' },
         { fieldName: 'totalAmount', displayName: 'Total Amount', type: 'number' },
-        { fieldName: 'deliveryDate', displayName: 'Delivery Date', type: 'date' }
+        { fieldName: 'deliveryDate', displayName: 'Delivery Date', type: 'date' },
       ],
       bom: [
         { fieldName: 'bomCode', displayName: 'BOM Code', type: 'text' },
         { fieldName: 'styleName', displayName: 'Style Name', type: 'text' },
         { fieldName: 'version', displayName: 'Version', type: 'text' },
         { fieldName: 'status', displayName: 'Status', type: 'text' },
-        { fieldName: 'totalCost', displayName: 'Total Cost', type: 'number' }
-      ]
+        { fieldName: 'totalCost', displayName: 'Total Cost', type: 'number' },
+      ],
     };
 
     return moduleColumns[moduleName] || [];

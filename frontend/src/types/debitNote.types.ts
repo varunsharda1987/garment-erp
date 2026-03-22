@@ -3,7 +3,13 @@
 import type { DocumentStatus } from './creditNote.types';
 export type { DocumentStatus };
 
-export type DebitNoteReason = 'PURCHASE_RETURN' | 'RATE_DIFFERENCE' | 'QUALITY_ISSUE' | 'QUANTITY_SHORT' | 'DAMAGED_GOODS' | 'OTHER';
+export type DebitNoteReason =
+  | 'PURCHASE_RETURN'
+  | 'RATE_DIFFERENCE'
+  | 'QUALITY_ISSUE'
+  | 'QUANTITY_SHORT'
+  | 'DAMAGED_GOODS'
+  | 'OTHER';
 
 export const DebitNoteReasonLabels: Record<DebitNoteReason, string> = {
   PURCHASE_RETURN: 'Purchase Return',

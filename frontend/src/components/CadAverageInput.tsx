@@ -15,10 +15,7 @@ interface CadAverageInputProps {
   fabricName?: string;
 }
 
-export const CadAverageInput: React.FC<CadAverageInputProps> = ({
-  value = [],
-  onChange,
-}) => {
+export const CadAverageInput: React.FC<CadAverageInputProps> = ({ value = [], onChange }) => {
   const [customWidth, setCustomWidth] = useState<string>('');
 
   const addCadAverage = (width?: number) => {
@@ -60,7 +57,11 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
     onChange(updatedCads);
   };
 
-  const updateCadAverage = (index: number, field: keyof CadAverageFormData, newValue: CadAverageFormData[keyof CadAverageFormData]) => {
+  const updateCadAverage = (
+    index: number,
+    field: keyof CadAverageFormData,
+    newValue: CadAverageFormData[keyof CadAverageFormData]
+  ) => {
     const updated = [...value];
 
     if (field === 'isPreferred' && newValue === true) {
@@ -83,9 +84,7 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Label className="text-base font-semibold">
-          CAD Averages by Fabric Width
-        </Label>
+        <Label className="text-base font-semibold">CAD Averages by Fabric Width</Label>
         <Badge variant="secondary">
           {value.length} width{value.length !== 1 ? 's' : ''} configured
         </Badge>
@@ -98,16 +97,8 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
       {/* Quick Add Common Widths */}
       <div className="flex flex-wrap gap-2">
         <span className="text-sm text-muted-foreground self-center">Quick add:</span>
-        {COMMON_FABRIC_WIDTHS.filter(
-          (w) => !value.some((cad) => cad.fabricWidth === w)
-        ).map((width) => (
-          <Button
-            key={width}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => addCadAverage(width)}
-          >
+        {COMMON_FABRIC_WIDTHS.filter((w) => !value.some((cad) => cad.fabricWidth === w)).map((width) => (
+          <Button key={width} type="button" variant="outline" size="sm" onClick={() => addCadAverage(width)}>
             <Plus className="h-3 w-3 mr-1" />
             {width}"
           </Button>
@@ -130,11 +121,7 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
             }}
           />
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => addCadAverage()}
-        >
+        <Button type="button" variant="secondary" onClick={() => addCadAverage()}>
           <Plus className="h-4 w-4 mr-2" />
           Add Custom Width
         </Button>
@@ -180,9 +167,7 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
                     type="checkbox"
                     id={`preferred-${index}`}
                     checked={cad.isPreferred}
-                    onChange={(e) =>
-                      updateCadAverage(index, 'isPreferred', e.target.checked)
-                    }
+                    onChange={(e) => updateCadAverage(index, 'isPreferred', e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300"
                   />
                   <label
@@ -278,9 +263,7 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
                     id={`notes-${index}`}
                     placeholder="e.g., Best marker efficiency, supplier availability..."
                     value={cad.notes || ''}
-                    onChange={(e) =>
-                      updateCadAverage(index, 'notes', e.target.value)
-                    }
+                    onChange={(e) => updateCadAverage(index, 'notes', e.target.value)}
                     rows={2}
                   />
                 </div>
@@ -313,18 +296,10 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({
                   {value.map((cad, index) => (
                     <tr key={index} className={`border-b ${cad.isPreferred ? 'bg-primary/5' : ''}`}>
                       <td className="p-2 font-medium">{cad.fabricWidth}"</td>
-                      <td className="text-right p-2">
-                        {cad.cadAverageMeters?.toFixed(3) || '-'}
-                      </td>
-                      <td className="text-right p-2">
-                        {cad.cadAverageYards?.toFixed(3) || '-'}
-                      </td>
-                      <td className="text-right p-2">
-                        {cad.cadWastagePercent?.toFixed(1)}%
-                      </td>
-                      <td className="text-right p-2">
-                        {cad.markerEfficiency?.toFixed(1)}%
-                      </td>
+                      <td className="text-right p-2">{cad.cadAverageMeters?.toFixed(3) || '-'}</td>
+                      <td className="text-right p-2">{cad.cadAverageYards?.toFixed(3) || '-'}</td>
+                      <td className="text-right p-2">{cad.cadWastagePercent?.toFixed(1)}%</td>
+                      <td className="text-right p-2">{cad.markerEfficiency?.toFixed(1)}%</td>
                       <td className="text-center p-2">
                         {cad.isPreferred && (
                           <Badge variant="default" className="text-xs">

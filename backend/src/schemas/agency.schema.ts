@@ -5,17 +5,8 @@ import { z } from 'zod';
  * POST /api/agencies
  */
 export const createAgencySchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Name is required')
-    .max(200, 'Name must not exceed 200 characters')
-    .trim(),
-  phone: z
-    .string()
-    .max(20, 'Phone must not exceed 20 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  name: z.string().min(1, 'Name is required').max(200, 'Name must not exceed 200 characters').trim(),
+  phone: z.string().max(20, 'Phone must not exceed 20 characters').trim().optional().nullable(),
   email: z
     .string()
     .email('Invalid email format')
@@ -23,12 +14,7 @@ export const createAgencySchema = z.object({
     .trim()
     .optional()
     .nullable(),
-  address: z
-    .string()
-    .max(500, 'Address must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  address: z.string().max(500, 'Address must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -37,18 +23,8 @@ export const createAgencySchema = z.object({
  * PUT /api/agencies/:id
  */
 export const updateAgencySchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Name is required')
-    .max(200, 'Name must not exceed 200 characters')
-    .trim()
-    .optional(),
-  phone: z
-    .string()
-    .max(20, 'Phone must not exceed 20 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  name: z.string().min(1, 'Name is required').max(200, 'Name must not exceed 200 characters').trim().optional(),
+  phone: z.string().max(20, 'Phone must not exceed 20 characters').trim().optional().nullable(),
   email: z
     .string()
     .email('Invalid email format')
@@ -56,12 +32,7 @@ export const updateAgencySchema = z.object({
     .trim()
     .optional()
     .nullable(),
-  address: z
-    .string()
-    .max(500, 'Address must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  address: z.string().max(500, 'Address must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

@@ -34,7 +34,7 @@ export default function StockOutForm() {
     unit: '' as Unit | '',
     referenceType: '',
     referenceNumber: '',
-    remarks: ''
+    remarks: '',
   });
 
   useEffect(() => {
@@ -49,10 +49,10 @@ export default function StockOutForm() {
 
   useEffect(() => {
     if (formData.materialId && availableStock.length > 0) {
-      const stock = availableStock.find(s => s.materialId === formData.materialId);
+      const stock = availableStock.find((s) => s.materialId === formData.materialId);
       setSelectedMaterialStock(stock || null);
       if (stock) {
-        setFormData(prev => ({ ...prev, unit: stock.unit }));
+        setFormData((prev) => ({ ...prev, unit: stock.unit }));
       }
     }
   }, [formData.materialId, availableStock]);
@@ -69,7 +69,7 @@ export default function StockOutForm() {
   const loadStockLevels = async (warehouseId: string) => {
     try {
       const data = await stockLevelService.getByWarehouse(warehouseId);
-      setAvailableStock(data.filter(s => Number(s.quantity) > 0));
+      setAvailableStock(data.filter((s) => Number(s.quantity) > 0));
     } catch (err) {
       logError('Failed to load stock levels:', err);
     }
@@ -104,13 +104,15 @@ export default function StockOutForm() {
         unit: formData.unit as Unit,
         referenceType: formData.referenceType || undefined,
         referenceNumber: formData.referenceNumber || undefined,
-        remarks: formData.remarks || undefined
+        remarks: formData.remarks || undefined,
       });
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
     } catch (err) {
-      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create stock out';
+      const errorMessage =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to create stock out';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -146,10 +148,7 @@ export default function StockOutForm() {
                 <Label htmlFor="warehouseId">
                   Warehouse <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={formData.warehouseId}
-                  onValueChange={(value) => handleChange('warehouseId', value)}
-                >
+                <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
                   <SelectTrigger id="warehouseId">
                     <SelectValue placeholder="Select warehouse" />
                   </SelectTrigger>
@@ -178,12 +177,15 @@ export default function StockOutForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {availableStock.length === 0 ? (
-                      <SelectItem value="none" disabled>No stock available</SelectItem>
+                      <SelectItem value="none" disabled>
+                        No stock available
+                      </SelectItem>
                     ) : (
                       availableStock.map((stock) => (
                         <SelectItem key={stock.id} value={stock.materialId}>
                           {stock.materials?.code} - {stock.materials?.name}
-                          {' (Avail: '}{Number(stock.quantity).toFixed(2)} {stock.unit})
+                          {' (Avail: '}
+                          {Number(stock.quantity).toFixed(2)} {stock.unit})
                         </SelectItem>
                       ))
                     )}
@@ -223,21 +225,14 @@ export default function StockOutForm() {
               {/* Unit (readonly) */}
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit</Label>
-                <Input
-                  id="unit"
-                  value={formData.unit}
-                  disabled
-                />
+                <Input id="unit" value={formData.unit} disabled />
                 <p className="text-sm text-muted-foreground">Auto-filled from material</p>
               </div>
 
               {/* Reference Type */}
               <div className="space-y-2">
                 <Label htmlFor="referenceType">Reference Type</Label>
-                <Select
-                  value={formData.referenceType}
-                  onValueChange={(value) => handleChange('referenceType', value)}
-                >
+                <Select value={formData.referenceType} onValueChange={(value) => handleChange('referenceType', value)}>
                   <SelectTrigger id="referenceType">
                     <SelectValue placeholder="Select reference type" />
                   </SelectTrigger>
@@ -275,20 +270,12 @@ export default function StockOutForm() {
 
               {/* Actions */}
               <div className="flex gap-2 justify-end md:col-span-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/inventory/movements')}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/inventory/movements')}>
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <ButtonSpinner className="mr-2" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
+                  {loading ? <ButtonSpinner className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
                   Issue Stock
                 </Button>
               </div>

@@ -633,7 +633,7 @@ export default function ProcessorRateCardPage() {
       return g;
     });
     setGreiges(newGreiges);
-    notify.success(`Pasted row data to "${greiges.find(g => g.id === targetGreigeId)?.greigeName}"`);
+    notify.success(`Pasted row data to "${greiges.find((g) => g.id === targetGreigeId)?.greigeName}"`);
   };
 
   // Clear copied row data
@@ -665,11 +665,7 @@ export default function ProcessorRateCardPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -690,20 +686,11 @@ export default function ProcessorRateCardPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {hasUnsavedChanges && (
-            <span className="text-sm text-orange-500 mr-2">Unsaved changes</span>
-          )}
-          <Button
-            variant="outline"
-            onClick={handleDiscard}
-            disabled={!hasUnsavedChanges || saving}
-          >
+          {hasUnsavedChanges && <span className="text-sm text-orange-500 mr-2">Unsaved changes</span>}
+          <Button variant="outline" onClick={handleDiscard} disabled={!hasUnsavedChanges || saving}>
             Discard
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!hasUnsavedChanges || saving}
-          >
+          <Button onClick={handleSave} disabled={!hasUnsavedChanges || saving}>
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
@@ -745,56 +732,52 @@ export default function ProcessorRateCardPage() {
 
       {/* Processing Type Tabs (only for Fabric) */}
       {materialType === 'FABRIC' && (
-      <>
-      <div className="flex gap-2 mb-4">
-        <Button
-          variant={processingType === 'DYEING' ? 'default' : 'outline'}
-          onClick={() => setProcessingType('DYEING')}
-          disabled={hasUnsavedChanges}
-        >
-          Dyeing
-        </Button>
-        <Button
-          variant={processingType === 'PRINTING' ? 'default' : 'outline'}
-          onClick={() => setProcessingType('PRINTING')}
-          disabled={hasUnsavedChanges}
-        >
-          Printing
-        </Button>
-        {hasUnsavedChanges && (
-          <span className="text-sm text-gray-500 ml-2 self-center">
-            Save changes before switching
-          </span>
-        )}
-      </div>
-
-      {/* Printing Type Sub-Tabs (only visible when PRINTING is selected) */}
-      {processingType === 'PRINTING' && (
-        <div className="flex gap-2 mb-4 ml-4 border-l-2 border-gray-200 pl-4">
-          {PRINTING_TYPES.map((type) => (
+        <>
+          <div className="flex gap-2 mb-4">
             <Button
-              key={type}
-              variant={printingType === type ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setPrintingType(type)}
+              variant={processingType === 'DYEING' ? 'default' : 'outline'}
+              onClick={() => setProcessingType('DYEING')}
               disabled={hasUnsavedChanges}
-              className={printingType === type ? 'bg-purple-600 hover:bg-purple-700' : ''}
             >
-              {PRINTING_TYPE_LABELS[type]}
+              Dyeing
             </Button>
-          ))}
-        </div>
-      )}
-      </>
+            <Button
+              variant={processingType === 'PRINTING' ? 'default' : 'outline'}
+              onClick={() => setProcessingType('PRINTING')}
+              disabled={hasUnsavedChanges}
+            >
+              Printing
+            </Button>
+            {hasUnsavedChanges && (
+              <span className="text-sm text-gray-500 ml-2 self-center">Save changes before switching</span>
+            )}
+          </div>
+
+          {/* Printing Type Sub-Tabs (only visible when PRINTING is selected) */}
+          {processingType === 'PRINTING' && (
+            <div className="flex gap-2 mb-4 ml-4 border-l-2 border-gray-200 pl-4">
+              {PRINTING_TYPES.map((type) => (
+                <Button
+                  key={type}
+                  variant={printingType === type ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrintingType(type)}
+                  disabled={hasUnsavedChanges}
+                  className={printingType === type ? 'bg-purple-600 hover:bg-purple-700' : ''}
+                >
+                  {PRINTING_TYPE_LABELS[type]}
+                </Button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Lace Mode Info Banner */}
       {materialType === 'LACE' && (
         <div className="flex items-center gap-4 mb-4 bg-purple-50 border border-purple-200 rounded-lg px-4 py-2">
           <span className="text-purple-800 font-medium">Lace Dyeing Rates</span>
-          <span className="text-purple-600 text-sm">
-            Configure dyeing rates for greige lace processing
-          </span>
+          <span className="text-purple-600 text-sm">Configure dyeing rates for greige lace processing</span>
         </div>
       )}
 
@@ -803,9 +786,7 @@ export default function ProcessorRateCardPage() {
         {isDefaultRatesMode ? (
           // Show banner when in Default Rates mode
           <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-            <span className="text-amber-800 font-medium">
-              Editing Default Processing Rates
-            </span>
+            <span className="text-amber-800 font-medium">Editing Default Processing Rates</span>
             <span className="text-amber-600 text-sm">
               These rates are used when no specific processor is selected in Fabric Costing
             </span>
@@ -813,11 +794,7 @@ export default function ProcessorRateCardPage() {
         ) : (
           // Normal processor dropdown
           <div className="w-64">
-            <Select
-              value={selectedProcessorId}
-              onValueChange={setSelectedProcessorId}
-              disabled={hasUnsavedChanges}
-            >
+            <Select value={selectedProcessorId} onValueChange={setSelectedProcessorId} disabled={hasUnsavedChanges}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Processor" />
               </SelectTrigger>
@@ -834,21 +811,13 @@ export default function ProcessorRateCardPage() {
 
         {selectedProcessorId && (
           <>
-            <Button
-              variant="outline"
-              onClick={() => setIsAddGreigeModalOpen(true)}
-              disabled={slabs.length === 0}
-            >
+            <Button variant="outline" onClick={() => setIsAddGreigeModalOpen(true)} disabled={slabs.length === 0}>
               <Plus className="h-4 w-4 mr-2" />
               {materialType === 'FABRIC' ? 'Add Greige Row' : 'Add Lace Row'}
             </Button>
             {/* Hide Copy button in Default Rates mode and Lace mode */}
             {!isDefaultRatesMode && materialType === 'FABRIC' && (
-              <Button
-                variant="outline"
-                onClick={() => setIsCopyModalOpen(true)}
-                disabled={slabs.length === 0}
-              >
+              <Button variant="outline" onClick={() => setIsCopyModalOpen(true)} disabled={slabs.length === 0}>
                 <Copy className="h-4 w-4 mr-2" />
                 Copy to Another Processor
               </Button>
@@ -858,9 +827,7 @@ export default function ProcessorRateCardPage() {
       </div>
 
       {/* Loading State */}
-      {loading && (
-        <div className="text-center py-8 text-gray-500">Loading rate matrix...</div>
-      )}
+      {loading && <div className="text-center py-8 text-gray-500">Loading rate matrix...</div>}
 
       {/* Summary Dashboard (when no processor selected) */}
       {!selectedProcessorId && !loading && (
@@ -917,14 +884,18 @@ export default function ProcessorRateCardPage() {
                           <Input
                             type="number"
                             value={tempSlabValues.min}
-                            onChange={(e) => setTempSlabValues({ ...tempSlabValues, min: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) =>
+                              setTempSlabValues({ ...tempSlabValues, min: parseFloat(e.target.value) || 0 })
+                            }
                             className="w-16 h-6 text-xs"
                           />
                           <span>-</span>
                           <Input
                             type="number"
                             value={tempSlabValues.max}
-                            onChange={(e) => setTempSlabValues({ ...tempSlabValues, max: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) =>
+                              setTempSlabValues({ ...tempSlabValues, max: parseFloat(e.target.value) || 0 })
+                            }
                             className="w-16 h-6 text-xs"
                           />
                           <Button
@@ -970,12 +941,7 @@ export default function ProcessorRateCardPage() {
                     </th>
                   ))}
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={addSlab}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
+                    <Button variant="ghost" size="sm" onClick={addSlab} className="text-blue-600 hover:text-blue-800">
                       <Plus className="h-4 w-4 mr-1" />
                       Add Slab
                     </Button>
@@ -985,7 +951,10 @@ export default function ProcessorRateCardPage() {
                       <span>Actions</span>
                       {copiedRowData && (
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-green-600 font-normal normal-case truncate max-w-24" title={`Copied: ${copiedRowData.sourceGreigeName}`}>
+                          <span
+                            className="text-xs text-green-600 font-normal normal-case truncate max-w-24"
+                            title={`Copied: ${copiedRowData.sourceGreigeName}`}
+                          >
                             📋 Copied
                           </span>
                           <button
@@ -1018,9 +987,7 @@ export default function ProcessorRateCardPage() {
                         <td className="px-4 py-3 text-sm text-gray-900 font-medium">
                           {greige.genericGreigeName || '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {greige.greigeName}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{greige.greigeName}</td>
                         <td className="px-4 py-3 text-center">
                           <Input
                             type="number"
@@ -1029,7 +996,11 @@ export default function ProcessorRateCardPage() {
                             onChange={(e) => updateShrinkage(greige.id, e.target.value)}
                             placeholder={greige.averageShrinkagePercent ? `${greige.averageShrinkagePercent}%` : '---'}
                             className="w-20 text-center mx-auto"
-                            title={greige.averageShrinkagePercent ? `Default: ${greige.averageShrinkagePercent}% (from greige master)` : undefined}
+                            title={
+                              greige.averageShrinkagePercent
+                                ? `Default: ${greige.averageShrinkagePercent}% (from greige master)`
+                                : undefined
+                            }
                           />
                         </td>
                         {slabs.map((slab) => {
@@ -1073,8 +1044,10 @@ export default function ProcessorRateCardPage() {
                               size="sm"
                               onClick={() => pasteRowData(greige.id)}
                               disabled={!copiedRowData}
-                              className={copiedRowData ? "text-green-500 hover:text-green-700" : "text-gray-300"}
-                              title={copiedRowData ? `Paste from "${copiedRowData.sourceGreigeName}"` : "Copy a row first"}
+                              className={copiedRowData ? 'text-green-500 hover:text-green-700' : 'text-gray-300'}
+                              title={
+                                copiedRowData ? `Paste from "${copiedRowData.sourceGreigeName}"` : 'Copy a row first'
+                              }
                             >
                               <ClipboardPaste className="h-4 w-4" />
                             </Button>
@@ -1083,63 +1056,57 @@ export default function ProcessorRateCardPage() {
                       </tr>
                     ))
                   )
+                ) : /* Lace Mode */
+                laces.length === 0 ? (
+                  <tr>
+                    <td colSpan={slabs.length + 5} className="px-4 py-8 text-center text-gray-500">
+                      {slabs.length === 0
+                        ? 'Add quantity slabs first, then add lace rows'
+                        : 'No greige laces added. Click "Add Lace Row" to add laces.'}
+                    </td>
+                  </tr>
                 ) : (
-                  /* Lace Mode */
-                  laces.length === 0 ? (
-                    <tr>
-                      <td colSpan={slabs.length + 5} className="px-4 py-8 text-center text-gray-500">
-                        {slabs.length === 0
-                          ? 'Add quantity slabs first, then add lace rows'
-                          : 'No greige laces added. Click "Add Lace Row" to add laces.'}
+                  laces.map((lace) => (
+                    <tr key={lace.laceId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900 font-mono">{lace.laceCode || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{lace.laceName}</td>
+                      <td className="px-4 py-3 text-center text-sm text-gray-600">
+                        {lace.width ? `${lace.width}"` : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-gray-600">
+                        {lace.expectedShrinkagePercent ? `${lace.expectedShrinkagePercent}%` : '-'}
+                      </td>
+                      {slabs.map((slab) => {
+                        const slabId = getSlabId(slab);
+                        const rate = lace.rates[slabId];
+                        return (
+                          <td key={slabId} className="px-4 py-3 text-center">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={rate ?? ''}
+                              onChange={(e) => updateLaceRate(lace.laceId, slabId, e.target.value)}
+                              placeholder="---"
+                              className="w-24 text-center mx-auto"
+                            />
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleLaceDeleteClick(lace)}
+                            className="text-red-500 hover:text-red-700"
+                            title="Remove lace row"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    laces.map((lace) => (
-                      <tr key={lace.laceId} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900 font-mono">
-                          {lace.laceCode || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {lace.laceName}
-                        </td>
-                        <td className="px-4 py-3 text-center text-sm text-gray-600">
-                          {lace.width ? `${lace.width}"` : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-center text-sm text-gray-600">
-                          {lace.expectedShrinkagePercent ? `${lace.expectedShrinkagePercent}%` : '-'}
-                        </td>
-                        {slabs.map((slab) => {
-                          const slabId = getSlabId(slab);
-                          const rate = lace.rates[slabId];
-                          return (
-                            <td key={slabId} className="px-4 py-3 text-center">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={rate ?? ''}
-                                onChange={(e) => updateLaceRate(lace.laceId, slabId, e.target.value)}
-                                placeholder="---"
-                                className="w-24 text-center mx-auto"
-                              />
-                            </td>
-                          );
-                        })}
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleLaceDeleteClick(lace)}
-                              className="text-red-500 hover:text-red-700"
-                              title="Remove lace row"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )
+                  ))
                 )}
               </tbody>
             </table>
@@ -1182,96 +1149,90 @@ export default function ProcessorRateCardPage() {
 
             <div className="flex-1 overflow-y-auto p-4">
               <div className="space-y-2">
-                {materialType === 'FABRIC' ? (
-                  /* Fabric Mode - Show greige fabrics */
-                  filteredAvailableGreiges.map((greige) => {
-                    const isExisting = greiges.some((g) => g.id === greige.id);
-                    const isSelected = selectedGreigeIds.has(greige.id);
+                {materialType === 'FABRIC'
+                  ? /* Fabric Mode - Show greige fabrics */
+                    filteredAvailableGreiges.map((greige) => {
+                      const isExisting = greiges.some((g) => g.id === greige.id);
+                      const isSelected = selectedGreigeIds.has(greige.id);
 
-                    return (
-                      <label
-                        key={greige.id}
-                        className={`flex items-center p-3 border rounded-lg cursor-pointer ${
-                          isExisting
-                            ? 'bg-gray-100 opacity-50 cursor-not-allowed'
-                            : isSelected
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          disabled={isExisting}
-                          onChange={() => {
-                            const newSelected = new Set(selectedGreigeIds);
-                            if (isSelected) {
-                              newSelected.delete(greige.id);
-                            } else {
-                              newSelected.add(greige.id);
-                            }
-                            setSelectedGreigeIds(newSelected);
-                          }}
-                          className="mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium">{greige.greigeName}</div>
-                          <div className="text-sm text-gray-500">
-                            {greige.genericGreigeName} | {greige.composition} | {greige.greigeWidth}"
+                      return (
+                        <label
+                          key={greige.id}
+                          className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                            isExisting
+                              ? 'bg-gray-100 opacity-50 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isExisting}
+                            onChange={() => {
+                              const newSelected = new Set(selectedGreigeIds);
+                              if (isSelected) {
+                                newSelected.delete(greige.id);
+                              } else {
+                                newSelected.add(greige.id);
+                              }
+                              setSelectedGreigeIds(newSelected);
+                            }}
+                            className="mr-3"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium">{greige.greigeName}</div>
+                            <div className="text-sm text-gray-500">
+                              {greige.genericGreigeName} | {greige.composition} | {greige.greigeWidth}"
+                            </div>
                           </div>
-                        </div>
-                        {isExisting && (
-                          <span className="text-xs text-gray-500">Already added</span>
-                        )}
-                      </label>
-                    );
-                  })
-                ) : (
-                  /* Lace Mode - Show greige laces */
-                  filteredAvailableLaces.map((lace) => {
-                    const isExisting = laces.some((l) => l.laceId === lace.id);
-                    const isSelected = selectedGreigeIds.has(lace.id);
+                          {isExisting && <span className="text-xs text-gray-500">Already added</span>}
+                        </label>
+                      );
+                    })
+                  : /* Lace Mode - Show greige laces */
+                    filteredAvailableLaces.map((lace) => {
+                      const isExisting = laces.some((l) => l.laceId === lace.id);
+                      const isSelected = selectedGreigeIds.has(lace.id);
 
-                    return (
-                      <label
-                        key={lace.id}
-                        className={`flex items-center p-3 border rounded-lg cursor-pointer ${
-                          isExisting
-                            ? 'bg-gray-100 opacity-50 cursor-not-allowed'
-                            : isSelected
-                            ? 'border-purple-500 bg-purple-50'
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          disabled={isExisting}
-                          onChange={() => {
-                            const newSelected = new Set(selectedGreigeIds);
-                            if (isSelected) {
-                              newSelected.delete(lace.id);
-                            } else {
-                              newSelected.add(lace.id);
-                            }
-                            setSelectedGreigeIds(newSelected);
-                          }}
-                          className="mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium">{lace.name}</div>
-                          <div className="text-sm text-gray-500">
-                            {lace.code} | {lace.composition || 'N/A'} | {lace.width ? `${lace.width}"` : 'N/A'}
-                            {lace.expectedShrinkagePercent && ` | Shrinkage: ${lace.expectedShrinkagePercent}%`}
+                      return (
+                        <label
+                          key={lace.id}
+                          className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                            isExisting
+                              ? 'bg-gray-100 opacity-50 cursor-not-allowed'
+                              : isSelected
+                                ? 'border-purple-500 bg-purple-50'
+                                : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isExisting}
+                            onChange={() => {
+                              const newSelected = new Set(selectedGreigeIds);
+                              if (isSelected) {
+                                newSelected.delete(lace.id);
+                              } else {
+                                newSelected.add(lace.id);
+                              }
+                              setSelectedGreigeIds(newSelected);
+                            }}
+                            className="mr-3"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium">{lace.name}</div>
+                            <div className="text-sm text-gray-500">
+                              {lace.code} | {lace.composition || 'N/A'} | {lace.width ? `${lace.width}"` : 'N/A'}
+                              {lace.expectedShrinkagePercent && ` | Shrinkage: ${lace.expectedShrinkagePercent}%`}
+                            </div>
                           </div>
-                        </div>
-                        {isExisting && (
-                          <span className="text-xs text-gray-500">Already added</span>
-                        )}
-                      </label>
-                    );
-                  })
-                )}
+                          {isExisting && <span className="text-xs text-gray-500">Already added</span>}
+                        </label>
+                      );
+                    })}
               </div>
             </div>
 
@@ -1318,22 +1279,15 @@ export default function ProcessorRateCardPage() {
 
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Source Processor
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Source Processor</label>
                 <div className="p-2 bg-gray-100 rounded text-sm">
                   {processors.find((p) => p.id === selectedProcessorId)?.name}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Target Processor *
-                </label>
-                <Select
-                  value={copyTargetProcessorId}
-                  onValueChange={setCopyTargetProcessorId}
-                >
+                <label className="block text-sm font-medium text-gray-700 mb-1">Target Processor *</label>
+                <Select value={copyTargetProcessorId} onValueChange={setCopyTargetProcessorId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select target processor" />
                   </SelectTrigger>
@@ -1351,12 +1305,7 @@ export default function ProcessorRateCardPage() {
 
               <div className="space-y-2">
                 <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={true}
-                    disabled
-                    className="rounded"
-                  />
+                  <input type="checkbox" checked={true} disabled className="rounded" />
                   <span className="text-sm">Copy quantity slabs (required)</span>
                 </label>
                 <label className="flex items-center gap-2">
@@ -1386,10 +1335,7 @@ export default function ProcessorRateCardPage() {
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleCopy}
-                disabled={!copyTargetProcessorId || saving}
-              >
+              <Button onClick={handleCopy} disabled={!copyTargetProcessorId || saving}>
                 {saving ? 'Copying...' : 'Copy Structure'}
               </Button>
             </div>

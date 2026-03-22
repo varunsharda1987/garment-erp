@@ -439,7 +439,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     const totalProcessingCost = this.calculateProcessCosts(style);
 
     // Calculate subtotal including embroidery
-    const subtotal = totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalEmbroideryCost + totalProcessingCost;
+    const subtotal =
+      totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalEmbroideryCost + totalProcessingCost;
 
     // Create cost sheet
     const costSheet = await this.prisma.style_costing.create({
@@ -505,14 +506,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     const fabricTotal = data.fabricDetails.reduce((sum, f) => sum + f.fabricTotal, 0);
     const trimsTotal = data.trimsDetails.reduce((sum, t) => sum + t.trimTotal, 0);
     const cmtTotal = Object.values(data.cmtCosts).reduce((sum, c) => sum + c, 0);
-    const embroideryTotal = (data.embroideryDetails || []).reduce(
-      (sum, e) => sum + e.embroideryTotal,
-      0
-    );
-    const accessoriesTotal = (data.accessoriesDetails || []).reduce(
-      (sum, a) => sum + a.accessoryTotal,
-      0
-    );
+    const embroideryTotal = (data.embroideryDetails || []).reduce((sum, e) => sum + e.embroideryTotal, 0);
+    const accessoriesTotal = (data.accessoriesDetails || []).reduce((sum, a) => sum + a.accessoryTotal, 0);
 
     const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal;
     const valueLossPercent = data.valueLossPercent ?? 2;
@@ -535,19 +530,14 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     };
   }
 
-  private mergeWithExisting(
-    existing: style_costing,
-    updates: UpdateCostSheetDTO
-  ): CreateCostSheetDTO {
+  private mergeWithExisting(existing: style_costing, updates: UpdateCostSheetDTO): CreateCostSheetDTO {
     return {
       styleId: existing.styleId,
       numberOfComponents: updates.numberOfComponents ?? existing.numberOfComponents ?? undefined,
       category: updates.category ?? existing.category ?? undefined,
       subCategory: updates.subCategory ?? existing.subCategory ?? undefined,
-      fabricDetails:
-        updates.fabricDetails || (existing.fabricDetails as unknown as FabricDetail[]) || [],
-      trimsDetails:
-        updates.trimsDetails || (existing.trimsDetails as unknown as TrimDetail[]) || [],
+      fabricDetails: updates.fabricDetails || (existing.fabricDetails as unknown as FabricDetail[]) || [],
+      trimsDetails: updates.trimsDetails || (existing.trimsDetails as unknown as TrimDetail[]) || [],
       cmtCosts: updates.cmtCosts || {
         cuttingCost: Number(existing.cuttingCost) || 0,
         stitchingCost: Number(existing.stitchingCost) || 0,
@@ -556,13 +546,9 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         handworkCost: Number(existing.handworkCmtCost) || 0,
       },
       embroideryDetails:
-        updates.embroideryDetails ||
-        (existing.embroideryDetails as unknown as EmbroideryDetail[]) ||
-        [],
+        updates.embroideryDetails || (existing.embroideryDetails as unknown as EmbroideryDetail[]) || [],
       accessoriesDetails:
-        updates.accessoriesDetails ||
-        (existing.accessoriesDetails as unknown as AccessoryDetail[]) ||
-        [],
+        updates.accessoriesDetails || (existing.accessoriesDetails as unknown as AccessoryDetail[]) || [],
       valueLossPercent: updates.valueLossPercent ?? Number(existing.valueLossPercent) ?? 2,
       markupPercent: updates.markupPercent ?? Number(existing.markupPercent) ?? 15,
       notes: updates.notes ?? existing.notes ?? undefined,
@@ -599,8 +585,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         if (!cad) continue;
 
         const fabricCost =
-          parseFloat(cad.cadMeters?.toString() || '0') *
-          parseFloat(styleFabric.unitPrice?.toString() || '0');
+          parseFloat(cad.cadMeters?.toString() || '0') * parseFloat(styleFabric.unitPrice?.toString() || '0');
 
         fabricDetails.push({
           fabricId: styleFabric.fabricId || undefined,
@@ -679,9 +664,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     return { trimsDetails, accessoriesDetails, totalTrimsCost, totalAccessoriesCost };
   }
 
-  private calculateProcessCosts(style: {
-    style_processes: Array<{ estimatedCost: unknown }>;
-  }): number {
+  private calculateProcessCosts(style: { style_processes: Array<{ estimatedCost: unknown }> }): number {
     let totalProcessingCost = 0;
 
     for (const process of style.style_processes) {
@@ -737,12 +720,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         processedEmbroideries.add(uniqueKey);
 
         const embroidery = styleFabric.embroidery;
-        const cadMeters = styleFabric.fabricCAD?.cadMeters
-          ? parseFloat(styleFabric.fabricCAD.cadMeters.toString())
-          : 0;
-        const embroideryRate = embroidery.costPerMeter
-          ? parseFloat(embroidery.costPerMeter.toString())
-          : 0;
+        const cadMeters = styleFabric.fabricCAD?.cadMeters ? parseFloat(styleFabric.fabricCAD.cadMeters.toString()) : 0;
+        const embroideryRate = embroidery.costPerMeter ? parseFloat(embroidery.costPerMeter.toString()) : 0;
 
         // Calculate embroidery cost: CAD meters * embroidery rate per meter
         const embroideryCost = cadMeters * embroideryRate;
@@ -859,18 +838,19 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
 
     // Calculate trims and accessories budget from BOM
     const { totalTrimsCost, totalAccessoriesCost } = this.calculateMaterialCosts(style);
-    const trimsSource = style.style_material_bom.length > 0
-      ? `Calculated from ${style.style_material_bom.filter(b => b.usageCategory === 'GARMENT_TRIM').length} BOM items`
-      : 'No BOM data available';
-    const accessoriesSource = style.style_material_bom.length > 0
-      ? `Calculated from ${style.style_material_bom.filter(b => b.usageCategory === 'PACKAGING').length} BOM items`
-      : 'No BOM data available';
+    const trimsSource =
+      style.style_material_bom.length > 0
+        ? `Calculated from ${style.style_material_bom.filter((b) => b.usageCategory === 'GARMENT_TRIM').length} BOM items`
+        : 'No BOM data available';
+    const accessoriesSource =
+      style.style_material_bom.length > 0
+        ? `Calculated from ${style.style_material_bom.filter((b) => b.usageCategory === 'PACKAGING').length} BOM items`
+        : 'No BOM data available';
 
     // Calculate embroidery budget
     const { totalEmbroideryCost } = this.calculateEmbroideryCosts(style);
-    const embroiderySource = totalEmbroideryCost > 0
-      ? 'Calculated from style embroidery settings'
-      : 'No embroidery data available';
+    const embroiderySource =
+      totalEmbroideryCost > 0 ? 'Calculated from style embroidery settings' : 'No embroidery data available';
 
     // Calculate CMT budget from style processes with rate card lookup
     let cmtBudget = 0;
@@ -900,9 +880,10 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         cmtBudget += rate;
       }
 
-      cmtSource = rateCards.length > 0
-        ? `Calculated from ${rateCards.length} rate card(s)`
-        : `Estimated from ${style.style_processes.length} process(es)`;
+      cmtSource =
+        rateCards.length > 0
+          ? `Calculated from ${rateCards.length} rate card(s)`
+          : `Estimated from ${style.style_processes.length} process(es)`;
     }
 
     const totalBudget = fabricBudget + totalTrimsCost + cmtBudget + totalEmbroideryCost + totalAccessoriesCost;

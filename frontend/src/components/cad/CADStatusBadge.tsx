@@ -21,63 +21,54 @@ interface CADStatusBadgeProps {
   className?: string;
 }
 
-const CAD_STATUS_CONFIG: Record<string, {
-  label: string;
-  icon: React.ReactNode;
-  variant: 'default' | 'secondary' | 'destructive' | 'outline';
-  className: string;
-}> = {
+const CAD_STATUS_CONFIG: Record<
+  string,
+  {
+    label: string;
+    icon: React.ReactNode;
+    variant: 'default' | 'secondary' | 'destructive' | 'outline';
+    className: string;
+  }
+> = {
   APPROVED: {
     label: 'CAD Approved',
     icon: <CheckCircle className="h-3.5 w-3.5" />,
     variant: 'default',
-    className: 'bg-green-100 text-green-800 border-green-300 hover:bg-green-100'
+    className: 'bg-green-100 text-green-800 border-green-300 hover:bg-green-100',
   },
   IN_PROGRESS: {
     label: 'CAD In Progress',
     icon: <Clock className="h-3.5 w-3.5" />,
     variant: 'secondary',
-    className: 'bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-100'
+    className: 'bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-100',
   },
   PENDING: {
     label: 'CAD Pending',
     icon: <AlertCircle className="h-3.5 w-3.5" />,
     variant: 'outline',
-    className: 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-100'
+    className: 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-100',
   },
   UNKNOWN: {
     label: 'No CAD Status',
     icon: <Circle className="h-3.5 w-3.5" />,
     variant: 'outline',
-    className: 'bg-gray-50 text-gray-500 border-gray-200'
-  }
+    className: 'bg-gray-50 text-gray-500 border-gray-200',
+  },
 };
 
-export const CADStatusBadge: React.FC<CADStatusBadgeProps> = ({
-  status,
-  showIcon = true,
-  size = 'md',
-  className
-}) => {
-  const config = status && CAD_STATUS_CONFIG[status]
-    ? CAD_STATUS_CONFIG[status]
-    : CAD_STATUS_CONFIG.UNKNOWN;
+export const CADStatusBadge: React.FC<CADStatusBadgeProps> = ({ status, showIcon = true, size = 'md', className }) => {
+  const config = status && CAD_STATUS_CONFIG[status] ? CAD_STATUS_CONFIG[status] : CAD_STATUS_CONFIG.UNKNOWN;
 
   const sizeClasses = {
     sm: 'text-xs px-2 py-0.5',
     md: 'text-sm px-2.5 py-1',
-    lg: 'text-base px-3 py-1.5'
+    lg: 'text-base px-3 py-1.5',
   };
 
   return (
     <Badge
       variant={config.variant}
-      className={cn(
-        config.className,
-        sizeClasses[size],
-        'inline-flex items-center gap-1.5 font-medium',
-        className
-      )}
+      className={cn(config.className, sizeClasses[size], 'inline-flex items-center gap-1.5 font-medium', className)}
     >
       {showIcon && config.icon}
       {config.label}

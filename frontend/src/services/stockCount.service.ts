@@ -50,10 +50,7 @@ export const stockCountService = {
    * Get stock count by ID (with items)
    */
   async getById(id: string): Promise<StockCount> {
-    const response = await axios.get<ApiResponse<StockCount>>(
-      `${BASE_URL}/${id}`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<StockCount>>(`${BASE_URL}/${id}`, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Stock count not found');
     return response.data.data;
   },
@@ -62,10 +59,9 @@ export const stockCountService = {
    * Get variance report
    */
   async getVarianceReport(id: string): Promise<VarianceReport> {
-    const response = await axios.get<ApiResponse<VarianceReport>>(
-      `${BASE_URL}/${id}/variance`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<VarianceReport>>(`${BASE_URL}/${id}/variance`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data || { totalVariance: 0, positiveVariance: 0, negativeVariance: 0, items: [] };
   },
 
@@ -81,24 +77,22 @@ export const stockCountService = {
       `${BASE_URL}/summary/${warehouseId}${params.toString() ? '?' + params.toString() : ''}`,
       { headers: getAuthHeader() }
     );
-    return response.data.data || {
-      totalCounts: 0,
-      draftCounts: 0,
-      inProgressCounts: 0,
-      completedCounts: 0,
-      totalVariance: 0
-    };
+    return (
+      response.data.data || {
+        totalCounts: 0,
+        draftCounts: 0,
+        inProgressCounts: 0,
+        completedCounts: 0,
+        totalVariance: 0,
+      }
+    );
   },
 
   /**
    * Create new stock count
    */
   async create(data: CreateStockCountDTO): Promise<StockCount> {
-    const response = await axios.post<ApiResponse<StockCount>>(
-      BASE_URL,
-      data,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.post<ApiResponse<StockCount>>(BASE_URL, data, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Failed to create stock count');
     return response.data.data;
   },
@@ -120,11 +114,9 @@ export const stockCountService = {
    * Update count item (enter physical quantity)
    */
   async updateCountItem(countId: string, itemId: string, data: UpdateCountItemDTO): Promise<StockCount> {
-    const response = await axios.put<ApiResponse<StockCount>>(
-      `${BASE_URL}/${countId}/items/${itemId}`,
-      data,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.put<ApiResponse<StockCount>>(`${BASE_URL}/${countId}/items/${itemId}`, data, {
+      headers: getAuthHeader(),
+    });
     if (!response.data.data) throw new Error('Failed to update count item');
     return response.data.data;
   },
@@ -146,15 +138,13 @@ export const stockCountService = {
    * Approve stock count (VERIFIED → APPROVED, creates adjustments)
    */
   async approveCount(id: string): Promise<{ stockCount: StockCount; adjustmentCount: number }> {
-    const response = await axios.post<ApiResponse<{ stockCount: StockCount; adjustments: StockMovement[]; adjustmentCount: number }>>(
-      `${BASE_URL}/${id}/approve`,
-      {},
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.post<
+      ApiResponse<{ stockCount: StockCount; adjustments: StockMovement[]; adjustmentCount: number }>
+    >(`${BASE_URL}/${id}/approve`, {}, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Failed to approve count');
     return {
       stockCount: response.data.data.stockCount,
-      adjustmentCount: response.data.data.adjustmentCount
+      adjustmentCount: response.data.data.adjustmentCount,
     };
   },
 
@@ -169,7 +159,7 @@ export const stockCountService = {
     );
     if (!response.data.data) throw new Error('Failed to cancel count');
     return response.data.data;
-  }
+  },
 };
 
 export default stockCountService;

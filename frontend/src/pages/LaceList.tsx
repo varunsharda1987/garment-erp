@@ -119,38 +119,26 @@ export default function LaceList() {
       render: (lace) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{lace.laceName}</div>
-          {lace.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{lace.description}</div>
-          )}
+          {lace.description && <div className="text-xs text-gray-500 line-clamp-1">{lace.description}</div>}
         </div>
       ),
     },
     {
       key: 'laceType',
       header: 'Lace Type',
-      render: (lace) => (
-        <div className="text-sm text-gray-700">
-          {lace.laceType || '-'}
-        </div>
-      ),
+      render: (lace) => <div className="text-sm text-gray-700">{lace.laceType || '-'}</div>,
     },
     {
       key: 'width',
       header: 'Width',
       render: (lace) => (
-        <div className="text-sm text-gray-700">
-          {lace.width ? `${parseFloat(String(lace.width))}"` : '-'}
-        </div>
+        <div className="text-sm text-gray-700">{lace.width ? `${parseFloat(String(lace.width))}"` : '-'}</div>
       ),
     },
     {
       key: 'color',
       header: 'Color',
-      render: (lace) => (
-        <div className="text-sm text-gray-700">
-          {lace.color || '-'}
-        </div>
-      ),
+      render: (lace) => <div className="text-sm text-gray-700">{lace.color || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -160,16 +148,10 @@ export default function LaceList() {
           {lace.laceSuppliers && lace.laceSuppliers.length > 0 ? (
             <>
               {lace.laceSuppliers.slice(0, 2).map((ls) => (
-                <Badge
-                  key={ls.id}
-                  variant={ls.isPreferred ? 'default' : 'secondary'}
-                  className="text-xs"
-                >
+                <Badge key={ls.id} variant={ls.isPreferred ? 'default' : 'secondary'} className="text-xs">
                   {ls.supplier.code}
                   {ls.pricePerMeter && (
-                    <span className="ml-1 opacity-75">
-                      {formatCurrency(ls.pricePerMeter, { decimals: 0 })}
-                    </span>
+                    <span className="ml-1 opacity-75">{formatCurrency(ls.pricePerMeter, { decimals: 0 })}</span>
                   )}
                 </Badge>
               ))}
@@ -189,10 +171,7 @@ export default function LaceList() {
       key: 'status',
       header: 'Status',
       render: (lace) => (
-        <StatusBadge
-          status={lace.isActive ? 'active' : 'inactive'}
-          variant={lace.isActive ? 'success' : 'secondary'}
-        />
+        <StatusBadge status={lace.isActive ? 'active' : 'inactive'} variant={lace.isActive ? 'success' : 'secondary'} />
       ),
     },
     {
@@ -245,17 +224,9 @@ export default function LaceList() {
             <CardTitle>Lace Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="LACE" stockCount={stockCount} />
-              <ExportButton
-                module="lace"
-                filters={{}}
-              />
-              <ImportButton
-                module="lace"
-                onSuccess={fetchLaceItems}
-              />
-              <Button onClick={() => navigate('/materials/lace/new')}>
-                + Add New Lace
-              </Button>
+              <ExportButton module="lace" filters={{}} />
+              <ImportButton module="lace" onSuccess={fetchLaceItems} />
+              <Button onClick={() => navigate('/materials/lace/new')}>+ Add New Lace</Button>
             </div>
           </div>
         </CardHeader>

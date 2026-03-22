@@ -30,7 +30,8 @@ export const productCategoryService = {
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.search) queryParams.append('search', params.search);
-    if (params?.parentId !== undefined) queryParams.append('parentId', params.parentId === null ? 'null' : params.parentId);
+    if (params?.parentId !== undefined)
+      queryParams.append('parentId', params.parentId === null ? 'null' : params.parentId);
     if (params?.level !== undefined) queryParams.append('level', params.level.toString());
     if (params?.isActive !== undefined) queryParams.append('isActive', params.isActive.toString());
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
@@ -55,7 +56,9 @@ export const productCategoryService = {
     const queryParams = new URLSearchParams();
     if (parentId !== undefined) queryParams.append('parentId', parentId === null ? 'null' : parentId);
 
-    const response = await api.get<ProductCategoryHierarchyResponse>(`/product-categories/hierarchy?${queryParams.toString()}`);
+    const response = await api.get<ProductCategoryHierarchyResponse>(
+      `/product-categories/hierarchy?${queryParams.toString()}`
+    );
     return response.data.data;
   },
 
@@ -137,7 +140,9 @@ export const productCategoryService = {
    * Get default components for a category
    */
   getDefaultComponents: async (categoryId: string): Promise<CategoryComponentDefault[]> => {
-    const response = await api.get<CategoryComponentDefaultsResponse>(`/product-categories/${categoryId}/default-components`);
+    const response = await api.get<CategoryComponentDefaultsResponse>(
+      `/product-categories/${categoryId}/default-components`
+    );
     return response.data.data;
   },
 
@@ -145,23 +150,37 @@ export const productCategoryService = {
    * Get suggested components for a category (with inheritance from parent categories)
    */
   getSuggestedComponents: async (categoryId: string): Promise<ComponentSuggestion[]> => {
-    const response = await api.get<ComponentSuggestionsResponse>(`/product-categories/${categoryId}/suggested-components`);
+    const response = await api.get<ComponentSuggestionsResponse>(
+      `/product-categories/${categoryId}/suggested-components`
+    );
     return response.data.data;
   },
 
   /**
    * Set default components for a category (bulk replace)
    */
-  setDefaultComponents: async (categoryId: string, components: ComponentDefaultInput[]): Promise<CategoryComponentDefault[]> => {
-    const response = await api.post<CategoryComponentDefaultsResponse>(`/product-categories/${categoryId}/default-components`, { components });
+  setDefaultComponents: async (
+    categoryId: string,
+    components: ComponentDefaultInput[]
+  ): Promise<CategoryComponentDefault[]> => {
+    const response = await api.post<CategoryComponentDefaultsResponse>(
+      `/product-categories/${categoryId}/default-components`,
+      { components }
+    );
     return response.data.data;
   },
 
   /**
    * Add a single default component to a category
    */
-  addDefaultComponent: async (categoryId: string, component: ComponentDefaultInput): Promise<CategoryComponentDefault> => {
-    const response = await api.post<{ data: CategoryComponentDefault }>(`/product-categories/${categoryId}/default-components/add`, component);
+  addDefaultComponent: async (
+    categoryId: string,
+    component: ComponentDefaultInput
+  ): Promise<CategoryComponentDefault> => {
+    const response = await api.post<{ data: CategoryComponentDefault }>(
+      `/product-categories/${categoryId}/default-components/add`,
+      component
+    );
     return response.data.data;
   },
 

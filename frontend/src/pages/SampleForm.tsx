@@ -19,23 +19,8 @@ import type {
 } from '@/types/sample.types';
 import { SampleTypeLabels } from '@/types/sample.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import {
-  TestTube,
-  ArrowLeft,
-  Save,
-  Plus,
-  Trash2,
-  Ruler,
-  Palette,
-  Grid3X3,
-} from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { TestTube, ArrowLeft, Save, Plus, Trash2, Ruler, Palette, Grid3X3 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import api from '@/lib/api';
 
@@ -265,20 +250,19 @@ export default function SampleForm() {
       // SEQUENTIAL SAMPLE VALIDATION (only for new samples, not edits)
       if (!isEditing && formData.styleId && ['PP_SAMPLE', 'SIZE_SET_SAMPLE'].includes(formData.sampleType)) {
         try {
-          const validation = await stageValidationService.checkSampleCreation(
-            formData.styleId,
-            formData.sampleType
-          );
+          const validation = await stageValidationService.checkSampleCreation(formData.styleId, formData.sampleType);
 
           if (!validation.canCreate) {
             if (user?.role === 'ADMIN') {
               // Show override modal for admin
               setPendingSampleData(requestData);
-              setValidationBlockers([{
-                type: 'SAMPLE_CREATION_BLOCKED',
-                message: validation.blocker?.message || 'Sample creation blocked',
-                severity: 'CRITICAL' as const,
-              }]);
+              setValidationBlockers([
+                {
+                  type: 'SAMPLE_CREATION_BLOCKED',
+                  message: validation.blocker?.message || 'Sample creation blocked',
+                  severity: 'CRITICAL' as const,
+                },
+              ]);
               setShowOverrideModal(true);
               setIsSaving(false);
               return;
@@ -347,10 +331,7 @@ export default function SampleForm() {
 
   // Measurement management
   const addMeasurement = () => {
-    setMeasurements([
-      ...measurements,
-      { measurementPoint: '', specValue: 0, tolerance: 0.5 },
-    ]);
+    setMeasurements([...measurements, { measurementPoint: '', specValue: 0, tolerance: 0.5 }]);
   };
 
   const removeMeasurement = (index: number) => {
@@ -358,9 +339,7 @@ export default function SampleForm() {
   };
 
   const updateMeasurement = (index: number, field: string, value: any) => {
-    setMeasurements(
-      measurements.map((m, i) => (i === index ? { ...m, [field]: value } : m))
-    );
+    setMeasurements(measurements.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
   };
 
   // Colorway management (for PP samples)
@@ -373,9 +352,7 @@ export default function SampleForm() {
   };
 
   const updateColorway = (index: number, field: string, value: any) => {
-    setColorways(
-      colorways.map((c, i) => (i === index ? { ...c, [field]: value } : c))
-    );
+    setColorways(colorways.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
   };
 
   // Size Set management (for Size Set samples)
@@ -388,9 +365,7 @@ export default function SampleForm() {
   };
 
   const updateSizeSet = (index: number, field: string, value: any) => {
-    setSizeSets(
-      sizeSets.map((s, i) => (i === index ? { ...s, [field]: value } : s))
-    );
+    setSizeSets(sizeSets.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   if (isLoading) {
@@ -412,12 +387,8 @@ export default function SampleForm() {
         <div className="flex items-center gap-3">
           <TestTube className="h-8 w-8 text-indigo-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isEditing ? 'Edit Sample' : 'New Sample'}
-            </h1>
-            <p className="text-gray-500">
-              {isEditing ? 'Update sample details' : 'Create a new sample request'}
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">{isEditing ? 'Edit Sample' : 'New Sample'}</h1>
+            <p className="text-gray-500">{isEditing ? 'Update sample details' : 'Create a new sample request'}</p>
           </div>
         </div>
       </div>
@@ -611,9 +582,7 @@ export default function SampleForm() {
                               <Input
                                 placeholder="Measurement point (e.g., Chest)"
                                 value={m.measurementPoint}
-                                onChange={(e) =>
-                                  updateMeasurement(index, 'measurementPoint', e.target.value)
-                                }
+                                onChange={(e) => updateMeasurement(index, 'measurementPoint', e.target.value)}
                               />
                             </div>
                             <div className="w-24">
@@ -622,9 +591,7 @@ export default function SampleForm() {
                                 step="0.1"
                                 placeholder="Spec"
                                 value={m.specValue || ''}
-                                onChange={(e) =>
-                                  updateMeasurement(index, 'specValue', parseFloat(e.target.value) || 0)
-                                }
+                                onChange={(e) => updateMeasurement(index, 'specValue', parseFloat(e.target.value) || 0)}
                               />
                             </div>
                             <div className="w-24">
@@ -665,9 +632,7 @@ export default function SampleForm() {
                     <CardHeader className="flex flex-row items-center justify-between">
                       <div>
                         <CardTitle className="text-lg">Colorways</CardTitle>
-                        <CardDescription>
-                          Multiple colorways for buyer approval
-                        </CardDescription>
+                        <CardDescription>Multiple colorways for buyer approval</CardDescription>
                       </div>
                       <Button
                         type="button"
@@ -690,10 +655,7 @@ export default function SampleForm() {
                           {colorways.map((c, index) => (
                             <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                               <div className="flex-1">
-                                <Select
-                                  value={c.colorId}
-                                  onValueChange={(v) => updateColorway(index, 'colorId', v)}
-                                >
+                                <Select value={c.colorId} onValueChange={(v) => updateColorway(index, 'colorId', v)}>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select color" />
                                   </SelectTrigger>
@@ -719,9 +681,7 @@ export default function SampleForm() {
                                   min="1"
                                   placeholder="Qty"
                                   value={c.qtySent || ''}
-                                  onChange={(e) =>
-                                    updateColorway(index, 'qtySent', parseInt(e.target.value) || 1)
-                                  }
+                                  onChange={(e) => updateColorway(index, 'qtySent', parseInt(e.target.value) || 1)}
                                 />
                               </div>
                               <Button
@@ -752,18 +712,14 @@ export default function SampleForm() {
                     <CardHeader className="flex flex-row items-center justify-between">
                       <div>
                         <CardTitle className="text-lg">Size Set</CardTitle>
-                        <CardDescription>
-                          Jumping sizes with mix of colors
-                        </CardDescription>
+                        <CardDescription>Jumping sizes with mix of colors</CardDescription>
                       </div>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={addSizeSet}
-                        disabled={
-                          !selectedStyle?.sizeOptions?.length || !selectedStyle?.colorOptions?.length
-                        }
+                        disabled={!selectedStyle?.sizeOptions?.length || !selectedStyle?.colorOptions?.length}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add
@@ -779,10 +735,7 @@ export default function SampleForm() {
                           {sizeSets.map((s, index) => (
                             <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                               <div className="flex-1">
-                                <Select
-                                  value={s.sizeId}
-                                  onValueChange={(v) => updateSizeSet(index, 'sizeId', v)}
-                                >
+                                <Select value={s.sizeId} onValueChange={(v) => updateSizeSet(index, 'sizeId', v)}>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select size" />
                                   </SelectTrigger>
@@ -796,10 +749,7 @@ export default function SampleForm() {
                                 </Select>
                               </div>
                               <div className="flex-1">
-                                <Select
-                                  value={s.colorId}
-                                  onValueChange={(v) => updateSizeSet(index, 'colorId', v)}
-                                >
+                                <Select value={s.colorId} onValueChange={(v) => updateSizeSet(index, 'colorId', v)}>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select color" />
                                   </SelectTrigger>
@@ -818,9 +768,7 @@ export default function SampleForm() {
                                   min="1"
                                   placeholder="Qty"
                                   value={s.qty || ''}
-                                  onChange={(e) =>
-                                    updateSizeSet(index, 'qty', parseInt(e.target.value) || 1)
-                                  }
+                                  onChange={(e) => updateSizeSet(index, 'qty', parseInt(e.target.value) || 1)}
                                 />
                               </div>
                               <Button
@@ -859,12 +807,7 @@ export default function SampleForm() {
                   <Save className="h-4 w-4 mr-2" />
                   {isSaving ? 'Saving...' : isEditing ? 'Update Sample' : 'Create Sample'}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate('/samples')}
-                >
+                <Button type="button" variant="outline" className="w-full" onClick={() => navigate('/samples')}>
                   Cancel
                 </Button>
               </CardContent>

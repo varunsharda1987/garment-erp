@@ -26,8 +26,8 @@ export interface CADStatusCounts {
 export interface CADWidthDetail {
   id: string;
   cutableWidth: number;
-  layerLength: number;  // Renamed from cadMeters for clarity (stores layer/marker length)
-  cadAverage: number | null;  // Per-piece consumption: (layerLength + margin) / piecesPerMarker
+  layerLength: number; // Renamed from cadMeters for clarity (stores layer/marker length)
+  cadAverage: number | null; // Per-piece consumption: (layerLength + margin) / piecesPerMarker
   purpose: 'PRODUCTION' | 'COSTING' | 'RAW_MATERIAL_CALCULATION' | null;
   greigeName: string | null;
   greigeCode: string | null;
@@ -54,7 +54,7 @@ export interface CADPlanningListResponse {
   success: boolean;
   data: {
     styles?: CADPlanningStyle[]; // Backend may send as 'styles' (before serializer)
-    style?: CADPlanningStyle[];  // Or 'style' (after serializer transformation)
+    style?: CADPlanningStyle[]; // Or 'style' (after serializer transformation)
     pagination: {
       page: number;
       limit: number;
@@ -124,7 +124,8 @@ export interface LinkStockRequest {
  */
 function handleCADError(error: any): never {
   if (error.response?.status === 403) {
-    const message = error.response.data?.message ||
+    const message =
+      error.response.data?.message ||
       'This CAD entry is locked and cannot be modified. Please contact an administrator.';
     throw new Error(message);
   }
@@ -159,12 +160,13 @@ export const cadPlanningService = {
     if (params.search) queryParams.append('search', params.search);
     if (params.searchAll) queryParams.append('searchAll', 'true');
 
-    const response = await api.get<CADPlanningListResponse>(
-      `/cad-planning/styles?${queryParams.toString()}`
-    );
+    const response = await api.get<CADPlanningListResponse>(`/cad-planning/styles?${queryParams.toString()}`);
 
     // Defensive: Ensure response.data exists and has expected structure
-    const data = response.data || { success: false, data: { styles: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } } };
+    const data = response.data || {
+      success: false,
+      data: { styles: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } },
+    };
     return data;
   },
 
@@ -172,9 +174,7 @@ export const cadPlanningService = {
    * Get CAD status counts for tabs
    */
   async getCADStatusCounts(): Promise<CADStatusCounts> {
-    const response = await api.get<{ success: boolean; data: CADStatusCounts }>(
-      '/cad-planning/status-counts'
-    );
+    const response = await api.get<{ success: boolean; data: CADStatusCounts }>('/cad-planning/status-counts');
     return response.data.data;
   },
 
@@ -334,10 +334,7 @@ export const cadPlanningService = {
   /**
    * Copy CAD between purposes
    */
-  async copyCADPurpose(
-    styleId: string,
-    data: CopyCADRequest
-  ): Promise<{ success: boolean; data: CADSpreadsheetRow }> {
+  async copyCADPurpose(styleId: string, data: CopyCADRequest): Promise<{ success: boolean; data: CADSpreadsheetRow }> {
     const response = await api.post(`/cad-planning/${styleId}/copy`, data);
     return response.data;
   },
@@ -452,9 +449,7 @@ export const cadPlanningService = {
    * Get pattern parts for a component
    */
   async getCADPatternPartsForComponent(styleId: string, componentId: string) {
-    const response = await api.get(
-      `/cad-planning/${styleId}/components/${componentId}/pattern-parts`
-    );
+    const response = await api.get(`/cad-planning/${styleId}/components/${componentId}/pattern-parts`);
     return response.data;
   },
 
@@ -490,10 +485,7 @@ export const cadPlanningService = {
       sizeBreakdowns?: Array<{ sizeName: string; sizeId?: string; quantity: number }>;
     }
   ) {
-    const response = await api.post(
-      `/cad-planning/${styleId}/fabrics/${fabricId}/embroidery-cad`,
-      data
-    );
+    const response = await api.post(`/cad-planning/${styleId}/fabrics/${fabricId}/embroidery-cad`, data);
     return response.data;
   },
 
@@ -501,9 +493,7 @@ export const cadPlanningService = {
    * Delete embroidery CAD
    */
   async deleteEmbroideryCad(styleId: string, fabricId: string) {
-    const response = await api.delete(
-      `/cad-planning/${styleId}/fabrics/${fabricId}/embroidery-cad`
-    );
+    const response = await api.delete(`/cad-planning/${styleId}/fabrics/${fabricId}/embroidery-cad`);
     return response.data;
   },
 

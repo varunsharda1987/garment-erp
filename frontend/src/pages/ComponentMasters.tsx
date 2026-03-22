@@ -13,21 +13,8 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { notify } from '../lib/notify';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
@@ -38,10 +25,7 @@ import {
   deleteComponentMaster,
 } from '../services/componentMaster.service';
 import { componentGroupService } from '../services/componentGroup.service';
-import type {
-  ComponentMaster,
-  ComponentMasterFormData,
-} from '../types/componentMaster.types';
+import type { ComponentMaster, ComponentMasterFormData } from '../types/componentMaster.types';
 import type { ComponentGroup } from '../types/componentGroup.types';
 
 export default function ComponentMasters() {
@@ -186,9 +170,7 @@ export default function ComponentMasters() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Component Masters</h1>
-          <p className="text-gray-600 mt-1">
-            Manage garment component types (Blouse, Top, Pajama, etc.)
-          </p>
+          <p className="text-gray-600 mt-1">Manage garment component types (Blouse, Top, Pajama, etc.)</p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
@@ -263,18 +245,10 @@ export default function ComponentMasters() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(component)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(component)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteClick(component.id, component.name)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(component.id, component.name)}>
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </TableCell>
@@ -289,9 +263,7 @@ export default function ComponentMasters() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingComponent ? 'Edit Component Master' : 'Create Component Master'}
-            </DialogTitle>
+            <DialogTitle>{editingComponent ? 'Edit Component Master' : 'Create Component Master'}</DialogTitle>
             <DialogDescription>
               {editingComponent
                 ? 'Update the component master details below.'
@@ -335,7 +307,8 @@ export default function ComponentMasters() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Component Group determines which pattern parts (Front, Back, Sleeve, etc.) are available for CAD planning
+                  Component Group determines which pattern parts (Front, Back, Sleeve, etc.) are available for CAD
+                  planning
                 </p>
               </div>
 
@@ -344,9 +317,7 @@ export default function ComponentMasters() {
                 <Input
                   id="description"
                   value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Component description"
                 />
               </div>
@@ -357,9 +328,7 @@ export default function ComponentMasters() {
                   id="sortOrder"
                   type="number"
                   value={formData.sortOrder}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
                   placeholder="0"
                 />
               </div>
@@ -369,9 +338,7 @@ export default function ComponentMasters() {
                   type="checkbox"
                   id="isActive"
                   checked={formData.isActive}
-                  onChange={(e) =>
-                    setFormData({ ...formData, isActive: e.target.checked })
-                  }
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                   className="h-4 w-4"
                 />
                 <Label htmlFor="isActive" className="cursor-pointer">
@@ -381,16 +348,10 @@ export default function ComponentMasters() {
             </div>
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingComponent ? 'Update' : 'Create'}
-              </Button>
+              <Button type="submit">{editingComponent ? 'Update' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

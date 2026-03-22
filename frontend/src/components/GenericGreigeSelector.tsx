@@ -34,7 +34,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
   required = false,
   disabled = false,
   className,
-  error
+  error,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(value);
@@ -60,9 +60,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
       setIsLoading(true);
       try {
         console.log('[GenericGreigeSelector] Fetching generic greige names from API...');
-        const response = await api.get<{ names: string[] }>(
-          '/fabric-management/greige/generic-names'
-        );
+        const response = await api.get<{ names: string[] }>('/fabric-management/greige/generic-names');
 
         console.log('[GenericGreigeSelector] API Response:', response.data);
 
@@ -87,9 +85,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
   }, [hasFetched]);
 
   // Filter greiges based on search query
-  const filteredGreiges = greigeTypes.filter(greige =>
-    greige.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredGreiges = greigeTypes.filter((greige) => greige.toLowerCase().includes(searchQuery.toLowerCase()));
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -143,13 +139,11 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex(prev =>
-          prev < filteredGreiges.length - 1 ? prev + 1 : prev
-        );
+        setHighlightedIndex((prev) => (prev < filteredGreiges.length - 1 ? prev + 1 : prev));
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setHighlightedIndex(prev => (prev > 0 ? prev - 1 : 0));
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
         break;
       case 'Enter':
         e.preventDefault();
@@ -170,13 +164,11 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
   // Scroll highlighted item into view
   useEffect(() => {
     if (isOpen && dropdownRef.current) {
-      const highlightedElement = dropdownRef.current.querySelector(
-        `[data-index="${highlightedIndex}"]`
-      );
+      const highlightedElement = dropdownRef.current.querySelector(`[data-index="${highlightedIndex}"]`);
       if (highlightedElement) {
         highlightedElement.scrollIntoView({
           block: 'nearest',
-          behavior: 'smooth'
+          behavior: 'smooth',
         });
       }
     }
@@ -196,11 +188,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
       <div className="relative" ref={dropdownRef}>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Layers className="h-4 w-4" />
-            )}
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
           </div>
           <Input
             ref={inputRef}
@@ -211,10 +199,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
-            className={cn(
-              'pl-10 pr-10',
-              error && 'border-red-500 focus:ring-red-500'
-            )}
+            className={cn('pl-10 pr-10', error && 'border-red-500 focus:ring-red-500')}
           />
           <button
             type="button"
@@ -222,12 +207,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
             disabled={disabled}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
           >
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 transition-transform',
-                isOpen && 'transform rotate-180'
-              )}
-            />
+            <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'transform rotate-180')} />
           </button>
         </div>
 
@@ -254,9 +234,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
                       <Layers className="h-3.5 w-3.5 text-gray-400" />
                       {greige}
                     </span>
-                    {value === greige && (
-                      <Check className="h-4 w-4 text-blue-600" />
-                    )}
+                    {value === greige && <Check className="h-4 w-4 text-blue-600" />}
                   </button>
                 ))}
               </div>
@@ -266,7 +244,8 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
                   <div>
                     <p className="mb-2">No matching greige types found.</p>
                     <p className="text-xs">
-                      Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to use "{searchQuery}"
+                      Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to use "{searchQuery}
+                      "
                     </p>
                   </div>
                 ) : greigeTypes.length === 0 ? (
@@ -284,9 +263,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
       </div>
 
       {/* Error message only */}
-      {error && (
-        <p className="text-xs text-red-600">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 };

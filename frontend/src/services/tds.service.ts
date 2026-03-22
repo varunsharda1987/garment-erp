@@ -4,13 +4,7 @@
  */
 
 import api from '../lib/api';
-import type {
-  TDSEntry,
-  CreateTDSRequest,
-  TDSQueryParams,
-  TDSListResponse,
-  TDSSummary,
-} from '@/types/tds.types';
+import type { TDSEntry, CreateTDSRequest, TDSQueryParams, TDSListResponse, TDSSummary } from '@/types/tds.types';
 
 const BASE_URL = '/tds';
 
@@ -49,11 +43,7 @@ export async function updateTDS(id: string, data: Partial<CreateTDSRequest>): Pr
 /**
  * Update TDS status (with optional certificate number)
  */
-export async function updateTDSStatus(
-  id: string,
-  status: string,
-  certificateNo?: string
-): Promise<TDSEntry> {
+export async function updateTDSStatus(id: string, status: string, certificateNo?: string): Promise<TDSEntry> {
   const response = await api.put(`${BASE_URL}/${id}/status`, { status, certificateNo });
   return response.data;
 }

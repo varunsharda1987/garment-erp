@@ -31,7 +31,7 @@ export default function StockCountForm() {
     warehouseId: '',
     countType: '' as CountType | '',
     countDate: new Date().toISOString().split('T')[0],
-    remarks: ''
+    remarks: '',
   });
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function StockCountForm() {
         countType: formData.countType as CountType,
         countDate: formData.countDate,
         remarks: formData.remarks || undefined,
-        materialIds: selectedMaterials.length > 0 ? selectedMaterials : undefined
+        materialIds: selectedMaterials.length > 0 ? selectedMaterials : undefined,
       });
 
       setSuccess(true);
@@ -109,10 +109,8 @@ export default function StockCountForm() {
   };
 
   const handleMaterialToggle = (materialId: string) => {
-    setSelectedMaterials(prev =>
-      prev.includes(materialId)
-        ? prev.filter(id => id !== materialId)
-        : [...prev, materialId]
+    setSelectedMaterials((prev) =>
+      prev.includes(materialId) ? prev.filter((id) => id !== materialId) : [...prev, materialId]
     );
   };
 
@@ -143,10 +141,7 @@ export default function StockCountForm() {
                 <Label htmlFor="warehouseId">
                   Warehouse <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={formData.warehouseId}
-                  onValueChange={(value) => handleChange('warehouseId', value)}
-                >
+                <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
                   <SelectTrigger id="warehouseId">
                     <SelectValue placeholder="Select warehouse" />
                   </SelectTrigger>
@@ -165,10 +160,7 @@ export default function StockCountForm() {
                 <Label htmlFor="countType">
                   Count Type <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={formData.countType}
-                  onValueChange={(value) => handleChange('countType', value)}
-                >
+                <Select value={formData.countType} onValueChange={(value) => handleChange('countType', value)}>
                   <SelectTrigger id="countType">
                     <SelectValue placeholder="Select count type" />
                   </SelectTrigger>
@@ -222,8 +214,7 @@ export default function StockCountForm() {
                                 htmlFor={`material-${stock.id}`}
                                 className="text-sm font-normal cursor-pointer flex-1"
                               >
-                                {stock.materials?.code} - {stock.materials?.name}
-                                {' '}
+                                {stock.materials?.code} - {stock.materials?.name}{' '}
                                 <span className="text-muted-foreground">
                                   ({Number(stock.quantity).toFixed(2)} {stock.unit})
                                 </span>
@@ -254,20 +245,12 @@ export default function StockCountForm() {
 
               {/* Actions */}
               <div className="flex gap-2 justify-end md:col-span-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/inventory/stock-counts')}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/inventory/stock-counts')}>
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <ButtonSpinner className="mr-2" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
+                  {loading ? <ButtonSpinner className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
                   Create Stock Count
                 </Button>
               </div>

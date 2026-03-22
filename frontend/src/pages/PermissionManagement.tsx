@@ -10,21 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,23 +23,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { UserRole } from '@/types/user.types';
-import {
-  getPermissionMatrix,
-  togglePermission,
-  resetToDefaults,
-  getAuditLog,
-} from '@/services/permission.service';
-import type {
-  PermissionMatrixResponse,
-  PermissionAuditEntry,
-} from '@/types/permission.types';
+import { getPermissionMatrix, togglePermission, resetToDefaults, getAuditLog } from '@/services/permission.service';
+import type { PermissionMatrixResponse, PermissionAuditEntry } from '@/types/permission.types';
 
 // Role display names and colors
 const ROLE_CONFIG: Record<UserRole, { name: string; color: string }> = {
@@ -142,9 +117,7 @@ export default function PermissionManagement() {
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       permissions = permissions.filter(
-        (p) =>
-          p.displayName.toLowerCase().includes(search) ||
-          p.permissionKey.toLowerCase().includes(search)
+        (p) => p.displayName.toLowerCase().includes(search) || p.permissionKey.toLowerCase().includes(search)
       );
     }
 
@@ -170,9 +143,7 @@ export default function PermissionManagement() {
       return {
         ...prev,
         permissions: prev.permissions.map((p) =>
-          p.permissionKey === permissionKey
-            ? { ...p, roles: { ...p.roles, [role]: newValue } }
-            : p
+          p.permissionKey === permissionKey ? { ...p, roles: { ...p.roles, [role]: newValue } } : p
         ),
       };
     });
@@ -187,9 +158,7 @@ export default function PermissionManagement() {
         return {
           ...prev,
           permissions: prev.permissions.map((p) =>
-            p.permissionKey === permissionKey
-              ? { ...p, roles: { ...p.roles, [role]: !newValue } }
-              : p
+            p.permissionKey === permissionKey ? { ...p, roles: { ...p.roles, [role]: !newValue } } : p
           ),
         };
       });
@@ -265,19 +234,13 @@ export default function PermissionManagement() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Permission Management</h1>
-          <p className="text-gray-500 mt-1">
-            Configure which roles can access each feature in the system
-          </p>
+          <p className="text-gray-500 mt-1">Configure which roles can access each feature in the system</p>
         </div>
         <div className="flex gap-2">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" disabled={resetting}>
-                {resetting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                )}
+                {resetting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RotateCcw className="h-4 w-4 mr-2" />}
                 Reset to Defaults
               </Button>
             </AlertDialogTrigger>
@@ -285,15 +248,13 @@ export default function PermissionManagement() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Reset All Permissions?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will reset all permissions to their default configuration. Any custom
-                  permission changes you have made will be lost. This action cannot be undone.
+                  This will reset all permissions to their default configuration. Any custom permission changes you have
+                  made will be lost. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleResetToDefaults}>
-                  Yes, Reset All
-                </AlertDialogAction>
+                <AlertDialogAction onClick={handleResetToDefaults}>Yes, Reset All</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -313,20 +274,14 @@ export default function PermissionManagement() {
             onClick={() => setSelectedRole(selectedRole === role ? 'all' : role)}
           >
             <CardContent className="p-4">
-              <Badge className={ROLE_CONFIG[role]?.color || 'bg-gray-100'}>
-                {ROLE_CONFIG[role]?.name || role}
-              </Badge>
+              <Badge className={ROLE_CONFIG[role]?.color || 'bg-gray-100'}>{ROLE_CONFIG[role]?.name || role}</Badge>
               <div className="mt-2 text-sm text-gray-500">
-                <span className="font-medium text-green-600">
-                  {roleStats[role]?.enabled || 0}
-                </span>
+                <span className="font-medium text-green-600">{roleStats[role]?.enabled || 0}</span>
                 {' / '}
                 <span>{roleStats[role]?.total || 0}</span>
                 <span className="ml-1">modules</span>
               </div>
-              {selectedRole === role && (
-                <div className="mt-1 text-xs text-blue-600">Click to clear filter</div>
-              )}
+              {selectedRole === role && <div className="mt-1 text-xs text-blue-600">Click to clear filter</div>}
             </CardContent>
           </Card>
         ))}
@@ -406,9 +361,7 @@ export default function PermissionManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[200px] sticky left-0 bg-white z-10">
-                    Permission
-                  </TableHead>
+                  <TableHead className="w-[200px] sticky left-0 bg-white z-10">Permission</TableHead>
                   {displayRoles.map((role) => (
                     <TableHead key={role} className="text-center min-w-[100px]">
                       <Badge className={ROLE_CONFIG[role]?.color || 'bg-gray-100'}>
@@ -441,9 +394,7 @@ export default function PermissionManagement() {
                             ) : (
                               <Switch
                                 checked={perm.roles[role]}
-                                onCheckedChange={(checked) =>
-                                  handleToggle(role, perm.permissionKey, checked)
-                                }
+                                onCheckedChange={(checked) => handleToggle(role, perm.permissionKey, checked)}
                                 disabled={isDisabled}
                                 className="scale-90"
                               />
@@ -456,10 +407,7 @@ export default function PermissionManagement() {
                 ))}
                 {filteredPermissions.length === 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={displayRoles.length + 1}
-                      className="text-center text-gray-500 py-8"
-                    >
+                    <TableCell colSpan={displayRoles.length + 1} className="text-center text-gray-500 py-8">
                       No permissions found matching your filters
                     </TableCell>
                   </TableRow>
@@ -480,9 +428,7 @@ export default function PermissionManagement() {
                   <History className="h-5 w-5" />
                   Recent Changes
                 </div>
-                <ChevronDown
-                  className={`h-5 w-5 transition-transform ${showAuditLog ? 'rotate-180' : ''}`}
-                />
+                <ChevronDown className={`h-5 w-5 transition-transform ${showAuditLog ? 'rotate-180' : ''}`} />
               </CardTitle>
             </CardHeader>
           </CollapsibleTrigger>
@@ -493,16 +439,11 @@ export default function PermissionManagement() {
                   <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
               ) : auditLogs.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  No permission changes recorded yet
-                </div>
+                <div className="text-center text-gray-500 py-8">No permission changes recorded yet</div>
               ) : (
                 <div className="space-y-3">
                   {auditLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
+                    <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <div className="font-medium">
                           {log.newValues?.allowed ? 'Enabled' : 'Disabled'}{' '}
@@ -516,9 +457,7 @@ export default function PermissionManagement() {
                           by {log.user?.firstName} {log.user?.lastName}
                         </div>
                       </div>
-                      <div className="text-sm text-gray-400">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </div>
+                      <div className="text-sm text-gray-400">{new Date(log.createdAt).toLocaleString()}</div>
                     </div>
                   ))}
                 </div>

@@ -116,12 +116,12 @@ export default function SourcingStrategySelector({
   const getRateSourceLabel = (source: string | null | undefined) => {
     if (!source) return null;
     const labels: Record<string, string> = {
-      'STOCK_WAC': 'Stock WAC',
-      'PROCUREMENT': 'Procurement',
-      'FABRIC_MASTER': 'Fabric Master',
-      'GREIGE_MASTER': 'Greige Master',
-      'RATE_CARD': 'Rate Card',
-      'PROCESSOR_DEFAULT': 'Processor Default',
+      STOCK_WAC: 'Stock WAC',
+      PROCUREMENT: 'Procurement',
+      FABRIC_MASTER: 'Fabric Master',
+      GREIGE_MASTER: 'Greige Master',
+      RATE_CARD: 'Rate Card',
+      PROCESSOR_DEFAULT: 'Processor Default',
     };
     return labels[source] || source;
   };
@@ -146,9 +146,7 @@ export default function SourcingStrategySelector({
           <div className="border-b px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Select Sourcing Strategy
-                </h2>
+                <h2 className="text-xl font-semibold text-gray-900">Select Sourcing Strategy</h2>
                 <p className="text-sm text-gray-600 mt-1">
                   {fabricCostData.fabricName} - {fabricCostData.cadMeters}m × {fabricCostData.width}"
                 </p>
@@ -156,10 +154,7 @@ export default function SourcingStrategySelector({
                   Choose how to source this fabric: use existing stock, purchase ready fabric, or process greige fabric.
                 </p>
               </div>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -170,7 +165,11 @@ export default function SourcingStrategySelector({
             {recommendedCost && savings && (
               <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-sm">
                 <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 Recommended: {formatCurrency(recommendedCost)} (Save {formatCurrency(savings)})
               </div>
@@ -190,9 +189,7 @@ export default function SourcingStrategySelector({
               >
                 Stock Reuse
                 {fabricCostData.recommendedStrategy === 'STOCK_REUSE' && (
-                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                    Recommended
-                  </span>
+                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Recommended</span>
                 )}
               </button>
               <button
@@ -205,9 +202,7 @@ export default function SourcingStrategySelector({
               >
                 Ready Fabric
                 {fabricCostData.recommendedStrategy === 'READY_FABRIC' && (
-                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                    Recommended
-                  </span>
+                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Recommended</span>
                 )}
               </button>
               <button
@@ -220,9 +215,7 @@ export default function SourcingStrategySelector({
               >
                 Greige + Processing
                 {fabricCostData.recommendedStrategy === 'GREIGE_PROCESSED' && (
-                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                    Recommended
-                  </span>
+                  <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Recommended</span>
                 )}
               </button>
             </div>
@@ -238,7 +231,11 @@ export default function SourcingStrategySelector({
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div className="flex items-center text-green-800 mb-2">
                         <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                         <span className="font-medium">Stock Available</span>
                       </div>
@@ -258,9 +255,7 @@ export default function SourcingStrategySelector({
                               {getRateSourceLabel(stockReuse.rateSource)}
                             </span>
                             {stockReuse.lastUpdated && (
-                              <span className="text-xs text-gray-500">
-                                as of {formatDate(stockReuse.lastUpdated)}
-                              </span>
+                              <span className="text-xs text-gray-500">as of {formatDate(stockReuse.lastUpdated)}</span>
                             )}
                           </div>
                         )}
@@ -293,10 +288,13 @@ export default function SourcingStrategySelector({
 
                     {(() => {
                       const savingsData = calculateSavings(stockReuse.totalCost);
-                      return savingsData && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                          Using this option saves {formatCurrency(savingsData.amount)} ({savingsData.percent.toFixed(1)}%)
-                        </div>
+                      return (
+                        savingsData && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                            Using this option saves {formatCurrency(savingsData.amount)} (
+                            {savingsData.percent.toFixed(1)}%)
+                          </div>
+                        )
                       );
                     })()}
 
@@ -309,7 +307,12 @@ export default function SourcingStrategySelector({
                   </div>
                 ) : (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                    <svg className="h-12 w-12 text-red-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg
+                      className="h-12 w-12 text-red-400 mx-auto mb-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                     <h3 className="text-lg font-medium text-red-900 mb-1">Stock Not Available</h3>
@@ -327,7 +330,11 @@ export default function SourcingStrategySelector({
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="flex items-center text-blue-800 mb-2">
                         <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                         <span className="font-medium">Ready Fabric Available</span>
                       </div>
@@ -352,9 +359,7 @@ export default function SourcingStrategySelector({
                               </span>
                             )}
                             {readyFabric.rateSource === 'FABRIC_MASTER' && readyFabric.lastUpdated && (
-                              <span className="text-xs text-gray-500">
-                                as of {formatDate(readyFabric.lastUpdated)}
-                              </span>
+                              <span className="text-xs text-gray-500">as of {formatDate(readyFabric.lastUpdated)}</span>
                             )}
                           </div>
                         )}
@@ -376,19 +381,20 @@ export default function SourcingStrategySelector({
                       {readyFabric.supplierName && (
                         <div className="bg-gray-50 p-4 rounded-lg">
                           <div className="text-sm text-gray-600">Supplier</div>
-                          <div className="text-lg font-semibold text-gray-900 mt-1">
-                            {readyFabric.supplierName}
-                          </div>
+                          <div className="text-lg font-semibold text-gray-900 mt-1">{readyFabric.supplierName}</div>
                         </div>
                       )}
                     </div>
 
                     {(() => {
                       const savingsData = calculateSavings(readyFabric.totalCost);
-                      return savingsData && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                          Using this option saves {formatCurrency(savingsData.amount)} ({savingsData.percent.toFixed(1)}%)
-                        </div>
+                      return (
+                        savingsData && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                            Using this option saves {formatCurrency(savingsData.amount)} (
+                            {savingsData.percent.toFixed(1)}%)
+                          </div>
+                        )
                       );
                     })()}
 
@@ -401,7 +407,12 @@ export default function SourcingStrategySelector({
                   </div>
                 ) : (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                    <svg className="h-12 w-12 text-red-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg
+                      className="h-12 w-12 text-red-400 mx-auto mb-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                     <h3 className="text-lg font-medium text-red-900 mb-1">Ready Fabric Not Available</h3>
@@ -419,7 +430,11 @@ export default function SourcingStrategySelector({
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                       <div className="flex items-center text-purple-800 mb-2">
                         <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                         <span className="font-medium">Greige + Processing Available</span>
                       </div>
@@ -435,9 +450,7 @@ export default function SourcingStrategySelector({
                           onChange={(e) => setUseManualOverride(e.target.checked)}
                           className="h-4 w-4 text-blue-600 rounded border-gray-300"
                         />
-                        <span className="ml-2 text-sm font-medium text-gray-900">
-                          Manually override greige cost
-                        </span>
+                        <span className="ml-2 text-sm font-medium text-gray-900">Manually override greige cost</span>
                       </label>
 
                       {useManualOverride && (
@@ -481,22 +494,27 @@ export default function SourcingStrategySelector({
                         </div>
                         {useManualOverride ? (
                           <span className="text-xs text-orange-600">Manual Override</span>
-                        ) : greigeProcessing.greigeRateSource && (
-                          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                              {getRateSourceLabel(greigeProcessing.greigeRateSource)}
-                            </span>
-                            {greigeProcessing.greigeRateSource === 'PROCUREMENT' && greigeProcessing.greigeProcurementDate && (
-                              <span className="text-xs text-gray-500">
-                                PO dated {formatDate(greigeProcessing.greigeProcurementDate)}
+                        ) : (
+                          greigeProcessing.greigeRateSource && (
+                            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                {getRateSourceLabel(greigeProcessing.greigeRateSource)}
                               </span>
-                            )}
-                            {(greigeProcessing.greigeRateSource === 'STOCK_WAC' || greigeProcessing.greigeRateSource === 'GREIGE_MASTER') && greigeProcessing.lastUpdated && (
-                              <span className="text-xs text-gray-500">
-                                as of {formatDate(greigeProcessing.lastUpdated)}
-                              </span>
-                            )}
-                          </div>
+                              {greigeProcessing.greigeRateSource === 'PROCUREMENT' &&
+                                greigeProcessing.greigeProcurementDate && (
+                                  <span className="text-xs text-gray-500">
+                                    PO dated {formatDate(greigeProcessing.greigeProcurementDate)}
+                                  </span>
+                                )}
+                              {(greigeProcessing.greigeRateSource === 'STOCK_WAC' ||
+                                greigeProcessing.greigeRateSource === 'GREIGE_MASTER') &&
+                                greigeProcessing.lastUpdated && (
+                                  <span className="text-xs text-gray-500">
+                                    as of {formatDate(greigeProcessing.lastUpdated)}
+                                  </span>
+                                )}
+                            </div>
+                          )
                         )}
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
@@ -510,11 +528,12 @@ export default function SourcingStrategySelector({
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
                               {getRateSourceLabel(greigeProcessing.processingRateSource)}
                             </span>
-                            {greigeProcessing.processingRateSource === 'RATE_CARD' && greigeProcessing.rateCardEffectiveDate && (
-                              <span className="text-xs text-gray-500">
-                                effective {formatDate(greigeProcessing.rateCardEffectiveDate)}
-                              </span>
-                            )}
+                            {greigeProcessing.processingRateSource === 'RATE_CARD' &&
+                              greigeProcessing.rateCardEffectiveDate && (
+                                <span className="text-xs text-gray-500">
+                                  effective {formatDate(greigeProcessing.rateCardEffectiveDate)}
+                                </span>
+                              )}
                           </div>
                         )}
                       </div>
@@ -548,15 +567,19 @@ export default function SourcingStrategySelector({
                     </div>
 
                     {(() => {
-                      const currentCost = useManualOverride && manualGreigeCost
-                        ? parseFloat(manualGreigeCost) * fabricCostData.cadMeters +
-                          (greigeProcessing.processingCost || 0) * fabricCostData.cadMeters
-                        : greigeProcessing.totalCost;
+                      const currentCost =
+                        useManualOverride && manualGreigeCost
+                          ? parseFloat(manualGreigeCost) * fabricCostData.cadMeters +
+                            (greigeProcessing.processingCost || 0) * fabricCostData.cadMeters
+                          : greigeProcessing.totalCost;
                       const savingsData = calculateSavings(currentCost);
-                      return savingsData && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                          Using this option saves {formatCurrency(savingsData.amount)} ({savingsData.percent.toFixed(1)}%)
-                        </div>
+                      return (
+                        savingsData && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                            Using this option saves {formatCurrency(savingsData.amount)} (
+                            {savingsData.percent.toFixed(1)}%)
+                          </div>
+                        )
                       );
                     })()}
 
@@ -572,7 +595,12 @@ export default function SourcingStrategySelector({
                   </div>
                 ) : (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                    <svg className="h-12 w-12 text-red-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg
+                      className="h-12 w-12 text-red-400 mx-auto mb-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                     <h3 className="text-lg font-medium text-red-900 mb-1">Greige + Processing Not Available</h3>

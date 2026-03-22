@@ -4,7 +4,7 @@ export const TestTemplateType = {
   FPT: 'FPT',
   GPT: 'GPT',
 } as const;
-export type TestTemplateType = typeof TestTemplateType[keyof typeof TestTemplateType];
+export type TestTemplateType = (typeof TestTemplateType)[keyof typeof TestTemplateType];
 
 export const TestResult = {
   PENDING: 'PENDING',
@@ -13,7 +13,7 @@ export const TestResult = {
   RETEST_REQUIRED: 'RETEST_REQUIRED',
   CONDITIONAL_PASS: 'CONDITIONAL_PASS',
 } as const;
-export type TestResult = typeof TestResult[keyof typeof TestResult];
+export type TestResult = (typeof TestResult)[keyof typeof TestResult];
 
 // ============================================================================
 // TESTING LABS

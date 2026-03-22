@@ -177,10 +177,7 @@ export async function deleteConversation(id: string): Promise<void> {
 /**
  * Send a chat message with persistent storage
  */
-export async function sendChatMessage(
-  message: string,
-  conversationId?: string
-): Promise<ChatResponse> {
+export async function sendChatMessage(message: string, conversationId?: string): Promise<ChatResponse> {
   const response = await fetch(`${API_URL}/ai/chat/persistent`, {
     method: 'POST',
     headers: getAuthHeaders(),

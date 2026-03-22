@@ -78,8 +78,8 @@ export interface ProcessingReceiveData {
  * Processing-specific QC data (for PROCESSING PO GRN approval)
  */
 export interface ProcessingQCData {
-  qualityGrade: string;       // 'A' | 'B' | 'Reject'
-  colorMatchStatus?: string;  // 'Match' | 'Slight Variation' | 'Mismatch'
+  qualityGrade: string; // 'A' | 'B' | 'Reject'
+  colorMatchStatus?: string; // 'Match' | 'Slight Variation' | 'Mismatch'
   defectMeters?: number;
   defectType?: string;
   actualRate?: number;

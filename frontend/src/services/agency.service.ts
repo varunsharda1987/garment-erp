@@ -34,10 +34,7 @@ export async function getAgencyById(id: string): Promise<Agency> {
 /**
  * Search agencies for dropdown
  */
-export async function searchAgencies(params: {
-  search?: string;
-  limit?: number;
-}): Promise<AgencySearchResult[]> {
+export async function searchAgencies(params: { search?: string; limit?: number }): Promise<AgencySearchResult[]> {
   const response = await api.get(`${BASE_URL}/search`, { params });
   return response.data;
 }

@@ -119,38 +119,24 @@ export default function ZipperList() {
       render: (zipper) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{zipper.zipperName}</div>
-          {zipper.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{zipper.description}</div>
-          )}
+          {zipper.description && <div className="text-xs text-gray-500 line-clamp-1">{zipper.description}</div>}
         </div>
       ),
     },
     {
       key: 'length',
       header: 'Length',
-      render: (zipper) => (
-        <div className="text-sm text-gray-700">
-          {zipper.length ? `${zipper.length}"` : '-'}
-        </div>
-      ),
+      render: (zipper) => <div className="text-sm text-gray-700">{zipper.length ? `${zipper.length}"` : '-'}</div>,
     },
     {
       key: 'teethType',
       header: 'Teeth Type',
-      render: (zipper) => (
-        <div className="text-sm text-gray-700">
-          {zipper.teethType || '-'}
-        </div>
-      ),
+      render: (zipper) => <div className="text-sm text-gray-700">{zipper.teethType || '-'}</div>,
     },
     {
       key: 'color',
       header: 'Color',
-      render: (zipper) => (
-        <div className="text-sm text-gray-700">
-          {zipper.color || '-'}
-        </div>
-      ),
+      render: (zipper) => <div className="text-sm text-gray-700">{zipper.color || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -206,11 +192,7 @@ export default function ZipperList() {
       className: 'text-right',
       render: (zipper) => (
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/materials/zipper/${zipper.id}/edit`)}
-          >
+          <Button variant="outline" size="sm" onClick={() => navigate(`/materials/zipper/${zipper.id}/edit`)}>
             Edit
           </Button>
           <Button
@@ -236,17 +218,9 @@ export default function ZipperList() {
             <CardTitle>Zipper Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="ZIPPER" stockCount={stockCount} />
-              <ExportButton
-                module="zipper"
-                filters={{}}
-              />
-              <ImportButton
-                module="zipper"
-                onSuccess={fetchZipperItems}
-              />
-              <Button onClick={() => navigate('/materials/zipper/new')}>
-                + Add New Zipper
-              </Button>
+              <ExportButton module="zipper" filters={{}} />
+              <ImportButton module="zipper" onSuccess={fetchZipperItems} />
+              <Button onClick={() => navigate('/materials/zipper/new')}>+ Add New Zipper</Button>
             </div>
           </div>
         </CardHeader>

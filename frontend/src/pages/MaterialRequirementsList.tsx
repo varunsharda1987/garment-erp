@@ -13,21 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -41,17 +28,9 @@ import VendorAllocationDialog from '@/components/VendorAllocationDialog';
 import BulkPOGenerationDialog from '@/components/BulkPOGenerationDialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  getRequirements,
-  generatePOFromRequirements,
-  cancelRequirement,
-} from '@/services/mrp.service';
+import { getRequirements, generatePOFromRequirements, cancelRequirement } from '@/services/mrp.service';
 import { getAllSuppliers } from '@/services/supplier.service';
-import type {
-  MaterialRequirement,
-  RequirementFilters,
-  MaterialRequirementStatus,
-} from '@/types/mrp.types';
+import type { MaterialRequirement, RequirementFilters, MaterialRequirementStatus } from '@/types/mrp.types';
 import {
   MaterialRequirementStatusColors,
   MaterialRequirementStatusLabels,
@@ -113,13 +92,9 @@ export default function MaterialRequirementsList() {
     data: requirementsResponse,
     isLoading,
     refetch: rerefreshRequirements,
-  } = useListQuery(
-    queryKeys.mrp.list(filters as Record<string, unknown>),
-    () => getRequirements(filters),
-    {
-      staleTime: 30 * 1000, // 30 seconds
-    }
-  );
+  } = useListQuery(queryKeys.mrp.list(filters as Record<string, unknown>), () => getRequirements(filters), {
+    staleTime: 30 * 1000, // 30 seconds
+  });
 
   // Process requirements data
   const { requirements, totalPages, total } = useMemo(() => {
@@ -188,7 +163,7 @@ export default function MaterialRequirementsList() {
   };
 
   const handleTypeFilter = (value: string) => {
-    updateURLParams({ requirementType: value === 'all' ? undefined : value as 'MATERIAL' | 'PROCESSING' });
+    updateURLParams({ requirementType: value === 'all' ? undefined : (value as 'MATERIAL' | 'PROCESSING') });
   };
 
   const handlePageChange = (newPage: number) => {
@@ -199,10 +174,7 @@ export default function MaterialRequirementsList() {
     if (checked) {
       // Only select items that can have PO generated
       const selectableIds = requirements
-        .filter(
-          (r) =>
-            r.status === StatusEnum.PO_REQUIRED || r.status === StatusEnum.PARTIAL_STOCK
-        )
+        .filter((r) => r.status === StatusEnum.PO_REQUIRED || r.status === StatusEnum.PARTIAL_STOCK)
         .map((r) => r.id);
       setSelectedIds(selectableIds);
     } else {
@@ -377,10 +349,7 @@ export default function MaterialRequirementsList() {
             {/* Status Filter */}
             <div className="w-[180px]">
               <Label className="text-xs">Status</Label>
-              <Select
-                value={searchParams.get('status')?.split(',')[0] || 'all'}
-                onValueChange={handleStatusFilter}
-              >
+              <Select value={searchParams.get('status')?.split(',')[0] || 'all'} onValueChange={handleStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
@@ -398,10 +367,7 @@ export default function MaterialRequirementsList() {
             {/* Supplier Filter */}
             <div className="w-[200px]">
               <Label className="text-xs">Supplier/Processor</Label>
-              <Select
-                value={searchParams.get('supplierId') || 'all'}
-                onValueChange={handleSupplierFilter}
-              >
+              <Select value={searchParams.get('supplierId') || 'all'} onValueChange={handleSupplierFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Suppliers" />
                 </SelectTrigger>
@@ -419,10 +385,7 @@ export default function MaterialRequirementsList() {
             {/* Type Filter */}
             <div className="w-[150px]">
               <Label className="text-xs">Type</Label>
-              <Select
-                value={searchParams.get('requirementType') || 'all'}
-                onValueChange={handleTypeFilter}
-              >
+              <Select value={searchParams.get('requirementType') || 'all'} onValueChange={handleTypeFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
@@ -454,9 +417,7 @@ export default function MaterialRequirementsList() {
           Showing {requirements.length} of {total} requirements
         </span>
         {selectedIds.length > 0 && (
-          <span className="text-primary font-medium">
-            {selectedIds.length} selected for PO generation
-          </span>
+          <span className="text-primary font-medium">{selectedIds.length} selected for PO generation</span>
         )}
       </div>
 
@@ -481,9 +442,7 @@ export default function MaterialRequirementsList() {
                   <TableHead className="w-[40px]">
                     <Checkbox
                       checked={
-                        selectedIds.length > 0 &&
-                        selectedIds.length ===
-                          requirements.filter(isSelectable).length
+                        selectedIds.length > 0 && selectedIds.length === requirements.filter(isSelectable).length
                       }
                       onCheckedChange={handleSelectAll}
                     />
@@ -507,34 +466,23 @@ export default function MaterialRequirementsList() {
                       {isSelectable(req) && (
                         <Checkbox
                           checked={selectedIds.includes(req.id)}
-                          onCheckedChange={(checked) =>
-                            handleSelectOne(req.id, checked as boolean)
-                          }
+                          onCheckedChange={(checked) => handleSelectOne(req.id, checked as boolean)}
                         />
                       )}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {req.requirementNumber}
-                    </TableCell>
+                    <TableCell className="font-mono text-sm">{req.requirementNumber}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={RequirementTypeColors[req.requirementType || 'MATERIAL']}
-                      >
+                      <Badge variant="outline" className={RequirementTypeColors[req.requirementType || 'MATERIAL']}>
                         {RequirementTypeLabels[req.requirementType || 'MATERIAL']}
                       </Badge>
                       {req.requirementType === 'PROCESSING' && req.linkedRequirementId && (
-                        <div className="text-xs text-purple-600 mt-1">
-                          → Linked to Greige
-                        </div>
+                        <div className="text-xs text-purple-600 mt-1">→ Linked to Greige</div>
                       )}
                     </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium">{req.material?.code}</div>
-                        <div className="text-sm text-muted-foreground truncate max-w-[200px]">
-                          {req.material?.name}
-                        </div>
+                        <div className="text-sm text-muted-foreground truncate max-w-[200px]">{req.material?.name}</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -568,20 +516,15 @@ export default function MaterialRequirementsList() {
                     <TableCell
                       className={`text-right ${req.shortfall > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}`}
                     >
-                      {req.shortfall > 0
-                        ? `${req.shortfall.toLocaleString()} ${req.unit}`
-                        : 'Fulfilled'}
+                      {req.shortfall > 0 ? `${req.shortfall.toLocaleString()} ${req.unit}` : 'Fulfilled'}
                     </TableCell>
-                    <TableCell>
-                      {new Date(req.requiredDate).toLocaleDateString('en-IN')}
-                    </TableCell>
+                    <TableCell>{new Date(req.requiredDate).toLocaleDateString('en-IN')}</TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <Badge className={MaterialRequirementStatusColors[req.status]}>
                           {MaterialRequirementStatusLabels[req.status]}
                         </Badge>
-                        {(req.status === StatusEnum.PO_REQUIRED ||
-                          req.status === StatusEnum.PARTIAL_STOCK) &&
+                        {(req.status === StatusEnum.PO_REQUIRED || req.status === StatusEnum.PARTIAL_STOCK) &&
                           (req.requirementType === 'PROCESSING' ? (
                             // PROCESSING requirements check processor
                             req.processorId ? (
@@ -595,19 +538,17 @@ export default function MaterialRequirementsList() {
                                 Needs Processor
                               </div>
                             )
+                          ) : // MATERIAL requirements check supplier
+                          req.preferredSupplierId ? (
+                            <div className="text-xs text-green-600 flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3" />
+                              Vendor Ready
+                            </div>
                           ) : (
-                            // MATERIAL requirements check supplier
-                            req.preferredSupplierId ? (
-                              <div className="text-xs text-green-600 flex items-center gap-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Vendor Ready
-                              </div>
-                            ) : (
-                              <div className="text-xs text-orange-600 flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                Needs Vendor
-                              </div>
-                            )
+                            <div className="text-xs text-orange-600 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Needs Vendor
+                            </div>
                           ))}
                       </div>
                     </TableCell>
@@ -615,10 +556,7 @@ export default function MaterialRequirementsList() {
                       {req.requirementType === 'PROCESSING' ? (
                         // PROCESSING requirements show processor
                         req.processor ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-purple-50 text-purple-700 border-purple-200"
-                          >
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             {req.processor.name}
                           </Badge>
@@ -627,32 +565,23 @@ export default function MaterialRequirementsList() {
                             No Processor
                           </Badge>
                         )
+                      ) : // MATERIAL requirements show supplier
+                      req.preferredSupplier ? (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          {req.preferredSupplier.name}
+                        </Badge>
                       ) : (
-                        // MATERIAL requirements show supplier
-                        req.preferredSupplier ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-green-50 text-green-700 border-green-200"
-                          >
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            {req.preferredSupplier.name}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-500">
-                            Not Assigned
-                          </Badge>
-                        )
+                        <Badge variant="outline" className="bg-gray-50 text-gray-500">
+                          Not Assigned
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>
                       {(req.status === StatusEnum.PENDING ||
                         req.status === StatusEnum.PO_REQUIRED ||
                         req.status === StatusEnum.PARTIAL_STOCK) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCancelClick(req.id)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => handleCancelClick(req.id)}>
                           <X className="h-4 w-4" />
                         </Button>
                       )}
@@ -696,8 +625,8 @@ export default function MaterialRequirementsList() {
           <DialogHeader>
             <DialogTitle>Generate Purchase Order</DialogTitle>
             <DialogDescription>
-              Create a purchase order for {selectedIds.length} selected requirements.
-              Materials will be consolidated by supplier.
+              Create a purchase order for {selectedIds.length} selected requirements. Materials will be consolidated by
+              supplier.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

@@ -74,9 +74,7 @@ export function ConfirmDeleteDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title || defaultTitle}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {description || defaultDescription}
-          </AlertDialogDescription>
+          <AlertDialogDescription>{description || defaultDescription}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>{cancelText}</AlertDialogCancel>

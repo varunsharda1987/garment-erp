@@ -17,16 +17,9 @@ export const validators = {
   required: (fieldName: string) => z.string().min(1, `${fieldName} is required`),
 
   // Email validation
-  email: z
-    .string()
-    .email('Please enter a valid email address')
-    .optional()
-    .or(z.literal('')),
+  email: z.string().email('Please enter a valid email address').optional().or(z.literal('')),
 
-  emailRequired: z
-    .string()
-    .min(1, 'Email is required')
-    .email('Please enter a valid email address'),
+  emailRequired: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
 
   // Phone validation (10 digits)
   phone: z
@@ -82,13 +75,13 @@ export const validators = {
 
   nonNegativeNumber: z.number().min(0, 'Cannot be negative'),
 
-  percentage: z
-    .number()
-    .min(0, 'Percentage cannot be less than 0')
-    .max(100, 'Percentage cannot be greater than 100'),
+  percentage: z.number().min(0, 'Percentage cannot be less than 0').max(100, 'Percentage cannot be greater than 100'),
 
   // String validations
-  code: z.string().min(1, 'Code is required').regex(/^[A-Z0-9-_]+$/, 'Code must contain only uppercase letters, numbers, hyphens, and underscores'),
+  code: z
+    .string()
+    .min(1, 'Code is required')
+    .regex(/^[A-Z0-9-_]+$/, 'Code must contain only uppercase letters, numbers, hyphens, and underscores'),
 
   codeOptional: z
     .string()

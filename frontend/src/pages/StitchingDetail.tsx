@@ -37,15 +37,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { stitchingIssueService } from '@/services/stitching.service';
-import type {
-  StitchingIssue,
-  StitchingIssueStatus,
-  RecordDailyOutputRequest,
-} from '@/types/stitching.types';
-import {
-  StitchingIssueStatusLabels,
-  StitchingIssueStatusColors,
-} from '@/types/stitching.types';
+import type { StitchingIssue, StitchingIssueStatus, RecordDailyOutputRequest } from '@/types/stitching.types';
+import { StitchingIssueStatusLabels, StitchingIssueStatusColors } from '@/types/stitching.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { format } from 'date-fns';
 
@@ -90,22 +83,24 @@ export default function StitchingDetail() {
 
       // Initialize output entries from SKU breakdown
       if (data.skuBreakdown) {
-        const existingOutputs = data.dailyOutputs?.flatMap(o => o.skuOutputs || []) || [];
-        setOutputEntries(data.skuBreakdown.map(sku => {
-          const completed = existingOutputs
-            .filter(o => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
-            .reduce((sum, o) => sum + o.goodQty, 0);
-          return {
-            colorId: sku.colorId,
-            colorName: sku.color?.colorName || 'Unknown',
-            sizeId: sku.sizeId,
-            sizeName: sku.size?.sizeName || 'Unknown',
-            issuedQty: sku.issuedQty,
-            completedQty: completed,
-            goodQty: 0,
-            defectQty: 0,
-          };
-        }));
+        const existingOutputs = data.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
+        setOutputEntries(
+          data.skuBreakdown.map((sku) => {
+            const completed = existingOutputs
+              .filter((o) => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
+              .reduce((sum, o) => sum + o.goodQty, 0);
+            return {
+              colorId: sku.colorId,
+              colorName: sku.color?.colorName || 'Unknown',
+              sizeId: sku.sizeId,
+              sizeName: sku.size?.sizeName || 'Unknown',
+              issuedQty: sku.issuedQty,
+              completedQty: completed,
+              goodQty: 0,
+              defectQty: 0,
+            };
+          })
+        );
       }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -121,11 +116,12 @@ export default function StitchingDetail() {
       setActionLoading(true);
       await stitchingIssueService.receiveFromCutting(issue.id, {
         transferSlipId: '', // Backend should handle this
-        skuReceived: issue.skuBreakdown?.map(sku => ({
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          receivedQty: sku.availableQty,
-        })) || [],
+        skuReceived:
+          issue.skuBreakdown?.map((sku) => ({
+            colorId: sku.colorId,
+            sizeId: sku.sizeId,
+            receivedQty: sku.availableQty,
+          })) || [],
       });
       handleApiSuccess('Success', 'Items received from cutting');
       loadIssue();
@@ -154,8 +150,8 @@ export default function StitchingDetail() {
     if (!issue) return;
 
     const skuOutputs = outputEntries
-      .filter(e => e.goodQty > 0 || e.defectQty > 0)
-      .map(e => ({
+      .filter((e) => e.goodQty > 0 || e.defectQty > 0)
+      .map((e) => ({
         colorId: e.colorId,
         sizeId: e.sizeId,
         goodQty: e.goodQty,
@@ -239,12 +235,12 @@ export default function StitchingDetail() {
   };
 
   const getTotalCompleted = () => {
-    const allOutputs = issue?.dailyOutputs?.flatMap(o => o.skuOutputs || []) || [];
+    const allOutputs = issue?.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
     return allOutputs.reduce((sum, o) => sum + o.goodQty, 0);
   };
 
   const getTotalDefects = () => {
-    const allOutputs = issue?.dailyOutputs?.flatMap(o => o.skuOutputs || []) || [];
+    const allOutputs = issue?.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
     return allOutputs.reduce((sum, o) => sum + o.defectQty, 0);
   };
 
@@ -255,7 +251,7 @@ export default function StitchingDetail() {
   };
 
   const updateOutputEntry = (index: number, field: 'goodQty' | 'defectQty', value: number) => {
-    setOutputEntries(prev => {
+    setOutputEntries((prev) => {
       const updated = [...prev];
       const remaining = updated[index].issuedQty - updated[index].completedQty;
       updated[index] = {
@@ -339,16 +335,18 @@ export default function StitchingDetail() {
                         {idx < currentStep ? <Check className="h-4 w-4" /> : idx + 1}
                       </div>
                       <div className="text-center mt-1.5">
-                        <div className={`text-xs font-medium ${idx <= currentStep ? 'text-gray-900' : 'text-gray-400'}`}>
+                        <div
+                          className={`text-xs font-medium ${idx <= currentStep ? 'text-gray-900' : 'text-gray-400'}`}
+                        >
                           {step.label}
                         </div>
                         <div className="text-[10px] text-gray-400">{step.desc}</div>
                       </div>
                     </div>
                     {idx < steps.length - 1 && (
-                      <div className={`flex-1 h-0.5 mx-2 mt-[-20px] ${
-                        idx < currentStep ? 'bg-green-600' : 'bg-gray-200'
-                      }`} />
+                      <div
+                        className={`flex-1 h-0.5 mx-2 mt-[-20px] ${idx < currentStep ? 'bg-green-600' : 'bg-gray-200'}`}
+                      />
                     )}
                   </div>
                 ))}
@@ -372,7 +370,9 @@ export default function StitchingDetail() {
                       <ClipboardCheck className="h-6 w-6 text-blue-600" />
                       <div>
                         <div className="font-semibold text-blue-900">Step 1: Receive from Cutting</div>
-                        <div className="text-sm text-blue-700">Confirm receipt of items from the cutting department</div>
+                        <div className="text-sm text-blue-700">
+                          Confirm receipt of items from the cutting department
+                        </div>
                       </div>
                     </div>
                     <Button onClick={handleReceive} disabled={actionLoading}>
@@ -483,8 +483,8 @@ export default function StitchingDetail() {
                       <div>
                         <div className="font-semibold text-green-900">Transfer Slip Generated</div>
                         <div className="text-sm text-green-700">
-                          Slip <span className="font-medium">{transferSlip.slipNumber}</span> has been created.
-                          Create a finishing issue from the Finishing page.
+                          Slip <span className="font-medium">{transferSlip.slipNumber}</span> has been created. Create a
+                          finishing issue from the Finishing page.
                         </div>
                       </div>
                     </div>
@@ -537,9 +537,7 @@ export default function StitchingDetail() {
             <div className="mt-6">
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
-                  className={`h-3 rounded-full transition-all ${
-                    progress === 100 ? 'bg-green-600' : 'bg-blue-600'
-                  }`}
+                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -548,7 +546,8 @@ export default function StitchingDetail() {
             {issue.status === 'COMPLETED' && getTotalCompleted() === 0 && (
               <Alert className="mt-4 border-amber-200 bg-amber-50">
                 <AlertDescription className="text-amber-800">
-                  This issue was completed without recording output. New issues require output to be recorded before completion.
+                  This issue was completed without recording output. New issues require output to be recorded before
+                  completion.
                 </AlertDescription>
               </Alert>
             )}
@@ -582,15 +581,11 @@ export default function StitchingDetail() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Customer</span>
-                <span className="font-medium">
-                  {issue.workOrder?.order?.customer?.name || '-'}
-                </span>
+                <span className="font-medium">{issue.workOrder?.order?.customer?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Issue Date</span>
-                <span className="font-medium">
-                  {format(new Date(issue.issueDate), 'dd MMM yyyy')}
-                </span>
+                <span className="font-medium">{format(new Date(issue.issueDate), 'dd MMM yyyy')}</span>
               </div>
             </CardContent>
           </Card>
@@ -610,25 +605,19 @@ export default function StitchingDetail() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Expected Completion</span>
                 <span className="font-medium">
-                  {issue.expectedCompletionDate
-                    ? format(new Date(issue.expectedCompletionDate), 'dd MMM yyyy')
-                    : '-'}
+                  {issue.expectedCompletionDate ? format(new Date(issue.expectedCompletionDate), 'dd MMM yyyy') : '-'}
                 </span>
               </div>
               {issue.startDate && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Started On</span>
-                  <span className="font-medium">
-                    {format(new Date(issue.startDate), 'dd MMM yyyy')}
-                  </span>
+                  <span className="font-medium">{format(new Date(issue.startDate), 'dd MMM yyyy')}</span>
                 </div>
               )}
               {issue.endDate && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Completed On</span>
-                  <span className="font-medium">
-                    {format(new Date(issue.endDate), 'dd MMM yyyy')}
-                  </span>
+                  <span className="font-medium">{format(new Date(issue.endDate), 'dd MMM yyyy')}</span>
                 </div>
               )}
             </CardContent>
@@ -656,26 +645,20 @@ export default function StitchingDetail() {
                   </TableHeader>
                   <TableBody>
                     {issue.skuBreakdown.map((sku) => {
-                      const outputs = issue.dailyOutputs?.flatMap(o => o.skuOutputs || []) || [];
+                      const outputs = issue.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
                       const completed = outputs
-                        .filter(o => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
+                        .filter((o) => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
                         .reduce((sum, o) => sum + o.goodQty, 0);
                       const remaining = sku.issuedQty - completed;
 
                       return (
                         <TableRow key={sku.id}>
-                          <TableCell className="font-medium">
-                            {sku.color?.colorName || '-'}
-                          </TableCell>
+                          <TableCell className="font-medium">{sku.color?.colorName || '-'}</TableCell>
                           <TableCell>{sku.size?.sizeName || '-'}</TableCell>
                           <TableCell className="text-right">{sku.availableQty}</TableCell>
                           <TableCell className="text-right font-medium">{sku.issuedQty}</TableCell>
-                          <TableCell className="text-right font-medium text-green-600">
-                            {completed}
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-amber-600">
-                            {remaining}
-                          </TableCell>
+                          <TableCell className="text-right font-medium text-green-600">{completed}</TableCell>
+                          <TableCell className="text-right font-medium text-amber-600">{remaining}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -688,12 +671,8 @@ export default function StitchingDetail() {
                       <td className="px-4 py-3 text-sm text-right font-bold">
                         {issue.skuBreakdown.reduce((sum, s) => sum + s.availableQty, 0)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right font-bold">
-                        {getTotalIssued()}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
-                        {getTotalCompleted()}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-bold">{getTotalIssued()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-green-600">{getTotalCompleted()}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-amber-600">
                         {getTotalIssued() - getTotalCompleted()}
                       </td>
@@ -713,9 +692,7 @@ export default function StitchingDetail() {
                 <Calendar className="h-5 w-5" />
                 Daily Outputs
               </CardTitle>
-              <CardDescription>
-                Production output recorded by date
-              </CardDescription>
+              <CardDescription>Production output recorded by date</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -728,9 +705,7 @@ export default function StitchingDetail() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-gray-400" />
-                          <span className="font-medium">
-                            {format(new Date(output.outputDate), 'dd MMM yyyy')}
-                          </span>
+                          <span className="font-medium">{format(new Date(output.outputDate), 'dd MMM yyyy')}</span>
                         </div>
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-green-600">Good: {totalGood}</span>
@@ -747,9 +722,7 @@ export default function StitchingDetail() {
                           ))}
                         </div>
                       )}
-                      {output.remarks && (
-                        <p className="text-sm text-gray-500 mt-2 italic">{output.remarks}</p>
-                      )}
+                      {output.remarks && <p className="text-sm text-gray-500 mt-2 italic">{output.remarks}</p>}
                     </div>
                   );
                 })}
@@ -776,20 +749,14 @@ export default function StitchingDetail() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Record Daily Output</DialogTitle>
-            <DialogDescription>
-              Enter the stitching output for each SKU
-            </DialogDescription>
+            <DialogDescription>Enter the stitching output for each SKU</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Output Date *</Label>
-                <Input
-                  type="date"
-                  value={outputDate}
-                  onChange={(e) => setOutputDate(e.target.value)}
-                />
+                <Input type="date" value={outputDate} onChange={(e) => setOutputDate(e.target.value)} />
               </div>
             </div>
 
@@ -811,9 +778,7 @@ export default function StitchingDetail() {
                       <TableRow key={`${entry.colorId}-${entry.sizeId}`}>
                         <TableCell>{entry.colorName}</TableCell>
                         <TableCell>{entry.sizeName}</TableCell>
-                        <TableCell className="text-right text-amber-600 font-medium">
-                          {remaining}
-                        </TableCell>
+                        <TableCell className="text-right text-amber-600 font-medium">{remaining}</TableCell>
                         <TableCell className="text-right">
                           <Input
                             type="number"

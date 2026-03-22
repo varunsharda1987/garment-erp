@@ -25,10 +25,7 @@ export async function getAllTaxMasters(params: TaxMasterQueryParams = {}): Promi
 /**
  * Get applicable taxes
  */
-export async function getApplicableTaxes(params: {
-  date?: string;
-  taxType?: string;
-}): Promise<{ data: TaxMaster[] }> {
+export async function getApplicableTaxes(params: { date?: string; taxType?: string }): Promise<{ data: TaxMaster[] }> {
   const response = await api.get(`${BASE_URL}/applicable`, { params });
   return response.data;
 }

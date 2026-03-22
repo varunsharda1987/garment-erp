@@ -45,11 +45,7 @@ router.get('/:customerId/accessory-presets/:presetId', asyncHandler(getCustomerA
  * @access  ADMIN, MERCHANDISER
  * @body    { presetName, description?, accessoryItems: [...], isDefault? }
  */
-router.post(
-  '/:customerId/accessory-presets',
-  authorize('ADMIN', 'MERCHANDISER'),
-  asyncHandler(createAccessoryPreset)
-);
+router.post('/:customerId/accessory-presets', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(createAccessoryPreset));
 
 /**
  * @route   PUT /api/customers/:customerId/accessory-presets/:presetId
@@ -67,11 +63,7 @@ router.put(
  * @desc    Delete an accessory preset
  * @access  ADMIN
  */
-router.delete(
-  '/:customerId/accessory-presets/:presetId',
-  authorize('ADMIN'),
-  asyncHandler(deleteAccessoryPreset)
-);
+router.delete('/:customerId/accessory-presets/:presetId', authorize('ADMIN'), asyncHandler(deleteAccessoryPreset));
 
 /**
  * @route   POST /api/customers/:customerId/accessory-presets/:presetId/set-default

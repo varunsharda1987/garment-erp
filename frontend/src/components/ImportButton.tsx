@@ -21,12 +21,7 @@ import { notify } from '../lib/notify';
 import type { ImportButtonProps, ImportResult } from '../types/import.types';
 import { logError } from '../lib/logger';
 
-const ImportButton: React.FC<ImportButtonProps> = ({
-  module,
-  onSuccess,
-  disabled = false,
-  className = '',
-}) => {
+const ImportButton: React.FC<ImportButtonProps> = ({ module, onSuccess, disabled = false, className = '' }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewResult, setPreviewResult] = useState<ImportResult | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -92,21 +87,11 @@ const ImportButton: React.FC<ImportButtonProps> = ({
   return (
     <>
       {/* Hidden File Input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".csv,.xlsx,.xls"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
+      <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleFileSelect} className="hidden" />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            disabled={disabled || isProcessing}
-            className={className}
-          >
+          <Button variant="outline" disabled={disabled || isProcessing} className={className}>
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -129,9 +114,7 @@ const ImportButton: React.FC<ImportButtonProps> = ({
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Download Template
-          </DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Download Template</DropdownMenuLabel>
 
           <DropdownMenuItem onClick={() => handleDownloadTemplate('csv')}>
             <FileText className="h-4 w-4 mr-2" />

@@ -33,11 +33,7 @@ export const createColorSchema = z.object({
     .min(2, 'Color name must be at least 2 characters')
     .max(100, 'Color name must not exceed 100 characters')
     .trim(),
-  hexCode: z
-    .string()
-    .regex(hexColorRegex, 'Invalid hex color code (e.g., #FF0000 or #F00)')
-    .optional()
-    .nullable(),
+  hexCode: z.string().regex(hexColorRegex, 'Invalid hex color code (e.g., #FF0000 or #F00)').optional().nullable(),
   colorFamily: ColorFamilyEnum.optional().nullable(),
   description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional().default(true),
@@ -55,11 +51,7 @@ export const updateColorSchema = z.object({
     .max(100, 'Color name must not exceed 100 characters')
     .trim()
     .optional(),
-  hexCode: z
-    .string()
-    .regex(hexColorRegex, 'Invalid hex color code (e.g., #FF0000 or #F00)')
-    .optional()
-    .nullable(),
+  hexCode: z.string().regex(hexColorRegex, 'Invalid hex color code (e.g., #FF0000 or #F00)').optional().nullable(),
   colorFamily: ColorFamilyEnum.optional().nullable(),
   description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional(),

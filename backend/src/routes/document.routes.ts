@@ -35,7 +35,10 @@ router.get('/invoices/:id/excel', asyncHandler(documentController.generateInvoic
  * @query   phone (string) - Customer phone number
  * @access  Private
  */
-router.get('/invoices/:id/whatsapp-link', asyncHandler(documentController.getInvoiceWhatsAppLink.bind(documentController)));
+router.get(
+  '/invoices/:id/whatsapp-link',
+  asyncHandler(documentController.getInvoiceWhatsAppLink.bind(documentController))
+);
 
 // ────────────────────────────────────────────────────────────────
 // Proforma Invoice / Quotation Endpoints
@@ -55,7 +58,10 @@ router.get('/quotations/:id/proforma', asyncHandler(documentController.generateP
  * @query   phone (string) - Customer phone number
  * @access  Private
  */
-router.get('/quotations/:id/whatsapp-link', asyncHandler(documentController.getQuotationWhatsAppLink.bind(documentController)));
+router.get(
+  '/quotations/:id/whatsapp-link',
+  asyncHandler(documentController.getQuotationWhatsAppLink.bind(documentController))
+);
 
 // ────────────────────────────────────────────────────────────────
 // Order Form Endpoints
@@ -114,7 +120,10 @@ router.get('/catalogue/:id/download', asyncHandler(documentController.getTempCat
  * @query   catalogueName (string) - Optional catalogue name for message
  * @access  Private
  */
-router.get('/catalogue/:id/whatsapp-link', asyncHandler(documentController.getCatalogueWhatsAppLink.bind(documentController)));
+router.get(
+  '/catalogue/:id/whatsapp-link',
+  asyncHandler(documentController.getCatalogueWhatsAppLink.bind(documentController))
+);
 
 // ────────────────────────────────────────────────────────────────
 // Tech Pack Endpoints
@@ -125,7 +134,10 @@ router.get('/catalogue/:id/whatsapp-link', asyncHandler(documentController.getCa
  * @desc    Generate and download Tech Pack PDF for a style
  * @access  Private
  */
-router.get('/styles/:styleId/tech-pack-pdf', asyncHandler(documentController.generateTechPackPDF.bind(documentController)));
+router.get(
+  '/styles/:styleId/tech-pack-pdf',
+  asyncHandler(documentController.generateTechPackPDF.bind(documentController))
+);
 
 // ────────────────────────────────────────────────────────────────
 // Line Sheet Endpoints
@@ -164,7 +176,10 @@ router.post('/line-sheet/excel', asyncHandler(documentController.generateLineShe
  * @desc    Generate and download Purchase Order PDF
  * @access  Private
  */
-router.get('/purchase-orders/:id/pdf', asyncHandler(documentController.generatePurchaseOrderPDF.bind(documentController)));
+router.get(
+  '/purchase-orders/:id/pdf',
+  asyncHandler(documentController.generatePurchaseOrderPDF.bind(documentController))
+);
 
 /**
  * @route   GET /api/documents/purchase-orders/:id/whatsapp-link
@@ -172,7 +187,10 @@ router.get('/purchase-orders/:id/pdf', asyncHandler(documentController.generateP
  * @query   phone (string) - Supplier phone number
  * @access  Private
  */
-router.get('/purchase-orders/:id/whatsapp-link', asyncHandler(documentController.getPurchaseOrderWhatsAppLink.bind(documentController)));
+router.get(
+  '/purchase-orders/:id/whatsapp-link',
+  asyncHandler(documentController.getPurchaseOrderWhatsAppLink.bind(documentController))
+);
 
 /**
  * @route   GET /api/documents/cutting-chart/:workOrderId/pdf
@@ -181,7 +199,10 @@ router.get('/purchase-orders/:id/whatsapp-link', asyncHandler(documentController
  * @query   extraPercent (number, optional) - Extra percentage (default 1)
  * @access  Private
  */
-router.get('/cutting-chart/:workOrderId/pdf', asyncHandler(documentController.generateCuttingChartPDF.bind(documentController)));
+router.get(
+  '/cutting-chart/:workOrderId/pdf',
+  asyncHandler(documentController.generateCuttingChartPDF.bind(documentController))
+);
 
 // ────────────────────────────────────────────────────────────────
 // Transfer Slip Endpoints
@@ -192,7 +213,10 @@ router.get('/cutting-chart/:workOrderId/pdf', asyncHandler(documentController.ge
  * @desc    Generate and download Transfer Slip PDF
  * @access  Private
  */
-router.get('/transfer-slips/:id/pdf', asyncHandler(documentController.generateTransferSlipPDF.bind(documentController)));
+router.get(
+  '/transfer-slips/:id/pdf',
+  asyncHandler(documentController.generateTransferSlipPDF.bind(documentController))
+);
 
 // ────────────────────────────────────────────────────────────────
 // Challan Endpoints

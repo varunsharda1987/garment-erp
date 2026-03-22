@@ -105,28 +105,19 @@ export default function PendingUsersPage() {
           <div className="text-sm font-medium text-gray-900">
             {user.firstName} {user.lastName}
           </div>
-          {user.phone && (
-            <div className="text-xs text-gray-500">{user.phone}</div>
-          )}
+          {user.phone && <div className="text-xs text-gray-500">{user.phone}</div>}
         </div>
       ),
     },
     {
       key: 'email',
       header: 'Email',
-      render: (user) => (
-        <div className="text-sm text-gray-700">{user.email}</div>
-      ),
+      render: (user) => <div className="text-sm text-gray-700">{user.email}</div>,
     },
     {
       key: 'role',
       header: 'Requested Role',
-      render: (user) => (
-        <StatusBadge
-          status={formatRoleName(user.role)}
-          variant={getRoleBadgeVariant(user.role)}
-        />
-      ),
+      render: (user) => <StatusBadge status={formatRoleName(user.role)} variant={getRoleBadgeVariant(user.role)} />,
     },
     {
       key: 'createdAt',
@@ -183,9 +174,7 @@ export default function PendingUsersPage() {
               </div>
               <div>
                 <CardTitle>Pending User Approvals</CardTitle>
-                <CardDescription>
-                  Review and approve new user registrations ({users.length} pending)
-                </CardDescription>
+                <CardDescription>Review and approve new user registrations ({users.length} pending)</CardDescription>
               </div>
             </div>
           </div>
@@ -212,7 +201,7 @@ export default function PendingUsersPage() {
         title={dialogAction === 'approve' ? 'Approve User' : 'Reject User'}
         description={
           dialogAction === 'approve'
-            ? `Are you sure you want to approve ${userToModify?.name}? They will be able to log in with the "${userToModify ? formatRoleName(users.find(u => u.id === userToModify.id)?.role || '') : ''}" role.`
+            ? `Are you sure you want to approve ${userToModify?.name}? They will be able to log in with the "${userToModify ? formatRoleName(users.find((u) => u.id === userToModify.id)?.role || '') : ''}" role.`
             : `Are you sure you want to reject ${userToModify?.name}? Their registration will be permanently deleted.`
         }
         confirmText={dialogAction === 'approve' ? 'Approve User' : 'Reject User'}

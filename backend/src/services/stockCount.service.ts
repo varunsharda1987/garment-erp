@@ -241,9 +241,7 @@ class StockCountService {
     // Calculate variance
     let variance: Decimal | null = null;
     if (data.physicalQuantity !== undefined) {
-      variance = new Decimal(data.physicalQuantity.toString()).sub(
-        item.systemQuantity.toString()
-      );
+      variance = new Decimal(data.physicalQuantity.toString()).sub(item.systemQuantity.toString());
     }
 
     const updated = await prisma.stock_count_items.update({
@@ -273,9 +271,7 @@ class StockCountService {
     });
 
     const countedItems = items.filter((i) => i.physicalQuantity !== null).length;
-    const varianceItems = items.filter(
-      (i) => i.variance !== null && !new Decimal(i.variance.toString()).eq(0)
-    ).length;
+    const varianceItems = items.filter((i) => i.variance !== null && !new Decimal(i.variance.toString()).eq(0)).length;
 
     await prisma.stock_counts.update({
       where: { id: stockCountId },
@@ -468,13 +464,9 @@ class StockCountService {
       return sum + Math.abs(parseFloat(item.variance?.toString() || '0'));
     }, 0);
 
-    const positiveVariance = varianceItems.filter((item) =>
-      new Decimal(item.variance?.toString() || '0').gt(0)
-    );
+    const positiveVariance = varianceItems.filter((item) => new Decimal(item.variance?.toString() || '0').gt(0));
 
-    const negativeVariance = varianceItems.filter((item) =>
-      new Decimal(item.variance?.toString() || '0').lt(0)
-    );
+    const negativeVariance = varianceItems.filter((item) => new Decimal(item.variance?.toString() || '0').lt(0));
 
     return {
       stockCount,

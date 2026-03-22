@@ -74,11 +74,7 @@ export const moodBoardService = {
   /**
    * Add an item to a mood board (with file upload)
    */
-  addItem: async (
-    boardId: string,
-    file: File | null,
-    data: CreateMoodBoardItemDTO
-  ): Promise<MoodBoardItem> => {
+  addItem: async (boardId: string, file: File | null, data: CreateMoodBoardItemDTO): Promise<MoodBoardItem> => {
     const formData = new FormData();
     if (file) {
       formData.append('image', file);
@@ -90,15 +86,11 @@ export const moodBoardService = {
       }
     });
 
-    const response = await api.post<MoodBoardItemResponse>(
-      `/mood-boards/${boardId}/items`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
+    const response = await api.post<MoodBoardItemResponse>(`/mood-boards/${boardId}/items`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data.data;
   },
 
@@ -112,18 +104,15 @@ export const moodBoardService = {
     positionX: number = 0,
     positionY: number = 0
   ): Promise<MoodBoardItem> => {
-    const response = await api.post<MoodBoardItemResponse>(
-      `/mood-boards/${boardId}/items`,
-      {
-        itemType: 'COLOR',
-        colorHex,
-        title,
-        positionX,
-        positionY,
-        width: 100,
-        height: 100,
-      }
-    );
+    const response = await api.post<MoodBoardItemResponse>(`/mood-boards/${boardId}/items`, {
+      itemType: 'COLOR',
+      colorHex,
+      title,
+      positionX,
+      positionY,
+      width: 100,
+      height: 100,
+    });
     return response.data.data;
   },
 
@@ -137,33 +126,23 @@ export const moodBoardService = {
     positionX: number = 0,
     positionY: number = 0
   ): Promise<MoodBoardItem> => {
-    const response = await api.post<MoodBoardItemResponse>(
-      `/mood-boards/${boardId}/items`,
-      {
-        itemType: 'TEXT',
-        title,
-        caption,
-        positionX,
-        positionY,
-        width: 200,
-        height: 100,
-      }
-    );
+    const response = await api.post<MoodBoardItemResponse>(`/mood-boards/${boardId}/items`, {
+      itemType: 'TEXT',
+      title,
+      caption,
+      positionX,
+      positionY,
+      width: 200,
+      height: 100,
+    });
     return response.data.data;
   },
 
   /**
    * Update an item
    */
-  updateItem: async (
-    boardId: string,
-    itemId: string,
-    data: UpdateMoodBoardItemDTO
-  ): Promise<MoodBoardItem> => {
-    const response = await api.patch<MoodBoardItemResponse>(
-      `/mood-boards/${boardId}/items/${itemId}`,
-      data
-    );
+  updateItem: async (boardId: string, itemId: string, data: UpdateMoodBoardItemDTO): Promise<MoodBoardItem> => {
+    const response = await api.patch<MoodBoardItemResponse>(`/mood-boards/${boardId}/items/${itemId}`, data);
     return response.data.data;
   },
 

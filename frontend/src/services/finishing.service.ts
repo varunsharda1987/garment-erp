@@ -115,9 +115,7 @@ export const finishingSummaryService = {
 
   // Get summary by work order
   getSummaryByWorkOrder: async (workOrderId: string): Promise<FinishingSummary> => {
-    const response = await api.get<{ data: FinishingSummary }>(
-      `${BASE_URL}/summary/work-order/${workOrderId}`
-    );
+    const response = await api.get<{ data: FinishingSummary }>(`${BASE_URL}/summary/work-order/${workOrderId}`);
     return response.data.data;
   },
 

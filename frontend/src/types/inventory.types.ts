@@ -9,7 +9,7 @@ export const WarehouseType = {
   TRANSIT: 'TRANSIT',
   JOB_WORK: 'JOB_WORK',
 } as const;
-export type WarehouseType = typeof WarehouseType[keyof typeof WarehouseType];
+export type WarehouseType = (typeof WarehouseType)[keyof typeof WarehouseType];
 
 export const MovementType = {
   STOCK_IN: 'STOCK_IN',
@@ -19,7 +19,7 @@ export const MovementType = {
   ADJUSTMENT_IN: 'ADJUSTMENT_IN',
   ADJUSTMENT_OUT: 'ADJUSTMENT_OUT',
 } as const;
-export type MovementType = typeof MovementType[keyof typeof MovementType];
+export type MovementType = (typeof MovementType)[keyof typeof MovementType];
 
 export const TransactionType = {
   IN: 'IN',
@@ -27,7 +27,7 @@ export const TransactionType = {
   ADJUSTMENT_IN: 'ADJUSTMENT_IN',
   ADJUSTMENT_OUT: 'ADJUSTMENT_OUT',
 } as const;
-export type TransactionType = typeof TransactionType[keyof typeof TransactionType];
+export type TransactionType = (typeof TransactionType)[keyof typeof TransactionType];
 
 export const AdjustmentReason = {
   DAMAGED: 'DAMAGED',
@@ -37,7 +37,7 @@ export const AdjustmentReason = {
   CORRECTION: 'CORRECTION',
   OTHER: 'OTHER',
 } as const;
-export type AdjustmentReason = typeof AdjustmentReason[keyof typeof AdjustmentReason];
+export type AdjustmentReason = (typeof AdjustmentReason)[keyof typeof AdjustmentReason];
 
 export const CountType = {
   FULL: 'FULL',
@@ -45,7 +45,7 @@ export const CountType = {
   CYCLE: 'CYCLE',
   SPOT_CHECK: 'SPOT_CHECK',
 } as const;
-export type CountType = typeof CountType[keyof typeof CountType];
+export type CountType = (typeof CountType)[keyof typeof CountType];
 
 export const CountStatus = {
   DRAFT: 'DRAFT',
@@ -55,7 +55,7 @@ export const CountStatus = {
   APPROVED: 'APPROVED',
   CANCELLED: 'CANCELLED',
 } as const;
-export type CountStatus = typeof CountStatus[keyof typeof CountStatus];
+export type CountStatus = (typeof CountStatus)[keyof typeof CountStatus];
 
 export const Unit = {
   PIECE: 'PIECE',
@@ -72,7 +72,7 @@ export const Unit = {
   GROSS: 'GROSS',
   LITER: 'LITER',
 } as const;
-export type Unit = typeof Unit[keyof typeof Unit];
+export type Unit = (typeof Unit)[keyof typeof Unit];
 
 // Warehouse Types
 export interface Warehouse {
@@ -115,7 +115,7 @@ export type CreateWarehouseDTO = {
   contactEmail?: string;
   capacity?: number;
   isActive?: boolean;
-}
+};
 
 export interface UpdateWarehouseDTO {
   warehouseName?: string;

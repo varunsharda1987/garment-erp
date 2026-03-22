@@ -110,9 +110,7 @@ export class OpenAIProvider implements IAIProvider {
     }
   }
 
-  async extractStructuredData(
-    request: AIStructuredExtractionRequest
-  ): Promise<AIStructuredExtractionResponse> {
+  async extractStructuredData(request: AIStructuredExtractionRequest): Promise<AIStructuredExtractionResponse> {
     try {
       const prompt = request.prompt || 'Extract structured data according to the schema:';
       const systemPrompt = `You are a data extraction assistant. Extract information in valid JSON format matching this schema: ${JSON.stringify(request.schema)}`;
@@ -135,7 +133,9 @@ export class OpenAIProvider implements IAIProvider {
         confidence: 0.9, // Could be calculated based on model confidence
       };
     } catch (error: unknown) {
-      throw new Error(`OpenAI extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `OpenAI extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 

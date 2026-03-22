@@ -117,17 +117,8 @@ export interface LaceCostCalculationResult {
 /**
  * Calculate lace cost with all sourcing options
  */
-export async function calculateLaceCost(
-  options: LaceCostOptions
-): Promise<LaceCostCalculationResult> {
-  const {
-    laceId,
-    quantityPerGarment,
-    orderQuantity = 1,
-    wastagePercent = 5,
-    styleId,
-    costSheetId,
-  } = options;
+export async function calculateLaceCost(options: LaceCostOptions): Promise<LaceCostCalculationResult> {
+  const { laceId, quantityPerGarment, orderQuantity = 1, wastagePercent = 5, styleId, costSheetId } = options;
 
   // Get lace details
   const lace = await prisma.lace_master.findUnique({
@@ -176,18 +167,10 @@ export async function calculateLaceCost(
   const totalQuantityNeeded = effectiveQuantity * orderQuantity;
 
   // Option 1: Check stock availability
-  const stockOption = await checkLaceStockAvailability(
-    laceId,
-    totalQuantityNeeded,
-    styleId
-  );
+  const stockOption = await checkLaceStockAvailability(laceId, totalQuantityNeeded, styleId);
 
   // Option 2: Check ready lace cost
-  const readyLaceOption = await getReadyLaceCost(
-    laceId,
-    totalQuantityNeeded,
-    lace
-  );
+  const readyLaceOption = await getReadyLaceCost(laceId, totalQuantityNeeded, lace);
 
   // Option 3: Calculate greige + processing
   const greigeProcessingOption = await calculateGreigeLaceProcessingCost(
@@ -221,16 +204,15 @@ export async function calculateLaceCost(
       totalCost: greigeProcessingOption.totalCost,
       savings: null,
       available: greigeProcessingOption.available,
-      notes: greigeProcessingOption.labDipRequired && !greigeProcessingOption.labDipApproved
-        ? 'Lab dip approval required'
-        : null,
+      notes:
+        greigeProcessingOption.labDipRequired && !greigeProcessingOption.labDipApproved
+          ? 'Lab dip approval required'
+          : null,
     },
   ];
 
   // Calculate recommendation
-  const availableOptions = comparisonTable.filter(
-    (opt) => opt.available && opt.totalCost !== null
-  );
+  const availableOptions = comparisonTable.filter((opt) => opt.available && opt.totalCost !== null);
 
   let recommendedStrategy: LaceCostCalculationResult['recommendedStrategy'] = 'NONE';
   let recommendedCost: number | null = null;
@@ -335,9 +317,10 @@ async function checkLaceStockAvailability(
       originStyleId: null,
       originStyleCode: null,
       totalCost: null,
-      details: availableQty > 0
-        ? `Insufficient stock: ${availableQty.toFixed(2)}m available, need ${quantityNeeded.toFixed(2)}m`
-        : 'No stock available for this lace',
+      details:
+        availableQty > 0
+          ? `Insufficient stock: ${availableQty.toFixed(2)}m available, need ${quantityNeeded.toFixed(2)}m`
+          : 'No stock available for this lace',
       rateSource: null,
       lastUpdated: null,
     };
@@ -366,11 +349,7 @@ async function checkLaceStockAvailability(
 /**
  * Get ready lace cost
  */
-async function getReadyLaceCost(
-  laceId: string,
-  quantityNeeded: number,
-  lace: any
-): Promise<ReadyLaceOption> {
+async function getReadyLaceCost(laceId: string, quantityNeeded: number, lace: any): Promise<ReadyLaceOption> {
   // Priority: supplier price > lace_master pricePerMeter
   const preferredSupplier = lace.lace_suppliers?.[0];
 
@@ -410,9 +389,7 @@ async function getReadyLaceCost(
     supplierId,
     supplierName,
     totalCost: cost * quantityNeeded,
-    details: supplierName
-      ? `₹${cost.toFixed(2)}/m from ${supplierName}`
-      : `₹${cost.toFixed(2)}/m (Lace Master rate)`,
+    details: supplierName ? `₹${cost.toFixed(2)}/m from ${supplierName}` : `₹${cost.toFixed(2)}/m (Lace Master rate)`,
     rateSource,
     lastUpdated,
   };
@@ -524,9 +501,7 @@ async function calculateGreigeLaceProcessingCost(
   }
 
   // Get greige cost
-  const greigeCostPerMeter = greigeLace.costPerMeterGreige
-    ? Number(greigeLace.costPerMeterGreige)
-    : null;
+  const greigeCostPerMeter = greigeLace.costPerMeterGreige ? Number(greigeLace.costPerMeterGreige) : null;
 
   if (!greigeCostPerMeter) {
     return {
@@ -559,9 +534,7 @@ async function calculateGreigeLaceProcessingCost(
   }
 
   // Get shrinkage percent
-  const shrinkagePercent = greigeLace.expectedShrinkagePercent
-    ? Number(greigeLace.expectedShrinkagePercent)
-    : 5; // Default 5%
+  const shrinkagePercent = greigeLace.expectedShrinkagePercent ? Number(greigeLace.expectedShrinkagePercent) : 5; // Default 5%
 
   const shrinkageFactor = 1 - shrinkagePercent / 100;
   const greigeQuantityNeeded = quantityNeeded / shrinkageFactor;
@@ -699,9 +672,7 @@ async function calculateGreigeLaceProcessingCost(
 /**
  * Calculate lace costs for multiple items (batch)
  */
-export async function calculateBatchLaceCost(
-  items: LaceCostOptions[]
-): Promise<{
+export async function calculateBatchLaceCost(items: LaceCostOptions[]): Promise<{
   results: LaceCostCalculationResult[];
   summary: {
     totalItems: number;
@@ -813,9 +784,7 @@ export async function calculateBatchLaceCost(
 /**
  * Check if greige+processing is available and approved for PO generation
  */
-export async function validateGreigeProcessingForPO(
-  costingItemId: string
-): Promise<{
+export async function validateGreigeProcessingForPO(costingItemId: string): Promise<{
   valid: boolean;
   labDipApproved: boolean;
   labDipId: string | null;

@@ -161,10 +161,7 @@ export abstract class BaseService<T, CreateDTO, UpdateDTO> {
   /**
    * Find all entities with pagination
    */
-  async findAll(
-    options: PaginationOptions,
-    additionalFilters?: AdditionalFilters
-  ): Promise<PaginatedResult<T>> {
+  async findAll(options: PaginationOptions, additionalFilters?: AdditionalFilters): Promise<PaginatedResult<T>> {
     try {
       const { page, search, sortBy, sortOrder } = options;
       // Enforce maximum limit for performance
@@ -186,9 +183,7 @@ export abstract class BaseService<T, CreateDTO, UpdateDTO> {
       const total = await this.model.count({ where });
 
       // Build orderBy
-      const orderBy: OrderByClause = sortBy
-        ? { [sortBy]: sortOrder || 'asc' }
-        : { createdAt: 'desc' };
+      const orderBy: OrderByClause = sortBy ? { [sortBy]: sortOrder || 'asc' } : { createdAt: 'desc' };
 
       // Fetch entities
       const entities = await this.model.findMany({

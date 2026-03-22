@@ -18,9 +18,7 @@ const BASE_URL = '/lace-lab-dips';
 /**
  * Get all lab dips with pagination and filters
  */
-export const getAllLabDips = async (
-  filters?: LabDipListFilters
-): Promise<LabDipListResponse> => {
+export const getAllLabDips = async (filters?: LabDipListFilters): Promise<LabDipListResponse> => {
   const { data } = await api.get<LabDipListResponse>(BASE_URL, {
     params: filters,
   });
@@ -31,50 +29,31 @@ export const getAllLabDips = async (
  * Get lab dip by ID
  */
 export const getLabDipById = async (id: string): Promise<LaceLabDip> => {
-  const { data } = await api.get<{ success: boolean; data: LaceLabDip }>(
-    `${BASE_URL}/${id}`
-  );
+  const { data } = await api.get<{ success: boolean; data: LaceLabDip }>(`${BASE_URL}/${id}`);
   return data.data;
 };
 
 /**
  * Create new lab dip request
  */
-export const createLabDip = async (
-  input: CreateLabDipInput
-): Promise<LaceLabDip> => {
-  const { data } = await api.post<{ success: boolean; data: LaceLabDip }>(
-    BASE_URL,
-    input
-  );
+export const createLabDip = async (input: CreateLabDipInput): Promise<LaceLabDip> => {
+  const { data } = await api.post<{ success: boolean; data: LaceLabDip }>(BASE_URL, input);
   return data.data;
 };
 
 /**
  * Update lab dip details
  */
-export const updateLabDip = async (
-  id: string,
-  input: UpdateLabDipInput
-): Promise<LaceLabDip> => {
-  const { data } = await api.put<{ success: boolean; data: LaceLabDip }>(
-    `${BASE_URL}/${id}`,
-    input
-  );
+export const updateLabDip = async (id: string, input: UpdateLabDipInput): Promise<LaceLabDip> => {
+  const { data } = await api.put<{ success: boolean; data: LaceLabDip }>(`${BASE_URL}/${id}`, input);
   return data.data;
 };
 
 /**
  * Update lab dip status (workflow transitions)
  */
-export const updateLabDipStatus = async (
-  id: string,
-  input: UpdateLabDipStatusInput
-): Promise<LaceLabDip> => {
-  const { data } = await api.post<{ success: boolean; data: LaceLabDip }>(
-    `${BASE_URL}/${id}/status`,
-    input
-  );
+export const updateLabDipStatus = async (id: string, input: UpdateLabDipStatusInput): Promise<LaceLabDip> => {
+  const { data } = await api.post<{ success: boolean; data: LaceLabDip }>(`${BASE_URL}/${id}/status`, input);
   return data.data;
 };
 
@@ -88,12 +67,8 @@ export const deleteLabDip = async (id: string): Promise<void> => {
 /**
  * Get approved lab dips for a greige lace (for processor selection)
  */
-export const getApprovedForLace = async (
-  greigeLaceId: string
-): Promise<LaceLabDip[]> => {
-  const { data } = await api.get<{ success: boolean; data: LaceLabDip[] }>(
-    `${BASE_URL}/approved/${greigeLaceId}`
-  );
+export const getApprovedForLace = async (greigeLaceId: string): Promise<LaceLabDip[]> => {
+  const { data } = await api.get<{ success: boolean; data: LaceLabDip[] }>(`${BASE_URL}/approved/${greigeLaceId}`);
   return data.data;
 };
 

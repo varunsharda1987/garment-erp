@@ -5,12 +5,7 @@
  */
 
 // Auth schemas
-export {
-  loginSchema,
-  registerSchema,
-  type LoginInput,
-  type RegisterInput,
-} from './auth.schema';
+export { loginSchema, registerSchema, type LoginInput, type RegisterInput } from './auth.schema';
 
 // Customer schemas
 export {

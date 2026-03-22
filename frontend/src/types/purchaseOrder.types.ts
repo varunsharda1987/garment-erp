@@ -18,7 +18,7 @@ export const PurchaseOrderStatus = {
   READY_FOR_PROCESSING: 'READY_FOR_PROCESSING',
 } as const;
 
-export type PurchaseOrderStatus = typeof PurchaseOrderStatus[keyof typeof PurchaseOrderStatus];
+export type PurchaseOrderStatus = (typeof PurchaseOrderStatus)[keyof typeof PurchaseOrderStatus];
 
 export const PurchaseOrderStatusLabels: Record<PurchaseOrderStatus, string> = {
   DRAFT: 'Draft',
@@ -54,7 +54,7 @@ export const POSource = {
   PRODUCTION_RUN: 'PRODUCTION_RUN',
 } as const;
 
-export type POSource = typeof POSource[keyof typeof POSource];
+export type POSource = (typeof POSource)[keyof typeof POSource];
 
 export const POSourceLabels: Record<POSource, string> = {
   MANUAL: 'Manual',
@@ -83,8 +83,12 @@ export const PO_GROUP_CATEGORIES: Record<Exclude<POGroup, 'all'>, string[]> = {
   processing: ['PROCESSING', 'LACE_PROCESSING'],
   service: [
     'EMBROIDERY_SERVICE',
-    'WASHING_SERVICE', 'FINISHING_SERVICE', 'CUTTING_SERVICE',
-    'STITCHING_SERVICE', 'HANDWORK_SERVICE', 'SMOCKING_SERVICE',
+    'WASHING_SERVICE',
+    'FINISHING_SERVICE',
+    'CUTTING_SERVICE',
+    'STITCHING_SERVICE',
+    'HANDWORK_SERVICE',
+    'SMOCKING_SERVICE',
     'TRANSPORTATION_SERVICE',
   ],
 };
@@ -162,7 +166,7 @@ export const Unit = {
   LITERS: 'LITERS',
 } as const;
 
-export type Unit = typeof Unit[keyof typeof Unit];
+export type Unit = (typeof Unit)[keyof typeof Unit];
 
 // ============================================
 // SUPPLIER SUMMARY
@@ -301,9 +305,9 @@ export interface PurchaseOrder {
 // ============================================
 
 export interface CreatePurchaseOrderItemRequest {
-  materialId?: string;            // Required for material POs
-  serviceType?: string;           // Required for service/processing POs
-  serviceDescription?: string;    // Optional description for service POs
+  materialId?: string; // Required for material POs
+  serviceType?: string; // Required for service/processing POs
+  serviceDescription?: string; // Optional description for service POs
   orderedQuantity: number;
   unit: Unit;
   unitPrice: number;
@@ -315,7 +319,7 @@ export interface CreatePurchaseOrderRequest {
   expectedDeliveryDate: string;
   paymentTerms?: string;
   remarks?: string;
-  poCategory?: string;            // POCategory enum value
+  poCategory?: string; // POCategory enum value
   items: CreatePurchaseOrderItemRequest[];
 }
 
@@ -324,7 +328,7 @@ export interface UpdatePurchaseOrderRequest {
   expectedDeliveryDate?: string;
   paymentTerms?: string;
   remarks?: string;
-  items?: CreatePurchaseOrderItemRequest[];  // If provided, replaces all existing items
+  items?: CreatePurchaseOrderItemRequest[]; // If provided, replaces all existing items
 }
 
 export interface UpdatePurchaseOrderItemRequest {
@@ -438,8 +442,6 @@ export interface PurchaseOrderTableRow extends PurchaseOrder {
 }
 
 // Computed helpers for display
-export const getSupplierDisplayName = (supplier: SupplierSummary | undefined): string =>
-  supplier?.name || 'Unknown';
+export const getSupplierDisplayName = (supplier: SupplierSummary | undefined): string => supplier?.name || 'Unknown';
 
-export const getSupplierDisplayCode = (supplier: SupplierSummary | undefined): string =>
-  supplier?.code || '';
+export const getSupplierDisplayCode = (supplier: SupplierSummary | undefined): string => supplier?.code || '';

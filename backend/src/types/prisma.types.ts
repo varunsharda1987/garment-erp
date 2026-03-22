@@ -9,14 +9,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
  * Generic Prisma model delegate type
  * Used for type-safe model operations in BaseService
  */
-export type PrismaModelDelegate<
-  T,
-  CreateInput,
-  UpdateInput,
-  WhereUniqueInput,
-  WhereInput,
-  IncludeInput
-> = {
+export type PrismaModelDelegate<T, CreateInput, UpdateInput, WhereUniqueInput, WhereInput, IncludeInput> = {
   create: (args: { data: CreateInput; include?: IncludeInput }) => Promise<T>;
   findUnique: (args: { where: WhereUniqueInput; include?: IncludeInput }) => Promise<T | null>;
   findFirst: (args: { where?: WhereInput; include?: IncludeInput }) => Promise<T | null>;
@@ -47,11 +40,7 @@ export interface PrismaError extends Error {
  * Check if error is a Prisma error
  */
 export function isPrismaError(error: unknown): error is PrismaError {
-  return (
-    error instanceof Error &&
-    'code' in error &&
-    typeof (error as PrismaError).code === 'string'
-  );
+  return error instanceof Error && 'code' in error && typeof (error as PrismaError).code === 'string';
 }
 
 /**
@@ -65,7 +54,7 @@ export const PrismaErrorCode = {
   RelatedRecordNotFound: 'P2018',
 } as const;
 
-export type PrismaErrorCodeType = typeof PrismaErrorCode[keyof typeof PrismaErrorCode];
+export type PrismaErrorCodeType = (typeof PrismaErrorCode)[keyof typeof PrismaErrorCode];
 
 /**
  * Base filter types for search queries

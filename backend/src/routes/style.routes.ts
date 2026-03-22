@@ -55,7 +55,12 @@ router.use(authenticateToken);
  * @desc    Create new style
  * @access  Protected - Admin, Merchandiser
  */
-router.post('/', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), validateBody(createStyleSchema), asyncHandler(createStyle));
+router.post(
+  '/',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  validateBody(createStyleSchema),
+  asyncHandler(createStyle)
+);
 
 /**
  * @route   GET /api/styles/drafts
@@ -104,7 +109,13 @@ router.get('/:id', validateParams(styleIdParamSchema), asyncHandler(getStyleById
  * @desc    Update style
  * @access  Protected - Admin, Merchandiser
  */
-router.put('/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), validateParams(styleIdParamSchema), validateBody(updateStyleSchema), asyncHandler(updateStyle));
+router.put(
+  '/:id',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  validateParams(styleIdParamSchema),
+  validateBody(updateStyleSchema),
+  asyncHandler(updateStyle)
+);
 
 /**
  * @route   DELETE /api/styles/:id
@@ -118,7 +129,12 @@ router.delete('/:id', authorize(UserRole.ADMIN), validateParams(styleIdParamSche
  * @desc    Check if style can be deactivated
  * @access  Protected - Admin, Merchandiser
  */
-router.get('/:id/can-deactivate', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), validateParams(styleIdParamSchema), asyncHandler(canDeactivateStyle));
+router.get(
+  '/:id/can-deactivate',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  validateParams(styleIdParamSchema),
+  asyncHandler(canDeactivateStyle)
+);
 
 /**
  * @route   GET /api/styles/:id/fabric-stock
@@ -144,22 +160,14 @@ router.post(
  * @desc    Create or update style variants with SKUs
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:id/variants',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  asyncHandler(createStyleVariants)
-);
+router.post('/:id/variants', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(createStyleVariants));
 
 /**
  * @route   POST /api/styles/:id/publish
  * @desc    Publish a draft style (convert to ACTIVE status)
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:id/publish',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  asyncHandler(publishDraft)
-);
+router.post('/:id/publish', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(publishDraft));
 
 // ============================================
 // CAD PLANNING ROUTES
@@ -173,44 +181,28 @@ router.post(
  * @desc    Update CAD grouping for style fabrics
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:id/cad-groups',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  asyncHandler(updateCADGrouping)
-);
+router.post('/:id/cad-groups', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(updateCADGrouping));
 
 /**
  * @route   PUT /api/styles/:id/approve-cad
  * @desc    Approve CAD plan and link fabrics to selected CAD entries
  * @access  Protected - Admin, Merchandiser
  */
-router.put(
-  '/:id/approve-cad',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  asyncHandler(approveCADPlan)
-);
+router.put('/:id/approve-cad', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(approveCADPlan));
 
 /**
  * @route   POST /api/styles/:id/restore
  * @desc    Restore a soft-deleted style
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:id/restore',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  asyncHandler(restoreStyle)
-);
+router.post('/:id/restore', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(restoreStyle));
 
 /**
  * @route   DELETE /api/styles/:id/permanent
  * @desc    Permanently delete a style (hard delete)
  * @access  Protected - Admin only
  */
-router.delete(
-  '/:id/permanent',
-  authorize(UserRole.ADMIN),
-  asyncHandler(permanentDeleteStyle)
-);
+router.delete('/:id/permanent', authorize(UserRole.ADMIN), asyncHandler(permanentDeleteStyle));
 
 // ============================================
 // COMPONENT ROUTES
@@ -221,11 +213,7 @@ router.delete(
  * @desc    Add component to style
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:styleId/components',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  asyncHandler(createComponent)
-);
+router.post('/:styleId/components', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(createComponent));
 
 /**
  * @route   PUT /api/components/:id
@@ -308,11 +296,7 @@ router.delete('/accessories/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISE
  * @desc    Add process to style
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:styleId/processes',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  asyncHandler(createProcess)
-);
+router.post('/:styleId/processes', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(createProcess));
 
 /**
  * @route   PUT /api/processes/:id

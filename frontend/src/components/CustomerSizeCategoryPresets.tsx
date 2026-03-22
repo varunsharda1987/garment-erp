@@ -12,32 +12,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  Plus,
-  Trash2,
-  Edit2,
-  Star,
-  StarOff,
-  ChevronDown,
-  ChevronUp,
-  Ruler,
-  Save,
-  Copy,
-} from 'lucide-react';
+import { Plus, Trash2, Edit2, Star, StarOff, ChevronDown, ChevronUp, Ruler, Save, Copy } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,13 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import {
   getAllPresetsForCustomer,
   createPreset,
@@ -336,9 +312,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
               <div className="text-center py-8 text-gray-500">
                 <Ruler className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                 <p className="font-medium">No size category presets</p>
-                <p className="text-sm mt-1">
-                  Create a preset to define standard sizes for {customerName}
-                </p>
+                <p className="text-sm mt-1">Create a preset to define standard sizes for {customerName}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -347,9 +321,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                     key={preset.id}
                     className={cn(
                       'p-4 rounded-lg border transition-all',
-                      preset.isDefault
-                        ? 'border-yellow-400 bg-yellow-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                      preset.isDefault ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 hover:border-gray-300'
                     )}
                   >
                     <div className="flex items-start justify-between">
@@ -357,18 +329,18 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold">{preset.presetName}</h4>
                           {preset.isDefault && (
-                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                            <Badge
+                              variant="secondary"
+                              className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300"
+                            >
                               <Star className="h-3 w-3 mr-1 fill-current" />
                               Default
                             </Badge>
                           )}
                         </div>
-                        {preset.description && (
-                          <p className="text-sm text-gray-600 mt-1">{preset.description}</p>
-                        )}
+                        {preset.description && <p className="text-sm text-gray-600 mt-1">{preset.description}</p>}
                         <p className="text-xs text-gray-500 mt-2">
-                          {preset.sizeCategory.name} ·{' '}
-                          {preset.sizeCategory.sizes.length} sizes
+                          {preset.sizeCategory.name} · {preset.sizeCategory.sizes.length} sizes
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -443,9 +415,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create Size Category Preset</DialogTitle>
-            <DialogDescription>
-              Create a new preset of standard sizes for {customerName}
-            </DialogDescription>
+            <DialogDescription>Create a new preset of standard sizes for {customerName}</DialogDescription>
           </DialogHeader>
           {renderPresetForm()}
           <DialogFooter>
@@ -486,16 +456,12 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Preset</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{editingPreset?.presetName}"? This action cannot be
-              undone.
+              Are you sure you want to delete "{editingPreset?.presetName}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-            >
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -507,9 +473,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Clone Preset</DialogTitle>
-            <DialogDescription>
-              Create a copy of "{editingPreset?.presetName}"
-            </DialogDescription>
+            <DialogDescription>Create a copy of "{editingPreset?.presetName}"</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>

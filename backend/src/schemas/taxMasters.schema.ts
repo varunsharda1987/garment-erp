@@ -3,37 +3,17 @@ import { z } from 'zod';
 /**
  * TaxType Enum - matches Prisma TaxType enum
  */
-export const TaxTypeEnum = z.enum([
-  'GST',
-  'IGST',
-  'SGST',
-  'CGST',
-  'VAT',
-  'CUSTOMS_DUTY',
-  'EXCISE_DUTY',
-  'SERVICE_TAX',
-]);
+export const TaxTypeEnum = z.enum(['GST', 'IGST', 'SGST', 'CGST', 'VAT', 'CUSTOMS_DUTY', 'EXCISE_DUTY', 'SERVICE_TAX']);
 
 /**
  * Create Tax Master Schema
  * POST /api/tax-masters
  */
 export const createTaxMasterSchema = z.object({
-  taxCode: z
-    .string()
-    .min(1, 'Tax code is required')
-    .max(50, 'Tax code must not exceed 50 characters')
-    .trim(),
-  taxName: z
-    .string()
-    .min(1, 'Tax name is required')
-    .max(100, 'Tax name must not exceed 100 characters')
-    .trim(),
+  taxCode: z.string().min(1, 'Tax code is required').max(50, 'Tax code must not exceed 50 characters').trim(),
+  taxName: z.string().min(1, 'Tax name is required').max(100, 'Tax name must not exceed 100 characters').trim(),
   taxType: TaxTypeEnum,
-  taxRate: z
-    .number()
-    .min(0, 'Tax rate must be at least 0')
-    .max(100, 'Tax rate must not exceed 100'),
+  taxRate: z.number().min(0, 'Tax rate must be at least 0').max(100, 'Tax rate must not exceed 100'),
   hsnSacCode: z.string().max(20).trim().optional().nullable(),
   description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   applicableFrom: z.string().min(1, 'Applicable from date is required'),
@@ -59,11 +39,7 @@ export const updateTaxMasterSchema = z.object({
     .trim()
     .optional(),
   taxType: TaxTypeEnum.optional(),
-  taxRate: z
-    .number()
-    .min(0, 'Tax rate must be at least 0')
-    .max(100, 'Tax rate must not exceed 100')
-    .optional(),
+  taxRate: z.number().min(0, 'Tax rate must be at least 0').max(100, 'Tax rate must not exceed 100').optional(),
   hsnSacCode: z.string().max(20).trim().optional().nullable(),
   description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   applicableFrom: z.string().optional(),

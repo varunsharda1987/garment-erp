@@ -13,11 +13,7 @@ export const prisma = new PrismaClient();
  * Generate a valid JWT token for testing
  */
 export function generateTestToken(userId: string, role: string = 'USER'): string {
-  return jwt.sign(
-    { userId, role },
-    process.env.JWT_SECRET || 'test-jwt-secret',
-    { expiresIn: '1h' }
-  );
+  return jwt.sign({ userId, role }, process.env.JWT_SECRET || 'test-jwt-secret', { expiresIn: '1h' });
 }
 
 /**
@@ -71,10 +67,7 @@ export async function cleanupTestData() {
 /**
  * Wait for a condition to be true (useful for async operations)
  */
-export async function waitFor(
-  condition: () => boolean | Promise<boolean>,
-  timeout: number = 5000
-): Promise<void> {
+export async function waitFor(condition: () => boolean | Promise<boolean>, timeout: number = 5000): Promise<void> {
   const startTime = Date.now();
 
   while (!(await condition())) {

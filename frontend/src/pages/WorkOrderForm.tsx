@@ -24,7 +24,12 @@ export default function WorkOrderForm() {
 
   // Navigation timeout ref for cleanup
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    },
+    []
+  );
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,7 +65,7 @@ export default function WorkOrderForm() {
 
       const [workOrderData, locationsData] = await Promise.all([
         workOrderService.getById(id!),
-        warehouseService.getAll({})
+        warehouseService.getAll({}),
       ]);
 
       setWorkOrder(workOrderData);
@@ -72,7 +77,6 @@ export default function WorkOrderForm() {
       setPlannedEndDate(workOrderData.plannedEndDate ? workOrderData.plannedEndDate.split('T')[0] : '');
       setPriority(workOrderData.priority);
       setRemarks(workOrderData.remarks || '');
-
     } catch (err: unknown) {
       setError(handleApiError(err, 'Failed to load production run', false) || 'Failed to load production run');
     } finally {
@@ -137,8 +141,8 @@ export default function WorkOrderForm() {
       <div className="container mx-auto py-6">
         <Alert>
           <AlertDescription>
-            This production run cannot be edited because its status is "{workOrder.status.replace(/_/g, ' ')}".
-            Only PENDING production runs can be edited.
+            This production run cannot be edited because its status is "{workOrder.status.replace(/_/g, ' ')}". Only
+            PENDING production runs can be edited.
           </AlertDescription>
         </Alert>
         <Button variant="outline" className="mt-4" onClick={() => navigate(`/production/work-orders/${id}`)}>
@@ -223,11 +227,13 @@ export default function WorkOrderForm() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="NONE">Not Assigned</SelectItem>
-                      {locations.filter(loc => loc.id && loc.id.trim() !== '').map((loc) => (
-                        <SelectItem key={loc.id} value={loc.id}>
-                          {loc.warehouseName} ({loc.city || 'N/A'})
-                        </SelectItem>
-                      ))}
+                      {locations
+                        .filter((loc) => loc.id && loc.id.trim() !== '')
+                        .map((loc) => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.warehouseName} ({loc.city || 'N/A'})
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">Where production will take place</p>
@@ -297,12 +303,8 @@ export default function WorkOrderForm() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Color
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                          Size
-                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                           Planned Qty
                         </th>
@@ -311,22 +313,17 @@ export default function WorkOrderForm() {
                     <tbody className="divide-y divide-gray-200">
                       {workOrder.workOrderBreakup.map((breakup) => (
                         <tr key={breakup.id}>
-                          <td className="px-4 py-3 text-sm">
-                            {breakup.colorOptions?.colorName || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {breakup.sizeOptions?.sizeName || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right font-medium">
-                            {breakup.plannedQuantity}
-                          </td>
+                          <td className="px-4 py-3 text-sm">{breakup.colorOptions?.colorName || '-'}</td>
+                          <td className="px-4 py-3 text-sm">{breakup.sizeOptions?.sizeName || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium">{breakup.plannedQuantity}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Quantities are derived from the order and cannot be changed. Use "Split Production Run" for partial dispatch.
+                  Quantities are derived from the order and cannot be changed. Use "Split Production Run" for partial
+                  dispatch.
                 </p>
               </CardContent>
             </Card>
@@ -334,11 +331,7 @@ export default function WorkOrderForm() {
 
           {/* Actions */}
           <div className="flex justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate(`/production/work-orders/${id}`)}
-            >
+            <Button type="button" variant="outline" onClick={() => navigate(`/production/work-orders/${id}`)}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>

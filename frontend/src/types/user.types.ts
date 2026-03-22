@@ -26,7 +26,7 @@ export const UserRole = {
   FACTORY_SUPERVISOR: 'FACTORY_SUPERVISOR',
 } as const;
 
-export type UserRole = typeof UserRole[keyof typeof UserRole];
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
 // Create user data
 export interface CreateUserData {

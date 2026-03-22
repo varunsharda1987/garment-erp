@@ -16,12 +16,7 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Checkbox } from './ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Search, Plus, X, Circle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import MaterialQuickAddDialog from './MaterialQuickAddDialog';
@@ -50,13 +45,30 @@ import type { Lace } from '../types/lace.types';
 // Note: Labels (care labels, size labels, brand labels) are managed separately under Packaging
 export type TrimType =
   // Fasteners & Closures (8 including Belt and Other Fastener)
-  | 'BUTTON' | 'ZIPPER' | 'HOOK_EYE' | 'SNAP_BUTTON' | 'BUCKLE' | 'BELT' | 'VELCRO' | 'OTHER_FASTENER'
+  | 'BUTTON'
+  | 'ZIPPER'
+  | 'HOOK_EYE'
+  | 'SNAP_BUTTON'
+  | 'BUCKLE'
+  | 'BELT'
+  | 'VELCRO'
+  | 'OTHER_FASTENER'
   // Threads & Tapes (5 including Other Tape)
-  | 'THREAD' | 'ELASTIC' | 'DRAWSTRING' | 'RIBBON' | 'OTHER_TAPE'
+  | 'THREAD'
+  | 'ELASTIC'
+  | 'DRAWSTRING'
+  | 'RIBBON'
+  | 'OTHER_TAPE'
   // Decorative (5 including Other Decorative)
-  | 'LACE' | 'SEQUIN' | 'BEAD' | 'MOTIF' | 'OTHER_DECORATIVE'
+  | 'LACE'
+  | 'SEQUIN'
+  | 'BEAD'
+  | 'MOTIF'
+  | 'OTHER_DECORATIVE'
   // Functional (3 including Other Functional) - Label moved to Packaging
-  | 'INTERLINING' | 'PADDING' | 'OTHER_FUNCTIONAL';
+  | 'INTERLINING'
+  | 'PADDING'
+  | 'OTHER_FUNCTIONAL';
 
 // Category type
 export type TrimCategory = 'FASTENERS_CLOSURES' | 'THREADS_TAPES' | 'DECORATIVE' | 'FUNCTIONAL';
@@ -106,7 +118,7 @@ const TRIM_CATEGORIES: CategoryConfig[] = [
       { type: 'BELT', label: 'Belt', icon: '👔', isGeneric: true, genericKey: 'belt' },
       { type: 'VELCRO', label: 'Velcro', icon: '📎', isGeneric: true, genericKey: 'velcro' },
       { type: 'OTHER_FASTENER', label: 'Other Fastener', icon: '🔩', isGeneric: true, genericKey: 'other_fastener' },
-    ]
+    ],
   },
   {
     category: 'THREADS_TAPES',
@@ -118,7 +130,7 @@ const TRIM_CATEGORIES: CategoryConfig[] = [
       { type: 'DRAWSTRING', label: 'Drawstring', icon: '➰', isGeneric: true, genericKey: 'drawstring' },
       { type: 'RIBBON', label: 'Ribbon', icon: '🎗️', isGeneric: true, genericKey: 'ribbon' },
       { type: 'OTHER_TAPE', label: 'Other Tape', icon: '📏', isGeneric: true, genericKey: 'other_tape' },
-    ]
+    ],
   },
   {
     category: 'DECORATIVE',
@@ -129,8 +141,14 @@ const TRIM_CATEGORIES: CategoryConfig[] = [
       { type: 'SEQUIN', label: 'Sequin', icon: '💎', isGeneric: true, genericKey: 'sequin' },
       { type: 'BEAD', label: 'Bead', icon: '📿', isGeneric: true, genericKey: 'bead' },
       { type: 'MOTIF', label: 'Motif', icon: '🌸', isGeneric: true, genericKey: 'motif' },
-      { type: 'OTHER_DECORATIVE', label: 'Other Decorative', icon: '✨', isGeneric: true, genericKey: 'other_decorative' },
-    ]
+      {
+        type: 'OTHER_DECORATIVE',
+        label: 'Other Decorative',
+        icon: '✨',
+        isGeneric: true,
+        genericKey: 'other_decorative',
+      },
+    ],
   },
   {
     category: 'FUNCTIONAL',
@@ -140,13 +158,19 @@ const TRIM_CATEGORIES: CategoryConfig[] = [
       // Note: Labels are managed separately under Packaging (care labels, size labels, brand labels)
       { type: 'INTERLINING', label: 'Interlining', icon: '📄', isGeneric: true, genericKey: 'interlining' },
       { type: 'PADDING', label: 'Padding', icon: '🛡️', isGeneric: true, genericKey: 'padding' },
-      { type: 'OTHER_FUNCTIONAL', label: 'Other Functional', icon: '🔧', isGeneric: true, genericKey: 'other_functional' },
-    ]
-  }
+      {
+        type: 'OTHER_FUNCTIONAL',
+        label: 'Other Functional',
+        icon: '🔧',
+        isGeneric: true,
+        genericKey: 'other_functional',
+      },
+    ],
+  },
 ];
 
 // Flat list for backwards compatibility
-const TRIM_TABS: { type: TrimType; label: string; icon: string }[] = TRIM_CATEGORIES.flatMap(cat => cat.trims);
+const TRIM_TABS: { type: TrimType; label: string; icon: string }[] = TRIM_CATEGORIES.flatMap((cat) => cat.trims);
 
 // Map API keys (snake_case) to state keys (camelCase)
 const SNAKE_TO_CAMEL: Record<string, string> = {
@@ -245,50 +269,65 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   // Load all generic trim types
   const loadGenericTrims = async () => {
     const genericTypes = [
-      'hook_eye', 'snap_button', 'buckle', 'belt', 'velcro',
-      'drawstring', 'ribbon',
-      'sequin', 'bead', 'motif',
-      'interlining', 'padding',
+      'hook_eye',
+      'snap_button',
+      'buckle',
+      'belt',
+      'velcro',
+      'drawstring',
+      'ribbon',
+      'sequin',
+      'bead',
+      'motif',
+      'interlining',
+      'padding',
       // "Others" types
-      'other_fastener', 'other_tape', 'other_decorative', 'other_functional'
+      'other_fastener',
+      'other_tape',
+      'other_decorative',
+      'other_functional',
     ];
 
-    await Promise.all(genericTypes.map(async (trimType) => {
-      try {
-        const config = TRIM_TYPE_CONFIGS[trimType];
-        if (!config) return;
+    await Promise.all(
+      genericTypes.map(async (trimType) => {
+        try {
+          const config = TRIM_TYPE_CONFIGS[trimType];
+          if (!config) return;
 
-        const response = await genericTrimService.getAll(trimType, { limit: 100 });
-        const items: TrimItem[] = response.data.map((item: GenericTrimItem) => ({
-          id: item.id,
-          code: (item as any)[config.codeField],
-          name: (item as any)[config.nameField],
-          color: (item as any).color || null,
-          description: item.description,
-        }));
+          const response = await genericTrimService.getAll(trimType, { limit: 100 });
+          const items: TrimItem[] = response.data.map((item: GenericTrimItem) => ({
+            id: item.id,
+            code: (item as any)[config.codeField],
+            name: (item as any)[config.nameField],
+            color: (item as any).color || null,
+            description: item.description,
+          }));
 
-        // Convert snake_case API key to camelCase state key
-        const stateKey = SNAKE_TO_CAMEL[trimType] || trimType;
-        setGenericTrims(prev => ({
-          ...prev,
-          [stateKey]: items
-        }));
-      } catch (error) {
-        console.error(`Failed to load ${trimType}:`, error);
-      }
-    }));
+          // Convert snake_case API key to camelCase state key
+          const stateKey = SNAKE_TO_CAMEL[trimType] || trimType;
+          setGenericTrims((prev) => ({
+            ...prev,
+            [stateKey]: items,
+          }));
+        } catch (error) {
+          console.error(`Failed to load ${trimType}:`, error);
+        }
+      })
+    );
   };
 
   const loadButtons = async () => {
     try {
       const response = await getAllButtons({ limit: 100 });
-      setButtons(response.data.map((b: ButtonType) => ({
-        id: b.id,
-        code: b.buttonCode,
-        name: b.buttonName,
-        color: b.color,
-        description: b.description,
-      })));
+      setButtons(
+        response.data.map((b: ButtonType) => ({
+          id: b.id,
+          code: b.buttonCode,
+          name: b.buttonName,
+          color: b.color,
+          description: b.description,
+        }))
+      );
     } catch (error) {
       console.error('Failed to load buttons:', error);
     }
@@ -297,13 +336,15 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const loadThreads = async () => {
     try {
       const response = await getAllThreads({ limit: 100 });
-      setThreads(response.data.map((t: Thread) => ({
-        id: t.id,
-        code: t.threadCode,
-        name: t.threadName,
-        color: t.color,
-        description: t.description,
-      })));
+      setThreads(
+        response.data.map((t: Thread) => ({
+          id: t.id,
+          code: t.threadCode,
+          name: t.threadName,
+          color: t.color,
+          description: t.description,
+        }))
+      );
     } catch (error) {
       console.error('Failed to load threads:', error);
     }
@@ -312,13 +353,15 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const loadZippers = async () => {
     try {
       const response = await getAllZippers({ limit: 100 });
-      setZippers(response.data.map((z: Zipper) => ({
-        id: z.id,
-        code: z.zipperCode,
-        name: z.zipperName,
-        color: z.color,
-        description: z.description,
-      })));
+      setZippers(
+        response.data.map((z: Zipper) => ({
+          id: z.id,
+          code: z.zipperCode,
+          name: z.zipperName,
+          color: z.color,
+          description: z.description,
+        }))
+      );
     } catch (error) {
       console.error('Failed to load zippers:', error);
     }
@@ -327,13 +370,15 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const loadElastics = async () => {
     try {
       const response = await getAllElastics({ limit: 100 });
-      setElastics(response.data.map((e: Elastic) => ({
-        id: e.id,
-        code: e.elasticCode,
-        name: e.elasticName,
-        color: e.color,
-        description: e.description,
-      })));
+      setElastics(
+        response.data.map((e: Elastic) => ({
+          id: e.id,
+          code: e.elasticCode,
+          name: e.elasticName,
+          color: e.color,
+          description: e.description,
+        }))
+      );
     } catch (error) {
       console.error('Failed to load elastics:', error);
     }
@@ -342,13 +387,15 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const loadLaces = async () => {
     try {
       const response = await getAllLace({ limit: 100 });
-      setLaces(response.data.map((l: Lace) => ({
-        id: l.id,
-        code: l.laceCode,
-        name: l.laceName,
-        color: l.color,
-        description: l.description,
-      })));
+      setLaces(
+        response.data.map((l: Lace) => ({
+          id: l.id,
+          code: l.laceCode,
+          name: l.laceName,
+          color: l.color,
+          description: l.description,
+        }))
+      );
     } catch (error) {
       console.error('Failed to load laces:', error);
     }
@@ -361,30 +408,52 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const getCurrentItems = (): TrimItem[] => {
     switch (activeTab) {
       // Original 5 trim types (Labels moved to Packaging)
-      case 'BUTTON': return buttons;
-      case 'THREAD': return threads;
-      case 'ZIPPER': return zippers;
-      case 'ELASTIC': return elastics;
-      case 'LACE': return laces;
+      case 'BUTTON':
+        return buttons;
+      case 'THREAD':
+        return threads;
+      case 'ZIPPER':
+        return zippers;
+      case 'ELASTIC':
+        return elastics;
+      case 'LACE':
+        return laces;
       // New 16 generic trim types (camelCase keys)
-      case 'HOOK_EYE': return genericTrims.hookEye || [];
-      case 'SNAP_BUTTON': return genericTrims.snapButton || [];
-      case 'BUCKLE': return genericTrims.buckle || [];
-      case 'BELT': return genericTrims.belt || [];
-      case 'VELCRO': return genericTrims.velcro || [];
-      case 'DRAWSTRING': return genericTrims.drawstring || [];
-      case 'RIBBON': return genericTrims.ribbon || [];
-      case 'SEQUIN': return genericTrims.sequin || [];
-      case 'BEAD': return genericTrims.bead || [];
-      case 'MOTIF': return genericTrims.motif || [];
-      case 'INTERLINING': return genericTrims.interlining || [];
-      case 'PADDING': return genericTrims.padding || [];
+      case 'HOOK_EYE':
+        return genericTrims.hookEye || [];
+      case 'SNAP_BUTTON':
+        return genericTrims.snapButton || [];
+      case 'BUCKLE':
+        return genericTrims.buckle || [];
+      case 'BELT':
+        return genericTrims.belt || [];
+      case 'VELCRO':
+        return genericTrims.velcro || [];
+      case 'DRAWSTRING':
+        return genericTrims.drawstring || [];
+      case 'RIBBON':
+        return genericTrims.ribbon || [];
+      case 'SEQUIN':
+        return genericTrims.sequin || [];
+      case 'BEAD':
+        return genericTrims.bead || [];
+      case 'MOTIF':
+        return genericTrims.motif || [];
+      case 'INTERLINING':
+        return genericTrims.interlining || [];
+      case 'PADDING':
+        return genericTrims.padding || [];
       // "Others" types
-      case 'OTHER_FASTENER': return genericTrims.otherFastener || [];
-      case 'OTHER_TAPE': return genericTrims.otherTape || [];
-      case 'OTHER_DECORATIVE': return genericTrims.otherDecorative || [];
-      case 'OTHER_FUNCTIONAL': return genericTrims.otherFunctional || [];
-      default: return [];
+      case 'OTHER_FASTENER':
+        return genericTrims.otherFastener || [];
+      case 'OTHER_TAPE':
+        return genericTrims.otherTape || [];
+      case 'OTHER_DECORATIVE':
+        return genericTrims.otherDecorative || [];
+      case 'OTHER_FUNCTIONAL':
+        return genericTrims.otherFunctional || [];
+      default:
+        return [];
     }
   };
 
@@ -394,10 +463,11 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     if (!searchQuery) return items;
 
     const query = searchQuery.toLowerCase();
-    return items.filter(item =>
-      item.name.toLowerCase().includes(query) ||
-      item.code.toLowerCase().includes(query) ||
-      item.color?.toLowerCase().includes(query)
+    return items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(query) ||
+        item.code.toLowerCase().includes(query) ||
+        item.color?.toLowerCase().includes(query)
     );
   }, [activeTab, searchQuery, buttons, threads, zippers, elastics, laces, genericTrims]);
 
@@ -416,8 +486,14 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     const results: GlobalSearchResult[] = [];
 
     // Helper to add results from an array
-    const addResults = (items: TrimItem[], trimType: TrimType, trimLabel: string, trimIcon: string, categoryLabel: string) => {
-      items.forEach(item => {
+    const addResults = (
+      items: TrimItem[],
+      trimType: TrimType,
+      trimLabel: string,
+      trimIcon: string,
+      categoryLabel: string
+    ) => {
+      items.forEach((item) => {
         if (
           item.name.toLowerCase().includes(query) ||
           item.code.toLowerCase().includes(query) ||
@@ -442,8 +518,8 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     addResults(laces, 'LACE', 'Lace', '🎀', 'Decorative');
 
     // Search generic trim types (includes interlining, padding, other_functional under Functional)
-    TRIM_CATEGORIES.forEach(cat => {
-      cat.trims.forEach(trim => {
+    TRIM_CATEGORIES.forEach((cat) => {
+      cat.trims.forEach((trim) => {
         if (trim.isGeneric && trim.genericKey) {
           const stateKey = SNAKE_TO_CAMEL[trim.genericKey] || trim.genericKey;
           const items = genericTrims[stateKey] || [];
@@ -459,9 +535,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const toggleGlobalSearchItem = (result: GlobalSearchResult) => {
     if (disabled) return;
 
-    const existingIndex = selectedTrims.findIndex(
-      t => t.trimType === result.trimType && t.masterId === result.id
-    );
+    const existingIndex = selectedTrims.findIndex((t) => t.trimType === result.trimType && t.masterId === result.id);
 
     if (existingIndex >= 0) {
       // Remove
@@ -483,7 +557,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   // Check if global search result is selected
   const isGlobalResultSelected = (result: GlobalSearchResult): boolean => {
-    return selectedTrims.some(t => t.trimType === result.trimType && t.masterId === result.id);
+    return selectedTrims.some((t) => t.trimType === result.trimType && t.masterId === result.id);
   };
 
   // Exit global search mode
@@ -494,7 +568,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   // Check if item is selected
   const isSelected = (trimType: TrimType, masterId: string): boolean => {
-    return selectedTrims.some(t => t.trimType === trimType && t.masterId === masterId);
+    return selectedTrims.some((t) => t.trimType === trimType && t.masterId === masterId);
   };
 
   // Toggle item selection
@@ -502,9 +576,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     if (disabled) return;
 
     const trimType = activeTab;
-    const existingIndex = selectedTrims.findIndex(
-      t => t.trimType === trimType && t.masterId === item.id
-    );
+    const existingIndex = selectedTrims.findIndex((t) => t.trimType === trimType && t.masterId === item.id);
 
     if (existingIndex >= 0) {
       // Remove
@@ -527,12 +599,12 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   // Remove a selected trim
   const removeTrim = (trim: StyleTrim) => {
     if (disabled) return;
-    onChange(selectedTrims.filter(t => !(t.trimType === trim.trimType && t.masterId === trim.masterId)));
+    onChange(selectedTrims.filter((t) => !(t.trimType === trim.trimType && t.masterId === trim.masterId)));
   };
 
   // Get count of selected items for a tab
   const getSelectedCount = (trimType: TrimType): number => {
-    return selectedTrims.filter(t => t.trimType === trimType).length;
+    return selectedTrims.filter((t) => t.trimType === trimType).length;
   };
 
   // Handle material created from quick add dialog
@@ -549,68 +621,68 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     // Update the appropriate state based on active tab
     switch (activeTab) {
       case 'BUTTON':
-        setButtons(prev => [...prev, trimItem]);
+        setButtons((prev) => [...prev, trimItem]);
         break;
       case 'THREAD':
-        setThreads(prev => [...prev, trimItem]);
+        setThreads((prev) => [...prev, trimItem]);
         break;
       case 'ZIPPER':
-        setZippers(prev => [...prev, trimItem]);
+        setZippers((prev) => [...prev, trimItem]);
         break;
       case 'ELASTIC':
-        setElastics(prev => [...prev, trimItem]);
+        setElastics((prev) => [...prev, trimItem]);
         break;
       case 'LACE':
-        setLaces(prev => [...prev, trimItem]);
+        setLaces((prev) => [...prev, trimItem]);
         break;
       // Generic trims - use camelCase state keys
       case 'HOOK_EYE':
-        setGenericTrims(prev => ({ ...prev, hookEye: [...(prev.hookEye || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, hookEye: [...(prev.hookEye || []), trimItem] }));
         break;
       case 'SNAP_BUTTON':
-        setGenericTrims(prev => ({ ...prev, snapButton: [...(prev.snapButton || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, snapButton: [...(prev.snapButton || []), trimItem] }));
         break;
       case 'BUCKLE':
-        setGenericTrims(prev => ({ ...prev, buckle: [...(prev.buckle || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, buckle: [...(prev.buckle || []), trimItem] }));
         break;
       case 'BELT':
-        setGenericTrims(prev => ({ ...prev, belt: [...(prev.belt || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, belt: [...(prev.belt || []), trimItem] }));
         break;
       case 'VELCRO':
-        setGenericTrims(prev => ({ ...prev, velcro: [...(prev.velcro || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, velcro: [...(prev.velcro || []), trimItem] }));
         break;
       case 'DRAWSTRING':
-        setGenericTrims(prev => ({ ...prev, drawstring: [...(prev.drawstring || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, drawstring: [...(prev.drawstring || []), trimItem] }));
         break;
       case 'RIBBON':
-        setGenericTrims(prev => ({ ...prev, ribbon: [...(prev.ribbon || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, ribbon: [...(prev.ribbon || []), trimItem] }));
         break;
       case 'SEQUIN':
-        setGenericTrims(prev => ({ ...prev, sequin: [...(prev.sequin || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, sequin: [...(prev.sequin || []), trimItem] }));
         break;
       case 'BEAD':
-        setGenericTrims(prev => ({ ...prev, bead: [...(prev.bead || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, bead: [...(prev.bead || []), trimItem] }));
         break;
       case 'MOTIF':
-        setGenericTrims(prev => ({ ...prev, motif: [...(prev.motif || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, motif: [...(prev.motif || []), trimItem] }));
         break;
       case 'INTERLINING':
-        setGenericTrims(prev => ({ ...prev, interlining: [...(prev.interlining || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, interlining: [...(prev.interlining || []), trimItem] }));
         break;
       case 'PADDING':
-        setGenericTrims(prev => ({ ...prev, padding: [...(prev.padding || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, padding: [...(prev.padding || []), trimItem] }));
         break;
       case 'OTHER_FASTENER':
-        setGenericTrims(prev => ({ ...prev, otherFastener: [...(prev.otherFastener || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, otherFastener: [...(prev.otherFastener || []), trimItem] }));
         break;
       case 'OTHER_TAPE':
-        setGenericTrims(prev => ({ ...prev, otherTape: [...(prev.otherTape || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, otherTape: [...(prev.otherTape || []), trimItem] }));
         break;
       case 'OTHER_DECORATIVE':
-        setGenericTrims(prev => ({ ...prev, otherDecorative: [...(prev.otherDecorative || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, otherDecorative: [...(prev.otherDecorative || []), trimItem] }));
         break;
       case 'OTHER_FUNCTIONAL':
-        setGenericTrims(prev => ({ ...prev, otherFunctional: [...(prev.otherFunctional || []), trimItem] }));
+        setGenericTrims((prev) => ({ ...prev, otherFunctional: [...(prev.otherFunctional || []), trimItem] }));
         break;
     }
 
@@ -629,12 +701,12 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
   // Get icon for trim type
   const getTrimIcon = (trimType: TrimType): string => {
-    return TRIM_TABS.find(t => t.type === trimType)?.icon || '📦';
+    return TRIM_TABS.find((t) => t.type === trimType)?.icon || '📦';
   };
 
   // Get selected count for a category
   const getCategorySelectedCount = (category: TrimCategory): number => {
-    const categoryConfig = TRIM_CATEGORIES.find(c => c.category === category);
+    const categoryConfig = TRIM_CATEGORIES.find((c) => c.category === category);
     if (!categoryConfig) return 0;
     return categoryConfig.trims.reduce((sum, t) => sum + getSelectedCount(t.type), 0);
   };
@@ -643,12 +715,15 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const handleCategorySelect = (category: TrimCategory) => {
     setActiveCategory(category);
     // Expand this category, collapse others
-    setExpandedCategories(prev => ({
-      ...Object.fromEntries(Object.keys(prev).map(k => [k, false])),
-      [category]: true,
-    } as Record<TrimCategory, boolean>));
+    setExpandedCategories(
+      (prev) =>
+        ({
+          ...Object.fromEntries(Object.keys(prev).map((k) => [k, false])),
+          [category]: true,
+        }) as Record<TrimCategory, boolean>
+    );
     // Set the first trim in this category as active
-    const categoryConfig = TRIM_CATEGORIES.find(c => c.category === category);
+    const categoryConfig = TRIM_CATEGORIES.find((c) => c.category === category);
     if (categoryConfig && categoryConfig.trims.length > 0) {
       setActiveTab(categoryConfig.trims[0].type);
     }
@@ -656,15 +731,13 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   };
 
   // Get current tab info
-  const currentTabInfo = TRIM_TABS.find(t => t.type === activeTab);
+  const currentTabInfo = TRIM_TABS.find((t) => t.type === activeTab);
 
   return (
     <div className="space-y-4">
       {/* Show selected trims grouped by category */}
-      {TRIM_CATEGORIES.map(cat => {
-        const categoryTrims = selectedTrims.filter(t =>
-          cat.trims.some(trimDef => trimDef.type === t.trimType)
-        );
+      {TRIM_CATEGORIES.map((cat) => {
+        const categoryTrims = selectedTrims.filter((t) => cat.trims.some((trimDef) => trimDef.type === t.trimType));
         if (categoryTrims.length === 0) return null;
 
         return (
@@ -687,10 +760,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                   <span className="text-xs">{trim.masterName}</span>
                   {trim.color && (
                     <div className="flex items-center gap-1">
-                      <Circle
-                        className="h-2.5 w-2.5"
-                        style={{ fill: trim.color, stroke: trim.color }}
-                      />
+                      <Circle className="h-2.5 w-2.5" style={{ fill: trim.color, stroke: trim.color }} />
                     </div>
                   )}
                   {!disabled && (
@@ -734,12 +804,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
         <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>Browse & Add Trims</DialogTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setQuickAddOpen(true)}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={() => setQuickAddOpen(true)}>
               <Plus className="h-4 w-4 mr-1" />
               Create New
             </Button>
@@ -761,12 +826,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                   />
                 </div>
                 {isGlobalSearchMode && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={exitGlobalSearch}
-                  >
+                  <Button type="button" variant="ghost" size="sm" onClick={exitGlobalSearch}>
                     <X className="h-4 w-4" />
                   </Button>
                 )}
@@ -794,9 +854,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                 {loading ? (
                   <div className="p-4 text-center text-gray-500">Loading...</div>
                 ) : globalSearchResults.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
-                    No trims found matching "{globalSearchQuery}"
-                  </div>
+                  <div className="p-4 text-center text-gray-500">No trims found matching "{globalSearchQuery}"</div>
                 ) : (
                   <div className="divide-y">
                     {globalSearchResults.map((result, index) => (
@@ -826,10 +884,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                             <span className="text-xs text-gray-400">{result.categoryLabel}</span>
                             {result.color && (
                               <div className="flex items-center gap-1">
-                                <Circle
-                                  className="h-3 w-3"
-                                  style={{ fill: result.color, stroke: result.color }}
-                                />
+                                <Circle className="h-3 w-3" style={{ fill: result.color, stroke: result.color }} />
                                 <span className="text-xs text-gray-500">{result.color}</span>
                               </div>
                             )}
@@ -844,14 +899,21 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
             {/* Category Tabs - Hide when in global search mode */}
             {!isGlobalSearchMode && (
-              <Tabs value={activeCategory} onValueChange={(v) => handleCategorySelect(v as TrimCategory)} className="h-full flex flex-col">
+              <Tabs
+                value={activeCategory}
+                onValueChange={(v) => handleCategorySelect(v as TrimCategory)}
+                className="h-full flex flex-col"
+              >
                 <TabsList className="grid grid-cols-4 w-full">
-                  {TRIM_CATEGORIES.map(cat => (
+                  {TRIM_CATEGORIES.map((cat) => (
                     <TabsTrigger key={cat.category} value={cat.category} className="text-xs sm:text-sm">
                       <span className="hidden sm:inline">{cat.label}</span>
                       <span className="sm:hidden">{cat.label.split(' ')[0]}</span>
                       {getCategorySelectedCount(cat.category) > 0 && (
-                        <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                        <Badge
+                          variant="secondary"
+                          className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                        >
                           {getCategorySelectedCount(cat.category)}
                         </Badge>
                       )}
@@ -859,16 +921,23 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                   ))}
                 </TabsList>
 
-                {TRIM_CATEGORIES.map(cat => (
-                  <TabsContent key={cat.category} value={cat.category} className="flex-1 flex flex-col mt-4 overflow-hidden">
+                {TRIM_CATEGORIES.map((cat) => (
+                  <TabsContent
+                    key={cat.category}
+                    value={cat.category}
+                    className="flex-1 flex flex-col mt-4 overflow-hidden"
+                  >
                     {/* Trim Type Sub-tabs within category */}
                     <div className="mb-4">
                       <div className="flex flex-wrap gap-2">
-                        {cat.trims.map(trim => (
+                        {cat.trims.map((trim) => (
                           <button
                             key={trim.type}
                             type="button"
-                            onClick={() => { setActiveTab(trim.type); setSearchQuery(''); }}
+                            onClick={() => {
+                              setActiveTab(trim.type);
+                              setSearchQuery('');
+                            }}
                             className={cn(
                               'inline-flex items-center px-3 py-1.5 rounded-full text-sm border transition-colors',
                               activeTab === trim.type
@@ -879,7 +948,10 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                             <span className="mr-1.5">{trim.icon}</span>
                             <span>{trim.label}</span>
                             {getSelectedCount(trim.type) > 0 && (
-                              <Badge variant={activeTab === trim.type ? "outline" : "secondary"} className="ml-1.5 h-5 min-w-[20px] p-0 flex items-center justify-center text-xs">
+                              <Badge
+                                variant={activeTab === trim.type ? 'outline' : 'secondary'}
+                                className="ml-1.5 h-5 min-w-[20px] p-0 flex items-center justify-center text-xs"
+                              >
                                 {getSelectedCount(trim.type)}
                               </Badge>
                             )}
@@ -905,11 +977,13 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                         <div className="p-4 text-center text-gray-500">Loading...</div>
                       ) : filteredItems.length === 0 ? (
                         <div className="p-4 text-center text-gray-500">
-                          {searchQuery ? 'No matching items found' : `No ${currentTabInfo?.label.toLowerCase() || 'items'} available`}
+                          {searchQuery
+                            ? 'No matching items found'
+                            : `No ${currentTabInfo?.label.toLowerCase() || 'items'} available`}
                         </div>
                       ) : (
                         <div className="divide-y">
-                          {filteredItems.map(item => (
+                          {filteredItems.map((item) => (
                             <label
                               key={item.id}
                               className={cn(
@@ -930,10 +1004,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                                 </div>
                                 {item.color && (
                                   <div className="flex items-center gap-1 mt-1">
-                                    <Circle
-                                      className="h-3 w-3"
-                                      style={{ fill: item.color, stroke: item.color }}
-                                    />
+                                    <Circle className="h-3 w-3" style={{ fill: item.color, stroke: item.color }} />
                                     <span className="text-xs text-gray-500">{item.color}</span>
                                   </div>
                                 )}

@@ -41,7 +41,12 @@ export default function EmbroideryStockSendOut() {
 
   // Navigation timeout ref for cleanup
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    },
+    []
+  );
 
   // Data lists
   const [fabricStockList, setFabricStockList] = useState<FabricStock[]>([]);
@@ -447,7 +452,9 @@ export default function EmbroideryStockSendOut() {
                           </div>
                           <div>
                             <span className="text-gray-600">Cost/meter:</span>
-                            <p className="font-medium text-green-600">{formatCurrency(selectedEmbroidery.costPerMeter)}</p>
+                            <p className="font-medium text-green-600">
+                              {formatCurrency(selectedEmbroidery.costPerMeter)}
+                            </p>
                           </div>
                           <div>
                             <span className="text-gray-600">Lead Time:</span>
@@ -611,8 +618,7 @@ export default function EmbroideryStockSendOut() {
                         <span className="text-gray-600">Combined Cost (Fabric + Embroidery):</span>
                         <span className="font-bold text-blue-600">
                           {formatCurrency(
-                            parseFloat(formData.quantitySent || '0') * selectedStock.weightedAvgCost +
-                            estimatedCost
+                            parseFloat(formData.quantitySent || '0') * selectedStock.weightedAvgCost + estimatedCost
                           )}
                         </span>
                       </div>

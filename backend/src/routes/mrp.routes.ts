@@ -229,7 +229,10 @@ router.post('/processing-assignment/suggest', asyncHandler(vendorSuggestionContr
  * @access  Private
  * @body    { assignments: [{ requirementId: string, processorId: string }] }
  */
-router.post('/processing-assignment/bulk-assign', asyncHandler(vendorSuggestionController.bulkAssignProcessorsForProcessing));
+router.post(
+  '/processing-assignment/bulk-assign',
+  asyncHandler(vendorSuggestionController.bulkAssignProcessorsForProcessing)
+);
 
 /**
  * @route   POST /api/mrp/processing-assignment/auto-assign
@@ -237,7 +240,10 @@ router.post('/processing-assignment/bulk-assign', asyncHandler(vendorSuggestionC
  * @access  Private
  * @body    { requirementIds: string[], minConfidence?: 'high' | 'medium' }
  */
-router.post('/processing-assignment/auto-assign', asyncHandler(vendorSuggestionController.autoAssignProcessorsForProcessing));
+router.post(
+  '/processing-assignment/auto-assign',
+  asyncHandler(vendorSuggestionController.autoAssignProcessorsForProcessing)
+);
 
 /**
  * @route   GET /api/mrp/processing-assignment/processors

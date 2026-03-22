@@ -122,10 +122,11 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 // Start the server and store the instance
-startServer().then((serverInstance) => {
-  server = serverInstance;
-}).catch((error) => {
-  logError('Failed to start server:', error);
-  process.exit(1);
-});
-
+startServer()
+  .then((serverInstance) => {
+    server = serverInstance;
+  })
+  .catch((error) => {
+    logError('Failed to start server:', error);
+    process.exit(1);
+  });

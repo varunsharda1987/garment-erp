@@ -71,13 +71,7 @@ export default function ProtectedRoute({
 
   if (!hasAccess) {
     // Redirect to dashboard with unauthorized state
-    return (
-      <Navigate
-        to={unauthorizedRedirect}
-        replace
-        state={{ unauthorized: true, from: location }}
-      />
-    );
+    return <Navigate to={unauthorizedRedirect} replace state={{ unauthorized: true, from: location }} />;
   }
 
   return <>{children}</>;

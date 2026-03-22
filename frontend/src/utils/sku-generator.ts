@@ -54,19 +54,16 @@ export function generateSKU(styleCode: string, sizeName: string): string {
  * //   { size: "L", sku: "ABC123L", barcode: "", isActive: true }
  * // ]
  */
-export function generateSKUMatrix(
-  styleCode: string,
-  sizes: string[]
-): SKUVariant[] {
+export function generateSKUMatrix(styleCode: string, sizes: string[]): SKUVariant[] {
   if (!styleCode || !sizes || sizes.length === 0) {
     return [];
   }
 
-  return sizes.map(size => ({
+  return sizes.map((size) => ({
     size,
     sku: generateSKU(styleCode, size),
     barcode: '',
-    isActive: true
+    isActive: true,
   }));
 }
 
@@ -89,15 +86,15 @@ export function validateSKUFormat(sku: string): boolean {
  * Default size order mapping for sorting
  */
 export const SIZE_ORDER: Record<string, number> = {
-  'XS': 0,
-  'S': 1,
-  'M': 2,
-  'L': 3,
-  'XL': 4,
-  'XXL': 5,
-  'XXXL': 6,
-  '2XL': 5,  // Alias for XXL
-  '3XL': 6,  // Alias for XXXL
+  XS: 0,
+  S: 1,
+  M: 2,
+  L: 3,
+  XL: 4,
+  XXL: 5,
+  XXXL: 6,
+  '2XL': 5, // Alias for XXL
+  '3XL': 6, // Alias for XXXL
 };
 
 /**
@@ -124,7 +121,7 @@ export function getSizeOrder(sizeName: string): number {
 export function findDuplicateSKUs(variants: SKUVariant[]): string[] {
   const skuCount = new Map<string, number>();
 
-  variants.forEach(v => {
+  variants.forEach((v) => {
     const count = skuCount.get(v.sku) || 0;
     skuCount.set(v.sku, count + 1);
   });

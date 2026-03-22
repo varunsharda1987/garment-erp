@@ -69,7 +69,8 @@ export default function CustomerDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'SALES' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'SALES' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -176,10 +177,7 @@ export default function CustomerDetail() {
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <CardTitle className="text-3xl">{customer.name}</CardTitle>
-                  <StatusBadge
-                    status={customer.category}
-                    variant={getCategoryVariant(customer.category)}
-                  />
+                  <StatusBadge status={customer.category} variant={getCategoryVariant(customer.category)} />
                   <StatusBadge
                     status={customer.isActive ? 'Active' : 'Inactive'}
                     variant={customer.isActive ? 'success' : 'secondary'}
@@ -247,10 +245,7 @@ export default function CustomerDetail() {
                     <p className="font-medium text-gray-900 mb-1">{brandName}</p>
                     <div className="flex flex-wrap gap-1">
                       {categories.map((cat, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
-                        >
+                        <span key={idx} className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
                           {cat}
                         </span>
                       ))}
@@ -396,9 +391,7 @@ export default function CustomerDetail() {
                   <p className="text-gray-900 font-medium">
                     {customer.agent.code} - {customer.agent.name}
                   </p>
-                  {customer.agent.phone && (
-                    <p className="text-sm text-gray-600">{customer.agent.phone}</p>
-                  )}
+                  {customer.agent.phone && <p className="text-sm text-gray-600">{customer.agent.phone}</p>}
                 </div>
                 {customer.agentCommissionPercent != null && (
                   <div>
@@ -406,9 +399,7 @@ export default function CustomerDetail() {
                       <Percent className="h-4 w-4" />
                       Commission
                     </label>
-                    <p className="text-gray-900 text-xl font-semibold">
-                      {customer.agentCommissionPercent}%
-                    </p>
+                    <p className="text-gray-900 text-xl font-semibold">{customer.agentCommissionPercent}%</p>
                   </div>
                 )}
               </CardContent>
@@ -435,10 +426,7 @@ export default function CustomerDetail() {
 
         {/* Accessory Presets Section */}
         <div className="mt-6">
-          <CustomerAccessoryPresets
-            customerId={customer.id}
-            customerName={customer.name}
-          />
+          <CustomerAccessoryPresets customerId={customer.id} customerName={customer.name} />
         </div>
       </main>
     </div>

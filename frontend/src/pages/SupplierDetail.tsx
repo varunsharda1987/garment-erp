@@ -19,7 +19,8 @@ export default function SupplierDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -70,9 +71,7 @@ export default function SupplierDetail() {
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            className={`h-5 w-5 ${
-              star <= stars ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
-            }`}
+            className={`h-5 w-5 ${star <= stars ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
           />
         ))}
       </div>
@@ -141,11 +140,7 @@ export default function SupplierDetail() {
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <CardTitle className="text-3xl">{supplier.name}</CardTitle>
                   {(supplier.supplierCategories || []).map((cat) => (
-                    <StatusBadge
-                      key={cat}
-                      status={SupplierCategoryLabels[cat]}
-                      variant={getCategoryVariant(cat)}
-                    />
+                    <StatusBadge key={cat} status={SupplierCategoryLabels[cat]} variant={getCategoryVariant(cat)} />
                   ))}
                   <StatusBadge
                     status={supplier.isActive ? 'Active' : 'Inactive'}
@@ -252,7 +247,7 @@ export default function SupplierDetail() {
               {supplier.gstNumbers && supplier.gstNumbers.length > 0 && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">GST Number(s)</label>
-                  <p className="text-gray-900 font-mono">{supplier.gstNumbers.map(g => g.gstNumber).join(', ')}</p>
+                  <p className="text-gray-900 font-mono">{supplier.gstNumbers.map((g) => g.gstNumber).join(', ')}</p>
                 </div>
               )}
               {supplier.paymentTerms && (
@@ -328,9 +323,7 @@ export default function SupplierDetail() {
           {supplier.categoryData && Object.keys(supplier.categoryData).length > 0 && (
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-lg">
-                  Category-Specific Details
-                </CardTitle>
+                <CardTitle className="text-lg">Category-Specific Details</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

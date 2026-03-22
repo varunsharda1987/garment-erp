@@ -59,10 +59,9 @@ export const fabricStockService = {
    * Get fabric stock summary for unified dashboard
    */
   async getSummary(): Promise<FabricStockSummary> {
-    const response = await axios.get<ApiResponse<FabricStockSummary>>(
-      `${BASE_URL}/summary`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<FabricStockSummary>>(`${BASE_URL}/summary`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data;
   },
 
@@ -95,10 +94,9 @@ export const fabricStockService = {
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
 
-    const response = await axios.get<FabricStockListResponse>(
-      `${BASE_URL}?${queryParams.toString()}`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<FabricStockListResponse>(`${BASE_URL}?${queryParams.toString()}`, {
+      headers: getAuthHeader(),
+    });
     return response.data;
   },
 };

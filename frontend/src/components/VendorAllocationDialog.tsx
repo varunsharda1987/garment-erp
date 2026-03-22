@@ -9,13 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, CheckCircle, AlertTriangle, HelpCircle, Sparkles } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -166,10 +160,7 @@ export default function VendorAllocationDialog({
       }
 
       const result = await bulkAssignVendors(assignmentList);
-      handleApiSuccess(
-        'Vendors Assigned',
-        `${result.updatedCount} requirements assigned to vendors`
-      );
+      handleApiSuccess('Vendors Assigned', `${result.updatedCount} requirements assigned to vendors`);
       onOpenChange(false);
       onComplete?.();
     } catch (err) {
@@ -190,12 +181,15 @@ export default function VendorAllocationDialog({
     }
   };
 
-  const stats = suggestions.length > 0 ? {
-    high: suggestions.filter((s) => s.confidence === 'high').length,
-    medium: suggestions.filter((s) => s.confidence === 'medium').length,
-    low: suggestions.filter((s) => s.confidence === 'low').length,
-    withSuggestion: suggestions.filter((s) => s.suggestedSupplierId !== null).length,
-  } : null;
+  const stats =
+    suggestions.length > 0
+      ? {
+          high: suggestions.filter((s) => s.confidence === 'high').length,
+          medium: suggestions.filter((s) => s.confidence === 'medium').length,
+          low: suggestions.filter((s) => s.confidence === 'low').length,
+          withSuggestion: suggestions.filter((s) => s.suggestedSupplierId !== null).length,
+        }
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -217,9 +211,7 @@ export default function VendorAllocationDialog({
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-3 text-sm text-muted-foreground">
-              Analyzing materials and suggesting vendors...
-            </span>
+            <span className="ml-3 text-sm text-muted-foreground">Analyzing materials and suggesting vendors...</span>
           </div>
         ) : (
           <>
@@ -260,9 +252,7 @@ export default function VendorAllocationDialog({
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         {suggestion.materialCode && (
-                          <span className="text-xs text-muted-foreground">
-                            Code: {suggestion.materialCode}
-                          </span>
+                          <span className="text-xs text-muted-foreground">Code: {suggestion.materialCode}</span>
                         )}
                         {suggestion.materialType && (
                           <Badge variant="secondary" className="text-xs">
@@ -283,20 +273,14 @@ export default function VendorAllocationDialog({
                   </div>
 
                   {/* Suggestion Reason */}
-                  <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
-                    💡 {suggestion.reason}
-                  </div>
+                  <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">💡 {suggestion.reason}</div>
 
                   {/* Vendor Selection */}
                   <div className="flex items-center gap-3">
-                    <label className="text-sm font-medium text-foreground min-w-[100px]">
-                      Assign to:
-                    </label>
+                    <label className="text-sm font-medium text-foreground min-w-[100px]">Assign to:</label>
                     <Select
                       value={assignments.get(suggestion.requirementId) || ''}
-                      onValueChange={(value) =>
-                        handleAssignmentChange(suggestion.requirementId, value)
-                      }
+                      onValueChange={(value) => handleAssignmentChange(suggestion.requirementId, value)}
                     >
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Select vendor..." />

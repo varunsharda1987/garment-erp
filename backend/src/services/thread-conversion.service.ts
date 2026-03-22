@@ -60,10 +60,7 @@ export async function getPackagingSpec(
       };
     }
   } catch (error) {
-    console.warn(
-      `Database lookup failed for ${ply} ${packagingType}, using hardcoded fallback:`,
-      error
-    );
+    console.warn(`Database lookup failed for ${ply} ${packagingType}, using hardcoded fallback:`, error);
   }
 
   // Fallback to hardcoded specs
@@ -73,23 +70,20 @@ export async function getPackagingSpec(
 /**
  * Hardcoded packaging specs (fallback)
  */
-function getHardcodedPackagingSpec(
-  ply: ThreadPly,
-  packagingType: ThreadPackagingType
-): ThreadPackagingSpec {
+function getHardcodedPackagingSpec(ply: ThreadPly, packagingType: ThreadPackagingType): ThreadPackagingSpec {
   const specs: Record<string, ThreadPackagingSpec> = {
-    'THREE_PLY_SPOOL': { ply: 'THREE_PLY', packagingType: 'SPOOL', unitsPerBox: 15, metersPerUnit: 400 },
-    'THREE_PLY_CONE_5K': { ply: 'THREE_PLY', packagingType: 'CONE_5K', unitsPerBox: 10, metersPerUnit: 5000 },
-    'THREE_PLY_CONE_10K': { ply: 'THREE_PLY', packagingType: 'CONE_10K', unitsPerBox: 10, metersPerUnit: 10000 },
-    'TWO_PLY_SPOOL': { ply: 'TWO_PLY', packagingType: 'SPOOL', unitsPerBox: 10, metersPerUnit: 800 },
-    'TWO_PLY_CONE_5K': { ply: 'TWO_PLY', packagingType: 'CONE_5K', unitsPerBox: 10, metersPerUnit: 5000 },
-    'TWO_PLY_CONE_10K': { ply: 'TWO_PLY', packagingType: 'CONE_10K', unitsPerBox: 10, metersPerUnit: 10000 },
+    THREE_PLY_SPOOL: { ply: 'THREE_PLY', packagingType: 'SPOOL', unitsPerBox: 15, metersPerUnit: 400 },
+    THREE_PLY_CONE_5K: { ply: 'THREE_PLY', packagingType: 'CONE_5K', unitsPerBox: 10, metersPerUnit: 5000 },
+    THREE_PLY_CONE_10K: { ply: 'THREE_PLY', packagingType: 'CONE_10K', unitsPerBox: 10, metersPerUnit: 10000 },
+    TWO_PLY_SPOOL: { ply: 'TWO_PLY', packagingType: 'SPOOL', unitsPerBox: 10, metersPerUnit: 800 },
+    TWO_PLY_CONE_5K: { ply: 'TWO_PLY', packagingType: 'CONE_5K', unitsPerBox: 10, metersPerUnit: 5000 },
+    TWO_PLY_CONE_10K: { ply: 'TWO_PLY', packagingType: 'CONE_10K', unitsPerBox: 10, metersPerUnit: 10000 },
     // Legacy CONE mapping (default to CONE_5K)
-    'THREE_PLY_CONE': { ply: 'THREE_PLY', packagingType: 'CONE', unitsPerBox: 10, metersPerUnit: 5000 },
-    'TWO_PLY_CONE': { ply: 'TWO_PLY', packagingType: 'CONE', unitsPerBox: 10, metersPerUnit: 5000 },
+    THREE_PLY_CONE: { ply: 'THREE_PLY', packagingType: 'CONE', unitsPerBox: 10, metersPerUnit: 5000 },
+    TWO_PLY_CONE: { ply: 'TWO_PLY', packagingType: 'CONE', unitsPerBox: 10, metersPerUnit: 5000 },
     // Legacy TUBE mapping (default to small spool)
-    'THREE_PLY_TUBE': { ply: 'THREE_PLY', packagingType: 'TUBE', unitsPerBox: 15, metersPerUnit: 400 },
-    'TWO_PLY_TUBE': { ply: 'TWO_PLY', packagingType: 'TUBE', unitsPerBox: 10, metersPerUnit: 800 },
+    THREE_PLY_TUBE: { ply: 'THREE_PLY', packagingType: 'TUBE', unitsPerBox: 15, metersPerUnit: 400 },
+    TWO_PLY_TUBE: { ply: 'TWO_PLY', packagingType: 'TUBE', unitsPerBox: 10, metersPerUnit: 800 },
   };
 
   const key = `${ply}_${packagingType}`;

@@ -42,15 +42,45 @@ export default function GreigeBulkImport() {
     ];
 
     // Create header row
-    const headerRow = columns.map(col => col.header);
+    const headerRow = columns.map((col) => col.header);
 
     // Create Required/Optional indicator row
-    const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
+    const requiredRow = columns.map((col) => (col.required ? 'Required' : 'Optional'));
 
     // Sample data rows
     const sampleData = [
-      ['Cambric', '40×40', '92×88', 63, 61, '100% Cotton', 'Plain', '120-130', 58, 61, 8, 'High quality cambric fabric', '', 'TRUE'],
-      ['Poplin', '40×40', '133×72', 60, 58, '100% Cotton', 'Plain', '120-130', 54, 58, 8, 'Cotton poplin greige', '', 'TRUE'],
+      [
+        'Cambric',
+        '40×40',
+        '92×88',
+        63,
+        61,
+        '100% Cotton',
+        'Plain',
+        '120-130',
+        58,
+        61,
+        8,
+        'High quality cambric fabric',
+        '',
+        'TRUE',
+      ],
+      [
+        'Poplin',
+        '40×40',
+        '133×72',
+        60,
+        58,
+        '100% Cotton',
+        'Plain',
+        '120-130',
+        54,
+        58,
+        8,
+        'Cotton poplin greige',
+        '',
+        'TRUE',
+      ],
     ];
 
     // Create sheet data with headers, required/optional row, and sample data
@@ -99,7 +129,12 @@ export default function GreigeBulkImport() {
         const worksheet = workbook.Sheets[sheetName];
 
         // Get raw data as array of arrays to check for indicator row
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (
+          | string
+          | number
+          | boolean
+          | undefined
+        )[][];
 
         if (rawData.length < 2) {
           setPreviewData([]);
@@ -112,7 +147,7 @@ export default function GreigeBulkImport() {
         // Check if second row is a Required/Optional indicator row
         if (rawData.length > 1) {
           const secondRow = rawData[1] as (string | number | boolean | undefined)[];
-          const isIndicatorRow = secondRow.every(val => {
+          const isIndicatorRow = secondRow.every((val) => {
             const normalized = (val || '').toString().toLowerCase().trim();
             return normalized === '' || normalized === 'required' || normalized === 'optional';
           });
@@ -161,7 +196,12 @@ export default function GreigeBulkImport() {
           const worksheet = workbook.Sheets[sheetName];
 
           // Get raw data as array of arrays to check for indicator row
-          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (
+            | string
+            | number
+            | boolean
+            | undefined
+          )[][];
 
           if (rawData.length < 2) {
             throw new Error('File must have header and at least one data row');
@@ -173,7 +213,7 @@ export default function GreigeBulkImport() {
           // Check if second row is a Required/Optional indicator row
           if (rawData.length > 1) {
             const secondRow = rawData[1] as (string | number | boolean | undefined)[];
-            const isIndicatorRow = secondRow.every(val => {
+            const isIndicatorRow = secondRow.every((val) => {
               const normalized = (val || '').toString().toLowerCase().trim();
               return normalized === '' || normalized === 'required' || normalized === 'optional';
             });
@@ -198,84 +238,86 @@ export default function GreigeBulkImport() {
           }
 
           // Transform Excel data to API format
-          const greigeData = jsonData.map((row: Record<string, string | number | boolean | undefined>, index: number) => {
-            const genericName = String(row['Generic Greige Name'] ?? '').trim();
-            const yarnCount = row['Yarn Count']?.toString().trim() || '';
-            const construction = row['Construction']?.toString().trim() || '';
+          const greigeData = jsonData.map(
+            (row: Record<string, string | number | boolean | undefined>, index: number) => {
+              const genericName = String(row['Generic Greige Name'] ?? '').trim();
+              const yarnCount = row['Yarn Count']?.toString().trim() || '';
+              const construction = row['Construction']?.toString().trim() || '';
 
-            // Parse width - handle both string and number formats
-            let width = 0;
-            const widthValue = row['Greige Width (inches)'];
-            if (widthValue !== undefined && widthValue !== null && widthValue !== '') {
-              width = parseFloat(String(widthValue).replace(/[^0-9.]/g, ''));
-              if (isNaN(width)) width = 0;
+              // Parse width - handle both string and number formats
+              let width = 0;
+              const widthValue = row['Greige Width (inches)'];
+              if (widthValue !== undefined && widthValue !== null && widthValue !== '') {
+                width = parseFloat(String(widthValue).replace(/[^0-9.]/g, ''));
+                if (isNaN(width)) width = 0;
+              }
+
+              // Parse shrinkage - handle both string and number formats
+              let shrinkage = 8.0;
+              const shrinkageValue = row['Average Shrinkage %'];
+              if (shrinkageValue !== undefined && shrinkageValue !== null && shrinkageValue !== '') {
+                shrinkage = parseFloat(String(shrinkageValue).replace(/[^0-9.]/g, ''));
+                if (isNaN(shrinkage)) shrinkage = 8.0;
+              }
+
+              // Auto-generate greige name
+              const greigeName = `${genericName} ${yarnCount} / ${construction} / ${width}"`;
+
+              // Parse default cutable width
+              let defaultCutableWidth = undefined;
+              const cutableWidthValue = row['Default Cutable Width (inches)'];
+              if (cutableWidthValue !== undefined && cutableWidthValue !== null && cutableWidthValue !== '') {
+                const parsed = parseFloat(String(cutableWidthValue).replace(/[^0-9.]/g, ''));
+                if (!isNaN(parsed)) defaultCutableWidth = parsed;
+              }
+
+              // Parse finished widths
+              const finishedWidthMin = row['Expected Finished Width Min'];
+              const finishedWidthMax = row['Expected Finished Width Max'];
+
+              let parsedFinishedMin = undefined;
+              if (finishedWidthMin !== undefined && finishedWidthMin !== null && finishedWidthMin !== '') {
+                const parsed = parseFloat(String(finishedWidthMin).replace(/[^0-9.]/g, ''));
+                if (!isNaN(parsed)) parsedFinishedMin = parsed;
+              }
+
+              let parsedFinishedMax = undefined;
+              if (finishedWidthMax !== undefined && finishedWidthMax !== null && finishedWidthMax !== '') {
+                const parsed = parseFloat(String(finishedWidthMax).replace(/[^0-9.]/g, ''));
+                if (!isNaN(parsed)) parsedFinishedMax = parsed;
+              }
+
+              const result = {
+                // Note: greigeCode will be auto-generated by backend
+                greigeName,
+                genericGreigeName: genericName,
+                yarnCount,
+                construction,
+                composition: String(row['Composition'] ?? '').trim(),
+                weaveType: String(row['Weave Type'] ?? '').trim(),
+                greigeWidth: width,
+                defaultCutableWidth,
+                expectedFinishedWidthMin: parsedFinishedMin,
+                expectedFinishedWidthMax: parsedFinishedMax,
+                averageShrinkagePercent: shrinkage,
+                gsmRange: row['GSM Range']?.toString().trim() || '',
+                description: String(row['Description'] ?? '').trim(),
+                notes: String(row['Notes'] ?? '').trim(),
+                isActive: row['Is Active']?.toString().toUpperCase() === 'TRUE',
+                suppliers: [],
+              };
+
+              // Debug logging for first row
+              if (index === 0) {
+                logDebug('First row Excel data:', row);
+                logDebug('Parsed greige data:', result);
+                logDebug('Width value -> Parsed:', { original: widthValue, parsed: width });
+                logDebug('Shrinkage value -> Parsed:', { original: shrinkageValue, parsed: shrinkage });
+              }
+
+              return result;
             }
-
-            // Parse shrinkage - handle both string and number formats
-            let shrinkage = 8.0;
-            const shrinkageValue = row['Average Shrinkage %'];
-            if (shrinkageValue !== undefined && shrinkageValue !== null && shrinkageValue !== '') {
-              shrinkage = parseFloat(String(shrinkageValue).replace(/[^0-9.]/g, ''));
-              if (isNaN(shrinkage)) shrinkage = 8.0;
-            }
-
-            // Auto-generate greige name
-            const greigeName = `${genericName} ${yarnCount} / ${construction} / ${width}"`;
-
-            // Parse default cutable width
-            let defaultCutableWidth = undefined;
-            const cutableWidthValue = row['Default Cutable Width (inches)'];
-            if (cutableWidthValue !== undefined && cutableWidthValue !== null && cutableWidthValue !== '') {
-              const parsed = parseFloat(String(cutableWidthValue).replace(/[^0-9.]/g, ''));
-              if (!isNaN(parsed)) defaultCutableWidth = parsed;
-            }
-
-            // Parse finished widths
-            const finishedWidthMin = row['Expected Finished Width Min'];
-            const finishedWidthMax = row['Expected Finished Width Max'];
-
-            let parsedFinishedMin = undefined;
-            if (finishedWidthMin !== undefined && finishedWidthMin !== null && finishedWidthMin !== '') {
-              const parsed = parseFloat(String(finishedWidthMin).replace(/[^0-9.]/g, ''));
-              if (!isNaN(parsed)) parsedFinishedMin = parsed;
-            }
-
-            let parsedFinishedMax = undefined;
-            if (finishedWidthMax !== undefined && finishedWidthMax !== null && finishedWidthMax !== '') {
-              const parsed = parseFloat(String(finishedWidthMax).replace(/[^0-9.]/g, ''));
-              if (!isNaN(parsed)) parsedFinishedMax = parsed;
-            }
-
-            const result = {
-              // Note: greigeCode will be auto-generated by backend
-              greigeName,
-              genericGreigeName: genericName,
-              yarnCount,
-              construction,
-              composition: String(row['Composition'] ?? '').trim(),
-              weaveType: String(row['Weave Type'] ?? '').trim(),
-              greigeWidth: width,
-              defaultCutableWidth,
-              expectedFinishedWidthMin: parsedFinishedMin,
-              expectedFinishedWidthMax: parsedFinishedMax,
-              averageShrinkagePercent: shrinkage,
-              gsmRange: row['GSM Range']?.toString().trim() || '',
-              description: String(row['Description'] ?? '').trim(),
-              notes: String(row['Notes'] ?? '').trim(),
-              isActive: row['Is Active']?.toString().toUpperCase() === 'TRUE',
-              suppliers: [],
-            };
-
-            // Debug logging for first row
-            if (index === 0) {
-              logDebug('First row Excel data:', row);
-              logDebug('Parsed greige data:', result);
-              logDebug('Width value -> Parsed:', { original: widthValue, parsed: width });
-              logDebug('Shrinkage value -> Parsed:', { original: shrinkageValue, parsed: shrinkage });
-            }
-
-            return result;
-          });
+          );
 
           // Get auth token
           const authStorage = localStorage.getItem('auth-storage');
@@ -371,9 +413,7 @@ export default function GreigeBulkImport() {
 
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Step 3: Upload File</h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  Upload the completed Excel file to import greige masters.
-                </p>
+                <p className="text-sm text-gray-600 mb-3">Upload the completed Excel file to import greige masters.</p>
               </div>
             </div>
           </CardContent>
@@ -440,10 +480,7 @@ export default function GreigeBulkImport() {
               )}
 
               <div className="flex gap-4">
-                <Button
-                  onClick={handleImport}
-                  disabled={!file || importing}
-                >
+                <Button onClick={handleImport} disabled={!file || importing}>
                   {importing ? (
                     <>
                       <Upload className="h-4 w-4 mr-2 animate-spin" />
@@ -506,9 +543,7 @@ export default function GreigeBulkImport() {
                   </div>
                 )}
 
-                <Button onClick={() => navigate('/greige')}>
-                  Go to Greige Master List
-                </Button>
+                <Button onClick={() => navigate('/greige')}>Go to Greige Master List</Button>
               </div>
             </CardContent>
           </Card>

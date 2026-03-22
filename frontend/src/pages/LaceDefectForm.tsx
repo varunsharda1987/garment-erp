@@ -14,12 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { laceDefectService } from '../services/laceDefect.service';
 import { laceStockService } from '../services/laceStock.service';
-import type {
-  LaceDefect,
-  DefectType,
-  DiscoveredAt,
-  LogDefectInput,
-} from '../types/laceDefect.types';
+import type { LaceDefect, DefectType, DiscoveredAt, LogDefectInput } from '../types/laceDefect.types';
 import type { LaceStock } from '../types/laceStock.types';
 import {
   DEFECT_TYPE_LABELS,
@@ -217,9 +212,7 @@ export default function LaceDefectForm() {
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-gray-500">Quantity</span>
-                <span className="font-bold text-red-600">
-                  {defect.defectQuantity.toLocaleString()}m
-                </span>
+                <span className="font-bold text-red-600">{defect.defectQuantity.toLocaleString()}m</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-gray-500">Discovered At</span>
@@ -295,9 +288,7 @@ export default function LaceDefectForm() {
                   <div className="flex items-center gap-2 text-green-600">
                     <span>Replacement Required</span>
                     {defect.replacementQuantity && (
-                      <span className="font-bold">
-                        {defect.replacementQuantity.toLocaleString()}m
-                      </span>
+                      <span className="font-bold">{defect.replacementQuantity.toLocaleString()}m</span>
                     )}
                   </div>
                 </div>
@@ -335,19 +326,14 @@ export default function LaceDefectForm() {
               <div className="space-y-4">
                 <div>
                   <Label>Select Stock Lot *</Label>
-                  <Select
-                    value={form.stockId}
-                    onValueChange={handleStockSelect}
-                    disabled={loadingStocks}
-                  >
+                  <Select value={form.stockId} onValueChange={handleStockSelect} disabled={loadingStocks}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a stock lot..." />
                     </SelectTrigger>
                     <SelectContent>
                       {stocks.map((stock) => (
                         <SelectItem key={stock.id} value={stock.id}>
-                          {stock.laceMaster?.laceName || 'Unknown'} -{' '}
-                          {stock.lotNumber || stock.id.slice(0, 8)} (
+                          {stock.laceMaster?.laceName || 'Unknown'} - {stock.lotNumber || stock.id.slice(0, 8)} (
                           {stock.quantityAvailable.toLocaleString()}m available)
                         </SelectItem>
                       ))}
@@ -360,8 +346,7 @@ export default function LaceDefectForm() {
                       <strong>Lace:</strong> {selectedStock.laceMaster?.laceName}
                     </p>
                     <p>
-                      <strong>Available:</strong>{' '}
-                      {selectedStock.quantityAvailable.toLocaleString()}m
+                      <strong>Available:</strong> {selectedStock.quantityAvailable.toLocaleString()}m
                     </p>
                     {selectedStock.dyeLotNumber && (
                       <p>
@@ -384,9 +369,7 @@ export default function LaceDefectForm() {
                 <Label>Defect Type *</Label>
                 <Select
                   value={form.defectType}
-                  onValueChange={(value) =>
-                    setForm({ ...form, defectType: value as DefectType })
-                  }
+                  onValueChange={(value) => setForm({ ...form, defectType: value as DefectType })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -422,9 +405,7 @@ export default function LaceDefectForm() {
                 <Label>Discovered At *</Label>
                 <Select
                   value={form.discoveredAt}
-                  onValueChange={(value) =>
-                    setForm({ ...form, discoveredAt: value as DiscoveredAt })
-                  }
+                  onValueChange={(value) => setForm({ ...form, discoveredAt: value as DiscoveredAt })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -443,9 +424,7 @@ export default function LaceDefectForm() {
                 <Label>Description (Optional)</Label>
                 <Textarea
                   value={form.defectDescription}
-                  onChange={(e) =>
-                    setForm({ ...form, defectDescription: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, defectDescription: e.target.value })}
                   placeholder="Describe the defect in detail..."
                   rows={3}
                 />
@@ -476,10 +455,7 @@ export default function LaceDefectForm() {
                 />
               </div>
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                <p>
-                  After logging the defect, you can submit a claim from the defects
-                  list page.
-                </p>
+                <p>After logging the defect, you can submit a claim from the defects list page.</p>
               </div>
             </CardContent>
           </Card>
@@ -487,11 +463,7 @@ export default function LaceDefectForm() {
 
         {/* Submit Button */}
         <div className="flex justify-end gap-4 mt-6">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/lace-defects')}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/lace-defects')}>
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>

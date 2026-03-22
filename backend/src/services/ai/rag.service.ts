@@ -63,11 +63,7 @@ class RAGService {
       // Search each document type if specified, otherwise search all
       if (mergedConfig.documentTypes && mergedConfig.documentTypes.length > 0) {
         for (const docType of mergedConfig.documentTypes) {
-          const results = await embeddingService.searchSimilar(
-            query,
-            mergedConfig.maxDocuments,
-            docType
-          );
+          const results = await embeddingService.searchSimilar(query, mergedConfig.maxDocuments, docType);
           allDocuments.push(...results);
         }
         // Sort by similarity and take top results
@@ -78,15 +74,11 @@ class RAGService {
       }
 
       // Filter by minimum similarity
-      const filteredDocuments = allDocuments.filter(
-        (doc) => doc.similarity >= mergedConfig.minSimilarity
-      );
+      const filteredDocuments = allDocuments.filter((doc) => doc.similarity >= mergedConfig.minSimilarity);
 
       const retrievalTime = Date.now() - startTime;
 
-      logInfo(
-        `[RAGService] Retrieved ${filteredDocuments.length} documents in ${retrievalTime}ms`
-      );
+      logInfo(`[RAGService] Retrieved ${filteredDocuments.length} documents in ${retrievalTime}ms`);
 
       return {
         documents: filteredDocuments,
@@ -111,9 +103,7 @@ class RAGService {
       return '';
     }
 
-    const contextParts: string[] = [
-      '\n\n=== RELEVANT KNOWLEDGE BASE ===',
-    ];
+    const contextParts: string[] = ['\n\n=== RELEVANT KNOWLEDGE BASE ==='];
 
     for (let i = 0; i < documents.length; i++) {
       const doc = documents[i];
@@ -162,11 +152,7 @@ class RAGService {
     }
 
     // Order related
-    if (
-      lowerQuery.includes('order') ||
-      lowerQuery.includes('delivery') ||
-      lowerQuery.includes('customer')
-    ) {
+    if (lowerQuery.includes('order') || lowerQuery.includes('delivery') || lowerQuery.includes('customer')) {
       relevantTypes.push('order');
       relevantTypes.push('process_guide');
     }

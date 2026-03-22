@@ -10,7 +10,21 @@ import { getLabelCategoryTerm } from '@/types/label.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Edit, Package, Palette, Tag, DollarSign, Building2, FileText, Printer, Users, Star, Check, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Package,
+  Palette,
+  Tag,
+  DollarSign,
+  Building2,
+  FileText,
+  Printer,
+  Users,
+  Star,
+  Check,
+  X,
+} from 'lucide-react';
 
 export default function LabelDetail() {
   const navigate = useNavigate();
@@ -20,7 +34,8 @@ export default function LabelDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -108,10 +123,10 @@ export default function LabelDetail() {
                     variant={label.isActive ? 'success' : 'secondary'}
                   />
                 </div>
-                <p className="text-gray-600">{getLabelCategoryTerm(label.labelCategory)} Code: {label.labelCode}</p>
-                {label.materialCode && (
-                  <p className="text-gray-500 text-sm">Material Code: {label.materialCode}</p>
-                )}
+                <p className="text-gray-600">
+                  {getLabelCategoryTerm(label.labelCategory)} Code: {label.labelCode}
+                </p>
+                {label.materialCode && <p className="text-gray-500 text-sm">Material Code: {label.materialCode}</p>}
               </div>
               {label.image && (
                 <img
@@ -137,7 +152,9 @@ export default function LabelDetail() {
             <CardContent className="space-y-4">
               {label.labelType && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">{getLabelCategoryTerm(label.labelCategory)} Type</label>
+                  <label className="text-sm font-medium text-gray-600">
+                    {getLabelCategoryTerm(label.labelCategory)} Type
+                  </label>
                   <p className="text-gray-900">{label.labelType}</p>
                 </div>
               )}
@@ -210,17 +227,13 @@ export default function LabelDetail() {
               {label.pricePerPiece && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Piece</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    {formatCurrency(label.pricePerPiece)}
-                  </p>
+                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(label.pricePerPiece)}</p>
                 </div>
               )}
               {label.pricePerHundred && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per 100 pcs</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    {formatCurrency(label.pricePerHundred)}
-                  </p>
+                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(label.pricePerHundred)}</p>
                 </div>
               )}
               {!label.pricePerPiece && !label.pricePerHundred && (
@@ -270,11 +283,21 @@ export default function LabelDetail() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Piece</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Hundred</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Supplier
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price/Piece
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price/Hundred
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Notes
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -313,16 +336,16 @@ export default function LabelDetail() {
                               </Badge>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
-                            {s.notes || '-'}
-                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{s.notes || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No suppliers linked to this {getLabelCategoryTerm(label.labelCategory).toLowerCase()}</p>
+                <p className="text-gray-500 text-sm">
+                  No suppliers linked to this {getLabelCategoryTerm(label.labelCategory).toLowerCase()}
+                </p>
               )}
             </CardContent>
           </Card>

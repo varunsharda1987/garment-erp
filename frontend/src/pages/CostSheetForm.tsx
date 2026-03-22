@@ -3,7 +3,13 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { createCostSheet, getCostSheetById, updateCostSheet, generateCostSheetFromStyle, getBudgetSuggestions } from '../services/costSheet.service';
+import {
+  createCostSheet,
+  getCostSheetById,
+  updateCostSheet,
+  generateCostSheetFromStyle,
+  getBudgetSuggestions,
+} from '../services/costSheet.service';
 import type { BudgetSuggestions } from '../types/costSheet.types';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
@@ -21,7 +27,7 @@ import type {
   LaceDetail,
   EmbroideryDetail,
   AccessoryDetail,
-  CMTCosts
+  CMTCosts,
 } from '../types/costSheet.types';
 import { notify } from '../lib/notify';
 import { formatCurrency } from '../lib/currency';
@@ -60,12 +66,12 @@ const CostSheetForm = () => {
 
   // Fabric Details (Dynamic)
   const [fabricDetails, setFabricDetails] = useState<FabricDetail[]>([
-    { fabricName: '', fabricWidth: 0, fabricAverage: 0, fabricRate: 0, fabricTotal: 0 }
+    { fabricName: '', fabricWidth: 0, fabricAverage: 0, fabricRate: 0, fabricTotal: 0 },
   ]);
 
   // Trims Details (Dynamic - Thread is default)
   const [trimsDetails, setTrimsDetails] = useState<TrimDetail[]>([
-    { trimName: 'Thread', trimQuantity: 0, trimRate: 0, trimTotal: 0, materialType: 'THREAD' }
+    { trimName: 'Thread', trimQuantity: 0, trimRate: 0, trimTotal: 0, materialType: 'THREAD' },
   ]);
 
   // Lace Details (Dynamic)
@@ -77,7 +83,7 @@ const CostSheetForm = () => {
     stitchingCost: 0,
     finishingCost: 0,
     buttonAttachmentCost: 0,
-    handworkCost: 0
+    handworkCost: 0,
   });
 
   // Embroidery Details (Dynamic)
@@ -194,10 +200,10 @@ const CostSheetForm = () => {
             // Populate customer/brand display fields (also for edit mode)
             if (fullStyleDetails.customerName) {
               const matchedCustomer = customers.find(
-                c => c.name.toLowerCase() === fullStyleDetails.customerName?.toLowerCase()
+                (c) => c.name.toLowerCase() === fullStyleDetails.customerName?.toLowerCase()
               );
               if (matchedCustomer) {
-                setSelectedCustomerId(matchedCustomer.id);  // Fix: Set customer ID so style selector shows the style
+                setSelectedCustomerId(matchedCustomer.id); // Fix: Set customer ID so style selector shows the style
                 setDisplayCustomerCode(matchedCustomer.code);
                 setDisplayCustomerName(matchedCustomer.name);
               } else {
@@ -205,11 +211,7 @@ const CostSheetForm = () => {
                 setDisplayCustomerCode('');
               }
             }
-            setDisplayBrandName(
-              fullStyleDetails.brandName ||
-              fullStyleDetails.brandCategories?.brandName ||
-              ''
-            );
+            setDisplayBrandName(fullStyleDetails.brandName || fullStyleDetails.brandCategories?.brandName || '');
 
             // If accessories/trims/embroidery are empty in saved cost sheet,
             // extract them from the style's styleMaterialBom
@@ -220,36 +222,34 @@ const CostSheetForm = () => {
               const extractedLaces: LaceDetail[] = [];
 
               // Capture existing lace IDs from loaded cost sheet to avoid duplicates
-              const existingLaceIds = new Set(
-                (costSheet.laceDetails || []).map((l: LaceDetail) => l.laceId)
-              );
+              const existingLaceIds = new Set((costSheet.laceDetails || []).map((l: LaceDetail) => l.laceId));
 
               // Helper function to get unit based on material type
               const getUnitForMaterialType = (materialType: string): string => {
                 const unitMapping: Record<string, string> = {
-                  'BUTTON': 'pcs',
-                  'ZIPPER': 'pcs',
-                  'THREAD': 'cone',
-                  'LACE': 'meters',
-                  'ELASTIC': 'meters',
-                  'LABEL': 'pcs',
-                  'HOOK_EYE': 'pair',
-                  'SNAP_BUTTON': 'pcs',
-                  'BUCKLE': 'pcs',
-                  'BELT': 'pcs',
-                  'VELCRO': 'meters',
-                  'DRAWSTRING': 'meters',
-                  'RIBBON': 'meters',
-                  'SEQUIN': 'pcs',
-                  'BEAD': 'pcs',
-                  'MOTIF': 'pcs',
-                  'INTERLINING': 'meters',
-                  'PADDING': 'meters',
-                  'OTHER_FASTENER': 'pcs',
-                  'OTHER_TAPE': 'meters',
-                  'OTHER_DECORATIVE': 'pcs',
-                  'OTHER_FUNCTIONAL': 'pcs',
-                  'PACKAGING': 'pcs',
+                  BUTTON: 'pcs',
+                  ZIPPER: 'pcs',
+                  THREAD: 'cone',
+                  LACE: 'meters',
+                  ELASTIC: 'meters',
+                  LABEL: 'pcs',
+                  HOOK_EYE: 'pair',
+                  SNAP_BUTTON: 'pcs',
+                  BUCKLE: 'pcs',
+                  BELT: 'pcs',
+                  VELCRO: 'meters',
+                  DRAWSTRING: 'meters',
+                  RIBBON: 'meters',
+                  SEQUIN: 'pcs',
+                  BEAD: 'pcs',
+                  MOTIF: 'pcs',
+                  INTERLINING: 'meters',
+                  PADDING: 'meters',
+                  OTHER_FASTENER: 'pcs',
+                  OTHER_TAPE: 'meters',
+                  OTHER_DECORATIVE: 'pcs',
+                  OTHER_FUNCTIONAL: 'pcs',
+                  PACKAGING: 'pcs',
                 };
                 return unitMapping[materialType] || 'pcs';
               };
@@ -297,7 +297,7 @@ const CostSheetForm = () => {
                   otherMaterialMaster?.costPerUnit ||
                   0;
 
-                const materialType = bom.materialType as string || 'UNKNOWN';
+                const materialType = (bom.materialType as string) || 'UNKNOWN';
                 const quantity = bom.quantityPerGarment || 0;
                 const rate = bom.unitPrice || (masterPrice as number) || 0;
                 const total = quantity * rate;
@@ -370,7 +370,12 @@ const CostSheetForm = () => {
                     materialType,
                   });
                 } else if (bom.usageCategory === 'VALUE_ADDITION') {
-                  extractedEmbroidery.push({ embroideryName: String(materialName), embroideryAverage: quantity, embroideryRate: rate, embroideryTotal: total });
+                  extractedEmbroidery.push({
+                    embroideryName: String(materialName),
+                    embroideryAverage: quantity,
+                    embroideryRate: rate,
+                    embroideryTotal: total,
+                  });
                 } else {
                   // Uncategorized defaults to trims
                   extractedTrims.push({
@@ -389,10 +394,16 @@ const CostSheetForm = () => {
               if ((!costSheet.trimsDetails || costSheet.trimsDetails.length === 0) && extractedTrims.length > 0) {
                 setTrimsDetails(extractedTrims);
               }
-              if ((!costSheet.accessoriesDetails || costSheet.accessoriesDetails.length === 0) && extractedAccessories.length > 0) {
+              if (
+                (!costSheet.accessoriesDetails || costSheet.accessoriesDetails.length === 0) &&
+                extractedAccessories.length > 0
+              ) {
                 setAccessoriesDetails(extractedAccessories);
               }
-              if ((!costSheet.embroideryDetails || costSheet.embroideryDetails.length === 0) && extractedEmbroidery.length > 0) {
+              if (
+                (!costSheet.embroideryDetails || costSheet.embroideryDetails.length === 0) &&
+                extractedEmbroidery.length > 0
+              ) {
                 setEmbroideryDetails(extractedEmbroidery);
               }
               if ((!costSheet.laceDetails || costSheet.laceDetails.length === 0) && extractedLaces.length > 0) {
@@ -428,7 +439,7 @@ const CostSheetForm = () => {
     // Find and set the customer based on style's customerName
     if (selectedStyle.customerName) {
       const matchingCustomer = customers.find(
-        c => c.name.toLowerCase() === selectedStyle.customerName?.toLowerCase()
+        (c) => c.name.toLowerCase() === selectedStyle.customerName?.toLowerCase()
       );
       if (matchingCustomer) {
         setSelectedCustomerId(matchingCustomer.id);
@@ -452,7 +463,7 @@ const CostSheetForm = () => {
         // Find customer by matching customerName (style only has customerName string, not customer object)
         if (styleDetails.customerName) {
           const matchingCustomer = customers.find(
-            c => c.name.toLowerCase() === styleDetails.customerName?.toLowerCase()
+            (c) => c.name.toLowerCase() === styleDetails.customerName?.toLowerCase()
           );
           if (matchingCustomer) {
             // Set customer first, which will trigger styles fetch
@@ -479,7 +490,7 @@ const CostSheetForm = () => {
   useEffect(() => {
     if (pendingStyleId && styles.length > 0) {
       // Check if the style exists in the loaded styles
-      const styleExists = styles.some(s => s.id === pendingStyleId);
+      const styleExists = styles.some((s) => s.id === pendingStyleId);
       if (styleExists) {
         setSelectedStyleId(pendingStyleId);
       }
@@ -502,7 +513,7 @@ const CostSheetForm = () => {
 
       try {
         // Get the selected customer's name
-        const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+        const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
         if (!selectedCustomer) {
           setStyles([]);
           return;
@@ -516,7 +527,7 @@ const CostSheetForm = () => {
           undefined, // stage
           undefined, // cadStatus
           selectedCustomer.name, // customerName
-          'ACTIVE'   // status - only show published styles
+          'ACTIVE' // status - only show published styles
         );
         setStyles(response.data);
       } catch (error: unknown) {
@@ -572,8 +583,8 @@ const CostSheetForm = () => {
           // Track what was populated
           const populated: string[] = [];
           let fabricsWithoutRate = 0;
-          let ratesFromCosting = 0;  // Rates fetched from approved costing options
-          let ratesFromStock = 0;    // Rates fetched from stock inventory lookup
+          let ratesFromCosting = 0; // Rates fetched from approved costing options
+          let ratesFromStock = 0; // Rates fetched from stock inventory lookup
 
           // Auto-populate basic information from style
           if (styleDetails.numberOfComponents) {
@@ -595,7 +606,7 @@ const CostSheetForm = () => {
           // Match style.customerName to customers list to get full customer info
           if (styleDetails.customerName) {
             const matchedCustomer = customers.find(
-              c => c.name.toLowerCase() === styleDetails.customerName?.toLowerCase()
+              (c) => c.name.toLowerCase() === styleDetails.customerName?.toLowerCase()
             );
             if (matchedCustomer) {
               setDisplayCustomerCode(matchedCustomer.code);
@@ -608,11 +619,7 @@ const CostSheetForm = () => {
           }
 
           // Set brand name from style or brand_categories
-          setDisplayBrandName(
-            styleDetails.brandName ||
-            styleDetails.brandCategories?.brandName ||
-            ''
-          );
+          setDisplayBrandName(styleDetails.brandName || styleDetails.brandCategories?.brandName || '');
 
           // Auto-populate fabric details from style components
           if (styleDetails.components && styleDetails.components.length > 0) {
@@ -621,7 +628,7 @@ const CostSheetForm = () => {
 
             // First, fetch approved fabric costing for this style (filtered by selected mode)
             let costingOptions: Record<string, CostingOption[]> = {};
-            let modeHasData = false;  // Track if selected mode has any costing data
+            let modeHasData = false; // Track if selected mode has any costing data
             try {
               const costingResponse = await fabricCostingService.getStyleCostingOptions(selectedStyleId, costingMode);
               if (costingResponse.success && costingResponse.data) {
@@ -678,7 +685,7 @@ const CostSheetForm = () => {
                         const matchByIds = options.filter(
                           (opt: CostingOption) =>
                             ((opt.fabricId && opt.fabricId === fabric.fabricId) ||
-                             (opt.styleFabricId && opt.styleFabricId === fabric.id)) &&
+                              (opt.styleFabricId && opt.styleFabricId === fabric.id)) &&
                             (opt.isPreferred || opt.approvalStatus === 'APPROVED')
                         );
                         if (matchByIds.length > 0) {
@@ -716,10 +723,10 @@ const CostSheetForm = () => {
                           fabricWidth: opt.cutableWidth
                             ? Number(opt.cutableWidth)
                             : fabric.fabricWidth
-                            ? Number(fabric.fabricWidth)
-                            : fabric.cutableWidth
-                            ? Number(fabric.cutableWidth)
-                            : 0,
+                              ? Number(fabric.fabricWidth)
+                              : fabric.cutableWidth
+                                ? Number(fabric.cutableWidth)
+                                : 0,
                           fabricAverage: optFabricAverage,
                           fabricRate: optFabricRate,
                           fabricTotal: optFabricAverage * optFabricRate,
@@ -760,10 +767,10 @@ const CostSheetForm = () => {
                     fabricDetailsFromStyle.push({
                       fabricName: fabric.genericGreigeName || fabric.fabricName || '',
                       fabricWidth: fabric.fabricWidth
-                                 ? Number(fabric.fabricWidth)
-                                 : fabric.cutableWidth
-                                 ? Number(fabric.cutableWidth)
-                                 : 0,
+                        ? Number(fabric.fabricWidth)
+                        : fabric.cutableWidth
+                          ? Number(fabric.cutableWidth)
+                          : 0,
                       fabricAverage: fabricAverage,
                       fabricRate: 0, // Placeholder, will be updated
                       fabricTotal: 0,
@@ -771,7 +778,8 @@ const CostSheetForm = () => {
                     });
 
                     // Fetch rate asynchronously from stock (fallback)
-                    const fetchPromise = fabricStockService.getStockByFabricId(fabricId)
+                    const fetchPromise = fabricStockService
+                      .getStockByFabricId(fabricId)
                       .then((stockEntries) => {
                         if (stockEntries && stockEntries.length > 0) {
                           // Use weighted average cost from the first (most recent) stock entry
@@ -780,7 +788,7 @@ const CostSheetForm = () => {
                           if (rate > 0) {
                             fabricDetailsFromStyle[fabricIndex].fabricRate = rate;
                             fabricDetailsFromStyle[fabricIndex].fabricTotal = fabricAverage * rate;
-                            ratesFromStock++;  // Track as coming from stock
+                            ratesFromStock++; // Track as coming from stock
                           } else {
                             fabricsWithoutRate++;
                           }
@@ -805,10 +813,10 @@ const CostSheetForm = () => {
                   fabricDetailsFromStyle.push({
                     fabricName: fabric.genericGreigeName || fabric.fabricName || '',
                     fabricWidth: fabric.fabricWidth
-                               ? Number(fabric.fabricWidth)
-                               : fabric.cutableWidth
-                               ? Number(fabric.cutableWidth)
-                               : 0,
+                      ? Number(fabric.fabricWidth)
+                      : fabric.cutableWidth
+                        ? Number(fabric.cutableWidth)
+                        : 0,
                     fabricAverage: fabricAverage,
                     fabricRate: fabricRate,
                     fabricTotal: fabricAverage * fabricRate,
@@ -871,9 +879,10 @@ const CostSheetForm = () => {
               }
 
               // Show deduplicated count if different from original
-              const fabricCountMsg = deduplicatedFabrics.length !== fabricDetailsFromStyle.length
-                ? `${deduplicatedFabrics.length} fabrics (${fabricDetailsFromStyle.length - deduplicatedFabrics.length} duplicates removed)`
-                : `${deduplicatedFabrics.length} fabrics`;
+              const fabricCountMsg =
+                deduplicatedFabrics.length !== fabricDetailsFromStyle.length
+                  ? `${deduplicatedFabrics.length} fabrics (${fabricDetailsFromStyle.length - deduplicatedFabrics.length} duplicates removed)`
+                  : `${deduplicatedFabrics.length} fabrics`;
 
               if (ratesMessage.length > 0) {
                 populated.push(`${fabricCountMsg} (${ratesMessage.join(', ')})`);
@@ -891,34 +900,34 @@ const CostSheetForm = () => {
             const extractedLaces: LaceDetail[] = [];
 
             // Capture existing lace IDs to avoid duplicates with manually added laces
-            const existingLaceIds = new Set(laceDetails.map(l => l.laceId));
+            const existingLaceIds = new Set(laceDetails.map((l) => l.laceId));
 
             // Helper function to get unit based on material type
             const getUnitForMaterialType = (materialType: string): string => {
               const unitMapping: Record<string, string> = {
-                'BUTTON': 'pcs',
-                'ZIPPER': 'pcs',
-                'THREAD': 'cone',
-                'LACE': 'meters',
-                'ELASTIC': 'meters',
-                'LABEL': 'pcs',
-                'HOOK_EYE': 'pair',
-                'SNAP_BUTTON': 'pcs',
-                'BUCKLE': 'pcs',
-                'BELT': 'pcs',
-                'VELCRO': 'meters',
-                'DRAWSTRING': 'meters',
-                'RIBBON': 'meters',
-                'SEQUIN': 'pcs',
-                'BEAD': 'pcs',
-                'MOTIF': 'pcs',
-                'INTERLINING': 'meters',
-                'PADDING': 'meters',
-                'OTHER_FASTENER': 'pcs',
-                'OTHER_TAPE': 'meters',
-                'OTHER_DECORATIVE': 'pcs',
-                'OTHER_FUNCTIONAL': 'pcs',
-                'PACKAGING': 'pcs',
+                BUTTON: 'pcs',
+                ZIPPER: 'pcs',
+                THREAD: 'cone',
+                LACE: 'meters',
+                ELASTIC: 'meters',
+                LABEL: 'pcs',
+                HOOK_EYE: 'pair',
+                SNAP_BUTTON: 'pcs',
+                BUCKLE: 'pcs',
+                BELT: 'pcs',
+                VELCRO: 'meters',
+                DRAWSTRING: 'meters',
+                RIBBON: 'meters',
+                SEQUIN: 'pcs',
+                BEAD: 'pcs',
+                MOTIF: 'pcs',
+                INTERLINING: 'meters',
+                PADDING: 'meters',
+                OTHER_FASTENER: 'pcs',
+                OTHER_TAPE: 'meters',
+                OTHER_DECORATIVE: 'pcs',
+                OTHER_FUNCTIONAL: 'pcs',
+                PACKAGING: 'pcs',
               };
               return unitMapping[materialType] || 'pcs';
             };
@@ -966,7 +975,7 @@ const CostSheetForm = () => {
                 otherMaterialMaster?.costPerUnit ||
                 0;
 
-              const materialType = bom.materialType as string || 'UNKNOWN';
+              const materialType = (bom.materialType as string) || 'UNKNOWN';
               // Default quantity to 1 for accessories/labels (not 0)
               const quantity = bom.quantityPerGarment || 1;
               // Prioritize master price over BOM unitPrice (master is source of truth)
@@ -1040,7 +1049,12 @@ const CostSheetForm = () => {
                   materialType,
                 });
               } else if (bom.usageCategory === 'VALUE_ADDITION') {
-                extractedEmbroidery.push({ embroideryName: String(materialName), embroideryAverage: quantity, embroideryRate: rate, embroideryTotal: total });
+                extractedEmbroidery.push({
+                  embroideryName: String(materialName),
+                  embroideryAverage: quantity,
+                  embroideryRate: rate,
+                  embroideryTotal: total,
+                });
               } else {
                 // Uncategorized defaults to trims
                 extractedTrims.push({
@@ -1087,10 +1101,16 @@ const CostSheetForm = () => {
 
           // Show specific warnings for missing data
           if (!styleDetails.components || styleDetails.components.length === 0) {
-            notify.warning('Style has no components/fabrics defined. Add fabric components to the style first, or enter fabric details manually.', { duration: 6000 });
+            notify.warning(
+              'Style has no components/fabrics defined. Add fabric components to the style first, or enter fabric details manually.',
+              { duration: 6000 }
+            );
           }
           if (!styleDetails.styleMaterialBom || styleDetails.styleMaterialBom.length === 0) {
-            notify.warning('Style has no material BOM (trims/accessories). Add materials to the style BOM first, or enter trim details manually.', { duration: 6000 });
+            notify.warning(
+              'Style has no material BOM (trims/accessories). Add materials to the style BOM first, or enter trim details manually.',
+              { duration: 6000 }
+            );
           }
 
           // Show success notification
@@ -1100,12 +1120,12 @@ const CostSheetForm = () => {
             // Show accurate rate source notifications
             if (ratesFromCosting > 0) {
               notify.success(`Fetched ${ratesFromCosting} fabric rate(s) from approved costing`, {
-                duration: 4000
+                duration: 4000,
               });
             }
             if (ratesFromStock > 0) {
               notify.info(`Fetched ${ratesFromStock} fabric rate(s) from stock inventory`, {
-                duration: 4000
+                duration: 4000,
               });
             }
 
@@ -1119,7 +1139,6 @@ const CostSheetForm = () => {
           } else {
             notify.info('Style loaded. Please fill in cost details manually.');
           }
-
         } catch (error: unknown) {
           console.error('Failed to fetch style details:', error);
           const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1170,22 +1189,18 @@ const CostSheetForm = () => {
   // Calculate fabric total (excluding NA items)
   const calculateFabricTotal = () => {
     return fabricDetails
-      .filter(fabric => !fabric.isNotApplicable)
+      .filter((fabric) => !fabric.isNotApplicable)
       .reduce((sum, fabric) => sum + (fabric.fabricTotal || 0), 0);
   };
 
   // Calculate trims total (excluding NA items)
   const calculateTrimsTotal = () => {
-    return trimsDetails
-      .filter(trim => !trim.isNotApplicable)
-      .reduce((sum, trim) => sum + (trim.trimTotal || 0), 0);
+    return trimsDetails.filter((trim) => !trim.isNotApplicable).reduce((sum, trim) => sum + (trim.trimTotal || 0), 0);
   };
 
   // Calculate lace total (excluding NA items)
   const calculateLaceTotal = () => {
-    return laceDetails
-      .filter(lace => !lace.isNotApplicable)
-      .reduce((sum, lace) => sum + (lace.totalCost || 0), 0);
+    return laceDetails.filter((lace) => !lace.isNotApplicable).reduce((sum, lace) => sum + (lace.totalCost || 0), 0);
   };
 
   // Calculate CMT total
@@ -1196,14 +1211,14 @@ const CostSheetForm = () => {
   // Calculate embroidery total (excluding NA items)
   const calculateEmbroideryTotal = () => {
     return embroideryDetails
-      .filter(embr => !embr.isNotApplicable)
+      .filter((embr) => !embr.isNotApplicable)
       .reduce((sum, embr) => sum + (embr.embroideryTotal || 0), 0);
   };
 
   // Calculate accessories total (excluding NA items)
   const calculateAccessoriesTotal = () => {
     return accessoriesDetails
-      .filter(acc => !acc.isNotApplicable)
+      .filter((acc) => !acc.isNotApplicable)
       .reduce((sum, acc) => sum + (acc.accessoryTotal || 0), 0);
   };
 
@@ -1245,7 +1260,7 @@ const CostSheetForm = () => {
   const addFabricRow = () => {
     setFabricDetails([
       ...fabricDetails,
-      { fabricName: '', fabricWidth: 0, fabricAverage: 0, fabricRate: 0, fabricTotal: 0 }
+      { fabricName: '', fabricWidth: 0, fabricAverage: 0, fabricRate: 0, fabricTotal: 0 },
     ]);
   };
 
@@ -1287,9 +1302,7 @@ const CostSheetForm = () => {
     }
   ) => {
     const updated = [...fabricDetails];
-    const costPerMeter = updated[index].fabricAverage > 0
-      ? strategy.cost / updated[index].fabricAverage
-      : 0;
+    const costPerMeter = updated[index].fabricAverage > 0 ? strategy.cost / updated[index].fabricAverage : 0;
 
     updated[index] = {
       ...updated[index],
@@ -1312,7 +1325,7 @@ const CostSheetForm = () => {
   const addTrimRow = () => {
     setTrimsDetails([
       ...trimsDetails,
-      { trimName: '', trimQuantity: 0, trimRate: 0, trimTotal: 0, materialType: 'THREAD' }
+      { trimName: '', trimQuantity: 0, trimRate: 0, trimTotal: 0, materialType: 'THREAD' },
     ]);
   };
 
@@ -1382,19 +1395,34 @@ const CostSheetForm = () => {
 
   // Check if a trim has a linked master record
   const hasTrimMasterLink = (trim: TrimDetail): boolean => {
-    return !!(trim.threadId || trim.buttonId || trim.zipperId || trim.elasticId || trim.labelId || trim.packagingId || trim.materialId);
+    return !!(
+      trim.threadId ||
+      trim.buttonId ||
+      trim.zipperId ||
+      trim.elasticId ||
+      trim.labelId ||
+      trim.packagingId ||
+      trim.materialId
+    );
   };
 
   // Get the master ID value for a trim based on its materialType
   const getTrimMasterId = (trim: TrimDetail): string | undefined => {
     switch (trim.materialType) {
-      case 'THREAD': return trim.threadId;
-      case 'BUTTON': return trim.buttonId;
-      case 'ZIPPER': return trim.zipperId;
-      case 'ELASTIC': return trim.elasticId;
-      case 'LABEL': return trim.labelId;
-      case 'PACKAGING': return trim.packagingId;
-      default: return undefined;
+      case 'THREAD':
+        return trim.threadId;
+      case 'BUTTON':
+        return trim.buttonId;
+      case 'ZIPPER':
+        return trim.zipperId;
+      case 'ELASTIC':
+        return trim.elasticId;
+      case 'LABEL':
+        return trim.labelId;
+      case 'PACKAGING':
+        return trim.packagingId;
+      default:
+        return undefined;
     }
   };
 
@@ -1402,7 +1430,7 @@ const CostSheetForm = () => {
   const addEmbroideryRow = () => {
     setEmbroideryDetails([
       ...embroideryDetails,
-      { embroideryName: '', embroideryAverage: 0, embroideryRate: 0, embroideryTotal: 0 }
+      { embroideryName: '', embroideryAverage: 0, embroideryRate: 0, embroideryTotal: 0 },
     ]);
   };
 
@@ -1412,7 +1440,11 @@ const CostSheetForm = () => {
   };
 
   // Update embroidery row
-  const updateEmbroideryRow = (index: number, field: keyof EmbroideryDetail, value: EmbroideryDetail[keyof EmbroideryDetail]) => {
+  const updateEmbroideryRow = (
+    index: number,
+    field: keyof EmbroideryDetail,
+    value: EmbroideryDetail[keyof EmbroideryDetail]
+  ) => {
     const updated = [...embroideryDetails];
     updated[index] = { ...updated[index], [field]: value };
 
@@ -1429,7 +1461,7 @@ const CostSheetForm = () => {
   const addAccessoryRow = () => {
     setAccessoriesDetails([
       ...accessoriesDetails,
-      { accessoryName: '', accessoryQuantity: 0, accessoryRate: 0, accessoryTotal: 0, materialType: 'LABEL' }
+      { accessoryName: '', accessoryQuantity: 0, accessoryRate: 0, accessoryTotal: 0, materialType: 'LABEL' },
     ]);
   };
 
@@ -1439,7 +1471,11 @@ const CostSheetForm = () => {
   };
 
   // Update accessory row
-  const updateAccessoryRow = (index: number, field: keyof AccessoryDetail, value: AccessoryDetail[keyof AccessoryDetail]) => {
+  const updateAccessoryRow = (
+    index: number,
+    field: keyof AccessoryDetail,
+    value: AccessoryDetail[keyof AccessoryDetail]
+  ) => {
     const updated = [...accessoriesDetails];
     updated[index] = { ...updated[index], [field]: value };
 
@@ -1489,9 +1525,12 @@ const CostSheetForm = () => {
   // Get the master ID for an accessory based on its materialType
   const getAccessoryMasterId = (acc: AccessoryDetail): string | undefined => {
     switch (acc.materialType) {
-      case 'LABEL': return acc.labelId;
-      case 'PACKAGING': return acc.packagingId;
-      default: return undefined;
+      case 'LABEL':
+        return acc.labelId;
+      case 'PACKAGING':
+        return acc.packagingId;
+      default:
+        return undefined;
     }
   };
 
@@ -1520,7 +1559,9 @@ const CostSheetForm = () => {
         if (run.fabrics && run.fabrics.length > 0) {
           // Transform run fabrics to cost sheet fabric details
           const fabricDetailsFromRun: FabricDetail[] = run.fabrics.map((fab) => ({
-            fabricName: fab.componentName || (fab.greige ? `${fab.greige.greigeCode} - ${fab.greige.greigeName}` : 'Unknown Fabric'),
+            fabricName:
+              fab.componentName ||
+              (fab.greige ? `${fab.greige.greigeCode} - ${fab.greige.greigeName}` : 'Unknown Fabric'),
             fabricWidth: Number(fab.cutableWidth) || 0,
             fabricAverage: Number(fab.cadAverage) || 0,
             fabricRate: Number(fab.totalCostPerMeter) || 0,
@@ -1601,10 +1642,13 @@ const CostSheetForm = () => {
 
       // Show success message with what was pre-filled
       const preFilled: string[] = [];
-      if (generatedCostSheet.fabricDetails?.length) preFilled.push(`${generatedCostSheet.fabricDetails.length} fabrics`);
+      if (generatedCostSheet.fabricDetails?.length)
+        preFilled.push(`${generatedCostSheet.fabricDetails.length} fabrics`);
       if (generatedCostSheet.trimsDetails?.length) preFilled.push(`${generatedCostSheet.trimsDetails.length} trims`);
-      if (generatedCostSheet.embroideryDetails?.length) preFilled.push(`${generatedCostSheet.embroideryDetails.length} embroidery items`);
-      if (generatedCostSheet.accessoriesDetails?.length) preFilled.push(`${generatedCostSheet.accessoriesDetails.length} accessories`);
+      if (generatedCostSheet.embroideryDetails?.length)
+        preFilled.push(`${generatedCostSheet.embroideryDetails.length} embroidery items`);
+      if (generatedCostSheet.accessoriesDetails?.length)
+        preFilled.push(`${generatedCostSheet.accessoriesDetails.length} accessories`);
 
       notify.success(
         `Cost sheet auto-generated! Pre-filled: ${preFilled.length > 0 ? preFilled.join(', ') : 'No materials found'}. Please add CMT costs and finalize.`,
@@ -1612,7 +1656,8 @@ const CostSheetForm = () => {
       );
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { error?: string; message?: string } } };
-      const errorMsg = axiosError.response?.data?.error || axiosError.response?.data?.message || 'Failed to auto-generate cost sheet';
+      const errorMsg =
+        axiosError.response?.data?.error || axiosError.response?.data?.message || 'Failed to auto-generate cost sheet';
       notify.error(errorMsg, { duration: 5000 });
     } finally {
       setLoading(false);
@@ -1628,34 +1673,46 @@ const CostSheetForm = () => {
     }
 
     // Validate: Check for 0 values on non-NA items
-    const invalidFabrics = fabricDetails.filter(f => !f.isNotApplicable && (f.fabricRate <= 0 || f.fabricAverage <= 0));
-    const invalidTrims = trimsDetails.filter(t => !t.isNotApplicable && (t.trimRate <= 0 || t.trimQuantity <= 0));
-    const invalidEmbroidery = embroideryDetails.filter(e => !e.isNotApplicable && (e.embroideryRate <= 0 || e.embroideryAverage <= 0));
-    const invalidAccessories = accessoriesDetails.filter(a => !a.isNotApplicable && (a.accessoryRate <= 0 || a.accessoryQuantity <= 0));
+    const invalidFabrics = fabricDetails.filter(
+      (f) => !f.isNotApplicable && (f.fabricRate <= 0 || f.fabricAverage <= 0)
+    );
+    const invalidTrims = trimsDetails.filter((t) => !t.isNotApplicable && (t.trimRate <= 0 || t.trimQuantity <= 0));
+    const invalidEmbroidery = embroideryDetails.filter(
+      (e) => !e.isNotApplicable && (e.embroideryRate <= 0 || e.embroideryAverage <= 0)
+    );
+    const invalidAccessories = accessoriesDetails.filter(
+      (a) => !a.isNotApplicable && (a.accessoryRate <= 0 || a.accessoryQuantity <= 0)
+    );
 
-    const emptyNameFabrics = fabricDetails.filter(f => !f.isNotApplicable && !f.fabricName?.trim());
+    const emptyNameFabrics = fabricDetails.filter((f) => !f.isNotApplicable && !f.fabricName?.trim());
     if (emptyNameFabrics.length > 0) {
       notify.error(`${emptyNameFabrics.length} fabric(s) have no name. Re-select the style or enter names manually.`);
       return;
     }
     if (invalidFabrics.length > 0) {
-      const names = invalidFabrics.map(f => f.fabricName || 'Unnamed').join(', ');
-      notify.error(`${invalidFabrics.length} fabric(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
+      const names = invalidFabrics.map((f) => f.fabricName || 'Unnamed').join(', ');
+      notify.error(
+        `${invalidFabrics.length} fabric(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`
+      );
       return;
     }
     if (invalidTrims.length > 0) {
-      const names = invalidTrims.map(t => t.trimName || 'Unnamed').join(', ');
+      const names = invalidTrims.map((t) => t.trimName || 'Unnamed').join(', ');
       notify.error(`${invalidTrims.length} trim(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
       return;
     }
     if (invalidEmbroidery.length > 0) {
-      const names = invalidEmbroidery.map(e => e.embroideryName || 'Unnamed').join(', ');
-      notify.error(`${invalidEmbroidery.length} embroidery item(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
+      const names = invalidEmbroidery.map((e) => e.embroideryName || 'Unnamed').join(', ');
+      notify.error(
+        `${invalidEmbroidery.length} embroidery item(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`
+      );
       return;
     }
     if (invalidAccessories.length > 0) {
-      const names = invalidAccessories.map(a => a.accessoryName || 'Unnamed').join(', ');
-      notify.error(`${invalidAccessories.length} accessory(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
+      const names = invalidAccessories.map((a) => a.accessoryName || 'Unnamed').join(', ');
+      notify.error(
+        `${invalidAccessories.length} accessory(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`
+      );
       return;
     }
 
@@ -1664,7 +1721,7 @@ const CostSheetForm = () => {
 
       const data = {
         styleId: selectedStyleId,
-        purpose: costingMode,  // Cost sheet purpose/mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+        purpose: costingMode, // Cost sheet purpose/mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
         numberOfComponents: numberOfComponents || undefined,
         category: category || undefined,
         subCategory: subCategory || undefined,
@@ -1721,9 +1778,7 @@ const CostSheetForm = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">
-          {isEditMode ? 'Edit Cost Sheet' : 'Create Cost Sheet'}
-        </h1>
+        <h1 className="text-3xl font-bold">{isEditMode ? 'Edit Cost Sheet' : 'Create Cost Sheet'}</h1>
         <Button variant="outline" onClick={() => navigate('/cost-sheets')}>
           Back to List
         </Button>
@@ -1779,9 +1834,7 @@ const CostSheetForm = () => {
                     // Set the full style object
                     setSelectedStyle(style);
                     // Auto-populate customer from style
-                    const customer = customers.find(c =>
-                      c.name.toLowerCase() === style.customerName?.toLowerCase()
-                    );
+                    const customer = customers.find((c) => c.name.toLowerCase() === style.customerName?.toLowerCase());
                     if (customer) {
                       setSelectedCustomerId(customer.id);
                       setDisplayCustomerCode(customer.code);
@@ -1796,9 +1849,7 @@ const CostSheetForm = () => {
                 disabled={isEditMode}
                 placeholder="Type style code to search..."
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Search by style code, name, or customer
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Search by style code, name, or customer</p>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-2">Customer</label>
@@ -1807,9 +1858,7 @@ const CostSheetForm = () => {
                 disabled
                 className="bg-gray-50"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Auto-populated from selected style
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Auto-populated from selected style</p>
             </div>
             {/* Fabric Costing Mode Selector - shown after style is selected */}
             {selectedStyleId && (
@@ -1842,9 +1891,7 @@ const CostSheetForm = () => {
               <div className="mb-3">
                 <label className="block text-sm font-medium text-blue-900 mb-1">
                   Select Costing Run
-                  <span className="text-blue-600 font-normal ml-2">
-                    ({costingRuns.length} available)
-                  </span>
+                  <span className="text-blue-600 font-normal ml-2">({costingRuns.length} available)</span>
                 </label>
                 <p className="text-xs text-blue-700">
                   Select a costing run to auto-populate all fabrics with their CAD averages and rates
@@ -1859,37 +1906,41 @@ const CostSheetForm = () => {
                     onClick={() => setSelectedRunId(selectedRunId === run.id ? null : run.id)}
                     className={`p-3 border rounded-lg text-left transition-all ${
                       selectedRunId === run.id
-                        ? "border-blue-500 bg-white ring-2 ring-blue-200 shadow-sm"
-                        : "border-blue-200 bg-white hover:border-blue-300"
+                        ? 'border-blue-500 bg-white ring-2 ring-blue-200 shadow-sm'
+                        : 'border-blue-200 bg-white hover:border-blue-300'
                     }`}
                   >
                     <div className="flex justify-between items-start">
                       <span className="text-base font-semibold text-gray-900">{run.runName}</span>
                       {selectedRunId === run.id && (
                         <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       )}
                     </div>
 
                     <div className="mt-2 space-y-1 text-sm text-gray-600">
-                      <p>{run.fabricCount} fabric{run.fabricCount !== 1 ? 's' : ''}</p>
+                      <p>
+                        {run.fabricCount} fabric{run.fabricCount !== 1 ? 's' : ''}
+                      </p>
                       {run.totalFabricCost && (
                         <p className="font-medium text-gray-900">₹{Number(run.totalFabricCost).toFixed(2)}/garment</p>
                       )}
                     </div>
 
                     <div className="mt-2 flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        run.isComplete
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          run.isComplete ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
                         {run.isComplete ? '✓ Complete' : '⚠ Incomplete'}
                       </span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(run.createdAt).toLocaleDateString()}
-                      </span>
+                      <span className="text-xs text-gray-400">{new Date(run.createdAt).toLocaleDateString()}</span>
                     </div>
                   </button>
                 ))}
@@ -1933,10 +1984,7 @@ const CostSheetForm = () => {
                   <div className="flex items-center gap-4 mb-4">
                     <div className="flex-1">
                       <label className="block text-sm font-medium mb-2">Budget Source</label>
-                      <Select
-                        value={budgetSource}
-                        onValueChange={(v) => setBudgetSource(v as 'manual' | 'auto')}
-                      >
+                      <Select value={budgetSource} onValueChange={(v) => setBudgetSource(v as 'manual' | 'auto')}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -2016,7 +2064,9 @@ const CostSheetForm = () => {
                         placeholder="0.00"
                       />
                       {budgetSuggestions?.sources.embroiderySource && (
-                        <p className="text-xs text-muted-foreground mt-1">{budgetSuggestions.sources.embroiderySource}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {budgetSuggestions.sources.embroiderySource}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -2028,7 +2078,9 @@ const CostSheetForm = () => {
                         placeholder="0.00"
                       />
                       {budgetSuggestions?.sources.accessoriesSource && (
-                        <p className="text-xs text-muted-foreground mt-1">{budgetSuggestions.sources.accessoriesSource}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {budgetSuggestions.sources.accessoriesSource}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -2118,30 +2170,15 @@ const CostSheetForm = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-600">Customer Code</label>
-                <Input
-                  value={displayCustomerCode}
-                  readOnly
-                  className="bg-gray-100"
-                  placeholder="-"
-                />
+                <Input value={displayCustomerCode} readOnly className="bg-gray-100" placeholder="-" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-600">Customer Name</label>
-                <Input
-                  value={displayCustomerName}
-                  readOnly
-                  className="bg-gray-100"
-                  placeholder="-"
-                />
+                <Input value={displayCustomerName} readOnly className="bg-gray-100" placeholder="-" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-600">Brand Name</label>
-                <Input
-                  value={displayBrandName}
-                  readOnly
-                  className="bg-gray-100"
-                  placeholder="-"
-                />
+                <Input value={displayBrandName} readOnly className="bg-gray-100" placeholder="-" />
               </div>
             </div>
           )}
@@ -2158,41 +2195,39 @@ const CostSheetForm = () => {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Category</label>
-              <Input
-                placeholder="e.g., Top Wear"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              />
+              <Input placeholder="e.g., Top Wear" value={category} onChange={(e) => setCategory(e.target.value)} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Sub Category</label>
-              <Input
-                placeholder="e.g., Kurta"
-                value={subCategory}
-                onChange={(e) => setSubCategory(e.target.value)}
-              />
+              <Input placeholder="e.g., Kurta" value={subCategory} onChange={(e) => setSubCategory(e.target.value)} />
             </div>
           </div>
 
           {/* CAD Status Info Banner */}
           {selectedStyle && (
-            <div className={`mt-4 p-4 rounded-lg border ${
-              isCADApproved(selectedStyle.cadStatus)
-                ? 'bg-green-50 border-green-300'
-                : 'bg-yellow-50 border-yellow-300'
-            }`}>
+            <div
+              className={`mt-4 p-4 rounded-lg border ${
+                isCADApproved(selectedStyle.cadStatus)
+                  ? 'bg-green-50 border-green-300'
+                  : 'bg-yellow-50 border-yellow-300'
+              }`}
+            >
               <div className="flex items-start gap-3">
-                <AlertCircle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
-                  isCADApproved(selectedStyle.cadStatus) ? 'text-green-600' : 'text-yellow-600'
-                }`} />
+                <AlertCircle
+                  className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                    isCADApproved(selectedStyle.cadStatus) ? 'text-green-600' : 'text-yellow-600'
+                  }`}
+                />
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm font-semibold">CAD Planning Workflow:</span>
                     <CADStatusBadge status={selectedStyle.cadStatus} size="sm" />
                   </div>
-                  <p className={`text-sm ${
-                    isCADApproved(selectedStyle.cadStatus) ? 'text-green-800' : 'text-yellow-800'
-                  }`}>
+                  <p
+                    className={`text-sm ${
+                      isCADApproved(selectedStyle.cadStatus) ? 'text-green-800' : 'text-yellow-800'
+                    }`}
+                  >
                     {getCADWorkflowMessage(selectedStyle.cadStatus)}
                   </p>
                   {!isCADApproved(selectedStyle.cadStatus) && (
@@ -2232,7 +2267,12 @@ const CostSheetForm = () => {
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Width</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sourcing</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase" title="Not Applicable">N/A</th>
+                  <th
+                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase"
+                    title="Not Applicable"
+                  >
+                    N/A
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -2260,18 +2300,13 @@ const CostSheetForm = () => {
           </div>
 
           <div className="mt-4 pt-4 border-t">
-            <p className="text-lg font-semibold text-right">
-              Fabric Total: {formatCurrency(calculateFabricTotal())}
-            </p>
+            <p className="text-lg font-semibold text-right">Fabric Total: {formatCurrency(calculateFabricTotal())}</p>
           </div>
         </div>
 
         {/* Fabric Cost Comparison Table */}
-        {fabricDetails.length > 0 && fabricDetails.some(f => f.fabricId) && fabricCostResults.length > 0 && (
-          <CostComparisonTable
-            fabricResults={fabricCostResults}
-            className="bg-white"
-          />
+        {fabricDetails.length > 0 && fabricDetails.some((f) => f.fabricId) && fabricCostResults.length > 0 && (
+          <CostComparisonTable fabricResults={fabricCostResults} className="bg-white" />
         )}
 
         {/* Lace Details */}
@@ -2294,7 +2329,10 @@ const CostSheetForm = () => {
           </div>
           <div className="space-y-4">
             {trimsDetails.map((trim, index) => (
-              <div key={index} className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${trim.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
+              <div
+                key={index}
+                className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${trim.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}
+              >
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">Type</label>
                   <Select
@@ -2322,7 +2360,10 @@ const CostSheetForm = () => {
                     {hasTrimMasterLink(trim) ? (
                       <Link2 className="inline-block w-3 h-3 ml-1 text-green-600" />
                     ) : trim.materialType && trim.materialType !== 'OTHER' && trim.trimName ? (
-                      <Unlink className="inline-block w-3 h-3 ml-1 text-orange-500" title="Not linked to a master record. MRP may skip this item." />
+                      <Unlink
+                        className="inline-block w-3 h-3 ml-1 text-orange-500"
+                        title="Not linked to a master record. MRP may skip this item."
+                      />
                     ) : null}
                   </label>
                   {trim.materialType && trim.materialType !== 'OTHER' ? (
@@ -2393,12 +2434,7 @@ const CostSheetForm = () => {
                   </label>
                 </div>
                 <div className="col-span-1">
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeTrimRow(index)}
-                  >
+                  <Button type="button" variant="destructive" size="sm" onClick={() => removeTrimRow(index)}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -2406,9 +2442,7 @@ const CostSheetForm = () => {
             ))}
           </div>
           <div className="mt-4 pt-4 border-t">
-            <p className="text-lg font-semibold text-right">
-              Trims Total: {formatCurrency(calculateTrimsTotal())}
-            </p>
+            <p className="text-lg font-semibold text-right">Trims Total: {formatCurrency(calculateTrimsTotal())}</p>
           </div>
         </div>
 
@@ -2468,9 +2502,7 @@ const CostSheetForm = () => {
             </div>
           </div>
           <div className="mt-4 pt-4 border-t">
-            <p className="text-lg font-semibold text-right">
-              CMT Total: {formatCurrency(calculateCMTTotal())}
-            </p>
+            <p className="text-lg font-semibold text-right">CMT Total: {formatCurrency(calculateCMTTotal())}</p>
           </div>
         </div>
 
@@ -2487,7 +2519,10 @@ const CostSheetForm = () => {
           ) : (
             <div className="space-y-4">
               {embroideryDetails.map((embr, index) => (
-                <div key={index} className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${embr.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
+                <div
+                  key={index}
+                  className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${embr.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}
+                >
                   <div className="col-span-3">
                     <label className="block text-sm font-medium mb-2">Embroidery {index + 1} Name</label>
                     <Input
@@ -2543,12 +2578,7 @@ const CostSheetForm = () => {
                     </label>
                   </div>
                   <div className="col-span-1">
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeEmbroideryRow(index)}
-                    >
+                    <Button type="button" variant="destructive" size="sm" onClick={() => removeEmbroideryRow(index)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -2578,7 +2608,10 @@ const CostSheetForm = () => {
           ) : (
             <div className="space-y-4">
               {accessoriesDetails.map((acc, index) => (
-                <div key={index} className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${acc.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
+                <div
+                  key={index}
+                  className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${acc.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}
+                >
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-2">Type</label>
                     <Select
@@ -2601,7 +2634,10 @@ const CostSheetForm = () => {
                       {hasAccessoryMasterLink(acc) ? (
                         <Link2 className="inline-block w-3 h-3 ml-1 text-green-600" />
                       ) : acc.materialType && acc.accessoryName ? (
-                        <Unlink className="inline-block w-3 h-3 ml-1 text-orange-500" title="Not linked to a master record. MRP may skip this item." />
+                        <Unlink
+                          className="inline-block w-3 h-3 ml-1 text-orange-500"
+                          title="Not linked to a master record. MRP may skip this item."
+                        />
                       ) : null}
                     </label>
                     {acc.materialType === 'LABEL' || acc.materialType === 'PACKAGING' ? (
@@ -2668,12 +2704,7 @@ const CostSheetForm = () => {
                     </label>
                   </div>
                   <div className="col-span-1">
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeAccessoryRow(index)}
-                    >
+                    <Button type="button" variant="destructive" size="sm" onClick={() => removeAccessoryRow(index)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -2791,13 +2822,15 @@ const CostSheetForm = () => {
                 <div className="text-xs mt-2">
                   {closedCost > calculateTotalProductCost() ? (
                     <span className="text-green-600">
-                      +₹{(closedCost - calculateTotalProductCost()).toFixed(2)} above calculated cost
-                      ({(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}% margin)
+                      +₹{(closedCost - calculateTotalProductCost()).toFixed(2)} above calculated cost (
+                      {(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}%
+                      margin)
                     </span>
                   ) : closedCost < calculateTotalProductCost() ? (
                     <span className="text-amber-600">
-                      ₹{(calculateTotalProductCost() - closedCost).toFixed(2)} below calculated cost
-                      ({(((calculateTotalProductCost() - closedCost) / calculateTotalProductCost()) * 100).toFixed(1)}% discount)
+                      ₹{(calculateTotalProductCost() - closedCost).toFixed(2)} below calculated cost (
+                      {(((calculateTotalProductCost() - closedCost) / calculateTotalProductCost()) * 100).toFixed(1)}%
+                      discount)
                     </span>
                   ) : (
                     <span className="text-gray-500">Same as calculated cost</span>
@@ -2830,7 +2863,9 @@ const CostSheetForm = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Variance</p>
-                  <p className={`text-lg font-semibold ${closedCost >= calculateTotalProductCost() ? 'text-green-600' : 'text-amber-600'}`}>
+                  <p
+                    className={`text-lg font-semibold ${closedCost >= calculateTotalProductCost() ? 'text-green-600' : 'text-amber-600'}`}
+                  >
                     {closedCost >= calculateTotalProductCost() ? '+' : ''}
                     {(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}%
                   </p>
@@ -2853,12 +2888,7 @@ const CostSheetForm = () => {
 
         {/* Submit */}
         <div className="flex justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/cost-sheets')}
-            disabled={loading}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/cost-sheets')} disabled={loading}>
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>

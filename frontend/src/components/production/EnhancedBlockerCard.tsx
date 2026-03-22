@@ -2,14 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  CheckCircle,
-  Clock,
-} from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, ExternalLink, CheckCircle, Clock } from 'lucide-react';
 
 interface BlockerInfo {
   type: string;
@@ -73,29 +66,23 @@ const getResolutionSteps = (blockerType: string): string[] => {
     ],
   };
 
-  return resolutionMap[blockerType] || [
-    'Review the blocker message for specific requirements',
-    'Contact production manager if unsure how to proceed',
-    'Admin users can override with valid business justification',
-  ];
+  return (
+    resolutionMap[blockerType] || [
+      'Review the blocker message for specific requirements',
+      'Contact production manager if unsure how to proceed',
+      'Admin users can override with valid business justification',
+    ]
+  );
 };
 
-const getActionButton = (
-  blocker: BlockerInfo,
-  navigate: ReturnType<typeof useNavigate>
-): React.ReactNode | null => {
+const getActionButton = (blocker: BlockerInfo, navigate: ReturnType<typeof useNavigate>): React.ReactNode | null => {
   switch (blocker.type) {
     case 'FIT_SAMPLE_NOT_APPROVED':
     case 'PP_SAMPLE_NOT_APPROVED':
     case 'SIZE_SET_SAMPLE_NOT_APPROVED':
       if (blocker.styleId) {
         return (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate(`/styles/${blocker.styleId}`)}
-            className="gap-1"
-          >
+          <Button size="sm" variant="outline" onClick={() => navigate(`/styles/${blocker.styleId}`)} className="gap-1">
             <ExternalLink className="h-3 w-3" />
             View Style & Samples
           </Button>
@@ -118,12 +105,7 @@ const getActionButton = (
         );
       }
       return (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => navigate('/testing')}
-          className="gap-1"
-        >
+        <Button size="sm" variant="outline" onClick={() => navigate('/testing')} className="gap-1">
           <ExternalLink className="h-3 w-3" />
           Go to Testing
         </Button>
@@ -144,12 +126,7 @@ const getActionButton = (
         );
       }
       return (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => navigate('/testing')}
-          className="gap-1"
-        >
+        <Button size="sm" variant="outline" onClick={() => navigate('/testing')} className="gap-1">
           <ExternalLink className="h-3 w-3" />
           Go to Testing
         </Button>
@@ -159,12 +136,7 @@ const getActionButton = (
     case 'PP_SAMPLE_REQUIRED':
       if (blocker.styleId) {
         return (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate(`/styles/${blocker.styleId}`)}
-            className="gap-1"
-          >
+          <Button size="sm" variant="outline" onClick={() => navigate(`/styles/${blocker.styleId}`)} className="gap-1">
             <ExternalLink className="h-3 w-3" />
             Create Sample
           </Button>
@@ -237,9 +209,7 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2 flex-1 min-w-0">
-          <AlertCircle
-            className={cn('h-5 w-5 mt-0.5 flex-shrink-0', severityConfig.iconColor)}
-          />
+          <AlertCircle className={cn('h-5 w-5 mt-0.5 flex-shrink-0', severityConfig.iconColor)} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span
@@ -258,26 +228,15 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({
                 </span>
               )}
             </div>
-            <p className="font-medium text-sm text-gray-900 break-words">
-              {blocker.message}
-            </p>
+            <p className="font-medium text-sm text-gray-900 break-words">{blocker.message}</p>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {actionButton}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="h-8 w-8 p-0"
-          >
-            {isExpanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
+          <Button size="sm" variant="ghost" onClick={() => setIsExpanded(!isExpanded)} className="h-8 w-8 p-0">
+            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -288,9 +247,7 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({
           {/* Blocker Type */}
           <div className="text-xs">
             <p className="font-semibold text-gray-700 mb-1">Blocker Type:</p>
-            <p className="text-gray-600 font-mono bg-white px-2 py-1 rounded border border-gray-200">
-              {blocker.type}
-            </p>
+            <p className="text-gray-600 font-mono bg-white px-2 py-1 rounded border border-gray-200">{blocker.type}</p>
           </div>
 
           {/* Resolution Steps */}
@@ -311,9 +268,8 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({
           {/* Admin Note */}
           <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
             <p className="text-blue-900">
-              <span className="font-semibold">Note:</span> Admin users can override this
-              blocker with a valid business justification. All overrides are logged and
-              auditable.
+              <span className="font-semibold">Note:</span> Admin users can override this blocker with a valid business
+              justification. All overrides are logged and auditable.
             </p>
           </div>
         </div>

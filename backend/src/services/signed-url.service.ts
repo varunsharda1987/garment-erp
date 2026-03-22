@@ -21,10 +21,7 @@ const DEFAULT_EXPIRY_SECONDS = 3600;
  * @param expirySeconds - How long the URL should be valid (default: 1 hour)
  * @returns The signed URL with expiry and signature
  */
-export function generateSignedUrl(
-  filePath: string,
-  expirySeconds: number = DEFAULT_EXPIRY_SECONDS
-): string {
+export function generateSignedUrl(filePath: string, expirySeconds: number = DEFAULT_EXPIRY_SECONDS): string {
   const expiry = Math.floor(Date.now() / 1000) + expirySeconds;
   const signature = createSignature(filePath, expiry);
 
@@ -71,11 +68,7 @@ export function verifySignedUrl(
  */
 function createSignature(filePath: string, expiry: number): string {
   const data = `${filePath}:${expiry}`;
-  return crypto
-    .createHmac('sha256', SIGNING_SECRET)
-    .update(data)
-    .digest('hex')
-    .substring(0, 32); // Use first 32 chars for shorter URLs
+  return crypto.createHmac('sha256', SIGNING_SECRET).update(data).digest('hex').substring(0, 32); // Use first 32 chars for shorter URLs
 }
 
 /**

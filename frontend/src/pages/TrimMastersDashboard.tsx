@@ -29,11 +29,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import { trimService, type TrimSummary, type TrimType } from '@/services/trim.service';
@@ -42,32 +38,200 @@ import type { TrimCountsResponse } from '@/types/genericTrim.types';
 
 // Original 5 trim types (existing) - Labels moved to Packaging
 const ORIGINAL_TRIM_TYPES = [
-  { type: 'BUTTON' as TrimType, label: 'Buttons', icon: CircleDot, path: '/materials/button', formPath: '/materials/button/new', color: 'bg-blue-100 text-blue-800', category: 'FASTENERS_CLOSURES' },
-  { type: 'ZIPPER' as TrimType, label: 'Zippers', icon: ToggleRight, path: '/materials/zipper', formPath: '/materials/zipper/new', color: 'bg-purple-100 text-purple-800', category: 'FASTENERS_CLOSURES' },
-  { type: 'LACE' as TrimType, label: 'Laces', icon: Scissors, path: '/materials/lace', formPath: '/materials/lace/new', color: 'bg-pink-100 text-pink-800', category: 'DECORATIVE' },
-  { type: 'THREAD' as TrimType, label: 'Threads', icon: Cable, path: '/materials/thread', formPath: '/materials/thread/new', color: 'bg-green-100 text-green-800', category: 'THREADS_TAPES' },
-  { type: 'ELASTIC' as TrimType, label: 'Elastic', icon: Wind, path: '/materials/elastic', formPath: '/materials/elastic/new', color: 'bg-orange-100 text-orange-800', category: 'THREADS_TAPES' },
+  {
+    type: 'BUTTON' as TrimType,
+    label: 'Buttons',
+    icon: CircleDot,
+    path: '/materials/button',
+    formPath: '/materials/button/new',
+    color: 'bg-blue-100 text-blue-800',
+    category: 'FASTENERS_CLOSURES',
+  },
+  {
+    type: 'ZIPPER' as TrimType,
+    label: 'Zippers',
+    icon: ToggleRight,
+    path: '/materials/zipper',
+    formPath: '/materials/zipper/new',
+    color: 'bg-purple-100 text-purple-800',
+    category: 'FASTENERS_CLOSURES',
+  },
+  {
+    type: 'LACE' as TrimType,
+    label: 'Laces',
+    icon: Scissors,
+    path: '/materials/lace',
+    formPath: '/materials/lace/new',
+    color: 'bg-pink-100 text-pink-800',
+    category: 'DECORATIVE',
+  },
+  {
+    type: 'THREAD' as TrimType,
+    label: 'Threads',
+    icon: Cable,
+    path: '/materials/thread',
+    formPath: '/materials/thread/new',
+    color: 'bg-green-100 text-green-800',
+    category: 'THREADS_TAPES',
+  },
+  {
+    type: 'ELASTIC' as TrimType,
+    label: 'Elastic',
+    icon: Wind,
+    path: '/materials/elastic',
+    formPath: '/materials/elastic/new',
+    color: 'bg-orange-100 text-orange-800',
+    category: 'THREADS_TAPES',
+  },
   // Note: Labels (care labels, size labels, brand labels) are now managed under Packaging
 ];
 
 // New trim types (generic) - includes "Others" for each category
 const NEW_TRIM_TYPES = [
-  { type: 'hook_eye', label: 'Hook & Eye', icon: Lock, path: '/materials/hook_eye', formPath: '/materials/hook_eye/new', color: 'bg-slate-100 text-slate-800', category: 'FASTENERS_CLOSURES' },
-  { type: 'snap_button', label: 'Snap Button', icon: CircleDot, path: '/materials/snap_button', formPath: '/materials/snap_button/new', color: 'bg-indigo-100 text-indigo-800', category: 'FASTENERS_CLOSURES' },
-  { type: 'buckle', label: 'Buckle', icon: Lock, path: '/materials/buckle', formPath: '/materials/buckle/new', color: 'bg-amber-100 text-amber-800', category: 'FASTENERS_CLOSURES' },
-  { type: 'belt', label: 'Belt', icon: Cable, path: '/materials/belt', formPath: '/materials/belt/new', color: 'bg-stone-100 text-stone-800', category: 'FASTENERS_CLOSURES' },
-  { type: 'velcro', label: 'Velcro', icon: Layers, path: '/materials/velcro', formPath: '/materials/velcro/new', color: 'bg-lime-100 text-lime-800', category: 'FASTENERS_CLOSURES' },
-  { type: 'other_fastener', label: 'Other Fastener', icon: MoreHorizontal, path: '/materials/other_fastener', formPath: '/materials/other_fastener/new', color: 'bg-neutral-100 text-neutral-800', category: 'FASTENERS_CLOSURES' },
-  { type: 'drawstring', label: 'Drawstring', icon: Cable, path: '/materials/drawstring', formPath: '/materials/drawstring/new', color: 'bg-emerald-100 text-emerald-800', category: 'THREADS_TAPES' },
-  { type: 'ribbon', label: 'Ribbon', icon: Wind, path: '/materials/ribbon', formPath: '/materials/ribbon/new', color: 'bg-rose-100 text-rose-800', category: 'THREADS_TAPES' },
-  { type: 'other_tape', label: 'Other Tape/Thread', icon: MoreHorizontal, path: '/materials/other_tape', formPath: '/materials/other_tape/new', color: 'bg-neutral-100 text-neutral-800', category: 'THREADS_TAPES' },
-  { type: 'sequin', label: 'Sequin', icon: Sparkles, path: '/materials/sequin', formPath: '/materials/sequin/new', color: 'bg-fuchsia-100 text-fuchsia-800', category: 'DECORATIVE' },
-  { type: 'bead', label: 'Bead', icon: CircleDot, path: '/materials/bead', formPath: '/materials/bead/new', color: 'bg-violet-100 text-violet-800', category: 'DECORATIVE' },
-  { type: 'motif', label: 'Motif', icon: Sparkles, path: '/materials/motif', formPath: '/materials/motif/new', color: 'bg-purple-100 text-purple-800', category: 'DECORATIVE' },
-  { type: 'other_decorative', label: 'Other Decorative', icon: MoreHorizontal, path: '/materials/other_decorative', formPath: '/materials/other_decorative/new', color: 'bg-neutral-100 text-neutral-800', category: 'DECORATIVE' },
-  { type: 'interlining', label: 'Interlining', icon: Layers, path: '/materials/interlining', formPath: '/materials/interlining/new', color: 'bg-gray-100 text-gray-800', category: 'FUNCTIONAL' },
-  { type: 'padding', label: 'Padding', icon: Settings, path: '/materials/padding', formPath: '/materials/padding/new', color: 'bg-teal-100 text-teal-800', category: 'FUNCTIONAL' },
-  { type: 'other_functional', label: 'Other Functional', icon: MoreHorizontal, path: '/materials/other_functional', formPath: '/materials/other_functional/new', color: 'bg-neutral-100 text-neutral-800', category: 'FUNCTIONAL' },
+  {
+    type: 'hook_eye',
+    label: 'Hook & Eye',
+    icon: Lock,
+    path: '/materials/hook_eye',
+    formPath: '/materials/hook_eye/new',
+    color: 'bg-slate-100 text-slate-800',
+    category: 'FASTENERS_CLOSURES',
+  },
+  {
+    type: 'snap_button',
+    label: 'Snap Button',
+    icon: CircleDot,
+    path: '/materials/snap_button',
+    formPath: '/materials/snap_button/new',
+    color: 'bg-indigo-100 text-indigo-800',
+    category: 'FASTENERS_CLOSURES',
+  },
+  {
+    type: 'buckle',
+    label: 'Buckle',
+    icon: Lock,
+    path: '/materials/buckle',
+    formPath: '/materials/buckle/new',
+    color: 'bg-amber-100 text-amber-800',
+    category: 'FASTENERS_CLOSURES',
+  },
+  {
+    type: 'belt',
+    label: 'Belt',
+    icon: Cable,
+    path: '/materials/belt',
+    formPath: '/materials/belt/new',
+    color: 'bg-stone-100 text-stone-800',
+    category: 'FASTENERS_CLOSURES',
+  },
+  {
+    type: 'velcro',
+    label: 'Velcro',
+    icon: Layers,
+    path: '/materials/velcro',
+    formPath: '/materials/velcro/new',
+    color: 'bg-lime-100 text-lime-800',
+    category: 'FASTENERS_CLOSURES',
+  },
+  {
+    type: 'other_fastener',
+    label: 'Other Fastener',
+    icon: MoreHorizontal,
+    path: '/materials/other_fastener',
+    formPath: '/materials/other_fastener/new',
+    color: 'bg-neutral-100 text-neutral-800',
+    category: 'FASTENERS_CLOSURES',
+  },
+  {
+    type: 'drawstring',
+    label: 'Drawstring',
+    icon: Cable,
+    path: '/materials/drawstring',
+    formPath: '/materials/drawstring/new',
+    color: 'bg-emerald-100 text-emerald-800',
+    category: 'THREADS_TAPES',
+  },
+  {
+    type: 'ribbon',
+    label: 'Ribbon',
+    icon: Wind,
+    path: '/materials/ribbon',
+    formPath: '/materials/ribbon/new',
+    color: 'bg-rose-100 text-rose-800',
+    category: 'THREADS_TAPES',
+  },
+  {
+    type: 'other_tape',
+    label: 'Other Tape/Thread',
+    icon: MoreHorizontal,
+    path: '/materials/other_tape',
+    formPath: '/materials/other_tape/new',
+    color: 'bg-neutral-100 text-neutral-800',
+    category: 'THREADS_TAPES',
+  },
+  {
+    type: 'sequin',
+    label: 'Sequin',
+    icon: Sparkles,
+    path: '/materials/sequin',
+    formPath: '/materials/sequin/new',
+    color: 'bg-fuchsia-100 text-fuchsia-800',
+    category: 'DECORATIVE',
+  },
+  {
+    type: 'bead',
+    label: 'Bead',
+    icon: CircleDot,
+    path: '/materials/bead',
+    formPath: '/materials/bead/new',
+    color: 'bg-violet-100 text-violet-800',
+    category: 'DECORATIVE',
+  },
+  {
+    type: 'motif',
+    label: 'Motif',
+    icon: Sparkles,
+    path: '/materials/motif',
+    formPath: '/materials/motif/new',
+    color: 'bg-purple-100 text-purple-800',
+    category: 'DECORATIVE',
+  },
+  {
+    type: 'other_decorative',
+    label: 'Other Decorative',
+    icon: MoreHorizontal,
+    path: '/materials/other_decorative',
+    formPath: '/materials/other_decorative/new',
+    color: 'bg-neutral-100 text-neutral-800',
+    category: 'DECORATIVE',
+  },
+  {
+    type: 'interlining',
+    label: 'Interlining',
+    icon: Layers,
+    path: '/materials/interlining',
+    formPath: '/materials/interlining/new',
+    color: 'bg-gray-100 text-gray-800',
+    category: 'FUNCTIONAL',
+  },
+  {
+    type: 'padding',
+    label: 'Padding',
+    icon: Settings,
+    path: '/materials/padding',
+    formPath: '/materials/padding/new',
+    color: 'bg-teal-100 text-teal-800',
+    category: 'FUNCTIONAL',
+  },
+  {
+    type: 'other_functional',
+    label: 'Other Functional',
+    icon: MoreHorizontal,
+    path: '/materials/other_functional',
+    formPath: '/materials/other_functional/new',
+    color: 'bg-neutral-100 text-neutral-800',
+    category: 'FUNCTIONAL',
+  },
 ];
 
 // All trim types combined
@@ -84,11 +248,11 @@ const CATEGORY_CONFIG = {
 // Map trim type to summary key (API returns plural keys like 'buttons', 'zippers', etc.)
 // Note: Labels moved to Packaging
 const TRIM_TYPE_TO_SUMMARY_KEY: Record<string, keyof TrimSummary> = {
-  'BUTTON': 'buttons',
-  'ZIPPER': 'zippers',
-  'LACE': 'laces',
-  'THREAD': 'threads',
-  'ELASTIC': 'elastic',
+  BUTTON: 'buttons',
+  ZIPPER: 'zippers',
+  LACE: 'laces',
+  THREAD: 'threads',
+  ELASTIC: 'elastic',
 };
 
 export default function TrimMastersDashboard() {
@@ -99,7 +263,12 @@ export default function TrimMastersDashboard() {
   const [summary, setSummary] = useState<TrimSummary | null>(null);
   const [totalTrims, setTotalTrims] = useState(0);
   const [newTrimCounts, setNewTrimCounts] = useState<TrimCountsResponse>({});
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['FASTENERS_CLOSURES', 'THREADS_TAPES', 'DECORATIVE', 'FUNCTIONAL']);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([
+    'FASTENERS_CLOSURES',
+    'THREADS_TAPES',
+    'DECORATIVE',
+    'FUNCTIONAL',
+  ]);
 
   // Global search
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,10 +289,8 @@ export default function TrimMastersDashboard() {
   };
 
   const toggleCategory = (category: string) => {
-    setExpandedCategories(prev =>
-      prev.includes(category)
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
+    setExpandedCategories((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
     );
   };
 
@@ -145,9 +312,7 @@ export default function TrimMastersDashboard() {
     if (!searchQuery.trim()) return;
 
     // Find matching trim types by label
-    const matchingType = ALL_TRIM_TYPES.find(t =>
-      t.label.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const matchingType = ALL_TRIM_TYPES.find((t) => t.label.toLowerCase().includes(searchQuery.toLowerCase()));
 
     if (matchingType) {
       // Navigate to matching trim type list with search query
@@ -160,7 +325,7 @@ export default function TrimMastersDashboard() {
 
   // Get count for a trim type
   const getTrimCount = (trimType: string): number => {
-    const isOriginalTrim = ORIGINAL_TRIM_TYPES.some(t => t.type === trimType);
+    const isOriginalTrim = ORIGINAL_TRIM_TYPES.some((t) => t.type === trimType);
     if (isOriginalTrim) {
       const summaryKey = TRIM_TYPE_TO_SUMMARY_KEY[trimType];
       return summary?.[summaryKey]?.count || 0;
@@ -171,13 +336,13 @@ export default function TrimMastersDashboard() {
 
   // Get most used trim types (top 4 by count)
   const getMostUsedTrims = () => {
-    const trimCounts = ALL_TRIM_TYPES.map(trim => ({
+    const trimCounts = ALL_TRIM_TYPES.map((trim) => ({
       ...trim,
       count: getTrimCount(trim.type),
     }));
 
     return trimCounts
-      .filter(t => t.count > 0)
+      .filter((t) => t.count > 0)
       .sort((a, b) => b.count - a.count)
       .slice(0, 4);
   };
@@ -206,44 +371,32 @@ export default function TrimMastersDashboard() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 max-h-96 overflow-y-auto">
             <DropdownMenuLabel>Fasteners & Closures</DropdownMenuLabel>
-            {ALL_TRIM_TYPES.filter(t => t.category === 'FASTENERS_CLOSURES').map((trim) => (
-              <DropdownMenuItem
-                key={trim.type}
-                onClick={() => navigate(trim.formPath)}
-              >
+            {ALL_TRIM_TYPES.filter((t) => t.category === 'FASTENERS_CLOSURES').map((trim) => (
+              <DropdownMenuItem key={trim.type} onClick={() => navigate(trim.formPath)}>
                 <trim.icon className="mr-2 h-4 w-4" />
                 New {trim.label}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Threads & Tapes</DropdownMenuLabel>
-            {ALL_TRIM_TYPES.filter(t => t.category === 'THREADS_TAPES').map((trim) => (
-              <DropdownMenuItem
-                key={trim.type}
-                onClick={() => navigate(trim.formPath)}
-              >
+            {ALL_TRIM_TYPES.filter((t) => t.category === 'THREADS_TAPES').map((trim) => (
+              <DropdownMenuItem key={trim.type} onClick={() => navigate(trim.formPath)}>
                 <trim.icon className="mr-2 h-4 w-4" />
                 New {trim.label}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Decorative</DropdownMenuLabel>
-            {ALL_TRIM_TYPES.filter(t => t.category === 'DECORATIVE').map((trim) => (
-              <DropdownMenuItem
-                key={trim.type}
-                onClick={() => navigate(trim.formPath)}
-              >
+            {ALL_TRIM_TYPES.filter((t) => t.category === 'DECORATIVE').map((trim) => (
+              <DropdownMenuItem key={trim.type} onClick={() => navigate(trim.formPath)}>
                 <trim.icon className="mr-2 h-4 w-4" />
                 New {trim.label}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Functional</DropdownMenuLabel>
-            {ALL_TRIM_TYPES.filter(t => t.category === 'FUNCTIONAL').map((trim) => (
-              <DropdownMenuItem
-                key={trim.type}
-                onClick={() => navigate(trim.formPath)}
-              >
+            {ALL_TRIM_TYPES.filter((t) => t.category === 'FUNCTIONAL').map((trim) => (
+              <DropdownMenuItem key={trim.type} onClick={() => navigate(trim.formPath)}>
                 <trim.icon className="mr-2 h-4 w-4" />
                 New {trim.label}
               </DropdownMenuItem>
@@ -268,9 +421,7 @@ export default function TrimMastersDashboard() {
               <div className="hidden sm:block h-12 w-px bg-border mx-2" />
               <div className="hidden sm:block text-right">
                 <p className="text-sm text-muted-foreground">Categories</p>
-                <p className="text-lg font-semibold text-primary">
-                  {ALL_TRIM_TYPES.length} types
-                </p>
+                <p className="text-lg font-semibold text-primary">{ALL_TRIM_TYPES.length} types</p>
               </div>
             </div>
 
@@ -332,7 +483,7 @@ export default function TrimMastersDashboard() {
       {/* Grouped Summary Cards by Category */}
       <div className="space-y-4">
         {Object.entries(CATEGORY_CONFIG).map(([categoryKey, categoryConfig]) => {
-          const categoryTrims = ALL_TRIM_TYPES.filter(t => t.category === categoryKey);
+          const categoryTrims = ALL_TRIM_TYPES.filter((t) => t.category === categoryKey);
           const isExpanded = expandedCategories.includes(categoryKey);
 
           // Calculate total count for this category
@@ -341,11 +492,7 @@ export default function TrimMastersDashboard() {
           }, 0);
 
           return (
-            <Collapsible
-              key={categoryKey}
-              open={isExpanded}
-              onOpenChange={() => toggleCategory(categoryKey)}
-            >
+            <Collapsible key={categoryKey} open={isExpanded} onOpenChange={() => toggleCategory(categoryKey)}>
               <Card className={`border ${categoryConfig.color}`}>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -385,9 +532,7 @@ export default function TrimMastersDashboard() {
                             <CardContent className="pt-3 pb-3 px-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <Icon className="h-4 w-4 text-gray-500" />
-                                <Badge className={`text-[10px] px-1.5 py-0 ${trim.color}`}>
-                                  {count}
-                                </Badge>
+                                <Badge className={`text-[10px] px-1.5 py-0 ${trim.color}`}>{count}</Badge>
                               </div>
                               <p className="text-sm font-medium truncate">{trim.label}</p>
                             </CardContent>

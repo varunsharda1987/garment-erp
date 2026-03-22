@@ -112,7 +112,10 @@ export default function QuotationList() {
 
     try {
       await deleteQuotation(quotationToDelete.id);
-      handleApiSuccess('Quotation deleted', `Quotation ${quotationToDelete.quotationNumber} has been successfully deleted.`);
+      handleApiSuccess(
+        'Quotation deleted',
+        `Quotation ${quotationToDelete.quotationNumber} has been successfully deleted.`
+      );
       fetchQuotations();
       fetchSummary();
     } catch (err: unknown) {
@@ -163,9 +166,7 @@ export default function QuotationList() {
           >
             {quotation.quotationNumber}
           </button>
-          <div className="text-xs text-gray-500 mt-0.5">
-            {formatDate(quotation.quotationDate)}
-          </div>
+          <div className="text-xs text-gray-500 mt-0.5">{formatDate(quotation.quotationDate)}</div>
         </div>
       ),
     },
@@ -185,9 +186,10 @@ export default function QuotationList() {
       key: 'validUntil',
       header: 'Valid Until',
       render: (quotation) => {
-        const isExpired = new Date(quotation.validUntil) < new Date() &&
-                         quotation.status !== 'ACCEPTED' &&
-                         quotation.status !== 'REJECTED';
+        const isExpired =
+          new Date(quotation.validUntil) < new Date() &&
+          quotation.status !== 'ACCEPTED' &&
+          quotation.status !== 'REJECTED';
         return (
           <div className={`text-sm ${isExpired ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
             {formatDate(quotation.validUntil)}
@@ -198,11 +200,7 @@ export default function QuotationList() {
     {
       key: 'items',
       header: 'Items',
-      render: (quotation) => (
-        <div className="text-sm text-gray-700">
-          {quotation.items?.length || 0} item(s)
-        </div>
-      ),
+      render: (quotation) => <div className="text-sm text-gray-700">{quotation.items?.length || 0} item(s)</div>,
     },
     {
       key: 'totalAmount',
@@ -217,10 +215,7 @@ export default function QuotationList() {
       key: 'status',
       header: 'Status',
       render: (quotation) => (
-        <StatusBadge
-          status={QuotationStatusLabels[quotation.status]}
-          variant={getStatusVariant(quotation.status)}
-        />
+        <StatusBadge status={QuotationStatusLabels[quotation.status]} variant={getStatusVariant(quotation.status)} />
       ),
     },
     {
@@ -286,9 +281,7 @@ export default function QuotationList() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.total}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {formatCurrency(summary.totalValue)}
-              </p>
+              <p className="text-xs text-gray-500 mt-1">{formatCurrency(summary.totalValue)}</p>
             </CardContent>
           </Card>
           <Card>
@@ -313,9 +306,7 @@ export default function QuotationList() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{summary.accepted}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                Value: {formatCurrency(summary.acceptedValue)}
-              </p>
+              <p className="text-xs text-gray-500 mt-1">Value: {formatCurrency(summary.acceptedValue)}</p>
             </CardContent>
           </Card>
           <Card>
@@ -334,11 +325,7 @@ export default function QuotationList() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
-              <SearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search by quotation number..."
-              />
+              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search by quotation number..." />
             </div>
             <Select value={customerFilter} onValueChange={setCustomerFilter}>
               <SelectTrigger>

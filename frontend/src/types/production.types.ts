@@ -9,7 +9,7 @@ export const OrderStatus = {
   CANCELLED: 'CANCELLED',
   SPLIT: 'SPLIT',
 } as const;
-export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const Priority = {
   LOW: 'LOW',
@@ -17,7 +17,7 @@ export const Priority = {
   HIGH: 'HIGH',
   URGENT: 'URGENT',
 } as const;
-export type Priority = typeof Priority[keyof typeof Priority];
+export type Priority = (typeof Priority)[keyof typeof Priority];
 
 export const ProductionStage = {
   CUTTING: 'CUTTING',
@@ -40,14 +40,14 @@ export const ProductionStage = {
   SHIPPED: 'SHIPPED',
   COMPLETED: 'COMPLETED',
 } as const;
-export type ProductionStage = typeof ProductionStage[keyof typeof ProductionStage];
+export type ProductionStage = (typeof ProductionStage)[keyof typeof ProductionStage];
 
 export const LocationType = {
   FACTORY: 'FACTORY',
   WAREHOUSE: 'WAREHOUSE',
   OFFICE: 'OFFICE',
 } as const;
-export type LocationType = typeof LocationType[keyof typeof LocationType];
+export type LocationType = (typeof LocationType)[keyof typeof LocationType];
 
 // Location interface
 export interface Location {
@@ -65,7 +65,7 @@ export interface Location {
 export interface WorkOrderBreakup {
   id: string;
   workOrderId: string;
-  colorId: string | null;  // Nullable for size-only orders
+  colorId: string | null; // Nullable for size-only orders
   sizeId: string;
   plannedQuantity: number;
   completedQuantity: number;
@@ -115,7 +115,7 @@ export interface WorkOrder {
   stockProductionOrderId?: string | null;
   stockProductionOrderItemId?: string | null;
   styleId: string;
-  warehouseId: string | null;  // Nullable - can be assigned later
+  warehouseId: string | null; // Nullable - can be assigned later
   plannedStartDate: string;
   plannedEndDate: string;
   actualStartDate?: string;
@@ -214,14 +214,14 @@ export interface CreateWorkOrderDTO {
   stockProductionOrderId?: string | null;
   stockProductionOrderItemId?: string | null;
   styleId: string;
-  warehouseId?: string | null;  // Optional - can be assigned later
+  warehouseId?: string | null; // Optional - can be assigned later
   plannedStartDate: string | Date;
   plannedEndDate: string | Date;
   totalQuantity: number;
   priority?: Priority;
   remarks?: string;
   colorSizeBreakup: Array<{
-    colorId: string | null;  // Nullable for size-only orders
+    colorId: string | null; // Nullable for size-only orders
     sizeId: string;
     quantity: number;
   }>;

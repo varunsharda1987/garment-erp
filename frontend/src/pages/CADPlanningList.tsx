@@ -16,7 +16,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useListQuery, queryKeys } from '@/hooks/useQuery';
-import { cadPlanningService, type CADPlanningStyle, type CADStatusCounts, type CADWidthDetail } from '@/services/cad-planning.service';
+import {
+  cadPlanningService,
+  type CADPlanningStyle,
+  type CADStatusCounts,
+  type CADWidthDetail,
+} from '@/services/cad-planning.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,23 +29,8 @@ import { Badge } from '@/components/ui/badge';
 import SearchInput from '@/components/SearchInput';
 import { CADStatusBadge } from '@/components/cad/CADStatusBadge';
 import ExportButton from '@/components/ExportButton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Ruler,
-  Clock,
-  CheckCircle2,
-  Loader2,
-  ChevronDown,
-  ChevronRight,
-  Calculator,
-} from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Ruler, Clock, CheckCircle2, Loader2, ChevronDown, ChevronRight, Calculator } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 
 export default function CADPlanningList() {
@@ -67,13 +57,16 @@ export default function CADPlanningList() {
   );
 
   // Build filters for styles query
-  const stylesFilters = useMemo(() => ({
-    status: searchQuery ? undefined : statusTab,
-    page: currentPage,
-    limit: pageSize,
-    search: searchQuery || undefined,
-    searchAll: !!searchQuery,
-  }), [statusTab, currentPage, pageSize, searchQuery]);
+  const stylesFilters = useMemo(
+    () => ({
+      status: searchQuery ? undefined : statusTab,
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery || undefined,
+      searchAll: !!searchQuery,
+    }),
+    [statusTab, currentPage, pageSize, searchQuery]
+  );
 
   // React Query: Fetch styles (cached, deduped, auto-refetch)
   const {
@@ -170,21 +163,17 @@ export default function CADPlanningList() {
 
   // Get list of pending purposes for a style
   const getPendingPurposes = (cadDetails: CADWidthDetail[]): string[] => {
-    const purposes = cadDetails?.map(cad => cad.purpose).filter(Boolean) || [];
+    const purposes = cadDetails?.map((cad) => cad.purpose).filter(Boolean) || [];
     const completedPurposes = new Set(purposes as string[]);
     const allPurposes = ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
-    return allPurposes.filter(p => !completedPurposes.has(p));
+    return allPurposes.filter((p) => !completedPurposes.has(p));
   };
 
   // Get list of unique greiges for a style (returns array for stacked display)
   const getGreigesList = (cadDetails: CADWidthDetail[]): string[] => {
     if (!cadDetails || cadDetails.length === 0) return [];
 
-    const greiges = new Set(
-      cadDetails
-        .filter(cad => cad.greigeName)
-        .map(cad => cad.greigeName)
-    );
+    const greiges = new Set(cadDetails.filter((cad) => cad.greigeName).map((cad) => cad.greigeName));
 
     return Array.from(greiges) as string[];
   };
@@ -196,29 +185,17 @@ export default function CADPlanningList() {
     return (
       <div className="flex items-center justify-between px-4 py-3 border-t">
         <div className="text-sm text-gray-600">
-          Showing {(currentPage - 1) * pageSize + 1} to{' '}
-          {Math.min(currentPage * pageSize, totalStyles)} of {totalStyles} results
+          Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalStyles)} of {totalStyles}{' '}
+          results
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(1)}
-          >
+          <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
             «
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((p) => p - 1)}
-          >
+          <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>
             ‹
           </Button>
-          <span className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm">
-            {currentPage}
-          </span>
+          <span className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm">{currentPage}</span>
           <Button
             variant="outline"
             size="sm"
@@ -243,22 +220,20 @@ export default function CADPlanningList() {
   // Render CAD details sub-table grouped by purpose
   const renderCADDetails = (cadDetails: CADWidthDetail[]) => {
     if (!cadDetails || cadDetails.length === 0) {
-      return (
-        <div className="text-center py-4 text-gray-500 text-sm">
-          No CAD entries found for this style
-        </div>
-      );
+      return <div className="text-center py-4 text-gray-500 text-sm">No CAD entries found for this style</div>;
     }
 
     // Group by purpose
     const grouped: Record<string, CADWidthDetail[]> = {
-      COSTING: cadDetails.filter(c => c.purpose === 'COSTING'),
-      RAW_MATERIAL_CALCULATION: cadDetails.filter(c => c.purpose === 'RAW_MATERIAL_CALCULATION'),
-      PRODUCTION: cadDetails.filter(c => c.purpose === 'PRODUCTION'),
+      COSTING: cadDetails.filter((c) => c.purpose === 'COSTING'),
+      RAW_MATERIAL_CALCULATION: cadDetails.filter((c) => c.purpose === 'RAW_MATERIAL_CALCULATION'),
+      PRODUCTION: cadDetails.filter((c) => c.purpose === 'PRODUCTION'),
     };
 
     // Add items without a recognized purpose to OTHER
-    const other = cadDetails.filter(c => !c.purpose || !['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'].includes(c.purpose));
+    const other = cadDetails.filter(
+      (c) => !c.purpose || !['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'].includes(c.purpose)
+    );
     if (other.length > 0) {
       grouped['OTHER'] = other;
     }
@@ -284,9 +259,7 @@ export default function CADPlanningList() {
               </TableCell>
               <TableCell className="py-2 text-sm">
                 {cad.greigeName || <span className="text-gray-400">-</span>}
-                {cad.greigeCode && (
-                  <span className="text-xs text-gray-400 ml-1">({cad.greigeCode})</span>
-                )}
+                {cad.greigeCode && <span className="text-xs text-gray-400 ml-1">({cad.greigeCode})</span>}
               </TableCell>
               <TableCell className="py-2 text-sm font-mono">
                 {cad.layerLength ? cad.layerLength.toFixed(3) : '-'}
@@ -347,11 +320,7 @@ export default function CADPlanningList() {
       </CardHeader>
       <CardContent>
         {/* Status Tabs - Only PENDING and APPROVED */}
-        <Tabs
-          value={statusTab}
-          onValueChange={(v) => setStatusTab(v as 'PENDING' | 'APPROVED')}
-          className="mb-6"
-        >
+        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as 'PENDING' | 'APPROVED')} className="mb-6">
           <TabsList>
             <TabsTrigger value="PENDING" className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
@@ -385,9 +354,7 @@ export default function CADPlanningList() {
                   className="max-w-lg"
                 />
                 {searchQuery && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Searching across both Pending and Approved styles
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Searching across both Pending and Approved styles</p>
                 )}
               </div>
 
@@ -417,8 +384,8 @@ export default function CADPlanningList() {
                     {searchQuery
                       ? 'Try adjusting your search terms'
                       : status === 'PENDING'
-                      ? 'All styles have CAD planning completed'
-                      : 'No styles have completed CAD planning yet'}
+                        ? 'All styles have CAD planning completed'
+                        : 'No styles have completed CAD planning yet'}
                   </p>
                 </div>
               )}
@@ -492,10 +459,7 @@ export default function CADPlanningList() {
                             <TableCell>
                               <div>
                                 <div className="font-medium text-blue-600">{style.styleCode}</div>
-                                <div
-                                  className="text-sm text-gray-500 truncate max-w-[180px]"
-                                  title={style.styleName}
-                                >
+                                <div className="text-sm text-gray-500 truncate max-w-[180px]" title={style.styleName}>
                                   {style.styleName}
                                 </div>
                               </div>
@@ -565,11 +529,13 @@ export default function CADPlanningList() {
                                 {getPendingPurposes(style.cadDetails).length === 0 ? (
                                   <span className="text-xs text-green-600 font-medium">All Complete</span>
                                 ) : (
-                                  getPendingPurposes(style.cadDetails).map(purpose => (
+                                  getPendingPurposes(style.cadDetails).map((purpose) => (
                                     <Badge key={purpose} variant="outline" className="text-xs text-muted-foreground">
-                                      {purpose === 'COSTING' ? 'Costing' :
-                                       purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' :
-                                       'Production'}
+                                      {purpose === 'COSTING'
+                                        ? 'Costing'
+                                        : purpose === 'RAW_MATERIAL_CALCULATION'
+                                          ? 'Raw Mat'
+                                          : 'Production'}
                                     </Badge>
                                   ))
                                 )}

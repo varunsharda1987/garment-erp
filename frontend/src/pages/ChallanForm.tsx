@@ -68,7 +68,11 @@ export default function ChallanForm() {
       return;
     }
     if (form.items.some((item) => !item.description || item.quantity <= 0)) {
-      toast({ title: 'Validation Error', description: 'All items must have a description and quantity > 0', variant: 'destructive' });
+      toast({
+        title: 'Validation Error',
+        description: 'All items must have a description and quantity > 0',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -115,7 +119,9 @@ export default function ChallanForm() {
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(ChallanTypeLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -155,7 +161,9 @@ export default function ChallanForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {fromToOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -179,7 +187,9 @@ export default function ChallanForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {fromToOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -204,31 +214,19 @@ export default function ChallanForm() {
           <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <Label>Vehicle Number</Label>
-              <Input
-                value={form.vehicleNumber || ''}
-                onChange={(e) => updateField('vehicleNumber', e.target.value)}
-              />
+              <Input value={form.vehicleNumber || ''} onChange={(e) => updateField('vehicleNumber', e.target.value)} />
             </div>
             <div>
               <Label>Driver Name</Label>
-              <Input
-                value={form.driverName || ''}
-                onChange={(e) => updateField('driverName', e.target.value)}
-              />
+              <Input value={form.driverName || ''} onChange={(e) => updateField('driverName', e.target.value)} />
             </div>
             <div>
               <Label>Driver Phone</Label>
-              <Input
-                value={form.driverPhone || ''}
-                onChange={(e) => updateField('driverPhone', e.target.value)}
-              />
+              <Input value={form.driverPhone || ''} onChange={(e) => updateField('driverPhone', e.target.value)} />
             </div>
             <div>
               <Label>LR Number</Label>
-              <Input
-                value={form.lrNumber || ''}
-                onChange={(e) => updateField('lrNumber', e.target.value)}
-              />
+              <Input value={form.lrNumber || ''} onChange={(e) => updateField('lrNumber', e.target.value)} />
             </div>
           </CardContent>
         </Card>
@@ -255,7 +253,9 @@ export default function ChallanForm() {
                     </SelectTrigger>
                     <SelectContent>
                       {CHALLAN_ITEM_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

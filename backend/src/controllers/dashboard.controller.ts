@@ -27,8 +27,7 @@ export const getDashboardSummary = async (req: Request, res: Response): Promise<
     }
 
     // Helper to get stage data with defaults
-    const getStageData = (stage: ProductionStage) =>
-      stageMap.get(stage) || { styles: 0, pieces: 0 };
+    const getStageData = (stage: ProductionStage) => stageMap.get(stage) || { styles: 0, pieces: 0 };
 
     const summary = {
       preProduction: {
@@ -94,7 +93,7 @@ export const getStylesByStage = async (req: Request, res: Response): Promise<voi
       },
     });
 
-    const styles = trackingRecords.map(record => ({
+    const styles = trackingRecords.map((record) => ({
       ...record.styles,
       productionInfo: {
         piecesInStage: record.piecesInStage,

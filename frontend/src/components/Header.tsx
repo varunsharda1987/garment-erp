@@ -34,25 +34,15 @@ export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
         {/* Left Section: Logo + Sidebar Toggle + Breadcrumb */}
         <div className="flex items-center gap-4 flex-1">
           {/* Sidebar Toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleSidebar}
-            className="lg:inline-flex"
-          >
+          <Button variant="ghost" size="sm" onClick={toggleSidebar} className="lg:inline-flex">
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
 
           {/* Logo */}
-          <div
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => navigate('/dashboard')}
-          >
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/dashboard')}>
             <div className="text-2xl">🏭</div>
             <div>
-              <h1 className="text-lg font-bold text-gray-800 leading-tight">
-                Kashaya Fabs ERP
-              </h1>
+              <h1 className="text-lg font-bold text-gray-800 leading-tight">Kashaya Fabs ERP</h1>
             </div>
           </div>
 
@@ -73,9 +63,7 @@ export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
           >
             <Search className="h-3.5 w-3.5" />
             <span className="text-xs">Search...</span>
-            <kbd className="ml-1 text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">
-              Ctrl+K
-            </kbd>
+            <kbd className="ml-1 text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">Ctrl+K</kbd>
           </Button>
 
           {/* User Info */}
@@ -95,12 +83,8 @@ export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{user?.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {user?.email}
-                  </p>
-                  <p className="text-xs leading-none text-muted-foreground mt-1">
-                    Role: {user?.role}
-                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                  <p className="text-xs leading-none text-muted-foreground mt-1">Role: {user?.role}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

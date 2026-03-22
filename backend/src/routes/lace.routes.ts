@@ -9,7 +9,7 @@ import {
   downloadTemplate,
   getGreigeLace,
   getFinishedLace,
-  getLaceForCosting
+  getLaceForCosting,
 } from '../controllers/lace.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

@@ -213,9 +213,7 @@ export default function CADPlanningPage() {
     if (!cadTableData) return;
 
     // Check if all rows have CAD values
-    const incompleteRows = cadTableData.cadRows.filter(
-      row => !row.cadAverage || row.cadAverage <= 0
-    );
+    const incompleteRows = cadTableData.cadRows.filter((row) => !row.cadAverage || row.cadAverage <= 0);
 
     if (incompleteRows.length > 0) {
       notify.error(`Please complete CAD values for all rows (${incompleteRows.length} incomplete)`);
@@ -224,25 +222,23 @@ export default function CADPlanningPage() {
 
     // Check all fabric groups have at least one CAD row
     const allStyleFabricIds = new Set<string>();
-    cadTableData.components?.forEach(comp => {
-      comp.fabrics?.forEach(fab => {
+    cadTableData.components?.forEach((comp) => {
+      comp.fabrics?.forEach((fab) => {
         allStyleFabricIds.add(fab.id);
       });
     });
 
     const coveredFabricIds = new Set(
-      cadTableData.cadRows
-        .filter(row => row.cadAverage && row.cadAverage > 0)
-        .map(row => row.styleFabricId)
+      cadTableData.cadRows.filter((row) => row.cadAverage && row.cadAverage > 0).map((row) => row.styleFabricId)
     );
 
-    const uncoveredFabrics = cadTableData.components?.flatMap(comp =>
-      (comp.fabrics || []).filter(fab => !coveredFabricIds.has(fab.id))
-    ) || [];
+    const uncoveredFabrics =
+      cadTableData.components?.flatMap((comp) => (comp.fabrics || []).filter((fab) => !coveredFabricIds.has(fab.id))) ||
+      [];
 
     if (uncoveredFabrics.length > 0) {
       const missing = uncoveredFabrics
-        .map(fab => `${fab.genericGreigeName || 'Unknown'}-${fab.fabricFinishType || 'PLAIN'}`)
+        .map((fab) => `${fab.genericGreigeName || 'Unknown'}-${fab.fabricFinishType || 'PLAIN'}`)
         .join(', ');
       notify.error(`Cannot approve: ${uncoveredFabrics.length} fabric(s) have no CAD data. Missing: ${missing}`);
       return;
@@ -254,7 +250,7 @@ export default function CADPlanningPage() {
       // Build fabricCADMappings from spreadsheet rows
       const fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> = [];
 
-      cadTableData.cadRows.forEach(row => {
+      cadTableData.cadRows.forEach((row) => {
         if (row.styleFabricId && row.id) {
           fabricCADMappings.push({
             fabricId: row.styleFabricId,
@@ -294,7 +290,7 @@ export default function CADPlanningPage() {
         purpose,
         fabricStockId,
       });
-      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : (purpose || 'Costing');
+      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : purpose || 'Costing';
       notify.success(`${purposeLabel} row added successfully`);
       await loadCADTableData();
     } catch (error: any) {
@@ -312,7 +308,7 @@ export default function CADPlanningPage() {
     if (!id) return;
     try {
       await cadPlanningService.addCombinedCADRow(id, styleFabricIds, purpose);
-      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : (purpose || 'Costing');
+      const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : purpose || 'Costing';
       notify.success(`Combined ${purposeLabel} row added successfully`);
       await loadCADTableData();
     } catch (error: any) {
@@ -347,7 +343,7 @@ export default function CADPlanningPage() {
       if (cadTableData) {
         setCadTableData({
           ...cadTableData,
-          cadRows: cadTableData.cadRows.filter(row => row.id !== rowId),
+          cadRows: cadTableData.cadRows.filter((row) => row.id !== rowId),
         });
       }
     } catch (error: any) {
@@ -358,11 +354,7 @@ export default function CADPlanningPage() {
   };
 
   // Handler for creating PRODUCTION CAD from stock (called from StockSummaryBanner)
-  const handleCreateProductionCADFromStock = async (
-    stockId: string,
-    _fabricId: string,
-    greigeId: string
-  ) => {
+  const handleCreateProductionCADFromStock = async (stockId: string, _fabricId: string, greigeId: string) => {
     if (!id) return;
     try {
       await cadPlanningService.createProductionCADFromStock(id, {
@@ -384,7 +376,7 @@ export default function CADPlanningPage() {
   const handleCheckAndShowPushModal = async () => {
     if (!id || !cadTableData) return;
 
-    const cadRowIds = cadTableData.cadRows.map(row => row.id);
+    const cadRowIds = cadTableData.cadRows.map((row) => row.id);
     if (cadRowIds.length === 0) {
       notify.error('No CAD rows to push to fabric costing');
       return;
@@ -406,7 +398,7 @@ export default function CADPlanningPage() {
   const handlePushToCosting = async () => {
     if (!id || !cadTableData) return;
 
-    const cadRowIds = cadTableData.cadRows.map(row => row.id);
+    const cadRowIds = cadTableData.cadRows.map((row) => row.id);
 
     try {
       setIsPushing(true);
@@ -456,9 +448,10 @@ export default function CADPlanningPage() {
   }
 
   const isApproved = style.cadStatus === 'APPROVED';
-  const canApprove = cadTableData &&
+  const canApprove =
+    cadTableData &&
     cadTableData.cadRows.length > 0 &&
-    cadTableData.cadRows.every(row => row.cadAverage && row.cadAverage > 0) &&
+    cadTableData.cadRows.every((row) => row.cadAverage && row.cadAverage > 0) &&
     !isApproved;
 
   return (
@@ -466,12 +459,7 @@ export default function CADPlanningPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/cad-planning')}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/cad-planning')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -495,8 +483,8 @@ export default function CADPlanningPage() {
       <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center gap-3">
         <Grid3X3 className="h-4 w-4 text-purple-600 flex-shrink-0" />
         <p className="text-sm text-purple-700">
-          <span className="font-medium text-purple-900">Spreadsheet CAD Planning:</span>{' '}
-          Each row = one CAD entry. Select greige, width, enter size breakdown → CAD auto-calculates.
+          <span className="font-medium text-purple-900">Spreadsheet CAD Planning:</span> Each row = one CAD entry.
+          Select greige, width, enter size breakdown → CAD auto-calculates.
         </p>
       </div>
 
@@ -507,18 +495,11 @@ export default function CADPlanningPage() {
             <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
             <div className="text-sm">
               <span className="font-medium text-green-900">CAD Plan Approved</span>
-              <span className="text-green-700 ml-2">
-                on {new Date(style.approvedCadDate!).toLocaleDateString()}
-              </span>
+              <span className="text-green-700 ml-2">on {new Date(style.approvedCadDate!).toLocaleDateString()}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="default"
-              onClick={handleCheckAndShowPushModal}
-              disabled={loadingPushStatus}
-            >
+            <Button size="sm" variant="default" onClick={handleCheckAndShowPushModal} disabled={loadingPushStatus}>
               {loadingPushStatus ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -526,11 +507,7 @@ export default function CADPlanningPage() {
               )}
               Push to Fabric Costing
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate(`/fabric-costing?styleId=${id}`)}
-            >
+            <Button size="sm" variant="outline" onClick={() => navigate(`/fabric-costing?styleId=${id}`)}>
               View Fabric Costing →
             </Button>
           </div>
@@ -538,7 +515,11 @@ export default function CADPlanningPage() {
       )}
 
       {/* Tabs for Spreadsheet vs History vs Order History */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'spreadsheet' | 'history' | 'orders')} className="mb-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as 'spreadsheet' | 'history' | 'orders')}
+        className="mb-4"
+      >
         <TabsList className="grid w-96 grid-cols-3">
           <TabsTrigger value="spreadsheet" className="flex items-center gap-2">
             <Grid3X3 className="h-4 w-4" />
@@ -567,9 +548,7 @@ export default function CADPlanningPage() {
             <Card className="p-8 text-center">
               <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Unable to load spreadsheet data</h3>
-              <p className="text-gray-600 mb-4">
-                There was an error loading the CAD spreadsheet. Please try again.
-              </p>
+              <p className="text-gray-600 mb-4">There was an error loading the CAD spreadsheet. Please try again.</p>
               <Button onClick={loadCADTableData} variant="outline">
                 <Loader2 className="h-4 w-4 mr-2" />
                 Retry
@@ -634,11 +613,7 @@ export default function CADPlanningPage() {
 
         {/* CAD History Tab */}
         <TabsContent value="history" className="mt-4">
-          <CADHistoryView
-            cadHistory={cadHistory}
-            loading={loadingHistory}
-            onRefresh={loadCADHistory}
-          />
+          <CADHistoryView cadHistory={cadHistory} loading={loadingHistory} onRefresh={loadCADHistory} />
         </TabsContent>
 
         {/* Order History Tab */}
@@ -667,15 +642,14 @@ export default function CADPlanningPage() {
               <FileSpreadsheet className="h-5 w-5 text-blue-600" />
               Push to Fabric Costing
             </DialogTitle>
-            <DialogDescription>
-              Create fabric costing records from CAD planning data
-            </DialogDescription>
+            <DialogDescription>Create fabric costing records from CAD planning data</DialogDescription>
           </DialogHeader>
 
           {pushStatus && (
             <div className="py-4 space-y-3">
               <p className="text-sm text-gray-600">
-                This will create fabric costing records from your CAD data with greige costs pre-populated from procurement records.
+                This will create fabric costing records from your CAD data with greige costs pre-populated from
+                procurement records.
               </p>
 
               <div className="space-y-2">
@@ -692,7 +666,8 @@ export default function CADPlanningPage() {
                   <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
                     <Info className="h-4 w-4" />
                     <span className="text-sm">
-                      {pushStatus.existingCount} record{pushStatus.existingCount > 1 ? 's' : ''} already exist (will be skipped)
+                      {pushStatus.existingCount} record{pushStatus.existingCount > 1 ? 's' : ''} already exist (will be
+                      skipped)
                     </span>
                   </div>
                 )}
@@ -707,18 +682,11 @@ export default function CADPlanningPage() {
           )}
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowPushModal(false)}
-              disabled={isPushing}
-            >
+            <Button variant="outline" onClick={() => setShowPushModal(false)} disabled={isPushing}>
               Cancel
             </Button>
             {pushStatus && pushStatus.newCount > 0 ? (
-              <Button
-                onClick={handlePushToCosting}
-                disabled={isPushing}
-              >
+              <Button onClick={handlePushToCosting} disabled={isPushing}>
                 {isPushing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -774,9 +742,7 @@ function CADHistoryView({ cadHistory, loading, onRefresh }: CADHistoryViewProps)
       <Card className="p-8 text-center">
         <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-2">No CAD history available</h3>
-        <p className="text-gray-600 mb-4">
-          CAD history will appear here once fabric groups are set up.
-        </p>
+        <p className="text-gray-600 mb-4">CAD history will appear here once fabric groups are set up.</p>
         <Button onClick={onRefresh} variant="outline">
           <Loader2 className="h-4 w-4 mr-2" />
           Refresh
@@ -831,9 +797,7 @@ function CADHistoryView({ cadHistory, loading, onRefresh }: CADHistoryViewProps)
           </p>
         </Card>
       ) : (
-        cadGroups.map((group, index) => (
-          <CADHistoryGroupCard key={group.groupKey} group={group} index={index} />
-        ))
+        cadGroups.map((group, index) => <CADHistoryGroupCard key={group.groupKey} group={group} index={index} />)
       )}
     </div>
   );
@@ -851,15 +815,12 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <Card className={cn(
-      "overflow-hidden",
-      group.hasEmbroidery && "border-purple-200"
-    )}>
+    <Card className={cn('overflow-hidden', group.hasEmbroidery && 'border-purple-200')}>
       {/* Header */}
       <div
         className={cn(
-          "p-4 cursor-pointer flex items-center justify-between",
-          group.hasEmbroidery ? "bg-purple-50" : "bg-gray-50"
+          'p-4 cursor-pointer flex items-center justify-between',
+          group.hasEmbroidery ? 'bg-purple-50' : 'bg-gray-50'
         )}
         onClick={() => setExpanded(!expanded)}
       >
@@ -949,9 +910,7 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
                               Selected
                             </Badge>
                           ) : cad.isPreferred ? (
-                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">
-                              Preferred
-                            </Badge>
+                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">Preferred</Badge>
                           ) : (
                             <Badge variant="outline" className="text-xs">
                               Option
@@ -959,21 +918,15 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
                           )}
                         </div>
                       </td>
-                      <td className="p-2 border-b font-semibold">
-                        {cad.cutableWidth}"
-                      </td>
+                      <td className="p-2 border-b font-semibold">{cad.cutableWidth}"</td>
                       <td className="p-2 border-b">
                         {cad.cadMeters ? (
-                          <span className="font-medium text-green-700">
-                            {cad.cadMeters.toFixed(3)} m
-                          </span>
+                          <span className="font-medium text-green-700">{cad.cadMeters.toFixed(3)} m</span>
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="p-2 border-b text-gray-600">
-                        {cad.piecesPerMarker || '-'}
-                      </td>
+                      <td className="p-2 border-b text-gray-600">{cad.piecesPerMarker || '-'}</td>
                       <td className="p-2 border-b text-gray-600">
                         {cad.markerLengthMeters ? `${cad.markerLengthMeters.toFixed(2)} m` : '-'}
                       </td>
@@ -1002,14 +955,12 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
               </table>
             </div>
           ) : (
-            <div className="text-center py-6 text-gray-500">
-              No CAD options calculated yet
-            </div>
+            <div className="text-center py-6 text-gray-500">No CAD options calculated yet</div>
           )}
 
           {/* Notes for selected CAD */}
           {(() => {
-            const selectedCad = group.cadOptions.find(c => c.isSelected);
+            const selectedCad = group.cadOptions.find((c) => c.isSelected);
             if (selectedCad?.notes) {
               return (
                 <div className="mt-3 p-3 bg-gray-50 border rounded-lg text-sm">

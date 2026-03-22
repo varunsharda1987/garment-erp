@@ -6,7 +6,7 @@ import {
   updateOtherMaterial,
   deleteOtherMaterial,
   bulkImportOtherMaterials,
-  downloadTemplate
+  downloadTemplate,
 } from '../controllers/other-material.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

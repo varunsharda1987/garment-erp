@@ -119,29 +119,19 @@ export default function MachinePartList() {
       render: (part) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{part.partName}</div>
-          {part.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{part.description}</div>
-          )}
+          {part.description && <div className="text-xs text-gray-500 line-clamp-1">{part.description}</div>}
         </div>
       ),
     },
     {
       key: 'partNumber',
       header: 'Part Number',
-      render: (part) => (
-        <div className="text-sm text-gray-700 font-mono">
-          {part.partNumber || '-'}
-        </div>
-      ),
+      render: (part) => <div className="text-sm text-gray-700 font-mono">{part.partNumber || '-'}</div>,
     },
     {
       key: 'category',
       header: 'Category',
-      render: (part) => (
-        <div className="text-sm text-gray-700">
-          {part.category || '-'}
-        </div>
-      ),
+      render: (part) => <div className="text-sm text-gray-700">{part.category || '-'}</div>,
     },
     {
       key: 'machine',
@@ -195,10 +185,7 @@ export default function MachinePartList() {
       key: 'status',
       header: 'Status',
       render: (part) => (
-        <StatusBadge
-          status={part.isActive ? 'active' : 'inactive'}
-          variant={part.isActive ? 'success' : 'secondary'}
-        />
+        <StatusBadge status={part.isActive ? 'active' : 'inactive'} variant={part.isActive ? 'success' : 'secondary'} />
       ),
     },
     {
@@ -241,17 +228,9 @@ export default function MachinePartList() {
             <CardTitle>Machine Parts Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="MACHINE_PART" stockCount={stockCount} />
-              <ExportButton
-                module="machine-part"
-                filters={{}}
-              />
-              <ImportButton
-                module="machine-part"
-                onSuccess={fetchMachinePartItems}
-              />
-              <Button onClick={() => navigate('/materials/machine-part/new')}>
-                + Add New Machine Part
-              </Button>
+              <ExportButton module="machine-part" filters={{}} />
+              <ImportButton module="machine-part" onSuccess={fetchMachinePartItems} />
+              <Button onClick={() => navigate('/materials/machine-part/new')}>+ Add New Machine Part</Button>
             </div>
           </div>
         </CardHeader>

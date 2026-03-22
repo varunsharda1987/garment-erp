@@ -97,10 +97,7 @@ export function DocumentShareMenu({
       // Open in new tab to trigger download
       window.open(endpoints.pdf, '_blank');
 
-      handleApiSuccess(
-        'Download Started',
-        `${endpoints.label} PDF download has started.`
-      );
+      handleApiSuccess('Download Started', `${endpoints.label} PDF download has started.`);
     } catch (error) {
       handleApiError(error, `Failed to download ${endpoints.label} PDF`);
     } finally {
@@ -117,10 +114,7 @@ export function DocumentShareMenu({
       // Open in new tab to trigger download
       window.open(endpoints.excel, '_blank');
 
-      handleApiSuccess(
-        'Download Started',
-        `${endpoints.label} Excel download has started.`
-      );
+      handleApiSuccess('Download Started', `${endpoints.label} Excel download has started.`);
     } catch (error) {
       handleApiError(error, `Failed to download ${endpoints.label} Excel`);
     } finally {
@@ -151,10 +145,7 @@ export function DocumentShareMenu({
       window.open(data.data.whatsappUrl, '_blank');
       setWhatsappDialogOpen(false);
 
-      handleApiSuccess(
-        'WhatsApp Opened',
-        'WhatsApp has been opened with your message. Click send to share.'
-      );
+      handleApiSuccess('WhatsApp Opened', 'WhatsApp has been opened with your message. Click send to share.');
     } catch (error) {
       handleApiError(error, 'Failed to generate WhatsApp link');
     } finally {
@@ -167,11 +158,7 @@ export function DocumentShareMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className={`gap-2 ${className}`} disabled={isDownloading}>
-            {isDownloading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4" />
-            )}
+            {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             Download
           </Button>
         </DropdownMenuTrigger>
@@ -209,8 +196,8 @@ export function DocumentShareMenu({
               Share via WhatsApp
             </DialogTitle>
             <DialogDescription>
-              Share {endpoints.label} {documentNumber ? `(${documentNumber})` : ''} via WhatsApp.
-              The recipient will receive a message with a download link.
+              Share {endpoints.label} {documentNumber ? `(${documentNumber})` : ''} via WhatsApp. The recipient will
+              receive a message with a download link.
             </DialogDescription>
           </DialogHeader>
 
@@ -224,18 +211,12 @@ export function DocumentShareMenu({
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Enter phone number (e.g., 9876543210)"
               />
-              <p className="text-xs text-gray-500">
-                Include country code without + (e.g., 919876543210 for India)
-              </p>
+              <p className="text-xs text-gray-500">Include country code without + (e.g., 919876543210 for India)</p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setWhatsappDialogOpen(false)}
-              disabled={isDownloading}
-            >
+            <Button variant="outline" onClick={() => setWhatsappDialogOpen(false)} disabled={isDownloading}>
               Cancel
             </Button>
             <Button

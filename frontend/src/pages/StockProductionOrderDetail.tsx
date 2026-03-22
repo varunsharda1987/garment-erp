@@ -1,32 +1,12 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  CheckCircle,
-  Factory,
-  Plus,
-  Trash2,
-  Warehouse,
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle, Factory, Plus, Trash2, Warehouse } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,28 +17,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  getSPOById,
-  updateSPO,
-  approveSPO,
-  generateWorkOrders,
-} from '@/services/stockProductionOrder.service';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getSPOById, updateSPO, approveSPO, generateWorkOrders } from '@/services/stockProductionOrder.service';
 import { styleService } from '@/services/style.service';
 import type { StockProductionOrderStatus } from '@/types/stockProductionOrder.types';
 
@@ -176,17 +139,11 @@ export default function StockProductionOrderDetail() {
   });
 
   if (isLoading) {
-    return (
-      <div className="p-6 text-center text-muted-foreground">Loading...</div>
-    );
+    return <div className="p-6 text-center text-muted-foreground">Loading...</div>;
   }
 
   if (!spo) {
-    return (
-      <div className="p-6 text-center text-muted-foreground">
-        Stock Production Order not found
-      </div>
-    );
+    return <div className="p-6 text-center text-muted-foreground">Stock Production Order not found</div>;
   }
 
   const isDraft = spo.status === 'DRAFT';
@@ -207,9 +164,7 @@ export default function StockProductionOrderDetail() {
               <Warehouse className="h-6 w-6" />
               {spo.spoNumber}
             </h1>
-            <p className="text-muted-foreground">
-              Stock Production Order
-            </p>
+            <p className="text-muted-foreground">Stock Production Order</p>
           </div>
           <Badge className={STATUS_COLORS[spo.status]} variant="secondary">
             {spo.status.replace('_', ' ')}
@@ -315,17 +270,11 @@ export default function StockProductionOrderDetail() {
                     <TableCell className="text-right font-medium">{item.quantity}</TableCell>
                     <TableCell className="text-right">{item.completedQuantity}</TableCell>
                     <TableCell className="text-right">
-                      {item.quantity > 0
-                        ? `${Math.round((item.completedQuantity / item.quantity) * 100)}%`
-                        : '0%'}
+                      {item.quantity > 0 ? `${Math.round((item.completedQuantity / item.quantity) * 100)}%` : '0%'}
                     </TableCell>
                     {isDraft && (
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeItemMutation.mutate(idx)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => removeItemMutation.mutate(idx)}>
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </TableCell>
@@ -369,9 +318,7 @@ export default function StockProductionOrderDetail() {
                     <TableCell className="text-right">{wo.totalQuantity}</TableCell>
                     <TableCell className="text-right">{wo.completedQuantity}</TableCell>
                     <TableCell className="text-right">
-                      {wo.totalQuantity > 0
-                        ? `${Math.round((wo.completedQuantity / wo.totalQuantity) * 100)}%`
-                        : '0%'}
+                      {wo.totalQuantity > 0 ? `${Math.round((wo.completedQuantity / wo.totalQuantity) * 100)}%` : '0%'}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -398,9 +345,7 @@ export default function StockProductionOrderDetail() {
             </div>
             <div>
               <span className="text-muted-foreground">Approved by</span>
-              <div>
-                {spo.approvedBy ? `${spo.approvedBy.firstName} ${spo.approvedBy.lastName}` : '-'}
-              </div>
+              <div>{spo.approvedBy ? `${spo.approvedBy.firstName} ${spo.approvedBy.lastName}` : '-'}</div>
             </div>
             {spo.remarks && (
               <div>
@@ -490,15 +435,13 @@ export default function StockProductionOrderDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Approve Stock Production Order?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will approve {spo.spoNumber} for {spo.totalQuantity.toLocaleString()} pcs.
-              After approval, you can generate work orders to start production.
+              This will approve {spo.spoNumber} for {spo.totalQuantity.toLocaleString()} pcs. After approval, you can
+              generate work orders to start production.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => approveMutation.mutate()}>
-              Approve
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => approveMutation.mutate()}>Approve</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -509,15 +452,13 @@ export default function StockProductionOrderDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Generate Work Orders?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will create production work orders for {spo.spoNumber} and change the status to IN_PRODUCTION.
-              The work orders will follow the normal production pipeline (Cutting, Stitching, Finishing).
+              This will create production work orders for {spo.spoNumber} and change the status to IN_PRODUCTION. The
+              work orders will follow the normal production pipeline (Cutting, Stitching, Finishing).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => generateWOMutation.mutate()}>
-              Generate
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => generateWOMutation.mutate()}>Generate</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

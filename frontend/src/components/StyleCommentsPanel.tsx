@@ -4,14 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  MessageSquare,
-  Send,
-  Edit2,
-  Trash2,
-  Reply,
-  MoreVertical,
-} from 'lucide-react';
+import { MessageSquare, Send, Edit2, Trash2, Reply, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -105,14 +98,10 @@ function CommentItem({
           <span className="text-xs text-gray-500">
             {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
           </span>
-          {comment.updatedAt !== comment.createdAt && (
-            <span className="text-xs text-gray-400">(edited)</span>
-          )}
+          {comment.updatedAt !== comment.createdAt && <span className="text-xs text-gray-400">(edited)</span>}
         </div>
 
-        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
-          {comment.comment}
-        </p>
+        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{comment.comment}</p>
 
         <div className="flex items-center gap-2 mt-1">
           {!isReply && (
@@ -130,11 +119,7 @@ function CommentItem({
           {isOwner && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
-                >
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -143,10 +128,7 @@ function CommentItem({
                   <Edit2 className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete(comment)}
-                  className="text-red-600"
-                >
+                <DropdownMenuItem onClick={() => onDelete(comment)} className="text-red-600">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
                 </DropdownMenuItem>
@@ -176,10 +158,7 @@ function CommentItem({
   );
 }
 
-export function StyleCommentsPanel({
-  styleId,
-  currentUserId,
-}: StyleCommentsPanelProps) {
+export function StyleCommentsPanel({ styleId, currentUserId }: StyleCommentsPanelProps) {
   const { toast } = useToast();
   const [comments, setComments] = useState<StyleComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -359,12 +338,7 @@ export function StyleCommentsPanel({
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Reply className="h-4 w-4" />
                 <span>Replying to {getParentCommentUser()}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={cancelReply}
-                >
+                <Button variant="ghost" size="sm" className="h-6 px-2" onClick={cancelReply}>
                   Cancel
                 </Button>
               </div>
@@ -383,14 +357,8 @@ export function StyleCommentsPanel({
               />
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">
-                Press Ctrl+Enter to submit
-              </span>
-              <Button
-                onClick={handleSubmit}
-                disabled={!newComment.trim() || submitting}
-                size="sm"
-              >
+              <span className="text-xs text-gray-500">Press Ctrl+Enter to submit</span>
+              <Button onClick={handleSubmit} disabled={!newComment.trim() || submitting} size="sm">
                 <Send className="h-4 w-4 mr-1" />
                 {submitting ? 'Sending...' : 'Send'}
               </Button>
@@ -427,36 +395,25 @@ export function StyleCommentsPanel({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Edit Comment</AlertDialogTitle>
-              <AlertDialogDescription>
-                Make changes to your comment below.
-              </AlertDialogDescription>
+              <AlertDialogDescription>Make changes to your comment below.</AlertDialogDescription>
             </AlertDialogHeader>
-            <Textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              className="min-h-[100px]"
-            />
+            <Textarea value={editText} onChange={(e) => setEditText(e.target.value)} className="min-h-[100px]" />
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleSaveEdit}>
-                Save Changes
-              </AlertDialogAction>
+              <AlertDialogAction onClick={handleSaveEdit}>Save Changes</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={!!deleteComment}
-        onOpenChange={() => setDeleteComment(null)}
-      >
+      <AlertDialog open={!!deleteComment} onOpenChange={() => setDeleteComment(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Comment?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your
-              comment{deleteComment?.replies?.length ? ' and all its replies' : ''}.
+              This action cannot be undone. This will permanently delete your comment
+              {deleteComment?.replies?.length ? ' and all its replies' : ''}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

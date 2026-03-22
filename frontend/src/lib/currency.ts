@@ -89,9 +89,6 @@ export const formatCurrencyWhole = (amount: number | string | null | undefined):
  * @example
  * formatCurrencyWithDecimals(123.456, 3) // "₹123.456"
  */
-export const formatCurrencyWithDecimals = (
-  amount: number | string | null | undefined,
-  decimals: number
-): string => {
+export const formatCurrencyWithDecimals = (amount: number | string | null | undefined, decimals: number): string => {
   return formatCurrency(amount, { decimals });
 };

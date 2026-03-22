@@ -34,194 +34,221 @@ router.use((req: Request, res: Response, next) => {
  * GET /api/ai-admin/status
  * Get AI subsystem status
  */
-router.get('/status', asyncHandler(async (req: Request, res: Response) => {
-  const embeddingInitialized = embeddingService.isInitialized();
-  const embeddingInfo = embeddingService.getProviderInfo();
-  const ragAvailable = ragService.isAvailable();
+router.get(
+  '/status',
+  asyncHandler(async (req: Request, res: Response) => {
+    const embeddingInitialized = embeddingService.isInitialized();
+    const embeddingInfo = embeddingService.getProviderInfo();
+    const ragAvailable = ragService.isAvailable();
 
-  res.json({
-    embedding: {
-      initialized: embeddingInitialized,
-      provider: embeddingInfo?.name || null,
-      dimension: embeddingInfo?.dimension || null,
-    },
-    rag: {
-      available: ragAvailable,
-      config: ragService.getConfig(),
-    },
-  });
-}));
+    res.json({
+      embedding: {
+        initialized: embeddingInitialized,
+        provider: embeddingInfo?.name || null,
+        dimension: embeddingInfo?.dimension || null,
+      },
+      rag: {
+        available: ragAvailable,
+        config: ragService.getConfig(),
+      },
+    });
+  })
+);
 
 /**
  * POST /api/ai-admin/initialize
  * Initialize embedding service
  */
-router.post('/initialize', asyncHandler(async (req: Request, res: Response) => {
-  const success = await embeddingService.initialize();
+router.post(
+  '/initialize',
+  asyncHandler(async (req: Request, res: Response) => {
+    const success = await embeddingService.initialize();
 
-  if (success) {
-    const info = embeddingService.getProviderInfo();
-    logInfo('[AI Admin] Embedding service initialized');
-    res.json({
-      success: true,
-      message: 'Embedding service initialized',
-      provider: info?.name,
-      dimension: info?.dimension,
-    });
-  } else {
-    res.json({
-      success: false,
-      message: 'Failed to initialize embedding service. Check configuration.',
-    });
-  }
-}));
+    if (success) {
+      const info = embeddingService.getProviderInfo();
+      logInfo('[AI Admin] Embedding service initialized');
+      res.json({
+        success: true,
+        message: 'Embedding service initialized',
+        provider: info?.name,
+        dimension: info?.dimension,
+      });
+    } else {
+      res.json({
+        success: false,
+        message: 'Failed to initialize embedding service. Check configuration.',
+      });
+    }
+  })
+);
 
 /**
  * GET /api/ai-admin/stats
  * Get indexing statistics
  */
-router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
-  if (!embeddingService.isInitialized()) {
-    return res.json({
-      initialized: false,
-      message: 'Embedding service not initialized',
-      stats: null,
+router.get(
+  '/stats',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!embeddingService.isInitialized()) {
+      return res.json({
+        initialized: false,
+        message: 'Embedding service not initialized',
+        stats: null,
+      });
+    }
+
+    const stats = await indexingService.getStats();
+
+    res.json({
+      initialized: true,
+      stats,
     });
-  }
-
-  const stats = await indexingService.getStats();
-
-  res.json({
-    initialized: true,
-    stats,
-  });
-}));
+  })
+);
 
 /**
  * POST /api/ai-admin/index/guides
  * Index process guides and help documents
  */
-router.post('/index/guides', asyncHandler(async (req: Request, res: Response) => {
-  if (!embeddingService.isInitialized()) {
-    throw new ValidationError('Embedding service not initialized. Call /initialize first.');
-  }
+router.post(
+  '/index/guides',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!embeddingService.isInitialized()) {
+      throw new ValidationError('Embedding service not initialized. Call /initialize first.');
+    }
 
-  logInfo('[AI Admin] Starting process guides indexing');
-  const result = await indexingService.indexProcessGuides();
+    logInfo('[AI Admin] Starting process guides indexing');
+    const result = await indexingService.indexProcessGuides();
 
-  res.json({
-    success: true,
-    message: `Indexed ${result.indexed} process guides`,
-    result,
-  });
-}));
+    res.json({
+      success: true,
+      message: `Indexed ${result.indexed} process guides`,
+      result,
+    });
+  })
+);
 
 /**
  * POST /api/ai-admin/index/styles
  * Index styles from database
  */
-router.post('/index/styles', asyncHandler(async (req: Request, res: Response) => {
-  if (!embeddingService.isInitialized()) {
-    throw new ValidationError('Embedding service not initialized. Call /initialize first.');
-  }
+router.post(
+  '/index/styles',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!embeddingService.isInitialized()) {
+      throw new ValidationError('Embedding service not initialized. Call /initialize first.');
+    }
 
-  logInfo('[AI Admin] Starting styles indexing');
-  const result = await indexingService.indexStyles();
+    logInfo('[AI Admin] Starting styles indexing');
+    const result = await indexingService.indexStyles();
 
-  res.json({
-    success: true,
-    message: `Indexed ${result.indexed} styles`,
-    result,
-  });
-}));
+    res.json({
+      success: true,
+      message: `Indexed ${result.indexed} styles`,
+      result,
+    });
+  })
+);
 
 /**
  * POST /api/ai-admin/index/all
  * Full reindex of all content
  */
-router.post('/index/all', asyncHandler(async (req: Request, res: Response) => {
-  if (!embeddingService.isInitialized()) {
-    throw new ValidationError('Embedding service not initialized. Call /initialize first.');
-  }
+router.post(
+  '/index/all',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!embeddingService.isInitialized()) {
+      throw new ValidationError('Embedding service not initialized. Call /initialize first.');
+    }
 
-  logInfo('[AI Admin] Starting full reindex');
-  const results = await indexingService.indexAll();
+    logInfo('[AI Admin] Starting full reindex');
+    const results = await indexingService.indexAll();
 
-  const totalIndexed = results.reduce((sum, r) => sum + r.indexed, 0);
-  const totalFailed = results.reduce((sum, r) => sum + r.failed, 0);
-  const totalDuration = results.reduce((sum, r) => sum + r.duration, 0);
+    const totalIndexed = results.reduce((sum, r) => sum + r.indexed, 0);
+    const totalFailed = results.reduce((sum, r) => sum + r.failed, 0);
+    const totalDuration = results.reduce((sum, r) => sum + r.duration, 0);
 
-  res.json({
-    success: true,
-    message: `Indexed ${totalIndexed} documents (${totalFailed} failed) in ${totalDuration}ms`,
-    results,
-  });
-}));
+    res.json({
+      success: true,
+      message: `Indexed ${totalIndexed} documents (${totalFailed} failed) in ${totalDuration}ms`,
+      results,
+    });
+  })
+);
 
 /**
  * POST /api/ai-admin/search
  * Test RAG search functionality
  */
-router.post('/search', asyncHandler(async (req: Request, res: Response) => {
-  if (!embeddingService.isInitialized()) {
-    throw new ValidationError('Embedding service not initialized');
-  }
+router.post(
+  '/search',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!embeddingService.isInitialized()) {
+      throw new ValidationError('Embedding service not initialized');
+    }
 
-  const { query, limit = 5, documentType } = req.body;
+    const { query, limit = 5, documentType } = req.body;
 
-  if (!query) {
-    throw new ValidationError('Query is required');
-  }
+    if (!query) {
+      throw new ValidationError('Query is required');
+    }
 
-  const results = await embeddingService.searchSimilar(query, limit, documentType);
+    const results = await embeddingService.searchSimilar(query, limit, documentType);
 
-  res.json({
-    query,
-    results,
-    count: results.length,
-  });
-}));
+    res.json({
+      query,
+      results,
+      count: results.length,
+    });
+  })
+);
 
 /**
  * DELETE /api/ai-admin/documents/:type
  * Delete all documents of a specific type
  */
-router.delete('/documents/:type', asyncHandler(async (req: Request, res: Response) => {
-  if (!embeddingService.isInitialized()) {
-    throw new ValidationError('Embedding service not initialized');
-  }
+router.delete(
+  '/documents/:type',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!embeddingService.isInitialized()) {
+      throw new ValidationError('Embedding service not initialized');
+    }
 
-  const { type } = req.params;
+    const { type } = req.params;
 
-  const deleted = await embeddingService.deleteDocumentsByType(type);
+    const deleted = await embeddingService.deleteDocumentsByType(type);
 
-  logInfo(`[AI Admin] Deleted ${deleted} documents of type: ${type}`);
+    logInfo(`[AI Admin] Deleted ${deleted} documents of type: ${type}`);
 
-  res.json({
-    success: true,
-    message: `Deleted ${deleted} documents of type: ${type}`,
-    deleted,
-  });
-}));
+    res.json({
+      success: true,
+      message: `Deleted ${deleted} documents of type: ${type}`,
+      deleted,
+    });
+  })
+);
 
 /**
  * PUT /api/ai-admin/rag/config
  * Update RAG configuration
  */
-router.put('/rag/config', asyncHandler(async (req: Request, res: Response) => {
-  const { maxDocuments, minSimilarity } = req.body;
+router.put(
+  '/rag/config',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { maxDocuments, minSimilarity } = req.body;
 
-  const config: Record<string, unknown> = {};
-  if (typeof maxDocuments === 'number') config.maxDocuments = maxDocuments;
-  if (typeof minSimilarity === 'number') config.minSimilarity = minSimilarity;
+    const config: Record<string, unknown> = {};
+    if (typeof maxDocuments === 'number') config.maxDocuments = maxDocuments;
+    if (typeof minSimilarity === 'number') config.minSimilarity = minSimilarity;
 
-  ragService.setConfig(config);
+    ragService.setConfig(config);
 
-  res.json({
-    success: true,
-    message: 'RAG configuration updated',
-    config: ragService.getConfig(),
-  });
-}));
+    res.json({
+      success: true,
+      message: 'RAG configuration updated',
+      config: ragService.getConfig(),
+    });
+  })
+);
 
 export default router;

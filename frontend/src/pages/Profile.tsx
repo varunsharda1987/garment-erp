@@ -72,7 +72,7 @@ export default function Profile() {
   };
 
   const handleChange = (field: keyof typeof formData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   if (!currentUser) {
@@ -119,9 +119,7 @@ export default function Profile() {
 
               {/* Last Name */}
               <div>
-                <Label htmlFor="lastName">
-                  Last Name
-                </Label>
+                <Label htmlFor="lastName">Last Name</Label>
                 <div className="relative mt-1">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
@@ -225,9 +223,7 @@ export default function Profile() {
                   <p className="text-xs text-gray-500">Unique identifier</p>
                 </div>
               </div>
-              <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
-                {currentUser.id.slice(0, 8)}...
-              </code>
+              <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">{currentUser.id.slice(0, 8)}...</code>
             </div>
 
             {/* Created Date */}

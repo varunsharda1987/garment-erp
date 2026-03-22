@@ -85,8 +85,7 @@ export default function Pagination({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
       {/* Items info */}
       <div className="text-sm text-muted-foreground">
-        Showing <span className="font-medium">{startItem}</span> to{' '}
-        <span className="font-medium">{endItem}</span> of{' '}
+        Showing <span className="font-medium">{startItem}</span> to <span className="font-medium">{endItem}</span> of{' '}
         <span className="font-medium">{totalItems}</span> results
       </div>
 
@@ -95,10 +94,7 @@ export default function Pagination({
         {onPageSizeChange && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Rows per page:</span>
-            <Select
-              value={pageSize?.toString() || '10'}
-              onValueChange={(value) => onPageSizeChange(Number(value))}
-            >
+            <Select value={pageSize?.toString() || '10'} onValueChange={(value) => onPageSizeChange(Number(value))}>
               <SelectTrigger className="w-[70px]">
                 <SelectValue />
               </SelectTrigger>

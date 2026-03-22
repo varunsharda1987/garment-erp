@@ -59,9 +59,13 @@ export default function GreigeAvailableStock() {
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">Home</Link>
+        <Link to="/" className="hover:text-blue-600">
+          Home
+        </Link>
         {' > '}
-        <Link to="/greige" className="hover:text-blue-600">Greige Master</Link>
+        <Link to="/greige" className="hover:text-blue-600">
+          Greige Master
+        </Link>
         {' > '}
         <span className="font-medium text-gray-900">Stock View</span>
       </div>
@@ -128,12 +132,7 @@ export default function GreigeAvailableStock() {
             <div className="flex flex-col justify-center items-center h-64 text-gray-500">
               <Package2 className="h-16 w-16 text-gray-300 mb-4" />
               <p>No greige stock found</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => navigate('/greige-stock-entry')}
-              >
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/greige-stock-entry')}>
                 Add First Greige Stock
               </Button>
             </div>
@@ -142,21 +141,11 @@ export default function GreigeAvailableStock() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Greige Code
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Name
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Composition
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Total Stock
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Unit
-                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Greige Code</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Composition</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -170,20 +159,12 @@ export default function GreigeAvailableStock() {
                           {stock.greigeCode}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {stock.greigeName}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {stock.composition}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{stock.greigeName}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{stock.composition}</td>
                       <td className="px-4 py-3 text-sm text-right">
-                        <span className="font-semibold text-green-600">
-                          {(stock.totalStock || 0).toFixed(2)}
-                        </span>
+                        <span className="font-semibold text-green-600">{(stock.totalStock || 0).toFixed(2)}</span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {stock.unit || 'meters'}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{stock.unit || 'meters'}</td>
                     </tr>
                   ))}
                 </tbody>

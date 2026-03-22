@@ -122,9 +122,13 @@ export default function GreigeStockEntry() {
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">Home</Link>
+        <Link to="/" className="hover:text-blue-600">
+          Home
+        </Link>
         {' > '}
-        <Link to="/greige" className="hover:text-blue-600">Greige Master</Link>
+        <Link to="/greige" className="hover:text-blue-600">
+          Greige Master
+        </Link>
         {' > '}
         <span className="font-medium text-gray-900">Stock Entry</span>
       </div>
@@ -182,14 +186,16 @@ export default function GreigeStockEntry() {
             <div>
               <Label htmlFor="greige">Select Greige Fabric *</Label>
               <Combobox
-                options={greigeList.map((greige): ComboboxOption => ({
-                  value: greige.id,
-                  label: `${greige.greigeCode} - ${greige.greigeName} (${greige.composition})`,
-                  searchText: `${greige.greigeCode} ${greige.greigeName} ${greige.composition} ${greige.yarnCount || ''} ${greige.construction || ''} ${greige.weaveType || ''}`,
-                }))}
+                options={greigeList.map(
+                  (greige): ComboboxOption => ({
+                    value: greige.id,
+                    label: `${greige.greigeCode} - ${greige.greigeName} (${greige.composition})`,
+                    searchText: `${greige.greigeCode} ${greige.greigeName} ${greige.composition} ${greige.yarnCount || ''} ${greige.construction || ''} ${greige.weaveType || ''}`,
+                  })
+                )}
                 value={selectedGreigeId}
                 onValueChange={handleGreigeChange}
-                placeholder={isLoading ? "Loading greige list..." : "Search or select greige fabric..."}
+                placeholder={isLoading ? 'Loading greige list...' : 'Search or select greige fabric...'}
                 searchPlaceholder="Type to search by code, name, composition..."
                 emptyText="No greige fabric found."
                 disabled={isLoading}
@@ -331,11 +337,7 @@ export default function GreigeStockEntry() {
 
           {/* Action Buttons */}
           <div className="flex gap-4 justify-end pt-6 mt-6 border-t">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/greige-stock')}
-              disabled={isSaving}
-            >
+            <Button variant="outline" onClick={() => navigate('/greige-stock')} disabled={isSaving}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={isSaving || !selectedGreigeId}>

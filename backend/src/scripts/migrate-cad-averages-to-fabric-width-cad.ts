@@ -77,18 +77,18 @@ async function main() {
       console.log(`   Fabric Width: ${cadAvg.fabric_width}`);
 
       // Get the associated style_fabrics record with fabric relationship
-      const styleFabric = await prisma.style_fabrics.findUnique({
+      const styleFabric = (await prisma.style_fabrics.findUnique({
         where: { id: cadAvg.style_fabric_id },
         include: {
           style_components: {
             include: {
               styles: {
-                select: { createdById: true }
-              }
-            }
-          }
-        }
-      }) as StyleFabricWithFabric | null;
+                select: { createdById: true },
+              },
+            },
+          },
+        },
+      })) as StyleFabricWithFabric | null;
 
       if (!styleFabric) {
         console.log(`   ⚠️  SKIPPED: style_fabrics record not found`);
@@ -96,7 +96,7 @@ async function main() {
         migrationLog.push({
           cadAverageId: cadAvg.id,
           status: 'skipped',
-          reason: 'style_fabrics record not found'
+          reason: 'style_fabrics record not found',
         });
         continue;
       }
@@ -108,7 +108,7 @@ async function main() {
         migrationLog.push({
           cadAverageId: cadAvg.id,
           status: 'skipped',
-          reason: 'style_fabrics.fabricId is null'
+          reason: 'style_fabrics.fabricId is null',
         });
         continue;
       }
@@ -120,8 +120,8 @@ async function main() {
       const existingFabricWidthCad = await prisma.fabric_width_cad.findFirst({
         where: {
           fabricId: styleFabric.fabricId,
-          cutableWidth: cadAvg.fabric_width
-        }
+          cutableWidth: cadAvg.fabric_width,
+        },
       });
 
       if (existingFabricWidthCad) {
@@ -131,7 +131,7 @@ async function main() {
         if (!styleFabric.fabricCADId) {
           await prisma.style_fabrics.update({
             where: { id: styleFabric.id },
-            data: { fabricCADId: existingFabricWidthCad.id }
+            data: { fabricCADId: existingFabricWidthCad.id },
           });
           console.log(`   ✅ Updated style_fabrics.fabricCADId to ${existingFabricWidthCad.id}`);
         }
@@ -141,7 +141,7 @@ async function main() {
           cadAverageId: cadAvg.id,
           status: 'success',
           reason: 'Linked to existing fabric_width_cad',
-          newFabricWidthCadId: existingFabricWidthCad.id
+          newFabricWidthCadId: existingFabricWidthCad.id,
         });
         continue;
       }
@@ -162,8 +162,8 @@ async function main() {
           notes: cadAvg.notes,
           createdById: createdById,
           createdAt: cadAvg.created_at,
-          updatedAt: cadAvg.updated_at
-        }
+          updatedAt: cadAvg.updated_at,
+        },
       });
 
       console.log(`   ✅ Created fabric_width_cad record: ${newFabricWidthCad.id}`);
@@ -171,7 +171,7 @@ async function main() {
       // Update the style_fabrics to reference this new fabric_width_cad
       await prisma.style_fabrics.update({
         where: { id: styleFabric.id },
-        data: { fabricCADId: newFabricWidthCad.id }
+        data: { fabricCADId: newFabricWidthCad.id },
       });
 
       console.log(`   ✅ Updated style_fabrics.fabricCADId to ${newFabricWidthCad.id}`);
@@ -180,16 +180,15 @@ async function main() {
       migrationLog.push({
         cadAverageId: cadAvg.id,
         status: 'success',
-        newFabricWidthCadId: newFabricWidthCad.id
+        newFabricWidthCadId: newFabricWidthCad.id,
       });
-
     } catch (error) {
       console.error(`   ❌ ERROR migrating record ${cadAvg.id}:`, error);
       errors++;
       migrationLog.push({
         cadAverageId: cadAvg.id,
         status: 'error',
-        reason: error instanceof Error ? error.message : 'Unknown error'
+        reason: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -218,16 +217,20 @@ async function main() {
 
   fs.writeFileSync(
     path.join(__dirname, '../../migration-logs', `cad-averages-migration-${timestamp}.json`),
-    JSON.stringify({
-      timestamp: new Date().toISOString(),
-      summary: {
-        total: cadAveragesRecords.length,
-        migrated,
-        skipped,
-        errors
+    JSON.stringify(
+      {
+        timestamp: new Date().toISOString(),
+        summary: {
+          total: cadAveragesRecords.length,
+          migrated,
+          skipped,
+          errors,
+        },
+        details: migrationLog,
       },
-      details: migrationLog
-    }, null, 2)
+      null,
+      2
+    )
   );
 
   console.log(`\n📄 Detailed log saved to: ${logFilePath}`);
@@ -238,7 +241,7 @@ async function main() {
   console.log(`   fabric_width_cad records: ${fabricWidthCadCount}`);
 
   const styleFabricsWithCAD = await prisma.style_fabrics.count({
-    where: { fabricCADId: { not: null } }
+    where: { fabricCADId: { not: null } },
   });
   console.log(`   style_fabrics with fabricCADId: ${styleFabricsWithCAD}`);
 

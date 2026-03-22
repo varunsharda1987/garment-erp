@@ -11,7 +11,7 @@ describe('WeightedAverageCostService', () => {
     it('should calculate correct weighted average for simple case', () => {
       const transactions = [
         { quantity: 100, unitCost: 10 }, // Total: 1000
-        { quantity: 50, unitCost: 12 },  // Total: 600
+        { quantity: 50, unitCost: 12 }, // Total: 600
       ];
 
       const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
@@ -44,7 +44,7 @@ describe('WeightedAverageCostService', () => {
     it('should handle decimal quantities and costs', () => {
       const transactions = [
         { quantity: 10.5, unitCost: 12.75 },
-        { quantity: 5.25, unitCost: 15.50 },
+        { quantity: 5.25, unitCost: 15.5 },
       ];
 
       const result = WeightedAverageCostService.calculateWeightedAverageCost(transactions);
@@ -89,12 +89,7 @@ describe('WeightedAverageCostService', () => {
       const newQty = 50;
       const newCost = 12;
 
-      const result = WeightedAverageCostService.calculateNewAverageCost(
-        currentQty,
-        currentAvgCost,
-        newQty,
-        newCost
-      );
+      const result = WeightedAverageCostService.calculateNewAverageCost(currentQty, currentAvgCost, newQty, newCost);
 
       // Expected: (100 * 10 + 50 * 12) / 150 = 1600 / 150 = 10.67
       expect(result).toBeCloseTo(10.67, 2);

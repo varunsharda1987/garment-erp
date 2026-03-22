@@ -180,9 +180,7 @@ export async function updateClaimStatus(input: UpdateClaimStatusInput) {
   };
 
   if (!validTransitions[defect.claimStatus]?.includes(input.status)) {
-    throw new Error(
-      `Invalid status transition: ${defect.claimStatus} -> ${input.status}`
-    );
+    throw new Error(`Invalid status transition: ${defect.claimStatus} -> ${input.status}`);
   }
 
   const updateData: any = {
@@ -364,14 +362,8 @@ export async function getPendingClaims() {
   const pending = claims.filter((c) => c.claimStatus === 'PENDING');
   const submitted = claims.filter((c) => c.claimStatus === 'SUBMITTED');
 
-  const totalPendingAmount = pending.reduce(
-    (sum, c) => sum + Number(c.defectQuantity || 0),
-    0
-  );
-  const totalSubmittedAmount = submitted.reduce(
-    (sum, c) => sum + Number(c.claimAmount || 0),
-    0
-  );
+  const totalPendingAmount = pending.reduce((sum, c) => sum + Number(c.defectQuantity || 0), 0);
+  const totalSubmittedAmount = submitted.reduce((sum, c) => sum + Number(c.claimAmount || 0), 0);
 
   return {
     pending: {

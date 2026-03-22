@@ -72,10 +72,7 @@ function RecentStyleCard({ style }: { style: RecentStyle }) {
   const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
   return (
-    <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={() => navigate(`/styles/${style.id}`)}
-    >
+    <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/styles/${style.id}`)}>
       <div className="aspect-square relative bg-gray-100 rounded-t-lg overflow-hidden">
         {style.imageUrl ? (
           <img
@@ -92,18 +89,14 @@ function RecentStyleCard({ style }: { style: RecentStyle }) {
             <ImageIcon className="h-12 w-12 text-gray-300" />
           </div>
         )}
-        <Badge
-          className={`absolute top-2 right-2 ${STATUS_COLORS[style.status] || 'bg-gray-500'} text-white text-xs`}
-        >
+        <Badge className={`absolute top-2 right-2 ${STATUS_COLORS[style.status] || 'bg-gray-500'} text-white text-xs`}>
           {style.status}
         </Badge>
       </div>
       <CardContent className="p-3">
         <p className="font-medium text-sm truncate">{style.styleCode}</p>
         <p className="text-xs text-gray-500 truncate">{style.styleName}</p>
-        {style.season && (
-          <p className="text-xs text-gray-400 mt-1">{style.season}</p>
-        )}
+        {style.season && <p className="text-xs text-gray-400 mt-1">{style.season}</p>}
       </CardContent>
     </Card>
   );
@@ -118,14 +111,11 @@ function ActivityItem({ activity }: { activity: TeamActivity }) {
   return (
     <div className="flex gap-3 py-2">
       <Avatar className="h-8 w-8 flex-shrink-0">
-        <AvatarFallback className={`${avatarColor} text-white text-xs`}>
-          {getInitials(userName)}
-        </AvatarFallback>
+        <AvatarFallback className={`${avatarColor} text-white text-xs`}>{getInitials(userName)}</AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
         <p className="text-sm">
-          <span className="font-medium">{userName}</span>{' '}
-          <span className="text-gray-600">commented on</span>
+          <span className="font-medium">{userName}</span> <span className="text-gray-600">commented on</span>
           {activity.style && (
             <Button
               variant="link"
@@ -167,8 +157,8 @@ export function DesignDashboard() {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);  // toast is stable at runtime, removing to prevent infinite re-renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // toast is stable at runtime, removing to prevent infinite re-renders
 
   useEffect(() => {
     loadDashboard();
@@ -308,11 +298,7 @@ export function DesignDashboard() {
               <div className="flex flex-col items-center justify-center h-48 text-gray-500">
                 <ImageIcon className="h-12 w-12 mb-2 opacity-50" />
                 <p>No styles yet</p>
-                <Button
-                  variant="outline"
-                  className="mt-2"
-                  onClick={() => navigate('/styles/new')}
-                >
+                <Button variant="outline" className="mt-2" onClick={() => navigate('/styles/new')}>
                   Create Your First Style
                 </Button>
               </div>
@@ -334,19 +320,11 @@ export function DesignDashboard() {
               <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => navigate('/styles/new')}
-              >
+              <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/styles/new')}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Style
               </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => navigate('/mood-boards/new')}
-              >
+              <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/mood-boards/new')}>
                 <LayoutGrid className="h-4 w-4 mr-2" />
                 New Mood Board
               </Button>
@@ -400,17 +378,12 @@ export function DesignDashboard() {
                         <div
                           className="h-full bg-blue-500 rounded-full"
                           style={{
-                            width: `${Math.min(
-                              (season.count / stats.totalStyles) * 100,
-                              100
-                            )}%`,
+                            width: `${Math.min((season.count / stats.totalStyles) * 100, 100)}%`,
                           }}
                         />
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-500">
-                      {season.count}
-                    </span>
+                    <span className="text-sm font-medium text-gray-500">{season.count}</span>
                   </div>
                 ))}
               </CardContent>

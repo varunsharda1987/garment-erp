@@ -119,52 +119,41 @@ export default function ThreadList() {
       render: (thread) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{thread.threadName}</div>
-          {thread.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{thread.description}</div>
-          )}
+          {thread.description && <div className="text-xs text-gray-500 line-clamp-1">{thread.description}</div>}
         </div>
       ),
     },
     {
       key: 'brand',
       header: 'Brand',
-      render: (thread) => (
-        <div className="text-sm text-gray-700">
-          {thread.brand || '-'}
-        </div>
-      ),
+      render: (thread) => <div className="text-sm text-gray-700">{thread.brand || '-'}</div>,
     },
     {
       key: 'packagingType',
       header: 'Packaging',
-      render: (thread) => (
+      render: (thread) =>
         thread.packagingType ? (
           <Badge variant={thread.packagingType === 'CONE' ? 'default' : 'secondary'} className="text-xs">
             {thread.packagingType}
-            <span className="ml-1 opacity-70">({thread.piecesPerBox || (thread.packagingType === 'CONE' ? 6 : 10)}/box)</span>
+            <span className="ml-1 opacity-70">
+              ({thread.piecesPerBox || (thread.packagingType === 'CONE' ? 6 : 10)}/box)
+            </span>
           </Badge>
         ) : (
           <span className="text-sm text-gray-400">-</span>
-        )
-      ),
+        ),
     },
     {
       key: 'metersPerUnit',
       header: 'Meters',
       render: (thread) => (
-        <div className="text-sm text-gray-700">
-          {thread.metersPerUnit ? `${thread.metersPerUnit}m` : '-'}
-        </div>
+        <div className="text-sm text-gray-700">{thread.metersPerUnit ? `${thread.metersPerUnit}m` : '-'}</div>
       ),
     },
     {
       key: 'color',
       header: 'Color',
-      render: (thread) => (
-        <div className="text-sm text-gray-700">
-          {thread.color || '-'}
-        </div>
-      ),
+      render: (thread) => <div className="text-sm text-gray-700">{thread.color || '-'}</div>,
     },
     {
       key: 'styleCodes',
@@ -242,11 +231,7 @@ export default function ThreadList() {
       className: 'text-right',
       render: (thread) => (
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/materials/thread/${thread.id}/edit`)}
-          >
+          <Button variant="outline" size="sm" onClick={() => navigate(`/materials/thread/${thread.id}/edit`)}>
             Edit
           </Button>
           <Button
@@ -272,17 +257,9 @@ export default function ThreadList() {
             <CardTitle>Thread Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="THREAD" stockCount={stockCount} />
-              <ExportButton
-                module="thread"
-                filters={{}}
-              />
-              <ImportButton
-                module="thread"
-                onSuccess={fetchThreadItems}
-              />
-              <Button onClick={() => navigate('/materials/thread/new')}>
-                + Add New Thread
-              </Button>
+              <ExportButton module="thread" filters={{}} />
+              <ImportButton module="thread" onSuccess={fetchThreadItems} />
+              <Button onClick={() => navigate('/materials/thread/new')}>+ Add New Thread</Button>
             </div>
           </div>
         </CardHeader>

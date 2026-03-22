@@ -29,10 +29,7 @@ export type {
 /**
  * Create bulk stock entry for a style
  */
-export async function createStyleStock(
-  styleId: string,
-  entries: StyleStockEntry[]
-): Promise<StyleStockCreateResponse> {
+export async function createStyleStock(styleId: string, entries: StyleStockEntry[]): Promise<StyleStockCreateResponse> {
   const response = await api.post(`/styles/${styleId}/stock-entry`, {
     entries,
   });

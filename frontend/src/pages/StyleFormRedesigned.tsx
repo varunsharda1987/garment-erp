@@ -21,8 +21,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { styleService } from '../services/style.service';
-import { customerService, type AccessoryPreset, type AccessoryPresetItem as _AccessoryPresetItem } from '../services/customer.service';
-import { getAllPresetsForCustomer, getDefaultPreset as _getDefaultPreset } from '../services/customerSizePreset.service';
+import {
+  customerService,
+  type AccessoryPreset,
+  type AccessoryPresetItem as _AccessoryPresetItem,
+} from '../services/customer.service';
+import {
+  getAllPresetsForCustomer,
+  getDefaultPreset as _getDefaultPreset,
+} from '../services/customerSizePreset.service';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
 import { productCategoryService } from '../services/productCategory.service';
@@ -35,19 +42,8 @@ import { Card } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '../components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Checkbox } from '../components/ui/checkbox';
 import { Badge } from '../components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
@@ -59,14 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '../components/ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
 import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
 // MaterialBOMPicker removed - using TrimSelector and AccessorySelector instead
 import { EmbroiderySelector } from '../components/EmbroiderySelector';
@@ -125,7 +114,13 @@ interface FabricEntry {
   embroideryName?: string | null;
   embroideryCode?: string | null;
   // Pattern parts (read-only, set via Fabric Master allocation or CAD Planning)
-  patternParts?: Array<{ id: string; patternPartId: string; quantity: number; goesToEmbroidery?: boolean; patternPart: { id: string; code: string; name: string } }>;
+  patternParts?: Array<{
+    id: string;
+    patternPartId: string;
+    quantity: number;
+    goesToEmbroidery?: boolean;
+    patternPart: { id: string; code: string; name: string };
+  }>;
   // REMOVED: estimatedConsumption, unit, notes, usableWidth, allowCombinedCutting
   // These are now handled in CAD Planning stage
 }
@@ -155,7 +150,9 @@ interface FabricMasterSelectorProps {
 
 function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onClear }: FabricMasterSelectorProps) {
   const [query, setQuery] = React.useState('');
-  const [results, setResults] = React.useState<Array<{ id: string; fabricCode: string; fabricName: string; colorName?: string }>>([]);
+  const [results, setResults] = React.useState<
+    Array<{ id: string; fabricCode: string; fabricName: string; colorName?: string }>
+  >([]);
   const [loading, setLoading] = React.useState(false);
   const [open, setOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -172,14 +169,20 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
   }, [open]);
 
   React.useEffect(() => {
-    if (!query || query.length < 1) { setResults([]); return; }
+    if (!query || query.length < 1) {
+      setResults([]);
+      return;
+    }
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
         const res = await api.get('/fabric-management/fabric', { params: { search: query, limit: 20 } });
         setResults(res.data?.data || res.data?.fabrics || []);
-      } catch { setResults([]); }
-      finally { setLoading(false); }
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
@@ -207,30 +210,41 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
       <Label>Ready Fabric *</Label>
       <div className="relative">
         <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />}
+        {loading && (
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+        )}
         <Input
           ref={inputRef}
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
           onFocus={() => setOpen(true)}
           placeholder="Search fabric master..."
           className="pl-10 pr-10"
         />
-        {open && (query.length > 0) && (
+        {open && query.length > 0 && (
           <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-52 overflow-auto">
-            {results.length > 0 ? results.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => { onSelect(f.id, f.fabricCode, f.fabricName); setOpen(false); setQuery(''); }}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-              >
-                <Package className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                <span className="font-mono text-xs text-gray-500">{f.fabricCode}</span>
-                <span className="truncate">{f.fabricName}</span>
-                {f.colorName && <span className="text-xs text-gray-400 ml-auto shrink-0">{f.colorName}</span>}
-              </button>
-            )) : (
+            {results.length > 0 ? (
+              results.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    onSelect(f.id, f.fabricCode, f.fabricName);
+                    setOpen(false);
+                    setQuery('');
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <Package className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                  <span className="font-mono text-xs text-gray-500">{f.fabricCode}</span>
+                  <span className="truncate">{f.fabricName}</span>
+                  {f.colorName && <span className="text-xs text-gray-400 ml-auto shrink-0">{f.colorName}</span>}
+                </button>
+              ))
+            ) : (
               <div className="px-3 py-4 text-sm text-gray-500 text-center">
                 {loading ? 'Searching...' : 'No fabrics found'}
               </div>
@@ -296,10 +310,10 @@ export default function StyleFormRedesigned() {
 
   // Additional Details (Template Fields)
   const [numberOfComponents, setNumberOfComponents] = useState(1);
-  const [costPrice, setCostPrice] = useState<number | ''>('');  // COST in template
-  const [sellingPrice, setSellingPrice] = useState<number | ''>('');  // MRP in template
+  const [costPrice, setCostPrice] = useState<number | ''>(''); // COST in template
+  const [sellingPrice, setSellingPrice] = useState<number | ''>(''); // MRP in template
   const [expectedOrderQty, setExpectedOrderQty] = useState<number | ''>('');
-  const [remarks, setRemarks] = useState('');  // Changed from specifications
+  const [remarks, setRemarks] = useState(''); // Changed from specifications
   const [hsnCode, setHsnCode] = useState('');
   const [productTaxRule, setProductTaxRule] = useState('');
   const [bulletPoints, setBulletPoints] = useState('');
@@ -330,11 +344,11 @@ export default function StyleFormRedesigned() {
 
   // Tab 2: Size & SKU
   const [skuVariants, setSkuVariants] = useState<SKUVariant[]>(
-    DEFAULT_SIZES.map(size => ({
+    DEFAULT_SIZES.map((size) => ({
       size,
       sku: '',
       barcode: '',
-      isActive: true
+      isActive: true,
     }))
   );
 
@@ -496,18 +510,18 @@ export default function StyleFormRedesigned() {
     // Search in all levels
     const findCategory = (id: string): ProductCategory | null => {
       // Check L1
-      const l1 = productCategories.find(c => c.id === id);
+      const l1 = productCategories.find((c) => c.id === id);
       if (l1) return l1;
 
       // Check L2
       for (const l2List of Object.values(productSubCategories)) {
-        const l2 = l2List.find(c => c.id === id);
+        const l2 = l2List.find((c) => c.id === id);
         if (l2) return l2;
       }
 
       // Check L3
       for (const l3List of Object.values(productSubSubCategories)) {
-        const l3 = l3List.find(c => c.id === id);
+        const l3 = l3List.find((c) => c.id === id);
         if (l3) return l3;
       }
 
@@ -539,8 +553,12 @@ export default function StyleFormRedesigned() {
         if (parsed.data && parsed.timestamp) {
           // Check if saved data has any meaningful content
           const data = parsed.data as LocalStorageFormData;
-          const hasContent = data.styleCode || data.styleName || data.customerName ||
-                            data.fabrics?.length > 0 || data.selectedTrims?.length > 0;
+          const hasContent =
+            data.styleCode ||
+            data.styleName ||
+            data.customerName ||
+            data.fabrics?.length > 0 ||
+            data.selectedTrims?.length > 0;
           if (hasContent) {
             setPendingLocalRestore({ data, timestamp: parsed.timestamp });
             setShowLocalRestoreDialog(true);
@@ -566,10 +584,13 @@ export default function StyleFormRedesigned() {
 
     const timeout = setTimeout(() => {
       const formData = collectFormData();
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({
-        data: formData,
-        timestamp: new Date().toISOString(),
-      }));
+      localStorage.setItem(
+        DRAFT_STORAGE_KEY,
+        JSON.stringify({
+          data: formData,
+          timestamp: new Date().toISOString(),
+        })
+      );
       setLastAutoSaved(new Date());
       setIsFormDirty(false);
     }, 3000); // 3 second debounce
@@ -579,10 +600,28 @@ export default function StyleFormRedesigned() {
 
     return () => clearTimeout(timeout);
   }, [
-    styleCode, styleName, customerName, brandName, category, season, description,
-    productCategoryId, numberOfComponents, costPrice, sellingPrice, expectedOrderQty,
-    remarks, hsnCode, selectedComponents, fabrics, selectedTrims, selectedAccessories,
-    selectedAccessoryPresetId, skuVariants, skipAutoSave, loading
+    styleCode,
+    styleName,
+    customerName,
+    brandName,
+    category,
+    season,
+    description,
+    productCategoryId,
+    numberOfComponents,
+    costPrice,
+    sellingPrice,
+    expectedOrderQty,
+    remarks,
+    hsnCode,
+    selectedComponents,
+    fabrics,
+    selectedTrims,
+    selectedAccessories,
+    selectedAccessoryPresetId,
+    skuVariants,
+    skipAutoSave,
+    loading,
   ]);
 
   // Re-fetch suggested components when componentMasters loads and a product category is already selected
@@ -625,7 +664,7 @@ export default function StyleFormRedesigned() {
     if (!parentId || productSubCategories[parentId]) return;
     try {
       const children = await productCategoryService.getChildren(parentId);
-      setProductSubCategories(prev => ({ ...prev, [parentId]: children }));
+      setProductSubCategories((prev) => ({ ...prev, [parentId]: children }));
     } catch (error) {
       console.error('Failed to load product sub-categories:', error);
     }
@@ -636,14 +675,19 @@ export default function StyleFormRedesigned() {
     if (!parentId || productSubSubCategories[parentId]) return;
     try {
       const children = await productCategoryService.getChildren(parentId);
-      setProductSubSubCategories(prev => ({ ...prev, [parentId]: children }));
+      setProductSubSubCategories((prev) => ({ ...prev, [parentId]: children }));
     } catch (error) {
       console.error('Failed to load product sub-sub-categories:', error);
     }
   };
 
   // Determine final product category ID from selections and auto-populate components
-  const updateProductCategoryId = async (l1: string, l2: string, l3: string, autoPopulateComponents: boolean = true) => {
+  const updateProductCategoryId = async (
+    l1: string,
+    l2: string,
+    l3: string,
+    autoPopulateComponents: boolean = true
+  ) => {
     const finalCategoryId = l3 || l2 || l1;
     setProductCategoryId(finalCategoryId);
 
@@ -653,7 +697,7 @@ export default function StyleFormRedesigned() {
         const suggestions = await productCategoryService.getSuggestedComponents(finalCategoryId);
 
         // Store the allowed component IDs for this category
-        const allowedIds = new Set(suggestions.map(s => s.componentMasterId));
+        const allowedIds = new Set(suggestions.map((s) => s.componentMasterId));
         setCategoryComponentIds(allowedIds);
 
         // Auto-populate components (only for new styles, not edit mode)
@@ -677,9 +721,9 @@ export default function StyleFormRedesigned() {
     setNumberOfComponents(suggestions.length);
 
     // Map suggestions to selectedComponents format
-    const newComponents = suggestions.map(suggestion => {
+    const newComponents = suggestions.map((suggestion) => {
       // Find the component master to get its category
-      const componentMaster = componentMasters.find(cm => cm.id === suggestion.componentMasterId);
+      const componentMaster = componentMasters.find((cm) => cm.id === suggestion.componentMasterId);
       return {
         category: componentMaster?.componentCategory || suggestion.componentMaster.componentCategory || '',
         componentId: suggestion.componentMasterId,
@@ -690,7 +734,7 @@ export default function StyleFormRedesigned() {
 
     // Clear existing fabrics and create new ones for each component
     const newFabrics = newComponents.map((comp, index) => {
-      const componentMaster = componentMasters.find(cm => cm.id === comp.componentId);
+      const componentMaster = componentMasters.find((cm) => cm.id === comp.componentId);
       return {
         id: `temp-${Date.now()}-${index}`,
         componentIndex: index,
@@ -739,7 +783,9 @@ export default function StyleFormRedesigned() {
         }, 100);
       });
     }
-    return () => { if (loadTimer) clearTimeout(loadTimer); };
+    return () => {
+      if (loadTimer) clearTimeout(loadTimer);
+    };
   }, [isEditMode, id, customers.length, componentMasters.length]);
 
   // Load customer brands when customer selected - MATCHES OLD STYLEFORM
@@ -753,25 +799,31 @@ export default function StyleFormRedesigned() {
     }
 
     if (selectedCustomerId) {
-      const customer = customers.find(c => c.id === selectedCustomerId);
+      const customer = customers.find((c) => c.id === selectedCustomerId);
       if (customer) {
         // Use customer.name directly (same as old StyleForm)
         setCustomerName(customer.name);
 
         // Extract brands from brandCategories (same as old StyleForm)
-        if (customer.brandCategories && Array.isArray(customer.brandCategories) && customer.brandCategories.length > 0) {
+        if (
+          customer.brandCategories &&
+          Array.isArray(customer.brandCategories) &&
+          customer.brandCategories.length > 0
+        ) {
           const uniqueBrands = [...new Set(customer.brandCategories.map((bc: BrandCategory) => bc.brandName))];
           setAvailableBrands(uniqueBrands);
 
           // In edit mode, if brandName is already set but availableCategories is empty, populate them
           if (isEditMode && brandName && availableCategories.length === 0) {
-            const brandCategories = customer.brandCategories
-              .filter((bc: BrandCategory) => bc.brandName === brandName);
+            const brandCategories = customer.brandCategories.filter((bc: BrandCategory) => bc.brandName === brandName);
             setAvailableCategories(brandCategories);
           }
         } else if (customer.brandNames) {
           // Fallback to old format (same as old StyleForm)
-          const brands = customer.brandNames.split('\n').map((b: string) => b.trim()).filter((b: string) => b);
+          const brands = customer.brandNames
+            .split('\n')
+            .map((b: string) => b.trim())
+            .filter((b: string) => b);
           setAvailableBrands(brands);
         } else {
           setAvailableBrands([]);
@@ -802,11 +854,10 @@ export default function StyleFormRedesigned() {
     }
 
     if (selectedCustomerId && brandName) {
-      const customer = customers.find(c => c.id === selectedCustomerId);
+      const customer = customers.find((c) => c.id === selectedCustomerId);
       if (customer?.brandCategories) {
         // Filter brand categories for the selected brand
-        const brandCategories = customer.brandCategories
-          .filter((bc: BrandCategory) => bc.brandName === brandName);
+        const brandCategories = customer.brandCategories.filter((bc: BrandCategory) => bc.brandName === brandName);
 
         // Store full BrandCategory objects (no need to extract just names)
         setAvailableCategories(brandCategories);
@@ -848,7 +899,7 @@ export default function StyleFormRedesigned() {
       const [mastersResponse, categoriesResponse, groupsResponse] = await Promise.all([
         getAllComponentMasters({ activeOnly: true, limit: 100 }),
         getCategories(),
-        componentGroupService.getAll({ page: 1, limit: 100, isActive: true })
+        componentGroupService.getAll({ page: 1, limit: 100, isActive: true }),
       ]);
       console.log('[DEBUG] Component masters loaded:', mastersResponse.data?.length || 0);
       console.log('[DEBUG] Categories loaded:', categoriesResponse?.length || 0);
@@ -916,7 +967,7 @@ export default function StyleFormRedesigned() {
       setCostPrice((styleData.costPrice as number) || '');
       setSellingPrice((styleData.sellingPrice as number) || '');
       setExpectedOrderQty((styleData.expectedOrderQty as number) || '');
-      setRemarks(style.specifications || '');  // Using specifications field for remarks
+      setRemarks(style.specifications || ''); // Using specifications field for remarks
       setHsnCode((styleData.hsnCode as string) || '');
       setProductTaxRule((styleData.productTaxRule as string) || '');
       setBulletPoints((styleData.bulletPoints as string) || '');
@@ -936,7 +987,7 @@ export default function StyleFormRedesigned() {
       let loadedPresets: AccessoryPreset[] | null = null;
 
       // Find and set customer by name
-      const matchingCustomer = customers.find(c => c.name === style.customerName);
+      const matchingCustomer = customers.find((c) => c.name === style.customerName);
       // If customer found but brandCategories not populated, fetch customer details
       let customerWithBrands = matchingCustomer;
       if (matchingCustomer && (!matchingCustomer.brandCategories || matchingCustomer.brandCategories.length === 0)) {
@@ -965,8 +1016,14 @@ export default function StyleFormRedesigned() {
         }
 
         // Populate available brands from customer's brandCategories
-        if (customerWithBrands.brandCategories && Array.isArray(customerWithBrands.brandCategories) && customerWithBrands.brandCategories.length > 0) {
-          const uniqueBrands = [...new Set(customerWithBrands.brandCategories.map((bc: BrandCategory) => bc.brandName))];
+        if (
+          customerWithBrands.brandCategories &&
+          Array.isArray(customerWithBrands.brandCategories) &&
+          customerWithBrands.brandCategories.length > 0
+        ) {
+          const uniqueBrands = [
+            ...new Set(customerWithBrands.brandCategories.map((bc: BrandCategory) => bc.brandName)),
+          ];
           setAvailableBrands(uniqueBrands);
 
           // NOW set the brand name after options are available
@@ -984,9 +1041,7 @@ export default function StyleFormRedesigned() {
             // If brandCategoryId is present, verify it exists in availableCategories
             // and update category name from customer data (in case it was renamed)
             if (savedBrandCategoryId) {
-              const matchingBrandCategory = brandCategories.find(
-                (bc: BrandCategory) => bc.id === savedBrandCategoryId
-              );
+              const matchingBrandCategory = brandCategories.find((bc: BrandCategory) => bc.id === savedBrandCategoryId);
               if (matchingBrandCategory) {
                 // Update category name from customer's current data
                 setCategory(matchingBrandCategory.category);
@@ -1021,18 +1076,26 @@ export default function StyleFormRedesigned() {
 
       // Load SKU variants if available (from style_variants table)
       // These fields may exist on the API response with different names
-      const skuVariantsData = (style.variants || (styleData.styleVariants as unknown[]) || (styleData.styleSkuVariants as unknown[]) || (styleData.skuVariants as unknown[]) || []) as Array<{ sizeName?: string; size?: string; sku: string; barcode?: string; isActive?: boolean }>;
+      const skuVariantsData = (style.variants ||
+        (styleData.styleVariants as unknown[]) ||
+        (styleData.styleSkuVariants as unknown[]) ||
+        (styleData.skuVariants as unknown[]) ||
+        []) as Array<{ sizeName?: string; size?: string; sku: string; barcode?: string; isActive?: boolean }>;
       if (skuVariantsData.length > 0) {
-        setSkuVariants(skuVariantsData.map((sku) => ({
-          size: sku.sizeName || sku.size || '',
-          sku: sku.sku,
-          barcode: sku.barcode || '',
-          isActive: sku.isActive !== false
-        })));
+        setSkuVariants(
+          skuVariantsData.map((sku) => ({
+            size: sku.sizeName || sku.size || '',
+            sku: sku.sku,
+            barcode: sku.barcode || '',
+            isActive: sku.isActive !== false,
+          }))
+        );
       }
 
       // Load fabrics if available (check both old 'fabrics' and new 'styleFabricsFlat')
-      const fabricsData = ((styleData.styleFabricsFlat as unknown[]) || (styleData.fabrics as unknown[]) || []) as Array<{
+      const fabricsData = ((styleData.styleFabricsFlat as unknown[]) ||
+        (styleData.fabrics as unknown[]) ||
+        []) as Array<{
         id?: string;
         componentName?: string;
         componentIndex?: number;
@@ -1047,39 +1110,41 @@ export default function StyleFormRedesigned() {
       if (fabricsData.length > 0) {
         // Map component names to indices based on loaded components
         const loadedComponents = style.components || [];
-        setFabrics(fabricsData.map((sf) => {
-          // Try to find component index from name
-          let componentIndex = sf.componentIndex ?? 0;
-          if (sf.componentName && loadedComponents.length > 0) {
-            const foundIndex = loadedComponents.findIndex(
-              (c: { componentName?: string }) => c.componentName === sf.componentName
-            );
-            if (foundIndex >= 0) {
-              componentIndex = foundIndex;
+        setFabrics(
+          fabricsData.map((sf) => {
+            // Try to find component index from name
+            let componentIndex = sf.componentIndex ?? 0;
+            if (sf.componentName && loadedComponents.length > 0) {
+              const foundIndex = loadedComponents.findIndex(
+                (c: { componentName?: string }) => c.componentName === sf.componentName
+              );
+              if (foundIndex >= 0) {
+                componentIndex = foundIndex;
+              }
             }
-          }
-          // Determine sourcing mode from fabricId presence
-          const fabricId = sf.fabricId || sf.fabric?.id || null;
-          const sourcingMode: 'GREIGE' | 'READY_FABRIC' = fabricId ? 'READY_FABRIC' : 'GREIGE';
-          return {
-            id: sf.id || generateId(),
-            componentIndex,
-            componentName: sf.componentName || '',
-            sourcingMode,
-            genericGreigeName: sf.genericGreigeName || '',
-            fabricId,
-            fabricCode: sf.fabric?.fabricCode || null,
-            fabricName: sf.fabric?.fabricName || null,
-            fabricFinishType: (sf.fabricFinishType || '') as FabricFinishType | '',
-            // Embroidery support
-            hasEmbroidery: sf.hasEmbroidery || false,
-            embroideryId: sf.embroideryId || null,
-            embroideryName: sf.embroidery?.designName || null,
-            embroideryCode: sf.embroidery?.embroideryCode || null,
-            // Pattern parts (read-only display)
-            patternParts: (sf as any).patternParts || [],
-          } as FabricEntry;
-        }));
+            // Determine sourcing mode from fabricId presence
+            const fabricId = sf.fabricId || sf.fabric?.id || null;
+            const sourcingMode: 'GREIGE' | 'READY_FABRIC' = fabricId ? 'READY_FABRIC' : 'GREIGE';
+            return {
+              id: sf.id || generateId(),
+              componentIndex,
+              componentName: sf.componentName || '',
+              sourcingMode,
+              genericGreigeName: sf.genericGreigeName || '',
+              fabricId,
+              fabricCode: sf.fabric?.fabricCode || null,
+              fabricName: sf.fabric?.fabricName || null,
+              fabricFinishType: (sf.fabricFinishType || '') as FabricFinishType | '',
+              // Embroidery support
+              hasEmbroidery: sf.hasEmbroidery || false,
+              embroideryId: sf.embroideryId || null,
+              embroideryName: sf.embroidery?.designName || null,
+              embroideryCode: sf.embroidery?.embroideryCode || null,
+              // Pattern parts (read-only display)
+              patternParts: (sf as any).patternParts || [],
+            } as FabricEntry;
+          })
+        );
       }
 
       // Load material BOM (trims) if available
@@ -1103,7 +1168,7 @@ export default function StyleFormRedesigned() {
             if (bom[master.key]) {
               return {
                 name: bom[master.key][master.nameField] || bom[master.key].name || '',
-                code: bom[master.key][master.codeField] || bom[master.key].code || ''
+                code: bom[master.key][master.codeField] || bom[master.key].code || '',
               };
             }
           }
@@ -1112,7 +1177,7 @@ export default function StyleFormRedesigned() {
           if (bom.material) {
             return {
               name: bom.material.name || '',
-              code: bom.material.code || ''
+              code: bom.material.code || '',
             };
           }
 
@@ -1121,20 +1186,20 @@ export default function StyleFormRedesigned() {
 
         // Load accessories (LABEL and PACKAGING types) from BOM
         const bomAccessories: StyleAccessory[] = style.styleMaterialBom
-          .filter((bom: { usageCategory?: string; materialType?: string }) =>
-            bom.usageCategory === 'PACKAGING' || bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING')
+          .filter(
+            (bom: { usageCategory?: string; materialType?: string }) =>
+              bom.usageCategory === 'PACKAGING' || bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
+          )
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((bom: any) => {
             const materialDetails = getMaterialDetails(bom);
-            const masterId = bom.materialType === 'LABEL'
-              ? (bom.labelId || '')
-              : (bom.packagingId || '');
+            const masterId = bom.materialType === 'LABEL' ? bom.labelId || '' : bom.packagingId || '';
             return {
               accessoryType: (bom.materialType === 'LABEL' ? 'LABEL' : 'PACKAGING') as 'LABEL' | 'PACKAGING',
               masterId,
               masterCode: materialDetails.code,
               masterName: materialDetails.name,
-              subType: bom.labelType || bom.packagingType || null
+              subType: bom.labelType || bom.packagingType || null,
             };
           });
 
@@ -1145,25 +1210,22 @@ export default function StyleFormRedesigned() {
           const savedPreset = loadedPresets.find((p: AccessoryPreset) => p.id === presetId);
           if (savedPreset?.items) {
             // Use material CODES for comparison (BOM uses packagingId, preset uses materialId - different ID systems)
-            const bomMasterCodes = new Set(bomAccessories.map(a => a.masterCode).filter(Boolean));
+            const bomMasterCodes = new Set(bomAccessories.map((a) => a.masterCode).filter(Boolean));
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const missingFromPreset: StyleAccessory[] = (savedPreset.items as any[])
               .filter((item) => {
-                const code = item.materialType === 'LABEL'
-                  ? (item.label?.labelCode || '')
-                  : (item.material?.code || '');
+                const code = item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || '';
                 return code && !bomMasterCodes.has(code);
               })
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               .map((item: any) => ({
                 accessoryType: (item.materialType === 'LABEL' ? 'LABEL' : 'PACKAGING') as 'LABEL' | 'PACKAGING',
-                masterId: item.materialType === 'LABEL' ? (item.labelId || '') : (item.materialId || ''),
-                masterCode: item.materialType === 'LABEL'
-                  ? (item.label?.labelCode || '')
-                  : (item.material?.code || ''),
-                masterName: item.materialType === 'LABEL'
-                  ? (item.label?.labelName || item.label?.labelCode || '')
-                  : (item.material?.name || ''),
+                masterId: item.materialType === 'LABEL' ? item.labelId || '' : item.materialId || '',
+                masterCode: item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || '',
+                masterName:
+                  item.materialType === 'LABEL'
+                    ? item.label?.labelName || item.label?.labelCode || ''
+                    : item.material?.name || '',
                 subType: null,
               }));
             allAccessories = [...bomAccessories, ...missingFromPreset];
@@ -1174,33 +1236,34 @@ export default function StyleFormRedesigned() {
             const presetCodes = new Set(
               (savedPreset.items as any[])
                 .map((item) =>
-                  item.materialType === 'LABEL'
-                    ? (item.label?.labelCode || '')
-                    : (item.material?.code || '')
+                  item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || ''
                 )
                 .filter(Boolean)
             );
             // Use BOM's masterId for items that exist in preset (by code match)
             const presetIds = new Set(
               bomAccessories
-                .filter(acc => presetCodes.has(acc.masterCode))
-                .map(acc => acc.masterId)
+                .filter((acc) => presetCodes.has(acc.masterCode))
+                .map((acc) => acc.masterId)
                 .filter(Boolean)
             );
             setPresetItemIds(presetIds);
           }
         }
         // Deduplicate accessories by masterCode + accessoryType (code is consistent across ID systems)
-        const uniqueAccessories = allAccessories.filter((acc, index, self) =>
-          index === self.findIndex(a => a.masterCode === acc.masterCode && a.accessoryType === acc.accessoryType)
+        const uniqueAccessories = allAccessories.filter(
+          (acc, index, self) =>
+            index === self.findIndex((a) => a.masterCode === acc.masterCode && a.accessoryType === acc.accessoryType)
         );
         setSelectedAccessories(uniqueAccessories);
 
         // Load trims (BUTTON, THREAD, ZIPPER, ELASTIC, LACE types with GARMENT_TRIM usage)
         const trimTypes = ['BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LACE'];
         const loadedTrims = style.styleMaterialBom
-          .filter((bom: { usageCategory?: string; materialType?: string }) =>
-            bom.usageCategory === 'GARMENT_TRIM' && trimTypes.includes(bom.materialType || ''))
+          .filter(
+            (bom: { usageCategory?: string; materialType?: string }) =>
+              bom.usageCategory === 'GARMENT_TRIM' && trimTypes.includes(bom.materialType || '')
+          )
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((bom: any) => {
             const materialDetails = getMaterialDetails(bom);
@@ -1211,7 +1274,7 @@ export default function StyleFormRedesigned() {
               masterId: masterId,
               masterCode: materialDetails.code,
               masterName: materialDetails.name,
-              color: null
+              color: null,
             };
           });
 
@@ -1231,10 +1294,10 @@ export default function StyleFormRedesigned() {
         // Need to find the matching component master for each to get the componentId
         const loadedComponents = style.components.map((sc: { componentName?: string; componentType?: string }) => {
           // Find the component master by name
-          const matchingMaster = componentMasters.find(cm => cm.name === sc.componentName);
+          const matchingMaster = componentMasters.find((cm) => cm.name === sc.componentName);
           return {
             category: sc.componentType || '',
-            componentId: matchingMaster?.id || ''
+            componentId: matchingMaster?.id || '',
           };
         });
 
@@ -1272,7 +1335,7 @@ export default function StyleFormRedesigned() {
 
       // Auto-apply default preset if exists and not in edit mode
       if (!isEditMode && presets.length > 0) {
-        const defaultPreset = presets.find(p => p.isDefault);
+        const defaultPreset = presets.find((p) => p.isDefault);
         if (defaultPreset) {
           applyPresetToAccessories(defaultPreset);
         }
@@ -1295,8 +1358,11 @@ export default function StyleFormRedesigned() {
 
     // Map ALL preset items (LABEL + PACKAGING) to StyleAccessory format
     const presetAccessories: StyleAccessory[] = preset.items
-      .filter(item => (item.materialType === 'LABEL' && item.labelId) || (item.materialType === 'PACKAGING' && item.materialId))
-      .map(item => {
+      .filter(
+        (item) =>
+          (item.materialType === 'LABEL' && item.labelId) || (item.materialType === 'PACKAGING' && item.materialId)
+      )
+      .map((item) => {
         if (item.materialType === 'LABEL') {
           return {
             accessoryType: 'LABEL' as const,
@@ -1317,23 +1383,23 @@ export default function StyleFormRedesigned() {
       });
 
     // Track which IDs came from preset
-    const newPresetIds = new Set(presetAccessories.map(a => a.masterId));
+    const newPresetIds = new Set(presetAccessories.map((a) => a.masterId));
     setPresetItemIds(newPresetIds);
 
     // Merge accessories: keep manual items (not from preset), add preset items (avoiding duplicates)
-    setSelectedAccessories(prev => {
+    setSelectedAccessories((prev) => {
       // Use newPresetIds (local variable) instead of presetItemIds (state) to avoid stale closure
-      const manualItems = prev.filter(item => !newPresetIds.has(item.masterId));
-      const manualIds = new Set(manualItems.map(i => i.masterId));
-      const newPresetItems = presetAccessories.filter(i => !manualIds.has(i.masterId));
+      const manualItems = prev.filter((item) => !newPresetIds.has(item.masterId));
+      const manualIds = new Set(manualItems.map((i) => i.masterId));
+      const newPresetItems = presetAccessories.filter((i) => !manualIds.has(i.masterId));
       return [...manualItems, ...newPresetItems];
     });
 
     setSelectedAccessoryPresetId(preset.id);
 
     // Show notification with counts
-    const labelCount = presetAccessories.filter(a => a.accessoryType === 'LABEL').length;
-    const packagingCount = presetAccessories.filter(a => a.accessoryType === 'PACKAGING').length;
+    const labelCount = presetAccessories.filter((a) => a.accessoryType === 'LABEL').length;
+    const packagingCount = presetAccessories.filter((a) => a.accessoryType === 'PACKAGING').length;
     const parts = [];
     if (labelCount > 0) parts.push(`${labelCount} label(s)`);
     if (packagingCount > 0) parts.push(`${packagingCount} packaging item(s)`);
@@ -1348,12 +1414,12 @@ export default function StyleFormRedesigned() {
       // Clear preset selection but keep manual items
       setSelectedAccessoryPresetId('');
       // Clear preset packaging items, keep manual ones
-      setSelectedAccessories(prev => prev.filter(item => !presetItemIds.has(item.masterId)));
+      setSelectedAccessories((prev) => prev.filter((item) => !presetItemIds.has(item.masterId)));
       setPresetItemIds(new Set());
       return;
     }
 
-    const preset = customerAccessoryPresets.find(p => p.id === presetId);
+    const preset = customerAccessoryPresets.find((p) => p.id === presetId);
     if (preset) {
       applyPresetToAccessories(preset);
     }
@@ -1369,7 +1435,7 @@ export default function StyleFormRedesigned() {
 
       // Auto-apply default preset if exists and not in edit mode
       if (!isEditMode && presets.length > 0) {
-        const defaultPreset = presets.find(p => p.isDefault);
+        const defaultPreset = presets.find((p) => p.isDefault);
         if (defaultPreset) {
           applyPresetToSizes(defaultPreset);
         }
@@ -1388,11 +1454,11 @@ export default function StyleFormRedesigned() {
     if (!preset?.sizeCategory?.sizes || preset.sizeCategory.sizes.length === 0) return;
 
     // Replace ALL sizes with preset sizes
-    const presetVariants: SKUVariant[] = preset.sizeCategory.sizes.map(size => ({
+    const presetVariants: SKUVariant[] = preset.sizeCategory.sizes.map((size) => ({
       size,
       sku: '',
       barcode: '',
-      isActive: true
+      isActive: true,
     }));
 
     setSkuVariants(presetVariants);
@@ -1409,16 +1475,18 @@ export default function StyleFormRedesigned() {
       // Revert to default adult sizes
       setSelectedSizePresetId('');
       setPresetSizeIds(new Set());
-      setSkuVariants(DEFAULT_SIZES.map(size => ({
-        size,
-        sku: '',
-        barcode: '',
-        isActive: true
-      })));
+      setSkuVariants(
+        DEFAULT_SIZES.map((size) => ({
+          size,
+          sku: '',
+          barcode: '',
+          isActive: true,
+        }))
+      );
       return;
     }
 
-    const preset = customerSizePresets.find(p => p.id === presetId);
+    const preset = customerSizePresets.find((p) => p.id === presetId);
     if (preset) {
       applyPresetToSizes(preset);
     }
@@ -1436,34 +1504,36 @@ export default function StyleFormRedesigned() {
     if (lngAutoFillAppliedRef.current) return;
     if (componentMasters.length === 0) return;
 
-    const nightgownMaster = componentMasters.find(
-      cm => cm.name.toLowerCase() === 'nightgown'
-    );
+    const nightgownMaster = componentMasters.find((cm) => cm.name.toLowerCase() === 'nightgown');
     if (!nightgownMaster) return;
 
     lngAutoFillAppliedRef.current = true;
 
     setNumberOfComponents(1);
-    setSelectedComponents([{
-      category: (nightgownMaster as any).componentGroup?.code || 'FULL',
-      componentId: nightgownMaster.id,
-    }]);
+    setSelectedComponents([
+      {
+        category: (nightgownMaster as any).componentGroup?.code || 'FULL',
+        componentId: nightgownMaster.id,
+      },
+    ]);
 
-    setFabrics([{
-      id: `temp-${Date.now()}-0`,
-      componentIndex: 0,
-      componentName: 'Nightgown',
-      sourcingMode: 'GREIGE' as const,
-      genericGreigeName: '',
-      fabricId: null,
-      fabricCode: null,
-      fabricName: null,
-      fabricFinishType: '' as any,
-      hasEmbroidery: false,
-      embroideryId: null,
-      embroideryName: null,
-      embroideryCode: null,
-    }]);
+    setFabrics([
+      {
+        id: `temp-${Date.now()}-0`,
+        componentIndex: 0,
+        componentName: 'Nightgown',
+        sourcingMode: 'GREIGE' as const,
+        genericGreigeName: '',
+        fabricId: null,
+        fabricCode: null,
+        fabricName: null,
+        fabricFinishType: '' as any,
+        hasEmbroidery: false,
+        embroideryId: null,
+        embroideryName: null,
+        embroideryCode: null,
+      },
+    ]);
 
     notify.success('LNG style detected: Auto-populated Nightgown component');
   }, [styleCode, isEditMode, componentMasters]);
@@ -1476,9 +1546,7 @@ export default function StyleFormRedesigned() {
     if (selectedSizePresetId) return;
     if (customerSizePresets.length === 0) return;
 
-    const nihsamahPreset = customerSizePresets.find(
-      p => p.presetName.toLowerCase() === 'nihsamah'
-    );
+    const nihsamahPreset = customerSizePresets.find((p) => p.presetName.toLowerCase() === 'nihsamah');
     if (nihsamahPreset) {
       applyPresetToSizes(nihsamahPreset);
     }
@@ -1492,9 +1560,7 @@ export default function StyleFormRedesigned() {
     if (selectedAccessoryPresetId) return;
     if (customerAccessoryPresets.length === 0) return;
 
-    const nihsamahPreset = customerAccessoryPresets.find(
-      p => p.presetName.toLowerCase() === 'nihsamah'
-    );
+    const nihsamahPreset = customerAccessoryPresets.find((p) => p.presetName.toLowerCase() === 'nihsamah');
     if (nihsamahPreset) {
       applyPresetToAccessories(nihsamahPreset);
     }
@@ -1504,7 +1570,7 @@ export default function StyleFormRedesigned() {
   const getComponentName = (componentIndex: number): string => {
     const component = selectedComponents[componentIndex];
     if (component?.componentId) {
-      const master = componentMasters.find(cm => cm.id === component.componentId);
+      const master = componentMasters.find((cm) => cm.id === component.componentId);
       return master?.name || `Component ${componentIndex + 1}`;
     }
     return `Component ${componentIndex + 1}`;
@@ -1532,7 +1598,7 @@ export default function StyleFormRedesigned() {
       embroideryCode: null,
     };
 
-    setFabrics(prevFabrics => [...prevFabrics, newFabric]);
+    setFabrics((prevFabrics) => [...prevFabrics, newFabric]);
 
     // Expand this component section if not already expanded
     if (!expandedComponents.includes(componentIndex)) {
@@ -1550,36 +1616,36 @@ export default function StyleFormRedesigned() {
 
   // Toggle component section expansion
   const toggleComponentExpanded = (componentIndex: number) => {
-    setExpandedComponents(prev =>
-      prev.includes(componentIndex)
-        ? prev.filter(i => i !== componentIndex)
-        : [...prev, componentIndex]
+    setExpandedComponents((prev) =>
+      prev.includes(componentIndex) ? prev.filter((i) => i !== componentIndex) : [...prev, componentIndex]
     );
   };
 
   const handleRemoveFabric = (id: string) => {
     fabricsModifiedRef.current = true; // Track modification for validation
-    setFabrics(fabrics.filter(f => f.id !== id));
+    setFabrics(fabrics.filter((f) => f.id !== id));
   };
 
   const handleUpdateFabric = (id: string, field: keyof FabricEntry, value: FabricEntry[keyof FabricEntry]) => {
     fabricsModifiedRef.current = true; // Track modification for validation
-    setFabrics(fabrics.map(f =>
-      f.id === id ? { ...f, [field]: value } : f
-    ));
+    setFabrics(fabrics.map((f) => (f.id === id ? { ...f, [field]: value } : f)));
   };
 
   const handleEmbroiderySelect = (fabricId: string, embroidery: EmbroiderySearchResult) => {
     fabricsModifiedRef.current = true; // Track modification for validation
-    setFabrics(fabrics.map(f =>
-      f.id === fabricId ? {
-        ...f,
-        embroideryId: embroidery.id,
-        embroideryName: embroidery.designName,
-        embroideryCode: embroidery.embroideryCode
-        // Note: usableWidth is now handled in CAD Planning stage
-      } : f
-    ));
+    setFabrics(
+      fabrics.map((f) =>
+        f.id === fabricId
+          ? {
+              ...f,
+              embroideryId: embroidery.id,
+              embroideryName: embroidery.designName,
+              embroideryCode: embroidery.embroideryCode,
+              // Note: usableWidth is now handled in CAD Planning stage
+            }
+          : f
+      )
+    );
   };
 
   const handleOpenEmbroideryPicker = (fabricId: string) => {
@@ -1589,23 +1655,29 @@ export default function StyleFormRedesigned() {
 
   const handleClearEmbroidery = (fabricId: string) => {
     fabricsModifiedRef.current = true; // Track modification for validation
-    setFabrics(fabrics.map(f =>
-      f.id === fabricId ? {
-        ...f,
-        hasEmbroidery: false,
-        embroideryId: null,
-        embroideryName: null,
-        embroideryCode: null
-      } : f
-    ));
+    setFabrics(
+      fabrics.map((f) =>
+        f.id === fabricId
+          ? {
+              ...f,
+              hasEmbroidery: false,
+              embroideryId: null,
+              embroideryName: null,
+              embroideryCode: null,
+            }
+          : f
+      )
+    );
   };
 
   const generateSKUs = () => {
     const base = styleCode || 'STYLE';
-    setSkuVariants(skuVariants.map(v => ({
-      ...v,
-      sku: v.isActive ? `${base}${v.size}` : v.sku
-    })));
+    setSkuVariants(
+      skuVariants.map((v) => ({
+        ...v,
+        sku: v.isActive ? `${base}${v.size}` : v.sku,
+      }))
+    );
     notify.success('SKUs generated!');
   };
 
@@ -1737,7 +1809,7 @@ export default function StyleFormRedesigned() {
       // Only validate fabrics for non-draft saves
       // For updates: skip validation if fabrics weren't modified (allows saving other fields without touching fabrics)
       const shouldValidateFabrics = !isEditMode || fabricsModifiedRef.current;
-      if (shouldValidateFabrics && (fabrics.length === 0 || fabrics.some(f => !f.genericGreigeName && !f.fabricId))) {
+      if (shouldValidateFabrics && (fabrics.length === 0 || fabrics.some((f) => !f.genericGreigeName && !f.fabricId))) {
         notify.error('At least one fabric with a greige name or ready fabric selection is required');
         return;
       }
@@ -1747,16 +1819,16 @@ export default function StyleFormRedesigned() {
       setLoading(true);
 
       // Auto-generate SKUs for active variants that don't have them
-      const skuVariantsWithGenerated = skuVariants.map(v => ({
+      const skuVariantsWithGenerated = skuVariants.map((v) => ({
         ...v,
-        sku: v.sku || (styleCode ? `${styleCode}${v.size}` : `STYLE${v.size}`)
+        sku: v.sku || (styleCode ? `${styleCode}${v.size}` : `STYLE${v.size}`),
       }));
 
       // Filter out trims with empty masterId (invalid/incomplete records from legacy data)
-      const validTrims = selectedTrims.filter(trim => trim.masterId && trim.masterId.trim() !== '');
+      const validTrims = selectedTrims.filter((trim) => trim.masterId && trim.masterId.trim() !== '');
 
       // Auto-add Thread if not present in selectedTrims
-      const hasThread = validTrims.some(t => t.trimType === 'THREAD');
+      const hasThread = validTrims.some((t) => t.trimType === 'THREAD');
 
       // Build final trims array (auto-add thread if missing)
       const finalTrims = hasThread
@@ -1769,15 +1841,16 @@ export default function StyleFormRedesigned() {
               masterCode: 'THREAD-AUTO',
               masterName: 'Thread (Auto-added)',
               color: null,
-            }
+            },
           ];
 
       // Accessories - transform to backend format (accessoryType -> materialType, masterId -> materialId)
       // Deduplicate by masterCode to prevent duplicate accessories from being saved (code is consistent across ID systems)
-      const uniqueAccessories = selectedAccessories.filter((acc, index, self) =>
-        index === self.findIndex(a => a.masterCode === acc.masterCode && a.accessoryType === acc.accessoryType)
+      const uniqueAccessories = selectedAccessories.filter(
+        (acc, index, self) =>
+          index === self.findIndex((a) => a.masterCode === acc.masterCode && a.accessoryType === acc.accessoryType)
       );
-      const finalAccessories = uniqueAccessories.map(acc => ({
+      const finalAccessories = uniqueAccessories.map((acc) => ({
         materialType: acc.accessoryType, // Backend expects materialType, not accessoryType
         materialId: acc.masterId, // Backend expects materialId, not masterId
         usageCategory: 'PACKAGING' as const, // All accessories (labels, packaging) go to PACKAGING category
@@ -1794,7 +1867,7 @@ export default function StyleFormRedesigned() {
           if (!sc.componentId) return null;
 
           // Find the component master to get the name
-          const componentMaster = componentMasters.find(cm => cm.id === sc.componentId);
+          const componentMaster = componentMasters.find((cm) => cm.id === sc.componentId);
           if (!componentMaster) {
             // Component master not found - skip this component
             return null;
@@ -1803,11 +1876,11 @@ export default function StyleFormRedesigned() {
           // Find fabrics for this component using componentIndex (not name)
           // This ensures fabrics stay matched even if component selection changes
           const componentFabrics = fabrics
-            .filter(f => f.componentIndex === componentIndex)
-            .map(f => ({
-              fabricName: f.sourcingMode === 'READY_FABRIC' ? (f.fabricName || '') : f.genericGreigeName,
-              fabricId: f.sourcingMode === 'READY_FABRIC' ? (f.fabricId || null) : null,
-              genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : (f.genericGreigeName || null),
+            .filter((f) => f.componentIndex === componentIndex)
+            .map((f) => ({
+              fabricName: f.sourcingMode === 'READY_FABRIC' ? f.fabricName || '' : f.genericGreigeName,
+              fabricId: f.sourcingMode === 'READY_FABRIC' ? f.fabricId || null : null,
+              genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : f.genericGreigeName || null,
               fabricType: f.sourcingMode === 'READY_FABRIC' ? 'FABRIC' : 'GENERIC',
               fabricFinishType: f.fabricFinishType || null,
               hasEmbroidery: f.hasEmbroidery || false,
@@ -1820,7 +1893,7 @@ export default function StyleFormRedesigned() {
             fabrics: componentFabrics,
           };
         })
-        .filter(c => c !== null); // Remove any null entries
+        .filter((c) => c !== null); // Remove any null entries
 
       const styleData = {
         styleCode,
@@ -1829,7 +1902,7 @@ export default function StyleFormRedesigned() {
         brandName,
         category,
         brandCategoryId: brandCategoryId || null,
-        productCategoryId: productCategoryId || null,  // Global product category
+        productCategoryId: productCategoryId || null, // Global product category
         season,
         seasonId: seasonId || null,
         description,
@@ -1849,15 +1922,16 @@ export default function StyleFormRedesigned() {
         // Template fields - Marketing & Other
         bulletPoints: bulletPoints || null,
         imageUrl: imageUrl || null,
-        specifications: remarks || null,  // Storing remarks in specifications field
+        specifications: remarks || null, // Storing remarks in specifications field
         // Fabrics - simplified to only capture type and embroidery
         // Consumption and width are handled in CAD Planning stage
         fabrics: fabrics
-          .filter(f => isDraft || f.genericGreigeName || f.fabricId) // include if has name or fabric selection
-          .map(f => ({
+          .filter((f) => isDraft || f.genericGreigeName || f.fabricId) // include if has name or fabric selection
+          .map((f) => ({
             componentName: f.componentName,
-            genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : (f.genericGreigeName || (isDraft ? '' : f.genericGreigeName)),
-            fabricId: f.sourcingMode === 'READY_FABRIC' ? (f.fabricId || null) : null,
+            genericGreigeName:
+              f.sourcingMode === 'READY_FABRIC' ? null : f.genericGreigeName || (isDraft ? '' : f.genericGreigeName),
+            fabricId: f.sourcingMode === 'READY_FABRIC' ? f.fabricId || null : null,
             fabricFinishType: f.fabricFinishType || null,
             // Embroidery support
             hasEmbroidery: f.hasEmbroidery || false,
@@ -1868,13 +1942,13 @@ export default function StyleFormRedesigned() {
         // Accessories - simplified (just references to master records)
         accessories: finalAccessories,
         // SKU variants (with auto-generated SKUs for empty ones)
-        skuVariants: skuVariantsWithGenerated.filter(v => v.isActive),
+        skuVariants: skuVariantsWithGenerated.filter((v) => v.isActive),
         // Customer preset if selected
         customerAccessoriesPresetId: selectedAccessoryPresetId || undefined,
         // CAD status starts as PENDING
         cadStatus: 'PENDING' as CADStatus,
         // Status - DRAFT if saving as draft, otherwise ACTIVE
-        status: isDraft ? 'DRAFT' : 'ACTIVE'
+        status: isDraft ? 'DRAFT' : 'ACTIVE',
       };
 
       if (effectiveId) {
@@ -1924,11 +1998,13 @@ export default function StyleFormRedesigned() {
       console.error('Failed to save style:', error);
 
       // Check if this is a deleted style conflict (409 with deletedStyleId)
-      const axiosError = error as { response?: { status?: number; data?: { message?: string; details?: { deletedStyleId?: string; styleName?: string } } } };
-      if (
-        axiosError.response?.status === 409 &&
-        axiosError.response?.data?.details?.deletedStyleId
-      ) {
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: { message?: string; details?: { deletedStyleId?: string; styleName?: string } };
+        };
+      };
+      if (axiosError.response?.status === 409 && axiosError.response?.data?.details?.deletedStyleId) {
         // Show restore dialog instead of error
         setDeletedStyleInfo({
           id: axiosError.response.data.details.deletedStyleId,
@@ -1969,20 +2045,13 @@ export default function StyleFormRedesigned() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/styles')}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/styles')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">
-                {isEditMode ? 'Edit Style' : 'Create New Style'}
-              </h1>
+              <h1 className="text-3xl font-bold">{isEditMode ? 'Edit Style' : 'Create New Style'}</h1>
               {/* Status Badge */}
               {(!isEditMode || styleStatus === 'DRAFT') && (
                 <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">
@@ -2046,8 +2115,8 @@ export default function StyleFormRedesigned() {
         <div className="flex-1 text-sm">
           <p className="font-medium text-blue-900 mb-1">New Workflow</p>
           <p className="text-blue-700">
-            Use <strong>Generic Greige Name</strong> (e.g., "Cambric") instead of specific greige.
-            You'll select the actual greige width during <strong>CAD Planning</strong> after style creation.
+            Use <strong>Generic Greige Name</strong> (e.g., "Cambric") instead of specific greige. You'll select the
+            actual greige width during <strong>CAD Planning</strong> after style creation.
           </p>
         </div>
       </div>
@@ -2072,7 +2141,7 @@ export default function StyleFormRedesigned() {
                 {/* Left Column: Style Image */}
                 <div>
                   <Label className="text-sm mb-1.5 block">Style Image</Label>
-                  {(imageUrl || pendingImagePreview) ? (
+                  {imageUrl || pendingImagePreview ? (
                     <div className="relative group">
                       <img
                         src={pendingImagePreview || getUploadUrl(imageUrl)}
@@ -2080,7 +2149,8 @@ export default function StyleFormRedesigned() {
                         className="w-full h-[280px] object-cover rounded-lg border-2 border-gray-200"
                         loading="lazy"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+                          (e.target as HTMLImageElement).src =
+                            'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjgwIiBoZWlnaHQ9IjI4MCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
                         }}
                       />
                       {pendingImagePreview && (
@@ -2105,8 +2175,10 @@ export default function StyleFormRedesigned() {
                         }
                       }}
                       className={cn(
-                        "flex flex-col items-center justify-center w-full h-[280px] border-2 border-dashed border-gray-300 rounded-lg transition-colors",
-                        !uploadingImage ? "cursor-pointer hover:border-blue-400 hover:bg-blue-50" : "cursor-not-allowed opacity-60"
+                        'flex flex-col items-center justify-center w-full h-[280px] border-2 border-dashed border-gray-300 rounded-lg transition-colors',
+                        !uploadingImage
+                          ? 'cursor-pointer hover:border-blue-400 hover:bg-blue-50'
+                          : 'cursor-not-allowed opacity-60'
                       )}
                     >
                       <input
@@ -2176,7 +2248,9 @@ export default function StyleFormRedesigned() {
                       disabled={!availableBrands.length}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder={availableBrands.length > 0 ? "Select brand..." : "No brands available"} />
+                        <SelectValue
+                          placeholder={availableBrands.length > 0 ? 'Select brand...' : 'No brands available'}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {availableBrands.map((brand) => (
@@ -2195,12 +2269,12 @@ export default function StyleFormRedesigned() {
                   <div>
                     <Label>Brand Category</Label>
                     <Select
-                      key={`brand-category-select-${availableCategories.map(c => c.id).join('-')}`}
+                      key={`brand-category-select-${availableCategories.map((c) => c.id).join('-')}`}
                       value={brandCategoryId}
                       onValueChange={(value) => {
                         setBrandCategoryId(value);
                         // Also set the category name for display/backward compatibility
-                        const selectedBrandCategory = availableCategories.find(bc => bc.id === value);
+                        const selectedBrandCategory = availableCategories.find((bc) => bc.id === value);
                         if (selectedBrandCategory) {
                           setCategory(selectedBrandCategory.category);
 
@@ -2209,7 +2283,7 @@ export default function StyleFormRedesigned() {
                             // Extract base category name from hierarchical category (e.g., "Fusion Wear > Fusion Wear Top" → "Fusion Wear")
                             const baseCategoryName = selectedBrandCategory.category.split('>')[0].trim();
                             const matchingProductCategory = productCategories.find(
-                              pc => pc.name.toLowerCase() === baseCategoryName.toLowerCase()
+                              (pc) => pc.name.toLowerCase() === baseCategoryName.toLowerCase()
                             );
                             if (matchingProductCategory) {
                               setSelectedProductCategoryL1(matchingProductCategory.id);
@@ -2223,7 +2297,9 @@ export default function StyleFormRedesigned() {
                       disabled={!availableCategories.length}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder={availableCategories.length > 0 ? "Select category..." : "Select brand first"} />
+                        <SelectValue
+                          placeholder={availableCategories.length > 0 ? 'Select category...' : 'Select brand first'}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {availableCategories.map((bc) => (
@@ -2243,9 +2319,9 @@ export default function StyleFormRedesigned() {
                     {(() => {
                       // Extract the first part of hierarchical category (e.g., "Fusion Wear > Fusion Wear Top" → "Fusion Wear")
                       const baseCategoryName = category ? category.split('>')[0].trim() : '';
-                      const matchingL1 = baseCategoryName ? productCategories.find(
-                        pc => pc.name.toLowerCase() === baseCategoryName.toLowerCase()
-                      ) : null;
+                      const matchingL1 = baseCategoryName
+                        ? productCategories.find((pc) => pc.name.toLowerCase() === baseCategoryName.toLowerCase())
+                        : null;
                       const hasSubCategories = matchingL1 && productSubCategories[matchingL1.id]?.length > 0;
 
                       // If brand category matches L1 and has sub-categories, show only sub-categories
@@ -2280,7 +2356,7 @@ export default function StyleFormRedesigned() {
                           value={selectedProductCategoryL2 || selectedProductCategoryL1}
                           onValueChange={async (value) => {
                             // Check if selected value is L1 or L2
-                            const isL1 = productCategories.some(cat => cat.id === value);
+                            const isL1 = productCategories.some((cat) => cat.id === value);
                             if (isL1) {
                               setSelectedProductCategoryL1(value);
                               setSelectedProductCategoryL2('');
@@ -2289,8 +2365,8 @@ export default function StyleFormRedesigned() {
                               updateProductCategoryId(value, '', '');
                             } else {
                               // It's an L2 - find the parent L1
-                              const parentL1 = productCategories.find(cat =>
-                                productSubCategories[cat.id]?.some(sub => sub.id === value)
+                              const parentL1 = productCategories.find((cat) =>
+                                productSubCategories[cat.id]?.some((sub) => sub.id === value)
                               );
                               if (parentL1) {
                                 setSelectedProductCategoryL1(parentL1.id);
@@ -2348,26 +2424,27 @@ export default function StyleFormRedesigned() {
                       className={
                         selectedProductCategory &&
                         (numberOfComponents < (selectedProductCategory.minComponents || 1) ||
-                         numberOfComponents > (selectedProductCategory.maxComponents || 999))
+                          numberOfComponents > (selectedProductCategory.maxComponents || 999))
                           ? 'border-red-500'
                           : ''
                       }
                     />
-                    {selectedProductCategory && (selectedProductCategory.minComponents || selectedProductCategory.maxComponents) && (
-                      <p className="text-xs text-gray-600 mt-1">
-                        {selectedProductCategory.minComponents === selectedProductCategory.maxComponents
-                          ? `This category requires exactly ${selectedProductCategory.minComponents} component${(selectedProductCategory.minComponents ?? 0) > 1 ? 's' : ''}`
-                          : `This category supports ${selectedProductCategory.minComponents || 1} to ${selectedProductCategory.maxComponents || '∞'} components`
-                        }
-                      </p>
-                    )}
                     {selectedProductCategory &&
-                     (numberOfComponents < (selectedProductCategory.minComponents || 1) ||
-                      numberOfComponents > (selectedProductCategory.maxComponents || 999)) && (
-                      <p className="text-xs text-red-600 mt-1">
-                        Component count must be between {selectedProductCategory.minComponents || 1} and {selectedProductCategory.maxComponents || '∞'}
-                      </p>
-                    )}
+                      (selectedProductCategory.minComponents || selectedProductCategory.maxComponents) && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          {selectedProductCategory.minComponents === selectedProductCategory.maxComponents
+                            ? `This category requires exactly ${selectedProductCategory.minComponents} component${(selectedProductCategory.minComponents ?? 0) > 1 ? 's' : ''}`
+                            : `This category supports ${selectedProductCategory.minComponents || 1} to ${selectedProductCategory.maxComponents || '∞'} components`}
+                        </p>
+                      )}
+                    {selectedProductCategory &&
+                      (numberOfComponents < (selectedProductCategory.minComponents || 1) ||
+                        numberOfComponents > (selectedProductCategory.maxComponents || 999)) && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Component count must be between {selectedProductCategory.minComponents || 1} and{' '}
+                          {selectedProductCategory.maxComponents || '∞'}
+                        </p>
+                      )}
                   </div>
 
                   {/* Row 5: Product Sub-Sub-Categories (L3 - conditional, for Kids Wear etc.) */}
@@ -2401,11 +2478,17 @@ export default function StyleFormRedesigned() {
                   {/* Selected Product Category Path (spans both columns) */}
                   {productCategoryId && (
                     <div className="col-span-2 text-sm text-purple-600">
-                      Product: {[
-                        productCategories.find(c => c.id === selectedProductCategoryL1)?.name,
-                        productSubCategories[selectedProductCategoryL1]?.find(c => c.id === selectedProductCategoryL2)?.name,
-                        productSubSubCategories[selectedProductCategoryL2]?.find(c => c.id === selectedProductCategoryL3)?.name
-                      ].filter(Boolean).join(' → ')}
+                      Product:{' '}
+                      {[
+                        productCategories.find((c) => c.id === selectedProductCategoryL1)?.name,
+                        productSubCategories[selectedProductCategoryL1]?.find((c) => c.id === selectedProductCategoryL2)
+                          ?.name,
+                        productSubSubCategories[selectedProductCategoryL2]?.find(
+                          (c) => c.id === selectedProductCategoryL3
+                        )?.name,
+                      ]
+                        .filter(Boolean)
+                        .join(' → ')}
                     </div>
                   )}
                 </div>
@@ -2416,13 +2499,16 @@ export default function StyleFormRedesigned() {
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <Label className="text-base font-semibold mb-3 block">Component Selection</Label>
                   <p className="text-xs text-gray-600 mb-3">
-                    Select the component for each part of the garment.
-                    Manage components in <a href="/component-masters" className="text-blue-600 hover:underline">Component Masters</a>.
+                    Select the component for each part of the garment. Manage components in{' '}
+                    <a href="/component-masters" className="text-blue-600 hover:underline">
+                      Component Masters
+                    </a>
+                    .
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {Array.from({ length: numberOfComponents }, (_, index) => {
                       const selectedComponentId = selectedComponents[index]?.componentId || '';
-                      const selectedComponent = componentMasters.find(c => c.id === selectedComponentId);
+                      const selectedComponent = componentMasters.find((c) => c.id === selectedComponentId);
 
                       return (
                         <div key={index} className="p-3 bg-white rounded-md border">
@@ -2430,7 +2516,7 @@ export default function StyleFormRedesigned() {
                           <Popover
                             open={openComponentPopovers[index] || false}
                             onOpenChange={(open) => {
-                              setOpenComponentPopovers(prev => ({ ...prev, [index]: open }));
+                              setOpenComponentPopovers((prev) => ({ ...prev, [index]: open }));
                             }}
                           >
                             <PopoverTrigger asChild>
@@ -2444,7 +2530,9 @@ export default function StyleFormRedesigned() {
                                   <span className="truncate">
                                     {selectedComponent.name}
                                     {selectedComponent.componentCategory && (
-                                      <span className="text-gray-500 ml-1">({selectedComponent.componentCategory})</span>
+                                      <span className="text-gray-500 ml-1">
+                                        ({selectedComponent.componentCategory})
+                                      </span>
                                     )}
                                   </span>
                                 ) : (
@@ -2461,14 +2549,15 @@ export default function StyleFormRedesigned() {
                                   {/* Group components by Component Group */}
                                   {(() => {
                                     const filteredComponents = componentMasters.filter(
-                                      component => categoryComponentIds.size === 0 || categoryComponentIds.has(component.id)
+                                      (component) =>
+                                        categoryComponentIds.size === 0 || categoryComponentIds.has(component.id)
                                     );
 
                                     // Group by component group
                                     const grouped = new Map<string, ComponentMaster[]>();
                                     const ungrouped: ComponentMaster[] = [];
 
-                                    filteredComponents.forEach(component => {
+                                    filteredComponents.forEach((component) => {
                                       if (component.componentGroup) {
                                         const groupId = component.componentGroup.id;
                                         if (!grouped.has(groupId)) {
@@ -2482,15 +2571,15 @@ export default function StyleFormRedesigned() {
 
                                     // Sort groups by sortOrder
                                     const sortedGroups = Array.from(grouped.entries()).sort((a, b) => {
-                                      const groupA = componentGroups.find(g => g.id === a[0]);
-                                      const groupB = componentGroups.find(g => g.id === b[0]);
+                                      const groupA = componentGroups.find((g) => g.id === a[0]);
+                                      const groupB = componentGroups.find((g) => g.id === b[0]);
                                       return (groupA?.sortOrder || 0) - (groupB?.sortOrder || 0);
                                     });
 
                                     return (
                                       <>
                                         {sortedGroups.map(([groupId, components]) => {
-                                          const group = componentGroups.find(g => g.id === groupId);
+                                          const group = componentGroups.find((g) => g.id === groupId);
                                           return (
                                             <CommandGroup key={groupId} heading={group?.name || 'Unknown'}>
                                               {components.map((component) => (
@@ -2504,16 +2593,16 @@ export default function StyleFormRedesigned() {
                                                     }
                                                     newComponents[index] = {
                                                       category: component.componentCategory || '',
-                                                      componentId: component.id
+                                                      componentId: component.id,
                                                     };
                                                     setSelectedComponents(newComponents);
-                                                    setOpenComponentPopovers(prev => ({ ...prev, [index]: false }));
+                                                    setOpenComponentPopovers((prev) => ({ ...prev, [index]: false }));
                                                   }}
                                                 >
                                                   <Check
                                                     className={cn(
-                                                      "mr-2 h-4 w-4",
-                                                      selectedComponentId === component.id ? "opacity-100" : "opacity-0"
+                                                      'mr-2 h-4 w-4',
+                                                      selectedComponentId === component.id ? 'opacity-100' : 'opacity-0'
                                                     )}
                                                   />
                                                   <span className="flex-1">{component.name}</span>
@@ -2535,22 +2624,24 @@ export default function StyleFormRedesigned() {
                                                   }
                                                   newComponents[index] = {
                                                     category: component.componentCategory || '',
-                                                    componentId: component.id
+                                                    componentId: component.id,
                                                   };
                                                   setSelectedComponents(newComponents);
-                                                  setOpenComponentPopovers(prev => ({ ...prev, [index]: false }));
+                                                  setOpenComponentPopovers((prev) => ({ ...prev, [index]: false }));
                                                 }}
                                               >
                                                 <Check
                                                   className={cn(
-                                                    "mr-2 h-4 w-4",
-                                                    selectedComponentId === component.id ? "opacity-100" : "opacity-0"
+                                                    'mr-2 h-4 w-4',
+                                                    selectedComponentId === component.id ? 'opacity-100' : 'opacity-0'
                                                   )}
                                                 />
                                                 <span className="flex-1">
                                                   {component.name}
                                                   {component.componentCategory && (
-                                                    <span className="text-gray-500 ml-1">({component.componentCategory})</span>
+                                                    <span className="text-gray-500 ml-1">
+                                                      ({component.componentCategory})
+                                                    </span>
                                                   )}
                                                 </span>
                                               </CommandItem>
@@ -2720,7 +2811,9 @@ export default function StyleFormRedesigned() {
                   </Select>
                   {selectedSizePresetId && (
                     <p className="text-xs text-purple-600 mt-2">
-                      <span className="inline-block px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full mr-1">Preset</span>
+                      <span className="inline-block px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full mr-1">
+                        Preset
+                      </span>
                       {presetSizeIds.size} size(s) from preset - you can add more sizes manually
                     </p>
                   )}
@@ -2738,7 +2831,10 @@ export default function StyleFormRedesigned() {
 
                 <div className="space-y-3">
                   {skuVariants.map((variant, index) => (
-                    <div key={variant.size} className="grid grid-cols-12 gap-3 items-center p-3 border rounded bg-white">
+                    <div
+                      key={variant.size}
+                      className="grid grid-cols-12 gap-3 items-center p-3 border rounded bg-white"
+                    >
                       <div className="col-span-1 flex items-center">
                         <Checkbox
                           checked={variant.isActive}
@@ -2752,7 +2848,9 @@ export default function StyleFormRedesigned() {
                       <div className="col-span-2 flex items-center gap-1">
                         <Badge variant="outline">{variant.size}</Badge>
                         {presetSizeIds.has(variant.size) && (
-                          <span className="text-xs text-purple-500" title="From preset">*</span>
+                          <span className="text-xs text-purple-500" title="From preset">
+                            *
+                          </span>
                         )}
                       </div>
                       <div className="col-span-4">
@@ -2784,7 +2882,8 @@ export default function StyleFormRedesigned() {
                 </div>
 
                 <p className="text-xs text-gray-500 mt-3">
-                  Uncheck sizes you don't need. SKUs are required for active sizes. Accounting SKU will default to SKU Code.
+                  Uncheck sizes you don't need. SKUs are required for active sizes. Accounting SKU will default to SKU
+                  Code.
                 </p>
               </div>
             </Card>
@@ -2808,7 +2907,7 @@ export default function StyleFormRedesigned() {
               </div>
 
               {/* Component warning if none selected */}
-              {numberOfComponents < 1 || selectedComponents.filter(c => c.componentId).length === 0 ? (
+              {numberOfComponents < 1 || selectedComponents.filter((c) => c.componentId).length === 0 ? (
                 <div className="text-center py-8 text-gray-500 border-2 border-dashed rounded-lg">
                   <AlertCircle className="h-12 w-12 mx-auto mb-3 text-amber-400" />
                   <p className="font-medium">No components defined</p>
@@ -2829,10 +2928,10 @@ export default function StyleFormRedesigned() {
                   {Array.from({ length: numberOfComponents }, (_, componentIndex) => {
                     const component = selectedComponents[componentIndex];
                     const componentMaster = component?.componentId
-                      ? componentMasters.find(cm => cm.id === component.componentId)
+                      ? componentMasters.find((cm) => cm.id === component.componentId)
                       : null;
                     const componentName = componentMaster?.name || `Component ${componentIndex + 1}`;
-                    const componentFabrics = fabrics.filter(f => f.componentIndex === componentIndex);
+                    const componentFabrics = fabrics.filter((f) => f.componentIndex === componentIndex);
                     const isExpanded = expandedComponents.includes(componentIndex);
 
                     return (
@@ -2840,8 +2939,8 @@ export default function StyleFormRedesigned() {
                         {/* Component Header - Collapsible */}
                         <div
                           className={cn(
-                            "w-full flex items-center justify-between p-4 text-left transition-colors",
-                            isExpanded ? "bg-blue-50 border-b" : "bg-gray-50 hover:bg-gray-100"
+                            'w-full flex items-center justify-between p-4 text-left transition-colors',
+                            isExpanded ? 'bg-blue-50 border-b' : 'bg-gray-50 hover:bg-gray-100'
                           )}
                         >
                           <div
@@ -2853,9 +2952,7 @@ export default function StyleFormRedesigned() {
                             ) : (
                               <ChevronRight className="h-5 w-5 text-gray-500" />
                             )}
-                            <span className="font-semibold text-gray-900">
-                              {componentName.toUpperCase()}
-                            </span>
+                            <span className="font-semibold text-gray-900">{componentName.toUpperCase()}</span>
                             <Badge variant="outline" className="text-xs">
                               Component {componentIndex + 1}
                             </Badge>
@@ -2893,12 +2990,14 @@ export default function StyleFormRedesigned() {
                               </div>
                             ) : (
                               componentFabrics.map((fabric, fabricIdx) => (
-                                <div key={fabric.id} id={`fabric-${fabric.id}`} className="p-4 border rounded-lg bg-white space-y-3">
+                                <div
+                                  key={fabric.id}
+                                  id={`fabric-${fabric.id}`}
+                                  className="p-4 border rounded-lg bg-white space-y-3"
+                                >
                                   {/* Fabric Header */}
                                   <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-700">
-                                      Fabric {fabricIdx + 1}
-                                    </span>
+                                    <span className="text-sm font-medium text-gray-700">Fabric {fabricIdx + 1}</span>
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -2991,9 +3090,10 @@ export default function StyleFormRedesigned() {
                                   {fabric.patternParts && fabric.patternParts.length > 0 && (
                                     <div className="flex flex-wrap items-center gap-1 p-2 bg-slate-50 rounded-md border border-slate-200">
                                       <span className="text-xs text-muted-foreground mr-1">Pattern Parts:</span>
-                                      {fabric.patternParts.map(pp => (
+                                      {fabric.patternParts.map((pp) => (
                                         <Badge key={pp.id} variant="secondary" className="text-xs">
-                                          {pp.patternPart.name}{pp.quantity > 1 ? ` ×${pp.quantity}` : ''}
+                                          {pp.patternPart.name}
+                                          {pp.quantity > 1 ? ` ×${pp.quantity}` : ''}
                                           {pp.goesToEmbroidery && ' ✦'}
                                         </Badge>
                                       ))}
@@ -3093,13 +3193,12 @@ export default function StyleFormRedesigned() {
             <Card className="p-6">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold">Trims & Materials</h2>
-                <p className="text-sm text-gray-600">Select trims required for this style. Use "Add New" to create master records inline.</p>
+                <p className="text-sm text-gray-600">
+                  Select trims required for this style. Use "Add New" to create master records inline.
+                </p>
               </div>
 
-              <TrimSelector
-                selectedTrims={selectedTrims}
-                onChange={setSelectedTrims}
-              />
+              <TrimSelector selectedTrims={selectedTrims} onChange={setSelectedTrims} />
             </Card>
 
             <div className="flex justify-between">
@@ -3122,7 +3221,10 @@ export default function StyleFormRedesigned() {
                     <Sparkles className="h-5 w-5 text-purple-600" />
                     Customer Accessory Preset
                   </h2>
-                  <p className="text-sm text-gray-600">Default preset is auto-applied when customer is selected. You can switch presets or modify items below.</p>
+                  <p className="text-sm text-gray-600">
+                    Default preset is auto-applied when customer is selected. You can switch presets or modify items
+                    below.
+                  </p>
                 </div>
                 <div className="flex gap-3">
                   <div className="flex-1">
@@ -3146,7 +3248,7 @@ export default function StyleFormRedesigned() {
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      const preset = customerAccessoryPresets.find(p => p.id === selectedAccessoryPresetId);
+                      const preset = customerAccessoryPresets.find((p) => p.id === selectedAccessoryPresetId);
                       if (preset) applyPresetToAccessories(preset);
                     }}
                     disabled={!selectedAccessoryPresetId}
@@ -3166,7 +3268,7 @@ export default function StyleFormRedesigned() {
                         </p>
                         <div className="space-y-1">
                           {selectedAccessories
-                            .filter(acc => presetItemIds.has(acc.masterId))
+                            .filter((acc) => presetItemIds.has(acc.masterId))
                             .map((acc, idx) => (
                               <div key={idx} className="text-xs text-purple-800 flex items-center gap-2">
                                 <span className="w-1 h-1 bg-purple-400 rounded-full"></span>
@@ -3187,7 +3289,7 @@ export default function StyleFormRedesigned() {
                         </p>
                         <div className="space-y-1">
                           {selectedAccessories
-                            .filter(acc => styleSpecificIds.has(acc.masterId))
+                            .filter((acc) => styleSpecificIds.has(acc.masterId))
                             .map((acc, idx) => (
                               <div key={idx} className="text-xs text-green-800 flex items-center gap-2">
                                 <span className="w-1 h-1 bg-green-400 rounded-full"></span>
@@ -3207,31 +3309,33 @@ export default function StyleFormRedesigned() {
             <Card className="p-6">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold">Garment Accessories</h2>
-                <p className="text-sm text-gray-600">Select labels, polybags, hangtags, cartons, and other packaging materials</p>
+                <p className="text-sm text-gray-600">
+                  Select labels, polybags, hangtags, cartons, and other packaging materials
+                </p>
               </div>
               <AccessorySelector
                 selectedAccessories={selectedAccessories}
                 onChange={(newAccessories) => {
                   // Track newly added items that aren't from preset as style-specific
-                  const newIds = new Set(newAccessories.map(a => a.masterId));
-                  const prevIds = new Set(selectedAccessories.map(a => a.masterId));
+                  const newIds = new Set(newAccessories.map((a) => a.masterId));
+                  const prevIds = new Set(selectedAccessories.map((a) => a.masterId));
 
                   // Find newly added items
-                  const addedIds = [...newIds].filter(id => !prevIds.has(id) && !presetItemIds.has(id));
+                  const addedIds = [...newIds].filter((id) => !prevIds.has(id) && !presetItemIds.has(id));
                   if (addedIds.length > 0) {
-                    setStyleSpecificIds(prev => {
+                    setStyleSpecificIds((prev) => {
                       const updated = new Set(prev);
-                      addedIds.forEach(id => updated.add(id));
+                      addedIds.forEach((id) => updated.add(id));
                       return updated;
                     });
                   }
 
                   // Remove from styleSpecificIds if item was removed
-                  const removedIds = [...prevIds].filter(id => !newIds.has(id));
+                  const removedIds = [...prevIds].filter((id) => !newIds.has(id));
                   if (removedIds.length > 0) {
-                    setStyleSpecificIds(prev => {
+                    setStyleSpecificIds((prev) => {
                       const updated = new Set(prev);
-                      removedIds.forEach(id => updated.delete(id));
+                      removedIds.forEach((id) => updated.delete(id));
                       return updated;
                     });
                   }
@@ -3259,11 +3363,7 @@ export default function StyleFormRedesigned() {
                   <Save className="h-4 w-4" />
                   Save as Draft
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="flex items-center gap-2"
-                >
+                <Button type="submit" disabled={loading} className="flex items-center gap-2">
                   <Save className="h-4 w-4" />
                   {loading ? 'Saving...' : isEditMode ? 'Update Style' : 'Create Style'}
                 </Button>
@@ -3296,9 +3396,7 @@ export default function StyleFormRedesigned() {
           }
         }}
         currentEmbroideryId={
-          embroideryPickerFabricId
-            ? fabrics.find(f => f.id === embroideryPickerFabricId)?.embroideryId
-            : null
+          embroideryPickerFabricId ? fabrics.find((f) => f.id === embroideryPickerFabricId)?.embroideryId : null
         }
       />
 
@@ -3311,7 +3409,8 @@ export default function StyleFormRedesigned() {
               Style Code Already Exists
             </DialogTitle>
             <DialogDescription className="pt-2">
-              The style code <span className="font-semibold text-foreground">"{deletedStyleInfo?.styleCode}"</span> was previously used for a style that has been deleted/archived.
+              The style code <span className="font-semibold text-foreground">"{deletedStyleInfo?.styleCode}"</span> was
+              previously used for a style that has been deleted/archived.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -3337,12 +3436,7 @@ export default function StyleFormRedesigned() {
             >
               Use Different Code
             </Button>
-            <Button
-              type="button"
-              onClick={handleRestoreStyle}
-              disabled={restoring}
-              className="flex items-center gap-2"
-            >
+            <Button type="button" onClick={handleRestoreStyle} disabled={restoring} className="flex items-center gap-2">
               <RotateCcw className="h-4 w-4" />
               {restoring ? 'Restoring...' : 'Restore Style'}
             </Button>
@@ -3351,14 +3445,17 @@ export default function StyleFormRedesigned() {
       </Dialog>
 
       {/* Restore from localStorage Dialog */}
-      <Dialog open={showLocalRestoreDialog} onOpenChange={(open) => {
-        if (!open) {
-          // User closed dialog without choosing - discard the saved draft
-          clearLocalDraft();
-          setPendingLocalRestore(null);
-        }
-        setShowLocalRestoreDialog(open);
-      }}>
+      <Dialog
+        open={showLocalRestoreDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            // User closed dialog without choosing - discard the saved draft
+            clearLocalDraft();
+            setPendingLocalRestore(null);
+          }
+          setShowLocalRestoreDialog(open);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

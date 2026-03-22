@@ -410,7 +410,14 @@ export const PrintChemistryLabels: Record<PrintChemistry, string> = {
 // Process PO Types
 // ============================================
 
-export type ProcessPOStatus = 'DRAFT' | 'AT_MILL' | 'RECEIVED' | 'QUALITY_CHECKED' | 'STOCK_UPDATED' | 'RETURNED' | 'CANCELLED';
+export type ProcessPOStatus =
+  | 'DRAFT'
+  | 'AT_MILL'
+  | 'RECEIVED'
+  | 'QUALITY_CHECKED'
+  | 'STOCK_UPDATED'
+  | 'RETURNED'
+  | 'CANCELLED';
 
 export interface ProcessPO {
   id: string;
@@ -420,7 +427,7 @@ export interface ProcessPO {
   totalAmount: number | null;
   status: string;
   processPOStatus: ProcessPOStatus;
-  supplier?: { id: string; code: string; name: string; };
+  supplier?: { id: string; code: string; name: string };
   items?: Array<{
     id: string;
     serviceType: string | null;

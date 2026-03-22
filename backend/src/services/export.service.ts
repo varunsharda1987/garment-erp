@@ -26,9 +26,9 @@ class ExportService {
     const { columns, data } = options;
 
     // Map field names for json2csv parser
-    const fields = columns.map(col => ({
+    const fields = columns.map((col) => ({
       label: col.displayName,
-      value: col.fieldName
+      value: col.fieldName,
     }));
 
     const json2csvParser = new Parser({ fields });
@@ -60,24 +60,24 @@ class ExportService {
     }
 
     // Add header row
-    const headerRow = worksheet.addRow(columns.map(col => col.displayName));
+    const headerRow = worksheet.addRow(columns.map((col) => col.displayName));
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF4472C4' }
+      fgColor: { argb: 'FF4472C4' },
     };
     headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Set column widths
-    worksheet.columns = columns.map(col => ({
+    worksheet.columns = columns.map((col) => ({
       key: col.fieldName,
-      width: col.width || 15
+      width: col.width || 15,
     }));
 
     // Add data rows
-    data.forEach(row => {
-      const rowData = columns.map(col => {
+    data.forEach((row) => {
+      const rowData = columns.map((col) => {
         const value = this.getNestedValue(row, col.fieldName);
         return this.formatValue(value, col.format);
       });
@@ -85,10 +85,10 @@ class ExportService {
     });
 
     // Auto-fit columns
-    worksheet.columns.forEach(column => {
+    worksheet.columns.forEach((column) => {
       if (column) {
         let maxLength = 0;
-        column.eachCell?.({ includeEmpty: true }, cell => {
+        column.eachCell?.({ includeEmpty: true }, (cell) => {
           const cellLength = cell.value ? cell.value.toString().length : 10;
           if (cellLength > maxLength) {
             maxLength = cellLength;
@@ -100,12 +100,12 @@ class ExportService {
 
     // Add borders to all cells
     worksheet.eachRow((row, rowNumber) => {
-      row.eachCell(cell => {
+      row.eachCell((cell) => {
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
           bottom: { style: 'thin' },
-          right: { style: 'thin' }
+          right: { style: 'thin' },
         };
       });
     });
@@ -125,7 +125,7 @@ class ExportService {
       const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -136,8 +136,7 @@ class ExportService {
       }
 
       // Add metadata
-      doc.fontSize(10).font('Helvetica')
-        .text(`Generated: ${new Date().toLocaleString()}`, { align: 'right' });
+      doc.fontSize(10).font('Helvetica').text(`Generated: ${new Date().toLocaleString()}`, { align: 'right' });
       doc.moveDown();
 
       // Calculate column widths (simple equal distribution)
@@ -149,14 +148,13 @@ class ExportService {
       doc.fontSize(10).font('Helvetica-Bold');
 
       columns.forEach((col, index) => {
-        const xPosition = doc.page.margins.left + (index * columnWidth);
+        const xPosition = doc.page.margins.left + index * columnWidth;
         doc.rect(xPosition, yPosition, columnWidth, 20).fillAndStroke('#4472C4', '#000');
-        doc.fillColor('#FFF')
-          .text(col.displayName, xPosition + 5, yPosition + 5, {
-            width: columnWidth - 10,
-            height: 20,
-            ellipsis: true
-          });
+        doc.fillColor('#FFF').text(col.displayName, xPosition + 5, yPosition + 5, {
+          width: columnWidth - 10,
+          height: 20,
+          ellipsis: true,
+        });
       });
 
       yPosition += 20;
@@ -174,21 +172,16 @@ class ExportService {
         }
 
         columns.forEach((col, index) => {
-          const xPosition = doc.page.margins.left + (index * columnWidth);
+          const xPosition = doc.page.margins.left + index * columnWidth;
           const value = this.getNestedValue(row, col.fieldName);
           const formattedValue = this.formatValue(value, col.format);
 
           doc.rect(xPosition, yPosition, columnWidth, 20).stroke('#CCC');
-          doc.fontSize(9).text(
-            formattedValue?.toString() || '',
-            xPosition + 5,
-            yPosition + 5,
-            {
-              width: columnWidth - 10,
-              height: 20,
-              ellipsis: true
-            }
-          );
+          doc.fontSize(9).text(formattedValue?.toString() || '', xPosition + 5, yPosition + 5, {
+            width: columnWidth - 10,
+            height: 20,
+            ellipsis: true,
+          });
         });
 
         yPosition += 20;
@@ -196,7 +189,9 @@ class ExportService {
 
       if (data.length > maxRows) {
         doc.moveDown();
-        doc.fontSize(10).fillColor('#999')
+        doc
+          .fontSize(10)
+          .fillColor('#999')
           .text(`Note: Showing first ${maxRows} of ${data.length} records. Export to Excel/CSV for complete data.`);
       }
 
@@ -259,7 +254,7 @@ class ExportService {
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -304,28 +299,43 @@ class ExportService {
       doc.text('Description', col1, tableTop);
       doc.text('Amount', col2, tableTop, { width: 100, align: 'right' });
 
-      doc.moveTo(col1, tableTop + 15).lineTo(col2 + 100, tableTop + 15).stroke();
+      doc
+        .moveTo(col1, tableTop + 15)
+        .lineTo(col2 + 100, tableTop + 15)
+        .stroke();
 
       let yPos = tableTop + 25;
       doc.fontSize(10).font('Helvetica');
 
       // Subtotal
       doc.text('Subtotal', col1, yPos);
-      doc.text(`₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      doc.text(`₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
+        width: 100,
+        align: 'right',
+      });
       yPos += 20;
 
       // Tax
       doc.text('Tax', col1, yPos);
-      doc.text(`₹${Number(invoice.taxAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      doc.text(`₹${Number(invoice.taxAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
+        width: 100,
+        align: 'right',
+      });
       yPos += 20;
 
-      doc.moveTo(col1, yPos).lineTo(col2 + 100, yPos).stroke();
+      doc
+        .moveTo(col1, yPos)
+        .lineTo(col2 + 100, yPos)
+        .stroke();
       yPos += 10;
 
       // Total
       doc.fontSize(12).font('Helvetica-Bold');
       doc.text('Total Amount', col1, yPos);
-      doc.text(`₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      doc.text(`₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
+        width: 100,
+        align: 'right',
+      });
       yPos += 30;
 
       // Payment status
@@ -335,11 +345,19 @@ class ExportService {
       yPos += 20;
 
       doc.text('Paid Amount', col1, yPos);
-      doc.text(`₹${Number(invoice.paidAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      doc.text(`₹${Number(invoice.paidAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
+        width: 100,
+        align: 'right',
+      });
       yPos += 20;
 
       doc.text('Balance Due', col1, yPos);
-      doc.font('Helvetica-Bold').text(`₹${Number(invoice.balanceAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, { width: 100, align: 'right' });
+      doc
+        .font('Helvetica-Bold')
+        .text(`₹${Number(invoice.balanceAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
+          width: 100,
+          align: 'right',
+        });
 
       // Remarks
       if (invoice.remarks) {
@@ -349,7 +367,9 @@ class ExportService {
       }
 
       // Footer
-      doc.fontSize(8).fillColor('#999')
+      doc
+        .fontSize(8)
+        .fillColor('#999')
         .text(`Generated on ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 50, { align: 'center' });
 
       doc.end();
@@ -364,7 +384,7 @@ class ExportService {
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -401,11 +421,11 @@ class ExportService {
         doc.moveDown(0.5);
 
         const tableTop = doc.y;
-        const col1 = 50;   // Item
-        const col2 = 200;  // Description
-        const col3 = 320;  // Qty
-        const col4 = 380;  // Unit Price
-        const col5 = 460;  // Total
+        const col1 = 50; // Item
+        const col2 = 200; // Description
+        const col3 = 320; // Qty
+        const col4 = 380; // Unit Price
+        const col5 = 460; // Total
 
         // Table header
         doc.fontSize(10).font('Helvetica-Bold');
@@ -415,7 +435,10 @@ class ExportService {
         doc.text('Unit Price', col4, tableTop);
         doc.text('Total', col5, tableTop);
 
-        doc.moveTo(col1, tableTop + 15).lineTo(col5 + 80, tableTop + 15).stroke();
+        doc
+          .moveTo(col1, tableTop + 15)
+          .lineTo(col5 + 80, tableTop + 15)
+          .stroke();
 
         let yPos = tableTop + 25;
         doc.fontSize(9).font('Helvetica');
@@ -437,13 +460,20 @@ class ExportService {
           yPos += 25;
         });
 
-        doc.moveTo(col1, yPos).lineTo(col5 + 80, yPos).stroke();
+        doc
+          .moveTo(col1, yPos)
+          .lineTo(col5 + 80, yPos)
+          .stroke();
         yPos += 10;
 
         // Total
         doc.fontSize(11).font('Helvetica-Bold');
         doc.text('Total Amount:', col4, yPos);
-        doc.text(`₹${Number(quotation.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col5, yPos);
+        doc.text(
+          `₹${Number(quotation.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          col5,
+          yPos
+        );
         yPos += 30;
       }
 
@@ -461,7 +491,9 @@ class ExportService {
       }
 
       // Footer
-      doc.fontSize(8).fillColor('#999')
+      doc
+        .fontSize(8)
+        .fillColor('#999')
         .text(`Generated on ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 50, { align: 'center' });
 
       doc.end();

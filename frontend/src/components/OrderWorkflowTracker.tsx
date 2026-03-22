@@ -31,7 +31,10 @@ const stepIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   po: ShoppingCart,
 };
 
-const statusStyles: Record<WorkflowStep['status'], { icon: React.ReactNode; bg: string; text: string; border: string }> = {
+const statusStyles: Record<
+  WorkflowStep['status'],
+  { icon: React.ReactNode; bg: string; text: string; border: string }
+> = {
   completed: {
     icon: <Check className="h-4 w-4" />,
     bg: 'bg-green-100',
@@ -59,7 +62,7 @@ const statusStyles: Record<WorkflowStep['status'], { icon: React.ReactNode; bg: 
 };
 
 export function OrderWorkflowTracker({ steps, className }: OrderWorkflowTrackerProps) {
-  const completedCount = steps.filter(s => s.status === 'completed').length;
+  const completedCount = steps.filter((s) => s.status === 'completed').length;
   const totalCount = steps.length;
 
   return (
@@ -91,19 +94,11 @@ export function OrderWorkflowTracker({ steps, className }: OrderWorkflowTrackerP
                     )}
                   >
                     <span className={styles.text}>
-                      {step.status === 'completed' ? (
-                        styles.icon
-                      ) : (
-                        <StepIcon className="h-5 w-5" />
-                      )}
+                      {step.status === 'completed' ? styles.icon : <StepIcon className="h-5 w-5" />}
                     </span>
                   </div>
-                  <span className={cn('mt-2 text-sm font-medium', styles.text)}>
-                    {step.label}
-                  </span>
-                  <span className="text-xs text-gray-500 text-center mt-1 max-w-[100px]">
-                    {step.description}
-                  </span>
+                  <span className={cn('mt-2 text-sm font-medium', styles.text)}>{step.label}</span>
+                  <span className="text-xs text-gray-500 text-center mt-1 max-w-[100px]">{step.description}</span>
                   {step.action && step.status !== 'blocked' && step.status !== 'completed' && (
                     <Button
                       size="sm"
@@ -121,10 +116,7 @@ export function OrderWorkflowTracker({ steps, className }: OrderWorkflowTrackerP
                 {!isLast && (
                   <div className="flex-1 flex items-center justify-center px-2">
                     <ArrowRight
-                      className={cn(
-                        'h-5 w-5',
-                        step.status === 'completed' ? 'text-green-500' : 'text-gray-300'
-                      )}
+                      className={cn('h-5 w-5', step.status === 'completed' ? 'text-green-500' : 'text-gray-300')}
                     />
                   </div>
                 )}

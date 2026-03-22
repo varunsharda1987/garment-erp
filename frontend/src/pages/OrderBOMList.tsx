@@ -121,9 +121,7 @@ const OrderBOMList = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {boms.map((bom) => (
                       <tr key={bom.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium">
-                          {bom.order?.orderNumber || '-'}
-                        </td>
+                        <td className="px-4 py-3 text-sm font-medium">{bom.order?.orderNumber || '-'}</td>
                         <td className="px-4 py-3 text-sm">
                           <div className="font-medium">{bom.style?.styleCode || '-'}</div>
                           <div className="text-gray-500 text-xs">{bom.style?.styleName}</div>
@@ -132,13 +130,13 @@ const OrderBOMList = () => {
                           <Badge variant="outline">v{bom.version}</Badge>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(bom.status)}`}>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(bom.status)}`}
+                          >
                             {bom.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-center">
-                          {bom.items?.length || 0}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-center">{bom.items?.length || 0}</td>
                         <td className="px-4 py-3 text-sm text-right font-medium">
                           {bom.totalMaterialCost ? formatCurrency(bom.totalMaterialCost) : '-'}
                         </td>
@@ -146,11 +144,7 @@ const OrderBOMList = () => {
                           {new Date(bom.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/order-bom/${bom.id}`)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => navigate(`/order-bom/${bom.id}`)}>
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
@@ -164,11 +158,7 @@ const OrderBOMList = () => {
           </Card>
 
           <div className="mt-4">
-            <Pagination
-              {...paginationProps}
-              totalPages={totalPages}
-              totalItems={totalItems}
-            />
+            <Pagination {...paginationProps} totalPages={totalPages} totalItems={totalItems} />
           </div>
         </>
       )}

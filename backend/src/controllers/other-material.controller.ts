@@ -26,7 +26,7 @@ export const createOtherMaterial = async (req: Request, res: Response) => {
     pricePerUnit,
     supplierId,
     description,
-    suppliers = []
+    suppliers = [],
   } = req.body;
 
   // Auto-generate material code
@@ -39,7 +39,7 @@ export const createOtherMaterial = async (req: Request, res: Response) => {
 
   // Get Other Materials category ID
   const otherMaterialCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Other' }
+    where: { name: 'Other' },
   });
 
   if (!otherMaterialCategory) {
@@ -81,12 +81,12 @@ export const createOtherMaterial = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Create corresponding material entry
@@ -100,13 +100,13 @@ export const createOtherMaterial = async (req: Request, res: Response) => {
       categoryId: otherMaterialCategory.id,
       unit: unit || 'PIECE',
       isActive: true,
-    }
+    },
   });
 
   res.status(201).json({
     otherMaterial: materialRecord,
     material: materialEntry,
-    message: 'Other material created successfully'
+    message: 'Other material created successfully',
   });
 };
 
@@ -114,13 +114,7 @@ export const createOtherMaterial = async (req: Request, res: Response) => {
  * Get all other materials with pagination and search
  */
 export const getAllOtherMaterials = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 10,
-    search = '',
-    supplierId = '',
-    category = ''
-  } = req.query;
+  const { page = 1, limit = 10, search = '', supplierId = '', category = '' } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
@@ -138,7 +132,7 @@ export const getAllOtherMaterials = async (req: Request, res: Response) => {
     where.OR = [
       { materialName: { contains: String(search), mode: 'insensitive' } },
       { materialCode: { contains: String(search), mode: 'insensitive' } },
-      { category: { contains: String(search), mode: 'insensitive' } }
+      { category: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -147,8 +141,8 @@ export const getAllOtherMaterials = async (req: Request, res: Response) => {
     where.otherMaterialSuppliers = {
       some: {
         supplierId: String(supplierId),
-        isActive: true
-      }
+        isActive: true,
+      },
     };
   }
 
@@ -165,7 +159,7 @@ export const getAllOtherMaterials = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       otherMaterialSuppliers: {
         include: {
@@ -178,15 +172,15 @@ export const getAllOtherMaterials = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
+        orderBy: { isPreferred: 'desc' },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -204,8 +198,8 @@ export const getAllOtherMaterials = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -219,7 +213,7 @@ export const getOtherMaterialById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       otherMaterialSuppliers: {
         include: {
@@ -232,12 +226,12 @@ export const getOtherMaterialById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   if (!otherMaterial) {
@@ -260,21 +254,12 @@ export const getOtherMaterialById = async (req: Request, res: Response) => {
  */
 export const updateOtherMaterial = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const {
-    materialName,
-    category,
-    unit,
-    specifications,
-    pricePerUnit,
-    supplierId,
-    description,
-    isActive,
-    suppliers
-  } = req.body;
+  const { materialName, category, unit, specifications, pricePerUnit, supplierId, description, isActive, suppliers } =
+    req.body;
 
   // Check if other material exists
   const existing = await prisma.other_material_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -284,7 +269,7 @@ export const updateOtherMaterial = async (req: Request, res: Response) => {
   // Update suppliers if provided (delete-and-recreate pattern)
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     await prisma.other_material_suppliers.deleteMany({
-      where: { otherMaterialId: id }
+      where: { otherMaterialId: id },
     });
 
     if (suppliers.length > 0) {
@@ -296,7 +281,7 @@ export const updateOtherMaterial = async (req: Request, res: Response) => {
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
           pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
-        }))
+        })),
       });
     }
   }
@@ -316,7 +301,7 @@ export const updateOtherMaterial = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       otherMaterialSuppliers: {
         include: {
@@ -329,19 +314,19 @@ export const updateOtherMaterial = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Update material name if materialName changed
   if (materialName) {
     await prisma.materials.updateMany({
       where: { otherMaterialId: id },
-      data: { name: materialName }
+      data: { name: materialName },
     });
   }
 
@@ -355,7 +340,7 @@ export const updateOtherMaterial = async (req: Request, res: Response) => {
 
   res.json({
     otherMaterial: transformed,
-    message: 'Other material updated successfully'
+    message: 'Other material updated successfully',
   });
 };
 
@@ -367,7 +352,7 @@ export const deleteOtherMaterial = async (req: Request, res: Response) => {
 
   // Check if other material exists
   const existing = await prisma.other_material_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -377,22 +362,24 @@ export const deleteOtherMaterial = async (req: Request, res: Response) => {
   // Check if used in any BOM
   const bomUsage = await prisma.order_bom_items.count({
     where: {
-      materialId: id
-    }
+      materialId: id,
+    },
   });
 
   if (bomUsage > 0) {
-    throw new ValidationError(`Cannot delete other material. This material is used in ${bomUsage} BOM(s). Please remove from BOMs first.`);
+    throw new ValidationError(
+      `Cannot delete other material. This material is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
+    );
   }
 
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
-    where: { otherMaterialId: id }
+    where: { otherMaterialId: id },
   });
 
   // Delete other material (cascade will delete other_material_suppliers)
   await prisma.other_material_master.delete({
-    where: { id }
+    where: { id },
   });
 
   res.json({ message: 'Other material deleted successfully' });
@@ -410,7 +397,7 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
 
   // Get Other Materials category
   const otherMaterialCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Other' }
+    where: { name: 'Other' },
   });
 
   if (!otherMaterialCategory) {
@@ -425,7 +412,7 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
   if (createStock) {
     defaultWarehouse = await prisma.warehouses.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -441,7 +428,7 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Material name is required'
+          error: 'Material name is required',
         });
         continue;
       }
@@ -457,7 +444,7 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
           pricePerUnit: row.pricePerUnit ? parseFloat(row.pricePerUnit) : null,
           description: row.description || null,
           isActive: true,
-        }
+        },
       });
 
       // Create material
@@ -472,7 +459,7 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
           categoryId: otherMaterialCategory.id,
           unit: row.unit || 'PIECE',
           isActive: true,
-        }
+        },
       });
 
       // Create stock if requested
@@ -486,7 +473,7 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
             unit: row.unit || 'PIECE',
             reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
             maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          }
+          },
         });
         stockCreated = true;
       }
@@ -496,29 +483,28 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
         row: i + 1,
         materialCode,
         materialName: row.materialName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: any) {
       results.push({
         success: false,
         row: i + 1,
         materialCode,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   const summary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -528,14 +514,39 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
 export const downloadTemplate = async (req: Request, res: Response) => {
   const template = {
     columns: [
-      { field: 'materialName', header: 'Material Name', required: true, description: 'Name of the material (Required)' },
+      {
+        field: 'materialName',
+        header: 'Material Name',
+        required: true,
+        description: 'Name of the material (Required)',
+      },
       { field: 'category', header: 'Category', required: false, description: 'Material category (Optional)' },
-      { field: 'unit', header: 'Unit', required: false, description: 'Unit of measurement (PIECE, METER, KG, etc.) (Optional)' },
-      { field: 'specifications', header: 'Specifications', required: false, description: 'Technical specifications (Optional)' },
+      {
+        field: 'unit',
+        header: 'Unit',
+        required: false,
+        description: 'Unit of measurement (PIECE, METER, KG, etc.) (Optional)',
+      },
+      {
+        field: 'specifications',
+        header: 'Specifications',
+        required: false,
+        description: 'Technical specifications (Optional)',
+      },
       { field: 'pricePerUnit', header: 'Price Per Unit', required: false, description: 'Price per unit (Optional)' },
       { field: 'description', header: 'Description', required: false, description: 'Description (Optional)' },
-      { field: 'stockQuantity', header: 'Stock Quantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { field: 'locationCode', header: 'Location Code', required: false, description: 'Warehouse location code (Optional)' }
+      {
+        field: 'stockQuantity',
+        header: 'Stock Quantity',
+        required: false,
+        description: 'Initial stock quantity (Optional)',
+      },
+      {
+        field: 'locationCode',
+        header: 'Location Code',
+        required: false,
+        description: 'Warehouse location code (Optional)',
+      },
     ],
     exampleData: [
       {
@@ -543,12 +554,12 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         category: 'Miscellaneous',
         unit: 'PACK',
         specifications: 'Pack of 100 pins',
-        pricePerUnit: 25.00,
+        pricePerUnit: 25.0,
         description: 'Safety pins for tagging and sampling',
         stockQuantity: 50,
-        locationCode: 'WH-01-C'
-      }
-    ]
+        locationCode: 'WH-01-C',
+      },
+    ],
   };
 
   res.json(template);

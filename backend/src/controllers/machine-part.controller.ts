@@ -29,7 +29,7 @@ export const createMachinePart = async (req: Request, res: Response) => {
     pricePerUnit,
     supplierId,
     description,
-    suppliers = []
+    suppliers = [],
   } = req.body;
 
   // Auto-generate part code
@@ -48,7 +48,7 @@ export const createMachinePart = async (req: Request, res: Response) => {
 
   // Get Machine Parts category ID
   const machinePartCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Machine Parts' }
+    where: { name: 'Machine Parts' },
   });
 
   if (!machinePartCategory) {
@@ -93,12 +93,12 @@ export const createMachinePart = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Create corresponding material entry
@@ -112,13 +112,13 @@ export const createMachinePart = async (req: Request, res: Response) => {
       categoryId: machinePartCategory.id,
       unit: 'PIECE',
       isActive: true,
-    }
+    },
   });
 
   res.status(201).json({
     machinePart: partRecord,
     material: materialEntry,
-    message: 'Machine part created successfully'
+    message: 'Machine part created successfully',
   });
 };
 
@@ -126,12 +126,7 @@ export const createMachinePart = async (req: Request, res: Response) => {
  * Get all machine parts with pagination and search
  */
 export const getAllMachineParts = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 10,
-    search = '',
-    supplierId = ''
-  } = req.query;
+  const { page = 1, limit = 10, search = '', supplierId = '' } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
@@ -149,7 +144,7 @@ export const getAllMachineParts = async (req: Request, res: Response) => {
       { partName: { contains: String(search), mode: 'insensitive' } },
       { partCode: { contains: String(search), mode: 'insensitive' } },
       { partNumber: { contains: String(search), mode: 'insensitive' } },
-      { category: { contains: String(search), mode: 'insensitive' } }
+      { category: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -158,8 +153,8 @@ export const getAllMachineParts = async (req: Request, res: Response) => {
     where.machinePartSuppliers = {
       some: {
         supplierId: String(supplierId),
-        isActive: true
-      }
+        isActive: true,
+      },
     };
   }
 
@@ -171,7 +166,7 @@ export const getAllMachineParts = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       machinePartSuppliers: {
         include: {
@@ -184,15 +179,15 @@ export const getAllMachineParts = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
+        orderBy: { isPreferred: 'desc' },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -210,8 +205,8 @@ export const getAllMachineParts = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -225,7 +220,7 @@ export const getMachinePartById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       machinePartSuppliers: {
         include: {
@@ -238,12 +233,12 @@ export const getMachinePartById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   if (!machinePart) {
@@ -278,12 +273,12 @@ export const updateMachinePart = async (req: Request, res: Response) => {
     supplierId,
     description,
     isActive,
-    suppliers
+    suppliers,
   } = req.body;
 
   // Check if machine part exists
   const existing = await prisma.machine_part_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -293,7 +288,7 @@ export const updateMachinePart = async (req: Request, res: Response) => {
   // Update suppliers if provided (delete-and-recreate pattern)
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     await prisma.machine_part_suppliers.deleteMany({
-      where: { machinePartId: id }
+      where: { machinePartId: id },
     });
 
     if (suppliers.length > 0) {
@@ -305,7 +300,7 @@ export const updateMachinePart = async (req: Request, res: Response) => {
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
           pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
-        }))
+        })),
       });
     }
   }
@@ -328,7 +323,7 @@ export const updateMachinePart = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       machinePartSuppliers: {
         include: {
@@ -341,19 +336,19 @@ export const updateMachinePart = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Update material name if partName changed
   if (partName) {
     await prisma.materials.updateMany({
       where: { machinePartId: id },
-      data: { name: partName }
+      data: { name: partName },
     });
   }
 
@@ -367,7 +362,7 @@ export const updateMachinePart = async (req: Request, res: Response) => {
 
   res.json({
     machinePart: transformed,
-    message: 'Machine part updated successfully'
+    message: 'Machine part updated successfully',
   });
 };
 
@@ -379,7 +374,7 @@ export const deleteMachinePart = async (req: Request, res: Response) => {
 
   // Check if machine part exists
   const existing = await prisma.machine_part_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -389,22 +384,24 @@ export const deleteMachinePart = async (req: Request, res: Response) => {
   // Check if used in any BOM
   const bomUsage = await prisma.order_bom_items.count({
     where: {
-      materialId: id
-    }
+      materialId: id,
+    },
   });
 
   if (bomUsage > 0) {
-    throw new ValidationError(`Cannot delete machine part. This machine part is used in ${bomUsage} BOM(s). Please remove from BOMs first.`);
+    throw new ValidationError(
+      `Cannot delete machine part. This machine part is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
+    );
   }
 
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
-    where: { machinePartId: id }
+    where: { machinePartId: id },
   });
 
   // Delete machine part (cascade will delete machine_part_suppliers)
   await prisma.machine_part_master.delete({
-    where: { id }
+    where: { id },
   });
 
   res.json({ message: 'Machine part deleted successfully' });
@@ -422,7 +419,7 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
 
   // Get Machine Parts category
   const machinePartCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Machine Parts' }
+    where: { name: 'Machine Parts' },
   });
 
   if (!machinePartCategory) {
@@ -437,7 +434,7 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
   if (createStock) {
     defaultWarehouse = await prisma.warehouses.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -453,7 +450,7 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Part name is required'
+          error: 'Part name is required',
         });
         continue;
       }
@@ -472,7 +469,7 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
           pricePerUnit: row.pricePerUnit ? parseFloat(row.pricePerUnit) : null,
           description: row.description || null,
           isActive: true,
-        }
+        },
       });
 
       // Create material
@@ -487,7 +484,7 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
           categoryId: machinePartCategory.id,
           unit: 'PIECE',
           isActive: true,
-        }
+        },
       });
 
       // Create stock if requested
@@ -501,7 +498,7 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
             unit: 'PIECE',
             reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
             maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          }
+          },
         });
         stockCreated = true;
       }
@@ -512,29 +509,28 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
         partCode,
         materialCode: partCode,
         partName: row.partName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: any) {
       results.push({
         success: false,
         row: i + 1,
         partCode,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   const summary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -545,16 +541,36 @@ export const downloadTemplate = async (req: Request, res: Response) => {
   const template = {
     columns: [
       { field: 'partName', header: 'Part Name', required: true, description: 'Name of the machine part (Required)' },
-      { field: 'partNumber', header: 'Part Number', required: false, description: 'Manufacturer part number (Optional)' },
+      {
+        field: 'partNumber',
+        header: 'Part Number',
+        required: false,
+        description: 'Manufacturer part number (Optional)',
+      },
       { field: 'category', header: 'Category', required: false, description: 'Part category (Optional)' },
       { field: 'machine', header: 'Machine', required: false, description: 'Machine name/type (Optional)' },
       { field: 'brand', header: 'Brand', required: false, description: 'Brand name (Optional)' },
       { field: 'model', header: 'Model', required: false, description: 'Model number (Optional)' },
-      { field: 'specifications', header: 'Specifications', required: false, description: 'Technical specifications (Optional)' },
+      {
+        field: 'specifications',
+        header: 'Specifications',
+        required: false,
+        description: 'Technical specifications (Optional)',
+      },
       { field: 'pricePerUnit', header: 'Price Per Unit', required: false, description: 'Price per unit (Optional)' },
       { field: 'description', header: 'Description', required: false, description: 'Description (Optional)' },
-      { field: 'stockQuantity', header: 'Stock Quantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { field: 'locationCode', header: 'Location Code', required: false, description: 'Warehouse location code (Optional)' }
+      {
+        field: 'stockQuantity',
+        header: 'Stock Quantity',
+        required: false,
+        description: 'Initial stock quantity (Optional)',
+      },
+      {
+        field: 'locationCode',
+        header: 'Location Code',
+        required: false,
+        description: 'Warehouse location code (Optional)',
+      },
     ],
     exampleData: [
       {
@@ -565,12 +581,12 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         brand: 'Groz-Beckert',
         model: 'DBx1',
         specifications: 'Size 16, Sharp Point',
-        pricePerUnit: 2.50,
+        pricePerUnit: 2.5,
         description: 'Industrial sewing machine needle',
         stockQuantity: 500,
-        locationCode: 'WH-01-B'
-      }
-    ]
+        locationCode: 'WH-01-B',
+      },
+    ],
   };
 
   res.json(template);

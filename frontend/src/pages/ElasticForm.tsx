@@ -74,13 +74,15 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
 
           // Set suppliers from junction table
           if (elastic.elasticSuppliers && elastic.elasticSuppliers.length > 0) {
-            setSuppliers(elastic.elasticSuppliers.map(s => ({
-              supplierId: s.supplierId,
-              isPreferred: s.isPreferred,
-              isActive: s.isActive,
-              notes: s.notes || '',
-              pricePerMeter: s.pricePerMeter?.toString() || '',
-            })));
+            setSuppliers(
+              elastic.elasticSuppliers.map((s) => ({
+                supplierId: s.supplierId,
+                isPreferred: s.isPreferred,
+                isActive: s.isActive,
+                notes: s.notes || '',
+                pricePerMeter: s.pricePerMeter?.toString() || '',
+              }))
+            );
           }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load elastic', false);
@@ -95,23 +97,24 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
 
   // Supplier management functions
   const handleAddSupplier = () => {
-    setSuppliers(prev => [...prev, {
-      supplierId: '',
-      isPreferred: prev.length === 0, // First supplier is preferred by default
-      isActive: true,
-      notes: '',
-      pricePerMeter: '',
-    }]);
+    setSuppliers((prev) => [
+      ...prev,
+      {
+        supplierId: '',
+        isPreferred: prev.length === 0, // First supplier is preferred by default
+        isActive: true,
+        notes: '',
+        pricePerMeter: '',
+      },
+    ]);
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setSuppliers(prev => prev.filter((_, i) => i !== index));
+    setSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: keyof ElasticSupplierInput, value: string | boolean) => {
-    setSuppliers(prev => prev.map((s, i) =>
-      i === index ? { ...s, [field]: value } : s
-    ));
+    setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const onSubmit = async (data: ElasticFormData) => {
@@ -120,7 +123,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
       setError(null);
 
       // Validate suppliers have valid supplier IDs
-      const validSuppliers = suppliers.filter(s => s.supplierId);
+      const validSuppliers = suppliers.filter((s) => s.supplierId);
 
       const payload: ElasticFormData = {
         ...data,
@@ -140,11 +143,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
 
       navigate('/materials/elastic');
     } catch (err: unknown) {
-      const errorMessage = handleApiError(
-        err,
-        `Failed to ${isNewElastic ? 'create' : 'update'} elastic`,
-        false
-      );
+      const errorMessage = handleApiError(err, `Failed to ${isNewElastic ? 'create' : 'update'} elastic`, false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -167,11 +166,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* ELASTIC INFORMATION */}
             <div>
@@ -203,9 +198,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
                         placeholder="Will be auto-generated (e.g., ELS-000001)"
                         className="bg-gray-50 cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Code will be automatically assigned upon creation
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
                     </>
                   )}
                 </div>
@@ -222,30 +215,21 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
                     placeholder="Leave empty to auto-generate from color, elasticType, width, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color ElasticType Elastic Width Composition")
+                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color ElasticType
+                    Elastic Width Composition")
                   </p>
                 </div>
 
                 {/* Buyer Code */}
                 <div>
                   <Label htmlFor="buyerCode">Buyer Code</Label>
-                  <Input
-                    id="buyerCode"
-                    {...register('buyerCode')}
-                    placeholder="Buyer's reference code"
-                  />
+                  <Input id="buyerCode" {...register('buyerCode')} placeholder="Buyer's reference code" />
                 </div>
 
                 {/* Width */}
                 <div>
                   <Label htmlFor="width">Width (mm)</Label>
-                  <Input
-                    id="width"
-                    type="number"
-                    step="0.01"
-                    {...register('width')}
-                    placeholder="e.g., 25.0"
-                  />
+                  <Input id="width" type="number" step="0.01" {...register('width')} placeholder="e.g., 25.0" />
                 </div>
 
                 {/* Stretch Percent */}
@@ -287,21 +271,13 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
                 {/* Composition */}
                 <div>
                   <Label htmlFor="composition">Composition</Label>
-                  <Input
-                    id="composition"
-                    {...register('composition')}
-                    placeholder="e.g., 80% Polyester 20% Spandex"
-                  />
+                  <Input id="composition" {...register('composition')} placeholder="e.g., 80% Polyester 20% Spandex" />
                 </div>
 
                 {/* Elastic Type */}
                 <div>
                   <Label htmlFor="elasticType">Elastic Type</Label>
-                  <Input
-                    id="elasticType"
-                    {...register('elasticType')}
-                    placeholder="e.g., Woven, Knitted, Braided"
-                  />
+                  <Input id="elasticType" {...register('elasticType')} placeholder="e.g., Woven, Knitted, Braided" />
                 </div>
 
                 {/* Default Price Per Meter (for backward compatibility) */}
@@ -325,12 +301,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddSupplier}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
                 </Button>
@@ -348,7 +319,9 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
-                          <Label>Supplier <span className="text-red-500">*</span></Label>
+                          <Label>
+                            Supplier <span className="text-red-500">*</span>
+                          </Label>
                           <Select
                             value={supplier.supplierId || undefined}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
@@ -357,7 +330,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
                               <SelectValue placeholder="Select supplier..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableSuppliers.map(s => (
+                              {availableSuppliers.map((s) => (
                                 <SelectItem key={s.id} value={s.id}>
                                   {s.code} - {s.name}
                                 </SelectItem>

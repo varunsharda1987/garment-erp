@@ -83,9 +83,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   }
 
   protected buildSearchFilter(search: string): SearchFilter {
-    return [
-      { orderNumber: { contains: search, mode: 'insensitive' as const } },
-    ];
+    return [{ orderNumber: { contains: search, mode: 'insensitive' as const } }];
   }
 
   protected getDefaultIncludes(): IncludeConfig {
@@ -122,7 +120,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     const orderItemsData = data.items.map((item) => {
       // Use breakup sum if available, otherwise use direct totalQuantity
       const breakupQty = item.breakup.reduce((sum, b) => sum + b.quantity, 0);
-      const itemTotalQty = breakupQty > 0 ? breakupQty : (item.totalQuantity || 0);
+      const itemTotalQty = breakupQty > 0 ? breakupQty : item.totalQuantity || 0;
 
       // Validate: either breakup or direct totalQuantity must provide a quantity
       if (itemTotalQty <= 0) {
@@ -136,7 +134,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       totalAmount += itemTotal;
 
       // Only create breakup records if there are entries with quantity > 0
-      const hasValidBreakup = item.breakup.length > 0 && item.breakup.some(b => b.quantity > 0);
+      const hasValidBreakup = item.breakup.length > 0 && item.breakup.some((b) => b.quantity > 0);
 
       return {
         id: randomUUID(),
@@ -148,16 +146,18 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
         remarks: item.remarks || null,
         // Only create breakup records if valid entries exist
-        order_item_breakup: hasValidBreakup ? {
-          create: item.breakup
-            .filter(b => b.quantity > 0) // Only include entries with quantity
-            .map((b) => ({
-              id: randomUUID(),
-              colorId: b.colorId || null,  // Handle size-only orders
-              sizeId: b.sizeId,
-              quantity: b.quantity,
-            })),
-        } : undefined,
+        order_item_breakup: hasValidBreakup
+          ? {
+              create: item.breakup
+                .filter((b) => b.quantity > 0) // Only include entries with quantity
+                .map((b) => ({
+                  id: randomUUID(),
+                  colorId: b.colorId || null, // Handle size-only orders
+                  sizeId: b.sizeId,
+                  quantity: b.quantity,
+                })),
+            }
+          : undefined,
       };
     });
 
@@ -211,16 +211,12 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     // This is done after order creation to ensure order exists
     try {
       for (const itemData of orderItemsData) {
-        await workOrderService.createFromOrderItem(
-          itemData.id,
-          order.id,
-          {
-            plannedStartDate: orderDate,
-            plannedEndDate: expectedDeliveryDate,
-            priority,
-            createdById: userId,
-          }
-        );
+        await workOrderService.createFromOrderItem(itemData.id, order.id, {
+          plannedStartDate: orderDate,
+          plannedEndDate: expectedDeliveryDate,
+          priority,
+          createdById: userId,
+        });
       }
       logInfo('Work orders auto-created for order', { orderId: order.id, itemCount: orderItemsData.length });
     } catch (error) {
@@ -364,10 +360,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   /**
    * Get orders by customer
    */
-  async findByCustomer(
-    customerId: string,
-    options: PaginationOptions
-  ): Promise<PaginatedResult<orders>> {
+  async findByCustomer(customerId: string, options: PaginationOptions): Promise<PaginatedResult<orders>> {
     return this.findAllWithFilters({
       ...options,
       customerId,
@@ -377,10 +370,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   /**
    * Get orders by status
    */
-  async findByStatus(
-    status: OrderStatus,
-    options: PaginationOptions
-  ): Promise<PaginatedResult<orders>> {
+  async findByStatus(status: OrderStatus, options: PaginationOptions): Promise<PaginatedResult<orders>> {
     return this.findAllWithFilters({
       ...options,
       status,
@@ -402,9 +392,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     const order = await this.prisma.orders.update({
       where: { id },
       data: {
-        expectedDeliveryDate: data.expectedDeliveryDate
-          ? new Date(data.expectedDeliveryDate)
-          : undefined,
+        expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : undefined,
         priority: data.priority,
         paymentTerms: data.paymentTerms,
         shippingAddress: data.shippingAddress,
@@ -650,33 +638,25 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     }
 
     // Check work orders - only PENDING or CANCELLED allowed
-    const activeWorkOrders = order.work_orders.filter(
-      (wo) => !['PENDING', 'CANCELLED'].includes(wo.status)
-    );
+    const activeWorkOrders = order.work_orders.filter((wo) => !['PENDING', 'CANCELLED'].includes(wo.status));
     if (activeWorkOrders.length > 0) {
       return { canDelete: false, reason: 'Order has active work orders (production has started)' };
     }
 
     // Check delivery notes - no shipped or delivered
-    const shippedDeliveries = order.delivery_notes.filter((dn) =>
-      ['SHIPPED', 'DELIVERED'].includes(dn.status)
-    );
+    const shippedDeliveries = order.delivery_notes.filter((dn) => ['SHIPPED', 'DELIVERED'].includes(dn.status));
     if (shippedDeliveries.length > 0) {
       return { canDelete: false, reason: 'Order has shipped deliveries' };
     }
 
     // Check invoices - no paid invoices or any payments
-    const paidInvoices = order.invoices.filter(
-      (inv) => inv.status === 'PAID' || inv.payments.length > 0
-    );
+    const paidInvoices = order.invoices.filter((inv) => inv.status === 'PAID' || inv.payments.length > 0);
     if (paidInvoices.length > 0) {
       return { canDelete: false, reason: 'Order has paid invoices or payment records' };
     }
 
     // Check ASN - only PENDING or CANCELLED allowed
-    const processedASN = order.asn_applications.filter(
-      (asn) => !['PENDING', 'CANCELLED'].includes(asn.status)
-    );
+    const processedASN = order.asn_applications.filter((asn) => !['PENDING', 'CANCELLED'].includes(asn.status));
     if (processedASN.length > 0) {
       return { canDelete: false, reason: 'Order has processed ASN applications' };
     }
@@ -782,17 +762,16 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   }> {
     const where: Prisma.ordersWhereInput = customerId ? { customerId } : {};
 
-    const [totalOrders, pendingOrders, inProductionOrders, completedOrders, totalValue] =
-      await Promise.all([
-        this.prisma.orders.count({ where }),
-        this.prisma.orders.count({ where: { ...where, status: 'PENDING' } }),
-        this.prisma.orders.count({ where: { ...where, status: 'IN_PRODUCTION' } }),
-        this.prisma.orders.count({ where: { ...where, status: 'COMPLETED' } }),
-        this.prisma.orders.aggregate({
-          where,
-          _sum: { totalAmount: true },
-        }),
-      ]);
+    const [totalOrders, pendingOrders, inProductionOrders, completedOrders, totalValue] = await Promise.all([
+      this.prisma.orders.count({ where }),
+      this.prisma.orders.count({ where: { ...where, status: 'PENDING' } }),
+      this.prisma.orders.count({ where: { ...where, status: 'IN_PRODUCTION' } }),
+      this.prisma.orders.count({ where: { ...where, status: 'COMPLETED' } }),
+      this.prisma.orders.aggregate({
+        where,
+        _sum: { totalAmount: true },
+      }),
+    ]);
 
     return {
       totalOrders,

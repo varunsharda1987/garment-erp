@@ -95,7 +95,7 @@ export default function TemplateManager() {
       description: template.description || '',
       isDefault: template.isDefault,
     });
-    const cols = new Set(template.columnConfig.map(c => c.fieldName));
+    const cols = new Set(template.columnConfig.map((c) => c.fieldName));
     setSelectedColumns(cols);
     setIsFormOpen(true);
   };
@@ -135,8 +135,8 @@ export default function TemplateManager() {
 
     // Build column config from selected columns
     const columnConfig: ExportColumn[] = availableColumns
-      .filter(col => selectedColumns.has(col.fieldName))
-      .map(col => ({
+      .filter((col) => selectedColumns.has(col.fieldName))
+      .map((col) => ({
         fieldName: col.fieldName,
         displayName: col.displayName,
         format: col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text',
@@ -206,7 +206,7 @@ export default function TemplateManager() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {modules.map(module => (
+              {modules.map((module) => (
                 <SelectItem key={module.name} value={module.name}>
                   {module.displayName}
                 </SelectItem>
@@ -220,7 +220,7 @@ export default function TemplateManager() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle>Templates for {modules.find(m => m.name === selectedModule)?.displayName}</CardTitle>
+                <CardTitle>Templates for {modules.find((m) => m.name === selectedModule)?.displayName}</CardTitle>
                 <CardDescription>Manage export templates for this module</CardDescription>
               </div>
               <Button onClick={handleCreateNew}>+ Create Template</Button>
@@ -228,12 +228,10 @@ export default function TemplateManager() {
           </CardHeader>
           <CardContent>
             {templates.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No templates found. Create your first template!
-              </div>
+              <div className="text-center py-8 text-gray-500">No templates found. Create your first template!</div>
             ) : (
               <div className="space-y-3">
-                {templates.map(template => (
+                {templates.map((template) => (
                   <div
                     key={template.id}
                     className="flex items-center justify-between p-4 bg-white border rounded-lg hover:shadow-md transition-shadow"
@@ -242,17 +240,11 @@ export default function TemplateManager() {
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-lg">{template.templateName}</h3>
                         {template.isDefault && (
-                          <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded">
-                            Default
-                          </span>
+                          <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded">Default</span>
                         )}
                       </div>
-                      {template.description && (
-                        <p className="text-sm text-gray-600 mt-1">{template.description}</p>
-                      )}
-                      <p className="text-xs text-gray-500 mt-2">
-                        {template.columnConfig.length} columns selected
-                      </p>
+                      {template.description && <p className="text-sm text-gray-600 mt-1">{template.description}</p>}
+                      <p className="text-xs text-gray-500 mt-2">{template.columnConfig.length} columns selected</p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => handleEdit(template)}>
@@ -288,9 +280,7 @@ export default function TemplateManager() {
 
                     {/* Template Name */}
                     <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Template Name *
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Template Name *</label>
                       <Input
                         value={formData.templateName}
                         onChange={(e) => setFormData({ ...formData, templateName: e.target.value })}
@@ -301,9 +291,7 @@ export default function TemplateManager() {
 
                     {/* Description */}
                     <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description (Optional)
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
                       <Input
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -320,9 +308,7 @@ export default function TemplateManager() {
                           onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
                           className="rounded"
                         />
-                        <span className="text-sm font-medium text-gray-700">
-                          Set as default template
-                        </span>
+                        <span className="text-sm font-medium text-gray-700">Set as default template</span>
                       </label>
                     </div>
 
@@ -333,7 +319,7 @@ export default function TemplateManager() {
                       </label>
                       <div className="border rounded-lg p-4 max-h-64 overflow-y-auto bg-gray-50">
                         <div className="grid grid-cols-2 gap-3">
-                          {availableColumns.map(column => (
+                          {availableColumns.map((column) => (
                             <label
                               key={column.fieldName}
                               className="flex items-start gap-2 p-2 hover:bg-white rounded cursor-pointer"
@@ -359,9 +345,7 @@ export default function TemplateManager() {
                       <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
                         Cancel
                       </Button>
-                      <Button type="submit">
-                        {editingTemplate ? 'Update Template' : 'Create Template'}
-                      </Button>
+                      <Button type="submit">{editingTemplate ? 'Update Template' : 'Create Template'}</Button>
                     </div>
                   </div>
                 </form>

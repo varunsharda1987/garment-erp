@@ -11,13 +11,7 @@ import { UnauthorizedError, ValidationError, NotFoundError } from '../errors';
  * POST /api/component-masters
  */
 export const createComponentMaster = async (req: Request, res: Response): Promise<void> => {
-  const {
-    name,
-    description,
-    componentCategory,
-    componentGroupId,
-    sortOrder,
-  } = req.body;
+  const { name, description, componentCategory, componentGroupId, sortOrder } = req.body;
 
   const userId = req.user?.userId;
 
@@ -36,7 +30,9 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
 
   // VALIDATE: componentGroupId is REQUIRED
   if (!componentGroupId) {
-    throw new ValidationError('Component Group is required. Every component must belong to a component group to define its pattern parts.');
+    throw new ValidationError(
+      'Component Group is required. Every component must belong to a component group to define its pattern parts.'
+    );
   }
 
   // Verify componentGroupId exists
@@ -73,10 +69,7 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
   // AUTO-ASSIGN pattern parts for the component group
   let patternAssignment;
   try {
-    patternAssignment = await assignPatternPartsToComponent(
-      component.id,
-      componentGroupId
-    );
+    patternAssignment = await assignPatternPartsToComponent(component.id, componentGroupId);
     logInfo(`Auto-assigned ${patternAssignment.assigned} pattern parts to new component "${component.name}"`);
   } catch (assignError) {
     // Log error but don't fail the component creation
@@ -191,7 +184,8 @@ export const getComponentMasterById = async (req: Request, res: Response): Promi
         },
       },
       componentGroup: true, // Include component group details
-      patternParts: {       // Include pattern parts
+      patternParts: {
+        // Include pattern parts
         include: {
           patternPart: true,
         },
@@ -212,14 +206,7 @@ export const getComponentMasterById = async (req: Request, res: Response): Promi
  */
 export const updateComponentMaster = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const {
-    name,
-    description,
-    componentCategory,
-    componentGroupId,
-    sortOrder,
-    isActive,
-  } = req.body;
+  const { name, description, componentCategory, componentGroupId, sortOrder, isActive } = req.body;
 
   // Check if component exists
   const existingComponent = await prisma.component_masters.findUnique({
@@ -322,9 +309,7 @@ export const getCategories = async (req: Request, res: Response): Promise<void> 
     orderBy: { componentCategory: 'asc' },
   });
 
-  const categoryList = categories
-    .map((c) => c.componentCategory)
-    .filter((c): c is string => c !== null);
+  const categoryList = categories.map((c) => c.componentCategory).filter((c): c is string => c !== null);
 
   res.json({
     data: categoryList,

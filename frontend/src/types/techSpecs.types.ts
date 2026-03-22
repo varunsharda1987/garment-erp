@@ -28,13 +28,7 @@ export type CollarType =
   | 'OFF_SHOULDER'
   | 'OTHER';
 
-export type FitType =
-  | 'SLIM'
-  | 'REGULAR'
-  | 'RELAXED'
-  | 'OVERSIZED'
-  | 'FITTED'
-  | 'LOOSE';
+export type FitType = 'SLIM' | 'REGULAR' | 'RELAXED' | 'OVERSIZED' | 'FITTED' | 'LOOSE';
 
 export type ClosureType =
   | 'BUTTONS'

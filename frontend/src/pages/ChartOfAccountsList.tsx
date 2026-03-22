@@ -26,7 +26,7 @@ export default function ChartOfAccountsList() {
       const data = await chartOfAccountsService.getHierarchy();
       setAccounts(data);
       // Auto-expand level 1 accounts
-      const level1Ids = data.map(acc => acc.id);
+      const level1Ids = data.map((acc) => acc.id);
       setExpandedNodes(new Set(level1Ids));
     } catch (err) {
       logError('Failed to fetch chart of accounts:', err);
@@ -37,7 +37,7 @@ export default function ChartOfAccountsList() {
   };
 
   const toggleNode = (id: string) => {
-    setExpandedNodes(prev => {
+    setExpandedNodes((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
         newSet.delete(id);
@@ -50,12 +50,18 @@ export default function ChartOfAccountsList() {
 
   const getAccountTypeColor = (type: string) => {
     switch (type) {
-      case 'ASSET': return 'text-green-600 bg-green-50';
-      case 'LIABILITY': return 'text-red-600 bg-red-50';
-      case 'EQUITY': return 'text-purple-600 bg-purple-50';
-      case 'REVENUE': return 'text-blue-600 bg-blue-50';
-      case 'EXPENSE': return 'text-orange-600 bg-orange-50';
-      default: return 'text-gray-600 bg-gray-50';
+      case 'ASSET':
+        return 'text-green-600 bg-green-50';
+      case 'LIABILITY':
+        return 'text-red-600 bg-red-50';
+      case 'EQUITY':
+        return 'text-purple-600 bg-purple-50';
+      case 'REVENUE':
+        return 'text-blue-600 bg-blue-50';
+      case 'EXPENSE':
+        return 'text-orange-600 bg-orange-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
     }
   };
 
@@ -66,9 +72,7 @@ export default function ChartOfAccountsList() {
 
     return (
       <div key={account.id} className="border-b last:border-b-0">
-        <div
-          className={`flex items-center justify-between py-3 px-4 hover:bg-gray-50 ${indentClass}`}
-        >
+        <div className={`flex items-center justify-between py-3 px-4 hover:bg-gray-50 ${indentClass}`}>
           <div className="flex items-center flex-1">
             {hasChildren ? (
               <button
@@ -86,19 +90,13 @@ export default function ChartOfAccountsList() {
                 <span className="font-mono text-sm text-gray-600">{account.accountCode}</span>
                 <span className="font-medium">{account.accountName}</span>
                 {account.isSystem && (
-                  <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
-                    System
-                  </span>
+                  <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-700 rounded">System</span>
                 )}
                 {!account.isActive && (
-                  <span className="text-xs px-2 py-0.5 bg-red-200 text-red-700 rounded">
-                    Inactive
-                  </span>
+                  <span className="text-xs px-2 py-0.5 bg-red-200 text-red-700 rounded">Inactive</span>
                 )}
               </div>
-              {account.description && (
-                <p className="text-xs text-gray-500 mt-1">{account.description}</p>
-              )}
+              {account.description && <p className="text-xs text-gray-500 mt-1">{account.description}</p>}
             </div>
           </div>
 
@@ -106,15 +104,9 @@ export default function ChartOfAccountsList() {
             <span className={`text-xs px-3 py-1 rounded-full font-medium ${getAccountTypeColor(account.accountType)}`}>
               {account.accountType}
             </span>
-            <span className="text-xs text-gray-500 px-2">
-              {account.accountGroup.replace(/_/g, ' ')}
-            </span>
+            <span className="text-xs text-gray-500 px-2">{account.accountGroup.replace(/_/g, ' ')}</span>
             {!account.isSystem && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/chart-of-accounts/${account.id}/edit`)}
-              >
+              <Button variant="outline" size="sm" onClick={() => navigate(`/chart-of-accounts/${account.id}/edit`)}>
                 Edit
               </Button>
             )}
@@ -122,9 +114,7 @@ export default function ChartOfAccountsList() {
         </div>
 
         {hasChildren && isExpanded && account.childAccounts && (
-          <div className="bg-gray-50">
-            {account.childAccounts.map(child => renderAccount(child, level + 1))}
-          </div>
+          <div className="bg-gray-50">{account.childAccounts.map((child) => renderAccount(child, level + 1))}</div>
         )}
       </div>
     );
@@ -144,9 +134,7 @@ export default function ChartOfAccountsList() {
           <div className="flex gap-2">
             <ExportButton module="chart_of_accounts" />
             <ImportButton module="chart_of_accounts" onSuccess={fetchAccounts} />
-            <Button onClick={() => navigate('/chart-of-accounts/new')}>
-              + New Account
-            </Button>
+            <Button onClick={() => navigate('/chart-of-accounts/new')}>+ New Account</Button>
           </div>
         </div>
       </div>
@@ -178,32 +166,28 @@ export default function ChartOfAccountsList() {
             {!loading && !error && accounts.length === 0 && (
               <div className="text-center py-12">
                 <div className="text-gray-500 mb-4">No accounts found</div>
-                <Button onClick={() => navigate('/chart-of-accounts/new')}>
-                  Create First Account
-                </Button>
+                <Button onClick={() => navigate('/chart-of-accounts/new')}>Create First Account</Button>
               </div>
             )}
 
             {!loading && !error && accounts.length > 0 && (
               <div className="border rounded-lg overflow-hidden">
-                {accounts.map(account => renderAccount(account, 0))}
+                {accounts.map((account) => renderAccount(account, 0))}
               </div>
             )}
           </CardContent>
         </Card>
 
         <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
-          {['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'].map(type => {
-            const count = accounts.filter(acc => acc.accountType === type).length;
+          {['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'].map((type) => {
+            const count = accounts.filter((acc) => acc.accountType === type).length;
             return (
               <Card key={type}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-600">{type}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-2xl font-bold ${getAccountTypeColor(type)}`}>
-                    {count}
-                  </div>
+                  <div className={`text-2xl font-bold ${getAccountTypeColor(type)}`}>{count}</div>
                 </CardContent>
               </Card>
             );

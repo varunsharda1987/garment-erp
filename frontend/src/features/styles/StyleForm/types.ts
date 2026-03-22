@@ -91,22 +91,22 @@ export const createDefaultFabric = (index: number = 1): FabricEntry => ({
   fabricFinishType: '',
   estimatedConsumption: 0,
   unit: 'METER',
-  notes: ''
+  notes: '',
 });
 
 export const createDefaultSKUVariants = (): SKUVariant[] =>
-  DEFAULT_SIZES.map(size => ({
+  DEFAULT_SIZES.map((size) => ({
     size,
     sku: '',
     barcode: '',
-    isActive: true
+    isActive: true,
   }));
 
 export const createDefaultProcesses = (): ProcessEntry[] =>
-  PRODUCTION_PROCESSES.map(p => ({
+  PRODUCTION_PROCESSES.map((p) => ({
     processType: p.type,
     isRequired: p.preChecked,
     description: '',
     vendor: '',
-    estimatedCost: undefined
+    estimatedCost: undefined,
   }));

@@ -10,11 +10,7 @@ import {
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
-import {
-  createTestingLabSchema,
-  updateTestingLabSchema,
-  testingLabQuerySchema,
-} from '../schemas/testing.schemas';
+import { createTestingLabSchema, updateTestingLabSchema, testingLabQuerySchema } from '../schemas/testing.schemas';
 
 const router = Router();
 

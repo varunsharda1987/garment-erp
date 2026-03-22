@@ -53,7 +53,7 @@ export async function createLaceLabDip(input: CreateLabDipInput, userId: string)
     where: {
       id: input.processorId,
       isActive: true,
-      supplierCategories: { has: 'DYEING_PRINTING' }
+      supplierCategories: { has: 'DYEING_PRINTING' },
     },
     select: { id: true, name: true },
   });

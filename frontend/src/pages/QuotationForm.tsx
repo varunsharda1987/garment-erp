@@ -131,16 +131,12 @@ export default function QuotationForm() {
   };
 
   const handleItemChange = (tempId: string, field: keyof QuotationItemInput, value: any) => {
-    setItems(
-      items.map((item) =>
-        item.tempId === tempId ? { ...item, [field]: value } : item
-      )
-    );
+    setItems(items.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item)));
   };
 
   const calculateTotal = () => {
     return items.reduce((sum, item) => {
-      return sum + (item.totalQuantity * item.unitPrice);
+      return sum + item.totalQuantity * item.unitPrice;
     }, 0);
   };
 
@@ -155,10 +151,7 @@ export default function QuotationForm() {
     // Validate items
     for (const item of items) {
       if (!item.styleId || item.totalQuantity <= 0 || item.unitPrice < 0) {
-        handleApiError(
-          new Error('All items must have a style, quantity > 0, and unit price >= 0'),
-          'Validation Error'
-        );
+        handleApiError(new Error('All items must have a style, quantity > 0, and unit price >= 0'), 'Validation Error');
         return;
       }
     }
@@ -187,10 +180,7 @@ export default function QuotationForm() {
         handleApiSuccess('Quotation updated', 'Quotation has been successfully updated.');
       } else {
         const quotation = await createQuotation(data);
-        handleApiSuccess(
-          'Quotation created',
-          `Quotation ${quotation.quotationNumber} has been successfully created.`
-        );
+        handleApiSuccess('Quotation created', `Quotation ${quotation.quotationNumber} has been successfully created.`);
       }
 
       navigate('/quotations');
@@ -213,9 +203,7 @@ export default function QuotationForm() {
             <FileText className="h-6 w-6 text-purple-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isEditMode ? 'Edit Quotation' : 'Create Quotation'}
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Quotation' : 'Create Quotation'}</h1>
             <p className="text-sm text-gray-500">
               {isEditMode ? 'Update quotation details' : 'Generate a new quotation for a customer'}
             </p>
@@ -236,11 +224,7 @@ export default function QuotationForm() {
                 <Label htmlFor="customerId">
                   Customer <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={customerId}
-                  onValueChange={setCustomerId}
-                  disabled={isEditMode}
-                >
+                <Select value={customerId} onValueChange={setCustomerId} disabled={isEditMode}>
                   <SelectTrigger id="customerId">
                     <SelectValue placeholder="Select customer" />
                   </SelectTrigger>
@@ -361,9 +345,7 @@ export default function QuotationForm() {
                       type="number"
                       min="1"
                       value={item.totalQuantity || ''}
-                      onChange={(e) =>
-                        handleItemChange(item.tempId, 'totalQuantity', parseInt(e.target.value) || 0)
-                      }
+                      onChange={(e) => handleItemChange(item.tempId, 'totalQuantity', parseInt(e.target.value) || 0)}
                       placeholder="0"
                     />
                   </div>
@@ -377,9 +359,7 @@ export default function QuotationForm() {
                       step="0.01"
                       min="0"
                       value={item.unitPrice || ''}
-                      onChange={(e) =>
-                        handleItemChange(item.tempId, 'unitPrice', parseFloat(e.target.value) || 0)
-                      }
+                      onChange={(e) => handleItemChange(item.tempId, 'unitPrice', parseFloat(e.target.value) || 0)}
                       placeholder="0.00"
                     />
                   </div>
@@ -409,9 +389,7 @@ export default function QuotationForm() {
 
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="text-sm text-gray-600">Item Total:</div>
-                  <div className="text-lg font-semibold">
-                    {formatCurrency(item.totalQuantity * item.unitPrice)}
-                  </div>
+                  <div className="text-lg font-semibold">{formatCurrency(item.totalQuantity * item.unitPrice)}</div>
                 </div>
               </div>
             ))}
@@ -441,12 +419,7 @@ export default function QuotationForm() {
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/quotations')}
-            disabled={isLoading}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/quotations')} disabled={isLoading}>
             Cancel
           </Button>
           <Button type="submit" disabled={isLoading}>
@@ -455,8 +428,8 @@ export default function QuotationForm() {
                 ? 'Updating...'
                 : 'Creating...'
               : isEditMode
-              ? 'Update Quotation'
-              : 'Create Quotation'}
+                ? 'Update Quotation'
+                : 'Create Quotation'}
           </Button>
         </div>
       </form>

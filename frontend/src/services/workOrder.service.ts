@@ -12,7 +12,7 @@ import type {
   ProductionDashboardResponse,
   ProductionTrackingResponse,
   ProductionTracking,
-  SplitWorkOrderDTO
+  SplitWorkOrderDTO,
 } from '../types/production.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -60,10 +60,7 @@ export const workOrderService = {
    * Get work order by ID
    */
   async getById(id: string): Promise<WorkOrder> {
-    const response = await axios.get<WorkOrderResponse>(
-      `${BASE_URL}/${id}`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<WorkOrderResponse>(`${BASE_URL}/${id}`, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Work order not found');
     return response.data.data;
   },
@@ -72,10 +69,9 @@ export const workOrderService = {
    * Get work orders by order ID
    */
   async getByOrderId(orderId: string): Promise<WorkOrder[]> {
-    const response = await axios.get<WorkOrderListResponse>(
-      `${BASE_URL}/order/${orderId}`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<WorkOrderListResponse>(`${BASE_URL}/order/${orderId}`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data || [];
   },
 
@@ -83,11 +79,7 @@ export const workOrderService = {
    * Create a new work order
    */
   async create(data: CreateWorkOrderDTO): Promise<WorkOrder> {
-    const response = await axios.post<WorkOrderResponse>(
-      BASE_URL,
-      data,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.post<WorkOrderResponse>(BASE_URL, data, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Failed to create work order');
     return response.data.data;
   },
@@ -96,11 +88,7 @@ export const workOrderService = {
    * Update a work order
    */
   async update(id: string, data: UpdateWorkOrderDTO): Promise<WorkOrder> {
-    const response = await axios.put<WorkOrderResponse>(
-      `${BASE_URL}/${id}`,
-      data,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.put<WorkOrderResponse>(`${BASE_URL}/${id}`, data, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Failed to update work order');
     return response.data.data;
   },
@@ -109,24 +97,16 @@ export const workOrderService = {
    * Delete a work order
    */
   async delete(id: string): Promise<void> {
-    await axios.delete(
-      `${BASE_URL}/${id}`,
-      { headers: getAuthHeader() }
-    );
+    await axios.delete(`${BASE_URL}/${id}`, { headers: getAuthHeader() });
   },
 
   /**
    * Add production tracking update
    */
-  async addProductionTracking(
-    workOrderId: string,
-    data: CreateProductionTrackingDTO
-  ): Promise<ProductionTracking> {
-    const response = await axios.post<ProductionTrackingResponse>(
-      `${BASE_URL}/${workOrderId}/tracking`,
-      data,
-      { headers: getAuthHeader() }
-    );
+  async addProductionTracking(workOrderId: string, data: CreateProductionTrackingDTO): Promise<ProductionTracking> {
+    const response = await axios.post<ProductionTrackingResponse>(`${BASE_URL}/${workOrderId}/tracking`, data, {
+      headers: getAuthHeader(),
+    });
     if (!response.data.data) throw new Error('Failed to add production tracking');
     return response.data.data;
   },
@@ -148,10 +128,9 @@ export const workOrderService = {
    * Get production dashboard summary
    */
   async getDashboard(): Promise<ProductionDashboardSummary> {
-    const response = await axios.get<ProductionDashboardResponse>(
-      `${BASE_URL}/dashboard/summary`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ProductionDashboardResponse>(`${BASE_URL}/dashboard/summary`, {
+      headers: getAuthHeader(),
+    });
     if (!response.data.data) throw new Error('Failed to fetch dashboard');
     return response.data.data;
   },
@@ -161,11 +140,7 @@ export const workOrderService = {
    * Creates a new work order with subset of quantities
    */
   async splitWorkOrder(id: string, data: SplitWorkOrderDTO): Promise<WorkOrder> {
-    const response = await axios.post<WorkOrderResponse>(
-      `${BASE_URL}/${id}/split`,
-      data,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.post<WorkOrderResponse>(`${BASE_URL}/${id}/split`, data, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Failed to split work order');
     return response.data.data;
   },
@@ -186,10 +161,7 @@ export const workOrderService = {
       unit: string;
     }>;
   }> {
-    const response = await axios.get(
-      `${BASE_URL}/${id}/material-readiness`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get(`${BASE_URL}/${id}/material-readiness`, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Failed to check material readiness');
     return response.data.data;
   },

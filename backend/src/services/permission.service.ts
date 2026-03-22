@@ -6,20 +6,10 @@
 import { UserRole } from '@prisma/client';
 import prisma from '../config/database';
 import { logError, logInfo, logDebug } from '../utils/logger';
-import {
-  cachedQuery,
-  deleteFromCache,
-  invalidateByPattern,
-} from '../lib/cache';
+import { cachedQuery, deleteFromCache, invalidateByPattern } from '../lib/cache';
 import { createAuditLog, getAuditContext } from './audit.service';
 import { Request } from 'express';
-import {
-  PERMISSIONS,
-  MODULES,
-  PERMISSION_GROUPS,
-  ROLE_CONFIG,
-  type PermissionKey,
-} from '../config/permissions.config';
+import { PERMISSIONS, MODULES, PERMISSION_GROUPS, ROLE_CONFIG, type PermissionKey } from '../config/permissions.config';
 import type {
   PermissionToggleInput,
   BulkPermissionUpdateInput,
@@ -175,7 +165,10 @@ class PermissionServiceClass {
           CACHE_TTL
         );
       } catch (err) {
-        logError('DB permission lookup failed, using config fallback', err instanceof Error ? err : new Error(String(err)));
+        logError(
+          'DB permission lookup failed, using config fallback',
+          err instanceof Error ? err : new Error(String(err))
+        );
       }
     }
 
@@ -232,18 +225,21 @@ class PermissionServiceClass {
       displayName: def.displayName,
       description: def.description,
       moduleGroup: def.moduleGroup,
-      roles: roles.reduce((acc, role) => {
-        const key = `${role}:${def.permissionKey}`;
-        acc[role] = permLookup.get(key) ?? false;
-        return acc;
-      }, {} as Record<UserRole, boolean>),
+      roles: roles.reduce(
+        (acc, role) => {
+          const key = `${role}:${def.permissionKey}`;
+          acc[role] = permLookup.get(key) ?? false;
+          return acc;
+        },
+        {} as Record<UserRole, boolean>
+      ),
     }));
 
     // Build role info
     const roleInfo = roles.map((role) => {
-      const permCount = Array.from(permLookup.entries())
-        .filter(([key, allowed]) => key.startsWith(`${role}:`) && allowed)
-        .length;
+      const permCount = Array.from(permLookup.entries()).filter(
+        ([key, allowed]) => key.startsWith(`${role}:`) && allowed
+      ).length;
       const config = ROLE_CONFIG[role];
       return {
         role,
@@ -290,10 +286,13 @@ class PermissionServiceClass {
           displayName: this.formatDisplayName(permKey),
           description: `Access to ${permKey} module`,
           moduleGroup: groupKey,
-          roles: roles.reduce((acc, role) => {
-            acc[role] = allowedRoles.includes(role);
-            return acc;
-          }, {} as Record<UserRole, boolean>),
+          roles: roles.reduce(
+            (acc, role) => {
+              acc[role] = allowedRoles.includes(role);
+              return acc;
+            },
+            {} as Record<UserRole, boolean>
+          ),
         });
       }
     }
@@ -328,10 +327,7 @@ class PermissionServiceClass {
   /**
    * Toggle single permission
    */
-  async togglePermission(
-    input: PermissionToggleInput,
-    req: Request
-  ): Promise<{ success: boolean; message: string }> {
+  async togglePermission(input: PermissionToggleInput, req: Request): Promise<{ success: boolean; message: string }> {
     const { role, permissionKey, allowed } = input;
 
     logDebug('Toggling permission', { role, permissionKey, allowed });
@@ -397,10 +393,7 @@ class PermissionServiceClass {
   /**
    * Bulk update permissions
    */
-  async bulkUpdatePermissions(
-    input: BulkPermissionUpdateInput,
-    req: Request
-  ): Promise<BulkUpdateResult> {
+  async bulkUpdatePermissions(input: BulkPermissionUpdateInput, req: Request): Promise<BulkUpdateResult> {
     const result: BulkUpdateResult = {
       success: true,
       updated: 0,

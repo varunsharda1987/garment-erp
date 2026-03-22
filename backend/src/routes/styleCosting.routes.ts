@@ -245,11 +245,7 @@ router.post(
  * @desc    Calculate cost options for lace (stock, ready, greige+processing)
  * @access  Private
  */
-router.post(
-  '/:costingId/lace-items/calculate-options',
-  authenticateToken,
-  asyncHandler(calculateLaceOptions)
-);
+router.post('/:costingId/lace-items/calculate-options', authenticateToken, asyncHandler(calculateLaceOptions));
 
 /**
  * @route   GET /api/style-costing/:costingId/lace-items

@@ -6,7 +6,7 @@ import {
   updateElastic,
   deleteElastic,
   bulkImportElastic,
-  downloadTemplate
+  downloadTemplate,
 } from '../controllers/elastic.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

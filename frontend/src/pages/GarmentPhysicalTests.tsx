@@ -1,27 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Shirt,
-  Plus,
-  Search,
-  Filter,
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  RefreshCw,
-} from 'lucide-react';
+import { Shirt, Plus, Search, Filter, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { garmentPhysicalTestsService } from '@/services/testing.service';
 import type { GarmentPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -257,14 +241,10 @@ export default function GarmentPhysicalTests() {
                               {test.shrinkageTestResult === 'PASS' ? '✓' : '✗'}
                             </span>
                             {test.lengthShrinkage !== null && (
-                              <span className="text-gray-600">
-                                L: {test.lengthShrinkage.toFixed(1)}%
-                              </span>
+                              <span className="text-gray-600">L: {test.lengthShrinkage.toFixed(1)}%</span>
                             )}
                             {test.widthShrinkage !== null && (
-                              <span className="text-gray-600">
-                                W: {test.widthShrinkage.toFixed(1)}%
-                              </span>
+                              <span className="text-gray-600">W: {test.widthShrinkage.toFixed(1)}%</span>
                             )}
                           </div>
                         )}
@@ -280,9 +260,7 @@ export default function GarmentPhysicalTests() {
                             >
                               {test.seamTestResult === 'PASS' ? '✓' : '✗'}
                             </span>
-                            {test.seamStrength && (
-                              <span className="text-gray-600">{test.seamStrength} kg</span>
-                            )}
+                            {test.seamStrength && <span className="text-gray-600">{test.seamStrength} kg</span>}
                           </div>
                         )}
 
@@ -326,11 +304,7 @@ export default function GarmentPhysicalTests() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
+          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
             Previous
           </Button>
           <span className="px-4 py-2 text-sm text-gray-600">

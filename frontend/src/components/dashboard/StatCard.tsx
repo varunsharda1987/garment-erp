@@ -46,35 +46,19 @@ export function StatCard({
   onClick,
   className,
 }: StatCardProps) {
-  const TrendIcon = trend?.direction === 'up'
-    ? TrendingUp
-    : trend?.direction === 'down'
-      ? TrendingDown
-      : Minus;
+  const TrendIcon = trend?.direction === 'up' ? TrendingUp : trend?.direction === 'down' ? TrendingDown : Minus;
 
-  const trendColor = trend?.direction === 'up'
-    ? 'text-green-600'
-    : trend?.direction === 'down'
-      ? 'text-red-600'
-      : 'text-gray-500';
+  const trendColor =
+    trend?.direction === 'up' ? 'text-green-600' : trend?.direction === 'down' ? 'text-red-600' : 'text-gray-500';
 
   return (
-    <Card
-      className={cn(
-        'transition-shadow',
-        onClick && 'cursor-pointer hover:shadow-md',
-        className
-      )}
-      onClick={onClick}
-    >
+    <Card className={cn('transition-shadow', onClick && 'cursor-pointer hover:shadow-md', className)} onClick={onClick}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-500">{title}</p>
             <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-            {description && (
-              <p className="text-sm text-gray-500 mt-1">{description}</p>
-            )}
+            {description && <p className="text-sm text-gray-500 mt-1">{description}</p>}
             {trend && (
               <div className={cn('flex items-center gap-1 mt-2', trendColor)}>
                 <TrendIcon className="h-4 w-4" />
@@ -82,9 +66,7 @@ export function StatCard({
                   {trend.direction !== 'neutral' && (trend.direction === 'up' ? '+' : '-')}
                   {trend.value}%
                 </span>
-                {trend.label && (
-                  <span className="text-xs text-gray-500 ml-1">{trend.label}</span>
-                )}
+                {trend.label && <span className="text-xs text-gray-500 ml-1">{trend.label}</span>}
               </div>
             )}
           </div>

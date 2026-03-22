@@ -20,137 +20,158 @@ router.use(authenticateToken);
  * GET /api/conversations
  * List user's conversations
  */
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
+router.get(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
-  const { status, limit, offset, search } = req.query;
+    const { status, limit, offset, search } = req.query;
 
-  const result = await conversationService.getConversations({
-    userId,
-    status: status as 'ACTIVE' | 'ARCHIVED' | 'DELETED' | undefined,
-    limit: limit ? parseInt(limit as string) : 50,
-    offset: offset ? parseInt(offset as string) : 0,
-    search: search as string | undefined,
-  });
+    const result = await conversationService.getConversations({
+      userId,
+      status: status as 'ACTIVE' | 'ARCHIVED' | 'DELETED' | undefined,
+      limit: limit ? parseInt(limit as string) : 50,
+      offset: offset ? parseInt(offset as string) : 0,
+      search: search as string | undefined,
+    });
 
-  res.json(result);
-}));
+    res.json(result);
+  })
+);
 
 /**
  * POST /api/conversations
  * Create a new conversation
  */
-router.post('/', asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
+router.post(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
-  const { title } = req.body;
+    const { title } = req.body;
 
-  const conversation = await conversationService.createConversation({
-    userId,
-    title,
-  });
+    const conversation = await conversationService.createConversation({
+      userId,
+      title,
+    });
 
-  res.status(201).json(conversation);
-}));
+    res.status(201).json(conversation);
+  })
+);
 
 /**
  * GET /api/conversations/:id
  * Get a single conversation with messages
  */
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
+router.get(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
-  const { id } = req.params;
+    const { id } = req.params;
 
-  const conversation = await conversationService.getConversation(id, userId);
+    const conversation = await conversationService.getConversation(id, userId);
 
-  if (!conversation) {
-    throw new NotFoundError('Conversation', id);
-  }
+    if (!conversation) {
+      throw new NotFoundError('Conversation', id);
+    }
 
-  res.json(conversation);
-}));
+    res.json(conversation);
+  })
+);
 
 /**
  * PATCH /api/conversations/:id
  * Update conversation (title, status)
  */
-router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
+router.patch(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
-  const { id } = req.params;
-  const { title, status } = req.body;
+    const { id } = req.params;
+    const { title, status } = req.body;
 
-  const conversation = await conversationService.updateConversation(id, userId, { title, status });
+    const conversation = await conversationService.updateConversation(id, userId, { title, status });
 
-  res.json(conversation);
-}));
+    res.json(conversation);
+  })
+);
 
 /**
  * DELETE /api/conversations/:id
  * Soft delete a conversation
  */
-router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
+router.delete(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
-  const { id } = req.params;
+    const { id } = req.params;
 
-  await conversationService.deleteConversation(id, userId);
+    await conversationService.deleteConversation(id, userId);
 
-  res.json({ success: true, message: 'Conversation deleted' });
-}));
+    res.json({ success: true, message: 'Conversation deleted' });
+  })
+);
 
 /**
  * GET /api/conversations/:id/messages
  * Get messages for a conversation (with pagination)
  */
-router.get('/:id/messages', asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
+router.get(
+  '/:id/messages',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
-  const { id } = req.params;
-  const { limit, offset } = req.query;
+    const { id } = req.params;
+    const { limit, offset } = req.query;
 
-  const messages = await conversationService.getMessages(
-    id,
-    userId,
-    limit ? parseInt(limit as string) : 100,
-    offset ? parseInt(offset as string) : 0
-  );
+    const messages = await conversationService.getMessages(
+      id,
+      userId,
+      limit ? parseInt(limit as string) : 100,
+      offset ? parseInt(offset as string) : 0
+    );
 
-  res.json(messages);
-}));
+    res.json(messages);
+  })
+);
 
 /**
  * GET /api/conversations/stats/summary
  * Get user's AI usage statistics
  */
-router.get('/stats/summary', asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
+router.get(
+  '/stats/summary',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
-  const stats = await conversationService.getUserStats(userId);
+    const stats = await conversationService.getUserStats(userId);
 
-  res.json(stats);
-}));
+    res.json(stats);
+  })
+);
 
 export default router;

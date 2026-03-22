@@ -106,11 +106,7 @@ interface UsePaginationReturn {
 }
 
 export function usePagination(options: UsePaginationOptions = {}): UsePaginationReturn {
-  const {
-    defaultPageSize = 10,
-    defaultPage = 1,
-    pageSizeOptions = [10, 20, 50, 100],
-  } = options;
+  const { defaultPageSize = 10, defaultPage = 1, pageSizeOptions = [10, 20, 50, 100] } = options;
 
   const [currentPage, setCurrentPage] = useState(defaultPage);
   const [pageSize, setPageSizeState] = useState(defaultPageSize);

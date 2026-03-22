@@ -12,7 +12,7 @@ import { NotFoundError, ValidationError } from '../errors';
 // ============================================
 
 interface OrderItemBreakup {
-  colorId: string | null;  // Can be null or empty for size-only orders
+  colorId: string | null; // Can be null or empty for size-only orders
   sizeId: string;
   quantity: number;
 }
@@ -20,7 +20,7 @@ interface OrderItemBreakup {
 interface OrderItem {
   styleId: string;
   unitPrice: string | number;
-  totalQuantity?: number;  // Direct total quantity (used when breakup is empty)
+  totalQuantity?: number; // Direct total quantity (used when breakup is empty)
   deliveryDate?: string;
   itemDescription?: string;
   remarks?: string;
@@ -44,18 +44,25 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   } = req.body;
 
   // Debug logging
-  logInfo('[createOrder] Request body:', JSON.stringify({
-    customerId,
-    orderDate,
-    expectedDeliveryDate,
-    priority,
-    items: items?.map((item: OrderItem) => ({
-      styleId: item.styleId,
-      unitPrice: item.unitPrice,
-      breakupCount: item.breakup?.length,
-      breakup: item.breakup?.slice(0, 3), // Log first 3 breakup items
-    })),
-  }, null, 2));
+  logInfo(
+    '[createOrder] Request body:',
+    JSON.stringify(
+      {
+        customerId,
+        orderDate,
+        expectedDeliveryDate,
+        priority,
+        items: items?.map((item: OrderItem) => ({
+          styleId: item.styleId,
+          unitPrice: item.unitPrice,
+          breakupCount: item.breakup?.length,
+          breakup: item.breakup?.slice(0, 3), // Log first 3 breakup items
+        })),
+      },
+      null,
+      2
+    )
+  );
 
   const userId = req.user?.userId;
 
@@ -101,10 +108,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
     // 2. Cost sheet must be approved
     if (!costSheet.isApproved) {
-      throw new ValidationError(
-        `Procurement cost sheet for style ${item.styleId} is pending approval.`,
-        { code: 'COSTING_NOT_APPROVED' }
-      );
+      throw new ValidationError(`Procurement cost sheet for style ${item.styleId} is pending approval.`, {
+        code: 'COSTING_NOT_APPROVED',
+      });
     }
 
     // 3. If variance exists, it must be approved
@@ -138,7 +144,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   const orderItemsData = (items as OrderItem[]).map((item) => {
     // Use breakup sum if available, otherwise use direct totalQuantity
     const breakupQty = item.breakup.reduce((sum: number, b) => sum + b.quantity, 0);
-    const itemTotalQty = breakupQty > 0 ? breakupQty : (item.totalQuantity || 0);
+    const itemTotalQty = breakupQty > 0 ? breakupQty : item.totalQuantity || 0;
     // Handle empty/undefined unitPrice - default to 0 for orders without pricing
     const parsedUnitPrice = parseFloat(String(item.unitPrice)) || 0;
     const itemTotal = itemTotalQty * parsedUnitPrice;
@@ -146,13 +152,16 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     totalQuantity += itemTotalQty;
     totalAmount += itemTotal;
 
-    logInfo('[createOrder] Processing item:', JSON.stringify({
-      styleId: item.styleId,
-      breakupCount: item.breakup?.length,
-      itemTotalQty,
-      parsedUnitPrice,
-      itemTotal,
-    }));
+    logInfo(
+      '[createOrder] Processing item:',
+      JSON.stringify({
+        styleId: item.styleId,
+        breakupCount: item.breakup?.length,
+        itemTotalQty,
+        parsedUnitPrice,
+        itemTotal,
+      })
+    );
 
     return {
       id: randomUUID(),
@@ -303,7 +312,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         });
 
         costingSnapshots.push(orderItem.id);
-        logInfo(`[createOrder] Created cost sheet snapshot for order item ${orderItem.id} from cost sheet v${costSheet.version}`);
+        logInfo(
+          `[createOrder] Created cost sheet snapshot for order item ${orderItem.id} from cost sheet v${costSheet.version}`
+        );
       } else {
         logWarn(`[createOrder] No approved cost sheet found for style ${orderItem.styleId}`);
       }
@@ -329,16 +340,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
  * GET /api/orders
  */
 export const getAllOrders = async (req: Request, res: Response): Promise<void> => {
-  const {
-    page = '1',
-    limit = '10',
-    search = '',
-    customerId,
-    status,
-    priority,
-    fromDate,
-    toDate,
-  } = req.query;
+  const { page = '1', limit = '10', search = '', customerId, status, priority, fromDate, toDate } = req.query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
@@ -544,7 +546,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
   const rawMatResults: { styleId: string; clonedCount: number; skipped: boolean; reason?: string }[] = [];
 
   if (status === 'IN_PRODUCTION' && previousStatus !== 'IN_PRODUCTION') {
-    logInfo(`[updateOrderStatus] Order ${id} confirmed (IN_PRODUCTION) - triggering RAW_MATERIAL_CALCULATION CAD creation`);
+    logInfo(
+      `[updateOrderStatus] Order ${id} confirmed (IN_PRODUCTION) - triggering RAW_MATERIAL_CALCULATION CAD creation`
+    );
 
     for (const orderItem of order.order_items) {
       try {
@@ -636,17 +640,18 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
               totalCostPerMeter: costingCad.totalCostPerMeter,
               costInputMode: costingCad.costInputMode,
               // Clone size breakdowns if they exist
-              sizeBreakdowns: costingCad.sizeBreakdowns.length > 0
-                ? {
-                    create: costingCad.sizeBreakdowns.map((sb: any) => ({
-                      sizeName: sb.sizeName,
-                      sizeId: sb.sizeId,
-                      quantity: sb.quantity,
-                      cadMeters: sb.cadMeters,
-                      cadYards: sb.cadYards,
-                    })),
-                  }
-                : undefined,
+              sizeBreakdowns:
+                costingCad.sizeBreakdowns.length > 0
+                  ? {
+                      create: costingCad.sizeBreakdowns.map((sb: any) => ({
+                        sizeName: sb.sizeName,
+                        sizeId: sb.sizeId,
+                        quantity: sb.quantity,
+                        cadMeters: sb.cadMeters,
+                        cadYards: sb.cadYards,
+                      })),
+                    }
+                  : undefined,
             } as any,
           });
           clonedCount++;
@@ -658,10 +663,15 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
           skipped: false,
         });
 
-        logInfo(`[updateOrderStatus] Cloned ${clonedCount} COSTING CAD rows to RAW_MATERIAL_CALCULATION for style ${orderItem.styleId}`);
+        logInfo(
+          `[updateOrderStatus] Cloned ${clonedCount} COSTING CAD rows to RAW_MATERIAL_CALCULATION for style ${orderItem.styleId}`
+        );
       } catch (rawMatError) {
         // Per-item error handling - don't fail the whole status update
-        logWarn(`[updateOrderStatus] Failed to create RAW_MATERIAL_CALCULATION CAD for style ${orderItem.styleId}:`, rawMatError);
+        logWarn(
+          `[updateOrderStatus] Failed to create RAW_MATERIAL_CALCULATION CAD for style ${orderItem.styleId}:`,
+          rawMatError
+        );
         rawMatResults.push({
           styleId: orderItem.styleId,
           clonedCount: 0,
@@ -675,10 +685,13 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
   res.json({
     data: order,
     message: 'Order status updated successfully',
-    rawMaterialCalculation: rawMatResults.length > 0 ? {
-      triggered: true,
-      results: rawMatResults,
-    } : undefined,
+    rawMaterialCalculation:
+      rawMatResults.length > 0
+        ? {
+            triggered: true,
+            results: rawMatResults,
+          }
+        : undefined,
   });
 };
 
@@ -688,14 +701,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
  */
 export const updateOrder = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const {
-    orderDate,
-    expectedDeliveryDate,
-    priority,
-    paymentTerms,
-    shippingAddress,
-    remarks,
-  } = req.body;
+  const { orderDate, expectedDeliveryDate, priority, paymentTerms, shippingAddress, remarks } = req.body;
 
   const order = await prisma.orders.update({
     where: { id },
@@ -819,17 +825,21 @@ export const cancelOrderWithOptions = async (req: Request, res: Response): Promi
   });
 
   // Build response with lace handling summary
-  const laceHandlingSummary = laceAllocations.length > 0 ? {
-    allocationsProcessed: laceAllocations.length,
-    handlingMethod: laceHandling || 'RELEASE_TO_STOCK',
-    details: laceAllocations.map(alloc => ({
-      laceName: alloc.stock.laceMaster?.laceName || 'Unknown',
-      laceCode: alloc.stock.laceMaster?.laceCode || '',
-      quantityAllocated: Number(alloc.quantityAllocated),
-      quantityConsumed: Number(alloc.quantityConsumed),
-      quantityReleased: Number(alloc.quantityAllocated) - Number(alloc.quantityConsumed) - Number(alloc.quantityReturned || 0),
-    })),
-  } : null;
+  const laceHandlingSummary =
+    laceAllocations.length > 0
+      ? {
+          allocationsProcessed: laceAllocations.length,
+          handlingMethod: laceHandling || 'RELEASE_TO_STOCK',
+          details: laceAllocations.map((alloc) => ({
+            laceName: alloc.stock.laceMaster?.laceName || 'Unknown',
+            laceCode: alloc.stock.laceMaster?.laceCode || '',
+            quantityAllocated: Number(alloc.quantityAllocated),
+            quantityConsumed: Number(alloc.quantityConsumed),
+            quantityReleased:
+              Number(alloc.quantityAllocated) - Number(alloc.quantityConsumed) - Number(alloc.quantityReturned || 0),
+          })),
+        }
+      : null;
 
   res.json({
     message: 'Order cancelled successfully',
@@ -881,12 +891,12 @@ export const getOrderLaceAllocations = async (req: Request, res: Response): Prom
   // Calculate summary
   const summary = {
     totalAllocations: allocations.length,
-    activeAllocations: allocations.filter(a => ['RESERVED', 'IN_USE'].includes(a.allocationStatus)).length,
+    activeAllocations: allocations.filter((a) => ['RESERVED', 'IN_USE'].includes(a.allocationStatus)).length,
     totalAllocatedQuantity: allocations.reduce((sum, a) => sum + Number(a.quantityAllocated), 0),
     totalConsumedQuantity: allocations.reduce((sum, a) => sum + Number(a.quantityConsumed), 0),
     totalReturnedQuantity: allocations.reduce((sum, a) => sum + Number(a.quantityReturned || 0), 0),
     releasableQuantity: allocations
-      .filter(a => ['RESERVED', 'IN_USE'].includes(a.allocationStatus))
+      .filter((a) => ['RESERVED', 'IN_USE'].includes(a.allocationStatus))
       .reduce((sum, a) => {
         return sum + (Number(a.quantityAllocated) - Number(a.quantityConsumed) - Number(a.quantityReturned || 0));
       }, 0),
@@ -948,7 +958,7 @@ export const getOrderStatisticsByCustomer = async (req: Request, res: Response):
   });
 
   // Get customer details for each statistic
-  const customerIds = statistics.map(s => s.customerId);
+  const customerIds = statistics.map((s) => s.customerId);
   const customers = await prisma.customers.findMany({
     where: {
       id: { in: customerIds },
@@ -960,10 +970,10 @@ export const getOrderStatisticsByCustomer = async (req: Request, res: Response):
     },
   });
 
-  const customerMap = new Map(customers.map(c => [c.id, c]));
+  const customerMap = new Map(customers.map((c) => [c.id, c]));
 
   // Combine statistics with customer info
-  const result = statistics.map(stat => ({
+  const result = statistics.map((stat) => ({
     customerId: stat.customerId,
     customerCode: customerMap.get(stat.customerId)?.code || '',
     customerName: customerMap.get(stat.customerId)?.name || '',

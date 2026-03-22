@@ -112,7 +112,10 @@ function generateAutoFabricCode(fabricName: string | null, genericGreigeName: st
   const timestamp = Date.now();
   const random = Math.floor(Math.random() * 1000);
   const baseName = fabricName || genericGreigeName || 'UNKNOWN';
-  const cleanName = baseName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
+  const cleanName = baseName
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .substring(0, 10)
+    .toUpperCase();
   return `AUTO-${cleanName}-${timestamp}-${random}`;
 }
 

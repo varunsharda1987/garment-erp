@@ -123,10 +123,7 @@ export class ComponentGroupService {
   /**
    * Update component group
    */
-  async updateComponentGroup(
-    id: string,
-    data: UpdateComponentGroupInput
-  ): Promise<ComponentGroupResponse> {
+  async updateComponentGroup(id: string, data: UpdateComponentGroupInput): Promise<ComponentGroupResponse> {
     // Check if component group exists
     const existing = await prisma.component_group_master.findUnique({
       where: { id },

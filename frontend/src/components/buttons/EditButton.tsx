@@ -45,24 +45,14 @@ export function EditButton({
 
   if (iconOnly) {
     return (
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleClick}
-        {...props}
-      >
+      <Button variant="ghost" size="icon" onClick={handleClick} {...props}>
         <Pencil className="h-4 w-4" />
       </Button>
     );
   }
 
   return (
-    <Button
-      variant={primary ? 'default' : 'outline'}
-      size={size}
-      onClick={handleClick}
-      {...props}
-    >
+    <Button variant={primary ? 'default' : 'outline'} size={size} onClick={handleClick} {...props}>
       {showIcon && <Pencil className="h-4 w-4 mr-2" />}
       {children}
     </Button>

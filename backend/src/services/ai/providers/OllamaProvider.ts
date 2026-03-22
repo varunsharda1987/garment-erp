@@ -47,9 +47,7 @@ export class OllamaProvider implements IAIProvider {
 
   async generateText(request: AITextRequest): Promise<AITextResponse> {
     try {
-      const fullPrompt = request.systemPrompt
-        ? `${request.systemPrompt}\n\n${request.prompt}`
-        : request.prompt;
+      const fullPrompt = request.systemPrompt ? `${request.systemPrompt}\n\n${request.prompt}` : request.prompt;
 
       const response = await fetch(`${this.baseUrl}/api/generate`, {
         method: 'POST',
@@ -69,7 +67,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as OllamaGenerateResponse;
+      const data = (await response.json()) as OllamaGenerateResponse;
 
       return {
         text: data.response,
@@ -103,7 +101,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as OllamaEmbeddingResponse;
+      const data = (await response.json()) as OllamaEmbeddingResponse;
 
       return {
         embedding: data.embedding,
@@ -148,7 +146,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as OllamaGenerateResponse;
+      const data = (await response.json()) as OllamaGenerateResponse;
 
       return {
         text: data.response,
@@ -162,13 +160,10 @@ export class OllamaProvider implements IAIProvider {
     }
   }
 
-  async extractStructuredData(
-    request: AIStructuredExtractionRequest
-  ): Promise<AIStructuredExtractionResponse> {
+  async extractStructuredData(request: AIStructuredExtractionRequest): Promise<AIStructuredExtractionResponse> {
     try {
       const prompt =
-        request.prompt ||
-        `Extract structured data according to this schema: ${JSON.stringify(request.schema)}`;
+        request.prompt || `Extract structured data according to this schema: ${JSON.stringify(request.schema)}`;
       const fullPrompt = `${prompt}\n\nText to extract from:\n${request.text}\n\nRespond with ONLY valid JSON matching the schema, no additional text.`;
 
       const response = await fetch(`${this.baseUrl}/api/generate`, {
@@ -188,7 +183,7 @@ export class OllamaProvider implements IAIProvider {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json() as OllamaGenerateResponse;
+      const data = (await response.json()) as OllamaGenerateResponse;
       const responseText = data.response;
 
       // Clean up response (remove markdown code blocks if present)
@@ -205,15 +200,15 @@ export class OllamaProvider implements IAIProvider {
         confidence: 0.85, // Slightly lower confidence for local models
       };
     } catch (error: unknown) {
-      throw new Error(`Ollama extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Ollama extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
   async *generateTextStream(request: AITextRequest): AsyncGenerator<string> {
     try {
-      const fullPrompt = request.systemPrompt
-        ? `${request.systemPrompt}\n\n${request.prompt}`
-        : request.prompt;
+      const fullPrompt = request.systemPrompt ? `${request.systemPrompt}\n\n${request.prompt}` : request.prompt;
 
       const response = await fetch(`${this.baseUrl}/api/generate`, {
         method: 'POST',

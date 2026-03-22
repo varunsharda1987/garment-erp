@@ -54,11 +54,7 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      processors = processors.filter(
-        (p) =>
-          p.name.toLowerCase().includes(term) ||
-          p.code.toLowerCase().includes(term)
-      );
+      processors = processors.filter((p) => p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term));
     }
 
     // Filter by status
@@ -76,8 +72,7 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
           return statusOrder[a.status] - statusOrder[b.status];
         }
         case 'coverage': {
-          const getStats = (p: ProcessorSummary) =>
-            activeTab === 'DYEING' ? p.dyeing : p.printing;
+          const getStats = (p: ProcessorSummary) => (activeTab === 'DYEING' ? p.dyeing : p.printing);
           return getStats(b).coverage - getStats(a).coverage;
         }
         default:
@@ -134,10 +129,7 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
       <div className="bg-red-50 text-red-700 p-4 rounded-lg">
         <p className="font-medium">Failed to load summary</p>
         <p className="text-sm mt-1">{error}</p>
-        <button
-          onClick={loadSummary}
-          className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-        >
+        <button onClick={loadSummary} className="mt-2 text-sm text-red-600 hover:text-red-800 underline">
           Try again
         </button>
       </div>
@@ -160,27 +152,19 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-          <div className="text-3xl font-bold text-blue-600">
-            {summary.totals?.totalProcessors || 0}
-          </div>
+          <div className="text-3xl font-bold text-blue-600">{summary.totals?.totalProcessors || 0}</div>
           <div className="text-sm text-gray-600">Total Processors</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
-          <div className="text-3xl font-bold text-yellow-600">
-            {summary.totals?.configuredProcessors || 0}
-          </div>
+          <div className="text-3xl font-bold text-yellow-600">{summary.totals?.configuredProcessors || 0}</div>
           <div className="text-sm text-gray-600">Configured</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
-          <div className="text-3xl font-bold text-green-600">
-            {summary.totals?.completeProcessors || 0}
-          </div>
+          <div className="text-3xl font-bold text-green-600">{summary.totals?.completeProcessors || 0}</div>
           <div className="text-sm text-gray-600">Complete</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-          <div className="text-3xl font-bold text-purple-600">
-            {summary.totals?.totalGreigeCount || 0}
-          </div>
+          <div className="text-3xl font-bold text-purple-600">{summary.totals?.totalGreigeCount || 0}</div>
           <div className="text-sm text-gray-600">Total Greiges</div>
         </div>
       </div>
@@ -255,14 +239,11 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
         {/* Processor Cards Grid */}
         <div className="p-4">
           {filteredProcessors.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No processors found matching your criteria
-            </div>
+            <div className="text-center py-8 text-gray-500">No processors found matching your criteria</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredProcessors.map((processor) => {
-                const stats: ProcessorTypeStats =
-                  activeTab === 'DYEING' ? processor.dyeing : processor.printing;
+                const stats: ProcessorTypeStats = activeTab === 'DYEING' ? processor.dyeing : processor.printing;
                 const statusBadge = getStatusBadge(processor.status);
 
                 return (
@@ -290,23 +271,16 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
                       <>
                         {/* Slab Ranges */}
                         <div className="mb-3">
-                          <div className="text-xs text-gray-500 mb-1">
-                            Slabs: {stats.slabCount}
-                          </div>
+                          <div className="text-xs text-gray-500 mb-1">Slabs: {stats.slabCount}</div>
                           {stats.slabRanges && stats.slabRanges.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                               {stats.slabRanges.slice(0, 3).map((range, idx) => (
-                                <span
-                                  key={idx}
-                                  className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded"
-                                >
+                                <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
                                   {range}
                                 </span>
                               ))}
                               {stats.slabRanges.length > 3 && (
-                                <span className="text-xs text-gray-500">
-                                  +{stats.slabRanges.length - 3} more
-                                </span>
+                                <span className="text-xs text-gray-500">+{stats.slabRanges.length - 3} more</span>
                               )}
                             </div>
                           )}
@@ -341,15 +315,16 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
                         {/* Rate Range */}
                         {stats.minRate !== undefined && stats.maxRate !== undefined && (
                           <div className="mt-2 text-xs text-gray-600">
-                            Rate range: <span className="font-medium">Rs.{stats.minRate}-{stats.maxRate}/m</span>
+                            Rate range:{' '}
+                            <span className="font-medium">
+                              Rs.{stats.minRate}-{stats.maxRate}/m
+                            </span>
                           </div>
                         )}
                       </>
                     ) : (
                       <div className="text-center py-4">
-                        <p className="text-sm text-gray-500 mb-2">
-                          No {activeTab.toLowerCase()} rates configured
-                        </p>
+                        <p className="text-sm text-gray-500 mb-2">No {activeTab.toLowerCase()} rates configured</p>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

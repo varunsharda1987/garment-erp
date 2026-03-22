@@ -61,11 +61,7 @@ class LocationServiceClass extends BaseService<any, any, any> {
    */
   async getAllStates(options: StateFilterOptions = {}): Promise<StateWithCityCount[]> {
     try {
-      const {
-        stateType,
-        isActive = true,
-        includeCityCount = false,
-      } = options;
+      const { stateType, isActive = true, includeCityCount = false } = options;
 
       const states = await prisma.indian_states.findMany({
         where: {
@@ -138,11 +134,7 @@ class LocationServiceClass extends BaseService<any, any, any> {
    */
   async getCitiesByState(stateId: string, options: CityFilterOptions = {}): Promise<CityWithState[]> {
     try {
-      const {
-        tier,
-        isActive = true,
-        includeState = false,
-      } = options;
+      const { tier, isActive = true, includeState = false } = options;
 
       // Verify state exists
       const state = await this.getStateById(stateId);
@@ -208,10 +200,7 @@ class LocationServiceClass extends BaseService<any, any, any> {
             },
           },
         },
-        orderBy: [
-          { tier: 'asc' },
-          { cityName: 'asc' },
-        ],
+        orderBy: [{ tier: 'asc' }, { cityName: 'asc' }],
         take: 20, // Limit autocomplete results
       });
 
@@ -258,12 +247,7 @@ class LocationServiceClass extends BaseService<any, any, any> {
    */
   async getAllCities(options: CityFilterOptions = {}): Promise<CityWithState[]> {
     try {
-      const {
-        stateId,
-        tier,
-        isActive = true,
-        includeState = true,
-      } = options;
+      const { stateId, tier, isActive = true, includeState = true } = options;
 
       const cities = await prisma.indian_cities.findMany({
         where: {
@@ -282,10 +266,7 @@ class LocationServiceClass extends BaseService<any, any, any> {
             },
           }),
         },
-        orderBy: [
-          { tier: 'asc' },
-          { sortOrder: 'asc' },
-        ],
+        orderBy: [{ tier: 'asc' }, { sortOrder: 'asc' }],
       });
 
       logDebug(`Retrieved ${cities.length} cities`, options);
@@ -306,8 +287,8 @@ class LocationServiceClass extends BaseService<any, any, any> {
     try {
       const allStates = await this.getAllStates();
 
-      const states = allStates.filter(s => s.stateType === 'STATE');
-      const unionTerritories = allStates.filter(s => s.stateType === 'UNION_TERRITORY');
+      const states = allStates.filter((s) => s.stateType === 'STATE');
+      const unionTerritories = allStates.filter((s) => s.stateType === 'UNION_TERRITORY');
 
       logDebug(`Grouped states: ${states.length} states, ${unionTerritories.length} UTs`);
 

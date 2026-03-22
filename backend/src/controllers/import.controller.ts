@@ -20,32 +20,32 @@ function getStringValue(value: unknown): string {
 const SUPPLIER_CATEGORY_MAP: Record<string, string> = {
   // Human readable names
   'fabric supplier': 'FABRIC_SUPPLIER',
-  'fabric': 'FABRIC_SUPPLIER',
+  fabric: 'FABRIC_SUPPLIER',
   'trims supplier': 'TRIMS_SUPPLIER',
-  'trims': 'TRIMS_SUPPLIER',
+  trims: 'TRIMS_SUPPLIER',
   'trims & accessories': 'TRIMS_SUPPLIER',
   'trims accessories': 'TRIMS_SUPPLIER',
   'thread supplier': 'THREAD_SUPPLIER',
-  'thread': 'THREAD_SUPPLIER',
+  thread: 'THREAD_SUPPLIER',
   'packaging supplier': 'PACKAGING_SUPPLIER',
-  'packaging': 'PACKAGING_SUPPLIER',
+  packaging: 'PACKAGING_SUPPLIER',
   'lace supplier': 'LACE_SUPPLIER',
-  'lace': 'LACE_SUPPLIER',
+  lace: 'LACE_SUPPLIER',
   'dyeing & printing': 'DYEING_PRINTING',
   'dyeing printing': 'DYEING_PRINTING',
-  'dyeing': 'DYEING_PRINTING',
-  'printing': 'DYEING_PRINTING',
-  'embroidery': 'EMBROIDERY',
+  dyeing: 'DYEING_PRINTING',
+  printing: 'DYEING_PRINTING',
+  embroidery: 'EMBROIDERY',
   'hand work': 'HAND_WORK',
-  'handwork': 'HAND_WORK',
-  'smocking': 'SMOCKING',
+  handwork: 'HAND_WORK',
+  smocking: 'SMOCKING',
   'cmt unit': 'CMT_UNIT',
-  'cmt': 'CMT_UNIT',
+  cmt: 'CMT_UNIT',
   'finishing contractor': 'FINISHING_CONTRACTOR',
-  'finishing': 'FINISHING_CONTRACTOR',
+  finishing: 'FINISHING_CONTRACTOR',
   'stitching contractor': 'STITCHING_CONTRACTOR',
-  'stitching': 'STITCHING_CONTRACTOR',
-  'washing': 'WASHING',
+  stitching: 'STITCHING_CONTRACTOR',
+  washing: 'WASHING',
   // Dori/Piping variations (all normalized to 'dori piping' with space)
   'dori piping contractor': 'DORI_PIPING_CONTRACTOR',
   'dori piping': 'DORI_PIPING_CONTRACTOR',
@@ -57,21 +57,21 @@ const SUPPLIER_CATEGORY_MAP: Record<string, string> = {
   'machine parts supplier': 'MACHINE_PARTS_SUPPLIER',
   'machine parts': 'MACHINE_PARTS_SUPPLIER',
   'other services': 'OTHER_SERVICES',
-  'other': 'OTHER_SERVICES',
+  other: 'OTHER_SERVICES',
   // Also accept enum values directly (case-insensitive)
-  'fabric_supplier': 'FABRIC_SUPPLIER',
-  'trims_supplier': 'TRIMS_SUPPLIER',
-  'thread_supplier': 'THREAD_SUPPLIER',
-  'packaging_supplier': 'PACKAGING_SUPPLIER',
-  'lace_supplier': 'LACE_SUPPLIER',
-  'dyeing_printing': 'DYEING_PRINTING',
-  'hand_work': 'HAND_WORK',
-  'cmt_unit': 'CMT_UNIT',
-  'finishing_contractor': 'FINISHING_CONTRACTOR',
-  'stitching_contractor': 'STITCHING_CONTRACTOR',
-  'dori_piping_contractor': 'DORI_PIPING_CONTRACTOR',
-  'machine_parts_supplier': 'MACHINE_PARTS_SUPPLIER',
-  'other_services': 'OTHER_SERVICES',
+  fabric_supplier: 'FABRIC_SUPPLIER',
+  trims_supplier: 'TRIMS_SUPPLIER',
+  thread_supplier: 'THREAD_SUPPLIER',
+  packaging_supplier: 'PACKAGING_SUPPLIER',
+  lace_supplier: 'LACE_SUPPLIER',
+  dyeing_printing: 'DYEING_PRINTING',
+  hand_work: 'HAND_WORK',
+  cmt_unit: 'CMT_UNIT',
+  finishing_contractor: 'FINISHING_CONTRACTOR',
+  stitching_contractor: 'STITCHING_CONTRACTOR',
+  dori_piping_contractor: 'DORI_PIPING_CONTRACTOR',
+  machine_parts_supplier: 'MACHINE_PARTS_SUPPLIER',
+  other_services: 'OTHER_SERVICES',
 };
 
 /**
@@ -79,7 +79,11 @@ const SUPPLIER_CATEGORY_MAP: Record<string, string> = {
  */
 function mapSupplierCategory(value: string): string {
   // Normalize: lowercase, trim, and collapse multiple spaces/slashes
-  const normalized = value.toLowerCase().trim().replace(/[\s\/]+/g, ' ').trim();
+  const normalized = value
+    .toLowerCase()
+    .trim()
+    .replace(/[\s\/]+/g, ' ')
+    .trim();
 
   // Check the map first
   if (SUPPLIER_CATEGORY_MAP[normalized]) {
@@ -93,7 +97,10 @@ function mapSupplierCategory(value: string): string {
   }
 
   // Fallback: convert to enum format (uppercase with underscores)
-  return value.toUpperCase().replace(/[\s\/\-&]+/g, '_').replace(/_+/g, '_');
+  return value
+    .toUpperCase()
+    .replace(/[\s\/\-&]+/g, '_')
+    .replace(/_+/g, '_');
 }
 
 /**
@@ -101,8 +108,11 @@ function mapSupplierCategory(value: string): string {
  */
 function mapSupplierCategories(value: string): string[] {
   // Split by comma and map each category
-  const categories = value.split(',').map(cat => cat.trim()).filter(cat => cat.length > 0);
-  return categories.map(cat => mapSupplierCategory(cat));
+  const categories = value
+    .split(',')
+    .map((cat) => cat.trim())
+    .filter((cat) => cat.length > 0);
+  return categories.map((cat) => mapSupplierCategory(cat));
 }
 
 /**
@@ -124,19 +134,18 @@ export const previewImport = async (req: Request, res: Response) => {
 
     const result = await importService.previewImport({
       columns,
-      file: file as Express.Multer.File
+      file: file as Express.Multer.File,
     });
 
     res.json({
       success: true,
-      preview: result
+      preview: result,
     });
-
   } catch (error: unknown) {
     logError('Import preview error:', error);
     res.status(500).json({
       error: 'Import preview failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -184,8 +193,8 @@ export const executeImport = async (req: Request, res: Response) => {
         summary: {
           totalRows: result.totalRows,
           validRows: result.validRows,
-          invalidRows: result.invalidRows
-        }
+          invalidRows: result.invalidRows,
+        },
       });
     }
 
@@ -199,15 +208,14 @@ export const executeImport = async (req: Request, res: Response) => {
         totalRows: result.totalRows,
         validRows: result.validRows,
         invalidRows: result.invalidRows,
-        importedRows: importResult.count
-      }
+        importedRows: importResult.count,
+      },
     });
-
   } catch (error: unknown) {
     logError('Import execution error:', error);
     res.status(500).json({
       error: 'Import execution failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -247,12 +255,11 @@ export const downloadTemplate = async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache');
 
     res.send(result);
-
   } catch (error: unknown) {
     logError('Template download error:', error);
     res.status(500).json({
       error: 'Template download failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -274,7 +281,7 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'shippingAddress', displayName: 'Shipping Address', type: 'text' },
       { fieldName: 'gstNumber', displayName: 'GST Number', type: 'text' },
       { fieldName: 'creditLimit', displayName: 'Credit Limit', type: 'number' },
-      { fieldName: 'creditDays', displayName: 'Credit Days', type: 'number' }
+      { fieldName: 'creditDays', displayName: 'Credit Days', type: 'number' },
     ],
     suppliers: [
       { fieldName: 'code', displayName: 'Supplier Code (Auto-generated if empty)', required: false, type: 'text' },
@@ -289,7 +296,7 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'rating', displayName: 'Rating', type: 'number' },
       { fieldName: 'bankName', displayName: 'Bank Name', type: 'text' },
       { fieldName: 'bankAccountNumber', displayName: 'Bank Account Number', type: 'text' },
-      { fieldName: 'ifscCode', displayName: 'IFSC Code', type: 'text' }
+      { fieldName: 'ifscCode', displayName: 'IFSC Code', type: 'text' },
     ],
     materials: [
       { fieldName: 'code', displayName: 'Material Code', required: true, type: 'text' },
@@ -298,11 +305,23 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'description', displayName: 'Description', type: 'text' },
       { fieldName: 'unit', displayName: 'Unit', required: true, type: 'text' },
       { fieldName: 'costPerUnit', displayName: 'Cost Per Unit', type: 'number' },
-      { fieldName: 'reorderLevel', displayName: 'Reorder Level', type: 'number' }
+      { fieldName: 'reorderLevel', displayName: 'Reorder Level', type: 'number' },
     ],
     lace: [
-      { fieldName: 'laceCode', displayName: 'Lace Code (Auto-generated if empty)', required: false, type: 'text', autoGenerated: true },
-      { fieldName: 'laceName', displayName: 'Lace Name (Auto-generated from attributes if empty)', required: false, type: 'text', autoGenerated: true },
+      {
+        fieldName: 'laceCode',
+        displayName: 'Lace Code (Auto-generated if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
+      {
+        fieldName: 'laceName',
+        displayName: 'Lace Name (Auto-generated from attributes if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
       { fieldName: 'supplierCode', displayName: 'Supplier Code', type: 'text' },
       { fieldName: 'buyerCode', displayName: 'Buyer Code', type: 'text' },
       { fieldName: 'width', displayName: 'Width (cm)', type: 'number' },
@@ -311,11 +330,23 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'composition', displayName: 'Composition', type: 'text' },
       { fieldName: 'pricePerMeter', displayName: 'Price Per Meter', type: 'number' },
       { fieldName: 'supplierId', displayName: 'Supplier ID (Optional)', type: 'text' },
-      { fieldName: 'description', displayName: 'Description', type: 'text' }
+      { fieldName: 'description', displayName: 'Description', type: 'text' },
     ],
     buttons: [
-      { fieldName: 'buttonCode', displayName: 'Button Code (Auto-generated if empty)', required: false, type: 'text', autoGenerated: true },
-      { fieldName: 'buttonName', displayName: 'Button Name (Auto-generated from attributes if empty)', required: false, type: 'text', autoGenerated: true },
+      {
+        fieldName: 'buttonCode',
+        displayName: 'Button Code (Auto-generated if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
+      {
+        fieldName: 'buttonName',
+        displayName: 'Button Name (Auto-generated from attributes if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
       { fieldName: 'supplierCode', displayName: 'Supplier Code', type: 'text' },
       { fieldName: 'buyerCode', displayName: 'Buyer Code', type: 'text' },
       { fieldName: 'size', displayName: 'Size', type: 'text' },
@@ -326,11 +357,23 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'pricePerPiece', displayName: 'Price Per Piece', type: 'number' },
       { fieldName: 'pricePerGross', displayName: 'Price Per Gross', type: 'number' },
       { fieldName: 'supplierId', displayName: 'Supplier ID (Optional)', type: 'text' },
-      { fieldName: 'description', displayName: 'Description', type: 'text' }
+      { fieldName: 'description', displayName: 'Description', type: 'text' },
     ],
     threads: [
-      { fieldName: 'threadCode', displayName: 'Thread Code (Auto-generated if empty)', required: false, type: 'text', autoGenerated: true },
-      { fieldName: 'threadName', displayName: 'Thread Name (Auto-generated from attributes if empty)', required: false, type: 'text', autoGenerated: true },
+      {
+        fieldName: 'threadCode',
+        displayName: 'Thread Code (Auto-generated if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
+      {
+        fieldName: 'threadName',
+        displayName: 'Thread Name (Auto-generated from attributes if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
       { fieldName: 'supplierCode', displayName: 'Supplier Code', type: 'text' },
       { fieldName: 'buyerCode', displayName: 'Buyer Code', type: 'text' },
       { fieldName: 'threadCount', displayName: 'Thread Count', type: 'text' },
@@ -341,11 +384,23 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'coneSize', displayName: 'Cone Size', type: 'text' },
       { fieldName: 'pricePerCone', displayName: 'Price Per Cone', type: 'number' },
       { fieldName: 'supplierId', displayName: 'Supplier ID (Optional)', type: 'text' },
-      { fieldName: 'description', displayName: 'Description', type: 'text' }
+      { fieldName: 'description', displayName: 'Description', type: 'text' },
     ],
     zippers: [
-      { fieldName: 'zipperCode', displayName: 'Zipper Code (Auto-generated if empty)', required: false, type: 'text', autoGenerated: true },
-      { fieldName: 'zipperName', displayName: 'Zipper Name (Auto-generated from attributes if empty)', required: false, type: 'text', autoGenerated: true },
+      {
+        fieldName: 'zipperCode',
+        displayName: 'Zipper Code (Auto-generated if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
+      {
+        fieldName: 'zipperName',
+        displayName: 'Zipper Name (Auto-generated from attributes if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
       { fieldName: 'supplierCode', displayName: 'Supplier Code', type: 'text' },
       { fieldName: 'buyerCode', displayName: 'Buyer Code', type: 'text' },
       { fieldName: 'length', displayName: 'Length (inches)', type: 'number' },
@@ -356,11 +411,23 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'tapeWidth', displayName: 'Tape Width (mm)', type: 'number' },
       { fieldName: 'pricePerPiece', displayName: 'Price Per Piece', type: 'number' },
       { fieldName: 'supplierId', displayName: 'Supplier ID (Optional)', type: 'text' },
-      { fieldName: 'description', displayName: 'Description', type: 'text' }
+      { fieldName: 'description', displayName: 'Description', type: 'text' },
     ],
     elastic: [
-      { fieldName: 'elasticCode', displayName: 'Elastic Code (Auto-generated if empty)', required: false, type: 'text', autoGenerated: true },
-      { fieldName: 'elasticName', displayName: 'Elastic Name (Auto-generated from attributes if empty)', required: false, type: 'text', autoGenerated: true },
+      {
+        fieldName: 'elasticCode',
+        displayName: 'Elastic Code (Auto-generated if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
+      {
+        fieldName: 'elasticName',
+        displayName: 'Elastic Name (Auto-generated from attributes if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
       { fieldName: 'supplierCode', displayName: 'Supplier Code', type: 'text' },
       { fieldName: 'buyerCode', displayName: 'Buyer Code', type: 'text' },
       { fieldName: 'width', displayName: 'Width (mm)', type: 'number' },
@@ -370,11 +437,23 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'elasticType', displayName: 'Elastic Type (Woven/Knitted/Braided)', type: 'text' },
       { fieldName: 'pricePerMeter', displayName: 'Price Per Meter', type: 'number' },
       { fieldName: 'supplierId', displayName: 'Supplier ID (Optional)', type: 'text' },
-      { fieldName: 'description', displayName: 'Description', type: 'text' }
+      { fieldName: 'description', displayName: 'Description', type: 'text' },
     ],
     labels: [
-      { fieldName: 'labelCode', displayName: 'Label Code (Auto-generated if empty)', required: false, type: 'text', autoGenerated: true },
-      { fieldName: 'labelName', displayName: 'Label Name (Auto-generated from attributes if empty)', required: false, type: 'text', autoGenerated: true },
+      {
+        fieldName: 'labelCode',
+        displayName: 'Label Code (Auto-generated if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
+      {
+        fieldName: 'labelName',
+        displayName: 'Label Name (Auto-generated from attributes if empty)',
+        required: false,
+        type: 'text',
+        autoGenerated: true,
+      },
       { fieldName: 'supplierCode', displayName: 'Supplier Code', type: 'text' },
       { fieldName: 'buyerCode', displayName: 'Buyer Code', type: 'text' },
       { fieldName: 'labelType', displayName: 'Label Type (Woven/Printed/Care/Size/Hangtag)', type: 'text' },
@@ -386,8 +465,8 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
       { fieldName: 'pricePerPiece', displayName: 'Price Per Piece', type: 'number' },
       { fieldName: 'pricePerHundred', displayName: 'Price Per Hundred', type: 'number' },
       { fieldName: 'supplierId', displayName: 'Supplier ID (Optional)', type: 'text' },
-      { fieldName: 'description', displayName: 'Description', type: 'text' }
-    ]
+      { fieldName: 'description', displayName: 'Description', type: 'text' },
+    ],
     // NOTE: Greige, Fabric, and Style have dedicated bulk import endpoints:
     // - Greige: Use /fabric-greige/bulk-import pages (GreigeBulkImport.tsx)
     // - Fabric: Use /fabric-greige/bulk-import pages (FabricBulkImport.tsx)
@@ -406,7 +485,12 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
  * Helper: Generate auto-incremented code
  * Note: This function is currently unused but kept for potential future use
  */
-async function generateNextCode(tx: Prisma.TransactionClient, table: string, codeField: string, prefix: string): Promise<string> {
+async function generateNextCode(
+  tx: Prisma.TransactionClient,
+  table: string,
+  codeField: string,
+  prefix: string
+): Promise<string> {
   // Use raw query to dynamically query tables
   const query = `SELECT "${codeField}" FROM "${table}" WHERE "${codeField}" LIKE '${prefix}%' ORDER BY "${codeField}" DESC LIMIT 1`;
   const result = await tx.$queryRawUnsafe<Array<Record<string, string>>>(query);
@@ -442,11 +526,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             const latestCustomer = await tx.customers.findFirst({
               where: {
                 code: {
-                  startsWith: 'CUST-'
-                }
+                  startsWith: 'CUST-',
+                },
               },
               orderBy: { code: 'desc' },
-              select: { code: true }
+              select: { code: true },
             });
 
             let nextNumber = 1;
@@ -476,8 +560,8 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               businessType: getStringValue(row.businessType) || 'B2B',
               market: getStringValue(row.market) || 'DOMESTIC',
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.customersCreateInput
+              isActive: true,
+            } as unknown as Prisma.customersCreateInput,
           });
           count++;
         }
@@ -491,7 +575,7 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             // Get latest supplier to generate next code
             const latestSupplier = await tx.suppliers.findFirst({
               orderBy: { createdAt: 'desc' },
-              select: { code: true }
+              select: { code: true },
             });
 
             let nextNumber = 1;
@@ -522,8 +606,8 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               bankAccountNumber: getStringValue(row.bankAccountNumber) || null,
               ifscCode: getStringValue(row.ifscCode)?.toUpperCase() || null,
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.suppliersCreateInput
+              isActive: true,
+            } as unknown as Prisma.suppliersCreateInput,
           });
           count++;
         }
@@ -541,8 +625,8 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               name: getStringValue(row.name),
               unit: getStringValue(row.unit),
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.materialsCreateInput
+              isActive: true,
+            } as unknown as Prisma.materialsCreateInput,
           });
           count++;
         }
@@ -558,11 +642,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             const latestLace = await tx.lace_master.findFirst({
               where: {
                 laceCode: {
-                  startsWith: 'LACE-'
-                }
+                  startsWith: 'LACE-',
+                },
               },
               orderBy: { laceCode: 'desc' },
-              select: { laceCode: true }
+              select: { laceCode: true },
             });
 
             let nextNumber = 1;
@@ -600,8 +684,8 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               laceCode,
               laceName,
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.lace_masterCreateInput
+              isActive: true,
+            } as unknown as Prisma.lace_masterCreateInput,
           });
           count++;
         }
@@ -617,11 +701,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             const latestButton = await tx.button_master.findFirst({
               where: {
                 buttonCode: {
-                  startsWith: 'BTN-'
-                }
+                  startsWith: 'BTN-',
+                },
               },
               orderBy: { buttonCode: 'desc' },
-              select: { buttonCode: true }
+              select: { buttonCode: true },
             });
 
             let nextNumber = 1;
@@ -659,8 +743,8 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               buttonCode,
               buttonName,
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.button_masterCreateInput
+              isActive: true,
+            } as unknown as Prisma.button_masterCreateInput,
           });
           count++;
         }
@@ -676,11 +760,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             const latestThread = await tx.thread_master.findFirst({
               where: {
                 threadCode: {
-                  startsWith: 'THD-'
-                }
+                  startsWith: 'THD-',
+                },
               },
               orderBy: { threadCode: 'desc' },
-              select: { threadCode: true }
+              select: { threadCode: true },
             });
 
             let nextNumber = 1;
@@ -718,8 +802,8 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               threadCode,
               threadName,
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.thread_masterCreateInput
+              isActive: true,
+            } as unknown as Prisma.thread_masterCreateInput,
           });
           count++;
         }
@@ -735,11 +819,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             const latestZipper = await tx.zipper_master.findFirst({
               where: {
                 zipperCode: {
-                  startsWith: 'ZIP-'
-                }
+                  startsWith: 'ZIP-',
+                },
               },
               orderBy: { zipperCode: 'desc' },
-              select: { zipperCode: true }
+              select: { zipperCode: true },
             });
 
             let nextNumber = 1;
@@ -777,8 +861,8 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               zipperCode,
               zipperName,
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.zipper_masterCreateInput
+              isActive: true,
+            } as unknown as Prisma.zipper_masterCreateInput,
           });
           count++;
         }
@@ -794,11 +878,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             const latestElastic = await tx.elastic_master.findFirst({
               where: {
                 elasticCode: {
-                  startsWith: 'ELS-'
-                }
+                  startsWith: 'ELS-',
+                },
               },
               orderBy: { elasticCode: 'desc' },
-              select: { elasticCode: true }
+              select: { elasticCode: true },
             });
 
             let nextNumber = 1;
@@ -836,8 +920,8 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               elasticCode,
               elasticName,
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.elastic_masterCreateInput
+              isActive: true,
+            } as unknown as Prisma.elastic_masterCreateInput,
           });
           count++;
         }
@@ -853,11 +937,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             const latestLabel = await tx.label_master.findFirst({
               where: {
                 labelCode: {
-                  startsWith: 'LBL-'
-                }
+                  startsWith: 'LBL-',
+                },
               },
               orderBy: { labelCode: 'desc' },
-              select: { labelCode: true }
+              select: { labelCode: true },
             });
 
             let nextNumber = 1;
@@ -895,19 +979,19 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               labelCode,
               labelName,
               createdById: userId,
-              isActive: true
-            } as unknown as Prisma.label_masterCreateInput
+              isActive: true,
+            } as unknown as Prisma.label_masterCreateInput,
           });
           count++;
         }
         break;
 
       default:
-        throw new Error(`Module '${moduleName}' not supported for import. Use dedicated endpoints for Greige/Fabric/Style imports.`);
+        throw new Error(
+          `Module '${moduleName}' not supported for import. Use dedicated endpoints for Greige/Fabric/Style imports.`
+        );
     }
 
     return { count };
   });
 }
-
-

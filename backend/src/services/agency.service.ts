@@ -27,7 +27,6 @@ interface AgencyQueryParams {
 }
 
 export class AgencyService {
-
   /**
    * Generate next agency code (AGY-001, AGY-002, etc.)
    */
@@ -84,14 +83,7 @@ export class AgencyService {
    * Get all agencies with pagination and filtering
    */
   async getAll(params: AgencyQueryParams = {}) {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      isActive,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-    } = params;
+    const { page = 1, limit = 20, search, isActive, sortBy = 'createdAt', sortOrder = 'desc' } = params;
 
     const skip = (page - 1) * limit;
 

@@ -10,13 +10,7 @@ import { Button } from '../../../../components/ui/button';
 import { Card } from '../../../../components/ui/card';
 import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Badge } from '../../../../components/ui/badge';
 import { GenericGreigeSelector } from '../../../../components/GenericGreigeSelector';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
@@ -27,18 +21,8 @@ interface FabricsTrimsTabProps {
   onOpenPicker: () => void;
 }
 
-export function FabricsTrimsTab({
-  onPrevious,
-  onNext,
-  onOpenPicker,
-}: FabricsTrimsTabProps) {
-  const {
-    state,
-    addFabric,
-    removeFabric,
-    updateFabric,
-    removeMaterial,
-  } = useStyleForm();
+export function FabricsTrimsTab({ onPrevious, onNext, onOpenPicker }: FabricsTrimsTabProps) {
+  const { state, addFabric, removeFabric, updateFabric, removeMaterial } = useStyleForm();
 
   const { fabrics, materialBOM } = state;
 
@@ -60,12 +44,7 @@ export function FabricsTrimsTab({
               <div className="flex items-center justify-between">
                 <span className="font-medium text-sm">Fabric {index + 1}</span>
                 {fabrics.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFabric(fabric.id)}
-                  >
+                  <Button type="button" variant="ghost" size="sm" onClick={() => removeFabric(fabric.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
@@ -175,17 +154,12 @@ export function FabricsTrimsTab({
                     <span className="font-medium text-sm">{material.materialName}</span>
                   </div>
                   <p className="text-xs text-gray-600 mt-1">
-                    Qty: {material.quantityPerGarment} {material.unit} ·
-                    Category: {material.usageCategory.replace('_', ' ')}
+                    Qty: {material.quantityPerGarment} {material.unit} · Category:{' '}
+                    {material.usageCategory.replace('_', ' ')}
                     {material.componentName && ` · Component: ${material.componentName}`}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeMaterial(index)}
-                >
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeMaterial(index)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

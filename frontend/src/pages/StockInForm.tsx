@@ -36,7 +36,18 @@ import type { Packaging } from '../types/packaging.types';
 import { logError } from '../lib/logger';
 
 // Material type for unified dropdown
-type MaterialType = 'MATERIAL' | 'GREIGE' | 'FABRIC' | 'LACE' | 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING' | 'LABEL_VARIANT';
+type MaterialType =
+  | 'MATERIAL'
+  | 'GREIGE'
+  | 'FABRIC'
+  | 'LACE'
+  | 'BUTTON'
+  | 'THREAD'
+  | 'ZIPPER'
+  | 'ELASTIC'
+  | 'LABEL'
+  | 'PACKAGING'
+  | 'LABEL_VARIANT';
 
 // Material type labels for display
 const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
@@ -50,7 +61,7 @@ const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
   LABEL: 'Labels',
   LABEL_VARIANT: 'Label Size Variants',
   PACKAGING: 'Packaging',
-  MATERIAL: 'Other Materials'
+  MATERIAL: 'Other Materials',
 };
 
 // Default units for each material type
@@ -65,7 +76,7 @@ const MATERIAL_TYPE_UNITS: Record<MaterialType, string> = {
   LABEL: 'PIECE',
   LABEL_VARIANT: 'PIECE',
   PACKAGING: 'PIECE',
-  MATERIAL: ''
+  MATERIAL: '',
 };
 
 // Extended material item with full details
@@ -75,7 +86,18 @@ interface ExtendedMaterialItem {
   name: string;
   type: MaterialType;
   unit?: string;
-  rawData?: GreigeMaster | FabricMaster | Lace | ButtonType | Thread | Zipper | Elastic | LabelType | Packaging | Material | (LabelType & { sizeVariant: unknown });
+  rawData?:
+    | GreigeMaster
+    | FabricMaster
+    | Lace
+    | ButtonType
+    | Thread
+    | Zipper
+    | Elastic
+    | LabelType
+    | Packaging
+    | Material
+    | (LabelType & { sizeVariant: unknown });
 }
 
 export default function StockInForm() {
@@ -83,7 +105,12 @@ export default function StockInForm() {
 
   // Navigation timeout ref for cleanup
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    },
+    []
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +136,7 @@ export default function StockInForm() {
     lotNumber: '',
     rollNumber: '',
     challanNumber: '',
-    supplierInvoice: ''
+    supplierInvoice: '',
   });
 
   useEffect(() => {
@@ -129,7 +156,7 @@ export default function StockInForm() {
         zipperResponse,
         elasticResponse,
         labelResponse,
-        packagingResponse
+        packagingResponse,
       ] = await Promise.all([
         warehouseService.getAll({ isActive: true }),
         getAllMaterials({ limit: 100 }),
@@ -141,7 +168,7 @@ export default function StockInForm() {
         getAllZippers({ limit: 100 }),
         getAllElastics({ limit: 100 }),
         getAllLabels({ limit: 100 }),
-        getAllPackaging({ limit: 100 })
+        getAllPackaging({ limit: 100 }),
       ]);
       setWarehouses(warehousesData);
 
@@ -150,50 +177,78 @@ export default function StockInForm() {
 
       greigeResponse.data.forEach((greige: GreigeMaster) => {
         unified.push({
-          id: greige.id, code: greige.greigeCode, name: greige.greigeName,
-          type: 'GREIGE', unit: 'METER', rawData: greige
+          id: greige.id,
+          code: greige.greigeCode,
+          name: greige.greigeName,
+          type: 'GREIGE',
+          unit: 'METER',
+          rawData: greige,
         });
       });
 
       fabricResponse.data.forEach((fabric: FabricMaster) => {
         unified.push({
-          id: fabric.id, code: fabric.fabricCode, name: fabric.fabricName,
-          type: 'FABRIC', unit: 'METER', rawData: fabric
+          id: fabric.id,
+          code: fabric.fabricCode,
+          name: fabric.fabricName,
+          type: 'FABRIC',
+          unit: 'METER',
+          rawData: fabric,
         });
       });
 
       laceResponse.data.forEach((lace: Lace) => {
         unified.push({
-          id: lace.id, code: lace.laceCode, name: lace.laceName,
-          type: 'LACE', unit: 'METER', rawData: lace
+          id: lace.id,
+          code: lace.laceCode,
+          name: lace.laceName,
+          type: 'LACE',
+          unit: 'METER',
+          rawData: lace,
         });
       });
 
       buttonResponse.data.forEach((button: ButtonType) => {
         unified.push({
-          id: button.id, code: button.buttonCode, name: button.buttonName,
-          type: 'BUTTON', unit: 'GROSS', rawData: button
+          id: button.id,
+          code: button.buttonCode,
+          name: button.buttonName,
+          type: 'BUTTON',
+          unit: 'GROSS',
+          rawData: button,
         });
       });
 
       threadResponse.data.forEach((thread: Thread) => {
         unified.push({
-          id: thread.id, code: thread.threadCode, name: thread.threadName,
-          type: 'THREAD', unit: 'CONE', rawData: thread
+          id: thread.id,
+          code: thread.threadCode,
+          name: thread.threadName,
+          type: 'THREAD',
+          unit: 'CONE',
+          rawData: thread,
         });
       });
 
       zipperResponse.data.forEach((zipper: Zipper) => {
         unified.push({
-          id: zipper.id, code: zipper.zipperCode, name: zipper.zipperName,
-          type: 'ZIPPER', unit: 'PIECE', rawData: zipper
+          id: zipper.id,
+          code: zipper.zipperCode,
+          name: zipper.zipperName,
+          type: 'ZIPPER',
+          unit: 'PIECE',
+          rawData: zipper,
         });
       });
 
       elasticResponse.data.forEach((elastic: Elastic) => {
         unified.push({
-          id: elastic.id, code: elastic.elasticCode, name: elastic.elasticName,
-          type: 'ELASTIC', unit: 'METER', rawData: elastic
+          id: elastic.id,
+          code: elastic.elasticCode,
+          name: elastic.elasticName,
+          type: 'ELASTIC',
+          unit: 'METER',
+          rawData: elastic,
         });
       });
 
@@ -204,35 +259,47 @@ export default function StockInForm() {
             if (variant.material) {
               // Add as material entry (not polymorphic) since they have material records
               unified.push({
-                id: variant.material.id,  // Material ID
+                id: variant.material.id, // Material ID
                 code: variant.material.code,
                 name: variant.material.name,
-                type: 'LABEL_VARIANT',  // Special type to indicate it's a size variant material
+                type: 'LABEL_VARIANT', // Special type to indicate it's a size variant material
                 unit: 'PIECE',
-                rawData: { ...label, sizeVariant: variant } as LabelType & { sizeVariant: typeof variant }
+                rawData: { ...label, sizeVariant: variant } as LabelType & { sizeVariant: typeof variant },
               });
             }
           });
         } else {
           // No size variants - add label as polymorphic type
           unified.push({
-            id: label.id, code: label.labelCode, name: label.labelName,
-            type: 'LABEL', unit: 'PIECE', rawData: label
+            id: label.id,
+            code: label.labelCode,
+            name: label.labelName,
+            type: 'LABEL',
+            unit: 'PIECE',
+            rawData: label,
           });
         }
       });
 
       packagingResponse.data.forEach((pkg: Packaging) => {
         unified.push({
-          id: pkg.id, code: pkg.packagingCode, name: pkg.packagingName,
-          type: 'PACKAGING', unit: 'PIECE', rawData: pkg
+          id: pkg.id,
+          code: pkg.packagingCode,
+          name: pkg.packagingName,
+          type: 'PACKAGING',
+          unit: 'PIECE',
+          rawData: pkg,
         });
       });
 
       materialsResponse.data.forEach((mat: Material) => {
         unified.push({
-          id: mat.id, code: mat.code, name: mat.name,
-          type: 'MATERIAL', unit: mat.unit, rawData: mat
+          id: mat.id,
+          code: mat.code,
+          name: mat.name,
+          type: 'MATERIAL',
+          unit: mat.unit,
+          rawData: mat,
         });
       });
 
@@ -296,7 +363,7 @@ export default function StockInForm() {
         rate: formData.rate ? Number(formData.rate) : undefined,
         referenceType: formData.referenceType || undefined,
         referenceNumber: formData.referenceNumber || undefined,
-        remarks: fullRemarks || undefined
+        remarks: fullRemarks || undefined,
       });
 
       setSuccess(true);
@@ -310,20 +377,20 @@ export default function StockInForm() {
   };
 
   const handleChange = (field: string, value: string | number | boolean | null) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleMaterialSelect = (value: string) => {
     // Check if this is a LABEL_VARIANT type (size variant with material)
-    const item = unifiedMaterials.find(m =>
+    const item = unifiedMaterials.find((m) =>
       m.type === 'LABEL_VARIANT' ? m.id === value : `${m.type}:${m.id}` === value
     );
 
     // For LABEL_VARIANT, store just the material ID; for others, store type:id
     if (item?.type === 'LABEL_VARIANT') {
-      handleChange('materialId', item.id);  // Direct material ID
+      handleChange('materialId', item.id); // Direct material ID
     } else {
-      handleChange('materialId', value);  // type:id format
+      handleChange('materialId', value); // type:id format
     }
 
     setSelectedItem(item || null);
@@ -342,25 +409,25 @@ export default function StockInForm() {
         return [
           { value: 'METER', label: 'Meter' },
           { value: 'YARD', label: 'Yard' },
-          { value: 'ROLL', label: 'Roll' }
+          { value: 'ROLL', label: 'Roll' },
         ];
       case 'BUTTON':
         return [
           { value: 'GROSS', label: 'Gross (144 pcs)' },
           { value: 'DOZEN', label: 'Dozen' },
-          { value: 'PIECE', label: 'Piece' }
+          { value: 'PIECE', label: 'Piece' },
         ];
       case 'THREAD':
         return [
           { value: 'CONE', label: 'Cone' },
           { value: 'SPOOL', label: 'Spool' },
-          { value: 'BOX', label: 'Box' }
+          { value: 'BOX', label: 'Box' },
         ];
       case 'ZIPPER':
         return [
           { value: 'PIECE', label: 'Piece' },
           { value: 'DOZEN', label: 'Dozen' },
-          { value: 'GROSS', label: 'Gross' }
+          { value: 'GROSS', label: 'Gross' },
         ];
       case 'LABEL':
       case 'LABEL_VARIANT':
@@ -369,7 +436,7 @@ export default function StockInForm() {
           { value: 'PIECE', label: 'Piece' },
           { value: 'DOZEN', label: 'Dozen' },
           { value: 'BOX', label: 'Box' },
-          { value: 'SET', label: 'Set' }
+          { value: 'SET', label: 'Set' },
         ];
       default:
         return [
@@ -383,7 +450,7 @@ export default function StockInForm() {
           { value: 'BOX', label: 'Box' },
           { value: 'SET', label: 'Set' },
           { value: 'DOZEN', label: 'Dozen' },
-          { value: 'GROSS', label: 'Gross' }
+          { value: 'GROSS', label: 'Gross' },
         ];
     }
   };
@@ -399,12 +466,24 @@ export default function StockInForm() {
         const greige = data as GreigeMaster;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Composition:</span> {greige.composition}</div>
-            <div><span className="text-muted-foreground">Width:</span> {greige.greigeWidth}"</div>
-            <div><span className="text-muted-foreground">Construction:</span> {greige.construction || '-'}</div>
-            <div><span className="text-muted-foreground">Yarn Count:</span> {greige.yarnCount || '-'}</div>
-            <div><span className="text-muted-foreground">Weave:</span> {greige.weaveType || '-'}</div>
-            <div><span className="text-muted-foreground">Shrinkage:</span> {greige.averageShrinkagePercent}%</div>
+            <div>
+              <span className="text-muted-foreground">Composition:</span> {greige.composition}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Width:</span> {greige.greigeWidth}"
+            </div>
+            <div>
+              <span className="text-muted-foreground">Construction:</span> {greige.construction || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Yarn Count:</span> {greige.yarnCount || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Weave:</span> {greige.weaveType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Shrinkage:</span> {greige.averageShrinkagePercent}%
+            </div>
           </div>
         );
       }
@@ -412,27 +491,51 @@ export default function StockInForm() {
         const fabric = data as FabricMaster;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Color:</span> {fabric.colorName || '-'}</div>
-            <div><span className="text-muted-foreground">Width:</span> {fabric.actualWidth}"</div>
-            <div><span className="text-muted-foreground">Finish:</span> {fabric.finishType || '-'}</div>
-            <div><span className="text-muted-foreground">GSM:</span> {fabric.actualGSM || '-'}</div>
-            <div><span className="text-muted-foreground">Cutable Width:</span> {fabric.cutableWidth || fabric.actualWidth}"</div>
-            <div><span className="text-muted-foreground">Cost/Mtr:</span> ₹{fabric.costPerMeter}</div>
+            <div>
+              <span className="text-muted-foreground">Color:</span> {fabric.colorName || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Width:</span> {fabric.actualWidth}"
+            </div>
+            <div>
+              <span className="text-muted-foreground">Finish:</span> {fabric.finishType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">GSM:</span> {fabric.actualGSM || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Cutable Width:</span> {fabric.cutableWidth || fabric.actualWidth}"
+            </div>
+            <div>
+              <span className="text-muted-foreground">Cost/Mtr:</span> ₹{fabric.costPerMeter}
+            </div>
           </div>
         );
       }
       case 'LACE': {
         const lace = data as Lace;
         // Get price from preferred supplier or greige cost
-        const lacePrice = lace.laceSuppliers?.find(s => s.isPreferred)?.pricePerMeter || lace.costPerMeterGreige;
+        const lacePrice = lace.laceSuppliers?.find((s) => s.isPreferred)?.pricePerMeter || lace.costPerMeterGreige;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Type:</span> {lace.laceType || '-'}</div>
-            <div><span className="text-muted-foreground">Width:</span> {lace.width ? `${lace.width}"` : '-'}</div>
-            <div><span className="text-muted-foreground">Color:</span> {lace.color || '-'}</div>
-            <div><span className="text-muted-foreground">Design:</span> {lace.design || '-'}</div>
-            <div><span className="text-muted-foreground">Composition:</span> {lace.composition || '-'}</div>
-            <div><span className="text-muted-foreground">Price/Mtr:</span> {lacePrice ? `₹${lacePrice}` : '-'}</div>
+            <div>
+              <span className="text-muted-foreground">Type:</span> {lace.laceType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Width:</span> {lace.width ? `${lace.width}"` : '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Color:</span> {lace.color || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Design:</span> {lace.design || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Composition:</span> {lace.composition || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Price/Mtr:</span> {lacePrice ? `₹${lacePrice}` : '-'}
+            </div>
           </div>
         );
       }
@@ -440,12 +543,25 @@ export default function StockInForm() {
         const button = data as ButtonType;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Size:</span> {button.size || '-'}</div>
-            <div><span className="text-muted-foreground">Holes:</span> {button.holes || '-'}</div>
-            <div><span className="text-muted-foreground">Color:</span> {button.color || '-'}</div>
-            <div><span className="text-muted-foreground">Material:</span> {button.material || '-'}</div>
-            <div><span className="text-muted-foreground">Shape:</span> {button.shape || '-'}</div>
-            <div><span className="text-muted-foreground">Price/Gross:</span> {button.pricePerGross ? `₹${button.pricePerGross}` : '-'}</div>
+            <div>
+              <span className="text-muted-foreground">Size:</span> {button.size || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Holes:</span> {button.holes || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Color:</span> {button.color || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Material:</span> {button.material || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Shape:</span> {button.shape || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Price/Gross:</span>{' '}
+              {button.pricePerGross ? `₹${button.pricePerGross}` : '-'}
+            </div>
           </div>
         );
       }
@@ -453,12 +569,25 @@ export default function StockInForm() {
         const thread = data as Thread;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Ply:</span> {thread.ply || '-'}</div>
-            <div><span className="text-muted-foreground">Packaging:</span> {thread.packagingType || '-'}</div>
-            <div><span className="text-muted-foreground">Color:</span> {thread.color || '-'}</div>
-            <div><span className="text-muted-foreground">Cone Size:</span> {thread.coneSize || '-'}</div>
-            <div><span className="text-muted-foreground">Material:</span> {thread.materialComposition || '-'}</div>
-            <div><span className="text-muted-foreground">Price/Cone:</span> {thread.pricePerCone ? `₹${thread.pricePerCone}` : '-'}</div>
+            <div>
+              <span className="text-muted-foreground">Ply:</span> {thread.ply || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Packaging:</span> {thread.packagingType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Color:</span> {thread.color || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Cone Size:</span> {thread.coneSize || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Material:</span> {thread.materialComposition || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Price/Cone:</span>{' '}
+              {thread.pricePerCone ? `₹${thread.pricePerCone}` : '-'}
+            </div>
           </div>
         );
       }
@@ -466,12 +595,25 @@ export default function StockInForm() {
         const zipper = data as Zipper;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Length:</span> {zipper.length ? `${zipper.length}"` : '-'}</div>
-            <div><span className="text-muted-foreground">Teeth Type:</span> {zipper.teethType || '-'}</div>
-            <div><span className="text-muted-foreground">Color:</span> {zipper.color || '-'}</div>
-            <div><span className="text-muted-foreground">Slider:</span> {zipper.sliderType || '-'}</div>
-            <div><span className="text-muted-foreground">Brand:</span> {zipper.brand || '-'}</div>
-            <div><span className="text-muted-foreground">Price/Pc:</span> {zipper.pricePerPiece ? `₹${zipper.pricePerPiece}` : '-'}</div>
+            <div>
+              <span className="text-muted-foreground">Length:</span> {zipper.length ? `${zipper.length}"` : '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Teeth Type:</span> {zipper.teethType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Color:</span> {zipper.color || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Slider:</span> {zipper.sliderType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Brand:</span> {zipper.brand || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Price/Pc:</span>{' '}
+              {zipper.pricePerPiece ? `₹${zipper.pricePerPiece}` : '-'}
+            </div>
           </div>
         );
       }
@@ -479,12 +621,26 @@ export default function StockInForm() {
         const elastic = data as Elastic;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Type:</span> {elastic.elasticType || '-'}</div>
-            <div><span className="text-muted-foreground">Width:</span> {elastic.width ? `${elastic.width}mm` : '-'}</div>
-            <div><span className="text-muted-foreground">Color:</span> {elastic.color || '-'}</div>
-            <div><span className="text-muted-foreground">Stretch:</span> {elastic.stretchPercent ? `${elastic.stretchPercent}%` : '-'}</div>
-            <div><span className="text-muted-foreground">Composition:</span> {elastic.composition || '-'}</div>
-            <div><span className="text-muted-foreground">Price/Mtr:</span> {elastic.pricePerMeter ? `₹${elastic.pricePerMeter}` : '-'}</div>
+            <div>
+              <span className="text-muted-foreground">Type:</span> {elastic.elasticType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Width:</span> {elastic.width ? `${elastic.width}mm` : '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Color:</span> {elastic.color || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Stretch:</span>{' '}
+              {elastic.stretchPercent ? `${elastic.stretchPercent}%` : '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Composition:</span> {elastic.composition || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Price/Mtr:</span>{' '}
+              {elastic.pricePerMeter ? `₹${elastic.pricePerMeter}` : '-'}
+            </div>
           </div>
         );
       }
@@ -492,12 +648,25 @@ export default function StockInForm() {
         const label = data as LabelType;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Type:</span> {label.labelType || '-'}</div>
-            <div><span className="text-muted-foreground">Size:</span> {label.size || '-'}</div>
-            <div><span className="text-muted-foreground">Material:</span> {label.material || '-'}</div>
-            <div><span className="text-muted-foreground">Print Method:</span> {label.printMethod || '-'}</div>
-            <div><span className="text-muted-foreground">Color:</span> {label.color || '-'}</div>
-            <div><span className="text-muted-foreground">Price/100:</span> {label.pricePerHundred ? `₹${label.pricePerHundred}` : '-'}</div>
+            <div>
+              <span className="text-muted-foreground">Type:</span> {label.labelType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Size:</span> {label.size || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Material:</span> {label.material || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Print Method:</span> {label.printMethod || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Color:</span> {label.color || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Price/100:</span>{' '}
+              {label.pricePerHundred ? `₹${label.pricePerHundred}` : '-'}
+            </div>
           </div>
         );
       }
@@ -505,12 +674,25 @@ export default function StockInForm() {
         const pkg = data as Packaging;
         return (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Type:</span> {pkg.packagingType || '-'}</div>
-            <div><span className="text-muted-foreground">Size:</span> {pkg.size || '-'}</div>
-            <div><span className="text-muted-foreground">Material:</span> {pkg.material || '-'}</div>
-            <div><span className="text-muted-foreground">Thickness:</span> {pkg.thickness || '-'}</div>
-            <div><span className="text-muted-foreground">Print:</span> {pkg.printDetails || '-'}</div>
-            <div><span className="text-muted-foreground">Price/100:</span> {pkg.pricePerHundred ? `₹${pkg.pricePerHundred}` : '-'}</div>
+            <div>
+              <span className="text-muted-foreground">Type:</span> {pkg.packagingType || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Size:</span> {pkg.size || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Material:</span> {pkg.material || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Thickness:</span> {pkg.thickness || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Print:</span> {pkg.printDetails || '-'}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Price/100:</span>{' '}
+              {pkg.pricePerHundred ? `₹${pkg.pricePerHundred}` : '-'}
+            </div>
           </div>
         );
       }
@@ -818,33 +1000,33 @@ export default function StockInForm() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).map((type) => {
-                  const count = unifiedMaterials.filter(m => m.type === type).length;
-                  const isSelected = selectedMaterialType === type;
-                  return (
-                    <Button
-                      key={type}
-                      type="button"
-                      variant={isSelected ? "default" : "outline"}
-                      className={`h-auto py-3 flex flex-col items-center justify-center ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
-                      onClick={() => {
-                        setSelectedMaterialType(type);
-                        setSelectedItem(null);
-                        handleChange('materialId', '');
-                        handleChange('unit', MATERIAL_TYPE_UNITS[type]);
-                        // Reset type-specific fields
-                        handleChange('width', '');
-                        handleChange('color', '');
-                        handleChange('lotNumber', '');
-                        handleChange('rollNumber', '');
-                        handleChange('challanNumber', '');
-                        handleChange('supplierInvoice', '');
-                      }}
-                    >
-                      <span className="font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
-                      <span className="text-xs opacity-70">{count} items</span>
-                    </Button>
-                  );
-                })}
+                const count = unifiedMaterials.filter((m) => m.type === type).length;
+                const isSelected = selectedMaterialType === type;
+                return (
+                  <Button
+                    key={type}
+                    type="button"
+                    variant={isSelected ? 'default' : 'outline'}
+                    className={`h-auto py-3 flex flex-col items-center justify-center ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
+                    onClick={() => {
+                      setSelectedMaterialType(type);
+                      setSelectedItem(null);
+                      handleChange('materialId', '');
+                      handleChange('unit', MATERIAL_TYPE_UNITS[type]);
+                      // Reset type-specific fields
+                      handleChange('width', '');
+                      handleChange('color', '');
+                      handleChange('lotNumber', '');
+                      handleChange('rollNumber', '');
+                      handleChange('challanNumber', '');
+                      handleChange('supplierInvoice', '');
+                    }}
+                  >
+                    <span className="font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
+                    <span className="text-xs opacity-70">{count} items</span>
+                  </Button>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -856,25 +1038,23 @@ export default function StockInForm() {
               <CardTitle className="text-lg">Step 2: Select {MATERIAL_TYPE_LABELS[selectedMaterialType]}</CardTitle>
             </CardHeader>
             <CardContent>
-              {unifiedMaterials.filter(m => m.type === selectedMaterialType).length === 0 ? (
+              {unifiedMaterials.filter((m) => m.type === selectedMaterialType).length === 0 ? (
                 <Alert className="bg-amber-50 text-amber-900 border-amber-200">
                   <AlertDescription>
-                    No {MATERIAL_TYPE_LABELS[selectedMaterialType].toLowerCase()} found in the system.
-                    Please add items in the <strong>{MATERIAL_TYPE_LABELS[selectedMaterialType]} Master</strong> first before inwarding stock.
+                    No {MATERIAL_TYPE_LABELS[selectedMaterialType].toLowerCase()} found in the system. Please add items
+                    in the <strong>{MATERIAL_TYPE_LABELS[selectedMaterialType]} Master</strong> first before inwarding
+                    stock.
                   </AlertDescription>
                 </Alert>
               ) : (
                 <>
-                  <Select
-                    value={formData.materialId}
-                    onValueChange={handleMaterialSelect}
-                  >
+                  <Select value={formData.materialId} onValueChange={handleMaterialSelect}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder={`Select ${MATERIAL_TYPE_LABELS[selectedMaterialType].toLowerCase()}`} />
                     </SelectTrigger>
                     <SelectContent className="max-h-96">
                       {unifiedMaterials
-                        .filter(m => {
+                        .filter((m) => {
                           // Show both LABEL and LABEL_VARIANT types when LABEL is selected
                           if (selectedMaterialType === 'LABEL') {
                             return m.type === 'LABEL' || m.type === 'LABEL_VARIANT';
@@ -923,10 +1103,7 @@ export default function StockInForm() {
                   <Label htmlFor="warehouseId">
                     Warehouse <span className="text-red-500">*</span>
                   </Label>
-                  <Select
-                    value={formData.warehouseId}
-                    onValueChange={(value) => handleChange('warehouseId', value)}
-                  >
+                  <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
                     <SelectTrigger id="warehouseId">
                       <SelectValue placeholder="Select warehouse" />
                     </SelectTrigger>
@@ -962,19 +1139,17 @@ export default function StockInForm() {
                   <Label htmlFor="unit">
                     Unit <span className="text-red-500">*</span>
                   </Label>
-                  <Select
-                    value={formData.unit}
-                    onValueChange={(value) => handleChange('unit', value)}
-                  >
+                  <Select value={formData.unit} onValueChange={(value) => handleChange('unit', value)}>
                     <SelectTrigger id="unit">
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {selectedMaterialType && getUnitsForType(selectedMaterialType).map((unit) => (
-                        <SelectItem key={unit.value} value={unit.value}>
-                          {unit.label}
-                        </SelectItem>
-                      ))}
+                      {selectedMaterialType &&
+                        getUnitsForType(selectedMaterialType).map((unit) => (
+                          <SelectItem key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1045,20 +1220,12 @@ export default function StockInForm() {
 
         {/* Actions */}
         <div className="flex gap-2 justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/inventory/movements')}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/inventory/movements')}>
             <X className="mr-2 h-4 w-4" />
             Cancel
           </Button>
           <Button type="submit" disabled={loading || !selectedItem}>
-            {loading ? (
-              <ButtonSpinner className="mr-2" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
+            {loading ? <ButtonSpinner className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
             Create Stock IN
           </Button>
         </div>

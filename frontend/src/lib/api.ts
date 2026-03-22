@@ -90,8 +90,8 @@ api.interceptors.response.use(
     // Handle 401 unauthorized - clear auth
     // But skip clearing auth for login/register endpoints (they return 401 on invalid credentials)
     if (error.response?.status === 401) {
-      const isAuthEndpoint = error.config?.url?.includes('/auth/login') ||
-                             error.config?.url?.includes('/auth/register');
+      const isAuthEndpoint =
+        error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
 
       if (!isAuthEndpoint) {
         useAuthStore.getState().clearAuth();

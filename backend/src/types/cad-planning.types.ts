@@ -77,7 +77,7 @@ export interface CADCostResult {
   availableWidth: number;
   cadConsumption: number;
   wastagePercent: number;
-  effectiveConsumption: number;  // cadConsumption × (1 + wastage%)
+  effectiveConsumption: number; // cadConsumption × (1 + wastage%)
   fabricRate: number;
   totalCost: number;
   costPerMeter?: number;

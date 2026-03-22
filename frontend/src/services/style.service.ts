@@ -110,11 +110,7 @@ export const styleService = {
   /**
    * Get all deleted/archived styles with pagination
    */
-  getDeletedStyles: async (
-    page: number = 1,
-    limit: number = 10,
-    search?: string
-  ): Promise<StylesListResponse> => {
+  getDeletedStyles: async (page: number = 1, limit: number = 10, search?: string): Promise<StylesListResponse> => {
     let url = `/styles/deleted?page=${page}&limit=${limit}`;
     if (search) {
       url += `&search=${encodeURIComponent(search)}`;

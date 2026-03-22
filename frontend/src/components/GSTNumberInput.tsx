@@ -55,7 +55,7 @@ export default function GSTNumberInput({
       const token = localStorage.getItem('token');
       const response = await fetch('/api/locations/states', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -83,7 +83,7 @@ export default function GSTNumberInput({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           gstNumber: value.gstNumber.toUpperCase(),
@@ -146,9 +146,7 @@ export default function GSTNumberInput({
             disabled={disabled}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <label className="text-sm font-medium text-gray-700">
-            Primary GST Registration
-          </label>
+          <label className="text-sm font-medium text-gray-700">Primary GST Registration</label>
         </div>
         {showRemove && onRemove && (
           <button
@@ -191,25 +189,15 @@ export default function GSTNumberInput({
               ${error?.gstNumber || validationError ? 'border-red-500' : 'border-gray-300'}
             `}
           />
-          {isValidating && (
-            <p className="mt-1 text-sm text-blue-600">Validating...</p>
-          )}
-          {validationError && !isValidating && (
-            <p className="mt-1 text-sm text-red-600">{validationError}</p>
-          )}
-          {error?.gstNumber && !validationError && (
-            <p className="mt-1 text-sm text-red-600">{error.gstNumber}</p>
-          )}
-          <p className="mt-1 text-xs text-gray-500">
-            Format: 2-digit state code + 10-digit PAN + 3-character suffix
-          </p>
+          {isValidating && <p className="mt-1 text-sm text-blue-600">Validating...</p>}
+          {validationError && !isValidating && <p className="mt-1 text-sm text-red-600">{validationError}</p>}
+          {error?.gstNumber && !validationError && <p className="mt-1 text-sm text-red-600">{error.gstNumber}</p>}
+          <p className="mt-1 text-xs text-gray-500">Format: 2-digit state code + 10-digit PAN + 3-character suffix</p>
         </div>
       </div>
 
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700">
-          Billing Address for this GST (Optional)
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Billing Address for this GST (Optional)</label>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
@@ -221,9 +209,7 @@ export default function GSTNumberInput({
               placeholder="Select city"
               label="City"
             />
-            {error?.billingCityId && (
-              <p className="mt-1 text-sm text-red-600">{error.billingCityId}</p>
-            )}
+            {error?.billingCityId && <p className="mt-1 text-sm text-red-600">{error.billingCityId}</p>}
           </div>
 
           <div>
@@ -243,9 +229,7 @@ export default function GSTNumberInput({
                 ${error?.billingPincode ? 'border-red-500' : 'border-gray-300'}
               `}
             />
-            {error?.billingPincode && (
-              <p className="mt-1 text-sm text-red-600">{error.billingPincode}</p>
-            )}
+            {error?.billingPincode && <p className="mt-1 text-sm text-red-600">{error.billingPincode}</p>}
           </div>
         </div>
 
@@ -264,9 +248,7 @@ export default function GSTNumberInput({
               ${error?.billingAddress ? 'border-red-500' : 'border-gray-300'}
             `}
           />
-          {error?.billingAddress && (
-            <p className="mt-1 text-sm text-red-600">{error.billingAddress}</p>
-          )}
+          {error?.billingAddress && <p className="mt-1 text-sm text-red-600">{error.billingAddress}</p>}
         </div>
       </div>
     </div>

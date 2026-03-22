@@ -148,13 +148,7 @@ export const createEmbroidery = async (req: Request, res: Response) => {
  * Get all embroidery designs with pagination and search
  */
 export const getAllEmbroidery = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 20,
-    search = '',
-    supplierId = '',
-    isActive = 'true',
-  } = req.query;
+  const { page = 1, limit = 20, search = '', supplierId = '', isActive = 'true' } = req.query;
 
   const pageNum = parseInt(page as string, 10);
   const limitNum = parseInt(limit as string, 10);
@@ -444,9 +438,7 @@ export const searchEmbroidery = async (req: Request, res: Response) => {
         },
       },
     },
-    orderBy: [
-      { designName: 'asc' },
-    ],
+    orderBy: [{ designName: 'asc' }],
   });
 
   // Serialize for response

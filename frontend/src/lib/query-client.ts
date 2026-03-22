@@ -118,8 +118,7 @@ export const queryKeys = {
     all: ['stock-levels'] as const,
     lists: () => [...queryKeys.stockLevels.all, 'list'] as const,
     list: (filters: Record<string, unknown>) => [...queryKeys.stockLevels.lists(), filters] as const,
-    forWarehouse: (warehouseId: string | number) =>
-      [...queryKeys.stockLevels.all, 'warehouse', warehouseId] as const,
+    forWarehouse: (warehouseId: string | number) => [...queryKeys.stockLevels.all, 'warehouse', warehouseId] as const,
   },
 
   // Dashboard
@@ -132,10 +131,8 @@ export const queryKeys = {
   componentMasters: {
     all: ['component-masters'] as const,
     lists: () => [...queryKeys.componentMasters.all, 'list'] as const,
-    list: (filters: Record<string, unknown>) =>
-      [...queryKeys.componentMasters.lists(), filters] as const,
-    byCategory: (category: string) =>
-      [...queryKeys.componentMasters.all, 'category', category] as const,
+    list: (filters: Record<string, unknown>) => [...queryKeys.componentMasters.lists(), filters] as const,
+    byCategory: (category: string) => [...queryKeys.componentMasters.all, 'category', category] as const,
   },
 
   // Fabrics

@@ -138,37 +138,24 @@ export default function Users() {
           <div className="text-sm font-medium text-gray-900">
             {user.firstName} {user.lastName}
           </div>
-          {user.phone && (
-            <div className="text-xs text-gray-500">{user.phone}</div>
-          )}
+          {user.phone && <div className="text-xs text-gray-500">{user.phone}</div>}
         </div>
       ),
     },
     {
       key: 'email',
       header: 'Email',
-      render: (user) => (
-        <div className="text-sm text-gray-700">{user.email}</div>
-      ),
+      render: (user) => <div className="text-sm text-gray-700">{user.email}</div>,
     },
     {
       key: 'role',
       header: 'Role',
-      render: (user) => (
-        <StatusBadge
-          status={formatRoleName(user.role)}
-          variant={getRoleBadgeVariant(user.role)}
-        />
-      ),
+      render: (user) => <StatusBadge status={formatRoleName(user.role)} variant={getRoleBadgeVariant(user.role)} />,
     },
     {
       key: 'department',
       header: 'Department',
-      render: (user) => (
-        <div className="text-sm text-gray-700">
-          {user.department || '-'}
-        </div>
-      ),
+      render: (user) => <div className="text-sm text-gray-700">{user.department || '-'}</div>,
     },
     {
       key: 'status',
@@ -253,9 +240,7 @@ export default function Users() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle>User Management</CardTitle>
-              <CardDescription>
-                Manage users and their roles ({totalUsers} total users)
-              </CardDescription>
+              <CardDescription>Manage users and their roles ({totalUsers} total users)</CardDescription>
             </div>
             {isAdmin && (
               <div className="flex gap-2">
@@ -267,20 +252,14 @@ export default function Users() {
                   <Clock className="h-4 w-4 mr-2" />
                   Pending Approvals
                 </Button>
-                <Button onClick={() => navigate('/users/new')}>
-                  + Add User
-                </Button>
+                <Button onClick={() => navigate('/users/new')}>+ Add User</Button>
               </div>
             )}
           </div>
 
           {/* Search Bar */}
           <div className="mt-4">
-            <SearchInput
-              placeholder="Search users by name or email..."
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
+            <SearchInput placeholder="Search users by name or email..." value={searchQuery} onChange={setSearchQuery} />
           </div>
         </CardHeader>
         <CardContent>
@@ -308,7 +287,7 @@ export default function Users() {
               onPageChange: setCurrentPage,
               onPageSizeChange: setPageSize,
             }}
-            onRowClick={(user) => isAdmin ? navigate(`/users/edit/${user.id}`) : undefined}
+            onRowClick={(user) => (isAdmin ? navigate(`/users/edit/${user.id}`) : undefined)}
           />
         </CardContent>
       </Card>
@@ -321,22 +300,22 @@ export default function Users() {
           dialogAction === 'activate'
             ? 'Activate User'
             : dialogAction === 'deactivate'
-            ? 'Deactivate User'
-            : 'Delete User Permanently'
+              ? 'Deactivate User'
+              : 'Delete User Permanently'
         }
         description={
           dialogAction === 'activate'
             ? `Are you sure you want to activate ${userToModify?.name}? They will regain access to the system.`
             : dialogAction === 'deactivate'
-            ? `Are you sure you want to deactivate ${userToModify?.name}? They will lose access to the system.`
-            : `Are you sure you want to permanently delete ${userToModify?.name}? This action cannot be undone and all user data will be lost.`
+              ? `Are you sure you want to deactivate ${userToModify?.name}? They will lose access to the system.`
+              : `Are you sure you want to permanently delete ${userToModify?.name}? This action cannot be undone and all user data will be lost.`
         }
         confirmText={
           dialogAction === 'activate'
             ? 'Activate User'
             : dialogAction === 'deactivate'
-            ? 'Deactivate User'
-            : 'Delete Permanently'
+              ? 'Deactivate User'
+              : 'Delete Permanently'
         }
         cancelText="Cancel"
         onConfirm={confirmAction}

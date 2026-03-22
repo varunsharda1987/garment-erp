@@ -7,17 +7,7 @@ export class DebitNoteController {
    * Get all debit notes with pagination
    */
   async getAll(req: Request, res: Response) {
-    const {
-      page = '1',
-      limit = '20',
-      search,
-      status,
-      supplierId,
-      fromDate,
-      toDate,
-      sortBy,
-      sortOrder,
-    } = req.query;
+    const { page = '1', limit = '20', search, status, supplierId, fromDate, toDate, sortBy, sortOrder } = req.query;
 
     const result = await debitNoteService.getAll({
       page: parseInt(page as string, 10),

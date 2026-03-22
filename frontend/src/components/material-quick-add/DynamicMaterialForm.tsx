@@ -9,13 +9,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import type { MaterialTypeConfig, MaterialFormData, MaterialFieldConfig } from '../../types/material-quick-add.types';
 
 interface DynamicMaterialFormProps {
@@ -52,19 +46,11 @@ export const DynamicMaterialForm: React.FC<DynamicMaterialFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Header with Back Button */}
       <div className="flex items-center gap-3 pb-4 border-b">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="flex items-center gap-1"
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onBack} className="flex items-center gap-1">
           <ArrowLeft className="h-4 w-4" />
           Back
         </Button>
-        <h3 className="text-lg font-semibold">
-          Add New {config.label}
-        </h3>
+        <h3 className="text-lg font-semibold">Add New {config.label}</h3>
       </div>
 
       {/* Name Field (Optional - Auto-generated if empty) */}
@@ -86,8 +72,8 @@ export const DynamicMaterialForm: React.FC<DynamicMaterialFormProps> = ({
           autoFocus
         />
         <p className="text-xs text-gray-500">
-          If left empty, name will be auto-generated from selected attributes
-          (e.g., "Black Polyester 4-Hole Button 15mm")
+          If left empty, name will be auto-generated from selected attributes (e.g., "Black Polyester 4-Hole Button
+          15mm")
         </p>
       </div>
 
@@ -191,15 +177,8 @@ const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {
       case 'boolean':
         return (
           <div className="flex items-center space-x-2 h-10">
-            <Checkbox
-              id={field.name}
-              checked={value || false}
-              onCheckedChange={onChange}
-            />
-            <Label
-              htmlFor={field.name}
-              className="text-sm font-normal cursor-pointer"
-            >
+            <Checkbox id={field.name} checked={value || false} onCheckedChange={onChange} />
+            <Label htmlFor={field.name} className="text-sm font-normal cursor-pointer">
               {field.label}
             </Label>
           </div>

@@ -2,13 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -104,10 +98,7 @@ export default function OrderStatusListItem({
   };
 
   return (
-    <Card
-      className={`p-5 border-2 transition-all cursor-pointer ${getStatusColorClass()}`}
-      onClick={handleCardClick}
-    >
+    <Card className={`p-5 border-2 transition-all cursor-pointer ${getStatusColorClass()}`} onClick={handleCardClick}>
       <div className="flex gap-6">
         {/* Image Section - 180x180px */}
         <div className="flex-shrink-0">
@@ -136,17 +127,13 @@ export default function OrderStatusListItem({
                   <ShoppingCart className="h-4 w-4 text-indigo-600" />
                   <span className="text-lg font-bold text-indigo-700">{item.orderNumber}</span>
                 </div>
-                {item.customerName && (
-                  <span className="text-base font-medium text-gray-700">{item.customerName}</span>
-                )}
+                {item.customerName && <span className="text-base font-medium text-gray-700">{item.customerName}</span>}
               </div>
 
               {/* Style Info */}
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-xl font-bold text-gray-900">{item.styleCode}</h3>
-                {item.internalCode && (
-                  <span className="text-sm text-gray-500">• {item.internalCode}</span>
-                )}
+                {item.internalCode && <span className="text-sm text-gray-500">• {item.internalCode}</span>}
                 {item.brandName && (
                   <span className="text-base font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                     {item.brandName}
@@ -168,9 +155,7 @@ export default function OrderStatusListItem({
                 </div>
               )}
               {item.daysToDelivery !== null && item.daysToDelivery > 0 && !item.isDelayed && (
-                <span className="text-sm text-gray-500 font-medium">
-                  Due in {item.daysToDelivery} days
-                </span>
+                <span className="text-sm text-gray-500 font-medium">Due in {item.daysToDelivery} days</span>
               )}
 
               <Button
@@ -192,9 +177,7 @@ export default function OrderStatusListItem({
           <div className="flex items-center gap-8 text-base border-y border-gray-200 py-3">
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-gray-500" />
-              <span className="font-semibold text-gray-800">
-                {item.quantity.toLocaleString()} pcs
-              </span>
+              <span className="font-semibold text-gray-800">{item.quantity.toLocaleString()} pcs</span>
             </div>
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-gray-500" />
@@ -202,15 +185,11 @@ export default function OrderStatusListItem({
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-gray-500" />
-              <span className="text-gray-700 font-medium">
-                Order: {formatDate(item.orderDate)}
-              </span>
+              <span className="text-gray-700 font-medium">Order: {formatDate(item.orderDate)}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-gray-500" />
-              <span className="text-gray-700 font-medium">
-                Due: {formatDate(item.deliveryDate)}
-              </span>
+              <span className="text-gray-700 font-medium">Due: {formatDate(item.deliveryDate)}</span>
             </div>
           </div>
 
@@ -220,10 +199,7 @@ export default function OrderStatusListItem({
               <Ruler className="h-5 w-5 text-gray-500" />
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-gray-700">CAD Width:</span>
-                <Select
-                  value={item.selectedCadId || ''}
-                  onValueChange={handleCadChange}
-                >
+                <Select value={item.selectedCadId || ''} onValueChange={handleCadChange}>
                   <SelectTrigger className="w-[200px] h-8" onClick={(e) => e.stopPropagation()}>
                     <SelectValue placeholder="Select CAD width" />
                   </SelectTrigger>
@@ -271,10 +247,7 @@ export default function OrderStatusListItem({
                     }}
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <Label
-                    htmlFor={`sample-inherit-${item.orderItemId}`}
-                    className="text-sm text-gray-600"
-                  >
+                  <Label htmlFor={`sample-inherit-${item.orderItemId}`} className="text-sm text-gray-600">
                     Inherit samples from style
                   </Label>
                 </div>
@@ -289,10 +262,7 @@ export default function OrderStatusListItem({
                     }}
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <Label
-                    htmlFor={`inspection-inherit-${item.orderItemId}`}
-                    className="text-sm text-gray-600"
-                  >
+                  <Label htmlFor={`inspection-inherit-${item.orderItemId}`} className="text-sm text-gray-600">
                     Inherit inspections from style
                   </Label>
                 </div>
@@ -354,9 +324,7 @@ export default function OrderStatusListItem({
               <div className="text-xs text-gray-500 mb-1">CAD Status</div>
               <div
                 className={`text-sm font-semibold ${
-                  item.cadStatus === 'APPROVED' || item.cadStatus === 'SELECTED'
-                    ? 'text-green-700'
-                    : 'text-amber-700'
+                  item.cadStatus === 'APPROVED' || item.cadStatus === 'SELECTED' ? 'text-green-700' : 'text-amber-700'
                 }`}
               >
                 {item.cadStatus}
@@ -383,14 +351,11 @@ export default function OrderStatusListItem({
                       item.costing.profitMargin !== null && item.costing.profitMargin >= 15
                         ? 'text-green-600'
                         : item.costing.profitMargin !== null && item.costing.profitMargin >= 10
-                        ? 'text-amber-600'
-                        : 'text-red-600'
+                          ? 'text-amber-600'
+                          : 'text-red-600'
                     }`}
                   >
-                    Margin:{' '}
-                    {item.costing.profitMargin !== null
-                      ? `${item.costing.profitMargin.toFixed(1)}%`
-                      : 'N/A'}
+                    Margin: {item.costing.profitMargin !== null ? `${item.costing.profitMargin.toFixed(1)}%` : 'N/A'}
                   </div>
                 </>
               ) : (
@@ -415,14 +380,10 @@ export default function OrderStatusListItem({
             <div className="bg-gray-50 rounded-lg p-3">
               <div className="text-xs text-gray-500 mb-1">Materials</div>
               <div className="flex items-center gap-3 text-sm">
-                <span
-                  className={item.materialStatus.fabricsOrdered ? 'text-green-600' : 'text-red-600'}
-                >
+                <span className={item.materialStatus.fabricsOrdered ? 'text-green-600' : 'text-red-600'}>
                   {item.materialStatus.fabricsOrdered ? '✓' : '✗'} Fabric
                 </span>
-                <span
-                  className={item.materialStatus.trimsOrdered ? 'text-green-600' : 'text-red-600'}
-                >
+                <span className={item.materialStatus.trimsOrdered ? 'text-green-600' : 'text-red-600'}>
                   {item.materialStatus.trimsOrdered ? '✓' : '✗'} Trims
                 </span>
               </div>

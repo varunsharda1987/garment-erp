@@ -100,9 +100,7 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
 
   const available = Number(stock.quantityAvailable) - Number(stock.quantityReserved);
   if (available < input.issuedQuantity) {
-    throw new Error(
-      `Insufficient stock available. Required: ${input.issuedQuantity}, Available: ${available}`
-    );
+    throw new Error(`Insufficient stock available. Required: ${input.issuedQuantity}, Available: ${available}`);
   }
 
   const issueNumber = await generateIssueNumber();
@@ -210,9 +208,7 @@ export async function recordConsumption(input: RecordConsumptionInput) {
       where: { id: input.issueNoteId },
       data: {
         consumedQuantity: newConsumed,
-        notes: input.notes
-          ? `${issueNote.notes || ''}\n[Consumption] ${input.notes}`
-          : issueNote.notes,
+        notes: input.notes ? `${issueNote.notes || ''}\n[Consumption] ${input.notes}` : issueNote.notes,
       },
       include: {
         stock: { include: { laceMaster: true } },
@@ -302,9 +298,7 @@ export async function returnToStock(input: ReturnToStockInput) {
         returnedQuantity: newReturned,
         status: newStatus,
         returnedAt: new Date(),
-        notes: input.notes
-          ? `${issueNote.notes || ''}\n[Return] ${input.notes}`
-          : issueNote.notes,
+        notes: input.notes ? `${issueNote.notes || ''}\n[Return] ${input.notes}` : issueNote.notes,
       },
       include: {
         stock: { include: { laceMaster: true } },

@@ -18,10 +18,7 @@ import {
 /**
  * Get the complete permission matrix (DB-backed)
  */
-export const getPermissionMatrix = async (
-  req: Request,
-  res: Response
-) => {
+export const getPermissionMatrix = async (req: Request, res: Response) => {
   const matrix = await PermissionService.getPermissionMatrix();
   res.json({
     success: true,
@@ -32,10 +29,7 @@ export const getPermissionMatrix = async (
 /**
  * Get all available roles with their descriptions
  */
-export const getRoles = async (
-  req: Request,
-  res: Response
-) => {
+export const getRoles = async (req: Request, res: Response) => {
   const roles = Object.values(UserRole).map((role) => ({
     role,
     ...ROLE_CONFIG[role],
@@ -52,10 +46,7 @@ export const getRoles = async (
 /**
  * Get permissions for a specific role
  */
-export const getRolePermissions = async (
-  req: Request,
-  res: Response
-) => {
+export const getRolePermissions = async (req: Request, res: Response) => {
   const { role } = req.params;
 
   if (!Object.values(UserRole).includes(role as UserRole)) {
@@ -80,10 +71,7 @@ export const getRolePermissions = async (
 /**
  * Get all modules and their associated permissions
  */
-export const getModules = async (
-  req: Request,
-  res: Response
-) => {
+export const getModules = async (req: Request, res: Response) => {
   const modules = Object.entries(MODULES).map(([key, value]) => ({
     key,
     ...value,
@@ -99,20 +87,14 @@ export const getModules = async (
 /**
  * Check if a role has specific permission
  */
-export const checkPermission = async (
-  req: Request,
-  res: Response
-) => {
+export const checkPermission = async (req: Request, res: Response) => {
   const { role, permission } = req.params;
 
   if (!Object.values(UserRole).includes(role as UserRole)) {
     throw new ValidationError('Invalid role');
   }
 
-  const hasAccess = await PermissionService.hasPermission(
-    role as UserRole,
-    permission
-  );
+  const hasAccess = await PermissionService.hasPermission(role as UserRole, permission);
 
   res.json({
     success: true,
@@ -127,20 +109,14 @@ export const checkPermission = async (
 /**
  * Toggle single permission
  */
-export const togglePermission = async (
-  req: Request,
-  res: Response
-) => {
+export const togglePermission = async (req: Request, res: Response) => {
   const { role, permissionKey, allowed } = req.body;
 
   if (!Object.values(UserRole).includes(role as UserRole)) {
     throw new ValidationError('Invalid role');
   }
 
-  const result = await PermissionService.togglePermission(
-    { role, permissionKey, allowed },
-    req
-  );
+  const result = await PermissionService.togglePermission({ role, permissionKey, allowed }, req);
 
   if (!result.success) {
     throw new ValidationError(result.message || 'Failed to toggle permission');
@@ -155,10 +131,7 @@ export const togglePermission = async (
 /**
  * Bulk update permissions
  */
-export const bulkUpdatePermissions = async (
-  req: Request,
-  res: Response
-) => {
+export const bulkUpdatePermissions = async (req: Request, res: Response) => {
   const { updates } = req.body;
 
   if (!Array.isArray(updates) || updates.length === 0) {
@@ -176,10 +149,7 @@ export const bulkUpdatePermissions = async (
 /**
  * Reset permissions to config defaults
  */
-export const resetToDefaults = async (
-  req: Request,
-  res: Response
-) => {
+export const resetToDefaults = async (req: Request, res: Response) => {
   const result = await PermissionService.resetToDefaults(req);
 
   res.json({
@@ -192,10 +162,7 @@ export const resetToDefaults = async (
 /**
  * Get permission definitions
  */
-export const getPermissionDefinitions = async (
-  req: Request,
-  res: Response
-) => {
+export const getPermissionDefinitions = async (req: Request, res: Response) => {
   const matrix = await PermissionService.getPermissionMatrix();
 
   res.json({
@@ -215,10 +182,7 @@ export const getPermissionDefinitions = async (
 /**
  * Get audit log for permission changes
  */
-export const getAuditLog = async (
-  req: Request,
-  res: Response
-) => {
+export const getAuditLog = async (req: Request, res: Response) => {
   const { limit, offset, role, permissionKey } = req.query;
 
   const result = await PermissionService.getAuditLog({
@@ -237,10 +201,7 @@ export const getAuditLog = async (
 /**
  * Seed permissions from config (one-time setup)
  */
-export const seedPermissions = async (
-  req: Request,
-  res: Response
-) => {
+export const seedPermissions = async (req: Request, res: Response) => {
   const isSeeded = await PermissionService.isDatabaseSeeded();
 
   if (isSeeded) {

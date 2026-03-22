@@ -75,9 +75,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
   }
 
   protected buildSearchFilter(search: string): SearchFilter {
-    return [
-      { quotationNumber: { contains: search, mode: 'insensitive' as const } },
-    ];
+    return [{ quotationNumber: { contains: search, mode: 'insensitive' as const } }];
   }
 
   protected getDefaultIncludes(): IncludeConfig {
@@ -232,12 +230,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
           if (placeOfSupplyId) {
             // Calculate GST breakdown
             taxRate = data.taxRate || 12; // Default to 12% for garments
-            gstCalc = await gstService.calculateGST(
-              totalAmount,
-              taxRate,
-              COMPANY_STATE_ID,
-              placeOfSupplyId
-            );
+            gstCalc = await gstService.calculateGST(totalAmount, taxRate, COMPANY_STATE_ID, placeOfSupplyId);
 
             totalWithTax = totalAmount + gstCalc.totalTax;
 
@@ -252,9 +245,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
       }
 
       // Calculate per-item GST if tax estimation is enabled
-      const isInterstate = placeOfSupplyId
-        ? (process.env.COMPANY_STATE_ID || '') !== placeOfSupplyId
-        : false;
+      const isInterstate = placeOfSupplyId ? (process.env.COMPANY_STATE_ID || '') !== placeOfSupplyId : false;
 
       // Build items with GST (if estimation enabled)
       const itemsForCreate = await Promise.all(
@@ -463,9 +454,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
 
       // Prevent modification of accepted/rejected quotations
       if (existing.status === 'ACCEPTED' || existing.status === 'REJECTED') {
-        throw new ValidationError(
-          `Cannot modify quotation with status ${existing.status}`
-        );
+        throw new ValidationError(`Cannot modify quotation with status ${existing.status}`);
       }
 
       // Prepare update data
@@ -514,11 +503,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
   /**
    * Update quotation status
    */
-  async updateQuotationStatus(
-    id: string,
-    status: QuotationStatus,
-    approvedById?: string
-  ): Promise<quotations> {
+  async updateQuotationStatus(id: string, status: QuotationStatus, approvedById?: string): Promise<quotations> {
     try {
       const existing = await this.getQuotationById(id);
 
@@ -612,12 +597,8 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
         accepted: statusCounts[2],
         rejected: statusCounts[3],
         expired: statusCounts[4],
-        totalValue: amounts._sum.totalAmount
-          ? parseFloat(amounts._sum.totalAmount.toString())
-          : 0,
-        acceptedValue: acceptedAmounts._sum.totalAmount
-          ? parseFloat(acceptedAmounts._sum.totalAmount.toString())
-          : 0,
+        totalValue: amounts._sum.totalAmount ? parseFloat(amounts._sum.totalAmount.toString()) : 0,
+        acceptedValue: acceptedAmounts._sum.totalAmount ? parseFloat(acceptedAmounts._sum.totalAmount.toString()) : 0,
       };
     } catch (error) {
       logError('Error getting quotation summary', { error });
@@ -653,11 +634,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
    * Estimate GST for an existing quotation
    * Can be called to add/update tax estimation for a quotation
    */
-  async estimateGST(
-    quotationId: string,
-    placeOfSupplyId: string,
-    taxRate?: number
-  ): Promise<quotations> {
+  async estimateGST(quotationId: string, placeOfSupplyId: string, taxRate?: number): Promise<quotations> {
     try {
       // Get existing quotation with items
       const quotation = await this.prisma.quotations.findUnique({

@@ -5,7 +5,18 @@ import { BankAccountType, Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 export const createBankAccount = async (req: Request, res: Response): Promise<void> => {
-  const { accountNumber, bankName, branchName, ifscCode, swiftCode, accountType, accountHolderName, openingBalance, currency, isPrimaryAccount } = req.body;
+  const {
+    accountNumber,
+    bankName,
+    branchName,
+    ifscCode,
+    swiftCode,
+    accountType,
+    accountHolderName,
+    openingBalance,
+    currency,
+    isPrimaryAccount,
+  } = req.body;
 
   const existing = await prisma.bank_accounts.findFirst({ where: { accountNumber, isActive: true } });
   if (existing) {
@@ -71,15 +82,15 @@ export const getAllBankAccounts = async (req: Request, res: Response): Promise<v
       where,
       skip,
       take: limitNum,
-      orderBy: [
-        { isPrimaryAccount: 'desc' },
-        { bankName: 'asc' },
-      ],
+      orderBy: [{ isPrimaryAccount: 'desc' }, { bankName: 'asc' }],
     }),
     prisma.bank_accounts.count({ where }),
   ]);
 
-  res.json({ data: bankAccounts, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
+  res.json({
+    data: bankAccounts,
+    pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+  });
 };
 
 export const getBankAccountById = async (req: Request, res: Response): Promise<void> => {
@@ -100,7 +111,18 @@ export const getBankAccountById = async (req: Request, res: Response): Promise<v
 
 export const updateBankAccount = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { accountNumber, bankName, branchName, ifscCode, swiftCode, accountType, accountHolderName, currentBalance, currency, isPrimaryAccount } = req.body;
+  const {
+    accountNumber,
+    bankName,
+    branchName,
+    ifscCode,
+    swiftCode,
+    accountType,
+    accountHolderName,
+    currentBalance,
+    currency,
+    isPrimaryAccount,
+  } = req.body;
 
   const existing = await prisma.bank_accounts.findUnique({ where: { id } });
   if (!existing) {

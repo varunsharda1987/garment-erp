@@ -23,9 +23,7 @@ export default function StageStatusFlow({ statusFlow }: StageStatusFlowProps) {
             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
               {transition.to}
             </span>
-            {index < statusFlow.length - 1 && (
-              <span className="text-gray-300 mx-1">|</span>
-            )}
+            {index < statusFlow.length - 1 && <span className="text-gray-300 mx-1">|</span>}
           </div>
         ))}
       </div>

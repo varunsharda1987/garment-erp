@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ShieldAlert, AlertCircle, AlertTriangle } from 'lucide-react';
@@ -58,9 +52,7 @@ export const AdminOverrideModal: React.FC<AdminOverrideModalProps> = ({
         <div className="space-y-4">
           {/* Blockers List */}
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <h3 className="font-semibold text-red-900 mb-2">
-              The following blocks prevent: {action}
-            </h3>
+            <h3 className="font-semibold text-red-900 mb-2">The following blocks prevent: {action}</h3>
             <ul className="space-y-2">
               {blockers.map((blocker, idx) => (
                 <li key={idx} className="text-sm text-red-800 flex gap-2">
@@ -78,9 +70,8 @@ export const AdminOverrideModal: React.FC<AdminOverrideModalProps> = ({
               <div className="text-sm text-yellow-900">
                 <p className="font-semibold mb-1">Warning</p>
                 <p>
-                  Overriding these quality gates will be permanently logged with your user ID,
-                  timestamp, and reason. This action is auditable and may be reviewed by
-                  management.
+                  Overriding these quality gates will be permanently logged with your user ID, timestamp, and reason.
+                  This action is auditable and may be reviewed by management.
                 </p>
               </div>
             </div>
@@ -99,9 +90,7 @@ export const AdminOverrideModal: React.FC<AdminOverrideModalProps> = ({
               className="mt-1"
               rows={4}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              {reason.length}/10 characters minimum
-            </p>
+            <p className="text-xs text-gray-500 mt-1">{reason.length}/10 characters minimum</p>
           </div>
         </div>
 
@@ -109,11 +98,7 @@ export const AdminOverrideModal: React.FC<AdminOverrideModalProps> = ({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button
-            variant="destructive"
-            onClick={handleConfirm}
-            disabled={reason.trim().length < 10}
-          >
+          <Button variant="destructive" onClick={handleConfirm} disabled={reason.trim().length < 10}>
             Confirm Override
           </Button>
         </DialogFooter>

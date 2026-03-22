@@ -8,7 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -104,7 +111,15 @@ export default function StyleList() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await styleService.getAllStyles(currentPage, pageSize, searchQuery || undefined, stageFilter, undefined, undefined, 'ACTIVE');
+      const response = await styleService.getAllStyles(
+        currentPage,
+        pageSize,
+        searchQuery || undefined,
+        stageFilter,
+        undefined,
+        undefined,
+        'ACTIVE'
+      );
       setStyles(response.data);
       setTotalPages(response.pagination.totalPages);
       setTotalStyles(response.pagination.total);
@@ -141,7 +156,10 @@ export default function StyleList() {
 
     try {
       await styleService.deleteStyle(styleToDelete.id);
-      handleApiSuccess('Style archived', `Style ${styleToDelete.styleCode} has been archived. You can restore it from the Inactive tab.`);
+      handleApiSuccess(
+        'Style archived',
+        `Style ${styleToDelete.styleCode} has been archived. You can restore it from the Inactive tab.`
+      );
       fetchStyles();
       fetchDraftStyles();
     } catch (err: unknown) {
@@ -156,7 +174,11 @@ export default function StyleList() {
     try {
       setIsLoadingDeleted(true);
       setErrorDeleted(null);
-      const response = await styleService.getDeletedStyles(deletedCurrentPage, pageSize, deletedSearchQuery || undefined);
+      const response = await styleService.getDeletedStyles(
+        deletedCurrentPage,
+        pageSize,
+        deletedSearchQuery || undefined
+      );
       setDeletedStyles(response.data);
       setDeletedTotalPages(response.pagination.totalPages);
       setDeletedTotalStyles(response.pagination.total);
@@ -173,7 +195,15 @@ export default function StyleList() {
     try {
       setIsLoadingDrafts(true);
       setErrorDrafts(null);
-      const response = await styleService.getAllStyles(draftCurrentPage, pageSize, draftSearchQuery || undefined, undefined, undefined, undefined, 'DRAFT');
+      const response = await styleService.getAllStyles(
+        draftCurrentPage,
+        pageSize,
+        draftSearchQuery || undefined,
+        undefined,
+        undefined,
+        undefined,
+        'DRAFT'
+      );
       setDraftStyles(response.data);
       setDraftTotalPages(response.pagination.totalPages);
       setDraftTotalStyles(response.pagination.total);
@@ -232,7 +262,10 @@ export default function StyleList() {
 
     try {
       await styleService.permanentDeleteStyle(styleToPermanentDelete.id);
-      handleApiSuccess('Style permanently deleted', `Style ${styleToPermanentDelete.styleCode} has been permanently deleted. This cannot be undone.`);
+      handleApiSuccess(
+        'Style permanently deleted',
+        `Style ${styleToPermanentDelete.styleCode} has been permanently deleted. This cannot be undone.`
+      );
       fetchDeletedStyles();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to permanently delete style');
@@ -287,7 +320,8 @@ export default function StyleList() {
                 (e.target as HTMLImageElement).style.display = 'none';
                 const parent = (e.target as HTMLImageElement).parentElement;
                 if (parent) {
-                  parent.innerHTML = '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>';
+                  parent.innerHTML =
+                    '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>';
                 }
               }}
             />
@@ -305,9 +339,7 @@ export default function StyleList() {
       render: (style) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{style.styleCode}</div>
-          {style.styleName && (
-            <div className="text-xs text-gray-500 truncate max-w-[150px]">{style.styleName}</div>
-          )}
+          {style.styleName && <div className="text-xs text-gray-500 truncate max-w-[150px]">{style.styleName}</div>}
         </div>
       ),
     },
@@ -333,11 +365,7 @@ export default function StyleList() {
     {
       key: 'productCategory',
       header: 'Product Category',
-      render: (style) => (
-        <div className="text-sm text-gray-900">
-          {style.productCategory?.name || '-'}
-        </div>
-      ),
+      render: (style) => <div className="text-sm text-gray-900">{style.productCategory?.name || '-'}</div>,
     },
     {
       key: 'components',
@@ -352,7 +380,7 @@ export default function StyleList() {
       key: 'componentName',
       header: 'Component Name',
       render: (style) => {
-        const componentNames = style.components?.map(c => c.componentName).filter(Boolean) || [];
+        const componentNames = style.components?.map((c) => c.componentName).filter(Boolean) || [];
         if (componentNames.length === 0) return <div className="text-sm text-gray-500">-</div>;
         return <div className="text-sm text-gray-900">{componentNames.join(', ')}</div>;
       },
@@ -360,18 +388,12 @@ export default function StyleList() {
     {
       key: 'cadStatus',
       header: 'CAD Status',
-      render: (style) => (
-        <CADStatusBadge status={(style as any).effectiveCadStatus || style.cadStatus} size="sm" />
-      ),
+      render: (style) => <CADStatusBadge status={(style as any).effectiveCadStatus || style.cadStatus} size="sm" />,
     },
     {
       key: 'cost',
       header: 'Cost',
-      render: (style) => (
-        <div className="text-sm text-gray-900 font-medium">
-          {getCost(style)}
-        </div>
-      ),
+      render: (style) => <div className="text-sm text-gray-900 font-medium">{getCost(style)}</div>,
     },
     {
       key: 'actions',
@@ -437,7 +459,8 @@ export default function StyleList() {
                 (e.target as HTMLImageElement).style.display = 'none';
                 const parent = (e.target as HTMLImageElement).parentElement;
                 if (parent) {
-                  parent.innerHTML = '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>';
+                  parent.innerHTML =
+                    '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>';
                 }
               }}
             />
@@ -455,9 +478,7 @@ export default function StyleList() {
       render: (style) => (
         <div>
           <div className="text-sm font-medium text-gray-500">{style.styleCode}</div>
-          {style.internalCode && (
-            <div className="text-xs text-gray-400">{style.internalCode}</div>
-          )}
+          {style.internalCode && <div className="text-xs text-gray-400">{style.internalCode}</div>}
         </div>
       ),
     },
@@ -467,11 +488,7 @@ export default function StyleList() {
       render: (style) => (
         <div>
           <div className="text-sm text-gray-500">{style.styleName}</div>
-          {style.description && (
-            <div className="text-xs text-gray-400 truncate max-w-xs">
-              {style.description}
-            </div>
-          )}
+          {style.description && <div className="text-xs text-gray-400 truncate max-w-xs">{style.description}</div>}
         </div>
       ),
     },
@@ -545,17 +562,14 @@ export default function StyleList() {
                 {stageFilter
                   ? `Showing styles in stage: ${PRODUCTION_STAGE_LABELS[stageFilter as keyof typeof PRODUCTION_STAGE_LABELS] || stageFilter}`
                   : activeTab === 'deleted'
-                  ? `Inactive/archived styles (${deletedTotalStyles} total)`
-                  : activeTab === 'drafts'
-                  ? `Unpublished styles in progress (${draftTotalStyles} total)`
-                  : `Published garment styles (${totalStyles} total)`}
+                    ? `Inactive/archived styles (${deletedTotalStyles} total)`
+                    : activeTab === 'drafts'
+                      ? `Unpublished styles in progress (${draftTotalStyles} total)`
+                      : `Published garment styles (${totalStyles} total)`}
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <ExportButton
-                module="styles"
-                filters={{ stage: stageFilter }}
-              />
+              <ExportButton module="styles" filters={{ stage: stageFilter }} />
               {canCreateEdit && activeTab !== 'deleted' && (
                 <>
                   <Button variant="outline" onClick={() => navigate('/styles/import')}>
@@ -564,9 +578,7 @@ export default function StyleList() {
                   <Button variant="outline" onClick={() => navigate('/reports/style-fabric')}>
                     Stock Report
                   </Button>
-                  <Button onClick={() => navigate('/styles/new')}>
-                    + Create New Style
-                  </Button>
+                  <Button onClick={() => navigate('/styles/new')}>+ Create New Style</Button>
                 </>
               )}
             </div>
@@ -574,14 +586,16 @@ export default function StyleList() {
         </CardHeader>
         <CardContent>
           {/* Active/Deleted Tabs */}
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'drafts' | 'deleted')} className="mb-6">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as 'active' | 'drafts' | 'deleted')}
+            className="mb-6"
+          >
             <TabsList>
               <TabsTrigger value="active" className="flex items-center gap-2">
                 <Shirt className="h-4 w-4" />
                 Active Styles
-                <span className="ml-1 text-xs bg-primary/10 px-2 py-0.5 rounded-full">
-                  {totalStyles}
-                </span>
+                <span className="ml-1 text-xs bg-primary/10 px-2 py-0.5 rounded-full">{totalStyles}</span>
               </TabsTrigger>
               <TabsTrigger value="drafts" className="flex items-center gap-2">
                 <FileEdit className="h-4 w-4" />
@@ -633,9 +647,10 @@ export default function StyleList() {
                 emptyState={{
                   icon: <Shirt className="h-16 w-16" />,
                   title: 'No styles found',
-                  description: searchQuery || stageFilter
-                    ? 'Try adjusting your search or filter criteria'
-                    : 'Get started by creating your first style',
+                  description:
+                    searchQuery || stageFilter
+                      ? 'Try adjusting your search or filter criteria'
+                      : 'Get started by creating your first style',
                   actionLabel: canCreateEdit && !searchQuery && !stageFilter ? 'Create First Style' : undefined,
                   onAction: canCreateEdit && !searchQuery && !stageFilter ? () => navigate('/styles/new') : undefined,
                 }}

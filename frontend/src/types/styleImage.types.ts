@@ -14,7 +14,7 @@ export const StyleImageType = {
   OTHER: 'OTHER',
 } as const;
 
-export type StyleImageType = typeof StyleImageType[keyof typeof StyleImageType];
+export type StyleImageType = (typeof StyleImageType)[keyof typeof StyleImageType];
 
 export interface StyleImage {
   id: string;

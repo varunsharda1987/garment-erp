@@ -70,9 +70,7 @@ describe('DebitNoteService', () => {
     const baseCreateInput = {
       supplierId: 'sup-1',
       reason: 'QUALITY_ISSUE',
-      items: [
-        { description: 'Defective fabric', quantity: 5, unitPrice: 200 },
-      ],
+      items: [{ description: 'Defective fabric', quantity: 5, unitPrice: 200 }],
     };
 
     const intrastateGST = {
@@ -272,9 +270,7 @@ describe('DebitNoteService', () => {
           supplierId: 'sup-1',
           reason: 'PRICE_DIFFERENCE',
           remarks: 'Overcharged',
-          items: [
-            { description: 'Price adjustment', quantity: 5, unitPrice: 200 },
-          ],
+          items: [{ description: 'Price adjustment', quantity: 5, unitPrice: 200 }],
         },
         'user-1'
       );
@@ -385,7 +381,11 @@ describe('DebitNoteService', () => {
 
     it('should set debitNoteDate to current date when not provided', async () => {
       (mockGstService.calculateLineItemGST as jest.Mock).mockResolvedValue({
-        gstRate: 12, cgstAmount: 60, sgstAmount: 60, igstAmount: 0, taxAmount: 120,
+        gstRate: 12,
+        cgstAmount: 60,
+        sgstAmount: 60,
+        igstAmount: 0,
+        taxAmount: 120,
       });
       (mockTx.debit_notes.create as jest.Mock).mockResolvedValue({ id: 'dn-id-4' });
 
@@ -404,7 +404,11 @@ describe('DebitNoteService', () => {
 
     it('should parse debitNoteDate string into Date', async () => {
       (mockGstService.calculateLineItemGST as jest.Mock).mockResolvedValue({
-        gstRate: 12, cgstAmount: 60, sgstAmount: 60, igstAmount: 0, taxAmount: 120,
+        gstRate: 12,
+        cgstAmount: 60,
+        sgstAmount: 60,
+        igstAmount: 0,
+        taxAmount: 120,
       });
       (mockTx.debit_notes.create as jest.Mock).mockResolvedValue({ id: 'dn-id-5' });
 
@@ -424,7 +428,11 @@ describe('DebitNoteService', () => {
 
     it('should set poItemId to null when not provided in items', async () => {
       (mockGstService.calculateLineItemGST as jest.Mock).mockResolvedValue({
-        gstRate: 12, cgstAmount: 60, sgstAmount: 60, igstAmount: 0, taxAmount: 120,
+        gstRate: 12,
+        cgstAmount: 60,
+        sgstAmount: 60,
+        igstAmount: 0,
+        taxAmount: 120,
       });
       (mockTx.debit_notes.create as jest.Mock).mockResolvedValue({ id: 'dn-id-6' });
 
@@ -444,7 +452,11 @@ describe('DebitNoteService', () => {
 
     it('should include supplier, purchaseOrder, createdBy, and items in create response', async () => {
       (mockGstService.calculateLineItemGST as jest.Mock).mockResolvedValue({
-        gstRate: 12, cgstAmount: 60, sgstAmount: 60, igstAmount: 0, taxAmount: 120,
+        gstRate: 12,
+        cgstAmount: 60,
+        sgstAmount: 60,
+        igstAmount: 0,
+        taxAmount: 120,
       });
       (mockTx.debit_notes.create as jest.Mock).mockResolvedValue({ id: 'dn-id-7' });
 
@@ -731,9 +743,7 @@ describe('DebitNoteService', () => {
     it('should throw error when debit note not found', async () => {
       (mockPrisma.debit_notes.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.approve('non-existent')).rejects.toThrow(
-        'Debit note not found'
-      );
+      await expect(service.approve('non-existent')).rejects.toThrow('Debit note not found');
     });
 
     it('should throw error when status is APPROVED', async () => {
@@ -742,9 +752,7 @@ describe('DebitNoteService', () => {
         status: 'APPROVED',
       });
 
-      await expect(service.approve('dn-1')).rejects.toThrow(
-        'Only DRAFT debit notes can be approved'
-      );
+      await expect(service.approve('dn-1')).rejects.toThrow('Only DRAFT debit notes can be approved');
     });
 
     it('should throw error when status is CANCELLED', async () => {
@@ -753,9 +761,7 @@ describe('DebitNoteService', () => {
         status: 'CANCELLED',
       });
 
-      await expect(service.approve('dn-1')).rejects.toThrow(
-        'Only DRAFT debit notes can be approved'
-      );
+      await expect(service.approve('dn-1')).rejects.toThrow('Only DRAFT debit notes can be approved');
     });
 
     it('should not call update when status check fails', async () => {
@@ -805,9 +811,7 @@ describe('DebitNoteService', () => {
     it('should throw error when debit note not found', async () => {
       (mockPrisma.debit_notes.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.cancel('non-existent')).rejects.toThrow(
-        'Debit note not found'
-      );
+      await expect(service.cancel('non-existent')).rejects.toThrow('Debit note not found');
     });
 
     it('should throw error when status is APPROVED', async () => {
@@ -816,9 +820,7 @@ describe('DebitNoteService', () => {
         status: 'APPROVED',
       });
 
-      await expect(service.cancel('dn-1')).rejects.toThrow(
-        'Only DRAFT debit notes can be cancelled'
-      );
+      await expect(service.cancel('dn-1')).rejects.toThrow('Only DRAFT debit notes can be cancelled');
     });
 
     it('should throw error when status is CANCELLED', async () => {
@@ -827,9 +829,7 @@ describe('DebitNoteService', () => {
         status: 'CANCELLED',
       });
 
-      await expect(service.cancel('dn-1')).rejects.toThrow(
-        'Only DRAFT debit notes can be cancelled'
-      );
+      await expect(service.cancel('dn-1')).rejects.toThrow('Only DRAFT debit notes can be cancelled');
     });
   });
 
@@ -857,9 +857,7 @@ describe('DebitNoteService', () => {
     it('should throw error when debit note not found', async () => {
       (mockPrisma.debit_notes.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.delete('non-existent')).rejects.toThrow(
-        'Debit note not found'
-      );
+      await expect(service.delete('non-existent')).rejects.toThrow('Debit note not found');
     });
 
     it('should throw error when status is APPROVED', async () => {
@@ -868,9 +866,7 @@ describe('DebitNoteService', () => {
         status: 'APPROVED',
       });
 
-      await expect(service.delete('dn-1')).rejects.toThrow(
-        'Only DRAFT debit notes can be deleted'
-      );
+      await expect(service.delete('dn-1')).rejects.toThrow('Only DRAFT debit notes can be deleted');
     });
 
     it('should throw error when status is CANCELLED', async () => {
@@ -879,9 +875,7 @@ describe('DebitNoteService', () => {
         status: 'CANCELLED',
       });
 
-      await expect(service.delete('dn-1')).rejects.toThrow(
-        'Only DRAFT debit notes can be deleted'
-      );
+      await expect(service.delete('dn-1')).rejects.toThrow('Only DRAFT debit notes can be deleted');
     });
 
     it('should not call delete when status check fails', async () => {

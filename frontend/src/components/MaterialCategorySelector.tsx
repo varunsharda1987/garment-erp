@@ -1,23 +1,8 @@
 // MaterialCategorySelector - Modal to select material category before creation
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Package,
-  Scissors,
-  Shirt,
-  Zap,
-  Tag,
-  Box,
-  Layers,
-  Sparkles
-} from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Package, Scissors, Shirt, Zap, Tag, Box, Layers, Sparkles } from 'lucide-react';
 
 interface MaterialCategorySelectorProps {
   open: boolean;
@@ -33,10 +18,7 @@ interface CategoryOption {
   color: string;
 }
 
-const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({
-  open,
-  onOpenChange,
-}) => {
+const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({ open, onOpenChange }) => {
   const navigate = useNavigate();
 
   // Define category options with their respective routes
@@ -133,9 +115,7 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Select Material Category</DialogTitle>
-          <DialogDescription>
-            Choose the type of material you want to create
-          </DialogDescription>
+          <DialogDescription>Choose the type of material you want to create</DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4">
@@ -145,15 +125,9 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({
               onClick={() => handleCategorySelect(category.route)}
               className={`flex flex-col items-center p-4 rounded-lg border-2 transition-colors ${category.color}`}
             >
-              <div className="mb-2 text-gray-700">
-                {category.icon}
-              </div>
-              <div className="text-sm font-medium text-gray-900 mb-1">
-                {category.name}
-              </div>
-              <div className="text-xs text-gray-600 text-center">
-                {category.description}
-              </div>
+              <div className="mb-2 text-gray-700">{category.icon}</div>
+              <div className="text-sm font-medium text-gray-900 mb-1">{category.name}</div>
+              <div className="text-xs text-gray-600 text-center">{category.description}</div>
             </button>
           ))}
         </div>

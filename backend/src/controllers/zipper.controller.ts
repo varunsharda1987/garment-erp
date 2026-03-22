@@ -31,7 +31,7 @@ export const createZipper = async (req: Request, res: Response) => {
     pricePerPiece,
     supplierId,
     description,
-    suppliers = [] // Array of supplier relationships
+    suppliers = [], // Array of supplier relationships
   } = req.body;
 
   // Auto-generate zipper code
@@ -52,7 +52,7 @@ export const createZipper = async (req: Request, res: Response) => {
 
   // Get Zipper category ID
   const zipperCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Zipper' }
+    where: { name: 'Zipper' },
   });
 
   if (!zipperCategory) {
@@ -99,12 +99,12 @@ export const createZipper = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Create corresponding material entry
@@ -118,13 +118,13 @@ export const createZipper = async (req: Request, res: Response) => {
       categoryId: zipperCategory.id,
       unit: 'PIECE',
       isActive: true,
-    }
+    },
   });
 
   res.status(201).json({
     zipper: zipperRecord,
     material,
-    message: 'Zipper created successfully'
+    message: 'Zipper created successfully',
   });
 };
 
@@ -133,12 +133,7 @@ export const createZipper = async (req: Request, res: Response) => {
  * Includes suppliers
  */
 export const getAllZipper = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 10,
-    search = '',
-    supplierId = ''
-  } = req.query;
+  const { page = 1, limit = 10, search = '', supplierId = '' } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
@@ -155,7 +150,7 @@ export const getAllZipper = async (req: Request, res: Response) => {
     where.OR = [
       { zipperName: { contains: String(search), mode: 'insensitive' } },
       { zipperCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } }
+      { color: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -164,8 +159,8 @@ export const getAllZipper = async (req: Request, res: Response) => {
     where.zipperSuppliers = {
       some: {
         supplierId: String(supplierId),
-        isActive: true
-      }
+        isActive: true,
+      },
     };
   }
 
@@ -177,7 +172,7 @@ export const getAllZipper = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       zipperSuppliers: {
         include: {
@@ -190,15 +185,15 @@ export const getAllZipper = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
+        orderBy: { isPreferred: 'desc' },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -216,8 +211,8 @@ export const getAllZipper = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -232,7 +227,7 @@ export const getZipperById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       zipperSuppliers: {
         include: {
@@ -245,12 +240,12 @@ export const getZipperById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   if (!zipper) {
@@ -290,12 +285,12 @@ export const updateZipper = async (req: Request, res: Response) => {
     supplierId,
     description,
     isActive,
-    suppliers // Array of supplier relationships (replaces existing)
+    suppliers, // Array of supplier relationships (replaces existing)
   } = req.body;
 
   // Check if zipper exists
   const existing = await prisma.zipper_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -306,7 +301,7 @@ export const updateZipper = async (req: Request, res: Response) => {
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     // Delete existing supplier relationships
     await prisma.zipper_suppliers.deleteMany({
-      where: { zipperId: id }
+      where: { zipperId: id },
     });
 
     // Create new supplier relationships
@@ -319,7 +314,7 @@ export const updateZipper = async (req: Request, res: Response) => {
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
           pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
-        }))
+        })),
       });
     }
   }
@@ -344,7 +339,7 @@ export const updateZipper = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       zipperSuppliers: {
         include: {
@@ -357,19 +352,19 @@ export const updateZipper = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Also update material name if zipperName changed
   if (zipperName) {
     await prisma.materials.updateMany({
       where: { zipperId: id },
-      data: { name: zipperName }
+      data: { name: zipperName },
     });
   }
 
@@ -384,7 +379,7 @@ export const updateZipper = async (req: Request, res: Response) => {
 
   res.json({
     zipper: transformed,
-    message: 'Zipper updated successfully'
+    message: 'Zipper updated successfully',
   });
 };
 
@@ -397,7 +392,7 @@ export const deleteZipper = async (req: Request, res: Response) => {
 
   // Check if zipper exists
   const existing = await prisma.zipper_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -407,8 +402,8 @@ export const deleteZipper = async (req: Request, res: Response) => {
   // Check if used in BOM
   const bomUsage = await prisma.order_bom_items.count({
     where: {
-      zipperId: id
-    }
+      zipperId: id,
+    },
   });
 
   if (bomUsage > 0) {
@@ -419,12 +414,12 @@ export const deleteZipper = async (req: Request, res: Response) => {
 
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
-    where: { zipperId: id }
+    where: { zipperId: id },
   });
 
   // Delete zipper (cascade will delete zipper_suppliers)
   await prisma.zipper_master.delete({
-    where: { id }
+    where: { id },
   });
 
   res.json({ message: 'Zipper deleted successfully' });
@@ -443,7 +438,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
 
   // Get Zipper category
   const zipperCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Zipper' }
+    where: { name: 'Zipper' },
   });
 
   if (!zipperCategory) {
@@ -458,7 +453,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
   if (createStock) {
     defaultWarehouse = await prisma.warehouses.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -474,7 +469,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Zipper name is required'
+          error: 'Zipper name is required',
         });
         continue;
       }
@@ -495,7 +490,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
           pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
           description: row.description || null,
           isActive: true,
-        }
+        },
       });
 
       // Create material
@@ -510,7 +505,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
           categoryId: zipperCategory.id,
           unit: 'PIECE',
           isActive: true,
-        }
+        },
       });
 
       // Create stock if requested
@@ -524,7 +519,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
             unit: 'PIECE',
             reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
             maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          }
+          },
         });
         stockCreated = true;
       }
@@ -535,29 +530,28 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
         zipperCode,
         materialCode: zipperCode,
         zipperName: row.zipperName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: any) {
       results.push({
         success: false,
         row: i + 1,
         zipperCode,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   const summary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -578,7 +572,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { name: 'tapeWidth', required: false, description: 'Tape width in mm (Optional)' },
       { name: 'pricePerPiece', required: false, description: 'Price per piece (Optional)' },
       { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' }
+      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
     ],
     exampleData: [
       {
@@ -591,11 +585,11 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         brand: 'YKK',
         sliderType: 'Auto-lock',
         tapeWidth: 25.0,
-        pricePerPiece: 5.50,
+        pricePerPiece: 5.5,
         stockQuantity: 500,
-        locationCode: 'WH-01'
-      }
-    ]
+        locationCode: 'WH-01',
+      },
+    ],
   };
 
   res.json(template);

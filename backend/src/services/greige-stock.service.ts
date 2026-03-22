@@ -73,18 +73,15 @@ class GreigeStockService {
       if (!supplierId) {
         const stockEntrySupplier = await prisma.suppliers.findFirst({
           where: {
-            OR: [
-              { code: 'STOCK-ENTRY' },
-              { name: { contains: 'Stock Entry', mode: 'insensitive' } }
-            ]
-          }
+            OR: [{ code: 'STOCK-ENTRY' }, { name: { contains: 'Stock Entry', mode: 'insensitive' } }],
+          },
         });
 
         if (stockEntrySupplier) {
           supplierId = stockEntrySupplier.id;
         } else {
           const anySupplier = await prisma.suppliers.findFirst({
-            where: { isActive: true }
+            where: { isActive: true },
           });
 
           if (!anySupplier) {
@@ -105,12 +102,8 @@ class GreigeStockService {
           quantityPurchased: new Prisma.Decimal(data.quantity),
           unit: 'meters',
           width: new Prisma.Decimal(data.width),
-          ratePerUnit: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : new Prisma.Decimal(0),
-          totalCost: data.purchaseCost
-            ? new Prisma.Decimal(data.quantity * data.purchaseCost)
-            : new Prisma.Decimal(0),
+          ratePerUnit: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
+          totalCost: data.purchaseCost ? new Prisma.Decimal(data.quantity * data.purchaseCost) : new Prisma.Decimal(0),
           orderedForStyleId: null, // Generic, not style-specific
           isStockPurchase: true,
           processingRequired: false,
@@ -130,15 +123,9 @@ class GreigeStockService {
           quantityConsumed: new Prisma.Decimal(0),
           unit: 'meters',
           greigeWidth: new Prisma.Decimal(data.width),
-          cutableWidth: data.cutableWidth
-            ? new Prisma.Decimal(data.cutableWidth)
-            : new Prisma.Decimal(data.width - 2), // Default cutable = width - 2
-          purchaseCost: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : null,
-          weightedAvgCost: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : null,
+          cutableWidth: data.cutableWidth ? new Prisma.Decimal(data.cutableWidth) : new Prisma.Decimal(data.width - 2), // Default cutable = width - 2
+          purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : null,
+          weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : null,
           procurementId: procurement.id,
           supplierId: supplierId,
           warehouseLocation: data.warehouseLocation || null,
@@ -295,7 +282,9 @@ class GreigeStockService {
       };
     } catch (error: unknown) {
       logError('Error getting greige stock summary:', error);
-      throw new Error(`Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 

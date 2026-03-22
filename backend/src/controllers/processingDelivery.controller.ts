@@ -64,9 +64,7 @@ export async function getAllDeliveries(req: Request, res: Response) {
  */
 export async function getDeliveriesByBatch(req: Request, res: Response) {
   const { batchId } = req.params;
-  const deliveries = await processingDeliveryService.getDeliveriesByBatch(
-    batchId
-  );
+  const deliveries = await processingDeliveryService.getDeliveriesByBatch(batchId);
   res.status(200).json({
     success: true,
     data: deliveries,
@@ -79,9 +77,7 @@ export async function getDeliveriesByBatch(req: Request, res: Response) {
  */
 export async function getDeliveriesByStage(req: Request, res: Response) {
   const { stageId } = req.params;
-  const deliveries = await processingDeliveryService.getDeliveriesByStage(
-    stageId
-  );
+  const deliveries = await processingDeliveryService.getDeliveriesByStage(stageId);
   res.status(200).json({
     success: true,
     data: deliveries,
@@ -106,10 +102,7 @@ export async function getPendingQCDeliveries(req: Request, res: Response) {
  */
 export async function updateDelivery(req: Request, res: Response) {
   const { id } = req.params;
-  const delivery = await processingDeliveryService.updateDelivery(
-    id,
-    req.body
-  );
+  const delivery = await processingDeliveryService.updateDelivery(id, req.body);
   res.status(200).json({
     success: true,
     message: 'Processing delivery updated successfully',
@@ -122,22 +115,10 @@ export async function updateDelivery(req: Request, res: Response) {
  */
 export async function performQC(req: Request, res: Response) {
   const { id } = req.params;
-  const {
-    quantityAccepted,
-    quantityRejected,
-    qualityStatus,
-    qualityNotes,
-    rejectionReason,
-  } = req.body;
+  const { quantityAccepted, quantityRejected, qualityStatus, qualityNotes, rejectionReason } = req.body;
 
-  if (
-    quantityAccepted === undefined ||
-    quantityRejected === undefined ||
-    !qualityStatus
-  ) {
-    throw new ValidationError(
-      'quantityAccepted, quantityRejected, and qualityStatus are required'
-    );
+  if (quantityAccepted === undefined || quantityRejected === undefined || !qualityStatus) {
+    throw new ValidationError('quantityAccepted, quantityRejected, and qualityStatus are required');
   }
 
   const delivery = await processingDeliveryService.performQC(id, {

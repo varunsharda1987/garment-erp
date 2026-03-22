@@ -62,7 +62,6 @@ const SERVICE_SAC_MAPPING: Record<string, string> = {
 // ============================================
 
 class GSTServiceClass {
-
   // ============================================
   // Rate Lookup Methods (Database-Driven)
   // ============================================
@@ -77,11 +76,13 @@ class GSTServiceClass {
    * 4. tax_masters fallback
    * 5. Absolute fallback: 5% (GST 2.0 default for textiles/apparel)
    */
-  async getGSTRate(params: {
-    hsnSacCode?: string | null;
-    materialId?: string | null;
-    gstRateOverride?: number | null;
-  } = {}): Promise<number> {
+  async getGSTRate(
+    params: {
+      hsnSacCode?: string | null;
+      materialId?: string | null;
+      gstRateOverride?: number | null;
+    } = {}
+  ): Promise<number> {
     const { hsnSacCode, materialId, gstRateOverride } = params;
 
     // 1. Explicit override
@@ -145,10 +146,7 @@ class GSTServiceClass {
           taxType: 'GST',
           isActive: true,
           applicableFrom: { lte: new Date() },
-          OR: [
-            { applicableTo: null },
-            { applicableTo: { gte: new Date() } },
-          ],
+          OR: [{ applicableTo: null }, { applicableTo: { gte: new Date() } }],
         },
         orderBy: { taxRate: 'asc' },
       });
@@ -201,9 +199,12 @@ class GSTServiceClass {
       gstRateOverride,
     });
 
-    let cgstRate = 0, cgstAmount = 0;
-    let sgstRate = 0, sgstAmount = 0;
-    let igstRate = 0, igstAmount = 0;
+    let cgstRate = 0,
+      cgstAmount = 0;
+    let sgstRate = 0,
+      sgstAmount = 0;
+    let igstRate = 0,
+      igstAmount = 0;
 
     if (isInterstate) {
       igstRate = gstRate;
@@ -419,8 +420,12 @@ class GSTServiceClass {
 
       const isInterstate = supplierStateId !== customerStateId;
 
-      let cgst = 0, sgst = 0, igst = 0;
-      let cgstRate = 0, sgstRate = 0, igstRate = 0;
+      let cgst = 0,
+        sgst = 0,
+        igst = 0;
+      let cgstRate = 0,
+        sgstRate = 0,
+        igstRate = 0;
 
       if (isInterstate) {
         igstRate = taxRate;
@@ -457,27 +462,50 @@ class GSTServiceClass {
     // GST 2.0 (Sep 22, 2025): Default 5% for textiles/apparel (≤₹2,500)
     const DEFAULT_GARMENT_RATE = 5;
     if (!hsnCode) {
-      logWarn('[GST] getDefaultGSTRate called without HSN code — defaulting to 5% GST. This may produce incorrect tax calculations. Fix: ensure all materials have an HSN code assigned, and migrate callers to use getGSTRate() instead of this deprecated method.');
+      logWarn(
+        '[GST] getDefaultGSTRate called without HSN code — defaulting to 5% GST. This may produce incorrect tax calculations. Fix: ensure all materials have an HSN code assigned, and migrate callers to use getGSTRate() instead of this deprecated method.'
+      );
       return DEFAULT_GARMENT_RATE;
     }
 
     const hsnPrefix = hsnCode.substring(0, 2);
     switch (hsnPrefix) {
       // Apparel (5% for ≤₹2,500; 18% for >₹2,500 — default to 5%)
-      case '61': case '62': case '63': return 5;
+      case '61':
+      case '62':
+      case '63':
+        return 5;
       // Footwear
-      case '64': return 5;
+      case '64':
+        return 5;
       // Textiles, fabrics, yarns (all 5% under GST 2.0)
-      case '50': case '51': case '52': case '53': case '54':
-      case '55': case '56': case '57': case '58': case '59':
-      case '60': return 5;
+      case '50':
+      case '51':
+      case '52':
+      case '53':
+      case '54':
+      case '55':
+      case '56':
+      case '57':
+      case '58':
+      case '59':
+      case '60':
+        return 5;
       // Accessories (buttons, zippers, plastics, metal) — 18%
-      case '39': case '83': case '96': return 18;
+      case '39':
+      case '83':
+      case '96':
+        return 18;
       // Packaging — 18%
-      case '48': case '49': return 18;
+      case '48':
+      case '49':
+        return 18;
       // Machine parts — 18%
-      case '73': case '84': return 18;
-      default: return DEFAULT_GARMENT_RATE;
+      case '73':
+      case '84':
+        return 18;
+      default:
+        return DEFAULT_GARMENT_RATE;
     }
   }
 

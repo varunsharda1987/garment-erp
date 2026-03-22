@@ -39,10 +39,7 @@ class GarmentPhysicalTestsService {
   /**
    * Create a new garment physical test
    */
-  async createTest(
-    data: CreateGarmentPhysicalTestInput,
-    userId: string
-  ): Promise<any> {
+  async createTest(data: CreateGarmentPhysicalTestInput, userId: string): Promise<any> {
     try {
       // Get work order details
       const workOrder = await prisma.work_orders.findUnique({
@@ -76,7 +73,7 @@ class GarmentPhysicalTestsService {
           sentToLabDate: data.sentToLabDate,
           testingLabId: data.testingLabId,
           sampleQuantity: data.sampleQuantity,
-          
+
           buyerApprovalRequired: data.buyerApprovalRequired || false,
           createdById: userId,
         },
@@ -85,7 +82,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -141,10 +138,7 @@ class GarmentPhysicalTestsService {
     const where: Prisma.garment_physical_testsWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { testNumber: { contains: search, mode: 'insensitive' } },
-        
-      ];
+      where.OR = [{ testNumber: { contains: search, mode: 'insensitive' } }];
     }
 
     if (workOrderId) {
@@ -178,18 +172,11 @@ class GarmentPhysicalTestsService {
     }
 
     if (pendingApproval) {
-      where.AND = [
-        { overallTestResult: 'FAIL' },
-        { approvedById: null },
-        { adminOverride: false },
-      ];
+      where.AND = [{ overallTestResult: 'FAIL' }, { approvedById: null }, { adminOverride: false }];
     }
 
     if (pendingBuyerApproval) {
-      where.AND = [
-        { buyerApprovalRequired: true },
-        { buyerApprovedDate: null },
-      ];
+      where.AND = [{ buyerApprovalRequired: true }, { buyerApprovedDate: null }];
     }
 
     if (isRetest !== undefined) {
@@ -273,7 +260,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -281,7 +268,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -334,10 +321,7 @@ class GarmentPhysicalTestsService {
   /**
    * Update test (typically to add test results)
    */
-  async updateTest(
-    id: string,
-    data: UpdateGarmentPhysicalTestInput
-  ): Promise<any> {
+  async updateTest(id: string, data: UpdateGarmentPhysicalTestInput): Promise<any> {
     try {
       const existingTest = await prisma.garment_physical_tests.findUnique({
         where: { id },
@@ -351,13 +335,11 @@ class GarmentPhysicalTestsService {
       let calculatedData: any = { ...data };
 
       if (data.prewashLength && data.postwashLength) {
-        calculatedData.lengthShrinkage =
-          ((data.prewashLength - data.postwashLength) / data.prewashLength) * 100;
+        calculatedData.lengthShrinkage = ((data.prewashLength - data.postwashLength) / data.prewashLength) * 100;
       }
 
       if (data.prewashWidth && data.postwashWidth) {
-        calculatedData.widthShrinkage =
-          ((data.prewashWidth - data.postwashWidth) / data.prewashWidth) * 100;
+        calculatedData.widthShrinkage = ((data.prewashWidth - data.postwashWidth) / data.prewashWidth) * 100;
       }
 
       // Auto-calculate overall test result
@@ -386,7 +368,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -411,10 +393,7 @@ class GarmentPhysicalTestsService {
   /**
    * Create retest from failed test
    */
-  async createRetest(
-    data: RetestGarmentInput,
-    userId: string
-  ): Promise<any> {
+  async createRetest(data: RetestGarmentInput, userId: string): Promise<any> {
     try {
       const originalTest = await prisma.garment_physical_tests.findUnique({
         where: { id: data.originalTestId },
@@ -430,9 +409,7 @@ class GarmentPhysicalTestsService {
       }
 
       // Generate new test number
-      const testNumber = await this.generateTestNumber(
-        originalTest.workOrder?.workOrderNumber
-      );
+      const testNumber = await this.generateTestNumber(originalTest.workOrder?.workOrderNumber);
 
       // Create retest
       const retest = await prisma.garment_physical_tests.create({
@@ -458,7 +435,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -483,11 +460,7 @@ class GarmentPhysicalTestsService {
   /**
    * Admin approve test (can override FAIL)
    */
-  async approveTest(
-    id: string,
-    data: ApproveGarmentTestInput,
-    userId: string
-  ): Promise<any> {
+  async approveTest(id: string, data: ApproveGarmentTestInput, userId: string): Promise<any> {
     try {
       const test = await prisma.garment_physical_tests.findUnique({
         where: { id },
@@ -514,7 +487,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -531,11 +504,7 @@ class GarmentPhysicalTestsService {
   /**
    * Buyer approve test (CRITICAL for GPT before shipment)
    */
-  async buyerApproveTest(
-    id: string,
-    data: BuyerApproveGarmentTestInput,
-    userId: string
-  ): Promise<any> {
+  async buyerApproveTest(id: string, data: BuyerApproveGarmentTestInput, userId: string): Promise<any> {
     try {
       const test = await prisma.garment_physical_tests.findUnique({
         where: { id },

@@ -75,13 +75,15 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
 
           // Set suppliers from junction table
           if (zipper.zipperSuppliers && zipper.zipperSuppliers.length > 0) {
-            setSuppliers(zipper.zipperSuppliers.map(s => ({
-              supplierId: s.supplierId,
-              isPreferred: s.isPreferred,
-              isActive: s.isActive,
-              notes: s.notes || '',
-              pricePerPiece: s.pricePerPiece?.toString() || '',
-            })));
+            setSuppliers(
+              zipper.zipperSuppliers.map((s) => ({
+                supplierId: s.supplierId,
+                isPreferred: s.isPreferred,
+                isActive: s.isActive,
+                notes: s.notes || '',
+                pricePerPiece: s.pricePerPiece?.toString() || '',
+              }))
+            );
           }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load zipper', false);
@@ -96,23 +98,24 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
 
   // Supplier management functions
   const handleAddSupplier = () => {
-    setSuppliers(prev => [...prev, {
-      supplierId: '',
-      isPreferred: prev.length === 0, // First supplier is preferred by default
-      isActive: true,
-      notes: '',
-      pricePerPiece: '',
-    }]);
+    setSuppliers((prev) => [
+      ...prev,
+      {
+        supplierId: '',
+        isPreferred: prev.length === 0, // First supplier is preferred by default
+        isActive: true,
+        notes: '',
+        pricePerPiece: '',
+      },
+    ]);
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setSuppliers(prev => prev.filter((_, i) => i !== index));
+    setSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: keyof ZipperSupplierInput, value: string | boolean) => {
-    setSuppliers(prev => prev.map((s, i) =>
-      i === index ? { ...s, [field]: value } : s
-    ));
+    setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const onSubmit = async (data: ZipperFormData) => {
@@ -121,7 +124,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
       setError(null);
 
       // Validate suppliers have valid supplier IDs
-      const validSuppliers = suppliers.filter(s => s.supplierId);
+      const validSuppliers = suppliers.filter((s) => s.supplierId);
 
       const payload: ZipperFormData = {
         ...data,
@@ -141,11 +144,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
 
       navigate('/materials/zipper');
     } catch (err: unknown) {
-      const errorMessage = handleApiError(
-        err,
-        `Failed to ${isNewZipper ? 'create' : 'update'} zipper`,
-        false
-      );
+      const errorMessage = handleApiError(err, `Failed to ${isNewZipper ? 'create' : 'update'} zipper`, false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -168,11 +167,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* ZIPPER INFORMATION */}
             <div>
@@ -204,9 +199,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                         placeholder="Will be auto-generated (e.g., ZIP-000001)"
                         className="bg-gray-50 cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Code will be automatically assigned upon creation
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
                     </>
                   )}
                 </div>
@@ -223,40 +216,27 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                     placeholder="Leave empty to auto-generate from color, teethType, length, brand, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color TeethType Zipper Length Brand")
+                    If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color TeethType
+                    Zipper Length Brand")
                   </p>
                 </div>
 
                 {/* Buyer Code */}
                 <div>
                   <Label htmlFor="buyerCode">Buyer Code</Label>
-                  <Input
-                    id="buyerCode"
-                    {...register('buyerCode')}
-                    placeholder="Buyer's reference code"
-                  />
+                  <Input id="buyerCode" {...register('buyerCode')} placeholder="Buyer's reference code" />
                 </div>
 
                 {/* Length */}
                 <div>
                   <Label htmlFor="length">Length (inches)</Label>
-                  <Input
-                    id="length"
-                    type="number"
-                    step="0.01"
-                    {...register('length')}
-                    placeholder="e.g., 7.0"
-                  />
+                  <Input id="length" type="number" step="0.01" {...register('length')} placeholder="e.g., 7.0" />
                 </div>
 
                 {/* Teeth Type */}
                 <div>
                   <Label htmlFor="teethType">Teeth Type</Label>
-                  <Input
-                    id="teethType"
-                    {...register('teethType')}
-                    placeholder="e.g., Metal, Plastic, Nylon"
-                  />
+                  <Input id="teethType" {...register('teethType')} placeholder="e.g., Metal, Plastic, Nylon" />
                 </div>
 
                 {/* Color */}
@@ -286,33 +266,19 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                 {/* Brand */}
                 <div>
                   <Label htmlFor="brand">Brand</Label>
-                  <Input
-                    id="brand"
-                    {...register('brand')}
-                    placeholder="e.g., YKK, SBS"
-                  />
+                  <Input id="brand" {...register('brand')} placeholder="e.g., YKK, SBS" />
                 </div>
 
                 {/* Slider Type */}
                 <div>
                   <Label htmlFor="sliderType">Slider Type</Label>
-                  <Input
-                    id="sliderType"
-                    {...register('sliderType')}
-                    placeholder="e.g., Auto-lock, Two-way"
-                  />
+                  <Input id="sliderType" {...register('sliderType')} placeholder="e.g., Auto-lock, Two-way" />
                 </div>
 
                 {/* Tape Width */}
                 <div>
                   <Label htmlFor="tapeWidth">Tape Width (mm)</Label>
-                  <Input
-                    id="tapeWidth"
-                    type="number"
-                    step="0.01"
-                    {...register('tapeWidth')}
-                    placeholder="e.g., 25.0"
-                  />
+                  <Input id="tapeWidth" type="number" step="0.01" {...register('tapeWidth')} placeholder="e.g., 25.0" />
                 </div>
 
                 {/* Default Price Per Piece (for backward compatibility) */}
@@ -336,12 +302,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddSupplier}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
                 </Button>
@@ -359,7 +320,9 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
-                          <Label>Supplier <span className="text-red-500">*</span></Label>
+                          <Label>
+                            Supplier <span className="text-red-500">*</span>
+                          </Label>
                           <Select
                             value={supplier.supplierId || undefined}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
@@ -368,7 +331,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                               <SelectValue placeholder="Select supplier..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableSuppliers.map(s => (
+                              {availableSuppliers.map((s) => (
                                 <SelectItem key={s.id} value={s.id}>
                                   {s.code} - {s.name}
                                 </SelectItem>

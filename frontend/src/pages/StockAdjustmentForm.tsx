@@ -35,7 +35,7 @@ export default function StockAdjustmentForm() {
     quantity: '',
     unit: '' as Unit | '',
     reason: '' as AdjustmentReason | '',
-    remarks: ''
+    remarks: '',
   });
 
   useEffect(() => {
@@ -50,10 +50,10 @@ export default function StockAdjustmentForm() {
 
   useEffect(() => {
     if (formData.materialId && availableStock.length > 0) {
-      const stock = availableStock.find(s => s.materialId === formData.materialId);
+      const stock = availableStock.find((s) => s.materialId === formData.materialId);
       setSelectedStock(stock ?? null);
       if (stock) {
-        setFormData(prev => ({ ...prev, unit: stock.unit }));
+        setFormData((prev) => ({ ...prev, unit: stock.unit }));
       }
     }
   }, [formData.materialId, availableStock]);
@@ -100,9 +100,8 @@ export default function StockAdjustmentForm() {
 
     try {
       setLoading(true);
-      const adjustmentQuantity = formData.adjustmentType === 'increase'
-        ? Number(formData.quantity)
-        : -Number(formData.quantity);
+      const adjustmentQuantity =
+        formData.adjustmentType === 'increase' ? Number(formData.quantity) : -Number(formData.quantity);
 
       await stockMovementService.createAdjustment({
         materialId: formData.materialId,
@@ -110,7 +109,7 @@ export default function StockAdjustmentForm() {
         quantity: adjustmentQuantity,
         unit: formData.unit as Unit,
         reason: formData.reason as AdjustmentReason,
-        remarks: formData.remarks || undefined
+        remarks: formData.remarks || undefined,
       });
 
       setSuccess(true);
@@ -152,10 +151,7 @@ export default function StockAdjustmentForm() {
                 <Label htmlFor="warehouseId">
                   Warehouse <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={formData.warehouseId}
-                  onValueChange={(value) => handleChange('warehouseId', value)}
-                >
+                <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
                   <SelectTrigger id="warehouseId">
                     <SelectValue placeholder="Select warehouse" />
                   </SelectTrigger>
@@ -184,12 +180,15 @@ export default function StockAdjustmentForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {availableStock.length === 0 ? (
-                      <SelectItem value="none" disabled>No stock in warehouse</SelectItem>
+                      <SelectItem value="none" disabled>
+                        No stock in warehouse
+                      </SelectItem>
                     ) : (
                       availableStock.map((stock) => (
                         <SelectItem key={stock.id} value={stock.materialId}>
                           {stock.materials?.code} - {stock.materials?.name}
-                          {' (Current: '}{Number(stock.quantity).toFixed(2)} {stock.unit})
+                          {' (Current: '}
+                          {Number(stock.quantity).toFixed(2)} {stock.unit})
                         </SelectItem>
                       ))
                     )}
@@ -222,11 +221,15 @@ export default function StockAdjustmentForm() {
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="increase" id="increase" />
-                    <Label htmlFor="increase" className="font-normal">Increase Stock</Label>
+                    <Label htmlFor="increase" className="font-normal">
+                      Increase Stock
+                    </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="decrease" id="decrease" />
-                    <Label htmlFor="decrease" className="font-normal">Decrease Stock</Label>
+                    <Label htmlFor="decrease" className="font-normal">
+                      Decrease Stock
+                    </Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -234,7 +237,8 @@ export default function StockAdjustmentForm() {
               {/* Quantity */}
               <div className="space-y-2">
                 <Label htmlFor="quantity">
-                  Quantity to {formData.adjustmentType === 'increase' ? 'Add' : 'Subtract'} <span className="text-red-500">*</span>
+                  Quantity to {formData.adjustmentType === 'increase' ? 'Add' : 'Subtract'}{' '}
+                  <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="quantity"
@@ -250,11 +254,7 @@ export default function StockAdjustmentForm() {
               {/* Unit (readonly) */}
               <div className="space-y-2">
                 <Label htmlFor="unit">Unit</Label>
-                <Input
-                  id="unit"
-                  value={formData.unit}
-                  disabled
-                />
+                <Input id="unit" value={formData.unit} disabled />
                 <p className="text-sm text-muted-foreground">Auto-filled from material</p>
               </div>
 
@@ -263,10 +263,7 @@ export default function StockAdjustmentForm() {
                 <Label htmlFor="reason">
                   Reason for Adjustment <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={formData.reason}
-                  onValueChange={(value) => handleChange('reason', value)}
-                >
+                <Select value={formData.reason} onValueChange={(value) => handleChange('reason', value)}>
                   <SelectTrigger id="reason">
                     <SelectValue placeholder="Select reason" />
                   </SelectTrigger>
@@ -298,11 +295,7 @@ export default function StockAdjustmentForm() {
 
               {/* Actions */}
               <div className="flex gap-2 justify-end md:col-span-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/inventory/movements')}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/inventory/movements')}>
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
@@ -311,11 +304,7 @@ export default function StockAdjustmentForm() {
                   disabled={loading}
                   variant={formData.adjustmentType === 'decrease' ? 'destructive' : 'default'}
                 >
-                  {loading ? (
-                    <ButtonSpinner className="mr-2" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
+                  {loading ? <ButtonSpinner className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
                   Create Adjustment
                 </Button>
               </div>

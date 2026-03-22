@@ -3,14 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   getPurchaseOrderById,
   sendPurchaseOrder,
@@ -29,14 +22,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import {
-  ArrowLeft,
-  Edit,
-  Send,
-  CheckCircle,
-  XCircle,
-  PackageOpen,
-} from 'lucide-react';
+import { ArrowLeft, Edit, Send, CheckCircle, XCircle, PackageOpen } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
 export default function PurchaseOrderDetail() {
@@ -135,14 +121,8 @@ export default function PurchaseOrderDetail() {
 
   const calculateReceivingProgress = () => {
     if (!purchaseOrder?.items?.length) return 0;
-    const totalOrdered = purchaseOrder.items.reduce(
-      (sum, item) => sum + Number(item.orderedQuantity),
-      0
-    );
-    const totalReceived = purchaseOrder.items.reduce(
-      (sum, item) => sum + Number(item.receivedQuantity),
-      0
-    );
+    const totalOrdered = purchaseOrder.items.reduce((sum, item) => sum + Number(item.orderedQuantity), 0);
+    const totalReceived = purchaseOrder.items.reduce((sum, item) => sum + Number(item.receivedQuantity), 0);
     return totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0;
   };
 
@@ -186,9 +166,7 @@ export default function PurchaseOrderDetail() {
           <CardContent className="pt-6">
             <div className="text-center text-red-600">{error || 'Purchase order not found'}</div>
             <div className="text-center mt-4">
-              <Button onClick={() => navigate('/procurement/purchase-orders')}>
-                Back to Purchase Orders
-              </Button>
+              <Button onClick={() => navigate('/procurement/purchase-orders')}>Back to Purchase Orders</Button>
             </div>
           </CardContent>
         </Card>
@@ -209,19 +187,13 @@ export default function PurchaseOrderDetail() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/procurement/purchase-orders')}
-          >
+          <Button variant="ghost" size="sm" onClick={() => navigate('/procurement/purchase-orders')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           <div>
             <h1 className="text-2xl font-bold">{purchaseOrder.poNumber}</h1>
-            <p className="text-sm text-gray-500">
-              Created on {formatDate(purchaseOrder.createdAt)}
-            </p>
+            <p className="text-sm text-gray-500">Created on {formatDate(purchaseOrder.createdAt)}</p>
           </div>
           <StatusBadge
             status={PurchaseOrderStatusLabels[purchaseOrder.status]}
@@ -230,10 +202,7 @@ export default function PurchaseOrderDetail() {
         </div>
         <div className="flex gap-2">
           {canEdit && (
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/procurement/purchase-orders/${id}/edit`)}
-            >
+            <Button variant="outline" onClick={() => navigate(`/procurement/purchase-orders/${id}/edit`)}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -282,17 +251,13 @@ export default function PurchaseOrderDetail() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Items</div>
-            <div className="text-2xl font-bold">
-              {purchaseOrder.items?.length || 0}
-            </div>
+            <div className="text-2xl font-bold">{purchaseOrder.items?.length || 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Expected Delivery</div>
-            <div className="text-2xl font-bold">
-              {formatDate(purchaseOrder.expectedDeliveryDate)}
-            </div>
+            <div className="text-2xl font-bold">{formatDate(purchaseOrder.expectedDeliveryDate)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -322,17 +287,17 @@ export default function PurchaseOrderDetail() {
               {purchaseOrder.poSource && (
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Source</div>
-                  <Badge variant="outline">
-                    {POSourceLabels[purchaseOrder.poSource] || purchaseOrder.poSource}
-                  </Badge>
+                  <Badge variant="outline">{POSourceLabels[purchaseOrder.poSource] || purchaseOrder.poSource}</Badge>
                 </div>
               )}
               {linkedStyles.length > 0 && (
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Style(s)</div>
                   <div className="flex gap-1">
-                    {linkedStyles.map(s => (
-                      <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                    {linkedStyles.map((s) => (
+                      <Badge key={s} variant="outline" className="text-xs">
+                        {s}
+                      </Badge>
                     ))}
                   </div>
                 </div>
@@ -343,7 +308,10 @@ export default function PurchaseOrderDetail() {
                   <div className="flex gap-1">
                     {(purchaseOrder as any).poSourceLinks.map((link: any) => (
                       <Badge key={link.id} variant="secondary" className="text-xs">
-                        {link.materialRequirement?.requirementNumber || link.serviceRequirement?.serviceType || link.productionRun?.workOrderNumber || link.sourceType}
+                        {link.materialRequirement?.requirementNumber ||
+                          link.serviceRequirement?.serviceType ||
+                          link.productionRun?.workOrderNumber ||
+                          link.sourceType}
                       </Badge>
                     ))}
                   </div>
@@ -364,15 +332,11 @@ export default function PurchaseOrderDetail() {
             <div>
               <div className="text-sm text-gray-500">Supplier Name</div>
               <div className="font-medium">{purchaseOrder.supplier?.name || '-'}</div>
-              <div className="text-sm text-gray-500">
-                {purchaseOrder.supplier?.code}
-              </div>
+              <div className="text-sm text-gray-500">{purchaseOrder.supplier?.code}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Contact Person</div>
-              <div className="font-medium">
-                {purchaseOrder.supplier?.contactPerson || '-'}
-              </div>
+              <div className="font-medium">{purchaseOrder.supplier?.contactPerson || '-'}</div>
             </div>
             <div>
               <div className="text-sm text-gray-500">Email</div>
@@ -429,9 +393,7 @@ export default function PurchaseOrderDetail() {
                         {item.materials ? (
                           <>
                             <div className="font-medium">{item.materials.code}</div>
-                            <div className="text-sm text-gray-500">
-                              {item.materials.name}
-                            </div>
+                            <div className="text-sm text-gray-500">{item.materials.name}</div>
                           </>
                         ) : item.serviceDescription ? (
                           <>
@@ -452,31 +414,19 @@ export default function PurchaseOrderDetail() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {item.hsnCode || '-'}
-                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(item.orderedQuantity).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {Number(item.receivedQuantity).toLocaleString()}
-                    </TableCell>
+                    <TableCell className="text-right">{Number(item.receivedQuantity).toLocaleString()}</TableCell>
                     <TableCell>{item.unit}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(Number(item.unitPrice))}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(Number(item.totalPrice))}
-                    </TableCell>
+                    <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(Number(item.totalPrice))}</TableCell>
                     <TableCell className="text-right text-xs">
                       {item.gstRate ? `${Number(item.gstRate)}%` : '-'}
                     </TableCell>
-                    <TableCell className="text-right text-xs">
-                      {taxAmt > 0 ? formatCurrency(taxAmt) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(lineWithTax)}
-                    </TableCell>
+                    <TableCell className="text-right text-xs">{taxAmt > 0 ? formatCurrency(taxAmt) : '-'}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(lineWithTax)}</TableCell>
                     <TableCell>
                       {isFullyReceived ? (
                         <span className="text-green-600 text-sm">Received</span>
@@ -502,7 +452,8 @@ export default function PurchaseOrderDetail() {
                 </div>
               )}
               {purchaseOrder.isInterstate ? (
-                purchaseOrder.totalIgst != null && Number(purchaseOrder.totalIgst) > 0 && (
+                purchaseOrder.totalIgst != null &&
+                Number(purchaseOrder.totalIgst) > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">IGST</span>
                     <span>{formatCurrency(purchaseOrder.totalIgst)}</span>
@@ -532,9 +483,7 @@ export default function PurchaseOrderDetail() {
               )}
               <div className="flex justify-between border-t pt-2">
                 <span className="font-semibold">Grand Total</span>
-                <span className="text-xl font-bold">
-                  {formatCurrency(purchaseOrder.totalAmount)}
-                </span>
+                <span className="text-xl font-bold">{formatCurrency(purchaseOrder.totalAmount)}</span>
               </div>
             </div>
           </div>
@@ -561,10 +510,8 @@ export default function PurchaseOrderDetail() {
               </TableHeader>
               <TableBody>
                 {purchaseOrder.goodsReceivingNotes.map((grn) => {
-                  const totalReceived = (grn as any).items?.reduce(
-                    (sum: number, item: any) => sum + Number(item.receivedQuantity),
-                    0
-                  ) || 0;
+                  const totalReceived =
+                    (grn as any).items?.reduce((sum: number, item: any) => sum + Number(item.receivedQuantity), 0) || 0;
 
                   return (
                     <TableRow key={grn.id}>
@@ -573,17 +520,10 @@ export default function PurchaseOrderDetail() {
                       <TableCell>-</TableCell>
                       <TableCell className="text-right">{totalReceived.toLocaleString()}</TableCell>
                       <TableCell>
-                        <StatusBadge
-                          status={grn.status}
-                          variant={grn.status === 'ACCEPTED' ? 'success' : 'warning'}
-                        />
+                        <StatusBadge status={grn.status} variant={grn.status === 'ACCEPTED' ? 'success' : 'warning'} />
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/procurement/grn/${grn.id}`)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/procurement/grn/${grn.id}`)}>
                           View
                         </Button>
                       </TableCell>

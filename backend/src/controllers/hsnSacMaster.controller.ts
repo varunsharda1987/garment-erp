@@ -8,16 +8,7 @@ export class HSNSACMasterController {
    * Get all HSN/SAC codes with pagination
    */
   async getAll(req: Request, res: Response) {
-    const {
-      page = '1',
-      limit = '20',
-      search,
-      type,
-      chapter,
-      isActive,
-      sortBy,
-      sortOrder,
-    } = req.query;
+    const { page = '1', limit = '20', search, type, chapter, isActive, sortBy, sortOrder } = req.query;
 
     const result = await hsnSacMasterService.getAll({
       page: parseInt(page as string, 10),

@@ -4,14 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -33,13 +26,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -97,14 +84,7 @@ function SortableImageItem({
   onEdit: (image: StyleImage) => void;
   onDelete: (image: StyleImage) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: image.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: image.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -118,9 +98,7 @@ function SortableImageItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group rounded-lg border overflow-hidden bg-white ${
-        isDragging ? 'z-50 shadow-lg' : ''
-      }`}
+      className={`relative group rounded-lg border overflow-hidden bg-white ${isDragging ? 'z-50 shadow-lg' : ''}`}
     >
       {/* Image */}
       <div className="aspect-square relative">
@@ -137,20 +115,10 @@ function SortableImageItem({
         {/* Overlay with actions (visible on hover) */}
         {editable && (
           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="h-8 w-8 p-0"
-              onClick={() => onEdit(image)}
-            >
+            <Button size="sm" variant="secondary" className="h-8 w-8 p-0" onClick={() => onEdit(image)}>
               <Edit2 className="h-4 w-4" />
             </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              className="h-8 w-8 p-0"
-              onClick={() => onDelete(image)}
-            >
+            <Button size="sm" variant="destructive" className="h-8 w-8 p-0" onClick={() => onDelete(image)}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -170,14 +138,10 @@ function SortableImageItem({
 
       {/* Image type badge and caption */}
       <div className="p-2 space-y-1">
-        <Badge
-          className={`${IMAGE_TYPE_COLORS[image.imageType]} text-white text-xs`}
-        >
+        <Badge className={`${IMAGE_TYPE_COLORS[image.imageType]} text-white text-xs`}>
           {IMAGE_TYPE_LABELS[image.imageType]}
         </Badge>
-        {image.caption && (
-          <p className="text-xs text-gray-500 truncate">{image.caption}</p>
-        )}
+        {image.caption && <p className="text-xs text-gray-500 truncate">{image.caption}</p>}
       </div>
     </div>
   );
@@ -286,12 +250,7 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
 
     try {
       setUploading(true);
-      await styleImageService.uploadImage(
-        styleId,
-        uploadFile,
-        uploadImageType,
-        uploadCaption || undefined
-      );
+      await styleImageService.uploadImage(styleId, uploadFile, uploadImageType, uploadCaption || undefined);
       toast({
         title: 'Success',
         description: 'Image uploaded successfully',
@@ -422,26 +381,15 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
               <ImageIcon className="h-12 w-12 mb-2 opacity-50" />
               <p>No images yet</p>
               {editable && (
-                <Button
-                  variant="outline"
-                  className="mt-2"
-                  onClick={() => setUploadDialogOpen(true)}
-                >
+                <Button variant="outline" className="mt-2" onClick={() => setUploadDialogOpen(true)}>
                   <Upload className="h-4 w-4 mr-1" />
                   Upload First Image
                 </Button>
               )}
             </div>
           ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={images.map((img) => img.id)}
-                strategy={rectSortingStrategy}
-              >
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={images.map((img) => img.id)} strategy={rectSortingStrategy}>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {images.map((image) => (
                     <SortableImageItem
@@ -464,9 +412,7 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Upload Image</DialogTitle>
-            <DialogDescription>
-              Add a new image to the style gallery
-            </DialogDescription>
+            <DialogDescription>Add a new image to the style gallery</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -475,11 +421,7 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
               <Label>Image File</Label>
               {uploadPreview ? (
                 <div className="relative">
-                  <img
-                    src={uploadPreview}
-                    alt="Preview"
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
+                  <img src={uploadPreview} alt="Preview" className="w-full h-48 object-cover rounded-lg" />
                   <Button
                     size="sm"
                     variant="destructive"
@@ -501,14 +443,9 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
                     className="hidden"
                     id="image-upload"
                   />
-                  <label
-                    htmlFor="image-upload"
-                    className="cursor-pointer flex flex-col items-center"
-                  >
+                  <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center">
                     <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">
-                      Click to select an image
-                    </span>
+                    <span className="text-sm text-gray-600">Click to select an image</span>
                   </label>
                 </div>
               )}
@@ -517,10 +454,7 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
             {/* Image type */}
             <div className="space-y-2">
               <Label>Image Type</Label>
-              <Select
-                value={uploadImageType}
-                onValueChange={(value) => setUploadImageType(value as StyleImageType)}
-              >
+              <Select value={uploadImageType} onValueChange={(value) => setUploadImageType(value as StyleImageType)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select image type" />
                 </SelectTrigger>
@@ -555,10 +489,7 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleUpload}
-              disabled={!uploadFile || uploading}
-            >
+            <Button onClick={handleUpload} disabled={!uploadFile || uploading}>
               {uploading ? 'Uploading...' : 'Upload'}
             </Button>
           </DialogFooter>
@@ -570,19 +501,14 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Image</DialogTitle>
-            <DialogDescription>
-              Update image type and caption
-            </DialogDescription>
+            <DialogDescription>Update image type and caption</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             {/* Image type */}
             <div className="space-y-2">
               <Label>Image Type</Label>
-              <Select
-                value={editImageType}
-                onValueChange={(value) => setEditImageType(value as StyleImageType)}
-              >
+              <Select value={editImageType} onValueChange={(value) => setEditImageType(value as StyleImageType)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select image type" />
                 </SelectTrigger>
@@ -622,8 +548,7 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Image?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              image from the gallery.
+              This action cannot be undone. This will permanently delete the image from the gallery.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

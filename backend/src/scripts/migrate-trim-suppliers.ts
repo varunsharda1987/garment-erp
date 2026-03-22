@@ -21,7 +21,7 @@ async function migrateButtonSuppliers() {
 
   const buttons = await prisma.button_master.findMany({
     where: {
-      supplierId: { not: null }
+      supplierId: { not: null },
     },
     select: {
       id: true,
@@ -29,7 +29,7 @@ async function migrateButtonSuppliers() {
       supplierId: true,
       pricePerPiece: true,
       pricePerGross: true,
-    }
+    },
   });
 
   console.log(`Found ${buttons.length} buttons with suppliers to migrate`);
@@ -42,8 +42,8 @@ async function migrateButtonSuppliers() {
     const existing = await prisma.button_suppliers.findFirst({
       where: {
         buttonId: button.id,
-        supplierId: button.supplierId!
-      }
+        supplierId: button.supplierId!,
+      },
     });
 
     if (existing) {
@@ -59,8 +59,8 @@ async function migrateButtonSuppliers() {
         isActive: true,
         pricePerPiece: button.pricePerPiece,
         pricePerGross: button.pricePerGross,
-        notes: 'Migrated from single-supplier system'
-      }
+        notes: 'Migrated from single-supplier system',
+      },
     });
     migrated++;
   }
@@ -73,14 +73,14 @@ async function migrateZipperSuppliers() {
 
   const zippers = await prisma.zipper_master.findMany({
     where: {
-      supplierId: { not: null }
+      supplierId: { not: null },
     },
     select: {
       id: true,
       zipperName: true,
       supplierId: true,
       pricePerPiece: true,
-    }
+    },
   });
 
   console.log(`Found ${zippers.length} zippers with suppliers to migrate`);
@@ -92,8 +92,8 @@ async function migrateZipperSuppliers() {
     const existing = await prisma.zipper_suppliers.findFirst({
       where: {
         zipperId: zipper.id,
-        supplierId: zipper.supplierId!
-      }
+        supplierId: zipper.supplierId!,
+      },
     });
 
     if (existing) {
@@ -108,8 +108,8 @@ async function migrateZipperSuppliers() {
         isPreferred: true,
         isActive: true,
         pricePerPiece: zipper.pricePerPiece,
-        notes: 'Migrated from single-supplier system'
-      }
+        notes: 'Migrated from single-supplier system',
+      },
     });
     migrated++;
   }
@@ -122,14 +122,14 @@ async function migrateThreadSuppliers() {
 
   const threads = await prisma.thread_master.findMany({
     where: {
-      supplierId: { not: null }
+      supplierId: { not: null },
     },
     select: {
       id: true,
       threadName: true,
       supplierId: true,
       pricePerCone: true,
-    }
+    },
   });
 
   console.log(`Found ${threads.length} threads with suppliers to migrate`);
@@ -141,8 +141,8 @@ async function migrateThreadSuppliers() {
     const existing = await prisma.thread_suppliers.findFirst({
       where: {
         threadId: thread.id,
-        supplierId: thread.supplierId!
-      }
+        supplierId: thread.supplierId!,
+      },
     });
 
     if (existing) {
@@ -157,8 +157,8 @@ async function migrateThreadSuppliers() {
         isPreferred: true,
         isActive: true,
         pricePerCone: thread.pricePerCone,
-        notes: 'Migrated from single-supplier system'
-      }
+        notes: 'Migrated from single-supplier system',
+      },
     });
     migrated++;
   }
@@ -171,14 +171,14 @@ async function migrateElasticSuppliers() {
 
   const elastics = await prisma.elastic_master.findMany({
     where: {
-      supplierId: { not: null }
+      supplierId: { not: null },
     },
     select: {
       id: true,
       elasticName: true,
       supplierId: true,
       pricePerMeter: true,
-    }
+    },
   });
 
   console.log(`Found ${elastics.length} elastics with suppliers to migrate`);
@@ -190,8 +190,8 @@ async function migrateElasticSuppliers() {
     const existing = await prisma.elastic_suppliers.findFirst({
       where: {
         elasticId: elastic.id,
-        supplierId: elastic.supplierId!
-      }
+        supplierId: elastic.supplierId!,
+      },
     });
 
     if (existing) {
@@ -206,8 +206,8 @@ async function migrateElasticSuppliers() {
         isPreferred: true,
         isActive: true,
         pricePerMeter: elastic.pricePerMeter,
-        notes: 'Migrated from single-supplier system'
-      }
+        notes: 'Migrated from single-supplier system',
+      },
     });
     migrated++;
   }
@@ -220,7 +220,7 @@ async function migrateLabelSuppliers() {
 
   const labels = await prisma.label_master.findMany({
     where: {
-      supplierId: { not: null }
+      supplierId: { not: null },
     },
     select: {
       id: true,
@@ -228,7 +228,7 @@ async function migrateLabelSuppliers() {
       supplierId: true,
       pricePerPiece: true,
       pricePerHundred: true,
-    }
+    },
   });
 
   console.log(`Found ${labels.length} labels with suppliers to migrate`);
@@ -240,8 +240,8 @@ async function migrateLabelSuppliers() {
     const existing = await prisma.label_suppliers.findFirst({
       where: {
         labelId: label.id,
-        supplierId: label.supplierId!
-      }
+        supplierId: label.supplierId!,
+      },
     });
 
     if (existing) {
@@ -257,8 +257,8 @@ async function migrateLabelSuppliers() {
         isActive: true,
         pricePerPiece: label.pricePerPiece,
         pricePerHundred: label.pricePerHundred,
-        notes: 'Migrated from single-supplier system'
-      }
+        notes: 'Migrated from single-supplier system',
+      },
     });
     migrated++;
   }

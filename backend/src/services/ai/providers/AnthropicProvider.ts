@@ -140,9 +140,7 @@ export class AnthropicProvider implements IAIProvider {
     }
   }
 
-  async extractStructuredData(
-    request: AIStructuredExtractionRequest
-  ): Promise<AIStructuredExtractionResponse> {
+  async extractStructuredData(request: AIStructuredExtractionRequest): Promise<AIStructuredExtractionResponse> {
     try {
       const prompt = request.prompt || 'Extract structured data according to the schema:';
       const systemPrompt = `You are a data extraction assistant. Extract information in valid JSON format matching this schema: ${JSON.stringify(request.schema)}. Respond with ONLY the JSON object, no additional text.`;
@@ -172,7 +170,9 @@ export class AnthropicProvider implements IAIProvider {
         confidence: 0.9,
       };
     } catch (error: unknown) {
-      throw new Error(`Anthropic extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Anthropic extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -193,15 +193,14 @@ export class AnthropicProvider implements IAIProvider {
       });
 
       for await (const event of stream) {
-        if (
-          event.type === 'content_block_delta' &&
-          event.delta.type === 'text_delta'
-        ) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
           yield event.delta.text;
         }
       }
     } catch (error: unknown) {
-      throw new Error(`Anthropic generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Anthropic generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 

@@ -34,7 +34,7 @@ export const createThread = async (req: Request, res: Response) => {
     supplierId,
     description,
     styleCodes = [], // Array of style codes to associate
-    suppliers = [] // Array of supplier relationships
+    suppliers = [], // Array of supplier relationships
   } = req.body;
 
   // Auto-generate thread code
@@ -61,7 +61,7 @@ export const createThread = async (req: Request, res: Response) => {
 
   // Get Threads category ID
   const threadCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Threads' }
+    where: { name: 'Threads' },
   });
 
   if (!threadCategory) {
@@ -73,10 +73,10 @@ export const createThread = async (req: Request, res: Response) => {
   if (styleCodes.length > 0) {
     validStyles = await prisma.styles.findMany({
       where: { styleCode: { in: styleCodes } },
-      select: { id: true, styleCode: true }
+      select: { id: true, styleCode: true },
     });
 
-    const foundCodes = validStyles.map(s => s.styleCode);
+    const foundCodes = validStyles.map((s) => s.styleCode);
     const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
     if (invalidCodes.length > 0) {
       throw new ValidationError('Invalid style codes', { invalidCodes });
@@ -124,12 +124,12 @@ export const createThread = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Create style associations if provided
@@ -138,8 +138,8 @@ export const createThread = async (req: Request, res: Response) => {
       data: validStyles.map((style, index) => ({
         threadId: threadRecord.id,
         styleId: style.id,
-        isPrimary: index === 0
-      }))
+        isPrimary: index === 0,
+      })),
     });
   }
 
@@ -154,16 +154,16 @@ export const createThread = async (req: Request, res: Response) => {
       categoryId: threadCategory.id,
       unit: 'CONE',
       isActive: true,
-    }
+    },
   });
 
   res.status(201).json({
     thread: {
       ...threadRecord,
-      styleCodes: validStyles.map(s => s.styleCode),
+      styleCodes: validStyles.map((s) => s.styleCode),
     },
     material: materialEntry,
-    message: 'Thread created successfully'
+    message: 'Thread created successfully',
   });
 };
 
@@ -177,7 +177,7 @@ export const getAllThreads = async (req: Request, res: Response) => {
     limit = 10,
     search = '',
     supplierId = '',
-    styleCode = '' // Filter by specific style
+    styleCode = '', // Filter by specific style
   } = req.query;
 
   const pageNum = Number(page);
@@ -197,7 +197,7 @@ export const getAllThreads = async (req: Request, res: Response) => {
       { threadName: { contains: String(search), mode: 'insensitive' } },
       { threadCode: { contains: String(search), mode: 'insensitive' } },
       { color: { contains: String(search), mode: 'insensitive' } },
-      { colorCode: { contains: String(search), mode: 'insensitive' } }
+      { colorCode: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -206,8 +206,8 @@ export const getAllThreads = async (req: Request, res: Response) => {
     where.threadSuppliers = {
       some: {
         supplierId: String(supplierId),
-        isActive: true
-      }
+        isActive: true,
+      },
     };
   }
 
@@ -215,8 +215,8 @@ export const getAllThreads = async (req: Request, res: Response) => {
   if (styleCode) {
     where.thread_style_associations = {
       some: {
-        style: { styleCode: String(styleCode) }
-      }
+        style: { styleCode: String(styleCode) },
+      },
     };
   }
 
@@ -228,7 +228,7 @@ export const getAllThreads = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       threadSuppliers: {
         include: {
@@ -241,22 +241,22 @@ export const getAllThreads = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       thread_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
-        }
-      }
+            select: { styleCode: true, styleName: true },
+          },
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -277,8 +277,8 @@ export const getAllThreads = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -293,7 +293,7 @@ export const getThreadById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       threadSuppliers: {
         include: {
@@ -306,20 +306,20 @@ export const getThreadById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       thread_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
+            select: { styleCode: true, styleName: true },
+          },
         },
-        orderBy: { isPrimary: 'desc' }
-      }
-    }
+        orderBy: { isPrimary: 'desc' },
+      },
+    },
   });
 
   if (!thread) {
@@ -364,7 +364,7 @@ export const updateThread = async (req: Request, res: Response) => {
     description,
     isActive,
     styleCodes, // Array of style codes to associate (replaces existing)
-    suppliers // Array of supplier relationships (replaces existing)
+    suppliers, // Array of supplier relationships (replaces existing)
   } = req.body;
 
   // Auto-set piecesPerBox based on packagingType if packagingType is provided but piecesPerBox isn't
@@ -375,7 +375,7 @@ export const updateThread = async (req: Request, res: Response) => {
 
   // Check if thread exists
   const existing = await prisma.thread_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -388,10 +388,10 @@ export const updateThread = async (req: Request, res: Response) => {
     if (styleCodes.length > 0) {
       validStyles = await prisma.styles.findMany({
         where: { styleCode: { in: styleCodes } },
-        select: { id: true, styleCode: true }
+        select: { id: true, styleCode: true },
       });
 
-      const foundCodes = validStyles.map(s => s.styleCode);
+      const foundCodes = validStyles.map((s) => s.styleCode);
       const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
       if (invalidCodes.length > 0) {
         throw new ValidationError('Invalid style codes', { invalidCodes });
@@ -400,7 +400,7 @@ export const updateThread = async (req: Request, res: Response) => {
 
     // Delete existing associations and create new ones
     await prisma.thread_style_associations.deleteMany({
-      where: { threadId: id }
+      where: { threadId: id },
     });
 
     if (validStyles.length > 0) {
@@ -408,8 +408,8 @@ export const updateThread = async (req: Request, res: Response) => {
         data: validStyles.map((style, index) => ({
           threadId: id,
           styleId: style.id,
-          isPrimary: index === 0
-        }))
+          isPrimary: index === 0,
+        })),
       });
     }
   }
@@ -418,7 +418,7 @@ export const updateThread = async (req: Request, res: Response) => {
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     // Delete existing supplier relationships
     await prisma.thread_suppliers.deleteMany({
-      where: { threadId: id }
+      where: { threadId: id },
     });
 
     // Create new supplier relationships
@@ -431,7 +431,7 @@ export const updateThread = async (req: Request, res: Response) => {
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
           pricePerCone: s.pricePerCone ? parseFloat(String(s.pricePerCone)) : null,
-        }))
+        })),
       });
     }
   }
@@ -441,7 +441,8 @@ export const updateThread = async (req: Request, res: Response) => {
   const finalBrand = brand !== undefined ? brand : existing.brand;
   const finalColor = color !== undefined ? color : existing.color;
   const finalPackagingType = packagingType !== undefined ? packagingType : existing.packagingType;
-  const finalMetersPerUnit = metersPerUnit !== undefined ? (metersPerUnit ? parseFloat(metersPerUnit) : null) : existing.metersPerUnit;
+  const finalMetersPerUnit =
+    metersPerUnit !== undefined ? (metersPerUnit ? parseFloat(metersPerUnit) : null) : existing.metersPerUnit;
 
   // Auto-regenerate threadName if it was originally auto-generated (empty input) or if name is not explicitly provided
   // If threadName is empty string or not provided, regenerate from attributes
@@ -478,7 +479,7 @@ export const updateThread = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       threadSuppliers: {
         include: {
@@ -491,26 +492,26 @@ export const updateThread = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       thread_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
-        }
-      }
-    }
+            select: { styleCode: true, styleName: true },
+          },
+        },
+      },
+    },
   });
 
   // Update material name if threadName changed
   if (finalThreadName) {
     await prisma.materials.updateMany({
       where: { threadId: id },
-      data: { name: finalThreadName }
+      data: { name: finalThreadName },
     });
   }
 
@@ -528,7 +529,7 @@ export const updateThread = async (req: Request, res: Response) => {
 
   res.json({
     thread: transformed,
-    message: 'Thread updated successfully'
+    message: 'Thread updated successfully',
   });
 };
 
@@ -541,7 +542,7 @@ export const deleteThread = async (req: Request, res: Response) => {
 
   // Check if thread exists
   const existing = await prisma.thread_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -551,8 +552,8 @@ export const deleteThread = async (req: Request, res: Response) => {
   // Check if used in any BOM
   const bomUsage = await prisma.order_bom_items.count({
     where: {
-      threadId: id
-    }
+      threadId: id,
+    },
   });
 
   if (bomUsage > 0) {
@@ -563,12 +564,12 @@ export const deleteThread = async (req: Request, res: Response) => {
 
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
-    where: { threadId: id }
+    where: { threadId: id },
   });
 
   // Delete thread (cascade will delete thread_suppliers)
   await prisma.thread_master.delete({
-    where: { id }
+    where: { id },
   });
 
   res.json({ message: 'Thread deleted successfully' });
@@ -587,7 +588,7 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
 
   // Get Threads category
   const threadCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Threads' }
+    where: { name: 'Threads' },
   });
 
   if (!threadCategory) {
@@ -602,7 +603,7 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
   if (createStock) {
     defaultWarehouse = await prisma.warehouses.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -618,7 +619,7 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Thread name is required'
+          error: 'Thread name is required',
         });
         continue;
       }
@@ -646,7 +647,7 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
           buyerCode: row.buyerCode || null,
           description: row.description || null,
           isActive: true,
-        }
+        },
       });
 
       // Create material
@@ -661,7 +662,7 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
           categoryId: threadCategory.id,
           unit: 'CONE',
           isActive: true,
-        }
+        },
       });
 
       // Create stock if requested
@@ -675,7 +676,7 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
             unit: 'CONE',
             reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
             maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          }
+          },
         });
         stockCreated = true;
       }
@@ -686,29 +687,28 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
         threadCode,
         materialCode: threadCode,
         threadName: row.threadName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: any) {
       results.push({
         success: false,
         row: i + 1,
         threadCode,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   const summary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -721,16 +721,46 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { field: 'threadName', header: 'Thread Name', required: true, description: 'Name of the thread (Required)' },
       { field: 'brand', header: 'Brand', required: false, description: 'Brand name (Optional)' },
       { field: 'packagingType', header: 'Packaging Type', required: false, description: 'CONE or TUBE (Optional)' },
-      { field: 'metersPerUnit', header: 'Meters per Unit', required: false, description: 'Meters per cone/tube (Optional)' },
+      {
+        field: 'metersPerUnit',
+        header: 'Meters per Unit',
+        required: false,
+        description: 'Meters per cone/tube (Optional)',
+      },
       { field: 'color', header: 'Color', required: false, description: 'Color name (Optional)' },
-      { field: 'colorCode', header: 'Color Code (Pantone)', required: false, description: 'Pantone color code (Optional)' },
+      {
+        field: 'colorCode',
+        header: 'Color Code (Pantone)',
+        required: false,
+        description: 'Pantone color code (Optional)',
+      },
       { field: 'coneSize', header: 'Cone Size', required: false, description: 'Cone size (Optional)' },
-      { field: 'pricePerCone', header: 'Price Per Cone/Tube', required: false, description: 'Price per cone/tube (Optional)' },
-      { field: 'supplierCode', header: 'Supplier Code', required: false, description: "Supplier's reference code (Optional)" },
+      {
+        field: 'pricePerCone',
+        header: 'Price Per Cone/Tube',
+        required: false,
+        description: 'Price per cone/tube (Optional)',
+      },
+      {
+        field: 'supplierCode',
+        header: 'Supplier Code',
+        required: false,
+        description: "Supplier's reference code (Optional)",
+      },
       { field: 'buyerCode', header: 'Buyer Code', required: false, description: "Buyer's reference code (Optional)" },
       { field: 'description', header: 'Description', required: false, description: 'Description (Optional)' },
-      { field: 'stockQuantity', header: 'Stock Quantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { field: 'locationCode', header: 'Location Code', required: false, description: 'Warehouse location code (Optional)' }
+      {
+        field: 'stockQuantity',
+        header: 'Stock Quantity',
+        required: false,
+        description: 'Initial stock quantity (Optional)',
+      },
+      {
+        field: 'locationCode',
+        header: 'Location Code',
+        required: false,
+        description: 'Warehouse location code (Optional)',
+      },
     ],
     exampleData: [
       {
@@ -741,12 +771,12 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         color: 'Black',
         colorCode: 'PMS 200',
         coneSize: '5000m',
-        pricePerCone: 15.50,
+        pricePerCone: 15.5,
         supplierCode: 'SUP-001',
         buyerCode: 'BUY-001',
         description: 'Black polyester sewing thread cone',
         stockQuantity: 500,
-        locationCode: 'WH-01-A'
+        locationCode: 'WH-01-A',
       },
       {
         threadName: 'Aster Thread',
@@ -756,14 +786,14 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         color: 'White',
         colorCode: 'PMS 100',
         coneSize: '1000m',
-        pricePerCone: 8.50,
+        pricePerCone: 8.5,
         supplierCode: 'SUP-002',
         buyerCode: 'BUY-002',
         description: 'White polyester sewing thread tube',
         stockQuantity: 300,
-        locationCode: 'WH-01-B'
-      }
-    ]
+        locationCode: 'WH-01-B',
+      },
+    ],
   };
 
   res.json(template);
@@ -818,10 +848,7 @@ export const getThreadStock = async (req: Request, res: Response) => {
   });
 
   // Calculate total available units
-  const totalUnits = stockLevels.reduce(
-    (sum, level) => sum + parseFloat(level.quantity.toString()),
-    0
-  );
+  const totalUnits = stockLevels.reduce((sum, level) => sum + parseFloat(level.quantity.toString()), 0);
 
   // Calculate total boxes (using unitsPerBox if available)
   const unitsPerBox = thread.unitsPerBox || 10; // Default to 10 if not set
@@ -858,7 +885,7 @@ export const getThreadStock = async (req: Request, res: Response) => {
       shortage,
       reorderSuggested,
       status,
-      stockByWarehouse: stockLevels.map(level => ({
+      stockByWarehouse: stockLevels.map((level) => ({
         warehouseId: level.warehouseId,
         warehouseName: level.warehouses?.warehouseName,
         warehouseCode: level.warehouses?.warehouseCode,

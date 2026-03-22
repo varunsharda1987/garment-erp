@@ -12,17 +12,7 @@ interface DateFieldProps {
   max?: string;
 }
 
-export function DateField({
-  label,
-  value,
-  onChange,
-  error,
-  required,
-  disabled,
-  className,
-  min,
-  max,
-}: DateFieldProps) {
+export function DateField({ label, value, onChange, error, required, disabled, className, min, max }: DateFieldProps) {
   return (
     <FormField
       label={label}

@@ -3,39 +3,12 @@ import { stageValidationService } from '@/services/stageValidation.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import {
-  ShieldAlert,
-  Download,
-  Search,
-  FileText,
-  Clock,
-  User,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react';
+import { ShieldAlert, Download, Search, FileText, Clock, User, AlertCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -124,16 +97,7 @@ export default function OverrideHistory() {
   const exportToCSV = () => {
     try {
       // CSV headers
-      const headers = [
-        'Date/Time',
-        'User',
-        'Email',
-        'Type',
-        'Item',
-        'From Stage',
-        'To Stage',
-        'Reason',
-      ];
+      const headers = ['Date/Time', 'User', 'Email', 'Type', 'Item', 'From Stage', 'To Stage', 'Reason'];
 
       // CSV rows
       const rows = filteredOverrides.map((override) => [
@@ -148,10 +112,7 @@ export default function OverrideHistory() {
       ]);
 
       // Build CSV content
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-      ].join('\n');
+      const csvContent = [headers.join(','), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(','))].join('\n');
 
       // Download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -200,9 +161,7 @@ export default function OverrideHistory() {
             <ShieldAlert className="h-8 w-8 text-red-600" />
             Override History
           </h1>
-          <p className="text-gray-600 mt-1">
-            Audit trail of all admin overrides for production blocking rules
-          </p>
+          <p className="text-gray-600 mt-1">Audit trail of all admin overrides for production blocking rules</p>
         </div>
         <Button onClick={exportToCSV} disabled={filteredOverrides.length === 0}>
           <Download className="h-4 w-4 mr-2" />
@@ -297,9 +256,7 @@ export default function OverrideHistory() {
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-gray-400" />
                       <div>
-                        <div className="font-medium">
-                          {new Date(override.overriddenAt).toLocaleDateString()}
-                        </div>
+                        <div className="font-medium">{new Date(override.overriddenAt).toLocaleDateString()}</div>
                         <div className="text-xs text-gray-500">
                           {new Date(override.overriddenAt).toLocaleTimeString()}
                         </div>
@@ -327,15 +284,9 @@ export default function OverrideHistory() {
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      {override.workOrder && (
-                        <div className="font-medium">{override.workOrder.workOrderNumber}</div>
-                      )}
-                      {override.sample && (
-                        <div className="font-medium">{override.sample.sampleNumber}</div>
-                      )}
-                      {!override.workOrder && !override.sample && (
-                        <span className="text-gray-400">N/A</span>
-                      )}
+                      {override.workOrder && <div className="font-medium">{override.workOrder.workOrderNumber}</div>}
+                      {override.sample && <div className="font-medium">{override.sample.sampleNumber}</div>}
+                      {!override.workOrder && !override.sample && <span className="text-gray-400">N/A</span>}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -349,17 +300,13 @@ export default function OverrideHistory() {
                       {override.blockedSampleType && (
                         <div>
                           <span className="font-medium">{override.blockedSampleType}</span>
-                          {override.prerequisiteSampleType && (
-                            <span> (needs {override.prerequisiteSampleType})</span>
-                          )}
+                          {override.prerequisiteSampleType && <span> (needs {override.prerequisiteSampleType})</span>}
                         </div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="max-w-md text-sm text-gray-700 line-clamp-2">
-                      {override.overrideReason}
-                    </div>
+                    <div className="max-w-md text-sm text-gray-700 line-clamp-2">{override.overrideReason}</div>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -396,9 +343,7 @@ export default function OverrideHistory() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-gray-500">Date & Time</Label>
-                  <p className="text-sm font-medium">
-                    {new Date(selectedOverride.overriddenAt).toLocaleString()}
-                  </p>
+                  <p className="text-sm font-medium">{new Date(selectedOverride.overriddenAt).toLocaleString()}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-gray-500">Type</Label>
@@ -452,10 +397,7 @@ export default function OverrideHistory() {
                   <p className="text-sm font-medium">
                     {selectedOverride.blockedSampleType}
                     {selectedOverride.prerequisiteSampleType && (
-                      <span className="text-gray-500">
-                        {' '}
-                        (requires {selectedOverride.prerequisiteSampleType})
-                      </span>
+                      <span className="text-gray-500"> (requires {selectedOverride.prerequisiteSampleType})</span>
                     )}
                   </p>
                 </div>
@@ -465,9 +407,7 @@ export default function OverrideHistory() {
               <div>
                 <Label className="text-xs text-gray-500">Override Reason</Label>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-1">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {selectedOverride.overrideReason}
-                  </p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedOverride.overrideReason}</p>
                 </div>
               </div>
 
@@ -478,8 +418,7 @@ export default function OverrideHistory() {
                   <div className="text-sm text-yellow-900">
                     <p className="font-semibold mb-1">Audit Record</p>
                     <p>
-                      This override is permanently logged and may be reviewed by management for
-                      compliance purposes.
+                      This override is permanently logged and may be reviewed by management for compliance purposes.
                     </p>
                   </div>
                 </div>

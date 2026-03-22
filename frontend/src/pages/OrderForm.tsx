@@ -170,7 +170,7 @@ export default function OrderForm() {
         setSelectedStyleId(styleIdParam);
 
         // Load full style details
-        const fullStyle = await styleService.getStyleById(styleIdParam) as StyleWithOptions;
+        const fullStyle = (await styleService.getStyleById(styleIdParam)) as StyleWithOptions;
         setSelectedStyle(fullStyle);
 
         // Set brand name
@@ -178,9 +178,7 @@ export default function OrderForm() {
 
         // Auto-populate customer from style if available
         if (fullStyle.customerName && customers.length > 0) {
-          const matchedCustomer = customers.find(
-            c => c.name.toLowerCase() === fullStyle.customerName?.toLowerCase()
-          );
+          const matchedCustomer = customers.find((c) => c.name.toLowerCase() === fullStyle.customerName?.toLowerCase());
           if (matchedCustomer) {
             setCustomerId(matchedCustomer.id);
             if (matchedCustomer.creditDays) {
@@ -198,8 +196,8 @@ export default function OrderForm() {
         if (styleSizes.length === 0 && variants.length > 0) {
           const uniqueSizes = new Map<string, SizeOption>();
           variants
-            .filter(v => v.isActive)
-            .forEach(variant => {
+            .filter((v) => v.isActive)
+            .forEach((variant) => {
               const sizeName = variant.sizeName || variant.size || '';
               if (sizeName && !uniqueSizes.has(sizeName)) {
                 uniqueSizes.set(sizeName, {
@@ -224,7 +222,7 @@ export default function OrderForm() {
         setCostSheets(filteredSheets);
 
         // Find and select the cost sheet from params
-        const targetCostSheet = costSheetsData.find(cs => cs.id === costSheetIdParam);
+        const targetCostSheet = costSheetsData.find((cs) => cs.id === costSheetIdParam);
         if (targetCostSheet) {
           setSelectedCostSheetId(targetCostSheet.id);
           setUnitPrice(targetCostSheet.sellingPricePerPiece?.toString() || '');
@@ -272,9 +270,9 @@ export default function OrderForm() {
       try {
         const response = await styleService.getAllStyles(1, 20, styleSearch, undefined, undefined, undefined, 'ACTIVE');
         // Merge server results with existing styles (deduplicate by id)
-        setStyles(prev => {
-          const existingIds = new Set(prev.map(s => s.id));
-          const newStyles = response.data.filter(s => !existingIds.has(s.id));
+        setStyles((prev) => {
+          const existingIds = new Set(prev.map((s) => s.id));
+          const newStyles = response.data.filter((s) => !existingIds.has(s.id));
           if (newStyles.length === 0) return prev;
           return [...prev, ...newStyles];
         });
@@ -315,7 +313,7 @@ export default function OrderForm() {
         setUnitPrice(item.unitPrice.toString());
 
         // Load style details
-        const fullStyle = await styleService.getStyleById(item.styleId) as StyleWithOptions;
+        const fullStyle = (await styleService.getStyleById(item.styleId)) as StyleWithOptions;
         setSelectedStyle(fullStyle);
 
         // Get colors from style (serializer converts to camelCase)
@@ -328,8 +326,8 @@ export default function OrderForm() {
         if (styleSizes.length === 0 && variants.length > 0) {
           const uniqueSizes = new Map<string, SizeOption>();
           variants
-            .filter(v => v.isActive)
-            .forEach(variant => {
+            .filter((v) => v.isActive)
+            .forEach((variant) => {
               const sizeName = variant.sizeName || variant.size || '';
               if (sizeName && !uniqueSizes.has(sizeName)) {
                 uniqueSizes.set(sizeName, {
@@ -357,7 +355,7 @@ export default function OrderForm() {
         const breakupByNameMap = new Map<string, number>();
 
         if (item.breakup && item.breakup.length > 0) {
-          item.breakup.forEach(b => {
+          item.breakup.forEach((b) => {
             // Map by ID
             const idKey = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
             breakupByIdMap.set(idKey, b.quantity);
@@ -407,7 +405,7 @@ export default function OrderForm() {
 
       // Show additional details if any are filled
       if (order.paymentTerms || order.shippingAddress || order.remarks) {
-        setExpandedSections(prev => ({ ...prev, additionalDetails: true }));
+        setExpandedSections((prev) => ({ ...prev, additionalDetails: true }));
       }
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } } };
@@ -421,11 +419,11 @@ export default function OrderForm() {
   const filteredStyles = useMemo(() => {
     if (!styleSearch) return styles.slice(0, 20); // Show first 20 by default
     const search = styleSearch.toLowerCase();
-    return styles.filter(
-      (style) =>
-        style.styleCode.toLowerCase().includes(search) ||
-        style.styleName.toLowerCase().includes(search)
-    ).slice(0, 20);
+    return styles
+      .filter(
+        (style) => style.styleCode.toLowerCase().includes(search) || style.styleName.toLowerCase().includes(search)
+      )
+      .slice(0, 20);
   }, [styles, styleSearch]);
 
   // Handle style selection
@@ -441,21 +439,19 @@ export default function OrderForm() {
     setCostSheets([]);
 
     try {
-      const fullStyle = await styleService.getStyleById(styleId) as StyleWithOptions;
+      const fullStyle = (await styleService.getStyleById(styleId)) as StyleWithOptions;
       setSelectedStyle(fullStyle);
 
       // Set brand name from style (brandName or brandCategories.brandName)
       setDisplayBrandName(
         fullStyle.brandName ||
-        (fullStyle as unknown as { brandCategories?: { brandName?: string } }).brandCategories?.brandName ||
-        ''
+          (fullStyle as unknown as { brandCategories?: { brandName?: string } }).brandCategories?.brandName ||
+          ''
       );
 
       // Auto-populate customer if not already selected (match style's customerName to customers list)
       if (!customerId && fullStyle.customerName) {
-        const matchedCustomer = customers.find(
-          c => c.name.toLowerCase() === fullStyle.customerName?.toLowerCase()
-        );
+        const matchedCustomer = customers.find((c) => c.name.toLowerCase() === fullStyle.customerName?.toLowerCase());
         if (matchedCustomer) {
           setCustomerId(matchedCustomer.id);
           // Also set payment terms if customer has credit days
@@ -497,8 +493,8 @@ export default function OrderForm() {
       if (styleSizes.length === 0 && variants.length > 0) {
         const uniqueSizes = new Map<string, SizeOption>();
         variants
-          .filter(v => v.isActive)
-          .forEach(variant => {
+          .filter((v) => v.isActive)
+          .forEach((variant) => {
             const sizeName = variant.sizeName || variant.size || '';
             if (sizeName && !uniqueSizes.has(sizeName)) {
               uniqueSizes.set(sizeName, {
@@ -612,7 +608,7 @@ export default function OrderForm() {
       return;
     }
 
-    const preset = customerSizePresets.find(p => p.id === presetId);
+    const preset = customerSizePresets.find((p) => p.id === presetId);
     if (!preset || !preset.sizeCategory.sizes) return;
 
     // Convert preset sizes to SizeOption format
@@ -655,11 +651,9 @@ export default function OrderForm() {
   const updateBreakupQuantity = (colorId: string, sizeId: string, quantity: number) => {
     setBreakup((prev) => {
       if (colorId === '') {
-        return prev.map((b) => b.sizeId === sizeId ? { ...b, quantity } : b);
+        return prev.map((b) => (b.sizeId === sizeId ? { ...b, quantity } : b));
       }
-      return prev.map((b) =>
-        b.colorId === colorId && b.sizeId === sizeId ? { ...b, quantity } : b
-      );
+      return prev.map((b) => (b.colorId === colorId && b.sizeId === sizeId ? { ...b, quantity } : b));
     });
   };
 
@@ -679,7 +673,7 @@ export default function OrderForm() {
       const firstColor = colors[0];
       const newBreakup = breakup.map((b) => {
         if (b.colorId === firstColor.id) {
-          const sizeIndex = sizes.findIndex(s => s.id === b.sizeId);
+          const sizeIndex = sizes.findIndex((s) => s.id === b.sizeId);
           return { ...b, quantity: perSize + (sizeIndex < remainder ? 1 : 0) };
         }
         return b;
@@ -699,19 +693,19 @@ export default function OrderForm() {
     setCustomerId(selectedCustomerId);
 
     // Find the selected customer and auto-fill payment terms
-    const customer = customers.find(c => c.id === selectedCustomerId);
+    const customer = customers.find((c) => c.id === selectedCustomerId);
     if (customer?.creditDays) {
       // Format credit days as payment terms (e.g., "Net 30 Days")
       setPaymentTerms(`Net ${customer.creditDays} Days`);
       // Auto-expand additional details section to show payment terms
-      setExpandedSections(prev => ({ ...prev, additionalDetails: true }));
+      setExpandedSections((prev) => ({ ...prev, additionalDetails: true }));
     }
   };
 
   // Update distribution value for a size (used in percentage/ratio mode)
   const updateDistributionValue = (sizeId: string, colorId: string, value: number) => {
     const key = colorId ? `${colorId}-${sizeId}` : sizeId;
-    setDistributionValues(prev => ({ ...prev, [key]: value }));
+    setDistributionValues((prev) => ({ ...prev, [key]: value }));
   };
 
   // Get distribution value for a size
@@ -795,7 +789,7 @@ export default function OrderForm() {
 
     // Auto-apply distribution if we have values and a valid total
     if (total > 0 && (quantityMode === 'percentage' || quantityMode === 'ratio')) {
-      const hasValues = Object.values(distributionValues).some(v => v > 0);
+      const hasValues = Object.values(distributionValues).some((v) => v > 0);
       if (hasValues) {
         applyDistribution(total, quantityMode, distributionValues);
       }
@@ -825,9 +819,9 @@ export default function OrderForm() {
       if (newMode === 'percentage') {
         // Default to equal percentage distribution
         const perSize = sizes.length > 0 ? Math.floor(100 / sizes.length) : 0;
-        sizes.forEach(size => {
+        sizes.forEach((size) => {
           if (colors.length > 0) {
-            colors.forEach(color => {
+            colors.forEach((color) => {
               defaultValues[`${color.id}-${size.id}`] = perSize;
             });
           } else {
@@ -836,9 +830,9 @@ export default function OrderForm() {
         });
       } else {
         // Default to ratio of 1 for each size
-        sizes.forEach(size => {
+        sizes.forEach((size) => {
           if (colors.length > 0) {
-            colors.forEach(color => {
+            colors.forEach((color) => {
               defaultValues[`${color.id}-${size.id}`] = 1;
             });
           } else {
@@ -920,7 +914,15 @@ export default function OrderForm() {
       totalChecks,
       isComplete: completedCount === totalChecks,
     };
-  }, [customerId, expectedDeliveryDate, selectedStyleId, totalForDistribution, distributedQuantity, unitPrice, hasApprovedCostSheet]);
+  }, [
+    customerId,
+    expectedDeliveryDate,
+    selectedStyleId,
+    totalForDistribution,
+    distributedQuantity,
+    unitPrice,
+    hasApprovedCostSheet,
+  ]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -932,7 +934,9 @@ export default function OrderForm() {
       if (!validation.isComplete) {
         // Provide specific error message
         if (hasApprovedCostSheet === false) {
-          setError('Cannot create order: No approved cost sheet exists for this style. Please create and approve a cost sheet first.');
+          setError(
+            'Cannot create order: No approved cost sheet exists for this style. Please create and approve a cost sheet first.'
+          );
         } else {
           setError('Please complete all required fields');
         }
@@ -985,7 +989,7 @@ export default function OrderForm() {
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
   return (
@@ -993,9 +997,7 @@ export default function OrderForm() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            {isEditMode ? 'Edit Order' : 'Create New Order'}
-          </h1>
+          <h1 className="text-xl font-semibold text-gray-900">{isEditMode ? 'Edit Order' : 'Create New Order'}</h1>
           <p className="text-sm text-gray-500">
             Fill in the details below to {isEditMode ? 'update' : 'create'} an order
           </p>
@@ -1038,10 +1040,7 @@ export default function OrderForm() {
                 </Label>
                 <div className="relative mt-1.5">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
-                  <Select
-                    value={selectedStyleId}
-                    onValueChange={(value) => handleStyleSelect(value)}
-                  >
+                  <Select value={selectedStyleId} onValueChange={(value) => handleStyleSelect(value)}>
                     <SelectTrigger className="pl-10">
                       <SelectValue placeholder="Search & select style..." />
                     </SelectTrigger>
@@ -1058,22 +1057,26 @@ export default function OrderForm() {
                       {filteredStyles.map((style) => {
                         const styleImage = (style as Style & { image?: string }).image;
                         return (
-                        <SelectItem key={style.id} value={style.id}>
-                          <div className="flex items-center gap-2">
-                            {styleImage ? (
-                              <img
-                                src={styleImage.startsWith('http') ? styleImage : `${import.meta.env.VITE_API_URL || ''}/${styleImage}`}
-                                alt={style.styleName}
-                                className="w-6 h-6 object-cover rounded"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <Package className="h-4 w-4 text-gray-400" />
-                            )}
-                            <span className="font-medium">{style.styleCode}</span>
-                            <span className="text-gray-500 text-xs">{style.styleName}</span>
-                          </div>
-                        </SelectItem>
+                          <SelectItem key={style.id} value={style.id}>
+                            <div className="flex items-center gap-2">
+                              {styleImage ? (
+                                <img
+                                  src={
+                                    styleImage.startsWith('http')
+                                      ? styleImage
+                                      : `${import.meta.env.VITE_API_URL || ''}/${styleImage}`
+                                  }
+                                  alt={style.styleName}
+                                  className="w-6 h-6 object-cover rounded"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <Package className="h-4 w-4 text-gray-400" />
+                              )}
+                              <span className="font-medium">{style.styleCode}</span>
+                              <span className="text-gray-500 text-xs">{style.styleName}</span>
+                            </div>
+                          </SelectItem>
                         );
                       })}
                       {filteredStyles.length === 0 && (
@@ -1151,7 +1154,11 @@ export default function OrderForm() {
               <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
                 {selectedStyle.image ? (
                   <img
-                    src={selectedStyle.image.startsWith('http') ? selectedStyle.image : `${import.meta.env.VITE_API_URL || ''}/${selectedStyle.image}`}
+                    src={
+                      selectedStyle.image.startsWith('http')
+                        ? selectedStyle.image
+                        : `${import.meta.env.VITE_API_URL || ''}/${selectedStyle.image}`
+                    }
                     alt={selectedStyle.styleName}
                     className="w-10 h-10 object-cover rounded-lg"
                     loading="lazy"
@@ -1167,7 +1174,8 @@ export default function OrderForm() {
                 </div>
                 {sizes.length > 0 && (
                   <div className="ml-auto text-xs text-blue-600">
-                    {colors.length > 0 ? `${colors.length} colors × ` : ''}{sizes.length} sizes
+                    {colors.length > 0 ? `${colors.length} colors × ` : ''}
+                    {sizes.length} sizes
                   </div>
                 )}
               </div>
@@ -1181,8 +1189,8 @@ export default function OrderForm() {
                   <div className="flex-1">
                     <p className="font-semibold text-red-800">No Approved Cost Sheet</p>
                     <p className="text-sm text-red-700 mt-1">
-                      This style requires an approved cost sheet before orders can be created.
-                      Please create and approve a cost sheet first.
+                      This style requires an approved cost sheet before orders can be created. Please create and approve
+                      a cost sheet first.
                     </p>
                     <Button
                       type="button"
@@ -1243,557 +1251,551 @@ export default function OrderForm() {
             className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                validation.quantity && validation.hasPricing
-                  ? 'bg-green-100 text-green-600'
-                  : 'bg-orange-100 text-orange-600'
-              }`}>
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  validation.quantity && validation.hasPricing
+                    ? 'bg-green-100 text-green-600'
+                    : 'bg-orange-100 text-orange-600'
+                }`}
+              >
                 {validation.quantity && validation.hasPricing ? (
-                <Check className="h-5 w-5" />
-              ) : (
-                <Hash className="h-5 w-5" />
-              )}
-            </div>
-            <div className="text-left flex-1">
-              <div className="flex items-center gap-4 flex-wrap">
-                <h3 className="font-semibold text-gray-900">Quantity & Pricing</h3>
-                {enteredTotalQty > 0 && (
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded font-medium">
-                      {enteredTotalQty.toLocaleString()} pcs
-                    </span>
-                    {distributedQuantity > 0 && distributedQuantity !== enteredTotalQty && (
-                      <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded text-xs">
-                        Distributed: {distributedQuantity.toLocaleString()}
-                      </span>
-                    )}
-                    {unitPrice && Number(unitPrice) > 0 && (
-                      <>
-                        <span className="text-gray-400">•</span>
-                        <span>@ {formatCurrency(unitPrice, { decimals: 0 })}/pc</span>
-                        <span className="text-gray-400">•</span>
-                        <span className="font-semibold text-green-600">
-                          Total: {formatCurrency(totalAmount)}
-                        </span>
-                      </>
-                    )}
-                  </div>
+                  <Check className="h-5 w-5" />
+                ) : (
+                  <Hash className="h-5 w-5" />
                 )}
               </div>
-              {enteredTotalQty === 0 && (
-                <p className="text-sm text-gray-500">Enter total quantity above, then distribute per size</p>
-              )}
-            </div>
-          </div>
-          {expandedSections.quantity ? (
-            <ChevronUp className="h-5 w-5 text-gray-400" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-gray-400" />
-          )}
-        </button>
-
-        {expandedSections.quantity && (
-          <div className="px-6 pb-6 border-t">
-            <div className="pt-6">
-              {/* Size Preset Override (Optional) */}
-              {selectedStyleId && customerSizePresets.length > 0 && (
-                <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <Label className="text-sm font-medium mb-2 block">
-                    Size Override (Optional)
-                  </Label>
-                  <Select value={selectedSizePresetId} onValueChange={handleApplySizePreset}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Use style's default sizes or select a different size preset" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__default__">Use Style's Default Sizes</SelectItem>
-                      {customerSizePresets.map((preset) => (
-                        <SelectItem key={preset.id} value={preset.id}>
-                          {preset.presetName} - {preset.sizeCategory.name} ({preset.sizeCategory.sizes.length} sizes)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {sizeOverrideActive && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-purple-600">
-                      <AlertCircle className="h-4 w-4" />
-                      <span>This order is using custom sizes different from the style's default sizes</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!selectedStyleId ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>Please select a style first</p>
-                </div>
-              ) : sizes.length === 0 ? (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-amber-700">
-                    <AlertCircle className="h-5 w-5" />
-                    <p className="text-sm">
-                      This style has no size options. Please add SKU variants in Style Master first.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Mode Toggle & Distribution Controls */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
-                    {/* Mode Toggle */}
-                    <div className="flex items-center gap-1 p-1 bg-white rounded-lg border">
-                      <button
-                        type="button"
-                        onClick={() => handleModeChange('absolute')}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                          quantityMode === 'absolute'
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        Absolute
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleModeChange('percentage')}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                          quantityMode === 'percentage'
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        Percentage
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleModeChange('ratio')}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                          quantityMode === 'ratio'
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        Ratio
-                      </button>
-                    </div>
-
-                    {/* Recalculate button for Percentage/Ratio modes */}
-                    {(quantityMode === 'percentage' || quantityMode === 'ratio') && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={quantityMode === 'percentage' ? applyPercentageDistribution : applyRatioDistribution}
-                        disabled={!totalForDistribution || enteredTotalQty === 0}
-                        className="gap-2"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        Recalculate
-                      </Button>
-                    )}
-
-                    {/* Smart Distribute for Absolute mode */}
-                    {quantityMode === 'absolute' && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSmartDistribute}
-                        className="gap-2"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        Smart Distribute
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Mode Help Text */}
-                  {quantityMode !== 'absolute' && (
-                    <p className="text-xs text-gray-500 mb-4 -mt-2">
-                      {quantityMode === 'percentage'
-                        ? 'Enter percentage for each size. Actual quantities will auto-calculate based on Total Qty.'
-                        : 'Enter ratio values (e.g., 1:2:3). Actual quantities will auto-calculate based on Total Qty.'}
-                    </p>
-                  )}
-
-                  {/* Section Label */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-gray-700">
-                      {colors.length > 0 ? 'Quantity by Color & Size' : 'Quantity by Size'}
-                      {quantityMode !== 'absolute' && (
-                        <span className="ml-2 text-xs text-blue-600">
-                          ({quantityMode === 'percentage' ? 'Enter %' : 'Enter ratios'})
+              <div className="text-left flex-1">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <h3 className="font-semibold text-gray-900">Quantity & Pricing</h3>
+                  {enteredTotalQty > 0 && (
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded font-medium">
+                        {enteredTotalQty.toLocaleString()} pcs
+                      </span>
+                      {distributedQuantity > 0 && distributedQuantity !== enteredTotalQty && (
+                        <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded text-xs">
+                          Distributed: {distributedQuantity.toLocaleString()}
                         </span>
                       )}
-                    </span>
-                  </div>
-
-                  {/* Color x Size Matrix */}
-                  {colors.length > 0 && sizes.length > 0 && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse">
-                        <thead>
-                          <tr className="bg-gray-50">
-                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border">
-                              Color
-                            </th>
-                            {sizes.map((size) => (
-                              <th key={size.id} className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border min-w-[80px]">
-                                {size.sizeName}
-                              </th>
-                            ))}
-                            <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border bg-gray-100">
-                              Total
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {colors.map((color) => {
-                            const rowTotal = breakup
-                              .filter((b) => b.colorId === color.id)
-                              .reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
-
-                            return (
-                              <tr key={color.id} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 text-sm font-medium text-gray-900 border">
-                                  {color.colorName}
-                                </td>
-                                {sizes.map((size) => {
-                                  const breakupItem = breakup.find(
-                                    (b) => b.colorId === color.id && b.sizeId === size.id
-                                  );
-                                  const distValue = getDistributionValue(size.id, color.id);
-                                  return (
-                                    <td key={size.id} className="px-1 py-1 border">
-                                      {quantityMode === 'absolute' ? (
-                                        <Input
-                                          type="number"
-                                          min="0"
-                                          value={breakupItem?.quantity || 0}
-                                          onChange={(e) =>
-                                            updateBreakupQuantity(
-                                              color.id,
-                                              size.id,
-                                              parseInt(e.target.value) || 0
-                                            )
-                                          }
-                                          className="text-center h-9 text-sm"
-                                        />
-                                      ) : (
-                                        <div className="space-y-0.5">
-                                          <Input
-                                            type="number"
-                                            min="0"
-                                            value={distValue || ''}
-                                            onChange={(e) => {
-                                              const val = parseInt(e.target.value) || 0;
-                                              const key = `${color.id}-${size.id}`;
-                                              updateDistributionValue(size.id, color.id, val);
-                                              // Auto-recalculate
-                                              const total = parseInt(totalForDistribution);
-                                              if (total > 0) {
-                                                const newValues = { ...distributionValues, [key]: val };
-                                                applyDistribution(total, quantityMode as 'percentage' | 'ratio', newValues);
-                                              }
-                                            }}
-                                            placeholder={quantityMode === 'percentage' ? '%' : '#'}
-                                            className="text-center h-7 text-xs"
-                                          />
-                                          <div className="text-center text-xs font-medium text-green-700 bg-green-50 rounded">
-                                            = {breakupItem?.quantity || 0}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </td>
-                                  );
-                                })}
-                                <td className="px-3 py-2 text-center text-sm font-semibold text-gray-900 border bg-gray-50">
-                                  {rowTotal}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          <tr className="bg-gray-100 font-semibold">
-                            <td className="px-3 py-2 text-sm text-gray-900 border">Total</td>
-                            {sizes.map((size) => {
-                              const colTotal = breakup
-                                .filter((b) => b.sizeId === size.id)
-                                .reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
-                              return (
-                                <td key={size.id} className="px-3 py-2 text-center text-sm text-gray-900 border">
-                                  {colTotal}
-                                </td>
-                              );
-                            })}
-                            <td className="px-3 py-2 text-center text-sm text-blue-600 border font-bold">
-                              {distributedQuantity}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                      {unitPrice && Number(unitPrice) > 0 && (
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span>@ {formatCurrency(unitPrice, { decimals: 0 })}/pc</span>
+                          <span className="text-gray-400">•</span>
+                          <span className="font-semibold text-green-600">Total: {formatCurrency(totalAmount)}</span>
+                        </>
+                      )}
                     </div>
                   )}
-
-                  {/* Size-only Grid - Single Row */}
-                  {colors.length === 0 && sizes.length > 0 && (
-                    <div className="overflow-x-auto">
-                      <div className="flex gap-3 min-w-max pb-2">
-                        {sizes.map((size) => {
-                          const breakupItem = breakup.find((b) => b.sizeId === size.id);
-                          const distValue = getDistributionValue(size.id, '');
-                          return (
-                            <div key={size.id} className="w-24 flex-shrink-0 space-y-1">
-                              <label className="block text-center text-sm font-medium text-gray-700">
-                                {size.sizeName}
-                              </label>
-                              {quantityMode === 'absolute' ? (
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={breakupItem?.quantity || 0}
-                                  onChange={(e) =>
-                                    updateBreakupQuantity(
-                                      '',
-                                      size.id,
-                                      parseInt(e.target.value) || 0
-                                    )
-                                  }
-                                  className="text-center h-10"
-                                />
-                              ) : (
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1">
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      value={distValue || ''}
-                                      onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        updateDistributionValue(size.id, '', val);
-                                        // Auto-recalculate
-                                        const total = parseInt(totalForDistribution);
-                                        if (total > 0) {
-                                          const newValues = { ...distributionValues, [size.id]: val };
-                                          applyDistribution(total, quantityMode as 'percentage' | 'ratio', newValues);
-                                        }
-                                      }}
-                                      placeholder={quantityMode === 'percentage' ? '%' : '#'}
-                                      className="text-center h-8 text-sm"
-                                    />
-                                    <span className="text-xs text-gray-500">
-                                      {quantityMode === 'percentage' ? '%' : ''}
-                                    </span>
-                                  </div>
-                                  <div className="text-center text-xs font-medium text-green-700 bg-green-50 rounded px-1 py-0.5">
-                                    = {breakupItem?.quantity || 0}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {/* Total Column */}
-                        <div className="w-24 flex-shrink-0 space-y-1">
-                          <label className="block text-center text-sm font-semibold text-gray-900">
-                            {quantityMode === 'absolute' ? 'Distributed' : 'Total'}
-                          </label>
-                          {quantityMode !== 'absolute' && (
-                            <div className="text-center text-xs text-gray-500">
-                              {quantityMode === 'percentage'
-                                ? `${Object.values(distributionValues).reduce((s, v) => s + v, 0)}%`
-                                : `Ratio: ${Object.values(distributionValues).reduce((s, v) => s + v, 0)}`
-                              }
-                            </div>
-                          )}
-                          <div className={`h-10 flex items-center justify-center rounded-md font-bold ${
-                            quantityMode === 'absolute'
-                              ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                              : 'bg-green-50 border border-green-200 text-green-700'
-                          }`}>
-                            {distributedQuantity.toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Size Distribution Info (Optional - not blocking) */}
-                  {sizeDistributionStatus === 'pending' && (
-                    <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-blue-50 border-blue-200 text-blue-800">
-                      <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Size distribution optional</p>
-                        <p className="text-sm mt-1">
-                          Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs.
-                          You can distribute quantities across sizes now, or add size breakdown later.
-                        </p>
-                        <p className="text-xs mt-2 opacity-75">
-                          Size-independent POs (fabric, greige, processing, most trims) can be generated without size breakdown.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Quantity Mismatch Warning (informational, not blocking) */}
-                  {quantityMismatch === 'mismatch' && (
-                    <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-amber-50 border-amber-200 text-amber-800">
-                      <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium">Quantity mismatch detected</p>
-                        <p className="text-sm mt-1">
-                          Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs,
-                          but size distribution totals: <strong>{distributedQuantity.toLocaleString()}</strong> pcs.
-                          {distributedQuantity > enteredTotalQty ? (
-                            <span className="text-red-700"> (Exceeds by {(distributedQuantity - enteredTotalQty).toLocaleString()})</span>
-                          ) : (
-                            <span className="text-amber-700"> (Short by {(enteredTotalQty - distributedQuantity).toLocaleString()})</span>
-                          )}
-                        </p>
-                        <p className="text-xs mt-2 opacity-75">
-                          Order will be saved with total quantity of {enteredTotalQty.toLocaleString()} pcs.
-                          Size distribution can be corrected later.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Quantity Match Success */}
-                  {!quantityMismatch && enteredTotalQty > 0 && distributedQuantity > 0 && (
-                    <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200 flex items-center gap-2 text-green-700">
-                      <CheckCircle2 className="h-5 w-5" />
-                      <span className="text-sm font-medium">
-                        Quantity distributed correctly: {distributedQuantity.toLocaleString()} pcs
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Pricing Section - Dark Theme */}
-                  <div className="mt-6 bg-gray-900 rounded-xl p-6 text-white">
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium text-gray-400">Pricing Summary</h4>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Unit Price (₹)</label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={unitPrice}
-                            onChange={(e) => {
-                              setUnitPrice(e.target.value);
-                              setSelectedCostSheetId(null); // Clear cost sheet selection when manually editing
-                            }}
-                            placeholder="0.00"
-                            className="bg-gray-800 border-gray-700 text-white text-lg font-semibold flex-1"
-                          />
-                        </div>
-                        {selectedCostSheetId && (
-                          <p className="text-xs text-blue-400 mt-1">
-                            <Calculator className="w-3 h-3 inline mr-1" />
-                            From Cost Sheet
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Total Amount</label>
-                        <div className={`h-10 px-3 rounded-md flex items-center text-lg font-bold ${
-                          validation.hasPricing
-                            ? 'bg-green-900/50 border border-green-700 text-green-400'
-                            : 'bg-amber-900/30 border border-amber-700 text-amber-400'
-                        }`}>
-                          {validation.hasPricing
-                            ? formatCurrency(totalAmount)
-                            : 'Pending'
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+                </div>
+                {enteredTotalQty === 0 && (
+                  <p className="text-sm text-gray-500">Enter total quantity above, then distribute per size</p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Additional Details Section */}
-      <div className="bg-white rounded-xl border shadow-sm mb-6 overflow-hidden">
-        <button
-          type="button"
-          onClick={() => toggleSection('additionalDetails')}
-          className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 text-gray-600">
-              <FileText className="h-5 w-5" />
-            </div>
-            <div className="text-left">
-              <h3 className="font-semibold text-gray-900">Additional Details</h3>
-              <p className="text-sm text-gray-500">Optional information</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Optional</span>
-            {expandedSections.additionalDetails ? (
+            {expandedSections.quantity ? (
               <ChevronUp className="h-5 w-5 text-gray-400" />
             ) : (
               <ChevronDown className="h-5 w-5 text-gray-400" />
             )}
-          </div>
-        </button>
+          </button>
 
-        {expandedSections.additionalDetails && (
-          <div className="px-6 pb-6 border-t">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
-              <div>
-                <Label className="text-sm font-medium text-gray-700">Payment Terms</Label>
-                <Input
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                  placeholder="e.g., Net 30 Days"
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium text-gray-700">Priority</Label>
-                <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PriorityLabels).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-sm font-medium text-gray-700">Shipping Address</Label>
-                <Textarea
-                  value={shippingAddress}
-                  onChange={(e) => setShippingAddress(e.target.value)}
-                  rows={2}
-                  className="mt-1.5"
-                  placeholder="Enter shipping address..."
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-sm font-medium text-gray-700">Remarks</Label>
-                <Textarea
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  rows={2}
-                  className="mt-1.5"
-                  placeholder="Any additional notes..."
-                />
+          {expandedSections.quantity && (
+            <div className="px-6 pb-6 border-t">
+              <div className="pt-6">
+                {/* Size Preset Override (Optional) */}
+                {selectedStyleId && customerSizePresets.length > 0 && (
+                  <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <Label className="text-sm font-medium mb-2 block">Size Override (Optional)</Label>
+                    <Select value={selectedSizePresetId} onValueChange={handleApplySizePreset}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Use style's default sizes or select a different size preset" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Use Style's Default Sizes</SelectItem>
+                        {customerSizePresets.map((preset) => (
+                          <SelectItem key={preset.id} value={preset.id}>
+                            {preset.presetName} - {preset.sizeCategory.name} ({preset.sizeCategory.sizes.length} sizes)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {sizeOverrideActive && (
+                      <div className="mt-2 flex items-center gap-2 text-xs text-purple-600">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>This order is using custom sizes different from the style's default sizes</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!selectedStyleId ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Please select a style first</p>
+                  </div>
+                ) : sizes.length === 0 ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-amber-700">
+                      <AlertCircle className="h-5 w-5" />
+                      <p className="text-sm">
+                        This style has no size options. Please add SKU variants in Style Master first.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Mode Toggle & Distribution Controls */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                      {/* Mode Toggle */}
+                      <div className="flex items-center gap-1 p-1 bg-white rounded-lg border">
+                        <button
+                          type="button"
+                          onClick={() => handleModeChange('absolute')}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                            quantityMode === 'absolute' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Absolute
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleModeChange('percentage')}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                            quantityMode === 'percentage' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Percentage
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleModeChange('ratio')}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                            quantityMode === 'ratio' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Ratio
+                        </button>
+                      </div>
+
+                      {/* Recalculate button for Percentage/Ratio modes */}
+                      {(quantityMode === 'percentage' || quantityMode === 'ratio') && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={quantityMode === 'percentage' ? applyPercentageDistribution : applyRatioDistribution}
+                          disabled={!totalForDistribution || enteredTotalQty === 0}
+                          className="gap-2"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Recalculate
+                        </Button>
+                      )}
+
+                      {/* Smart Distribute for Absolute mode */}
+                      {quantityMode === 'absolute' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSmartDistribute}
+                          className="gap-2"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Smart Distribute
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Mode Help Text */}
+                    {quantityMode !== 'absolute' && (
+                      <p className="text-xs text-gray-500 mb-4 -mt-2">
+                        {quantityMode === 'percentage'
+                          ? 'Enter percentage for each size. Actual quantities will auto-calculate based on Total Qty.'
+                          : 'Enter ratio values (e.g., 1:2:3). Actual quantities will auto-calculate based on Total Qty.'}
+                      </p>
+                    )}
+
+                    {/* Section Label */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-medium text-gray-700">
+                        {colors.length > 0 ? 'Quantity by Color & Size' : 'Quantity by Size'}
+                        {quantityMode !== 'absolute' && (
+                          <span className="ml-2 text-xs text-blue-600">
+                            ({quantityMode === 'percentage' ? 'Enter %' : 'Enter ratios'})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+
+                    {/* Color x Size Matrix */}
+                    {colors.length > 0 && sizes.length > 0 && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="bg-gray-50">
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border">Color</th>
+                              {sizes.map((size) => (
+                                <th
+                                  key={size.id}
+                                  className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border min-w-[80px]"
+                                >
+                                  {size.sizeName}
+                                </th>
+                              ))}
+                              <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border bg-gray-100">
+                                Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {colors.map((color) => {
+                              const rowTotal = breakup
+                                .filter((b) => b.colorId === color.id)
+                                .reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
+
+                              return (
+                                <tr key={color.id} className="hover:bg-gray-50">
+                                  <td className="px-3 py-2 text-sm font-medium text-gray-900 border">
+                                    {color.colorName}
+                                  </td>
+                                  {sizes.map((size) => {
+                                    const breakupItem = breakup.find(
+                                      (b) => b.colorId === color.id && b.sizeId === size.id
+                                    );
+                                    const distValue = getDistributionValue(size.id, color.id);
+                                    return (
+                                      <td key={size.id} className="px-1 py-1 border">
+                                        {quantityMode === 'absolute' ? (
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            value={breakupItem?.quantity || 0}
+                                            onChange={(e) =>
+                                              updateBreakupQuantity(color.id, size.id, parseInt(e.target.value) || 0)
+                                            }
+                                            className="text-center h-9 text-sm"
+                                          />
+                                        ) : (
+                                          <div className="space-y-0.5">
+                                            <Input
+                                              type="number"
+                                              min="0"
+                                              value={distValue || ''}
+                                              onChange={(e) => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                const key = `${color.id}-${size.id}`;
+                                                updateDistributionValue(size.id, color.id, val);
+                                                // Auto-recalculate
+                                                const total = parseInt(totalForDistribution);
+                                                if (total > 0) {
+                                                  const newValues = { ...distributionValues, [key]: val };
+                                                  applyDistribution(
+                                                    total,
+                                                    quantityMode as 'percentage' | 'ratio',
+                                                    newValues
+                                                  );
+                                                }
+                                              }}
+                                              placeholder={quantityMode === 'percentage' ? '%' : '#'}
+                                              className="text-center h-7 text-xs"
+                                            />
+                                            <div className="text-center text-xs font-medium text-green-700 bg-green-50 rounded">
+                                              = {breakupItem?.quantity || 0}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="px-3 py-2 text-center text-sm font-semibold text-gray-900 border bg-gray-50">
+                                    {rowTotal}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            <tr className="bg-gray-100 font-semibold">
+                              <td className="px-3 py-2 text-sm text-gray-900 border">Total</td>
+                              {sizes.map((size) => {
+                                const colTotal = breakup
+                                  .filter((b) => b.sizeId === size.id)
+                                  .reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
+                                return (
+                                  <td key={size.id} className="px-3 py-2 text-center text-sm text-gray-900 border">
+                                    {colTotal}
+                                  </td>
+                                );
+                              })}
+                              <td className="px-3 py-2 text-center text-sm text-blue-600 border font-bold">
+                                {distributedQuantity}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Size-only Grid - Single Row */}
+                    {colors.length === 0 && sizes.length > 0 && (
+                      <div className="overflow-x-auto">
+                        <div className="flex gap-3 min-w-max pb-2">
+                          {sizes.map((size) => {
+                            const breakupItem = breakup.find((b) => b.sizeId === size.id);
+                            const distValue = getDistributionValue(size.id, '');
+                            return (
+                              <div key={size.id} className="w-24 flex-shrink-0 space-y-1">
+                                <label className="block text-center text-sm font-medium text-gray-700">
+                                  {size.sizeName}
+                                </label>
+                                {quantityMode === 'absolute' ? (
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={breakupItem?.quantity || 0}
+                                    onChange={(e) => updateBreakupQuantity('', size.id, parseInt(e.target.value) || 0)}
+                                    className="text-center h-10"
+                                  />
+                                ) : (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        value={distValue || ''}
+                                        onChange={(e) => {
+                                          const val = parseInt(e.target.value) || 0;
+                                          updateDistributionValue(size.id, '', val);
+                                          // Auto-recalculate
+                                          const total = parseInt(totalForDistribution);
+                                          if (total > 0) {
+                                            const newValues = { ...distributionValues, [size.id]: val };
+                                            applyDistribution(total, quantityMode as 'percentage' | 'ratio', newValues);
+                                          }
+                                        }}
+                                        placeholder={quantityMode === 'percentage' ? '%' : '#'}
+                                        className="text-center h-8 text-sm"
+                                      />
+                                      <span className="text-xs text-gray-500">
+                                        {quantityMode === 'percentage' ? '%' : ''}
+                                      </span>
+                                    </div>
+                                    <div className="text-center text-xs font-medium text-green-700 bg-green-50 rounded px-1 py-0.5">
+                                      = {breakupItem?.quantity || 0}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {/* Total Column */}
+                          <div className="w-24 flex-shrink-0 space-y-1">
+                            <label className="block text-center text-sm font-semibold text-gray-900">
+                              {quantityMode === 'absolute' ? 'Distributed' : 'Total'}
+                            </label>
+                            {quantityMode !== 'absolute' && (
+                              <div className="text-center text-xs text-gray-500">
+                                {quantityMode === 'percentage'
+                                  ? `${Object.values(distributionValues).reduce((s, v) => s + v, 0)}%`
+                                  : `Ratio: ${Object.values(distributionValues).reduce((s, v) => s + v, 0)}`}
+                              </div>
+                            )}
+                            <div
+                              className={`h-10 flex items-center justify-center rounded-md font-bold ${
+                                quantityMode === 'absolute'
+                                  ? 'bg-blue-50 border border-blue-200 text-blue-700'
+                                  : 'bg-green-50 border border-green-200 text-green-700'
+                              }`}
+                            >
+                              {distributedQuantity.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Size Distribution Info (Optional - not blocking) */}
+                    {sizeDistributionStatus === 'pending' && (
+                      <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-blue-50 border-blue-200 text-blue-800">
+                        <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium">Size distribution optional</p>
+                          <p className="text-sm mt-1">
+                            Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs. You can distribute
+                            quantities across sizes now, or add size breakdown later.
+                          </p>
+                          <p className="text-xs mt-2 opacity-75">
+                            Size-independent POs (fabric, greige, processing, most trims) can be generated without size
+                            breakdown.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quantity Mismatch Warning (informational, not blocking) */}
+                    {quantityMismatch === 'mismatch' && (
+                      <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-amber-50 border-amber-200 text-amber-800">
+                        <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-medium">Quantity mismatch detected</p>
+                          <p className="text-sm mt-1">
+                            Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs, but size
+                            distribution totals: <strong>{distributedQuantity.toLocaleString()}</strong> pcs.
+                            {distributedQuantity > enteredTotalQty ? (
+                              <span className="text-red-700">
+                                {' '}
+                                (Exceeds by {(distributedQuantity - enteredTotalQty).toLocaleString()})
+                              </span>
+                            ) : (
+                              <span className="text-amber-700">
+                                {' '}
+                                (Short by {(enteredTotalQty - distributedQuantity).toLocaleString()})
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs mt-2 opacity-75">
+                            Order will be saved with total quantity of {enteredTotalQty.toLocaleString()} pcs. Size
+                            distribution can be corrected later.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quantity Match Success */}
+                    {!quantityMismatch && enteredTotalQty > 0 && distributedQuantity > 0 && (
+                      <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200 flex items-center gap-2 text-green-700">
+                        <CheckCircle2 className="h-5 w-5" />
+                        <span className="text-sm font-medium">
+                          Quantity distributed correctly: {distributedQuantity.toLocaleString()} pcs
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Pricing Section - Dark Theme */}
+                    <div className="mt-6 bg-gray-900 rounded-xl p-6 text-white">
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-gray-400">Pricing Summary</h4>
+                      </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Unit Price (₹)</label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={unitPrice}
+                              onChange={(e) => {
+                                setUnitPrice(e.target.value);
+                                setSelectedCostSheetId(null); // Clear cost sheet selection when manually editing
+                              }}
+                              placeholder="0.00"
+                              className="bg-gray-800 border-gray-700 text-white text-lg font-semibold flex-1"
+                            />
+                          </div>
+                          {selectedCostSheetId && (
+                            <p className="text-xs text-blue-400 mt-1">
+                              <Calculator className="w-3 h-3 inline mr-1" />
+                              From Cost Sheet
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Total Amount</label>
+                          <div
+                            className={`h-10 px-3 rounded-md flex items-center text-lg font-bold ${
+                              validation.hasPricing
+                                ? 'bg-green-900/50 border border-green-700 text-green-400'
+                                : 'bg-amber-900/30 border border-amber-700 text-amber-400'
+                            }`}
+                          >
+                            {validation.hasPricing ? formatCurrency(totalAmount) : 'Pending'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </form>
+          )}
+        </div>
+
+        {/* Additional Details Section */}
+        <div className="bg-white rounded-xl border shadow-sm mb-6 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => toggleSection('additionalDetails')}
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 text-gray-600">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">Additional Details</h3>
+                <p className="text-sm text-gray-500">Optional information</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Optional</span>
+              {expandedSections.additionalDetails ? (
+                <ChevronUp className="h-5 w-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              )}
+            </div>
+          </button>
+
+          {expandedSections.additionalDetails && (
+            <div className="px-6 pb-6 border-t">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Payment Terms</Label>
+                  <Input
+                    value={paymentTerms}
+                    onChange={(e) => setPaymentTerms(e.target.value)}
+                    placeholder="e.g., Net 30 Days"
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Priority</Label>
+                  <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(PriorityLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-medium text-gray-700">Shipping Address</Label>
+                  <Textarea
+                    value={shippingAddress}
+                    onChange={(e) => setShippingAddress(e.target.value)}
+                    rows={2}
+                    className="mt-1.5"
+                    placeholder="Enter shipping address..."
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-sm font-medium text-gray-700">Remarks</Label>
+                  <Textarea
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    rows={2}
+                    className="mt-1.5"
+                    placeholder="Any additional notes..."
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </form>
 
       {/* Sticky Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20">
@@ -1807,78 +1809,98 @@ export default function OrderForm() {
                 ) : (
                   <AlertCircle className="h-5 w-5 text-amber-500" />
                 )}
-                <span className={`text-sm font-medium ${
-                  validation.isComplete ? 'text-green-700' : 'text-amber-700'
-                }`}>
+                <span className={`text-sm font-medium ${validation.isComplete ? 'text-green-700' : 'text-amber-700'}`}>
                   {validation.completedCount}/{validation.totalChecks} required fields
                 </span>
               </div>
 
               {/* Mini validation pills */}
               <div className="hidden sm:flex items-center gap-2">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  validation.customer ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                }`}>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    validation.customer ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
                   Customer
                 </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  validation.style ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                }`}>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    validation.style ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
                   Style
                 </span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  validation.quantity
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-500'
-                }`} title={
-                  enteredTotalQty > 0
-                    ? `Total: ${enteredTotalQty.toLocaleString()} pcs`
-                    : 'Enter total quantity'
-                }>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    validation.quantity ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                  }`}
+                  title={
+                    enteredTotalQty > 0 ? `Total: ${enteredTotalQty.toLocaleString()} pcs` : 'Enter total quantity'
+                  }
+                >
                   Qty {validation.quantity ? '✓' : ''}
                 </span>
                 {/* Size distribution indicator (optional) */}
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  validation.isFullyDistributed
-                    ? 'bg-green-100 text-green-700'
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    validation.isFullyDistributed
+                      ? 'bg-green-100 text-green-700'
+                      : sizeDistributionStatus === 'partial'
+                        ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                        : 'bg-blue-50 text-blue-600 border border-blue-200'
+                  }`}
+                  title={
+                    validation.isFullyDistributed
+                      ? 'Size distribution complete'
+                      : sizeDistributionStatus === 'partial'
+                        ? `Partial: ${distributedQuantity}/${enteredTotalQty}`
+                        : 'Size breakdown optional'
+                  }
+                >
+                  {validation.isFullyDistributed
+                    ? 'Sizes ✓'
                     : sizeDistributionStatus === 'partial'
-                      ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                      : 'bg-blue-50 text-blue-600 border border-blue-200'
-                }`} title={
-                  validation.isFullyDistributed
-                    ? 'Size distribution complete'
-                    : sizeDistributionStatus === 'partial'
-                      ? `Partial: ${distributedQuantity}/${enteredTotalQty}`
-                      : 'Size breakdown optional'
-                }>
-                  {validation.isFullyDistributed ? 'Sizes ✓' : sizeDistributionStatus === 'partial' ? `Sizes ~` : 'Sizes (opt)'}
+                      ? `Sizes ~`
+                      : 'Sizes (opt)'}
                 </span>
                 {/* Cost Sheet pill - required indicator */}
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  costSheetValidationLoading
-                    ? 'bg-gray-100 text-gray-500'
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    costSheetValidationLoading
+                      ? 'bg-gray-100 text-gray-500'
+                      : hasApprovedCostSheet === true
+                        ? 'bg-green-100 text-green-700'
+                        : hasApprovedCostSheet === false
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-gray-100 text-gray-500'
+                  }`}
+                  title={
+                    costSheetValidationLoading
+                      ? 'Checking for approved cost sheets...'
+                      : hasApprovedCostSheet === true
+                        ? 'Approved cost sheet available'
+                        : hasApprovedCostSheet === false
+                          ? 'No approved cost sheet - Required for order creation'
+                          : 'Select a style to check cost sheets'
+                  }
+                >
+                  {costSheetValidationLoading
+                    ? 'Cost Sheet...'
                     : hasApprovedCostSheet === true
-                      ? 'bg-green-100 text-green-700'
+                      ? 'Cost Sheet ✓'
                       : hasApprovedCostSheet === false
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-gray-100 text-gray-500'
-                }`} title={
-                  costSheetValidationLoading
-                    ? 'Checking for approved cost sheets...'
-                    : hasApprovedCostSheet === true
-                      ? 'Approved cost sheet available'
-                      : hasApprovedCostSheet === false
-                        ? 'No approved cost sheet - Required for order creation'
-                        : 'Select a style to check cost sheets'
-                }>
-                  {costSheetValidationLoading ? 'Cost Sheet...' : hasApprovedCostSheet === true ? 'Cost Sheet ✓' : hasApprovedCostSheet === false ? 'Cost Sheet ✗' : 'Cost Sheet'}
+                        ? 'Cost Sheet ✗'
+                        : 'Cost Sheet'}
                 </span>
                 {/* Price pill - optional indicator */}
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  validation.hasPricing
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-amber-50 text-amber-600 border border-amber-200'
-                }`} title={validation.hasPricing ? 'Price set' : 'Price pending (optional)'}>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    validation.hasPricing
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-amber-50 text-amber-600 border border-amber-200'
+                  }`}
+                  title={validation.hasPricing ? 'Price set' : 'Price pending (optional)'}
+                >
                   {validation.hasPricing ? 'Price ✓' : 'Price TBD'}
                 </span>
               </div>
@@ -1886,12 +1908,7 @@ export default function OrderForm() {
 
             {/* Actions */}
             <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/orders')}
-                disabled={isLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/orders')} disabled={isLoading}>
                 Cancel
               </Button>
               <Button

@@ -23,12 +23,7 @@ import {
   FabricCADMapping,
   StyleTrimInput,
 } from '../types/style.types';
-import {
-  generateSKU,
-  checkMultipleSKUsExist,
-  validateSKUFormat,
-  getSizeOrder,
-} from '../utils/sku-generator';
+import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 
 // ============================================
 // Types
@@ -219,17 +214,18 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     // Load customer accessories preset if provided
     // Skip if frontend already sends resolved accessories (avoids duplicates)
-    const presetAccessories = (data.accessories && data.accessories.length > 0)
-      ? []
-      : await this.loadPresetAccessories(data.customerAccessoriesPresetId);
+    const presetAccessories =
+      data.accessories && data.accessories.length > 0
+        ? []
+        : await this.loadPresetAccessories(data.customerAccessoriesPresetId);
 
     // Combine material BOM with preset accessories
     // Support both new simplified trims format and legacy materialBOM format
     const combinedMaterialBOM = this.buildCombinedMaterialBOM(
       data.materialBOM || [],
       presetAccessories,
-      data.trims,  // New simplified trims format
-      data.accessories  // New accessories format
+      data.trims, // New simplified trims format
+      data.accessories // New accessories format
     );
 
     logDebug('Combined material BOM', { count: combinedMaterialBOM.length });
@@ -239,77 +235,91 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     const internalCode = await this.generateInternalCode();
 
     // Pre-process components to look up componentMasterId
-    const componentsWithMasterIds = data.components && data.components.length > 0
-      ? await Promise.all(
-          data.components.map(async (comp: StyleComponentInput, idx: number) => {
-            const componentMasterId = await this.lookupComponentMasterId(comp.componentName);
-            return {
-              id: randomUUID(),
-              componentName: comp.componentName,
-              componentType: comp.componentType || 'OTHER',
-              componentMasterId, // Set FK if found, null otherwise
-              sortOrder: idx,
-              // Create nested fabrics if provided
-              ...(comp.fabrics && comp.fabrics.length > 0
-                ? {
-                    style_fabrics: {
-                      create: comp.fabrics.map((fab: StyleFabricInput) => ({
-                        id: randomUUID(),
-                        fabricId: fab.fabricId || null,
-                        fabricName: fab.fabricName || fab.greigeName || '',
-                        fabricType: fab.fabricType || 'GENERIC',
-                        genericGreigeName: fab.genericGreigeName || null,
-                        fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
-                        quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
-                        notes: fab.notes || null,
-                        // Embroidery support
-                        hasEmbroidery: fab.hasEmbroidery || false,
-                        // Use embroidery relation connect if embroideryId is provided
-                        ...(fab.embroideryId ? { embroidery: { connect: { id: fab.embroideryId } } } : {}),
-                        // Width tracking (field renamed to cutableWidth in schema)
-                        cutableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
-                        // Cost tracking
-                        fabricCostPerMeter: fab.fabricCostPerMeter ? parseFloat(String(fab.fabricCostPerMeter)) : null,
-                        embroideryCostPerMeter: fab.embroideryCostPerMeter ? parseFloat(String(fab.embroideryCostPerMeter)) : null,
-                        totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
-                        // CAD control
-                        allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
-                      })),
-                    },
-                  }
-                : {}),
-            };
-          })
-        )
-      : [];
+    const componentsWithMasterIds =
+      data.components && data.components.length > 0
+        ? await Promise.all(
+            data.components.map(async (comp: StyleComponentInput, idx: number) => {
+              const componentMasterId = await this.lookupComponentMasterId(comp.componentName);
+              return {
+                id: randomUUID(),
+                componentName: comp.componentName,
+                componentType: comp.componentType || 'OTHER',
+                componentMasterId, // Set FK if found, null otherwise
+                sortOrder: idx,
+                // Create nested fabrics if provided
+                ...(comp.fabrics && comp.fabrics.length > 0
+                  ? {
+                      style_fabrics: {
+                        create: comp.fabrics.map((fab: StyleFabricInput) => ({
+                          id: randomUUID(),
+                          fabricId: fab.fabricId || null,
+                          fabricName: fab.fabricName || fab.greigeName || '',
+                          fabricType: fab.fabricType || 'GENERIC',
+                          genericGreigeName: fab.genericGreigeName || null,
+                          fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
+                          quantityNeeded: fab.quantityNeeded ? parseFloat(String(fab.quantityNeeded)) : 0,
+                          notes: fab.notes || null,
+                          // Embroidery support
+                          hasEmbroidery: fab.hasEmbroidery || false,
+                          // Use embroidery relation connect if embroideryId is provided
+                          ...(fab.embroideryId ? { embroidery: { connect: { id: fab.embroideryId } } } : {}),
+                          // Width tracking (field renamed to cutableWidth in schema)
+                          cutableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
+                          // Cost tracking
+                          fabricCostPerMeter: fab.fabricCostPerMeter
+                            ? parseFloat(String(fab.fabricCostPerMeter))
+                            : null,
+                          embroideryCostPerMeter: fab.embroideryCostPerMeter
+                            ? parseFloat(String(fab.embroideryCostPerMeter))
+                            : null,
+                          totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
+                          // CAD control
+                          allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
+                        })),
+                      },
+                    }
+                  : {}),
+              };
+            })
+          )
+        : [];
 
     // Build nested components create
-    const componentsCreate = componentsWithMasterIds.length > 0
-      ? { create: componentsWithMasterIds }
-      : undefined;
+    const componentsCreate = componentsWithMasterIds.length > 0 ? { create: componentsWithMasterIds } : undefined;
 
     // Build nested processes create if provided - filter out processes without valid processType
     const validProcesses = (data.processes || []).filter((proc: StyleProcessInput) => proc.processType);
-    const processesCreate = validProcesses.length > 0
-      ? {
-          create: validProcesses.map((proc: StyleProcessInput, idx: number) => ({
-            id: randomUUID(),
-            processName: proc.processName || proc.processType || '',
-            processType: proc.processType as 'PRINTING' | 'DYEING' | 'EMBROIDERY' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'WASHING' | 'TRANSPORTATION' | 'HANDWORK' | 'SMOCKING',
-            isRequired: proc.isRequired !== false,
-            supplierId: proc.supplierId || null,
-            estimatedCost: proc.estimatedCost ? parseFloat(String(proc.estimatedCost)) : null,
-            estimatedDays: proc.estimatedDays || null,
-            notes: proc.notes || proc.description || null, // Accept both field names
-            sortOrder: idx,
-          })),
-        }
-      : undefined;
+    const processesCreate =
+      validProcesses.length > 0
+        ? {
+            create: validProcesses.map((proc: StyleProcessInput, idx: number) => ({
+              id: randomUUID(),
+              processName: proc.processName || proc.processType || '',
+              processType: proc.processType as
+                | 'PRINTING'
+                | 'DYEING'
+                | 'EMBROIDERY'
+                | 'CUTTING'
+                | 'STITCHING'
+                | 'FINISHING'
+                | 'WASHING'
+                | 'TRANSPORTATION'
+                | 'HANDWORK'
+                | 'SMOCKING',
+              isRequired: proc.isRequired !== false,
+              supplierId: proc.supplierId || null,
+              estimatedCost: proc.estimatedCost ? parseFloat(String(proc.estimatedCost)) : null,
+              estimatedDays: proc.estimatedDays || null,
+              notes: proc.notes || proc.description || null, // Accept both field names
+              sortOrder: idx,
+            })),
+          }
+        : undefined;
 
     // Build nested material BOM create for trims and accessories
     // Filter out BOM items that require a materialId but don't have one
     // (THREAD is a special case - can have null materialId for auto-thread)
-    const validMaterialBOM = combinedMaterialBOM.filter(bom => {
+    const validMaterialBOM = combinedMaterialBOM.filter((bom) => {
       // Thread can have null materialId (auto-thread placeholder)
       if (bom.materialType === 'THREAD') return true;
       // All other types require a valid materialId
@@ -318,33 +328,37 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     logDebug(`Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
 
-    const materialBomCreate = validMaterialBOM.length > 0
-      ? {
-          create: validMaterialBOM.map((bom, idx) => ({
-            id: randomUUID(),
-            materialType: bom.materialType,
-            usageCategory: bom.usageCategory || 'GARMENT_TRIM',
-            // Set the appropriate FK based on materialType
-            // Use null if materialId is empty/undefined to avoid FK violations
-            buttonId: bom.materialType === 'BUTTON' && bom.materialId ? bom.materialId : null,
-            threadId: bom.materialType === 'THREAD' && bom.materialId ? bom.materialId : null,
-            zipperId: bom.materialType === 'ZIPPER' && bom.materialId ? bom.materialId : null,
-            elasticId: bom.materialType === 'ELASTIC' && bom.materialId ? bom.materialId : null,
-            laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
-            labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
-            packagingId: bom.materialType === 'PACKAGING' && bom.materialId ? bom.materialId : null,
-            componentName: bom.componentName || null,
-            quantityPerGarment: Number(bom.quantityPerGarment || 0) > 0
-              ? parseFloat(String(bom.quantityPerGarment))
-              : (bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING') ? 1 : 0,
-            unit: bom.unit || 'pcs',
-            unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
-            totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
-            notes: bom.notes || null,
-            sortOrder: idx,
-          })),
-        }
-      : undefined;
+    const materialBomCreate =
+      validMaterialBOM.length > 0
+        ? {
+            create: validMaterialBOM.map((bom, idx) => ({
+              id: randomUUID(),
+              materialType: bom.materialType,
+              usageCategory: bom.usageCategory || 'GARMENT_TRIM',
+              // Set the appropriate FK based on materialType
+              // Use null if materialId is empty/undefined to avoid FK violations
+              buttonId: bom.materialType === 'BUTTON' && bom.materialId ? bom.materialId : null,
+              threadId: bom.materialType === 'THREAD' && bom.materialId ? bom.materialId : null,
+              zipperId: bom.materialType === 'ZIPPER' && bom.materialId ? bom.materialId : null,
+              elasticId: bom.materialType === 'ELASTIC' && bom.materialId ? bom.materialId : null,
+              laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
+              labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
+              packagingId: bom.materialType === 'PACKAGING' && bom.materialId ? bom.materialId : null,
+              componentName: bom.componentName || null,
+              quantityPerGarment:
+                Number(bom.quantityPerGarment || 0) > 0
+                  ? parseFloat(String(bom.quantityPerGarment))
+                  : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
+                    ? 1
+                    : 0,
+              unit: bom.unit || 'pcs',
+              unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
+              totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
+              notes: bom.notes || null,
+              sortOrder: idx,
+            })),
+          }
+        : undefined;
 
     const style = await this.prisma.styles.create({
       data: {
@@ -409,10 +423,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Handle SKU variants if provided (after style creation)
     if (data.skuVariants && data.skuVariants.length > 0) {
       const validVariants = (data.skuVariants as SKUVariantInput[])
-        .filter(v => v.sku && v.sku.trim() !== '')
+        .filter((v) => v.sku && v.sku.trim() !== '')
         .reduce((acc, variant) => {
           // Keep only the first occurrence of each SKU (deduplicate)
-          if (!acc.some(v => v.sku === variant.sku)) {
+          if (!acc.some((v) => v.sku === variant.sku)) {
             acc.push(variant);
           }
           return acc;
@@ -456,7 +470,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       logDebug('SKU variants created', { count: validVariants.length, styleId: style.id });
     }
 
-    logInfo('Style created successfully', { id: style.id, styleCode: style.styleCode, components: data.components?.length || 0 });
+    logInfo('Style created successfully', {
+      id: style.id,
+      styleCode: style.styleCode,
+      components: data.components?.length || 0,
+    });
     return style;
   }
 
@@ -547,10 +565,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   /**
    * Find styles by production stage
    */
-  async findByProductionStage(
-    stage: ProductionStage,
-    options: PaginationOptions
-  ): Promise<PaginatedResult<styles>> {
+  async findByProductionStage(stage: ProductionStage, options: PaginationOptions): Promise<PaginatedResult<styles>> {
     const additionalFilters: AdditionalFilters = {
       productionTracking: {
         some: {
@@ -678,12 +693,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    * Returns the approved fabric_width_cad records with totalCostPerMeter
    * Used by Cost Sheet to auto-populate fabric rates from approved fabric costing
    */
-  async getApprovedFabricCostingRates(styleId: string): Promise<{
-    styleFabricId: string | null;
-    totalCostPerMeter: number | null;
-    cadMeters: number | null;
-    cutableWidth: number | null;
-  }[]> {
+  async getApprovedFabricCostingRates(styleId: string): Promise<
+    {
+      styleFabricId: string | null;
+      totalCostPerMeter: number | null;
+      cadMeters: number | null;
+      cutableWidth: number | null;
+    }[]
+  > {
     const approvedOptions = await this.prisma.fabric_width_cad.findMany({
       where: {
         costingStyleId: styleId,
@@ -702,7 +719,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       },
     });
 
-    return approvedOptions.map(opt => ({
+    return approvedOptions.map((opt) => ({
       styleFabricId: opt.styleFabricId,
       totalCostPerMeter: opt.totalCostPerMeter ? Number(opt.totalCostPerMeter) : null,
       cadMeters: opt.cadMeters ? Number(opt.cadMeters) : null,
@@ -736,10 +753,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         // Get all existing style_fabric IDs to preserve CAD/costing data
         // Fixed: Single batch query instead of N+1 loop
         const existingFabrics = await tx.style_fabrics.findMany({
-          where: { componentId: { in: existingComponents.map(c => c.id) } },
+          where: { componentId: { in: existingComponents.map((c) => c.id) } },
           select: { id: true },
         });
-        const existingFabricIds = existingFabrics.map(f => f.id);
+        const existingFabricIds = existingFabrics.map((f) => f.id);
 
         // CRITICAL: Unlink fabric_width_cad records BEFORE deleting style_fabrics
         // This preserves CAD planning and costing data that was approved
@@ -764,8 +781,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         type SavedPP = { patternPartId: string; quantity: number; goesToEmbroidery: boolean; notes: string | null };
         const savedPatternPartsByComponent = new Map<string, SavedPP[]>();
         for (const comp of existingComponentsWithParts) {
-          const parts: SavedPP[] = comp.style_fabrics.flatMap(f =>
-            f.stylePatternParts.map(pp => ({
+          const parts: SavedPP[] = comp.style_fabrics.flatMap((f) =>
+            f.stylePatternParts.map((pp) => ({
               patternPartId: pp.patternPartId,
               quantity: pp.quantity,
               goesToEmbroidery: pp.goesToEmbroidery,
@@ -781,7 +798,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         // Fixed: Single batch delete instead of N+1 loop
         if (existingComponents.length > 0) {
           await tx.style_fabrics.deleteMany({
-            where: { componentId: { in: existingComponents.map(c => c.id) } },
+            where: { componentId: { in: existingComponents.map((c) => c.id) } },
           });
         }
 
@@ -839,12 +856,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     cutableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
                     // Cost tracking
                     fabricCostPerMeter: fab.fabricCostPerMeter ? parseFloat(String(fab.fabricCostPerMeter)) : null,
-                    embroideryCostPerMeter: fab.embroideryCostPerMeter ? parseFloat(String(fab.embroideryCostPerMeter)) : null,
+                    embroideryCostPerMeter: fab.embroideryCostPerMeter
+                      ? parseFloat(String(fab.embroideryCostPerMeter))
+                      : null,
                     totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
                     // CAD control
                     allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
                     // Connect to the component
-                    componentId: componentId
+                    componentId: componentId,
                   },
                 });
               }
@@ -884,7 +903,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             where: { componentId: comp.id },
             select: { id: true },
           });
-          standaloneFabricIds.push(...fabrics.map(f => f.id));
+          standaloneFabricIds.push(...fabrics.map((f) => f.id));
         }
 
         // CRITICAL: Unlink CAD/costing records BEFORE deleting style_fabrics
@@ -939,7 +958,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               fabricId: fab.fabricId || null,
               fabricName: fab.fabricName || fab.genericGreigeName || '',
               fabricType: isReadyFabric ? 'FABRIC' : 'GENERIC',
-              genericGreigeName: isReadyFabric ? null : (fab.genericGreigeName || null),
+              genericGreigeName: isReadyFabric ? null : fab.genericGreigeName || null,
               fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
               quantityNeeded: fab.estimatedConsumption ? parseFloat(String(fab.estimatedConsumption)) : 0,
               notes: fab.notes || null,
@@ -973,7 +992,17 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                   id: randomUUID(),
                   styleId: id,
                   processName: proc.processName || proc.processType,
-                  processType: proc.processType as 'PRINTING' | 'DYEING' | 'EMBROIDERY' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'WASHING' | 'TRANSPORTATION' | 'HANDWORK' | 'SMOCKING',
+                  processType: proc.processType as
+                    | 'PRINTING'
+                    | 'DYEING'
+                    | 'EMBROIDERY'
+                    | 'CUTTING'
+                    | 'STITCHING'
+                    | 'FINISHING'
+                    | 'WASHING'
+                    | 'TRANSPORTATION'
+                    | 'HANDWORK'
+                    | 'SMOCKING',
                   isRequired: proc.isRequired !== false,
                   supplierId: proc.supplierId || null,
                   estimatedCost: proc.estimatedCost ? parseFloat(String(proc.estimatedCost)) : null,
@@ -997,10 +1026,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         if (data.skuVariants.length > 0) {
           // Filter out variants with empty SKUs and deduplicate by SKU
           const validVariants = (data.skuVariants as SKUVariantInput[])
-            .filter(v => v.sku && v.sku.trim() !== '')
+            .filter((v) => v.sku && v.sku.trim() !== '')
             .reduce((acc, variant) => {
               // Keep only the first occurrence of each SKU
-              if (!acc.some(v => v.sku === variant.sku)) {
+              if (!acc.some((v) => v.sku === variant.sku)) {
                 acc.push(variant);
               }
               return acc;
@@ -1070,7 +1099,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
         // Filter out BOM items that require a materialId but don't have one
         // (THREAD is a special case - can have null materialId for auto-thread)
-        const validMaterialBOM = combinedMaterialBOM.filter(bom => {
+        const validMaterialBOM = combinedMaterialBOM.filter((bom) => {
           // Thread can have null materialId (auto-thread placeholder)
           if (bom.materialType === 'THREAD') return true;
           // All other types require a valid materialId
@@ -1087,7 +1116,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           if (bom.materialType === 'LABEL' && bom.materialId) {
             const exists = await tx.label_master.findUnique({
               where: { id: bom.materialId },
-              select: { id: true }
+              select: { id: true },
             });
             if (!exists) {
               throw new ValidationError(`Label with ID "${bom.materialId}" not found. Please select a valid label.`);
@@ -1101,25 +1130,31 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             // First, check if it's a direct packaging_master ID (preset items)
             const directPackaging = await tx.packaging_master.findUnique({
               where: { id: bom.materialId },
-              select: { id: true, packagingName: true }
+              select: { id: true, packagingName: true },
             });
 
             if (directPackaging) {
               // It's already a resolved packagingId from preset
               resolvedPackagingIds.set(bom.materialId, directPackaging.id);
-              logDebug(`[UPDATE] Packaging already resolved (preset): ${bom.materialId} (${directPackaging.packagingName})`);
+              logDebug(
+                `[UPDATE] Packaging already resolved (preset): ${bom.materialId} (${directPackaging.packagingName})`
+              );
             } else {
               // Not a direct packaging ID, try to resolve from materials table
               const material = await tx.materials.findUnique({
                 where: { id: bom.materialId },
-                select: { packagingId: true, name: true }
+                select: { packagingId: true, name: true },
               });
               if (!material?.packagingId) {
-                throw new ValidationError(`Packaging material "${bom.materialId}" not found or has no packaging reference. Please select valid packaging.`);
+                throw new ValidationError(
+                  `Packaging material "${bom.materialId}" not found or has no packaging reference. Please select valid packaging.`
+                );
               }
               // Store the resolved packagingId for use when creating the BOM record
               resolvedPackagingIds.set(bom.materialId, material.packagingId);
-              logDebug(`[UPDATE] Resolved packaging from materials: ${bom.materialId} -> ${material.packagingId} (${material.name})`);
+              logDebug(
+                `[UPDATE] Resolved packaging from materials: ${bom.materialId} -> ${material.packagingId} (${material.name})`
+              );
             }
           }
         }
@@ -1129,9 +1164,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             const bom = validMaterialBOM[idx];
 
             // For PACKAGING, use the resolved packagingId from the materials table
-            const resolvedPackagingId = bom.materialType === 'PACKAGING' && bom.materialId
-              ? resolvedPackagingIds.get(bom.materialId) || null
-              : null;
+            const resolvedPackagingId =
+              bom.materialType === 'PACKAGING' && bom.materialId
+                ? resolvedPackagingIds.get(bom.materialId) || null
+                : null;
 
             await tx.style_material_bom.create({
               data: {
@@ -1149,9 +1185,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
                 packagingId: resolvedPackagingId,
                 componentName: bom.componentName || null,
-                quantityPerGarment: Number(bom.quantityPerGarment || 0) > 0
-              ? parseFloat(String(bom.quantityPerGarment))
-              : (bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING') ? 1 : 0,
+                quantityPerGarment:
+                  Number(bom.quantityPerGarment || 0) > 0
+                    ? parseFloat(String(bom.quantityPerGarment))
+                    : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
+                      ? 1
+                      : 0,
                 unit: bom.unit || 'pcs',
                 unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
                 totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
@@ -1177,16 +1216,21 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           productCategoryId: data.productCategoryId || null,
           description: data.description,
           season: data.season,
-          seasonId: data.seasonId !== undefined ? (data.seasonId || null) : undefined,
-          numberOfComponents: data.numberOfComponents !== undefined
-            ? (data.numberOfComponents ? parseInt(String(data.numberOfComponents), 10) : null)
-            : undefined,
-          costPrice: data.costPrice !== undefined
-            ? (data.costPrice ? parseFloat(String(data.costPrice)) : null)
-            : undefined,
-          sellingPrice: data.sellingPrice !== undefined
-            ? (data.sellingPrice ? parseFloat(String(data.sellingPrice)) : null)
-            : undefined,
+          seasonId: data.seasonId !== undefined ? data.seasonId || null : undefined,
+          numberOfComponents:
+            data.numberOfComponents !== undefined
+              ? data.numberOfComponents
+                ? parseInt(String(data.numberOfComponents), 10)
+                : null
+              : undefined,
+          costPrice:
+            data.costPrice !== undefined ? (data.costPrice ? parseFloat(String(data.costPrice)) : null) : undefined,
+          sellingPrice:
+            data.sellingPrice !== undefined
+              ? data.sellingPrice
+                ? parseFloat(String(data.sellingPrice))
+                : null
+              : undefined,
           hsnCode: data.hsnCode !== undefined ? data.hsnCode : undefined,
           productTaxRule: data.productTaxRule !== undefined ? data.productTaxRule : undefined,
           accountingSKU: data.accountingSKU !== undefined ? data.accountingSKU : undefined,
@@ -1194,7 +1238,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           bulletPoints: data.bulletPoints !== undefined ? data.bulletPoints : undefined,
           specifications: data.specifications !== undefined ? data.specifications : undefined,
           imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
-          customerAccessoriesPresetId: data.customerAccessoriesPresetId !== undefined ? (data.customerAccessoriesPresetId || null) : undefined,
+          customerAccessoriesPresetId:
+            data.customerAccessoriesPresetId !== undefined ? data.customerAccessoriesPresetId || null : undefined,
         },
         include: {
           brand_categories: true,
@@ -1375,9 +1420,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Validate SKU formats
     const invalidSKUs = variants.filter((v) => !validateSKUFormat(v.sku));
     if (invalidSKUs.length > 0) {
-      throw new ValidationError(
-        `Invalid SKU format for: ${invalidSKUs.map((v) => v.sku).join(', ')}`
-      );
+      throw new ValidationError(`Invalid SKU format for: ${invalidSKUs.map((v) => v.sku).join(', ')}`);
     }
 
     // Check for duplicates within request
@@ -1513,9 +1556,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           const genericName = fabric.genericGreigeName || fabric.fabric?.genericGreigeName || 'Unknown';
           const finishType = fabric.fabricFinishType || 'Unknown';
           const cutableWidthStr = fabric.cutableWidth ? String(fabric.cutableWidth) : 'UNK';
-          const embroideryPart = fabric.hasEmbroidery && fabric.embroideryId
-            ? `EMB-${fabric.embroideryId.substring(0, 8)}`
-            : 'PLAIN';
+          const embroideryPart =
+            fabric.hasEmbroidery && fabric.embroideryId ? `EMB-${fabric.embroideryId.substring(0, 8)}` : 'PLAIN';
 
           // If not allowing combined cutting, make unique per component
           if (fabric.allowCombinedCutting === false) {
@@ -1532,12 +1574,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             fabricFinishType: fabric.fabricFinishType,
             cutableWidth: fabric.cutableWidth ? Number(fabric.cutableWidth) : null,
             hasEmbroidery: fabric.hasEmbroidery || false,
-            embroidery: fabric.embroidery ? {
-              id: fabric.embroidery.id,
-              embroideryCode: fabric.embroidery.embroideryCode,
-              designName: fabric.embroidery.designName,
-              costPerMeter: fabric.embroidery.costPerMeter ? Number(fabric.embroidery.costPerMeter) : null,
-            } : null,
+            embroidery: fabric.embroidery
+              ? {
+                  id: fabric.embroidery.id,
+                  embroideryCode: fabric.embroidery.embroideryCode,
+                  designName: fabric.embroidery.designName,
+                  costPerMeter: fabric.embroidery.costPerMeter ? Number(fabric.embroidery.costPerMeter) : null,
+                }
+              : null,
             fabrics: [],
             components: [],
             cutableWidthOptions: fabric.fabric?.widthCADs || [],
@@ -1624,12 +1668,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       throw new ValidationError('No fabrics found for this style. Cannot approve CAD plan.');
     }
 
-    const mappedFabricIds = new Set(fabricCADMappings.map(m => m.fabricId));
-    const unmappedFabrics = allStyleFabrics.filter(sf => !mappedFabricIds.has(sf.id));
+    const mappedFabricIds = new Set(fabricCADMappings.map((m) => m.fabricId));
+    const unmappedFabrics = allStyleFabrics.filter((sf) => !mappedFabricIds.has(sf.id));
 
     if (unmappedFabrics.length > 0) {
       const missing = unmappedFabrics
-        .map(sf => `${sf.genericGreigeName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}`)
+        .map((sf) => `${sf.genericGreigeName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}`)
         .join(', ');
       throw new ValidationError(
         `Cannot approve: ${unmappedFabrics.length} fabric(s) have no CAD data. Missing: ${missing}`
@@ -1637,14 +1681,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     // Validate each mapped CAD record has valid data
-    const cadIds = fabricCADMappings.map(m => m.fabricCADId);
+    const cadIds = fabricCADMappings.map((m) => m.fabricCADId);
     const cadRecords = await this.prisma.fabric_width_cad.findMany({
       where: { id: { in: cadIds } },
       select: { id: true, cadAverage: true },
     });
 
-    const cadMap = new Map(cadRecords.map(c => [c.id, c]));
-    const invalidMappings = fabricCADMappings.filter(m => {
+    const cadMap = new Map(cadRecords.map((c) => [c.id, c]));
+    const invalidMappings = fabricCADMappings.filter((m) => {
       const cad = cadMap.get(m.fabricCADId);
       return !cad || !cad.cadAverage || Number(cad.cadAverage) <= 0;
     });
@@ -1740,9 +1784,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Validate deactivation
     const validation = await this.validateDeactivation(id);
     if (!validation.canDeactivate) {
-      const message = validation.blockers
-        .map((b) => `${b.count} ${b.type}`)
-        .join(', ');
+      const message = validation.blockers.map((b) => `${b.count} ${b.type}`).join(', ');
       throw new ValidationError(`Cannot deactivate style. Active dependencies: ${message}`);
     }
 
@@ -1821,9 +1863,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
             // For labels, quantity is usually not stored (it's always 1 per garment with extra percentage)
             // For packaging, quantity comes from the preset item
-            const quantity = item.materialType === 'LABEL'
-              ? 1  // Labels are 1 per garment (extra percentage handled separately)
-              : (Number(item.quantity) || 1);
+            const quantity =
+              item.materialType === 'LABEL'
+                ? 1 // Labels are 1 per garment (extra percentage handled separately)
+                : Number(item.quantity) || 1;
 
             results.push({
               materialType: item.materialType,
@@ -1854,11 +1897,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Otherwise fall back to legacy materialBOM format
     const trimItems: MaterialBOMInput[] = trims
       ? this.convertTrimsToMaterialBOM(trims)
-      : materialBOM.filter(m => m.usageCategory !== 'PACKAGING');
+      : materialBOM.filter((m) => m.usageCategory !== 'PACKAGING');
 
     const accessoryItems: MaterialBOMInput[] = accessories
       ? accessories
-      : materialBOM.filter(m => m.usageCategory === 'PACKAGING');
+      : materialBOM.filter((m) => m.usageCategory === 'PACKAGING');
 
     const combined: MaterialBOMInput[] = [...trimItems, ...accessoryItems, ...presetAccessories];
 
@@ -1884,15 +1927,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    */
   private convertTrimsToMaterialBOM(trims: StyleTrimInput[]): MaterialBOMInput[] {
     const trimTypeToMaterialType: Record<string, string> = {
-      'BUTTON': 'BUTTON',
-      'THREAD': 'THREAD',
-      'ZIPPER': 'ZIPPER',
-      'ELASTIC': 'ELASTIC',
-      'LACE': 'LACE',
-      'LABEL': 'LABEL',
+      BUTTON: 'BUTTON',
+      THREAD: 'THREAD',
+      ZIPPER: 'ZIPPER',
+      ELASTIC: 'ELASTIC',
+      LACE: 'LACE',
+      LABEL: 'LABEL',
     };
 
-    return trims.map(trim => {
+    return trims.map((trim) => {
       const isBulkItem = trim.trimType === 'THREAD';
       return {
         materialType: (trimTypeToMaterialType[trim.trimType] || trim.trimType) as MaterialBOMInput['materialType'],
@@ -1927,9 +1970,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               fabricName: fabric.fabricName,
               fabricType: fabric.fabricType,
               greigeName: fabric.greigeName || null,
-              quantityNeeded: fabric.quantityNeeded
-                ? parseFloat(String(fabric.quantityNeeded))
-                : null,
+              quantityNeeded: fabric.quantityNeeded ? parseFloat(String(fabric.quantityNeeded)) : null,
               unitPrice: fabric.unitPrice ? parseFloat(String(fabric.unitPrice)) : null,
               notes: fabric.notes || null,
             })) || [],

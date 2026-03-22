@@ -43,13 +43,7 @@ export interface EditStockModalProps {
   onSuccess: () => void;
 }
 
-export const EditStockModal: React.FC<EditStockModalProps> = ({
-  isOpen,
-  stockId,
-  currentData,
-  onClose,
-  onSuccess,
-}) => {
+export const EditStockModal: React.FC<EditStockModalProps> = ({ isOpen, stockId, currentData, onClose, onSuccess }) => {
   const [formData, setFormData] = useState<UpdateStockData>({
     purchaseCost: currentData.purchaseCost,
     weightedAvgCost: currentData.weightedAvgCost,

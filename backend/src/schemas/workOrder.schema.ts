@@ -8,14 +8,7 @@ export const PriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
 /**
  * Order Status Enum - matches Prisma OrderStatus
  */
-export const OrderStatusEnum = z.enum([
-  'PENDING',
-  'IN_PRODUCTION',
-  'COMPLETED',
-  'DISPATCHED',
-  'CANCELLED',
-  'SPLIT',
-]);
+export const OrderStatusEnum = z.enum(['PENDING', 'IN_PRODUCTION', 'COMPLETED', 'DISPATCHED', 'CANCELLED', 'SPLIT']);
 
 /**
  * Color-Size Breakup Item Schema
@@ -41,15 +34,8 @@ export const createWorkOrderSchema = z.object({
   plannedEndDate: z.string().min(1, 'Planned end date is required'),
   totalQuantity: z.number().int().positive('Total quantity must be a positive integer'),
   priority: PriorityEnum.optional(),
-  remarks: z
-    .string()
-    .max(1000, 'Remarks must not exceed 1000 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  colorSizeBreakup: z
-    .array(colorSizeBreakupItemSchema)
-    .min(1, 'At least one color-size breakup entry is required'),
+  remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional().nullable(),
+  colorSizeBreakup: z.array(colorSizeBreakupItemSchema).min(1, 'At least one color-size breakup entry is required'),
 });
 
 /**
@@ -66,12 +52,7 @@ export const updateWorkOrderSchema = z.object({
   completedQuantity: z.number().int().nonnegative('Completed quantity must be 0 or greater').optional(),
   status: OrderStatusEnum.optional(),
   priority: PriorityEnum.optional(),
-  remarks: z
-    .string()
-    .max(1000, 'Remarks must not exceed 1000 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional().nullable(),
   approvedById: z.string().optional(),
 });
 

@@ -56,10 +56,7 @@ export default function QuotationDetail() {
     try {
       setIsSubmitting(true);
       await updateQuotationStatus(id, { status: newStatus });
-      handleApiSuccess(
-        'Status updated',
-        `Quotation status has been updated to ${QuotationStatusLabels[newStatus]}.`
-      );
+      handleApiSuccess('Status updated', `Quotation status has been updated to ${QuotationStatusLabels[newStatus]}.`);
       setStatusDialogOpen(false);
       fetchQuotation(id);
     } catch (err) {
@@ -223,7 +220,10 @@ export default function QuotationDetail() {
             <CardTitle className="text-sm font-medium text-gray-600">Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <StatusBadge status={QuotationStatusLabels[quotation.status]} variant={getStatusVariant(quotation.status)} />
+            <StatusBadge
+              status={QuotationStatusLabels[quotation.status]}
+              variant={getStatusVariant(quotation.status)}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -363,13 +363,11 @@ export default function QuotationDetail() {
                     <TableRow key={item.id}>
                       <TableCell className="text-gray-500">{index + 1}</TableCell>
                       <TableCell>
-                        <div className="font-medium">{item.style?.styleCode} - {item.style?.styleName}</div>
-                        {item.description && (
-                          <div className="text-xs text-gray-500">{item.description}</div>
-                        )}
-                        {item.remarks && (
-                          <div className="text-xs text-gray-400 italic">{item.remarks}</div>
-                        )}
+                        <div className="font-medium">
+                          {item.style?.styleCode} - {item.style?.styleName}
+                        </div>
+                        {item.description && <div className="text-xs text-gray-500">{item.description}</div>}
+                        {item.remarks && <div className="text-xs text-gray-400 italic">{item.remarks}</div>}
                       </TableCell>
                       <TableCell className="text-xs">{item.hsnCode || '-'}</TableCell>
                       <TableCell className="text-right">{item.totalQuantity.toLocaleString()}</TableCell>
@@ -377,7 +375,9 @@ export default function QuotationDetail() {
                       <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
                       <TableCell className="text-right">{item.gstRate ? `${Number(item.gstRate)}%` : '-'}</TableCell>
                       <TableCell className="text-right">{tax > 0 ? formatCurrency(tax) : '-'}</TableCell>
-                      <TableCell className="text-right text-gray-500">{item.deliveryDays ? `${item.deliveryDays}d` : '-'}</TableCell>
+                      <TableCell className="text-right text-gray-500">
+                        {item.deliveryDays ? `${item.deliveryDays}d` : '-'}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -396,7 +396,7 @@ export default function QuotationDetail() {
                 </div>
 
                 {/* GST breakdown (if estimated) */}
-                {(quotation.estimatedCGST || quotation.estimatedSGST || quotation.estimatedIGST) ? (
+                {quotation.estimatedCGST || quotation.estimatedSGST || quotation.estimatedIGST ? (
                   <>
                     {quotation.estimatedIGST && Number(quotation.estimatedIGST) > 0 ? (
                       <div className="flex justify-between text-sm text-gray-600">
@@ -421,9 +421,13 @@ export default function QuotationDetail() {
                     )}
                     <div className="flex justify-between text-sm text-gray-600">
                       <span>Total Tax</span>
-                      <span>{formatCurrency(
-                        Number(quotation.estimatedCGST || 0) + Number(quotation.estimatedSGST || 0) + Number(quotation.estimatedIGST || 0)
-                      )}</span>
+                      <span>
+                        {formatCurrency(
+                          Number(quotation.estimatedCGST || 0) +
+                            Number(quotation.estimatedSGST || 0) +
+                            Number(quotation.estimatedIGST || 0)
+                        )}
+                      </span>
                     </div>
                   </>
                 ) : (
@@ -438,8 +442,7 @@ export default function QuotationDetail() {
                       ? formatCurrency(Number(quotation.totalWithTax))
                       : quotation.totalAmount
                         ? formatCurrency(quotation.totalAmount)
-                        : 'N/A'
-                    }
+                        : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -453,9 +456,7 @@ export default function QuotationDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Quotation Status</DialogTitle>
-            <DialogDescription>
-              Change the status of quotation {quotation.quotationNumber}
-            </DialogDescription>
+            <DialogDescription>Change the status of quotation {quotation.quotationNumber}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -470,12 +471,7 @@ export default function QuotationDetail() {
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setStatusDialogOpen(false)}
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={() => setStatusDialogOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button onClick={handleStatusUpdate} disabled={isSubmitting}>

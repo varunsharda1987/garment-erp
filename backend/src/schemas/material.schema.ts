@@ -3,17 +3,7 @@ import { z } from 'zod';
 /**
  * Material Unit Enum - matches Prisma Unit enum
  */
-export const MaterialUnitEnum = z.enum([
-  'METER',
-  'PIECE',
-  'KILOGRAM',
-  'SET',
-  'YARD',
-  'DOZEN',
-  'GROSS',
-  'TUBE',
-  'CONE',
-]);
+export const MaterialUnitEnum = z.enum(['METER', 'PIECE', 'KILOGRAM', 'SET', 'YARD', 'DOZEN', 'GROSS', 'TUBE', 'CONE']);
 
 /**
  * Supplier relationship schema for materials
@@ -45,25 +35,15 @@ export const createMaterialSchema = z.object({
   description: z.string().trim().optional(),
   specifications: z.string().trim().optional(),
   hsnCode: z.string().trim().optional(),
-  minimumStock: z
-    .number()
-    .nonnegative('Minimum stock must be non-negative')
-    .optional(),
+  minimumStock: z.number().nonnegative('Minimum stock must be non-negative').optional(),
   reorderLevel: z
     .number()
     .int('Reorder level must be an integer')
     .nonnegative('Reorder level must be non-negative')
     .optional(),
-  leadTime: z
-    .number()
-    .int('Lead time must be an integer')
-    .nonnegative('Lead time must be non-negative')
-    .optional(),
+  leadTime: z.number().int('Lead time must be an integer').nonnegative('Lead time must be non-negative').optional(),
   supplierId: z.string().uuid('Invalid supplier ID format').optional(),
-  costPerUnit: z
-    .number()
-    .nonnegative('Cost per unit must be non-negative')
-    .optional(),
+  costPerUnit: z.number().nonnegative('Cost per unit must be non-negative').optional(),
   suppliers: z.array(materialSupplierSchema).optional().default([]),
   image: z.string().optional(),
   categoryData: z.any().optional(),
@@ -91,25 +71,15 @@ export const updateMaterialSchema = z.object({
   description: z.string().trim().optional(),
   specifications: z.string().trim().optional(),
   hsnCode: z.string().trim().optional(),
-  minimumStock: z
-    .number()
-    .nonnegative('Minimum stock must be non-negative')
-    .optional(),
+  minimumStock: z.number().nonnegative('Minimum stock must be non-negative').optional(),
   reorderLevel: z
     .number()
     .int('Reorder level must be an integer')
     .nonnegative('Reorder level must be non-negative')
     .optional(),
-  leadTime: z
-    .number()
-    .int('Lead time must be an integer')
-    .nonnegative('Lead time must be non-negative')
-    .optional(),
+  leadTime: z.number().int('Lead time must be an integer').nonnegative('Lead time must be non-negative').optional(),
   supplierId: z.string().uuid('Invalid supplier ID format').optional(),
-  costPerUnit: z
-    .number()
-    .nonnegative('Cost per unit must be non-negative')
-    .optional(),
+  costPerUnit: z.number().nonnegative('Cost per unit must be non-negative').optional(),
   suppliers: z.array(materialSupplierSchema).optional(),
   image: z.string().optional(),
   categoryData: z.any().optional(),

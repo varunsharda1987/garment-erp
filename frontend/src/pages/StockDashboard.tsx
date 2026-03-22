@@ -47,20 +47,13 @@ export default function StockDashboard() {
       setError(null);
 
       // Load data in parallel
-      const [
-        warehousesData,
-        stockData,
-        lowStockData,
-        valuationData,
-        fabricData,
-        greigeData
-      ] = await Promise.all([
+      const [warehousesData, stockData, lowStockData, valuationData, fabricData, greigeData] = await Promise.all([
         warehouseService.getAll({ isActive: true }),
         stockLevelService.getAll(),
         stockLevelService.getBelowReorderLevel(),
         stockLevelService.getValuationReport(),
         fabricStockService.getSummary().catch(() => null),
-        greigeStockService.getSummary().catch(() => null)
+        greigeStockService.getSummary().catch(() => null),
       ]);
 
       setWarehouses(warehousesData);
@@ -80,7 +73,7 @@ export default function StockDashboard() {
   // Calculate trim metrics by material type
   const trimsByType: MaterialTypeSummary[] = stockLevels.reduce((acc, item) => {
     const materialType = item.materials?.materialType || 'OTHER';
-    const existing = acc.find(t => t.materialType === materialType);
+    const existing = acc.find((t) => t.materialType === materialType);
     const itemValue = Number(item.quantity) * Number(item.valuationRate || 0);
 
     if (existing) {
@@ -90,7 +83,7 @@ export default function StockDashboard() {
       acc.push({
         materialType,
         count: 1,
-        value: itemValue
+        value: itemValue,
       });
     }
     return acc;
@@ -99,7 +92,8 @@ export default function StockDashboard() {
   // Calculate combined metrics
   const totalInventoryValue = trimValue + (fabricSummary?.totalValue || 0) + (greigeSummary?.totalValue || 0);
   const totalMaterials = stockLevels.length + (fabricSummary?.totalItems || 0) + (greigeSummary?.totalItems || 0);
-  const totalAlerts = lowStockItems.length + (fabricSummary?.agingStockCount || 0) + (greigeSummary?.agingStockCount || 0);
+  const totalAlerts =
+    lowStockItems.length + (fabricSummary?.agingStockCount || 0) + (greigeSummary?.agingStockCount || 0);
 
   if (loading) {
     return (
@@ -156,8 +150,8 @@ export default function StockDashboard() {
           value={totalAlerts.toString()}
           description={`${lowStockItems.length} Low + ${(fabricSummary?.agingStockCount || 0) + (greigeSummary?.agingStockCount || 0)} Aging`}
           icon={AlertTriangle}
-          iconColor={totalAlerts > 0 ? "text-yellow-600" : "text-gray-400"}
-          iconBgColor={totalAlerts > 0 ? "bg-yellow-100" : "bg-gray-100"}
+          iconColor={totalAlerts > 0 ? 'text-yellow-600' : 'text-gray-400'}
+          iconBgColor={totalAlerts > 0 ? 'bg-yellow-100' : 'bg-gray-100'}
         />
 
         <StatCard
@@ -202,9 +196,15 @@ export default function StockDashboard() {
             </div>
             {fabricSummary.byQualityGrade && (
               <div className="flex gap-2">
-                <Badge variant="outline" className="bg-green-50">Grade A: {(fabricSummary.byQualityGrade.A || 0).toFixed(2)} m</Badge>
-                <Badge variant="outline" className="bg-yellow-50">Grade B: {(fabricSummary.byQualityGrade.B || 0).toFixed(2)} m</Badge>
-                <Badge variant="outline" className="bg-red-50">Defect: {(fabricSummary.byQualityGrade.DEFECT || 0).toFixed(2)} m</Badge>
+                <Badge variant="outline" className="bg-green-50">
+                  Grade A: {(fabricSummary.byQualityGrade.A || 0).toFixed(2)} m
+                </Badge>
+                <Badge variant="outline" className="bg-yellow-50">
+                  Grade B: {(fabricSummary.byQualityGrade.B || 0).toFixed(2)} m
+                </Badge>
+                <Badge variant="outline" className="bg-red-50">
+                  Defect: {(fabricSummary.byQualityGrade.DEFECT || 0).toFixed(2)} m
+                </Badge>
               </div>
             )}
           </CardContent>
@@ -277,7 +277,10 @@ export default function StockDashboard() {
               <p className="text-sm font-medium text-muted-foreground mb-2">By Material Type:</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {trimsByType.map((item) => (
-                  <div key={item.materialType} className="flex justify-between items-center bg-gray-50 rounded p-2 text-sm">
+                  <div
+                    key={item.materialType}
+                    className="flex justify-between items-center bg-gray-50 rounded p-2 text-sm"
+                  >
                     <span className="font-medium">{formatMaterialType(item.materialType)}</span>
                     <Badge variant="secondary">{item.count} items</Badge>
                   </div>
@@ -313,53 +316,69 @@ export default function StockDashboard() {
                 {/* Low Stock Trims */}
                 {lowStockItems.slice(0, 3).map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell><Badge variant="outline">Trim</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline">Trim</Badge>
+                    </TableCell>
                     <TableCell className="font-medium">{item.materials?.code}</TableCell>
                     <TableCell>{item.materials?.name}</TableCell>
                     <TableCell className="text-right">
                       {Number(item.quantity).toFixed(2)} {item.unit}
                     </TableCell>
-                    <TableCell>Below reorder level ({item.reorderLevel ? Number(item.reorderLevel).toFixed(2) : 'N/A'})</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Low Stock</Badge>
+                      Below reorder level ({item.reorderLevel ? Number(item.reorderLevel).toFixed(2) : 'N/A'})
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                        Low Stock
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}
                 {/* Fabric Aging */}
                 {fabricSummary && fabricSummary.agingStockCount > 0 && (
                   <TableRow>
-                    <TableCell><Badge variant="outline" className="bg-blue-50">Fabric</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-blue-50">
+                        Fabric
+                      </Badge>
+                    </TableCell>
                     <TableCell className="font-medium">Multiple</TableCell>
                     <TableCell>Finished Fabric Items</TableCell>
                     <TableCell className="text-right">{fabricSummary.agingStockCount} items</TableCell>
                     <TableCell>Stock aging {'>'}180 days</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="bg-orange-100 text-orange-800">Aging</Badge>
+                      <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                        Aging
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 )}
                 {/* Greige Aging */}
                 {greigeSummary && greigeSummary.agingStockCount > 0 && (
                   <TableRow>
-                    <TableCell><Badge variant="outline" className="bg-green-50">Greige</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-green-50">
+                        Greige
+                      </Badge>
+                    </TableCell>
                     <TableCell className="font-medium">Multiple</TableCell>
                     <TableCell>Greige Fabric Items</TableCell>
                     <TableCell className="text-right">{greigeSummary.agingStockCount} items</TableCell>
                     <TableCell>Stock aging {'>'}180 days</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="bg-orange-100 text-orange-800">Aging</Badge>
+                      <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                        Aging
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
-            {(lowStockItems.length > 3 || (fabricSummary?.agingStockCount || 0) > 0 || (greigeSummary?.agingStockCount || 0) > 0) && (
+            {(lowStockItems.length > 3 ||
+              (fabricSummary?.agingStockCount || 0) > 0 ||
+              (greigeSummary?.agingStockCount || 0) > 0) && (
               <div className="mt-4 text-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/inventory/stock-levels')}
-                >
+                <Button variant="outline" size="sm" onClick={() => navigate('/inventory/stock-levels')}>
                   View All Alerts
                 </Button>
               </div>
@@ -375,11 +394,7 @@ export default function StockDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            <Button
-              variant="outline"
-              className="h-auto py-4"
-              onClick={() => navigate('/inventory/movements/stock-in')}
-            >
+            <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/inventory/movements/stock-in')}>
               Stock IN
             </Button>
             <Button
@@ -389,18 +404,10 @@ export default function StockDashboard() {
             >
               Stock OUT
             </Button>
-            <Button
-              variant="outline"
-              className="h-auto py-4"
-              onClick={() => navigate('/inventory/movements/transfer')}
-            >
+            <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/inventory/movements/transfer')}>
               Transfer
             </Button>
-            <Button
-              variant="outline"
-              className="h-auto py-4"
-              onClick={() => navigate('/inventory/stock-counts/new')}
-            >
+            <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/inventory/stock-counts/new')}>
               Stock Count
             </Button>
           </div>

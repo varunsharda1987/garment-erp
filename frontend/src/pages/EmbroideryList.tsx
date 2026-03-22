@@ -119,9 +119,7 @@ export default function EmbroideryList() {
           )}
           <div>
             <div className="text-sm font-medium text-gray-900">{item.designName}</div>
-            {item.description && (
-              <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>
-            )}
+            {item.description && <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>}
           </div>
         </div>
       ),
@@ -130,46 +128,30 @@ export default function EmbroideryList() {
       key: 'stitchCount',
       header: 'Stitches',
       render: (item) => (
-        <div className="text-sm text-gray-700">
-          {item.stitchCount ? item.stitchCount.toLocaleString() : '-'}
-        </div>
+        <div className="text-sm text-gray-700">{item.stitchCount ? item.stitchCount.toLocaleString() : '-'}</div>
       ),
     },
     {
       key: 'threadColors',
       header: 'Colors',
-      render: (item) => (
-        <div className="text-sm text-gray-700">
-          {item.threadColors || '-'}
-        </div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.threadColors || '-'}</div>,
     },
     {
       key: 'usableWidthAfter',
       header: 'Usable Width',
       render: (item) => (
-        <div className="text-sm text-gray-700">
-          {item.usableWidthAfter ? `${item.usableWidthAfter}"` : '-'}
-        </div>
+        <div className="text-sm text-gray-700">{item.usableWidthAfter ? `${item.usableWidthAfter}"` : '-'}</div>
       ),
     },
     {
       key: 'costPerMeter',
       header: 'Cost/Meter',
-      render: (item) => (
-        <div className="text-sm font-medium text-gray-900">
-          {formatCurrency(item.costPerMeter)}
-        </div>
-      ),
+      render: (item) => <div className="text-sm font-medium text-gray-900">{formatCurrency(item.costPerMeter)}</div>,
     },
     {
       key: 'supplier',
       header: 'Supplier',
-      render: (item) => (
-        <div className="text-sm text-gray-700">
-          {item.supplier?.name || '-'}
-        </div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>,
     },
     {
       key: 'usageCount',
@@ -184,9 +166,7 @@ export default function EmbroideryList() {
       key: 'isActive',
       header: 'Status',
       render: (item) => (
-        <Badge variant={item.isActive ? 'default' : 'secondary'}>
-          {item.isActive ? 'Active' : 'Inactive'}
-        </Badge>
+        <Badge variant={item.isActive ? 'default' : 'secondary'}>{item.isActive ? 'Active' : 'Inactive'}</Badge>
       ),
     },
     {
@@ -262,11 +242,7 @@ export default function EmbroideryList() {
           </div>
 
           {/* Error */}
-          {error && (
-            <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">
-              {error}
-            </div>
-          )}
+          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
 
           {/* Stats */}
           <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">

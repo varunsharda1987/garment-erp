@@ -23,7 +23,7 @@ export const createLabel = async (req: Request, res: Response) => {
     labelName,
     supplierCode,
     buyerCode,
-    customerId,  // Link to customer - makes label customer-specific
+    customerId, // Link to customer - makes label customer-specific
     brandCategoryId, // Link to specific brand within customer
     labelCategory = 'SEWN_IN', // Default to sewn-in labels
     labelType,
@@ -31,7 +31,7 @@ export const createLabel = async (req: Request, res: Response) => {
     sizeCategoryId, // Size category for auto-generating variants
     generateSizeVariants = false, // Flag to generate size variants
     content,
-    fabricContent,        // Fabric composition (e.g., "100% Cotton")
+    fabricContent, // Fabric composition (e.g., "100% Cotton")
     washcareInstructions, // Care instructions (e.g., "Machine wash cold")
     printMethod,
     material,
@@ -40,14 +40,14 @@ export const createLabel = async (req: Request, res: Response) => {
     pricePerHundred,
     supplierId,
     description,
-    suppliers = [] // Array of supplier relationships
+    suppliers = [], // Array of supplier relationships
   } = req.body;
 
   // Validate brand belongs to customer if both provided
   if (brandCategoryId && customerId) {
     const brand = await prisma.brand_categories.findUnique({
       where: { id: brandCategoryId },
-      select: { customerId: true }
+      select: { customerId: true },
     });
 
     if (!brand) {
@@ -72,8 +72,7 @@ export const createLabel = async (req: Request, res: Response) => {
 
     // Only add "Label" suffix for SEWN_IN category
     // Price Tags and Hangtags should NOT have "Label" appended
-    const shouldAppendLabel = labelCategory === 'SEWN_IN' &&
-      (!labelType || !labelType.toLowerCase().includes('label'));
+    const shouldAppendLabel = labelCategory === 'SEWN_IN' && (!labelType || !labelType.toLowerCase().includes('label'));
 
     if (shouldAppendLabel) {
       parts.push('Label');
@@ -86,7 +85,7 @@ export const createLabel = async (req: Request, res: Response) => {
 
   // Get Label material category ID
   const labelMaterialCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Label' }
+    where: { name: 'Label' },
   });
 
   if (!labelMaterialCategory) {
@@ -100,7 +99,7 @@ export const createLabel = async (req: Request, res: Response) => {
       labelName: finalLabelName,
       supplierCode: supplierCode || null,
       buyerCode: buyerCode || null,
-      customerId: customerId || null,  // Link to customer
+      customerId: customerId || null, // Link to customer
       brandCategoryId: brandCategoryId || null, // Link to brand
       labelCategory: labelCategory as any,
       labelType: labelType || null,
@@ -134,7 +133,7 @@ export const createLabel = async (req: Request, res: Response) => {
           id: true,
           code: true,
           name: true,
-        }
+        },
       },
       labelSuppliers: {
         include: {
@@ -147,12 +146,12 @@ export const createLabel = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Auto-generate size variants if requested
@@ -163,21 +162,21 @@ export const createLabel = async (req: Request, res: Response) => {
   if (generateSizeVariants && sizeCategoryId) {
     const sizeCategory = await prisma.size_categories.findUnique({
       where: { id: sizeCategoryId },
-      select: { sizes: true }
+      select: { sizes: true },
     });
 
     if (sizeCategory && Array.isArray(sizeCategory.sizes)) {
       // Create size variants for each size in the category
-      const variantData = (sizeCategory.sizes as string[]).map(sizeValue => ({
+      const variantData = (sizeCategory.sizes as string[]).map((sizeValue) => ({
         labelId: labelRecord.id,
         sizeCategoryId: sizeCategoryId,
         size: sizeValue,
         stockQuantity: 0,
-        isActive: true
+        isActive: true,
       }));
 
       await prisma.label_size_variants.createMany({
-        data: variantData
+        data: variantData,
       });
 
       // Fetch created variants
@@ -187,8 +186,8 @@ export const createLabel = async (req: Request, res: Response) => {
           id: true,
           size: true,
           stockQuantity: true,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
 
       // Create material entry for each size variant
@@ -204,7 +203,7 @@ export const createLabel = async (req: Request, res: Response) => {
             categoryId: labelMaterialCategory.id,
             unit: 'PIECE',
             isActive: true,
-          }
+          },
         });
         materialEntries.push(variantMaterial);
       }
@@ -221,7 +220,7 @@ export const createLabel = async (req: Request, res: Response) => {
         categoryId: labelMaterialCategory.id,
         unit: 'PIECE',
         isActive: true,
-      }
+      },
     });
   }
 
@@ -230,7 +229,7 @@ export const createLabel = async (req: Request, res: Response) => {
     material: materialEntry,
     materialEntries: materialEntries.length > 0 ? materialEntries : undefined,
     sizeVariants,
-    message: `Label created successfully${sizeVariants.length > 0 ? ` with ${sizeVariants.length} size variants and ${materialEntries.length} material entries` : ''}`
+    message: `Label created successfully${sizeVariants.length > 0 ? ` with ${sizeVariants.length} size variants and ${materialEntries.length} material entries` : ''}`,
   });
 };
 
@@ -244,9 +243,9 @@ export const getAllLabel = async (req: Request, res: Response) => {
     limit = 10,
     search = '',
     supplierId = '',
-    customerId = '',  // Filter by customer
+    customerId = '', // Filter by customer
     brandCategoryId = '', // Filter by brand
-    labelCategory = '' // Filter by SEWN_IN, HANGTAG, or PRICE_TAG
+    labelCategory = '', // Filter by SEWN_IN, HANGTAG, or PRICE_TAG
   } = req.query;
 
   const pageNum = Number(page);
@@ -259,10 +258,7 @@ export const getAllLabel = async (req: Request, res: Response) => {
   // Filter by customer - show customer-specific labels OR generic (no customer)
   if (customerId) {
     whereConditions.push({
-      OR: [
-        { customerId: String(customerId) },
-        { customerId: null }
-      ]
+      OR: [{ customerId: String(customerId) }, { customerId: null }],
     });
   }
 
@@ -282,8 +278,8 @@ export const getAllLabel = async (req: Request, res: Response) => {
       OR: [
         { labelName: { contains: String(search), mode: 'insensitive' } },
         { labelCode: { contains: String(search), mode: 'insensitive' } },
-        { color: { contains: String(search), mode: 'insensitive' } }
-      ]
+        { color: { contains: String(search), mode: 'insensitive' } },
+      ],
     });
   }
 
@@ -293,9 +289,9 @@ export const getAllLabel = async (req: Request, res: Response) => {
       labelSuppliers: {
         some: {
           supplierId: String(supplierId),
-          isActive: true
-        }
-      }
+          isActive: true,
+        },
+      },
     });
   }
 
@@ -314,7 +310,7 @@ export const getAllLabel = async (req: Request, res: Response) => {
           id: true,
           code: true,
           name: true,
-        }
+        },
       },
       brandCategory: {
         select: {
@@ -322,10 +318,10 @@ export const getAllLabel = async (req: Request, res: Response) => {
           brandName: true,
           category: true,
           subCategory: true,
-        }
+        },
       },
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       labelSuppliers: {
         include: {
@@ -338,10 +334,10 @@ export const getAllLabel = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       sizeVariants: {
         select: {
@@ -362,20 +358,20 @@ export const getAllLabel = async (req: Request, res: Response) => {
                   warehouses: {
                     select: {
                       warehouseCode: true,
-                      warehouseName: true
-                    }
-                  }
-                }
-              }
-            }
-          }
+                      warehouseName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
-        where: { isActive: true }
-      }
+        where: { isActive: true },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -393,8 +389,8 @@ export const getAllLabel = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -413,7 +409,7 @@ export const getLabelById = async (req: Request, res: Response) => {
           id: true,
           code: true,
           name: true,
-        }
+        },
       },
       brandCategory: {
         select: {
@@ -421,10 +417,10 @@ export const getLabelById = async (req: Request, res: Response) => {
           brandName: true,
           category: true,
           subCategory: true,
-        }
+        },
       },
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       labelSuppliers: {
         include: {
@@ -437,10 +433,10 @@ export const getLabelById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       sizeVariants: {
         select: {
@@ -461,17 +457,17 @@ export const getLabelById = async (req: Request, res: Response) => {
                   warehouses: {
                     select: {
                       warehouseCode: true,
-                      warehouseName: true
-                    }
-                  }
-                }
-              }
-            }
-          }
+                      warehouseName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
-        where: { isActive: true }
-      }
-    }
+        where: { isActive: true },
+      },
+    },
   });
 
   if (!label) {
@@ -502,7 +498,7 @@ export const updateLabel = async (req: Request, res: Response) => {
     labelName,
     supplierCode,
     buyerCode,
-    customerId,  // Link to customer
+    customerId, // Link to customer
     brandCategoryId, // Link to specific brand within customer
     labelCategory, // SEWN_IN, HANGTAG, or PRICE_TAG
     labelType,
@@ -510,7 +506,7 @@ export const updateLabel = async (req: Request, res: Response) => {
     sizeCategoryId, // Size category for auto-generating variants
     generateSizeVariants = false, // Flag to generate size variants
     content,
-    fabricContent,        // Fabric composition (e.g., "100% Cotton")
+    fabricContent, // Fabric composition (e.g., "100% Cotton")
     washcareInstructions, // Care instructions (e.g., "Machine wash cold")
     printMethod,
     material,
@@ -520,12 +516,12 @@ export const updateLabel = async (req: Request, res: Response) => {
     supplierId,
     description,
     isActive,
-    suppliers // Array of supplier relationships (replaces existing)
+    suppliers, // Array of supplier relationships (replaces existing)
   } = req.body;
 
   // Check if label exists
   const existing = await prisma.label_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -536,7 +532,7 @@ export const updateLabel = async (req: Request, res: Response) => {
   if (brandCategoryId && customerId) {
     const brand = await prisma.brand_categories.findUnique({
       where: { id: brandCategoryId },
-      select: { customerId: true }
+      select: { customerId: true },
     });
 
     if (!brand) {
@@ -552,7 +548,7 @@ export const updateLabel = async (req: Request, res: Response) => {
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     // Delete existing supplier relationships
     await prisma.label_suppliers.deleteMany({
-      where: { labelId: id }
+      where: { labelId: id },
     });
 
     // Create new supplier relationships
@@ -566,7 +562,7 @@ export const updateLabel = async (req: Request, res: Response) => {
           notes: s.notes || null,
           pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
           pricePerHundred: s.pricePerHundred ? parseFloat(String(s.pricePerHundred)) : null,
-        }))
+        })),
       });
     }
   }
@@ -601,7 +597,7 @@ export const updateLabel = async (req: Request, res: Response) => {
           id: true,
           code: true,
           name: true,
-        }
+        },
       },
       brandCategory: {
         select: {
@@ -609,10 +605,10 @@ export const updateLabel = async (req: Request, res: Response) => {
           brandName: true,
           category: true,
           subCategory: true,
-        }
+        },
       },
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       labelSuppliers: {
         include: {
@@ -625,19 +621,19 @@ export const updateLabel = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Also update material name if labelName changed
   if (labelName) {
     await prisma.materials.updateMany({
       where: { labelId: id },
-      data: { name: labelName }
+      data: { name: labelName },
     });
   }
 
@@ -645,34 +641,34 @@ export const updateLabel = async (req: Request, res: Response) => {
   if (generateSizeVariants && sizeCategoryId) {
     // Check if size variants already exist for this label
     const existingVariants = await prisma.label_size_variants.count({
-      where: { labelId: id }
+      where: { labelId: id },
     });
 
     if (existingVariants === 0) {
       // No existing variants - safe to generate
       const sizeCategory = await prisma.size_categories.findUnique({
         where: { id: sizeCategoryId },
-        select: { sizes: true }
+        select: { sizes: true },
       });
 
       if (sizeCategory && Array.isArray(sizeCategory.sizes)) {
         // Get Label material category
         const labelMaterialCategory = await prisma.material_categories.findFirst({
-          where: { name: 'Label' }
+          where: { name: 'Label' },
         });
 
         if (labelMaterialCategory) {
           // Create size variants for each size in the category
-          const variantData = (sizeCategory.sizes as string[]).map(sizeValue => ({
+          const variantData = (sizeCategory.sizes as string[]).map((sizeValue) => ({
             labelId: id,
             sizeCategoryId: sizeCategoryId,
             size: sizeValue,
             stockQuantity: 0,
-            isActive: true
+            isActive: true,
           }));
 
           await prisma.label_size_variants.createMany({
-            data: variantData
+            data: variantData,
           });
 
           // Fetch created variants
@@ -682,8 +678,8 @@ export const updateLabel = async (req: Request, res: Response) => {
               id: true,
               size: true,
               stockQuantity: true,
-              isActive: true
-            }
+              isActive: true,
+            },
           });
 
           // Create material entry for each size variant
@@ -698,8 +694,8 @@ export const updateLabel = async (req: Request, res: Response) => {
                 sizeVariantId: variant.id,
                 categoryId: labelMaterialCategory.id,
                 unit: 'PIECE',
-                isActive: true
-              }
+                isActive: true,
+              },
             });
           }
         }
@@ -719,7 +715,7 @@ export const updateLabel = async (req: Request, res: Response) => {
 
   res.json({
     label: transformed,
-    message: 'Label updated successfully'
+    message: 'Label updated successfully',
   });
 };
 
@@ -732,7 +728,7 @@ export const deleteLabel = async (req: Request, res: Response) => {
 
   // Check if label exists
   const existing = await prisma.label_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -742,22 +738,24 @@ export const deleteLabel = async (req: Request, res: Response) => {
   // Check if used in BOM
   const bomUsage = await prisma.order_bom_items.count({
     where: {
-      labelId: id
-    }
+      labelId: id,
+    },
   });
 
   if (bomUsage > 0) {
-    throw new BusinessError(`Cannot delete label. This label is used in ${bomUsage} BOM(s). Please remove from BOMs first.`);
+    throw new BusinessError(
+      `Cannot delete label. This label is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
+    );
   }
 
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
-    where: { labelId: id }
+    where: { labelId: id },
   });
 
   // Delete label (cascade will delete label_suppliers)
   await prisma.label_master.delete({
-    where: { id }
+    where: { id },
   });
 
   res.json({ message: 'Label deleted successfully' });
@@ -776,7 +774,7 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
 
   // Get Label category
   const labelCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Label' }
+    where: { name: 'Label' },
   });
 
   if (!labelCategory) {
@@ -791,7 +789,7 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
   if (createStock) {
     defaultWarehouse = await prisma.warehouses.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -807,7 +805,7 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Label name is required'
+          error: 'Label name is required',
         });
         continue;
       }
@@ -829,7 +827,7 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
           pricePerHundred: row.pricePerHundred ? parseFloat(row.pricePerHundred) : null,
           description: row.description || null,
           isActive: true,
-        }
+        },
       });
 
       // Create material
@@ -844,7 +842,7 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
           categoryId: labelCategory.id,
           unit: 'PIECE',
           isActive: true,
-        }
+        },
       });
 
       // Create stock if requested
@@ -858,7 +856,7 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
             unit: 'PIECE',
             reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
             maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          }
+          },
         });
         stockCreated = true;
       }
@@ -869,29 +867,28 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
         labelCode,
         materialCode: labelCode,
         labelName: row.labelName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: any) {
       results.push({
         success: false,
         row: i + 1,
         labelCode,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   const summary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -913,7 +910,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { name: 'pricePerPiece', required: false, description: 'Price per piece (Optional)' },
       { name: 'pricePerHundred', required: false, description: 'Price per hundred (Optional)' },
       { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' }
+      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
     ],
     exampleData: [
       {
@@ -926,12 +923,12 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         printMethod: 'Woven',
         material: 'Polyester',
         color: 'White',
-        pricePerPiece: 0.50,
-        pricePerHundred: 45.00,
+        pricePerPiece: 0.5,
+        pricePerHundred: 45.0,
         stockQuantity: 1000,
-        locationCode: 'WH-01'
-      }
-    ]
+        locationCode: 'WH-01',
+      },
+    ],
   };
 
   res.json(template);

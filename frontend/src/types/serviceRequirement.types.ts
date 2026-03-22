@@ -21,7 +21,7 @@ export const ServiceType = {
   OTHER: 'OTHER',
 } as const;
 
-export type ServiceType = typeof ServiceType[keyof typeof ServiceType];
+export type ServiceType = (typeof ServiceType)[keyof typeof ServiceType];
 
 export const ServiceTypeLabels: Record<ServiceType, string> = {
   EMBROIDERY: 'Embroidery',
@@ -45,7 +45,7 @@ export const ServiceRequirementStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type ServiceRequirementStatus = typeof ServiceRequirementStatus[keyof typeof ServiceRequirementStatus];
+export type ServiceRequirementStatus = (typeof ServiceRequirementStatus)[keyof typeof ServiceRequirementStatus];
 
 export const ServiceRequirementStatusLabels: Record<ServiceRequirementStatus, string> = {
   PENDING: 'Pending',
@@ -68,7 +68,7 @@ export const RequirementSource = {
   MANUAL: 'MANUAL',
 } as const;
 
-export type RequirementSource = typeof RequirementSource[keyof typeof RequirementSource];
+export type RequirementSource = (typeof RequirementSource)[keyof typeof RequirementSource];
 
 export const RequirementSourceLabels: Record<RequirementSource, string> = {
   WORK_ORDER: 'Work Order',

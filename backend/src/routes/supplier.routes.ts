@@ -10,7 +10,12 @@ import {
 } from '../controllers/supplier.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
-import { createSupplierSchema, updateSupplierSchema, supplierQuerySchema, supplierIdParamSchema } from '../schemas/supplier.schema';
+import {
+  createSupplierSchema,
+  updateSupplierSchema,
+  supplierQuerySchema,
+  supplierIdParamSchema,
+} from '../schemas/supplier.schema';
 import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
@@ -44,7 +49,12 @@ router.get('/:id', validateParams(supplierIdParamSchema), asyncHandler(getSuppli
  * @desc    Update supplier
  * @access  Private (Authenticated users)
  */
-router.put('/:id', validateParams(supplierIdParamSchema), validateBody(updateSupplierSchema), asyncHandler(updateSupplier));
+router.put(
+  '/:id',
+  validateParams(supplierIdParamSchema),
+  validateBody(updateSupplierSchema),
+  asyncHandler(updateSupplier)
+);
 
 /**
  * @route   DELETE /api/suppliers/:id

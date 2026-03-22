@@ -18,7 +18,7 @@ export const POCategory = {
   LACE_PROCESSING: 'LACE_PROCESSING',
 } as const;
 
-export type POCategory = typeof POCategory[keyof typeof POCategory];
+export type POCategory = (typeof POCategory)[keyof typeof POCategory];
 
 export const GenerationStatus = {
   GENERATED: 'GENERATED',
@@ -27,7 +27,7 @@ export const GenerationStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type GenerationStatus = typeof GenerationStatus[keyof typeof GenerationStatus];
+export type GenerationStatus = (typeof GenerationStatus)[keyof typeof GenerationStatus];
 
 // Size-independent trim material types that can be ordered before size breakdown
 export const SIZE_INDEPENDENT_TRIM_TYPES = [
@@ -51,9 +51,7 @@ export const SIZE_INDEPENDENT_TRIM_TYPES = [
 ] as const;
 
 // Size-dependent trims that require size breakdown
-export const SIZE_DEPENDENT_TRIM_TYPES = [
-  'SIZE_LABEL',
-] as const;
+export const SIZE_DEPENDENT_TRIM_TYPES = ['SIZE_LABEL'] as const;
 
 // ============================================
 // MATERIAL REQUIREMENT TYPES
@@ -64,13 +62,13 @@ export interface MaterialRequirement {
   materialCode: string;
   materialName: string;
   materialType: string;
-  consumptionPerUnit: number;  // Per garment piece
+  consumptionPerUnit: number; // Per garment piece
   unit: string;
-  requiredQty: number;        // totalOrderQty * consumptionPerUnit
-  availableStock: number;     // Current in-house stock
-  shortfall: number;          // max(0, requiredQty - availableStock)
-  unitPrice: number;          // From cost sheet
-  supplierId?: string;        // Preferred supplier
+  requiredQty: number; // totalOrderQty * consumptionPerUnit
+  availableStock: number; // Current in-house stock
+  shortfall: number; // max(0, requiredQty - availableStock)
+  unitPrice: number; // From cost sheet
+  supplierId?: string; // Preferred supplier
   supplierName?: string;
 
   // Fabric-specific fields
@@ -108,7 +106,7 @@ export interface CalculatedRequirements {
 
 export interface OrderQuantityInput {
   requirement: MaterialRequirement;
-  allowancePercent: number;  // 0-5% buffer
+  allowancePercent: number; // 0-5% buffer
 }
 
 export interface OrderQuantityResult {
@@ -119,10 +117,10 @@ export interface OrderQuantityResult {
   availableStock: number;
   shortfall: number;
   allowancePercent: number;
-  allowanceQty: number;      // shortfall * allowancePercent / 100
-  orderQty: number;          // shortfall + allowanceQty
+  allowanceQty: number; // shortfall * allowancePercent / 100
+  orderQty: number; // shortfall + allowanceQty
   unitPrice: number;
-  totalAmount: number;       // orderQty * unitPrice
+  totalAmount: number; // orderQty * unitPrice
   supplierId?: string;
 }
 
@@ -134,7 +132,7 @@ export interface GeneratePOBaseInput {
   costSheetId: string;
   totalOrderQty: number;
   userId: string;
-  defaultAllowancePercent?: number;  // Default 3%
+  defaultAllowancePercent?: number; // Default 3%
   notes?: string;
 }
 
@@ -153,25 +151,25 @@ export interface GenerateFabricPOInput extends GeneratePOBaseInput {
 export interface GenerateGreigePOInput extends GeneratePOBaseInput {
   supplierId: string;
   items: Array<{
-    materialId: string;     // Greige material ID
+    materialId: string; // Greige material ID
     orderQty: number;
     unit: string;
-    unitPrice: number;      // Greige cost
+    unitPrice: number; // Greige cost
     allowancePercent: number;
     remarks?: string;
   }>;
 }
 
 export interface GenerateProcessingPOInput extends GeneratePOBaseInput {
-  processorId: string;      // Processor/Dyer supplier ID
+  processorId: string; // Processor/Dyer supplier ID
   linkedGreigePOId?: string; // If Greige PO already exists
   items: Array<{
-    materialId: string;     // Fabric material ID (output)
+    materialId: string; // Fabric material ID (output)
     greigeMaterialId: string;
-    processType: string;    // DYEING, PRINTING, etc.
+    processType: string; // DYEING, PRINTING, etc.
     orderQty: number;
     unit: string;
-    unitPrice: number;      // Processing cost per unit
+    unitPrice: number; // Processing cost per unit
     allowancePercent: number;
     remarks?: string;
   }>;
@@ -197,10 +195,10 @@ export interface GenerateTrimsPOInput extends GeneratePOBaseInput {
 export interface GenerateLacePOInput extends GeneratePOBaseInput {
   supplierId: string;
   items: Array<{
-    materialId: string;     // Finished lace ID
+    materialId: string; // Finished lace ID
     orderQty: number;
     unit: string;
-    unitPrice: number;      // Ready lace cost per meter
+    unitPrice: number; // Ready lace cost per meter
     allowancePercent: number;
     remarks?: string;
   }>;
@@ -209,10 +207,10 @@ export interface GenerateLacePOInput extends GeneratePOBaseInput {
 export interface GenerateGreigeLacePOInput extends GeneratePOBaseInput {
   supplierId: string;
   items: Array<{
-    materialId: string;     // Greige lace ID
+    materialId: string; // Greige lace ID
     orderQty: number;
     unit: string;
-    unitPrice: number;      // Greige lace cost per meter
+    unitPrice: number; // Greige lace cost per meter
     allowancePercent: number;
     expectedShrinkagePercent?: number;
     remarks?: string;
@@ -223,13 +221,13 @@ export interface GenerateLaceProcessingPOInput extends GeneratePOBaseInput {
   processorId: string;
   linkedGreigeLacePOId?: string;
   items: Array<{
-    materialId: string;     // Finished lace ID (output)
-    greigeLaceId: string;   // Greige lace ID (input)
-    processType: string;    // DYEING
+    materialId: string; // Finished lace ID (output)
+    greigeLaceId: string; // Greige lace ID (input)
+    processType: string; // DYEING
     orderQty: number;
     unit: string;
-    unitPrice: number;      // Processing cost per meter
-    labDipId?: string;      // Required for validation
+    unitPrice: number; // Processing cost per meter
+    labDipId?: string; // Required for validation
     allowancePercent: number;
     remarks?: string;
   }>;

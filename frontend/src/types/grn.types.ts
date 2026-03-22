@@ -16,7 +16,7 @@ export const GRNStatus = {
   PARTIALLY_ACCEPTED: 'PARTIALLY_ACCEPTED',
 } as const;
 
-export type GRNStatus = typeof GRNStatus[keyof typeof GRNStatus];
+export type GRNStatus = (typeof GRNStatus)[keyof typeof GRNStatus];
 
 export const GRNStatusLabels: Record<GRNStatus, string> = {
   PENDING_QC: 'Pending QC',
@@ -99,7 +99,7 @@ export interface GRNItem {
   unit: Unit;
   remarks: string | null;
   materials?: MaterialSummary;
-  purchaseOrderItem?: POItemSummary;  // RELATION_MAPPINGS: purchaseOrderItems → items (but nested singular)
+  purchaseOrderItem?: POItemSummary; // RELATION_MAPPINGS: purchaseOrderItems → items (but nested singular)
 }
 
 // ============================================

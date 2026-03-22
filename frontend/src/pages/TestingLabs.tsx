@@ -64,9 +64,7 @@ export default function TestingLabs() {
             <Building2 className="h-8 w-8 text-green-600" />
             Testing Labs
           </h1>
-          <p className="text-gray-500 mt-1">
-            Manage external testing laboratory information
-          </p>
+          <p className="text-gray-500 mt-1">Manage external testing laboratory information</p>
         </div>
         <Button onClick={() => navigate('/testing-labs/new')} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
@@ -154,9 +152,7 @@ export default function TestingLabs() {
                 )}
                 <div className="flex items-start">
                   <span className="text-gray-500 w-24">Turnaround:</span>
-                  <span className="text-gray-900 font-medium">
-                    {lab.averageTurnaroundDays} days
-                  </span>
+                  <span className="text-gray-900 font-medium">{lab.averageTurnaroundDays} days</span>
                 </div>
               </div>
 
@@ -185,11 +181,7 @@ export default function TestingLabs() {
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/testing-labs/${lab.id}`)}
-                >
+                <Button variant="outline" size="sm" onClick={() => navigate(`/testing-labs/${lab.id}`)}>
                   View
                 </Button>
               </div>
@@ -201,11 +193,7 @@ export default function TestingLabs() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
+          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
             Previous
           </Button>
           <span className="px-4 py-2 text-sm text-gray-600">

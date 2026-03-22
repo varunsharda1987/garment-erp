@@ -8,7 +8,20 @@ import { StatusBadge } from '@/components/StatusBadge';
 import type { Button } from '@/types/button.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, Edit, Package, Palette, Circle, DollarSign, Building2, FileText, Users, Star, Check, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Package,
+  Palette,
+  Circle,
+  DollarSign,
+  Building2,
+  FileText,
+  Users,
+  Star,
+  Check,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function ButtonDetail() {
@@ -19,7 +32,8 @@ export default function ButtonDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -108,9 +122,7 @@ export default function ButtonDetail() {
                   />
                 </div>
                 <p className="text-gray-600">Button Code: {button.buttonCode}</p>
-                {button.materialCode && (
-                  <p className="text-gray-500 text-sm">Material Code: {button.materialCode}</p>
-                )}
+                {button.materialCode && <p className="text-gray-500 text-sm">Material Code: {button.materialCode}</p>}
               </div>
               {button.image && (
                 <img
@@ -200,17 +212,13 @@ export default function ButtonDetail() {
               {button.pricePerPiece && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Piece</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    {formatCurrency(button.pricePerPiece)}
-                  </p>
+                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(button.pricePerPiece)}</p>
                 </div>
               )}
               {button.pricePerGross && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Gross (144 pcs)</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    {formatCurrency(button.pricePerGross)}
-                  </p>
+                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(button.pricePerGross)}</p>
                 </div>
               )}
               {!button.pricePerPiece && !button.pricePerGross && (
@@ -260,11 +268,21 @@ export default function ButtonDetail() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Piece</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Gross</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Supplier
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price/Piece
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price/Gross
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Notes
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -303,9 +321,7 @@ export default function ButtonDetail() {
                               </Badge>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
-                            {s.notes || '-'}
-                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{s.notes || '-'}</td>
                         </tr>
                       ))}
                     </tbody>

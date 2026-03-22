@@ -7,20 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,38 +19,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  getTDSEntries,
-  createTDS,
-  updateTDSStatus,
-  deleteTDS,
-} from '@/services/tds.service';
+import { getTDSEntries, createTDS, updateTDSStatus, deleteTDS } from '@/services/tds.service';
 import type { TDSEntry, CreateTDSRequest, TDSStatus } from '@/types/tds.types';
-import {
-  TDS_STATUS_LABELS,
-  TDS_STATUS_COLORS,
-  TDS_SECTIONS,
-} from '@/types/tds.types';
+import { TDS_STATUS_LABELS, TDS_STATUS_COLORS, TDS_SECTIONS } from '@/types/tds.types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -146,10 +113,7 @@ export default function TDSList() {
   // ---------- Queries ----------
 
   const { data, isLoading } = useQuery({
-    queryKey: [
-      'tds-entries',
-      { page, search, financialYear, quarter: quarterFilter, status: statusFilter },
-    ],
+    queryKey: ['tds-entries', { page, search, financialYear, quarter: quarterFilter, status: statusFilter }],
     queryFn: () =>
       getTDSEntries({
         page,
@@ -176,15 +140,8 @@ export default function TDSList() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({
-      id,
-      status,
-      certificateNo,
-    }: {
-      id: string;
-      status: string;
-      certificateNo?: string;
-    }) => updateTDSStatus(id, status, certificateNo),
+    mutationFn: ({ id, status, certificateNo }: { id: string; status: string; certificateNo?: string }) =>
+      updateTDSStatus(id, status, certificateNo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tds-entries'] });
       toast.success('TDS status updated');
@@ -319,9 +276,7 @@ export default function TDSList() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Entries
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Entries</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary.totalEntries}</div>
@@ -329,9 +284,7 @@ export default function TDSList() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Gross
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Gross</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatAmount(summary.totalGross)}</div>
@@ -339,26 +292,18 @@ export default function TDSList() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total TDS
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total TDS</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatAmount(summary.totalTDS)}
-            </div>
+            <div className="text-2xl font-bold text-red-600">{formatAmount(summary.totalTDS)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Net
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Net</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatAmount(summary.totalNet)}
-            </div>
+            <div className="text-2xl font-bold text-green-600">{formatAmount(summary.totalNet)}</div>
           </CardContent>
         </Card>
       </div>
@@ -474,18 +419,12 @@ export default function TDSList() {
               ) : (
                 entries.map((entry) => (
                   <TableRow key={entry.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {formatDate(entry.deductionDate)}
-                    </TableCell>
-                    <TableCell className="font-medium max-w-[200px] truncate">
-                      {entry.deductorName}
-                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(entry.deductionDate)}</TableCell>
+                    <TableCell className="font-medium max-w-[200px] truncate">{entry.deductorName}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{entry.tdsSection}</Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {Number(entry.tdsRate)}%
-                    </TableCell>
+                    <TableCell className="text-right font-mono">{Number(entry.tdsRate)}%</TableCell>
                     <TableCell className="text-right font-mono">
                       {Number(entry.grossAmount).toLocaleString('en-IN')}
                     </TableCell>
@@ -495,9 +434,7 @@ export default function TDSList() {
                     <TableCell className="text-right font-mono">
                       {Number(entry.netAmount).toLocaleString('en-IN')}
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {entry.certificateNo || '-'}
-                    </TableCell>
+                    <TableCell className="font-mono text-sm">{entry.certificateNo || '-'}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -512,25 +449,17 @@ export default function TDSList() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {entry.status !== 'PENDING' && (
-                            <DropdownMenuItem
-                              onClick={() => handleStatusChange(entry, 'PENDING')}
-                            >
+                            <DropdownMenuItem onClick={() => handleStatusChange(entry, 'PENDING')}>
                               Pending
                             </DropdownMenuItem>
                           )}
                           {entry.status !== 'CERTIFICATE_RECEIVED' && (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleStatusChange(entry, 'CERTIFICATE_RECEIVED')
-                              }
-                            >
+                            <DropdownMenuItem onClick={() => handleStatusChange(entry, 'CERTIFICATE_RECEIVED')}>
                               Certificate Received
                             </DropdownMenuItem>
                           )}
                           {entry.status !== 'VERIFIED' && (
-                            <DropdownMenuItem
-                              onClick={() => handleStatusChange(entry, 'VERIFIED')}
-                            >
+                            <DropdownMenuItem onClick={() => handleStatusChange(entry, 'VERIFIED')}>
                               Verified
                             </DropdownMenuItem>
                           )}
@@ -598,9 +527,7 @@ export default function TDSList() {
                   id="deductorName"
                   placeholder="Party who deducted tax"
                   value={formData.deductorName}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, deductorName: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, deductorName: e.target.value }))}
                   required
                 />
               </div>
@@ -610,9 +537,7 @@ export default function TDSList() {
                   id="deducteeName"
                   placeholder="Your company name"
                   value={formData.deducteeName}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, deducteeName: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, deducteeName: e.target.value }))}
                   required
                 />
               </div>
@@ -621,10 +546,7 @@ export default function TDSList() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="tdsSection">TDS Section *</Label>
-                <Select
-                  value={formData.tdsSection}
-                  onValueChange={handleSectionChange}
-                >
+                <Select value={formData.tdsSection} onValueChange={handleSectionChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select section" />
                   </SelectTrigger>
@@ -672,9 +594,7 @@ export default function TDSList() {
                   min="0"
                   placeholder="0.00"
                   value={formData.grossAmount || ''}
-                  onChange={(e) =>
-                    handleGrossAmountChange(parseFloat(e.target.value) || 0)
-                  }
+                  onChange={(e) => handleGrossAmountChange(parseFloat(e.target.value) || 0)}
                   required
                 />
               </div>
@@ -715,21 +635,11 @@ export default function TDSList() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="financialYear">Financial Year</Label>
-                <Input
-                  id="financialYear"
-                  value={formData.financialYear}
-                  readOnly
-                  className="bg-muted"
-                />
+                <Input id="financialYear" value={formData.financialYear} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quarter">Quarter</Label>
-                <Input
-                  id="quarter"
-                  value={`Q${formData.quarter}`}
-                  readOnly
-                  className="bg-muted"
-                />
+                <Input id="quarter" value={`Q${formData.quarter}`} readOnly className="bg-muted" />
               </div>
             </div>
 
@@ -739,9 +649,7 @@ export default function TDSList() {
                 id="certificateNo"
                 placeholder="TDS certificate number"
                 value={formData.certificateNo || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, certificateNo: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, certificateNo: e.target.value }))}
               />
             </div>
 
@@ -751,9 +659,7 @@ export default function TDSList() {
                 id="remarks"
                 placeholder="Any additional notes..."
                 value={formData.remarks || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, remarks: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, remarks: e.target.value }))}
                 rows={2}
               />
             </div>
@@ -776,10 +682,9 @@ export default function TDSList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete TDS Entry</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the TDS entry for{' '}
-              <strong>{entryToDelete?.deductorName}</strong> (Section{' '}
-              {entryToDelete?.tdsSection}, {formatAmount(Number(entryToDelete?.tdsAmount ?? 0))})?
-              This action cannot be undone.
+              Are you sure you want to delete the TDS entry for <strong>{entryToDelete?.deductorName}</strong> (Section{' '}
+              {entryToDelete?.tdsSection}, {formatAmount(Number(entryToDelete?.tdsAmount ?? 0))})? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

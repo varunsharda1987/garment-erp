@@ -17,42 +17,14 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  deliveryNoteService,
-  asnService,
-  dispatchSummaryService,
-} from '@/services/dispatch.service';
-import type {
-  DeliveryNote,
-  DeliveryStatus,
-  ASNApplication,
-  ASNStatus,
-  DispatchSummary,
-} from '@/types/dispatch.types';
-import {
-  DeliveryStatusLabels,
-  DeliveryStatusColors,
-  ASNStatusLabels,
-  ASNStatusColors,
-} from '@/types/dispatch.types';
+import { deliveryNoteService, asnService, dispatchSummaryService } from '@/services/dispatch.service';
+import type { DeliveryNote, DeliveryStatus, ASNApplication, ASNStatus, DispatchSummary } from '@/types/dispatch.types';
+import { DeliveryStatusLabels, DeliveryStatusColors, ASNStatusLabels, ASNStatusColors } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { format } from 'date-fns';
 
@@ -84,7 +56,7 @@ export default function DispatchList() {
         page: dnPage,
         limit: 20,
         search: dnSearch || undefined,
-        status: dnStatusFilter as DeliveryStatus || undefined,
+        status: (dnStatusFilter as DeliveryStatus) || undefined,
       });
       setDeliveryNotes(response.data);
       setDnTotalPages(response.pagination.totalPages);
@@ -100,7 +72,7 @@ export default function DispatchList() {
         page: asnPage,
         limit: 20,
         search: asnSearch || undefined,
-        status: asnStatusFilter as ASNStatus || undefined,
+        status: (asnStatusFilter as ASNStatus) || undefined,
       });
       setAsnApplications(response.data);
       setAsnTotalPages(response.pagination.totalPages);
@@ -187,15 +159,11 @@ export default function DispatchList() {
   };
 
   const getDeliveryStatusBadge = (status: DeliveryStatus) => (
-    <Badge className={DeliveryStatusColors[status]}>
-      {DeliveryStatusLabels[status]}
-    </Badge>
+    <Badge className={DeliveryStatusColors[status]}>{DeliveryStatusLabels[status]}</Badge>
   );
 
   const getASNStatusBadge = (status: ASNStatus) => (
-    <Badge className={ASNStatusColors[status]}>
-      {ASNStatusLabels[status]}
-    </Badge>
+    <Badge className={ASNStatusColors[status]}>{ASNStatusLabels[status]}</Badge>
   );
 
   return (
@@ -206,18 +174,11 @@ export default function DispatchList() {
           <Truck className="h-8 w-8 text-indigo-600" />
           <div>
             <h1 className="text-2xl font-bold">Dispatch</h1>
-            <p className="text-muted-foreground">
-              Manage delivery notes, ASN applications, and shipments
-            </p>
+            <p className="text-muted-foreground">Manage delivery notes, ASN applications, and shipments</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <Button asChild variant="outline">
@@ -240,9 +201,7 @@ export default function DispatchList() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Deliveries
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Deliveries</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.total}</div>
@@ -250,9 +209,7 @@ export default function DispatchList() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pending
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-600">{summary.pending}</div>
@@ -260,9 +217,7 @@ export default function DispatchList() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                In Transit
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">In Transit</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">{summary.inTransit}</div>
@@ -270,9 +225,7 @@ export default function DispatchList() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Delivered
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Delivered</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">{summary.delivered}</div>
@@ -280,14 +233,10 @@ export default function DispatchList() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                ASN Pending
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">ASN Pending</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {summary.asnSummary?.pending || 0}
-              </div>
+              <div className="text-2xl font-bold text-orange-600">{summary.asnSummary?.pending || 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -348,9 +297,7 @@ export default function DispatchList() {
                   <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : deliveryNotes.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No delivery notes found
-                </div>
+                <div className="text-center py-8 text-muted-foreground">No delivery notes found</div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -373,16 +320,12 @@ export default function DispatchList() {
                         <TableCell>{dn.order?.orderNumber || '-'}</TableCell>
                         <TableCell>{dn.customer?.billingName || dn.customer?.name || '-'}</TableCell>
                         <TableCell>
-                          {dn.deliveryDate
-                            ? format(new Date(dn.deliveryDate), 'dd MMM yyyy')
-                            : '-'}
+                          {dn.deliveryDate ? format(new Date(dn.deliveryDate), 'dd MMM yyyy') : '-'}
                         </TableCell>
                         <TableCell className="text-right">
                           {dn.items?.reduce((sum, item) => sum + item.quantity, 0) || 0}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {dn.ext?.cartons?.length || 0}
-                        </TableCell>
+                        <TableCell className="text-right">{dn.ext?.cartons?.length || 0}</TableCell>
                         <TableCell>{getDeliveryStatusBadge(dn.status)}</TableCell>
                         <TableCell>
                           {dn.ext?.pod?.customerGrnNumber ? (
@@ -416,12 +359,7 @@ export default function DispatchList() {
                               </Button>
                             )}
                             {dn.status === 'IN_TRANSIT' && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Record POD"
-                                asChild
-                              >
+                              <Button variant="ghost" size="icon" title="Record POD" asChild>
                                 <Link to={`/manufacturing/dispatch/delivery/${dn.id}/pod`}>
                                   <CheckCircle className="h-4 w-4 text-green-600" />
                                 </Link>
@@ -442,12 +380,7 @@ export default function DispatchList() {
                     Page {dnPage} of {dnTotalPages}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDnPage(dnPage - 1)}
-                      disabled={dnPage === 1}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setDnPage(dnPage - 1)} disabled={dnPage === 1}>
                       <ChevronLeft className="h-4 w-4" />
                       Previous
                     </Button>
@@ -483,7 +416,10 @@ export default function DispatchList() {
                     className="pl-9"
                   />
                 </div>
-                <Select value={asnStatusFilter || 'all'} onValueChange={(v) => setAsnStatusFilter(v === 'all' ? '' : v)}>
+                <Select
+                  value={asnStatusFilter || 'all'}
+                  onValueChange={(v) => setAsnStatusFilter(v === 'all' ? '' : v)}
+                >
                   <SelectTrigger className="w-[180px]">
                     <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="All Statuses" />
@@ -510,9 +446,7 @@ export default function DispatchList() {
                   <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : asnApplications.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No ASN applications found
-                </div>
+                <div className="text-center py-8 text-muted-foreground">No ASN applications found</div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -532,23 +466,15 @@ export default function DispatchList() {
                       <TableRow key={asn.id}>
                         <TableCell className="font-medium">{asn.asnNumber}</TableCell>
                         <TableCell>{asn.order?.orderNumber || '-'}</TableCell>
-                        <TableCell>
-                          {format(new Date(asn.requestedShipDate), 'dd MMM yyyy')}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {asn.plannedDispatchQty}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {asn.cartonsPlanned}
-                        </TableCell>
+                        <TableCell>{format(new Date(asn.requestedShipDate), 'dd MMM yyyy')}</TableCell>
+                        <TableCell className="text-right">{asn.plannedDispatchQty}</TableCell>
+                        <TableCell className="text-right">{asn.cartonsPlanned}</TableCell>
                         <TableCell>
                           {asn.appointmentDate ? (
                             <div>
                               <div>{format(new Date(asn.appointmentDate), 'dd MMM yyyy')}</div>
                               {asn.appointmentTime && (
-                                <div className="text-sm text-muted-foreground">
-                                  {asn.appointmentTime}
-                                </div>
+                                <div className="text-sm text-muted-foreground">{asn.appointmentTime}</div>
                               )}
                             </div>
                           ) : (
@@ -574,12 +500,7 @@ export default function DispatchList() {
                               </Button>
                             )}
                             {asn.status === 'APPROVED' && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Create Delivery Note"
-                                asChild
-                              >
+                              <Button variant="ghost" size="icon" title="Create Delivery Note" asChild>
                                 <Link to={`/manufacturing/dispatch/delivery/new?asnId=${asn.id}`}>
                                   <Package className="h-4 w-4 text-green-600" />
                                 </Link>

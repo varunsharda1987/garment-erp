@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Package, History, AlertTriangle, CheckCircle, Clock, TrendingUp, TrendingDown, Copy, Loader2 } from 'lucide-react';
+import {
+  Package,
+  History,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+  Copy,
+  Loader2,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -138,11 +148,13 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
     const isZero = variance === 0;
 
     return (
-      <div className={`flex items-center gap-1 ${isZero ? 'text-gray-500' : isPositive ? 'text-amber-600' : 'text-red-600'}`}>
+      <div
+        className={`flex items-center gap-1 ${isZero ? 'text-gray-500' : isPositive ? 'text-amber-600' : 'text-red-600'}`}
+      >
         {!isZero && (isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />)}
         <span>
-          {isPositive ? '+' : ''}{variance.toFixed(1)}"
-          {percent !== null && <span className="text-xs ml-1">({percent.toFixed(1)}%)</span>}
+          {isPositive ? '+' : ''}
+          {variance.toFixed(1)}"{percent !== null && <span className="text-xs ml-1">({percent.toFixed(1)}%)</span>}
         </span>
       </div>
     );
@@ -152,11 +164,26 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
     if (!status) return null;
     switch (status) {
       case 'APPROVED':
-        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Approved
+          </Badge>
+        );
       case 'PENDING':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+            <Clock className="h-3 w-3 mr-1" />
+            Pending
+          </Badge>
+        );
       case 'REJECTED':
-        return <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Rejected</Badge>;
+        return (
+          <Badge variant="destructive">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Rejected
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -165,9 +192,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
   if (loading) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          Loading order history...
-        </CardContent>
+        <CardContent className="py-8 text-center text-muted-foreground">Loading order history...</CardContent>
       </Card>
     );
   }
@@ -175,9 +200,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
   if (error) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-red-600">
-          {error}
-        </CardContent>
+        <CardContent className="py-8 text-center text-red-600">{error}</CardContent>
       </Card>
     );
   }
@@ -200,16 +223,14 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <div className="text-2xl font-bold">
-              {cadSummary.filter(c => c.approvalStatus === 'APPROVED').length}
-            </div>
+            <div className="text-2xl font-bold">{cadSummary.filter((c) => c.approvalStatus === 'APPROVED').length}</div>
             <p className="text-xs text-muted-foreground">Approved CADs</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">
-              {cadSummary.filter(c => c.stockAvailable && c.stockAvailable > 0).length}
+              {cadSummary.filter((c) => c.stockAvailable && c.stockAvailable > 0).length}
             </div>
             <p className="text-xs text-muted-foreground">With Stock Available</p>
           </CardContent>
@@ -273,11 +294,11 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
                             <Badge variant="outline" className="text-xs">
                               {item.stockLot}
                             </Badge>
-                          ) : '-'}
+                          ) : (
+                            '-'
+                          )}
                         </TableCell>
-                        <TableCell>
-                          {getVarianceDisplay(item.widthVariance, item.variancePercent)}
-                        </TableCell>
+                        <TableCell>{getVarianceDisplay(item.widthVariance, item.variancePercent)}</TableCell>
                         <TableCell className="text-right">
                           {item.quantityCut || item.quantityAllocated || '-'}
                         </TableCell>
@@ -354,19 +375,17 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
                             <Badge variant="outline" className="text-xs">
                               {cad.stockLot}
                             </Badge>
-                          ) : '-'}
+                          ) : (
+                            '-'
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           {cad.stockAvailable !== null ? `${cad.stockAvailable} m` : '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {cad.orderCount > 0 ? (
-                            <Badge variant="secondary">{cad.orderCount}</Badge>
-                          ) : '-'}
+                          {cad.orderCount > 0 ? <Badge variant="secondary">{cad.orderCount}</Badge> : '-'}
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {formatDate(cad.createdAt)}
-                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{formatDate(cad.createdAt)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -411,13 +430,15 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
                 {cloneSource.stockLot && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Stock Lot:</span>
-                    <Badge variant="outline" className="text-xs">{cloneSource.stockLot}</Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {cloneSource.stockLot}
+                    </Badge>
                   </div>
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                This will create a new Raw Material CAD entry with the same width and settings.
-                You can adjust quantities after cloning.
+                This will create a new Raw Material CAD entry with the same width and settings. You can adjust
+                quantities after cloning.
               </p>
             </div>
           )}
@@ -431,11 +452,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
             >
               Cancel
             </Button>
-            <Button
-              onClick={confirmClone}
-              disabled={cloning}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
+            <Button onClick={confirmClone} disabled={cloning} className="bg-blue-600 hover:bg-blue-700">
               {cloning ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

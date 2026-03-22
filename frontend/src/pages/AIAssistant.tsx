@@ -201,9 +201,7 @@ export default function AIAssistant() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>AI Not Available</AlertTitle>
-          <AlertDescription>
-            AI features are not enabled. Please configure AI in the backend settings.
-          </AlertDescription>
+          <AlertDescription>AI features are not enabled. Please configure AI in the backend settings.</AlertDescription>
         </Alert>
       </div>
     );
@@ -227,17 +225,8 @@ export default function AIAssistant() {
         {/* Header */}
         <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="h-8 w-8 p-0"
-            >
-              {sidebarOpen ? (
-                <PanelLeftClose className="h-5 w-5" />
-              ) : (
-                <PanelLeft className="h-5 w-5" />
-              )}
+            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="h-8 w-8 p-0">
+              {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
             </Button>
             <div>
               <h1 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -250,11 +239,7 @@ export default function AIAssistant() {
             </div>
           </div>
 
-          {activeConversation && (
-            <div className="text-sm text-gray-500">
-              {activeConversation.title || 'New Chat'}
-            </div>
-          )}
+          {activeConversation && <div className="text-sm text-gray-500">{activeConversation.title || 'New Chat'}</div>}
         </div>
 
         {/* Messages Area */}
@@ -262,9 +247,7 @@ export default function AIAssistant() {
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
               <Bot className="h-16 w-16 text-gray-300 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                How can I help you today?
-              </h3>
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">How can I help you today?</h3>
               <p className="text-gray-500 mb-8 max-w-md">
                 Ask me anything about the ERP system - styles, orders, materials, production, and more.
               </p>
@@ -291,10 +274,7 @@ export default function AIAssistant() {
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={cn(
-                    'flex gap-4',
-                    message.role === 'USER' ? 'flex-row-reverse' : 'flex-row'
-                  )}
+                  className={cn('flex gap-4', message.role === 'USER' ? 'flex-row-reverse' : 'flex-row')}
                 >
                   {/* Avatar */}
                   <div
@@ -311,18 +291,11 @@ export default function AIAssistant() {
                   </div>
 
                   {/* Message Content */}
-                  <div
-                    className={cn(
-                      'flex-1 max-w-[80%]',
-                      message.role === 'USER' ? 'flex flex-col items-end' : ''
-                    )}
-                  >
+                  <div className={cn('flex-1 max-w-[80%]', message.role === 'USER' ? 'flex flex-col items-end' : '')}>
                     <div
                       className={cn(
                         'rounded-2xl px-4 py-3',
-                        message.role === 'USER'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white border shadow-sm'
+                        message.role === 'USER' ? 'bg-blue-600 text-white' : 'bg-white border shadow-sm'
                       )}
                     >
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -335,22 +308,13 @@ export default function AIAssistant() {
                         message.role === 'USER' ? 'flex-row-reverse' : ''
                       )}
                     >
-                      <span className="text-xs text-gray-400">
-                        {formatTime(message.createdAt)}
-                      </span>
+                      <span className="text-xs text-gray-400">{formatTime(message.createdAt)}</span>
 
-                      {message.latencyMs && (
-                        <span className="text-xs text-gray-400">
-                          {message.latencyMs}ms
-                        </span>
-                      )}
+                      {message.latencyMs && <span className="text-xs text-gray-400">{message.latencyMs}ms</span>}
 
                       {/* Feedback for assistant messages */}
                       {message.role === 'ASSISTANT' && !message.id.startsWith('error-') && (
-                        <AIFeedback
-                          messageId={message.id}
-                          existingRating={message.feedback?.[0]?.rating}
-                        />
+                        <AIFeedback messageId={message.id} existingRating={message.feedback?.[0]?.rating} />
                       )}
                     </div>
                   </div>
@@ -365,9 +329,18 @@ export default function AIAssistant() {
                   </div>
                   <div className="bg-white border rounded-2xl px-4 py-3 shadow-sm">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '300ms' }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -397,16 +370,10 @@ export default function AIAssistant() {
                 disabled={!input.trim() || loading}
                 className="self-end h-12 px-6 rounded-xl"
               >
-                {loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Send className="h-5 w-5" />
-                )}
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               </Button>
             </div>
-            <p className="text-xs text-gray-400 mt-2 text-center">
-              Press Enter to send, Shift+Enter for new line
-            </p>
+            <p className="text-xs text-gray-400 mt-2 text-center">Press Enter to send, Shift+Enter for new line</p>
           </div>
         </div>
       </div>

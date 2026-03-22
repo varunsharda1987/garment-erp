@@ -70,8 +70,7 @@ export default function MRPCalculationPrompt({
         <DialogDescription className="space-y-4">
           <div className="bg-muted/50 p-4 rounded-md border">
             <p className="text-sm text-foreground">
-              The BOM has been approved successfully. Would you like to calculate material
-              requirements now?
+              The BOM has been approved successfully. Would you like to calculate material requirements now?
             </p>
           </div>
 
@@ -80,9 +79,7 @@ export default function MRPCalculationPrompt({
             <ul className="text-sm space-y-2 ml-1">
               <li className="flex items-start gap-2">
                 <ArrowRight className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <span>
-                  MRP will calculate total material requirements based on order quantities
-                </span>
+                <span>MRP will calculate total material requirements based on order quantities</span>
               </li>
               <li className="flex items-start gap-2">
                 <ArrowRight className="h-4 w-4 text-primary mt-0.5 shrink-0" />
@@ -90,29 +87,21 @@ export default function MRPCalculationPrompt({
               </li>
               <li className="flex items-start gap-2">
                 <ArrowRight className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <span>
-                  Items needing procurement will be flagged for PO generation
-                </span>
+                <span>Items needing procurement will be flagged for PO generation</span>
               </li>
             </ul>
           </div>
 
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 rounded-md">
             <p className="text-xs text-blue-800 dark:text-blue-200">
-              <strong>Tip:</strong> You can also calculate MRP manually later from the BOM detail
-              page if you skip this step.
+              <strong>Tip:</strong> You can also calculate MRP manually later from the BOM detail page if you skip this
+              step.
             </p>
           </div>
         </DialogDescription>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleSkip}
-            disabled={isCalculating}
-            className="gap-2"
-          >
+          <Button type="button" variant="outline" onClick={handleSkip} disabled={isCalculating} className="gap-2">
             <X className="h-4 w-4" />
             Skip for Now
           </Button>

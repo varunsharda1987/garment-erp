@@ -215,7 +215,7 @@ export default function FabricAvailableStock() {
       stock.fabric?.valueAddition || '',
       stock.fabric?.styleReference || '',
       stock.fabric?.componentName || stock.fabric?.componentType || '',
-      stock.fabric?.patternParts?.map(p => p.name).join('; ') || '',
+      stock.fabric?.patternParts?.map((p) => p.name).join('; ') || '',
       stock.fabric?.greige?.greigeCode || '',
       stock.quantityAvailable,
       `${stock.width}"`,
@@ -273,9 +273,13 @@ export default function FabricAvailableStock() {
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">Home</Link>
+        <Link to="/" className="hover:text-blue-600">
+          Home
+        </Link>
         {' > '}
-        <Link to="/fabric" className="hover:text-blue-600">Finished Fabric</Link>
+        <Link to="/fabric" className="hover:text-blue-600">
+          Finished Fabric
+        </Link>
         {' > '}
         <span className="font-medium text-gray-900">Stock View</span>
       </div>
@@ -437,10 +441,7 @@ export default function FabricAvailableStock() {
                   {filteredStock.map((stock) => (
                     <tr key={stock.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
-                        <Link
-                          to={`/fabric/${stock.fabricId}`}
-                          className="text-blue-600 hover:underline font-medium"
-                        >
+                        <Link to={`/fabric/${stock.fabricId}`} className="text-blue-600 hover:underline font-medium">
                           {stock.fabric?.fabricCode}
                         </Link>
                       </td>
@@ -449,8 +450,7 @@ export default function FabricAvailableStock() {
                           <div className="font-medium text-gray-900">{stock.fabric?.fabricName}</div>
                           {stock.fabric?.valueAddition && (
                             <div className="text-xs text-purple-600 flex items-center gap-1 mt-1">
-                              <Tag className="h-3 w-3" />
-                              + {stock.fabric.valueAddition}
+                              <Tag className="h-3 w-3" />+ {stock.fabric.valueAddition}
                             </div>
                           )}
                         </div>
@@ -478,7 +478,7 @@ export default function FabricAvailableStock() {
                             )}
                             {stock.fabric.patternParts && stock.fabric.patternParts.length > 0 && (
                               <div className="text-gray-500 mt-0.5">
-                                {stock.fabric.patternParts.map(p => p.name).join(', ')}
+                                {stock.fabric.patternParts.map((p) => p.name).join(', ')}
                               </div>
                             )}
                           </div>
@@ -486,9 +486,7 @@ export default function FabricAvailableStock() {
                           <span className="text-gray-400 text-xs">Generic</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium">
-                        {stock.quantityAvailable.toFixed(2)} m
-                      </td>
+                      <td className="px-4 py-3 text-right font-medium">{stock.quantityAvailable.toFixed(2)} m</td>
                       <td className="px-4 py-3 text-center">
                         <div className="text-gray-900">{stock.width}"</div>
                         {stock.fabric?.cutableWidth && (
@@ -498,27 +496,18 @@ export default function FabricAvailableStock() {
                       <td className="px-4 py-3 text-center">{getQualityBadge(stock.qualityGrade)}</td>
                       <td className="px-4 py-3">
                         <div className="text-gray-900">{stock.warehouseLocation || '-'}</div>
-                        {stock.rackNumber && (
-                          <div className="text-xs text-gray-500">{stock.rackNumber}</div>
-                        )}
+                        {stock.rackNumber && <div className="text-xs text-gray-500">{stock.rackNumber}</div>}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">
                         {stock.purchaseCost ? formatCurrency(stock.purchaseCost) : '-'}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">
-                        {stock.purchaseCost
-                          ? formatCurrency(stock.quantityAvailable * stock.purchaseCost)
-                          : '-'}
+                        {stock.purchaseCost ? formatCurrency(stock.quantityAvailable * stock.purchaseCost) : '-'}
                       </td>
                       <td className="px-4 py-3 text-center">{getAgingBadge(stock.agingDays)}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingStock(stock)}
-                            title="Edit stock"
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => setEditingStock(stock)} title="Edit stock">
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
@@ -582,10 +571,13 @@ export default function FabricAvailableStock() {
       />
 
       {/* Style Selection Dialog */}
-      <Dialog open={styleSelectOpen} onOpenChange={(open) => {
-        setStyleSelectOpen(open);
-        if (!open) setSelectedStyleId('');
-      }}>
+      <Dialog
+        open={styleSelectOpen}
+        onOpenChange={(open) => {
+          setStyleSelectOpen(open);
+          if (!open) setSelectedStyleId('');
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Select Style for Fabric Stock Entry</DialogTitle>
@@ -597,10 +589,13 @@ export default function FabricAvailableStock() {
               placeholder="Search by style code..."
             />
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => {
-                setStyleSelectOpen(false);
-                setSelectedStyleId('');
-              }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStyleSelectOpen(false);
+                  setSelectedStyleId('');
+                }}
+              >
                 Cancel
               </Button>
               <Button

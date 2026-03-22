@@ -1,7 +1,30 @@
 // Work Order Detail Page - View production run details
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Factory, Calendar, MapPin, User, Clock, Scissors, Shirt, CheckSquare, ExternalLink, Plus, Package, AlertCircle, Zap, ArrowRight, UserCheck, ShoppingCart, DollarSign, Loader2, GitBranch, FileText } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Factory,
+  Calendar,
+  MapPin,
+  User,
+  Clock,
+  Scissors,
+  Shirt,
+  CheckSquare,
+  ExternalLink,
+  Plus,
+  Package,
+  AlertCircle,
+  Zap,
+  ArrowRight,
+  UserCheck,
+  ShoppingCart,
+  DollarSign,
+  Loader2,
+  GitBranch,
+  FileText,
+} from 'lucide-react';
 import { notify } from '../lib/notify';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -60,7 +83,9 @@ export default function WorkOrderDetail() {
   const [pushToCuttingDialogOpen, setPushToCuttingDialogOpen] = useState(false);
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
-  const [serverBlockers, setServerBlockers] = useState<Array<{ type: string; message: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' }>>([]);
+  const [serverBlockers, setServerBlockers] = useState<
+    Array<{ type: string; message: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' }>
+  >([]);
 
   // Service Requirements State
   const [serviceRequirementsSummary, setServiceRequirementsSummary] = useState<ServiceRequirementsSummary | null>(null);
@@ -94,9 +119,15 @@ export default function WorkOrderDetail() {
     try {
       // Load cutting batches for this work order
       const [cuttingRes, stitchingRes, finishingRes] = await Promise.all([
-        cuttingBatchService.getAll({ workOrderId: id, limit: 100 }).catch(() => ({ data: [], pagination: { total: 0 } })),
-        stitchingIssueService.getAll({ workOrderId: id, limit: 100 }).catch(() => ({ data: [], pagination: { total: 0 } })),
-        finishingIssueService.getAll({ workOrderId: id, limit: 100 }).catch(() => ({ data: [], pagination: { total: 0 } })),
+        cuttingBatchService
+          .getAll({ workOrderId: id, limit: 100 })
+          .catch(() => ({ data: [], pagination: { total: 0 } })),
+        stitchingIssueService
+          .getAll({ workOrderId: id, limit: 100 })
+          .catch(() => ({ data: [], pagination: { total: 0 } })),
+        finishingIssueService
+          .getAll({ workOrderId: id, limit: 100 })
+          .catch(() => ({ data: [], pagination: { total: 0 } })),
       ]);
 
       // Calculate cutting progress
@@ -320,8 +351,8 @@ export default function WorkOrderDetail() {
             <Button
               onClick={handlePushToCuttingClick}
               disabled={isPushingToCutting}
-              className={materialReadiness?.isReady ? "bg-green-600 hover:bg-green-700" : ""}
-              variant={materialReadiness?.isReady ? "default" : "outline"}
+              className={materialReadiness?.isReady ? 'bg-green-600 hover:bg-green-700' : ''}
+              variant={materialReadiness?.isReady ? 'default' : 'outline'}
             >
               <Scissors className="mr-2 h-4 w-4" />
               {isPushingToCutting ? 'Pushing...' : 'Push to Cutting'}
@@ -374,9 +405,7 @@ export default function WorkOrderDetail() {
               >
                 {workOrder.parentRun.workOrderNumber}
               </span>
-              {workOrder.splitReason && (
-                <span className="text-muted-foreground ml-2">— {workOrder.splitReason}</span>
-              )}
+              {workOrder.splitReason && <span className="text-muted-foreground ml-2">— {workOrder.splitReason}</span>}
             </AlertDescription>
           </Alert>
         )}
@@ -386,8 +415,7 @@ export default function WorkOrderDetail() {
           <Alert className="bg-amber-50 border-amber-200">
             <GitBranch className="h-4 w-4 text-amber-600" />
             <AlertDescription>
-              This production run has been split into{' '}
-              <strong>{workOrder.childRuns?.length || 0}</strong> child runs.
+              This production run has been split into <strong>{workOrder.childRuns?.length || 0}</strong> child runs.
               The parent is now a container — production continues in child runs below.
             </AlertDescription>
           </Alert>
@@ -430,9 +458,7 @@ export default function WorkOrderDetail() {
             <div className="mt-6">
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
-                  className={`h-3 rounded-full transition-all ${
-                    progress === 100 ? 'bg-green-600' : 'bg-blue-600'
-                  }`}
+                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -448,9 +474,7 @@ export default function WorkOrderDetail() {
                 <Package className="h-5 w-5" />
                 Material Readiness
               </CardTitle>
-              <CardDescription>
-                Fabric availability status for cutting stage
-              </CardDescription>
+              <CardDescription>Fabric availability status for cutting stage</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoadingMaterials ? (
@@ -461,20 +485,18 @@ export default function WorkOrderDetail() {
                 <div className="space-y-4">
                   {/* Summary */}
                   <div className="flex items-center gap-4">
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                      materialReadiness.isReady
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}>
+                    <div
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                        materialReadiness.isReady ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
                       {materialReadiness.isReady ? (
                         <CheckSquare className="h-5 w-5" />
                       ) : (
                         <AlertCircle className="h-5 w-5" />
                       )}
                       <span className="font-semibold">
-                        {materialReadiness.isReady
-                          ? 'All Materials Available'
-                          : 'Materials Missing'}
+                        {materialReadiness.isReady ? 'All Materials Available' : 'Materials Missing'}
                       </span>
                     </div>
                     <div className="text-sm text-gray-600">
@@ -528,7 +550,8 @@ export default function WorkOrderDetail() {
                     <Alert className="bg-amber-50 border-amber-300">
                       <AlertCircle className="h-4 w-4 text-amber-600" />
                       <AlertDescription className="text-amber-900">
-                        No approved Order BOM found. Please approve the Order BOM first, or you can proceed to cutting without material validation.
+                        No approved Order BOM found. Please approve the Order BOM first, or you can proceed to cutting
+                        without material validation.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -560,9 +583,7 @@ export default function WorkOrderDetail() {
                     <Zap className="h-5 w-5 text-purple-600" />
                     Service Requirements
                   </CardTitle>
-                  <CardDescription>
-                    Embroidery, printing, dyeing, and other process services
-                  </CardDescription>
+                  <CardDescription>Embroidery, printing, dyeing, and other process services</CardDescription>
                 </div>
                 {serviceRequirementsSummary && serviceRequirementsSummary.totalServices > 0 && (
                   <Button
@@ -650,7 +671,8 @@ export default function WorkOrderDetail() {
                       <div>
                         <span className="text-sm text-muted-foreground">Processor Assigned:</span>
                         <div className="font-bold text-green-600">
-                          {serviceRequirementsSummary.servicesWithProcessor} / {serviceRequirementsSummary.totalServices}
+                          {serviceRequirementsSummary.servicesWithProcessor} /{' '}
+                          {serviceRequirementsSummary.totalServices}
                         </div>
                       </div>
                       <div>
@@ -676,16 +698,16 @@ export default function WorkOrderDetail() {
                       )}
                       {serviceRequirementsSummary.servicesWithProcessor > 0 &&
                         serviceRequirementsSummary.pendingCount > 0 && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/service-requirements/list?workOrderId=${id}&status=PENDING`)}
-                          className="text-green-600 border-green-600 hover:bg-green-50"
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-1" />
-                          Generate Service POs
-                        </Button>
-                      )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/service-requirements/list?workOrderId=${id}&status=PENDING`)}
+                            className="text-green-600 border-green-600 hover:bg-green-50"
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-1" />
+                            Generate Service POs
+                          </Button>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -724,9 +746,7 @@ export default function WorkOrderDetail() {
               <Factory className="h-5 w-5" />
               Manufacturing Progress
             </CardTitle>
-            <CardDescription>
-              Track production through cutting, stitching, and finishing stages
-            </CardDescription>
+            <CardDescription>Track production through cutting, stitching, and finishing stages</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -738,14 +758,10 @@ export default function WorkOrderDetail() {
                     <span className="font-medium">Cutting</span>
                   </div>
                   {manufacturingProgress.cutting.batches > 0 && (
-                    <span className="text-sm text-gray-500">
-                      {manufacturingProgress.cutting.batches} batch(es)
-                    </span>
+                    <span className="text-sm text-gray-500">{manufacturingProgress.cutting.batches} batch(es)</span>
                   )}
                 </div>
-                <div className="text-2xl font-bold text-orange-600">
-                  {manufacturingProgress.cutting.totalCut} pcs
-                </div>
+                <div className="text-2xl font-bold text-orange-600">{manufacturingProgress.cutting.totalCut} pcs</div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="h-2 rounded-full bg-orange-500"
@@ -756,20 +772,13 @@ export default function WorkOrderDetail() {
                 </div>
                 <div className="flex gap-2">
                   {manufacturingProgress.cutting.pending && (
-                    <Button
-                      size="sm"
-                      onClick={() => navigate(`/manufacturing/cutting/new?workOrderId=${id}`)}
-                    >
+                    <Button size="sm" onClick={() => navigate(`/manufacturing/cutting/new?workOrderId=${id}`)}>
                       <Plus className="h-4 w-4 mr-1" />
                       Start Cutting
                     </Button>
                   )}
                   {manufacturingProgress.cutting.batches > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      asChild
-                    >
+                    <Button size="sm" variant="outline" asChild>
                       <Link to={`/manufacturing/cutting?workOrderId=${id}`}>
                         <ExternalLink className="h-4 w-4 mr-1" />
                         View Batches
@@ -787,9 +796,7 @@ export default function WorkOrderDetail() {
                     <span className="font-medium">Stitching</span>
                   </div>
                   {manufacturingProgress.stitching.issues > 0 && (
-                    <span className="text-sm text-gray-500">
-                      {manufacturingProgress.stitching.issues} issue(s)
-                    </span>
+                    <span className="text-sm text-gray-500">{manufacturingProgress.stitching.issues} issue(s)</span>
                   )}
                 </div>
                 <div className="text-2xl font-bold text-blue-600">
@@ -805,20 +812,13 @@ export default function WorkOrderDetail() {
                 </div>
                 <div className="flex gap-2">
                   {manufacturingProgress.stitching.pending && manufacturingProgress.cutting.totalCut > 0 && (
-                    <Button
-                      size="sm"
-                      onClick={() => navigate(`/manufacturing/stitching/new?workOrderId=${id}`)}
-                    >
+                    <Button size="sm" onClick={() => navigate(`/manufacturing/stitching/new?workOrderId=${id}`)}>
                       <Plus className="h-4 w-4 mr-1" />
                       Start Stitching
                     </Button>
                   )}
                   {manufacturingProgress.stitching.issues > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      asChild
-                    >
+                    <Button size="sm" variant="outline" asChild>
                       <Link to={`/manufacturing/stitching?workOrderId=${id}`}>
                         <ExternalLink className="h-4 w-4 mr-1" />
                         View Issues
@@ -826,9 +826,7 @@ export default function WorkOrderDetail() {
                     </Button>
                   )}
                   {manufacturingProgress.stitching.pending && manufacturingProgress.cutting.totalCut === 0 && (
-                    <span className="text-sm text-gray-500 italic">
-                      Complete cutting first
-                    </span>
+                    <span className="text-sm text-gray-500 italic">Complete cutting first</span>
                   )}
                 </div>
               </div>
@@ -841,9 +839,7 @@ export default function WorkOrderDetail() {
                     <span className="font-medium">Finishing</span>
                   </div>
                   {manufacturingProgress.finishing.issues > 0 && (
-                    <span className="text-sm text-gray-500">
-                      {manufacturingProgress.finishing.issues} issue(s)
-                    </span>
+                    <span className="text-sm text-gray-500">{manufacturingProgress.finishing.issues} issue(s)</span>
                   )}
                 </div>
                 <div className="text-2xl font-bold text-green-600">
@@ -859,20 +855,13 @@ export default function WorkOrderDetail() {
                 </div>
                 <div className="flex gap-2">
                   {manufacturingProgress.finishing.pending && manufacturingProgress.stitching.totalStitched > 0 && (
-                    <Button
-                      size="sm"
-                      onClick={() => navigate(`/manufacturing/finishing/new?workOrderId=${id}`)}
-                    >
+                    <Button size="sm" onClick={() => navigate(`/manufacturing/finishing/new?workOrderId=${id}`)}>
                       <Plus className="h-4 w-4 mr-1" />
                       Start Finishing
                     </Button>
                   )}
                   {manufacturingProgress.finishing.issues > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      asChild
-                    >
+                    <Button size="sm" variant="outline" asChild>
                       <Link to={`/manufacturing/finishing?workOrderId=${id}`}>
                         <ExternalLink className="h-4 w-4 mr-1" />
                         View Issues
@@ -880,9 +869,7 @@ export default function WorkOrderDetail() {
                     </Button>
                   )}
                   {manufacturingProgress.finishing.pending && manufacturingProgress.stitching.totalStitched === 0 && (
-                    <span className="text-sm text-gray-500 italic">
-                      Complete stitching first
-                    </span>
+                    <span className="text-sm text-gray-500 italic">Complete stitching first</span>
                   )}
                 </div>
               </div>
@@ -991,9 +978,7 @@ export default function WorkOrderDetail() {
                     {workOrder.usersWorkOrdersCreatedByIdTousers.firstName}{' '}
                     {workOrder.usersWorkOrdersCreatedByIdTousers.lastName}
                   </div>
-                  <div className="text-gray-500 text-sm">
-                    {workOrder.usersWorkOrdersCreatedByIdTousers.email}
-                  </div>
+                  <div className="text-gray-500 text-sm">{workOrder.usersWorkOrdersCreatedByIdTousers.email}</div>
                 </div>
               ) : (
                 <div className="text-gray-500">-</div>
@@ -1017,33 +1002,19 @@ export default function WorkOrderDetail() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Color
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Size
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                        Planned
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                        Completed
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                        Remaining
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Planned</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Completed</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Remaining</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {workOrder.workOrderBreakup.map((breakup) => (
                       <tr key={breakup.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm">
-                          {breakup.colorOptions?.colorName || '-'}
-                        </td>
+                        <td className="px-4 py-3 text-sm">{breakup.colorOptions?.colorName || '-'}</td>
                         <td className="px-4 py-3 text-sm">{breakup.sizeOptions?.sizeName || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium">
-                          {breakup.plannedQuantity}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-medium">{breakup.plannedQuantity}</td>
                         <td className="px-4 py-3 text-sm text-right font-medium text-green-600">
                           {breakup.completedQuantity}
                         </td>
@@ -1058,9 +1029,7 @@ export default function WorkOrderDetail() {
                       <td colSpan={2} className="px-4 py-3 text-sm font-semibold">
                         Total
                       </td>
-                      <td className="px-4 py-3 text-sm text-right font-bold">
-                        {workOrder.totalQuantity}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-bold">{workOrder.totalQuantity}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
                         {workOrder.completedQuantity}
                       </td>
@@ -1083,9 +1052,7 @@ export default function WorkOrderDetail() {
                 <GitBranch className="h-5 w-5" />
                 Child Production Runs ({workOrder.childRuns.length})
               </CardTitle>
-              <CardDescription>
-                This production run was split into the following child runs
-              </CardDescription>
+              <CardDescription>This production run was split into the following child runs</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -1098,22 +1065,15 @@ export default function WorkOrderDetail() {
                     <div className="flex items-center gap-3">
                       <div>
                         <div className="font-medium text-primary">{child.workOrderNumber}</div>
-                        {child.splitReason && (
-                          <div className="text-xs text-muted-foreground">{child.splitReason}</div>
-                        )}
+                        {child.splitReason && <div className="text-xs text-muted-foreground">{child.splitReason}</div>}
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <div className="font-medium">{child.totalQuantity} pcs</div>
-                        <div className="text-xs text-muted-foreground">
-                          {child.completedQuantity} completed
-                        </div>
+                        <div className="text-xs text-muted-foreground">{child.completedQuantity} completed</div>
                       </div>
-                      <StatusBadge
-                        status={child.status.replace(/_/g, ' ')}
-                        variant={getStatusVariant(child.status)}
-                      />
+                      <StatusBadge status={child.status.replace(/_/g, ' ')} variant={getStatusVariant(child.status)} />
                       <ArrowRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
@@ -1140,15 +1100,10 @@ export default function WorkOrderDetail() {
                   View All <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
-              <CardDescription>
-                Material movement documents for this production run
-              </CardDescription>
+              <CardDescription>Material movement documents for this production run</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/manufacturing/challans/new?productionRunId=${id}`)}
-              >
+              <Button variant="outline" onClick={() => navigate(`/manufacturing/challans/new?productionRunId=${id}`)}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Challan
               </Button>
@@ -1184,13 +1139,16 @@ export default function WorkOrderDetail() {
       {/* Override Modal - for pushing to cutting when materials are short */}
       <AdminOverrideModal
         isOpen={overrideModalOpen}
-        onClose={() => { setOverrideModalOpen(false); setServerBlockers([]); }}
+        onClose={() => {
+          setOverrideModalOpen(false);
+          setServerBlockers([]);
+        }}
         onConfirm={handleOverrideConfirm}
         action="Push to Cutting"
         blockers={
           serverBlockers.length > 0
             ? serverBlockers
-            : (materialReadiness?.missingMaterials.map(m => ({
+            : (materialReadiness?.missingMaterials.map((m) => ({
                 type: 'MATERIAL_SHORTAGE',
                 message: `${m.materialName} (${m.materialCode}): Need ${m.required.toFixed(2)} ${m.unit}, Have ${m.available.toFixed(2)} ${m.unit}, Short ${m.shortfall.toFixed(2)} ${m.unit}`,
                 severity: 'CRITICAL' as const,

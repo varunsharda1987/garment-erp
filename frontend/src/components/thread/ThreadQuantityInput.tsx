@@ -13,7 +13,12 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
-import type { ThreadPly, ThreadPackagingType, ThreadQuantityInput as ThreadQuantityInputType, ThreadQuantityConversion } from '../../types/thread.types';
+import type {
+  ThreadPly,
+  ThreadPackagingType,
+  ThreadQuantityInput as ThreadQuantityInputType,
+  ThreadQuantityConversion,
+} from '../../types/thread.types';
 import { convertThreadQuantity } from '../../services/threadRequirement.service';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -128,9 +133,7 @@ const ThreadQuantityInput: React.FC<ThreadQuantityInputProps> = ({
           step={inputType === 'UNITS' ? 1 : 0.1}
           className={error ? 'border-red-500' : ''}
         />
-        {error && (
-          <p className="text-sm text-red-500 mt-1">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
       </div>
 
       {/* Conversion Display */}
@@ -141,11 +144,7 @@ const ThreadQuantityInput: React.FC<ThreadQuantityInputProps> = ({
         </div>
       )}
 
-      {conversionError && (
-        <p className="text-sm text-amber-600">
-          ⚠️ {conversionError}
-        </p>
-      )}
+      {conversionError && <p className="text-sm text-amber-600">⚠️ {conversionError}</p>}
 
       {conversion && !loading && !conversionError && (
         <Card className="bg-primary/5 border-primary/20">

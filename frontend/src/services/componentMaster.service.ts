@@ -35,9 +35,7 @@ export const getComponentMasterById = async (id: string): Promise<ComponentMaste
 /**
  * Create new component master
  */
-export const createComponentMaster = async (
-  componentData: ComponentMasterFormData
-): Promise<ComponentMaster> => {
+export const createComponentMaster = async (componentData: ComponentMasterFormData): Promise<ComponentMaster> => {
   const { data } = await api.post<ComponentMasterResponse>('/component-masters', componentData);
   return data.data;
 };
@@ -49,10 +47,7 @@ export const updateComponentMaster = async (
   id: string,
   componentData: ComponentMasterFormData
 ): Promise<ComponentMaster> => {
-  const { data } = await api.put<ComponentMasterResponse>(
-    `/component-masters/${id}`,
-    componentData
-  );
+  const { data } = await api.put<ComponentMasterResponse>(`/component-masters/${id}`, componentData);
   return data.data;
 };
 

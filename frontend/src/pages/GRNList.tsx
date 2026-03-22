@@ -131,9 +131,7 @@ export default function GRNList() {
     {
       key: 'inwardDate',
       header: 'Inward Date',
-      render: (grn) => (
-        <div className="text-sm text-gray-700">{formatDate(grn.receivingDate)}</div>
-      ),
+      render: (grn) => <div className="text-sm text-gray-700">{formatDate(grn.receivingDate)}</div>,
     },
     {
       key: 'poNumber',
@@ -155,9 +153,7 @@ export default function GRNList() {
       header: 'Supplier',
       render: (grn) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">
-            {grn.supplier?.name || 'N/A'}
-          </div>
+          <div className="text-sm font-medium text-gray-900">{grn.supplier?.name || 'N/A'}</div>
           <div className="text-xs text-gray-500">{grn.supplier?.code}</div>
         </div>
       ),
@@ -165,28 +161,17 @@ export default function GRNList() {
     {
       key: 'invoiceNumber',
       header: 'Invoice #',
-      render: (grn) => (
-        <div className="text-sm text-gray-700">{grn.invoiceNumber || '-'}</div>
-      ),
+      render: (grn) => <div className="text-sm text-gray-700">{grn.invoiceNumber || '-'}</div>,
     },
     {
       key: 'items',
       header: 'Items',
-      render: (grn) => (
-        <div className="text-sm text-gray-700">
-          {grn.itemCount || grn.items?.length || 0} items
-        </div>
-      ),
+      render: (grn) => <div className="text-sm text-gray-700">{grn.itemCount || grn.items?.length || 0} items</div>,
     },
     {
       key: 'status',
       header: 'Status',
-      render: (grn) => (
-        <StatusBadge
-          status={GRNStatusLabels[grn.status]}
-          variant={getStatusVariant(grn.status)}
-        />
-      ),
+      render: (grn) => <StatusBadge status={GRNStatusLabels[grn.status]} variant={getStatusVariant(grn.status)} />,
     },
     {
       key: 'actions',
@@ -220,9 +205,7 @@ export default function GRNList() {
             Goods Receiving Notes
           </CardTitle>
           <div className="flex gap-2">
-            <Button onClick={() => navigate('/procurement/grn/new')}>
-              + Create GRN
-            </Button>
+            <Button onClick={() => navigate('/procurement/grn/new')}>+ Create GRN</Button>
           </div>
         </div>
       </CardHeader>

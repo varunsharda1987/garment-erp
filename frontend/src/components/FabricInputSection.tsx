@@ -1,15 +1,6 @@
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Trash2, Plus } from 'lucide-react';
 
@@ -45,12 +36,7 @@ export function FabricInputSection({
           <div className="flex items-center justify-between">
             <h4 className="font-medium">Fabric {index + 1}</h4>
             {fabrics.length > 1 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onRemoveFabric(index)}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => onRemoveFabric(index)}>
                 <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             )}
@@ -117,26 +103,20 @@ export function FabricInputSection({
                   </Label>
                 </div>
               </RadioGroup>
-              <p className="text-xs text-muted-foreground">
-                Select finish type for CAD grouping and cost calculation.
-              </p>
+              <p className="text-xs text-muted-foreground">Select finish type for CAD grouping and cost calculation.</p>
             </div>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded p-3">
             <p className="text-sm text-blue-800">
-              <strong>Note:</strong> Fabric width selection and CAD calculations will be done in the CAD Planning tab after creating this style.
+              <strong>Note:</strong> Fabric width selection and CAD calculations will be done in the CAD Planning tab
+              after creating this style.
             </p>
           </div>
         </div>
       ))}
 
-      <Button
-        type="button"
-        variant="outline"
-        onClick={onAddFabric}
-        className="w-full"
-      >
+      <Button type="button" variant="outline" onClick={onAddFabric} className="w-full">
         <Plus className="h-4 w-4 mr-2" />
         Add Another Fabric
       </Button>

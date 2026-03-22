@@ -50,7 +50,7 @@ export default function WarehouseList() {
       const data = await warehouseService.getAll({
         warehouseType: typeFilter || undefined,
         isActive: activeFilter !== 'all' ? activeFilter === 'true' : undefined,
-        search: searchTerm || undefined
+        search: searchTerm || undefined,
       });
       setWarehouses(data);
     } catch (err: unknown) {
@@ -100,25 +100,18 @@ export default function WarehouseList() {
     {
       key: 'warehouseCode',
       header: 'Code',
-      render: (wh) => (
-        <div className="font-medium text-gray-900">{wh.warehouseCode}</div>
-      ),
+      render: (wh) => <div className="font-medium text-gray-900">{wh.warehouseCode}</div>,
     },
     {
       key: 'warehouseName',
       header: 'Name',
-      render: (wh) => (
-        <div className="text-sm text-gray-900">{wh.warehouseName}</div>
-      ),
+      render: (wh) => <div className="text-sm text-gray-900">{wh.warehouseName}</div>,
     },
     {
       key: 'warehouseType',
       header: 'Type',
       render: (wh) => (
-        <StatusBadge
-          status={wh.warehouseType.replace(/_/g, ' ')}
-          variant={getTypeVariant(wh.warehouseType)}
-        />
+        <StatusBadge status={wh.warehouseType.replace(/_/g, ' ')} variant={getTypeVariant(wh.warehouseType)} />
       ),
     },
     {
@@ -136,12 +129,8 @@ export default function WarehouseList() {
       header: 'Contact',
       render: (wh) => (
         <div>
-          {wh.contactPerson && (
-            <div className="text-sm text-gray-900">{wh.contactPerson}</div>
-          )}
-          {wh.contactPhone && (
-            <div className="text-xs text-gray-500">{wh.contactPhone}</div>
-          )}
+          {wh.contactPerson && <div className="text-sm text-gray-900">{wh.contactPerson}</div>}
+          {wh.contactPhone && <div className="text-xs text-gray-500">{wh.contactPhone}</div>}
         </div>
       ),
     },
@@ -149,10 +138,7 @@ export default function WarehouseList() {
       key: 'status',
       header: 'Status',
       render: (wh) => (
-        <StatusBadge
-          status={wh.isActive ? 'Active' : 'Inactive'}
-          variant={wh.isActive ? 'success' : 'secondary'}
-        />
+        <StatusBadge status={wh.isActive ? 'Active' : 'Inactive'} variant={wh.isActive ? 'success' : 'secondary'} />
       ),
     },
     {
@@ -212,11 +198,7 @@ export default function WarehouseList() {
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search</Label>
-              <SearchInput
-                value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Search warehouses..."
-              />
+              <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search warehouses..." />
             </div>
             <div className="w-40">
               <Label htmlFor="typeFilter">Type</Label>
@@ -262,11 +244,13 @@ export default function WarehouseList() {
           emptyState={{
             icon: <WarehouseIcon className="h-16 w-16" />,
             title: 'No warehouses found',
-            description: searchTerm || typeFilter || activeFilter
-              ? 'Try adjusting your search or filter criteria'
-              : 'Create your first warehouse to get started',
+            description:
+              searchTerm || typeFilter || activeFilter
+                ? 'Try adjusting your search or filter criteria'
+                : 'Create your first warehouse to get started',
             actionLabel: !searchTerm && !typeFilter && !activeFilter ? 'Create First Warehouse' : undefined,
-            onAction: !searchTerm && !typeFilter && !activeFilter ? () => navigate('/inventory/warehouses/new') : undefined,
+            onAction:
+              !searchTerm && !typeFilter && !activeFilter ? () => navigate('/inventory/warehouses/new') : undefined,
           }}
           onRowClick={(wh) => navigate(`/inventory/warehouses/${wh.id}`)}
         />

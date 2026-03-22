@@ -6,13 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { PageHeader } from '@/components/PageHeader';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -121,9 +115,7 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <PageHeader
-        title={mode === 'create' ? 'Create Material' : 'Edit Material'}
-      >
+      <PageHeader title={mode === 'create' ? 'Create Material' : 'Edit Material'}>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/material-master')}>
             <X className="h-4 w-4 mr-2" />
@@ -221,7 +213,9 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
                   type="number"
                   step="0.01"
                   value={formData.pricePerMeter || ''}
-                  onChange={(e) => handleChange('pricePerMeter', e.target.value ? parseFloat(e.target.value) : undefined)}
+                  onChange={(e) =>
+                    handleChange('pricePerMeter', e.target.value ? parseFloat(e.target.value) : undefined)
+                  }
                   placeholder="0.00"
                 />
               </div>
@@ -233,7 +227,9 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
                   type="number"
                   step="0.01"
                   value={formData.pricePerPiece || ''}
-                  onChange={(e) => handleChange('pricePerPiece', e.target.value ? parseFloat(e.target.value) : undefined)}
+                  onChange={(e) =>
+                    handleChange('pricePerPiece', e.target.value ? parseFloat(e.target.value) : undefined)
+                  }
                   placeholder="0.00"
                 />
               </div>
@@ -257,7 +253,9 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
                   type="number"
                   step="0.01"
                   value={formData.pricePerGross || ''}
-                  onChange={(e) => handleChange('pricePerGross', e.target.value ? parseFloat(e.target.value) : undefined)}
+                  onChange={(e) =>
+                    handleChange('pricePerGross', e.target.value ? parseFloat(e.target.value) : undefined)
+                  }
                   placeholder="0.00"
                 />
               </div>
@@ -269,7 +267,9 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
                   type="number"
                   step="0.01"
                   value={formData.pricePerUnit || ''}
-                  onChange={(e) => handleChange('pricePerUnit', e.target.value ? parseFloat(e.target.value) : undefined)}
+                  onChange={(e) =>
+                    handleChange('pricePerUnit', e.target.value ? parseFloat(e.target.value) : undefined)
+                  }
                   placeholder="0.00"
                 />
               </div>

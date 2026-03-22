@@ -167,10 +167,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'AI', description: 'AI assistant endpoints' },
     ],
   },
-  apis: [
-    './src/routes/*.ts',
-    './src/controllers/*.ts',
-  ],
+  apis: ['./src/routes/*.ts', './src/controllers/*.ts'],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);

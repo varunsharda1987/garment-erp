@@ -4,15 +4,16 @@
 
 // Re-export common types from printing since they share the same backend models
 export type { LabDipStatus, JobWorkStatus } from './printing.types';
-export {
-  LabDipStatusLabels,
-  LabDipStatusColors,
-  JobWorkStatusLabels,
-  JobWorkStatusColors,
-} from './printing.types';
+export { LabDipStatusLabels, LabDipStatusColors, JobWorkStatusLabels, JobWorkStatusColors } from './printing.types';
 
 // Re-export Process PO types from printing (shared models)
-export type { ProcessPOStatus, ProcessPO, CreateProcessPORequest, ProcessPOListResponse, ProcessPOQueryParams } from './printing.types';
+export type {
+  ProcessPOStatus,
+  ProcessPO,
+  CreateProcessPORequest,
+  ProcessPOListResponse,
+  ProcessPOQueryParams,
+} from './printing.types';
 export { ProcessPOStatusLabels, ProcessPOStatusColors } from './printing.types';
 
 // ============================================
@@ -167,7 +168,16 @@ export interface DyeJob {
   // Finished fabric (auto-created at sendToMill)
   finishedFabricId?: string;
 
-  status: 'LAB_DIP_PENDING' | 'LAB_DIP_SUBMITTED' | 'LAB_DIP_APPROVED' | 'READY_TO_SEND' | 'SENT_TO_MILL' | 'AT_MILL' | 'RECEIVED' | 'QUALITY_CHECKED' | 'STOCK_UPDATED';
+  status:
+    | 'LAB_DIP_PENDING'
+    | 'LAB_DIP_SUBMITTED'
+    | 'LAB_DIP_APPROVED'
+    | 'READY_TO_SEND'
+    | 'SENT_TO_MILL'
+    | 'AT_MILL'
+    | 'RECEIVED'
+    | 'QUALITY_CHECKED'
+    | 'STOCK_UPDATED';
 
   remarks?: string;
 

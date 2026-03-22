@@ -25,9 +25,7 @@ const BASE_URL = '/purchase-orders';
 /**
  * Get all purchase orders with filters and pagination
  */
-export const getAllPurchaseOrders = async (
-  filters?: PurchaseOrderFilters
-): Promise<PurchaseOrderListResponse> => {
+export const getAllPurchaseOrders = async (filters?: PurchaseOrderFilters): Promise<PurchaseOrderListResponse> => {
   const { data } = await api.get(BASE_URL, {
     params: {
       page: filters?.page || 1,
@@ -97,9 +95,7 @@ export const getPurchaseOrdersBySupplier = async (
 /**
  * Get pending items for a PO (for GRN creation)
  */
-export const getPendingItemsForPO = async (
-  poId: string
-): Promise<PendingItemsResponse> => {
+export const getPendingItemsForPO = async (poId: string): Promise<PendingItemsResponse> => {
   const { data } = await api.get(`${BASE_URL}/${poId}/pending-items`);
   return data;
 };
@@ -107,9 +103,7 @@ export const getPendingItemsForPO = async (
 /**
  * Create a new purchase order
  */
-export const createPurchaseOrder = async (
-  orderData: CreatePurchaseOrderRequest
-): Promise<PurchaseOrder> => {
+export const createPurchaseOrder = async (orderData: CreatePurchaseOrderRequest): Promise<PurchaseOrder> => {
   const { data } = await api.post<PurchaseOrderResponse>(BASE_URL, orderData);
   return data.data;
 };
@@ -143,10 +137,7 @@ export const addPurchaseOrderItem = async (
   poId: string,
   item: CreatePurchaseOrderItemRequest
 ): Promise<PurchaseOrderItem> => {
-  const { data } = await api.post<PurchaseOrderItemResponse>(
-    `${BASE_URL}/${poId}/items`,
-    item
-  );
+  const { data } = await api.post<PurchaseOrderItemResponse>(`${BASE_URL}/${poId}/items`, item);
   return data.data;
 };
 
@@ -158,20 +149,14 @@ export const updatePurchaseOrderItem = async (
   itemId: string,
   itemData: UpdatePurchaseOrderItemRequest
 ): Promise<PurchaseOrderItem> => {
-  const { data } = await api.put<PurchaseOrderItemResponse>(
-    `${BASE_URL}/${poId}/items/${itemId}`,
-    itemData
-  );
+  const { data } = await api.put<PurchaseOrderItemResponse>(`${BASE_URL}/${poId}/items/${itemId}`, itemData);
   return data.data;
 };
 
 /**
  * Remove an item from a purchase order
  */
-export const removePurchaseOrderItem = async (
-  poId: string,
-  itemId: string
-): Promise<void> => {
+export const removePurchaseOrderItem = async (poId: string, itemId: string): Promise<void> => {
   await api.delete(`${BASE_URL}/${poId}/items/${itemId}`);
 };
 
@@ -191,23 +176,15 @@ export const sendPurchaseOrder = async (id: string): Promise<PurchaseOrder> => {
  * Acknowledge purchase order (SENT -> ACKNOWLEDGED)
  */
 export const acknowledgePurchaseOrder = async (id: string): Promise<PurchaseOrder> => {
-  const { data } = await api.patch<PurchaseOrderResponse>(
-    `${BASE_URL}/${id}/acknowledge`
-  );
+  const { data } = await api.patch<PurchaseOrderResponse>(`${BASE_URL}/${id}/acknowledge`);
   return data.data;
 };
 
 /**
  * Cancel purchase order
  */
-export const cancelPurchaseOrder = async (
-  id: string,
-  request: CancelPurchaseOrderRequest
-): Promise<PurchaseOrder> => {
-  const { data } = await api.patch<PurchaseOrderResponse>(
-    `${BASE_URL}/${id}/cancel`,
-    request
-  );
+export const cancelPurchaseOrder = async (id: string, request: CancelPurchaseOrderRequest): Promise<PurchaseOrder> => {
+  const { data } = await api.patch<PurchaseOrderResponse>(`${BASE_URL}/${id}/cancel`, request);
   return data.data;
 };
 

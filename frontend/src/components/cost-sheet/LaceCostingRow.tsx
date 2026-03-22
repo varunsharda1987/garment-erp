@@ -137,12 +137,8 @@ export default function LaceCostingRow({
         {/* Lace Name */}
         <td className="px-4 py-3">
           <div className="text-sm font-medium text-gray-900">{laceName}</div>
-          {colorName && (
-            <div className="text-xs text-gray-500">Color: {colorName}</div>
-          )}
-          {width && (
-            <div className="text-xs text-gray-500">Width: {width}"</div>
-          )}
+          {colorName && <div className="text-xs text-gray-500">Color: {colorName}</div>}
+          {width && <div className="text-xs text-gray-500">Width: {width}"</div>}
         </td>
 
         {/* Quantity per Garment */}
@@ -175,9 +171,7 @@ export default function LaceCostingRow({
         </td>
 
         {/* Effective Quantity */}
-        <td className="px-4 py-3 text-sm text-gray-900 text-center">
-          {effectiveQuantity.toFixed(3)}m
-        </td>
+        <td className="px-4 py-3 text-sm text-gray-900 text-center">{effectiveQuantity.toFixed(3)}m</td>
 
         {/* Sourcing Strategy */}
         <td className="px-4 py-3">
@@ -203,9 +197,7 @@ export default function LaceCostingRow({
               <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
                 Not Linked
               </span>
-              <span className="text-xs text-orange-600 mt-1">
-                Select lace from master
-              </span>
+              <span className="text-xs text-orange-600 mt-1">Select lace from master</span>
             </div>
           ) : (
             <button
@@ -226,7 +218,9 @@ export default function LaceCostingRow({
         </td>
 
         {/* Cost */}
-        <td className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+        <td
+          className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+        >
           {isNotApplicable ? 'N/A' : formatCurrency(currentCost)}
         </td>
 
@@ -257,11 +251,7 @@ export default function LaceCostingRow({
               <Info className="h-5 w-5" />
             </button>
             {onRemove && (
-              <button
-                onClick={onRemove}
-                className="text-red-600 hover:text-red-800"
-                title="Remove lace"
-              >
+              <button onClick={onRemove} className="text-red-600 hover:text-red-800" title="Remove lace">
                 <Trash2 className="h-5 w-5" />
               </button>
             )}

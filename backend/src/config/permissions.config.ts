@@ -29,127 +29,36 @@ export const PERMISSIONS = {
   aiAssistant: ALL_ROLES,
 
   // Production Status
-  productionStatus: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.MERCHANDISER,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
+  productionStatus: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER, UserRole.FACTORY_SUPERVISOR],
 
   // Styles & CAD Planning
-  styles: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.SALES,
-  ],
-  cadPlanning: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-  ],
-  costSheets: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.ACCOUNTS,
-  ],
+  styles: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.SALES],
+  cadPlanning: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
+  costSheets: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.ACCOUNTS],
 
   // Testing/Quality
-  testing: [
-    UserRole.ADMIN,
-    UserRole.QUALITY,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.MERCHANDISER,
-  ],
+  testing: [UserRole.ADMIN, UserRole.QUALITY, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER],
 
   // Orders & Planning
-  orders: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.SALES,
-    UserRole.PRODUCTION_MANAGER,
-  ],
-  workOrders: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
-  bom: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-  ],
-  mrp: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.INVENTORY,
-    UserRole.PURCHASE,
-  ],
+  orders: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.SALES, UserRole.PRODUCTION_MANAGER],
+  workOrders: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
+  bom: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
+  mrp: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.INVENTORY, UserRole.PURCHASE],
 
   // Manufacturing
-  samples: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.QUALITY,
-  ],
-  manufacturing: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
-  printing: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
-  dyeing: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
-  cutting: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
-  stitching: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
-  finishing: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-    UserRole.QUALITY,
-  ],
-  dispatch: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-    UserRole.INVENTORY,
-  ],
-  jobWork: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.PURCHASE,
-  ],
-  processingBatches: [
-    UserRole.ADMIN,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
+  samples: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.QUALITY],
+  manufacturing: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
+  printing: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
+  dyeing: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
+  cutting: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
+  stitching: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
+  finishing: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR, UserRole.QUALITY],
+  dispatch: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR, UserRole.INVENTORY],
+  jobWork: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.PURCHASE],
+  processingBatches: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
 
   // Inventory
-  inventoryDashboard: [
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.PURCHASE,
-  ],
+  inventoryDashboard: [UserRole.ADMIN, UserRole.INVENTORY, UserRole.PRODUCTION_MANAGER, UserRole.PURCHASE],
   stockLevels: [
     UserRole.ADMIN,
     UserRole.INVENTORY,
@@ -157,113 +66,33 @@ export const PERMISSIONS = {
     UserRole.PURCHASE,
     UserRole.FACTORY_SUPERVISOR,
   ],
-  stockCounts: [
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-  ],
-  stockMovements: [
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
-  greigeFabricStock: [
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.PURCHASE,
-  ],
-  embroideryStock: [
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-    UserRole.PRODUCTION_MANAGER,
-  ],
+  stockCounts: [UserRole.ADMIN, UserRole.INVENTORY],
+  stockMovements: [UserRole.ADMIN, UserRole.INVENTORY, UserRole.FACTORY_SUPERVISOR],
+  greigeFabricStock: [UserRole.ADMIN, UserRole.INVENTORY, UserRole.PRODUCTION_MANAGER, UserRole.PURCHASE],
+  embroideryStock: [UserRole.ADMIN, UserRole.INVENTORY, UserRole.PRODUCTION_MANAGER],
 
   // Procurement
-  purchaseOrders: [
-    UserRole.ADMIN,
-    UserRole.PURCHASE,
-    UserRole.MERCHANDISER,
-  ],
-  grn: [
-    UserRole.ADMIN,
-    UserRole.PURCHASE,
-    UserRole.INVENTORY,
-  ],
-  materialRequirements: [
-    UserRole.ADMIN,
-    UserRole.PURCHASE,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-  ],
+  purchaseOrders: [UserRole.ADMIN, UserRole.PURCHASE, UserRole.MERCHANDISER],
+  grn: [UserRole.ADMIN, UserRole.PURCHASE, UserRole.INVENTORY],
+  materialRequirements: [UserRole.ADMIN, UserRole.PURCHASE, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
 
   // Masters
   masterData: ALL_ROLES,
-  customers: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.SALES,
-    UserRole.ACCOUNTS,
-  ],
-  suppliers: [
-    UserRole.ADMIN,
-    UserRole.PURCHASE,
-    UserRole.ACCOUNTS,
-  ],
-  fabricMasters: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.INVENTORY,
-    UserRole.PURCHASE,
-  ],
-  trimMasters: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.INVENTORY,
-    UserRole.PURCHASE,
-  ],
-  componentMasters: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-  ],
-  colorMaster: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-  ],
-  sizeCategoryMaster: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-  ],
-  productCategories: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-  ],
-  warehouses: [
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-  ],
+  customers: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.SALES, UserRole.ACCOUNTS],
+  suppliers: [UserRole.ADMIN, UserRole.PURCHASE, UserRole.ACCOUNTS],
+  fabricMasters: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.INVENTORY, UserRole.PURCHASE],
+  trimMasters: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.INVENTORY, UserRole.PURCHASE],
+  componentMasters: [UserRole.ADMIN, UserRole.MERCHANDISER],
+  colorMaster: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
+  sizeCategoryMaster: [UserRole.ADMIN, UserRole.MERCHANDISER],
+  productCategories: [UserRole.ADMIN, UserRole.MERCHANDISER],
+  warehouses: [UserRole.ADMIN, UserRole.INVENTORY],
 
   // Reports & Finance
-  reports: [
-    UserRole.ADMIN,
-    UserRole.MERCHANDISER,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.ACCOUNTS,
-  ],
-  chartOfAccounts: [
-    UserRole.ADMIN,
-    UserRole.ACCOUNTS,
-  ],
-  invoices: [
-    UserRole.ADMIN,
-    UserRole.ACCOUNTS,
-    UserRole.SALES,
-  ],
-  quotations: [
-    UserRole.ADMIN,
-    UserRole.SALES,
-    UserRole.MERCHANDISER,
-  ],
+  reports: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.ACCOUNTS],
+  chartOfAccounts: [UserRole.ADMIN, UserRole.ACCOUNTS],
+  invoices: [UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SALES],
+  quotations: [UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER],
 
   // Admin
   users: [UserRole.ADMIN],
@@ -315,10 +144,39 @@ export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = 
   DASHBOARD: ['dashboard', 'processGuide', 'productionStatus', 'aiAssistant'],
   STYLES: ['styles', 'cadPlanning', 'costSheets'],
   ORDERS: ['orders', 'workOrders', 'bom', 'mrp'],
-  MANUFACTURING: ['samples', 'manufacturing', 'printing', 'dyeing', 'cutting', 'stitching', 'finishing', 'dispatch', 'jobWork', 'processingBatches'],
-  INVENTORY: ['inventoryDashboard', 'stockLevels', 'stockCounts', 'stockMovements', 'greigeFabricStock', 'embroideryStock'],
+  MANUFACTURING: [
+    'samples',
+    'manufacturing',
+    'printing',
+    'dyeing',
+    'cutting',
+    'stitching',
+    'finishing',
+    'dispatch',
+    'jobWork',
+    'processingBatches',
+  ],
+  INVENTORY: [
+    'inventoryDashboard',
+    'stockLevels',
+    'stockCounts',
+    'stockMovements',
+    'greigeFabricStock',
+    'embroideryStock',
+  ],
   PROCUREMENT: ['purchaseOrders', 'grn', 'materialRequirements'],
-  MASTERS: ['masterData', 'customers', 'suppliers', 'fabricMasters', 'trimMasters', 'componentMasters', 'colorMaster', 'sizeCategoryMaster', 'productCategories', 'warehouses'],
+  MASTERS: [
+    'masterData',
+    'customers',
+    'suppliers',
+    'fabricMasters',
+    'trimMasters',
+    'componentMasters',
+    'colorMaster',
+    'sizeCategoryMaster',
+    'productCategories',
+    'warehouses',
+  ],
   FINANCE: ['reports', 'chartOfAccounts', 'invoices', 'quotations'],
   QUALITY: ['testing'],
   ADMIN: ['users', 'admin', 'permissions', 'overrideHistory'],

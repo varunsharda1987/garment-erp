@@ -20,11 +20,7 @@ export default function Layout() {
         <Sidebar isOpen={sidebarOpen} />
 
         {/* Main Content */}
-        <main
-          className={`flex-1 transition-all duration-300 ${
-            sidebarOpen ? 'ml-64' : 'ml-0'
-          }`}
-        >
+        <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
           <div className="p-6">
             <Outlet />
           </div>

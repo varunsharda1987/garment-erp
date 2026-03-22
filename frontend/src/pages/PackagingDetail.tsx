@@ -18,7 +18,8 @@ export default function PackagingDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -202,17 +203,13 @@ export default function PackagingDetail() {
               {packaging.pricePerPiece && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Piece</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    {formatCurrency(packaging.pricePerPiece)}
-                  </p>
+                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(packaging.pricePerPiece)}</p>
                 </div>
               )}
               {packaging.pricePerHundred && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per 100 pcs</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    {formatCurrency(packaging.pricePerHundred)}
-                  </p>
+                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(packaging.pricePerHundred)}</p>
                 </div>
               )}
               {!packaging.pricePerPiece && !packaging.pricePerHundred && (

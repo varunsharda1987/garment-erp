@@ -15,11 +15,7 @@ export const DebitNoteReasonEnum = z.enum([
 /**
  * DocumentStatus Enum - matches Prisma DocumentStatus enum
  */
-export const DebitNoteDocumentStatusEnum = z.enum([
-  'DRAFT',
-  'APPROVED',
-  'CANCELLED',
-]);
+export const DebitNoteDocumentStatusEnum = z.enum(['DRAFT', 'APPROVED', 'CANCELLED']);
 
 /**
  * Debit Note Item Schema
@@ -46,9 +42,7 @@ export const createDebitNoteSchema = z.object({
   debitNoteDate: z.string().optional().nullable(),
   reason: DebitNoteReasonEnum,
   remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional().nullable(),
-  items: z
-    .array(debitNoteItemSchema)
-    .min(1, 'At least one item is required'),
+  items: z.array(debitNoteItemSchema).min(1, 'At least one item is required'),
 });
 
 /**

@@ -15,7 +15,7 @@ export const POCategory = {
   GENERAL: 'GENERAL',
 } as const;
 
-export type POCategory = typeof POCategory[keyof typeof POCategory];
+export type POCategory = (typeof POCategory)[keyof typeof POCategory];
 
 export const GenerationStatus = {
   GENERATED: 'GENERATED',
@@ -24,7 +24,7 @@ export const GenerationStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type GenerationStatus = typeof GenerationStatus[keyof typeof GenerationStatus];
+export type GenerationStatus = (typeof GenerationStatus)[keyof typeof GenerationStatus];
 
 // ============================================
 // MATERIAL REQUIREMENT TYPES

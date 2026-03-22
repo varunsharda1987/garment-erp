@@ -20,10 +20,7 @@ export async function getSaleOrderById(id: string): Promise<SaleOrder> {
   return response.data;
 }
 
-export async function searchSaleOrders(params: {
-  search?: string;
-  limit?: number;
-}): Promise<SaleOrder[]> {
+export async function searchSaleOrders(params: { search?: string; limit?: number }): Promise<SaleOrder[]> {
   const response = await api.get(`${BASE_URL}/search`, { params });
   return response.data;
 }

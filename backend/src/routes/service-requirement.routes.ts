@@ -88,10 +88,7 @@ router.get('/service-requirements/dashboard', asyncHandler(serviceRequirementCon
  * @access  Private
  * @body    { serviceType: ServiceType, styleId?: string }
  */
-router.post(
-  '/service-requirements/suggest-processor',
-  asyncHandler(serviceRequirementController.suggestProcessor)
-);
+router.post('/service-requirements/suggest-processor', asyncHandler(serviceRequirementController.suggestProcessor));
 
 /**
  * @route   POST /api/service-requirements/suggest-processors-bulk
@@ -114,10 +111,7 @@ router.post(
  * @access  Private
  * @body    { assignments: Array<{ requirementId: string, processorId: string }> }
  */
-router.post(
-  '/service-requirements/bulk-assign-processors',
-  asyncHandler(serviceRequirementController.bulkAssign)
-);
+router.post('/service-requirements/bulk-assign-processors', asyncHandler(serviceRequirementController.bulkAssign));
 
 /**
  * @route   POST /api/service-requirements/auto-assign-processors
@@ -125,10 +119,7 @@ router.post(
  * @access  Private
  * @body    { requirementIds: string[], minConfidence?: 'high' | 'medium' }
  */
-router.post(
-  '/service-requirements/auto-assign-processors',
-  asyncHandler(serviceRequirementController.autoAssign)
-);
+router.post('/service-requirements/auto-assign-processors', asyncHandler(serviceRequirementController.autoAssign));
 
 // ============================================
 // GROUPING AND BULK PO GENERATION
@@ -140,10 +131,7 @@ router.post(
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post(
-  '/service-requirements/group-by-processor',
-  asyncHandler(serviceRequirementController.groupByProcessor)
-);
+router.post('/service-requirements/group-by-processor', asyncHandler(serviceRequirementController.groupByProcessor));
 
 /**
  * @route   POST /api/service-requirements/generate-po

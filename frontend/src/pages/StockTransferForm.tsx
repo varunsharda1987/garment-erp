@@ -33,7 +33,7 @@ export default function StockTransferForm() {
     toWarehouseId: '',
     quantity: '',
     unit: '' as Unit | '',
-    remarks: ''
+    remarks: '',
   });
 
   useEffect(() => {
@@ -48,10 +48,10 @@ export default function StockTransferForm() {
 
   useEffect(() => {
     if (formData.materialId && availableStock.length > 0) {
-      const stock = availableStock.find(s => s.materialId === formData.materialId);
+      const stock = availableStock.find((s) => s.materialId === formData.materialId);
       setSelectedStock(stock || null);
       if (stock) {
-        setFormData(prev => ({ ...prev, unit: stock.unit }));
+        setFormData((prev) => ({ ...prev, unit: stock.unit }));
       }
     }
   }, [formData.materialId, availableStock]);
@@ -68,7 +68,7 @@ export default function StockTransferForm() {
   const loadStockLevels = async (warehouseId: string) => {
     try {
       const data = await stockLevelService.getByWarehouse(warehouseId);
-      setAvailableStock(data.filter(s => Number(s.quantity) > 0));
+      setAvailableStock(data.filter((s) => Number(s.quantity) > 0));
     } catch (err) {
       logError('Failed to load stock levels:', err);
     }
@@ -107,13 +107,14 @@ export default function StockTransferForm() {
         toWarehouseId: formData.toWarehouseId,
         quantity: Number(formData.quantity),
         unit: formData.unit as Unit,
-        remarks: formData.remarks || undefined
+        remarks: formData.remarks || undefined,
       });
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
     } catch (err) {
-      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create transfer';
+      const errorMessage =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create transfer';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -128,7 +129,7 @@ export default function StockTransferForm() {
     setFormData({
       ...formData,
       fromWarehouseId: formData.toWarehouseId,
-      toWarehouseId: formData.fromWarehouseId
+      toWarehouseId: formData.fromWarehouseId,
     });
   };
 
@@ -192,20 +193,13 @@ export default function StockTransferForm() {
                 <Label htmlFor="toWarehouseId">
                   To Warehouse <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={formData.toWarehouseId}
-                  onValueChange={(value) => handleChange('toWarehouseId', value)}
-                >
+                <Select value={formData.toWarehouseId} onValueChange={(value) => handleChange('toWarehouseId', value)}>
                   <SelectTrigger id="toWarehouseId">
                     <SelectValue placeholder="Select warehouse" />
                   </SelectTrigger>
                   <SelectContent>
                     {warehouses.map((wh) => (
-                      <SelectItem
-                        key={wh.id}
-                        value={wh.id}
-                        disabled={wh.id === formData.fromWarehouseId}
-                      >
+                      <SelectItem key={wh.id} value={wh.id} disabled={wh.id === formData.fromWarehouseId}>
                         {wh.warehouseCode} - {wh.warehouseName}
                       </SelectItem>
                     ))}
@@ -228,12 +222,15 @@ export default function StockTransferForm() {
                   </SelectTrigger>
                   <SelectContent>
                     {availableStock.length === 0 ? (
-                      <SelectItem value="none" disabled>No stock available in source warehouse</SelectItem>
+                      <SelectItem value="none" disabled>
+                        No stock available in source warehouse
+                      </SelectItem>
                     ) : (
                       availableStock.map((stock) => (
                         <SelectItem key={stock.id} value={stock.materialId}>
                           {stock.materials?.code} - {stock.materials?.name}
-                          {' (Avail: '}{Number(stock.quantity).toFixed(2)} {stock.unit})
+                          {' (Avail: '}
+                          {Number(stock.quantity).toFixed(2)} {stock.unit})
                         </SelectItem>
                       ))
                     )}
@@ -271,11 +268,7 @@ export default function StockTransferForm() {
               {/* Unit (readonly) */}
               <div className="space-y-2 md:col-span-6">
                 <Label htmlFor="unit">Unit</Label>
-                <Input
-                  id="unit"
-                  value={formData.unit}
-                  disabled
-                />
+                <Input id="unit" value={formData.unit} disabled />
                 <p className="text-sm text-muted-foreground">Auto-filled from material</p>
               </div>
 
@@ -293,20 +286,12 @@ export default function StockTransferForm() {
 
               {/* Actions */}
               <div className="flex gap-2 justify-end md:col-span-12">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/inventory/movements')}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/inventory/movements')}>
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <ButtonSpinner className="mr-2" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
+                  {loading ? <ButtonSpinner className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
                   Transfer Stock
                 </Button>
               </div>

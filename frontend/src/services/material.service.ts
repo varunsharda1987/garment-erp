@@ -41,9 +41,7 @@ export const getMaterialById = async (id: string): Promise<Material> => {
 /**
  * Create new material
  */
-export const createMaterial = async (
-  materialData: CreateMaterialRequest
-): Promise<Material> => {
+export const createMaterial = async (materialData: CreateMaterialRequest): Promise<Material> => {
   const { data } = await api.post<MaterialResponse>('/materials', materialData);
   return data.data;
 };
@@ -51,10 +49,7 @@ export const createMaterial = async (
 /**
  * Update material
  */
-export const updateMaterial = async (
-  id: string,
-  materialData: UpdateMaterialRequest
-): Promise<Material> => {
+export const updateMaterial = async (id: string, materialData: UpdateMaterialRequest): Promise<Material> => {
   const { data } = await api.put<MaterialResponse>(`/materials/${id}`, materialData);
   return data.data;
 };
@@ -89,7 +84,7 @@ export const getCategoryHierarchy = async (): Promise<CategoryHierarchy[]> => {
  */
 export const getParentCategories = async (): Promise<MaterialCategory[]> => {
   const categories = await getAllCategories();
-  return categories.filter(cat => cat.level === 1);
+  return categories.filter((cat) => cat.level === 1);
 };
 
 /**
@@ -102,9 +97,7 @@ export const getChildCategories = async (parentId: string): Promise<MaterialCate
 /**
  * Create material category
  */
-export const createCategory = async (
-  categoryData: CreateCategoryRequest
-): Promise<MaterialCategory> => {
+export const createCategory = async (categoryData: CreateCategoryRequest): Promise<MaterialCategory> => {
   const { data } = await api.post<{ data: MaterialCategory }>('/materials/categories', categoryData);
   return data.data;
 };

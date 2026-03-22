@@ -6,26 +6,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,20 +19,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  getAllSaleOrders,
-  createSaleOrder,
-  deleteSaleOrder,
-} from '@/services/saleOrder.service';
+import { getAllSaleOrders, createSaleOrder, deleteSaleOrder } from '@/services/saleOrder.service';
 import type { SaleOrder, SaleOrderStatus, CreateSORequest } from '@/types/saleOrder.types';
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
@@ -164,11 +137,14 @@ export default function SaleOrderList() {
             <ShoppingBag className="h-6 w-6" />
             Sale Orders
           </h1>
-          <p className="text-muted-foreground">
-            Sell from existing finished goods stock
-          </p>
+          <p className="text-muted-foreground">Sell from existing finished goods stock</p>
         </div>
-        <Button onClick={() => { resetForm(); setCreateDialogOpen(true); }}>
+        <Button
+          onClick={() => {
+            resetForm();
+            setCreateDialogOpen(true);
+          }}
+        >
           <Plus className="h-4 w-4 mr-2" />
           New Sale Order
         </Button>
@@ -182,11 +158,20 @@ export default function SaleOrderList() {
               <Input
                 placeholder="Search by SO number or customer..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className="pl-10"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -243,9 +228,7 @@ export default function SaleOrderList() {
                       </div>
                     </TableCell>
                     <TableCell>{new Date(so.saleDate).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(Number(so.totalAmount))}
-                    </TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(Number(so.totalAmount))}</TableCell>
                     <TableCell>
                       <Badge className={STATUS_COLORS[so.status]} variant="secondary">
                         {so.status.replace(/_/g, ' ')}
@@ -254,11 +237,7 @@ export default function SaleOrderList() {
                     <TableCell>{so._count?.items || 0}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigate(`/sale-orders/${so.id}`)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => navigate(`/sale-orders/${so.id}`)}>
                           <Eye className="h-4 w-4" />
                         </Button>
                         {so.status === 'DRAFT' && (
@@ -347,19 +326,11 @@ export default function SaleOrderList() {
             </div>
             <div className="space-y-2">
               <Label>Expected Ship Date</Label>
-              <Input
-                type="date"
-                value={expectedShipDate}
-                onChange={(e) => setExpectedShipDate(e.target.value)}
-              />
+              <Input type="date" value={expectedShipDate} onChange={(e) => setExpectedShipDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Remarks</Label>
-              <Textarea
-                placeholder="Optional notes..."
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-              />
+              <Textarea placeholder="Optional notes..." value={remarks} onChange={(e) => setRemarks(e.target.value)} />
             </div>
           </div>
           <DialogFooter>

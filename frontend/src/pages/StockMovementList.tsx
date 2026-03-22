@@ -7,7 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PageHeader } from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -46,7 +51,7 @@ export default function StockMovementList() {
       const data = await stockMovementService.getAll({
         movementType: typeFilter || undefined,
         startDate: startDate || undefined,
-        endDate: endDate || undefined
+        endDate: endDate || undefined,
       });
       setMovements(data);
     } catch (err: unknown) {
@@ -76,9 +81,7 @@ export default function StockMovementList() {
       key: 'performedAt',
       header: 'Date',
       render: (mov) => (
-        <div className="text-sm text-gray-900">
-          {new Date(mov.movementDate || mov.createdAt).toLocaleDateString()}
-        </div>
+        <div className="text-sm text-gray-900">{new Date(mov.movementDate || mov.createdAt).toLocaleDateString()}</div>
       ),
     },
     {
@@ -87,10 +90,7 @@ export default function StockMovementList() {
       render: (mov) => (
         <div className="flex items-center gap-1">
           {getMovementIcon(mov.movementType)}
-          <StatusBadge
-            status={mov.movementType.replace(/_/g, ' ')}
-            variant={getMovementVariant(mov.movementType)}
-          />
+          <StatusBadge status={mov.movementType.replace(/_/g, ' ')} variant={getMovementVariant(mov.movementType)} />
         </div>
       ),
     },
@@ -107,11 +107,7 @@ export default function StockMovementList() {
     {
       key: 'warehouse',
       header: 'Warehouse',
-      render: (mov) => (
-        <div className="text-sm text-gray-900">
-          {mov.warehouses?.warehouseName || '-'}
-        </div>
-      ),
+      render: (mov) => <div className="text-sm text-gray-900">{mov.warehouses?.warehouseName || '-'}</div>,
     },
     {
       key: 'quantity',
@@ -122,7 +118,8 @@ export default function StockMovementList() {
         const isInbound = mov.movementType.includes('IN');
         return (
           <div className={`font-medium ${isInbound ? 'text-green-600' : 'text-red-600'}`}>
-            {isInbound ? '+' : '-'}{Number(mov.quantity).toFixed(2)} {mov.unit}
+            {isInbound ? '+' : '-'}
+            {Number(mov.quantity).toFixed(2)} {mov.unit}
           </div>
         );
       },
@@ -130,11 +127,7 @@ export default function StockMovementList() {
     {
       key: 'reference',
       header: 'Reference',
-      render: (mov) => (
-        <div className="text-sm text-gray-900">
-          {mov.referenceNumber || '-'}
-        </div>
-      ),
+      render: (mov) => <div className="text-sm text-gray-900">{mov.referenceNumber || '-'}</div>,
     },
     {
       key: 'performedBy',
@@ -164,12 +157,8 @@ export default function StockMovementList() {
             <DropdownMenuItem onClick={() => navigate('/inventory/movements/stock-out')}>
               Stock OUT (Issue)
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/inventory/movements/transfer')}>
-              Transfer
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/inventory/movements/adjustment')}>
-              Adjustment
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/inventory/movements/transfer')}>Transfer</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/inventory/movements/adjustment')}>Adjustment</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </PageHeader>
@@ -197,21 +186,11 @@ export default function StockMovementList() {
             </div>
             <div className="w-40">
               <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="w-40">
               <Label htmlFor="endDate">End Date</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+              <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
         </CardContent>
@@ -228,9 +207,10 @@ export default function StockMovementList() {
           emptyState={{
             icon: <Package className="h-16 w-16" />,
             title: 'No stock movements found',
-            description: typeFilter || startDate || endDate
-              ? 'Try adjusting your filter criteria'
-              : 'Stock movements will appear here once materials are moved',
+            description:
+              typeFilter || startDate || endDate
+                ? 'Try adjusting your filter criteria'
+                : 'Stock movements will appear here once materials are moved',
           }}
         />
       </Card>

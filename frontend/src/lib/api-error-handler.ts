@@ -99,11 +99,7 @@ function getStatusMessage(status: number): string {
  * @param showToast - Whether to show a toast notification (default: true)
  * @returns The error message string
  */
-export function handleApiError(
-  error: unknown,
-  customMessage?: string,
-  showToast: boolean = true
-): string {
+export function handleApiError(error: unknown, customMessage?: string, showToast: boolean = true): string {
   const errorMessage = getErrorMessage(error);
   const fullMessage = customMessage ? `${customMessage}: ${errorMessage}` : errorMessage;
 

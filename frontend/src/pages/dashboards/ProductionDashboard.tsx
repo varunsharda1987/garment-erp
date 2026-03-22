@@ -5,16 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Factory,
-  Scissors,
-  CheckSquare,
-  Send,
-  AlertTriangle,
-  ClipboardList,
-  Clock,
-  TrendingUp,
-} from 'lucide-react';
+import { Factory, Scissors, CheckSquare, Send, AlertTriangle, ClipboardList, Clock, TrendingUp } from 'lucide-react';
 import { DashboardLayout, DashboardSection } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
@@ -96,12 +87,12 @@ export default function ProductionDashboard() {
       setActiveWorkOrders(
         workOrders.slice(0, 10).map((wo: Record<string, unknown>) => ({
           id: wo.id as string,
-          orderNumber: wo.workOrderNumber as string || 'N/A',
+          orderNumber: (wo.workOrderNumber as string) || 'N/A',
           styleName: (wo.style as { styleNumber?: string })?.styleNumber || 'N/A',
-          totalQuantity: wo.totalQuantity as number || 0,
-          completedQuantity: wo.completedQuantity as number || 0,
+          totalQuantity: (wo.totalQuantity as number) || 0,
+          completedQuantity: (wo.completedQuantity as number) || 0,
           status: wo.status as string,
-          dueDate: wo.plannedEndDate as string || '',
+          dueDate: (wo.plannedEndDate as string) || '',
         }))
       );
 
@@ -131,11 +122,7 @@ export default function ProductionDashboard() {
       COMPLETED: 'bg-green-100 text-green-800',
       ON_HOLD: 'bg-yellow-100 text-yellow-800',
     };
-    return (
-      <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>
-        {status.replace('_', ' ')}
-      </Badge>
-    );
+    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>{status.replace('_', ' ')}</Badge>;
   };
 
   return (
@@ -216,9 +203,7 @@ export default function ProductionDashboard() {
             label: 'Progress',
             render: (_: unknown, row: Record<string, unknown>) => {
               const r = row as unknown as WorkOrderSummary;
-              const progress = r.totalQuantity > 0
-                ? Math.round((r.completedQuantity / r.totalQuantity) * 100)
-                : 0;
+              const progress = r.totalQuantity > 0 ? Math.round((r.completedQuantity / r.totalQuantity) * 100) : 0;
               return (
                 <div className="w-32">
                   <div className="flex justify-between text-xs mb-1">

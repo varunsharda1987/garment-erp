@@ -44,19 +44,12 @@ const categoryColors = {
   },
 };
 
-export default function ProcessStageCard({
-  stage,
-  isExpanded,
-  onToggle,
-}: ProcessStageCardProps) {
+export default function ProcessStageCard({ stage, isExpanded, onToggle }: ProcessStageCardProps) {
   const colors = categoryColors[stage.category];
 
   return (
     <Card className={`border-2 ${colors.border} hover:shadow-lg transition-shadow`}>
-      <CardHeader
-        className="cursor-pointer hover:bg-gray-50"
-        onClick={onToggle}
-      >
+      <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={onToggle}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 flex-1">
             {/* Stage Number */}
@@ -73,10 +66,7 @@ export default function ProcessStageCard({
                   {stage.icon}
                   {stage.title}
                 </span>
-                <Badge
-                  variant="outline"
-                  className={`${colors.badge} border text-xs`}
-                >
+                <Badge variant="outline" className={`${colors.badge} border text-xs`}>
                   {stage.category.replace('-', ' ')}
                 </Badge>
               </CardTitle>
@@ -94,11 +84,7 @@ export default function ProcessStageCard({
               onToggle();
             }}
           >
-            {isExpanded ? (
-              <ChevronDown className="h-5 w-5" />
-            ) : (
-              <ChevronRight className="h-5 w-5" />
-            )}
+            {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
           </Button>
         </div>
       </CardHeader>
@@ -108,17 +94,13 @@ export default function ProcessStageCard({
           {/* Purpose */}
           <div className="space-y-2">
             <h4 className="text-sm font-semibold text-gray-700">Purpose</h4>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              {stage.purpose}
-            </p>
+            <p className="text-sm text-gray-600 leading-relaxed">{stage.purpose}</p>
           </div>
 
           {/* Prerequisites */}
           {stage.prerequisites.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-700">
-                Prerequisites
-              </h4>
+              <h4 className="text-sm font-semibold text-gray-700">Prerequisites</h4>
               <ul className="space-y-2">
                 {stage.prerequisites.map((prereq, index) => (
                   <li key={index} className="flex items-start gap-2 text-sm">
@@ -129,11 +111,7 @@ export default function ProcessStageCard({
                     )}
                     <span className="text-gray-600">
                       {prereq.condition}
-                      {prereq.required && (
-                        <span className="text-red-600 font-medium ml-1">
-                          (Required)
-                        </span>
-                      )}
+                      {prereq.required && <span className="text-red-600 font-medium ml-1">(Required)</span>}
                     </span>
                   </li>
                 ))}
@@ -144,9 +122,7 @@ export default function ProcessStageCard({
           {/* Key Actions / Pages */}
           {stage.pages.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-700">
-                Key Actions
-              </h4>
+              <h4 className="text-sm font-semibold text-gray-700">Key Actions</h4>
               <div className="flex flex-wrap gap-2">
                 {stage.pages.map((page, index) => (
                   <Link
@@ -164,9 +140,7 @@ export default function ProcessStageCard({
           )}
 
           {/* Status Flow */}
-          {stage.statusFlow.length > 0 && (
-            <StageStatusFlow statusFlow={stage.statusFlow} />
-          )}
+          {stage.statusFlow.length > 0 && <StageStatusFlow statusFlow={stage.statusFlow} />}
 
           {/* Database Models */}
           {stage.databaseModels.length > 0 && (
@@ -177,11 +151,7 @@ export default function ProcessStageCard({
               </h4>
               <div className="flex flex-wrap gap-2">
                 {stage.databaseModels.map((model, index) => (
-                  <Badge
-                    key={index}
-                    variant="secondary"
-                    className="font-mono text-xs"
-                  >
+                  <Badge key={index} variant="secondary" className="font-mono text-xs">
                     {model}
                   </Badge>
                 ))}
@@ -192,15 +162,10 @@ export default function ProcessStageCard({
           {/* Key Fields */}
           {stage.keyFields && stage.keyFields.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-700">
-                Key Fields
-              </h4>
+              <h4 className="text-sm font-semibold text-gray-700">Key Fields</h4>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {stage.keyFields.map((field, index) => (
-                  <li
-                    key={index}
-                    className="text-sm text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded"
-                  >
+                  <li key={index} className="text-sm text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded">
                     {field}
                   </li>
                 ))}

@@ -56,18 +56,8 @@ export async function getChallanByIdController(req: Request, res: Response) {
  * GET /api/challans
  */
 export async function getChallansController(req: Request, res: Response) {
-  const {
-    challanType,
-    status,
-    orderId,
-    productionRunId,
-    purchaseOrderId,
-    fromDate,
-    toDate,
-    search,
-    limit,
-    offset,
-  } = req.query;
+  const { challanType, status, orderId, productionRunId, purchaseOrderId, fromDate, toDate, search, limit, offset } =
+    req.query;
 
   const result = await getChallans({
     challanType: challanType as any,
@@ -134,16 +124,7 @@ export async function getChallanStatsController(req: Request, res: Response) {
  * GET /api/po-rates/resolve
  */
 export async function resolveRateController(req: Request, res: Response) {
-  const {
-    poCategory,
-    styleId,
-    supplierId,
-    materialId,
-    fabricId,
-    laceId,
-    serviceType,
-    costSheetId,
-  } = req.query;
+  const { poCategory, styleId, supplierId, materialId, fabricId, laceId, serviceType, costSheetId } = req.query;
 
   if (!poCategory) {
     throw new ValidationError('poCategory is required');

@@ -7,17 +7,7 @@
 import { z } from 'zod';
 
 // Fabric type enum
-export const FabricType = z.enum([
-  'Woven',
-  'Knit',
-  'NonWoven',
-  'Denim',
-  'Jersey',
-  'Twill',
-  'Satin',
-  'Canvas',
-  'Other',
-]);
+export const FabricType = z.enum(['Woven', 'Knit', 'NonWoven', 'Denim', 'Jersey', 'Twill', 'Satin', 'Canvas', 'Other']);
 
 // Fabric status enum
 export const FabricStatus = z.enum(['Active', 'Inactive', 'Discontinued']);

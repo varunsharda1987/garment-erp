@@ -79,11 +79,13 @@ export async function createStock(req: Request, res: Response) {
     createdById: userId,
   });
 
-  res.status(201).json(serialize({
-    success: true,
-    data: stock,
-    message: 'Lace stock created successfully',
-  }));
+  res.status(201).json(
+    serialize({
+      success: true,
+      data: stock,
+      message: 'Lace stock created successfully',
+    })
+  );
 }
 
 /**
@@ -119,10 +121,12 @@ export async function getStocks(req: Request, res: Response) {
     limit: limit ? parseInt(limit as string) : undefined,
   });
 
-  res.json(serialize({
-    success: true,
-    ...result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      ...result,
+    })
+  );
 }
 
 /**
@@ -138,10 +142,12 @@ export async function getStock(req: Request, res: Response) {
     throw new NotFoundError('Stock', id);
   }
 
-  res.json(serialize({
-    success: true,
-    data: stock,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: stock,
+    })
+  );
 }
 
 /**
@@ -152,15 +158,14 @@ export async function getAvailableStock(req: Request, res: Response) {
   const { laceId } = req.params;
   const { minQuantity } = req.query;
 
-  const result = await getAvailableStockForLace(
-    laceId,
-    minQuantity ? parseFloat(minQuantity as string) : 0
-  );
+  const result = await getAvailableStockForLace(laceId, minQuantity ? parseFloat(minQuantity as string) : 0);
 
-  res.json(serialize({
-    success: true,
-    ...result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      ...result,
+    })
+  );
 }
 
 /**
@@ -191,11 +196,13 @@ export async function allocateStockController(req: Request, res: Response) {
     createdById: userId,
   });
 
-  res.status(201).json(serialize({
-    success: true,
-    data: allocation,
-    message: 'Stock allocated successfully',
-  }));
+  res.status(201).json(
+    serialize({
+      success: true,
+      data: allocation,
+      message: 'Stock allocated successfully',
+    })
+  );
 }
 
 /**
@@ -225,11 +232,13 @@ export async function transferStockController(req: Request, res: Response) {
     performedById: userId,
   });
 
-  res.status(201).json(serialize({
-    success: true,
-    data: allocation,
-    message: 'Stock transferred successfully',
-  }));
+  res.status(201).json(
+    serialize({
+      success: true,
+      data: allocation,
+      message: 'Stock transferred successfully',
+    })
+  );
 }
 
 /**
@@ -256,11 +265,13 @@ export async function consumeStockController(req: Request, res: Response) {
     performedById: userId,
   });
 
-  res.json(serialize({
-    success: true,
-    data: allocation,
-    message: 'Stock consumed successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: allocation,
+      message: 'Stock consumed successfully',
+    })
+  );
 }
 
 /**
@@ -287,11 +298,13 @@ export async function returnStockController(req: Request, res: Response) {
     performedById: userId,
   });
 
-  res.json(serialize({
-    success: true,
-    data: allocation,
-    message: 'Stock returned successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: allocation,
+      message: 'Stock returned successfully',
+    })
+  );
 }
 
 /**
@@ -303,10 +316,12 @@ export async function getTransactions(req: Request, res: Response) {
 
   const transactions = await getStockTransactionHistory(id);
 
-  res.json(serialize({
-    success: true,
-    data: transactions,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: transactions,
+    })
+  );
 }
 
 /**
@@ -316,14 +331,14 @@ export async function getTransactions(req: Request, res: Response) {
 export async function getAgingReport(req: Request, res: Response) {
   const { minAgeDays } = req.query;
 
-  const report = await getStockAgingReport(
-    minAgeDays ? parseInt(minAgeDays as string) : 90
-  );
+  const report = await getStockAgingReport(minAgeDays ? parseInt(minAgeDays as string) : 90);
 
-  res.json(serialize({
-    success: true,
-    data: report,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: report,
+    })
+  );
 }
 
 /**
@@ -333,10 +348,12 @@ export async function getAgingReport(req: Request, res: Response) {
 export async function getUtilizationReport(req: Request, res: Response) {
   const report = await getStockUtilizationReport();
 
-  res.json(serialize({
-    success: true,
-    data: report,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: report,
+    })
+  );
 }
 
 export default {

@@ -45,12 +45,10 @@ class StyleImportController {
     const importBatchId = `IMP-${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
     // Process import
-    const result = await StyleImportService.importStylesFromCSV(
-      csvRows,
-      importBatchId,
-      userId,
-      { overwriteExisting, skipDuplicates }
-    );
+    const result = await StyleImportService.importStylesFromCSV(csvRows, importBatchId, userId, {
+      overwriteExisting,
+      skipDuplicates,
+    });
 
     return res.status(result.success ? 200 : 207).json(result);
   }
@@ -108,23 +106,119 @@ class StyleImportController {
     ];
 
     // Create header row
-    const headerRow = columns.map(col => col.header);
+    const headerRow = columns.map((col) => col.header);
 
     // Create Required/Optional indicator row
-    const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
+    const requiredRow = columns.map((col) => (col.required ? 'Required' : 'Optional'));
 
     // Sample data rows - one row per size
     const sampleData = [
       // Style COS009 with 4 sizes
-      ['COS009', 'ABC Corp', 'Fabindia', 'S', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-      ['COS009', 'ABC Corp', 'Fabindia', 'M', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-      ['COS009', 'ABC Corp', 'Fabindia', 'L', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-      ['COS009', 'ABC Corp', 'Fabindia', 'XL', 'Kurta Set Blue', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      [
+        'COS009',
+        'ABC Corp',
+        'Fabindia',
+        'S',
+        'Kurta Set Blue',
+        'Summer 2025',
+        'WOMEN',
+        'Ethnic Wear',
+        'Kurta Sets',
+        '',
+        "Women's Ethnic",
+      ],
+      [
+        'COS009',
+        'ABC Corp',
+        'Fabindia',
+        'M',
+        'Kurta Set Blue',
+        'Summer 2025',
+        'WOMEN',
+        'Ethnic Wear',
+        'Kurta Sets',
+        '',
+        "Women's Ethnic",
+      ],
+      [
+        'COS009',
+        'ABC Corp',
+        'Fabindia',
+        'L',
+        'Kurta Set Blue',
+        'Summer 2025',
+        'WOMEN',
+        'Ethnic Wear',
+        'Kurta Sets',
+        '',
+        "Women's Ethnic",
+      ],
+      [
+        'COS009',
+        'ABC Corp',
+        'Fabindia',
+        'XL',
+        'Kurta Set Blue',
+        'Summer 2025',
+        'WOMEN',
+        'Ethnic Wear',
+        'Kurta Sets',
+        '',
+        "Women's Ethnic",
+      ],
       // Style COS009B (different colorway) with 4 sizes
-      ['COS009B', 'ABC Corp', 'Fabindia', 'S', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-      ['COS009B', 'ABC Corp', 'Fabindia', 'M', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-      ['COS009B', 'ABC Corp', 'Fabindia', 'L', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
-      ['COS009B', 'ABC Corp', 'Fabindia', 'XL', 'Kurta Set Mustard', 'Summer 2025', 'WOMEN', 'Ethnic Wear', 'Kurta Sets', '', "Women's Ethnic"],
+      [
+        'COS009B',
+        'ABC Corp',
+        'Fabindia',
+        'S',
+        'Kurta Set Mustard',
+        'Summer 2025',
+        'WOMEN',
+        'Ethnic Wear',
+        'Kurta Sets',
+        '',
+        "Women's Ethnic",
+      ],
+      [
+        'COS009B',
+        'ABC Corp',
+        'Fabindia',
+        'M',
+        'Kurta Set Mustard',
+        'Summer 2025',
+        'WOMEN',
+        'Ethnic Wear',
+        'Kurta Sets',
+        '',
+        "Women's Ethnic",
+      ],
+      [
+        'COS009B',
+        'ABC Corp',
+        'Fabindia',
+        'L',
+        'Kurta Set Mustard',
+        'Summer 2025',
+        'WOMEN',
+        'Ethnic Wear',
+        'Kurta Sets',
+        '',
+        "Women's Ethnic",
+      ],
+      [
+        'COS009B',
+        'ABC Corp',
+        'Fabindia',
+        'XL',
+        'Kurta Set Mustard',
+        'Summer 2025',
+        'WOMEN',
+        'Ethnic Wear',
+        'Kurta Sets',
+        '',
+        "Women's Ethnic",
+      ],
     ];
 
     // Create Excel workbook
@@ -135,7 +229,7 @@ class StyleImportController {
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
     // Set column widths for better readability
-    const colWidths = columns.map(col => ({ wch: Math.max(col.header.length + 2, 20) }));
+    const colWidths = columns.map((col) => ({ wch: Math.max(col.header.length + 2, 20) }));
     ws['!cols'] = colWidths;
 
     XLSX.utils.book_append_sheet(wb, ws, 'Style Import Template');
@@ -154,9 +248,9 @@ class StyleImportController {
       ['StyleName', 'Display name (defaults to StyleCode if not provided)'],
       ['Season', 'Season identifier (e.g., Summer 2025, Winter 2024)'],
       ['Gender', 'MEN, WOMEN, KIDS, or UNISEX (defaults to UNISEX)'],
-      ['BuyerCategory', 'Buyer\'s category (e.g., Ethnic Wear)'],
-      ['BuyerSubCategory', 'Buyer\'s sub-category (e.g., Kurta Sets)'],
-      ['BuyerSubSubCategory', 'Buyer\'s sub-sub-category (e.g., Full Sleeve)'],
+      ['BuyerCategory', "Buyer's category (e.g., Ethnic Wear)"],
+      ['BuyerSubCategory', "Buyer's sub-category (e.g., Kurta Sets)"],
+      ['BuyerSubSubCategory', "Buyer's sub-sub-category (e.g., Full Sleeve)"],
       ['InternalCategory', 'Your internal category for organization'],
       [''],
       ['AUTO-GENERATED FIELDS:'],
@@ -168,7 +262,7 @@ class StyleImportController {
       ['- Each row represents one size variant'],
       ['- Style-level data (name, season, etc.) is taken from the first row for each StyleCode'],
       ['- Customer MUST exist in the system before import'],
-      ['- Brand categories are created automatically if they don\'t exist'],
+      ["- Brand categories are created automatically if they don't exist"],
     ];
     const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
     wsInstructions['!cols'] = [{ wch: 25 }, { wch: 80 }];
@@ -177,14 +271,8 @@ class StyleImportController {
     // Generate buffer
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=style_import_template.xlsx'
-    );
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=style_import_template.xlsx');
 
     return res.send(buffer);
   }
@@ -210,9 +298,7 @@ class StyleImportController {
     // Check if second row is a Required/Optional indicator row
     if (lines.length > 1) {
       const secondRowValues = lines[1].split(',').map((v) => v.trim().replace(/"/g, '').toLowerCase());
-      const isIndicatorRow = secondRowValues.every(val =>
-        val === '' || val === 'required' || val === 'optional'
-      );
+      const isIndicatorRow = secondRowValues.every((val) => val === '' || val === 'required' || val === 'optional');
       if (isIndicatorRow) {
         startIndex = 2; // Skip the indicator row
       }
@@ -253,7 +339,7 @@ class StyleImportController {
     // Check if second row is a Required/Optional indicator row
     if (rawData.length > 1) {
       const secondRow = rawData[1];
-      const isIndicatorRow = secondRow.every(val => {
+      const isIndicatorRow = secondRow.every((val) => {
         const normalized = (val || '').toString().toLowerCase().trim();
         return normalized === '' || normalized === 'required' || normalized === 'optional';
       });
@@ -310,8 +396,8 @@ class StyleImportController {
       itemdescription: 'itemDescription',
       bulletpoints: 'bulletPoints',
       projectgroup: 'projectGroup',
-      customer: 'customer',       // Legacy alias for customerName
-      brand: 'brand',             // Legacy alias for brandName
+      customer: 'customer', // Legacy alias for customerName
+      brand: 'brand', // Legacy alias for brandName
       componentname: 'componentName',
       greigename: 'greigeName',
       fabricdescription: 'fabricDescription',

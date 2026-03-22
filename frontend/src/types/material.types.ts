@@ -41,7 +41,7 @@ export const MaterialType = {
   OTHER_MATERIAL: 'OTHER_MATERIAL',
 } as const;
 
-export type MaterialType = typeof MaterialType[keyof typeof MaterialType];
+export type MaterialType = (typeof MaterialType)[keyof typeof MaterialType];
 
 export const MaterialTypeLabels: Record<MaterialType, string> = {
   GENERIC: 'Generic',
@@ -96,7 +96,7 @@ export const Unit = {
   CONE: 'CONE',
 } as const;
 
-export type Unit = typeof Unit[keyof typeof Unit];
+export type Unit = (typeof Unit)[keyof typeof Unit];
 
 export const UnitLabels: Record<Unit, string> = {
   METER: 'Meter',

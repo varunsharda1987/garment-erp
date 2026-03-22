@@ -9,7 +9,7 @@ import type {
   AddMaterialToBOMResponse,
   UpdateBOMItemRequest,
   UpdateBOMItemResponse,
-  DeleteBOMItemResponse
+  DeleteBOMItemResponse,
 } from '../types/style-material-bom.types';
 
 /**
@@ -23,36 +23,26 @@ export const searchMaterials = async (
   const params = new URLSearchParams({
     type,
     ...(query && { query }),
-    limit: limit.toString()
+    limit: limit.toString(),
   });
 
-  const response = await api.get<MaterialSearchResponse>(
-    `/styles/materials/search?${params.toString()}`
-  );
+  const response = await api.get<MaterialSearchResponse>(`/styles/materials/search?${params.toString()}`);
   return response.data;
 };
 
 /**
  * Get material details by code
  */
-export const getMaterialByCode = async (
-  materialCode: string
-): Promise<MaterialByCodeResponse> => {
-  const response = await api.get<MaterialByCodeResponse>(
-    `/styles/materials/by-code/${materialCode}`
-  );
+export const getMaterialByCode = async (materialCode: string): Promise<MaterialByCodeResponse> => {
+  const response = await api.get<MaterialByCodeResponse>(`/styles/materials/by-code/${materialCode}`);
   return response.data;
 };
 
 /**
  * Get complete BOM for a style
  */
-export const getStyleBOM = async (
-  styleId: string
-): Promise<StyleBOMResponse> => {
-  const response = await api.get<StyleBOMResponse>(
-    `/styles/${styleId}/bom`
-  );
+export const getStyleBOM = async (styleId: string): Promise<StyleBOMResponse> => {
+  const response = await api.get<StyleBOMResponse>(`/styles/${styleId}/bom`);
   return response.data;
 };
 
@@ -63,10 +53,7 @@ export const addMaterialToBOM = async (
   styleId: string,
   data: AddMaterialToBOMRequest
 ): Promise<AddMaterialToBOMResponse> => {
-  const response = await api.post<AddMaterialToBOMResponse>(
-    `/styles/${styleId}/materials`,
-    data
-  );
+  const response = await api.post<AddMaterialToBOMResponse>(`/styles/${styleId}/materials`, data);
   return response.data;
 };
 
@@ -78,33 +65,22 @@ export const updateBOMItem = async (
   bomId: string,
   data: UpdateBOMItemRequest
 ): Promise<UpdateBOMItemResponse> => {
-  const response = await api.put<UpdateBOMItemResponse>(
-    `/styles/${styleId}/materials/${bomId}`,
-    data
-  );
+  const response = await api.put<UpdateBOMItemResponse>(`/styles/${styleId}/materials/${bomId}`, data);
   return response.data;
 };
 
 /**
  * Delete BOM item (soft delete)
  */
-export const deleteBOMItem = async (
-  styleId: string,
-  bomId: string
-): Promise<DeleteBOMItemResponse> => {
-  const response = await api.delete<DeleteBOMItemResponse>(
-    `/styles/${styleId}/materials/${bomId}`
-  );
+export const deleteBOMItem = async (styleId: string, bomId: string): Promise<DeleteBOMItemResponse> => {
+  const response = await api.delete<DeleteBOMItemResponse>(`/styles/${styleId}/materials/${bomId}`);
   return response.data;
 };
 
 /**
  * Calculate total cost for a material entry
  */
-export const calculateMaterialCost = (
-  quantity: number,
-  unitPrice: number
-): number => {
+export const calculateMaterialCost = (quantity: number, unitPrice: number): number => {
   return quantity * unitPrice;
 };
 

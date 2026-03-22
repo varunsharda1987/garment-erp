@@ -95,7 +95,7 @@ class OrderProductionStatusService {
 
       if (brand) {
         orderItemWhere.styles = {
-          ...orderItemWhere.styles as Prisma.stylesWhereInput,
+          ...(orderItemWhere.styles as Prisma.stylesWhereInput),
           brandName: { contains: brand, mode: 'insensitive' },
         };
       }
@@ -108,7 +108,7 @@ class OrderProductionStatusService {
 
       if (cadStatus) {
         orderItemWhere.styles = {
-          ...orderItemWhere.styles as Prisma.stylesWhereInput,
+          ...(orderItemWhere.styles as Prisma.stylesWhereInput),
           cadStatus,
         };
       }
@@ -116,7 +116,7 @@ class OrderProductionStatusService {
       // Date filters on orders
       if (orderDateFrom || orderDateTo) {
         orderItemWhere.orders = {
-          ...orderItemWhere.orders as Prisma.ordersWhereInput,
+          ...(orderItemWhere.orders as Prisma.ordersWhereInput),
           orderDate: {
             ...(orderDateFrom && { gte: new Date(orderDateFrom) }),
             ...(orderDateTo && { lte: new Date(orderDateTo) }),
@@ -126,7 +126,7 @@ class OrderProductionStatusService {
 
       if (deliveryDateFrom || deliveryDateTo) {
         orderItemWhere.orders = {
-          ...orderItemWhere.orders as Prisma.ordersWhereInput,
+          ...(orderItemWhere.orders as Prisma.ordersWhereInput),
           expectedDeliveryDate: {
             ...(deliveryDateFrom && { gte: new Date(deliveryDateFrom) }),
             ...(deliveryDateTo && { lte: new Date(deliveryDateTo) }),
@@ -186,11 +186,11 @@ class OrderProductionStatusService {
       });
 
       // Process each order item to build production status
-      let statusItems = orderItems.map(orderItem => this.buildOrderStatusItem(orderItem));
+      let statusItems = orderItems.map((orderItem) => this.buildOrderStatusItem(orderItem));
 
       // Apply status filter
       if (status && status !== 'all') {
-        statusItems = statusItems.filter(item => {
+        statusItems = statusItems.filter((item) => {
           switch (status) {
             case 'running':
               return !item.isDelayed && item.overallProgress < 100 && item.overallProgress > 0;
@@ -208,7 +208,7 @@ class OrderProductionStatusService {
 
       // Apply stage filter
       if (stage) {
-        statusItems = statusItems.filter(item => item.currentStage === stage);
+        statusItems = statusItems.filter((item) => item.currentStage === stage);
       }
 
       // Sort
@@ -352,9 +352,10 @@ class OrderProductionStatusService {
     });
 
     // Calculate progress
-    const overallProgress = workOrderData.totalPlannedQuantity > 0
-      ? Math.round((workOrderData.totalCompletedQuantity / workOrderData.totalPlannedQuantity) * 100)
-      : 0;
+    const overallProgress =
+      workOrderData.totalPlannedQuantity > 0
+        ? Math.round((workOrderData.totalCompletedQuantity / workOrderData.totalPlannedQuantity) * 100)
+        : 0;
 
     // Calculate days to delivery
     let daysToDelivery: number | null = null;
@@ -380,13 +381,7 @@ class OrderProductionStatusService {
       : this.buildInspectionStatusFromOrder(orderItem.order_inspections || []);
 
     // Build blockers
-    const blockers = this.identifyBlockers(
-      style,
-      orderItem,
-      workOrderData,
-      daysToDelivery,
-      sampleStatus
-    );
+    const blockers = this.identifyBlockers(style, orderItem, workOrderData, daysToDelivery, sampleStatus);
 
     // Build suggested actions
     const suggestedActions = this.buildSuggestedActions(style, orderItem, blockers);
@@ -394,17 +389,21 @@ class OrderProductionStatusService {
     // Costing - use order-specific if available, otherwise style
     const orderCosting = orderItem.order_item_costing;
     const styleCosting = style?.style_costing;
-    const costing = orderCosting ? {
-      totalCostPerPiece: Number(orderCosting.totalCostPerPiece || 0),
-      sellingPricePerPiece: Number(orderCosting.sellingPricePerPiece || 0),
-      profitMargin: orderCosting.profitMargin ? Number(orderCosting.profitMargin) : null,
-      isRecalculated: true,
-    } : styleCosting ? {
-      totalCostPerPiece: Number(styleCosting.totalCostPerPiece || 0),
-      sellingPricePerPiece: Number(styleCosting.sellingPricePerPiece || 0),
-      profitMargin: styleCosting.profitMargin ? Number(styleCosting.profitMargin) : null,
-      isRecalculated: false,
-    } : null;
+    const costing = orderCosting
+      ? {
+          totalCostPerPiece: Number(orderCosting.totalCostPerPiece || 0),
+          sellingPricePerPiece: Number(orderCosting.sellingPricePerPiece || 0),
+          profitMargin: orderCosting.profitMargin ? Number(orderCosting.profitMargin) : null,
+          isRecalculated: true,
+        }
+      : styleCosting
+        ? {
+            totalCostPerPiece: Number(styleCosting.totalCostPerPiece || 0),
+            sellingPricePerPiece: Number(styleCosting.sellingPricePerPiece || 0),
+            profitMargin: styleCosting.profitMargin ? Number(styleCosting.profitMargin) : null,
+            isRecalculated: false,
+          }
+        : null;
 
     // Stage breakdown (simplified)
     const stageStr = currentStage as string;
@@ -572,9 +571,13 @@ class OrderProductionStatusService {
         return { exists: false, status: null, daysPending: null, sampleId: null };
       }
 
-      const daysPending = sample.status !== 'APPROVED' && sample.status !== 'APPROVED_WITH_COMMENTS'
-        ? Math.floor((new Date().getTime() - new Date(sample.requestDate || sample.createdAt).getTime()) / (1000 * 60 * 60 * 24))
-        : null;
+      const daysPending =
+        sample.status !== 'APPROVED' && sample.status !== 'APPROVED_WITH_COMMENTS'
+          ? Math.floor(
+              (new Date().getTime() - new Date(sample.requestDate || sample.createdAt).getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+          : null;
 
       return {
         exists: true,
@@ -668,9 +671,11 @@ class OrderProductionStatusService {
     }
 
     // Check sample approvals
-    if (sampleStatus.fitSample.exists &&
-        sampleStatus.fitSample.status !== 'APPROVED' &&
-        sampleStatus.fitSample.status !== 'APPROVED_WITH_COMMENTS') {
+    if (
+      sampleStatus.fitSample.exists &&
+      sampleStatus.fitSample.status !== 'APPROVED' &&
+      sampleStatus.fitSample.status !== 'APPROVED_WITH_COMMENTS'
+    ) {
       blockers.push({
         type: 'FIT_SAMPLE_NOT_APPROVED',
         severity: 'HIGH',
@@ -679,9 +684,11 @@ class OrderProductionStatusService {
       });
     }
 
-    if (sampleStatus.ppSample.exists &&
-        sampleStatus.ppSample.status !== 'APPROVED' &&
-        sampleStatus.ppSample.status !== 'APPROVED_WITH_COMMENTS') {
+    if (
+      sampleStatus.ppSample.exists &&
+      sampleStatus.ppSample.status !== 'APPROVED' &&
+      sampleStatus.ppSample.status !== 'APPROVED_WITH_COMMENTS'
+    ) {
       blockers.push({
         type: 'PP_SAMPLE_NOT_APPROVED',
         severity: 'MEDIUM',
@@ -699,7 +706,7 @@ class OrderProductionStatusService {
   private buildSuggestedActions(style: any, orderItem: any, blockers: BlockerInfo[]): ActionInfo[] {
     const actions: ActionInfo[] = [];
 
-    blockers.forEach(blocker => {
+    blockers.forEach((blocker) => {
       switch (blocker.type) {
         case 'CAD_NOT_APPROVED':
           actions.push({
@@ -742,10 +749,10 @@ class OrderProductionStatusService {
   private calculateSummary(items: any[]): any {
     return {
       total: items.length,
-      running: items.filter(i => !i.isDelayed && i.overallProgress < 100 && i.overallProgress > 0).length,
-      completed: items.filter(i => i.overallProgress === 100).length,
-      delayed: items.filter(i => i.isDelayed).length,
-      needsAttention: items.filter(i => i.blockers.length > 0).length,
+      running: items.filter((i) => !i.isDelayed && i.overallProgress < 100 && i.overallProgress > 0).length,
+      completed: items.filter((i) => i.overallProgress === 100).length,
+      delayed: items.filter((i) => i.isDelayed).length,
+      needsAttention: items.filter((i) => i.blockers.length > 0).length,
       totalOrderValue: items.reduce((sum, i) => sum + (Number(i.totalPrice) || 0), 0),
       totalPieces: items.reduce((sum, i) => sum + (i.quantity || 0), 0),
     };

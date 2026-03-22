@@ -12,7 +12,12 @@ import {
 } from '../controllers/material.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
-import { createMaterialSchema, updateMaterialSchema, materialQuerySchema, materialIdParamSchema } from '../schemas/material.schema';
+import {
+  createMaterialSchema,
+  updateMaterialSchema,
+  materialQuerySchema,
+  materialIdParamSchema,
+} from '../schemas/material.schema';
 import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
@@ -67,7 +72,12 @@ router.get('/:id', validateParams(materialIdParamSchema), asyncHandler(getMateri
  * @desc    Update material
  * @access  Private (Authenticated users)
  */
-router.put('/:id', validateParams(materialIdParamSchema), validateBody(updateMaterialSchema), asyncHandler(updateMaterial));
+router.put(
+  '/:id',
+  validateParams(materialIdParamSchema),
+  validateBody(updateMaterialSchema),
+  asyncHandler(updateMaterial)
+);
 
 /**
  * @route   DELETE /api/materials/:id

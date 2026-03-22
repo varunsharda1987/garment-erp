@@ -9,7 +9,7 @@ import type {
   GenericTrimListResponse,
   GenericTrimResponse,
   TrimConfigResponse,
-  TrimCountsResponse
+  TrimCountsResponse,
 } from '../types/genericTrim.types';
 
 const BASE_URL = '/generic-trims';
@@ -33,10 +33,7 @@ export const getAll = async (
 /**
  * Get a single item by ID
  */
-export const getById = async (
-  trimType: string,
-  id: string
-): Promise<GenericTrimItem> => {
+export const getById = async (trimType: string, id: string): Promise<GenericTrimItem> => {
   const response = await api.get(`${BASE_URL}/${trimType}/${id}`);
   return response.data;
 };
@@ -44,10 +41,7 @@ export const getById = async (
 /**
  * Create a new item
  */
-export const create = async (
-  trimType: string,
-  data: Partial<GenericTrimItem>
-): Promise<GenericTrimResponse> => {
+export const create = async (trimType: string, data: Partial<GenericTrimItem>): Promise<GenericTrimResponse> => {
   const response = await api.post(`${BASE_URL}/${trimType}`, data);
   return response.data;
 };
@@ -67,10 +61,7 @@ export const update = async (
 /**
  * Delete an item (soft delete)
  */
-export const remove = async (
-  trimType: string,
-  id: string
-): Promise<{ message: string }> => {
+export const remove = async (trimType: string, id: string): Promise<{ message: string }> => {
   const response = await api.delete(`${BASE_URL}/${trimType}/${id}`);
   return response.data;
 };
@@ -99,7 +90,7 @@ export const genericTrimService = {
   update,
   remove,
   getConfigs,
-  getCounts
+  getCounts,
 };
 
 export default genericTrimService;

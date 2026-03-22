@@ -1,5 +1,10 @@
 import api from '@/lib/api';
-import type { DebitNote, CreateDebitNoteRequest, DebitNoteListResponse, DebitNoteQueryParams } from '@/types/debitNote.types';
+import type {
+  DebitNote,
+  CreateDebitNoteRequest,
+  DebitNoteListResponse,
+  DebitNoteQueryParams,
+} from '@/types/debitNote.types';
 
 const BASE_PATH = '/debit-notes';
 

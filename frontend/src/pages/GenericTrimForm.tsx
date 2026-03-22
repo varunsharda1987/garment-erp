@@ -6,13 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { genericTrimService } from '@/services/genericTrim.service';
 import { TRIM_TYPE_CONFIGS } from '@/types/genericTrim.types';
 import type { FieldConfig } from '@/types/genericTrim.types';
@@ -65,7 +59,7 @@ export default function GenericTrimForm() {
           const data: Record<string, any> = {};
           if (config) {
             data[config.nameField] = (item as any)[config.nameField];
-            config.fields.forEach(field => {
+            config.fields.forEach((field) => {
               data[field.name] = (item as any)[field.name];
             });
           }
@@ -85,7 +79,7 @@ export default function GenericTrimForm() {
       // Initialize with defaults for new item
       const initial: Record<string, any> = {};
       initial[config.nameField] = '';
-      config.fields.forEach(field => {
+      config.fields.forEach((field) => {
         if (field.type === 'boolean') {
           initial[field.name] = false;
         } else {
@@ -100,7 +94,7 @@ export default function GenericTrimForm() {
   }, [isEditMode, trimType, id, config]);
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,7 +116,7 @@ export default function GenericTrimForm() {
       const submitData: Record<string, any> = {};
       submitData[config.nameField] = name.trim();
 
-      config.fields.forEach(field => {
+      config.fields.forEach((field) => {
         const value = formData[field.name];
         if (field.type === 'number') {
           submitData[field.name] = value ? parseFloat(value) : null;
@@ -161,11 +155,7 @@ export default function GenericTrimForm() {
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-gray-500">Invalid trim type specified.</p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => navigate('/trim-masters')}
-            >
+            <Button variant="outline" className="mt-4" onClick={() => navigate('/trim-masters')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Trim Masters
             </Button>
@@ -194,10 +184,7 @@ export default function GenericTrimForm() {
 
     if (field.type === 'select' && field.options) {
       return (
-        <Select
-          value={value || ''}
-          onValueChange={(val) => handleInputChange(field.name, val)}
-        >
+        <Select value={value || ''} onValueChange={(val) => handleInputChange(field.name, val)}>
           <SelectTrigger>
             <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
           </SelectTrigger>
@@ -215,13 +202,8 @@ export default function GenericTrimForm() {
     if (field.type === 'boolean') {
       return (
         <div className="flex items-center space-x-2">
-          <Switch
-            checked={!!value}
-            onCheckedChange={(checked) => handleInputChange(field.name, checked)}
-          />
-          <span className="text-sm text-gray-600">
-            {value ? 'Yes' : 'No'}
-          </span>
+          <Switch checked={!!value} onCheckedChange={(checked) => handleInputChange(field.name, checked)} />
+          <span className="text-sm text-gray-600">{value ? 'Yes' : 'No'}</span>
         </div>
       );
     }
@@ -252,11 +234,7 @@ export default function GenericTrimForm() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Header */}
       <div className="mb-6 flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/materials/${trimType}`)}
-        >
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/materials/${trimType}`)}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
@@ -277,9 +255,7 @@ export default function GenericTrimForm() {
           </CardHeader>
           <CardContent className="space-y-6">
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
-                {error}
-              </div>
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">{error}</div>
             )}
 
             {/* Name field (required) */}
@@ -357,11 +333,7 @@ export default function GenericTrimForm() {
 
         {/* Submit buttons */}
         <div className="mt-6 flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate(`/materials/${trimType}`)}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate(`/materials/${trimType}`)}>
             Cancel
           </Button>
           <Button type="submit" disabled={isLoading}>

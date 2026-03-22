@@ -13,12 +13,7 @@ export class AppError extends Error {
   public readonly details?: Record<string, unknown>;
   public readonly isOperational: boolean;
 
-  constructor(
-    statusCode: number,
-    code: string,
-    message: string,
-    details?: Record<string, unknown>
-  ) {
+  constructor(statusCode: number, code: string, message: string, details?: Record<string, unknown>) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
@@ -67,9 +62,7 @@ export class ForbiddenError extends AppError {
  */
 export class NotFoundError extends AppError {
   constructor(resource: string, identifier?: string) {
-    const message = identifier
-      ? `${resource} with identifier '${identifier}' not found`
-      : `${resource} not found`;
+    const message = identifier ? `${resource} with identifier '${identifier}' not found` : `${resource} not found`;
     super(404, 'NOT_FOUND', message);
   }
 }

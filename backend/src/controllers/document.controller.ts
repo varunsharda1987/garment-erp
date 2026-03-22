@@ -26,16 +26,20 @@ function cleanupTempCatalogues() {
     const now = Date.now();
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
-    files.forEach(file => {
+    files.forEach((file) => {
       const filepath = path.join(tempDir, file);
       try {
         const stat = fs.statSync(filepath);
         if (now - stat.mtimeMs > maxAge) {
           fs.unlinkSync(filepath);
         }
-      } catch { /* ignore individual file errors */ }
+      } catch {
+        /* ignore individual file errors */
+      }
     });
-  } catch { /* ignore cleanup errors */ }
+  } catch {
+    /* ignore cleanup errors */
+  }
 }
 cleanupTempCatalogues();
 
@@ -53,7 +57,7 @@ class DocumentController {
     // Get invoice number for filename
     const invoice = await prisma.invoices.findUnique({
       where: { id },
-      select: { invoiceNumber: true }
+      select: { invoiceNumber: true },
     });
 
     const filename = `TaxInvoice_${invoice?.invoiceNumber || id}.pdf`;
@@ -76,7 +80,7 @@ class DocumentController {
     // Get invoice number for filename
     const invoice = await prisma.invoices.findUnique({
       where: { id },
-      select: { invoiceNumber: true }
+      select: { invoiceNumber: true },
     });
 
     const filename = `TaxInvoice_${invoice?.invoiceNumber || id}.xlsx`;
@@ -105,9 +109,9 @@ class DocumentController {
       select: {
         invoiceNumber: true,
         customers: {
-          select: { name: true }
-        }
-      }
+          select: { name: true },
+        },
+      },
     });
 
     if (!invoice) {
@@ -131,8 +135,8 @@ class DocumentController {
         whatsappUrl,
         downloadUrl,
         invoiceNumber: invoice.invoiceNumber,
-        customerName: invoice.customers?.name
-      }
+        customerName: invoice.customers?.name,
+      },
     });
   }
 
@@ -149,7 +153,7 @@ class DocumentController {
     // Get quotation number for filename
     const quotation = await prisma.quotations.findUnique({
       where: { id },
-      select: { quotationNumber: true }
+      select: { quotationNumber: true },
     });
 
     const filename = `ProformaInvoice_${quotation?.quotationNumber || id}.pdf`;
@@ -173,7 +177,7 @@ class DocumentController {
     // Get order number for filename
     const order = await prisma.orders.findUnique({
       where: { id },
-      select: { orderNumber: true }
+      select: { orderNumber: true },
     });
 
     const filename = `OrderForm_${order?.orderNumber || id}.pdf`;
@@ -200,7 +204,7 @@ class DocumentController {
       showSizeRange = true,
       includeIndex = false,
       columnsPerPage = 2,
-      catalogueName = 'Product Catalogue'
+      catalogueName = 'Product Catalogue',
     } = req.body;
 
     // Build filters
@@ -209,7 +213,7 @@ class DocumentController {
       categoryIds,
       brandCategoryIds,
       seasons,
-      priceRange
+      priceRange,
     };
 
     // Build options
@@ -219,7 +223,7 @@ class DocumentController {
       showSizeRange,
       includeIndex,
       columnsPerPage,
-      catalogueName
+      catalogueName,
     };
 
     const pdfBuffer = await documentGeneratorService.generateCataloguePDF(filters, options);
@@ -248,7 +252,7 @@ class DocumentController {
       showSizeRange = true,
       includeIndex = false,
       columnsPerPage = 2,
-      catalogueName = 'Product Catalogue'
+      catalogueName = 'Product Catalogue',
     } = req.body;
 
     // Build filters and options
@@ -273,8 +277,8 @@ class DocumentController {
       success: true,
       data: {
         catalogueId,
-        expiresIn: '24 hours'
-      }
+        expiresIn: '24 hours',
+      },
     });
   }
 
@@ -296,7 +300,7 @@ class DocumentController {
       if (err && !res.headersSent) {
         res.status(404).json({
           success: false,
-          message: 'Catalogue file could not be read'
+          message: 'Catalogue file could not be read',
         });
       }
     });
@@ -334,8 +338,8 @@ class DocumentController {
       success: true,
       data: {
         whatsappUrl,
-        downloadUrl
-      }
+        downloadUrl,
+      },
     });
   }
 
@@ -356,9 +360,9 @@ class DocumentController {
       select: {
         quotationNumber: true,
         customers: {
-          select: { name: true }
-        }
-      }
+          select: { name: true },
+        },
+      },
     });
 
     if (!quotation) {
@@ -381,8 +385,8 @@ class DocumentController {
         whatsappUrl,
         downloadUrl,
         quotationNumber: quotation.quotationNumber,
-        customerName: quotation.customers?.name
-      }
+        customerName: quotation.customers?.name,
+      },
     });
   }
 
@@ -402,7 +406,7 @@ class DocumentController {
     // Get style code for filename
     const style = await prisma.styles.findUnique({
       where: { id: styleId },
-      select: { styleCode: true }
+      select: { styleCode: true },
     });
 
     const filename = `TechPack_${style?.styleCode || styleId}.pdf`;
@@ -477,7 +481,7 @@ class DocumentController {
     // Get PO number for filename
     const purchaseOrder = await prisma.purchase_orders.findUnique({
       where: { id },
-      select: { poNumber: true }
+      select: { poNumber: true },
     });
 
     const filename = `PurchaseOrder_${purchaseOrder?.poNumber || id}.pdf`;
@@ -506,9 +510,9 @@ class DocumentController {
       select: {
         poNumber: true,
         suppliers: {
-          select: { name: true }
-        }
-      }
+          select: { name: true },
+        },
+      },
     });
 
     if (!purchaseOrder) {
@@ -532,8 +536,8 @@ class DocumentController {
         whatsappUrl,
         downloadUrl,
         poNumber: purchaseOrder.poNumber,
-        supplierName: purchaseOrder.suppliers?.name
-      }
+        supplierName: purchaseOrder.suppliers?.name,
+      },
     });
   }
   /**

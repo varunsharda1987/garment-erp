@@ -45,15 +45,53 @@ export default function FabricBulkImport() {
     ];
 
     // Create header row
-    const headerRow = columns.map(col => col.header);
+    const headerRow = columns.map((col) => col.header);
 
     // Create Required/Optional indicator row
-    const requiredRow = columns.map(col => col.required ? 'Required' : 'Optional');
+    const requiredRow = columns.map((col) => (col.required ? 'Required' : 'Optional'));
 
     // Sample data rows
     const sampleData = [
-      ['GRG-0001', 'Cambric', 'Cambric 58" - White', 'White', '#FFFFFF', 'Mercerized', '', 58, 56, '40×40/133×72', 120, 'Embroidery', 15.50, '', 'High quality cambric fabric', '', 'TRUE', 'TRUE'],
-      ['GRG-0002', 'Poplin', 'STY-001 - Poplin 60" - Blue', 'Sky Blue', '#87CEEB', 'Soft Finish', '', 60, 58, '40×40/120×60', 115, '', '', 'STY-001', 'Style-specific poplin', '', 'FALSE', 'TRUE'],
+      [
+        'GRG-0001',
+        'Cambric',
+        'Cambric 58" - White',
+        'White',
+        '#FFFFFF',
+        'Mercerized',
+        '',
+        58,
+        56,
+        '40×40/133×72',
+        120,
+        'Embroidery',
+        15.5,
+        '',
+        'High quality cambric fabric',
+        '',
+        'TRUE',
+        'TRUE',
+      ],
+      [
+        'GRG-0002',
+        'Poplin',
+        'STY-001 - Poplin 60" - Blue',
+        'Sky Blue',
+        '#87CEEB',
+        'Soft Finish',
+        '',
+        60,
+        58,
+        '40×40/120×60',
+        115,
+        '',
+        '',
+        'STY-001',
+        'Style-specific poplin',
+        '',
+        'FALSE',
+        'TRUE',
+      ],
     ];
 
     // Create sheet data with headers, required/optional row, and sample data
@@ -106,7 +144,12 @@ export default function FabricBulkImport() {
         const worksheet = workbook.Sheets[sheetName];
 
         // Get raw data as array of arrays to check for indicator row
-        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (
+          | string
+          | number
+          | boolean
+          | undefined
+        )[][];
 
         if (rawData.length < 2) {
           setPreviewData([]);
@@ -119,7 +162,7 @@ export default function FabricBulkImport() {
         // Check if second row is a Required/Optional indicator row
         if (rawData.length > 1) {
           const secondRow = rawData[1] as (string | number | boolean | undefined)[];
-          const isIndicatorRow = secondRow.every(val => {
+          const isIndicatorRow = secondRow.every((val) => {
             const normalized = (val || '').toString().toLowerCase().trim();
             return normalized === '' || normalized === 'required' || normalized === 'optional';
           });
@@ -168,7 +211,12 @@ export default function FabricBulkImport() {
           const worksheet = workbook.Sheets[sheetName];
 
           // Get raw data as array of arrays to check for indicator row
-          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean | undefined)[][];
+          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (
+            | string
+            | number
+            | boolean
+            | undefined
+          )[][];
 
           if (rawData.length < 2) {
             throw new Error('File must have header and at least one data row');
@@ -180,7 +228,7 @@ export default function FabricBulkImport() {
           // Check if second row is a Required/Optional indicator row
           if (rawData.length > 1) {
             const secondRow = rawData[1] as (string | number | boolean | undefined)[];
-            const isIndicatorRow = secondRow.every(val => {
+            const isIndicatorRow = secondRow.every((val) => {
               const normalized = (val || '').toString().toLowerCase().trim();
               return normalized === '' || normalized === 'required' || normalized === 'optional';
             });
@@ -205,57 +253,59 @@ export default function FabricBulkImport() {
           }
 
           // Transform Excel data to API format
-          const fabricData = jsonData.map((row: Record<string, string | number | boolean | undefined>, index: number) => {
-            // Parse numeric values
-            const parseNumber = (value: unknown, defaultValue?: number): number | undefined => {
-              if (value === undefined || value === null || value === '') return defaultValue;
-              const parsed = parseFloat(String(value).replace(/[^0-9.]/g, ''));
-              return isNaN(parsed) ? defaultValue : parsed;
-            };
+          const fabricData = jsonData.map(
+            (row: Record<string, string | number | boolean | undefined>, index: number) => {
+              // Parse numeric values
+              const parseNumber = (value: unknown, defaultValue?: number): number | undefined => {
+                if (value === undefined || value === null || value === '') return defaultValue;
+                const parsed = parseFloat(String(value).replace(/[^0-9.]/g, ''));
+                return isNaN(parsed) ? defaultValue : parsed;
+              };
 
-            // Safely get trimmed string value
-            const getString = (value: string | number | boolean | undefined): string => {
-              if (value === undefined || value === null) return '';
-              return String(value).trim();
-            };
+              // Safely get trimmed string value
+              const getString = (value: string | number | boolean | undefined): string => {
+                if (value === undefined || value === null) return '';
+                return String(value).trim();
+              };
 
-            const actualWidth = parseNumber(row['Actual Width (inches)'], 58);
-            const cutableWidth = parseNumber(
-              row['Cutable Width (inches)'],
-              actualWidth ? actualWidth - 2 : undefined
-            );
+              const actualWidth = parseNumber(row['Actual Width (inches)'], 58);
+              const cutableWidth = parseNumber(
+                row['Cutable Width (inches)'],
+                actualWidth ? actualWidth - 2 : undefined
+              );
 
-            const result = {
-              // Note: fabricCode will be auto-generated by backend
-              fabricName: getString(row['Fabric Name']),
-              greigeCode: getString(row['Greige Code']),
-              genericGreigeName: getString(row['Generic Greige Name']),
-              colorName: getString(row['Color Name']),
-              colorCode: getString(row['Color Code']),
-              finishType: getString(row['Finish Type']),
-              printDesign: getString(row['Print Design']),
-              actualWidth,
-              cutableWidth,
-              finishedConstruction: getString(row['Finished Construction']),
-              actualGSM: parseNumber(row['Actual GSM']),
-              valueAddition: getString(row['Value Addition']),
-              valueAdditionCost: parseNumber(row['Value Addition Cost']),
-              styleReference: getString(row['Style Reference']),
-              description: getString(row['Description']),
-              notes: getString(row['Notes']),
-              isGeneric: row['Is Generic']?.toString().toUpperCase() === 'TRUE',
-              isActive: row['Is Active']?.toString().toUpperCase() === 'TRUE',
-              suppliers: [],
-            };
+              const result = {
+                // Note: fabricCode will be auto-generated by backend
+                fabricName: getString(row['Fabric Name']),
+                greigeCode: getString(row['Greige Code']),
+                genericGreigeName: getString(row['Generic Greige Name']),
+                colorName: getString(row['Color Name']),
+                colorCode: getString(row['Color Code']),
+                finishType: getString(row['Finish Type']),
+                printDesign: getString(row['Print Design']),
+                actualWidth,
+                cutableWidth,
+                finishedConstruction: getString(row['Finished Construction']),
+                actualGSM: parseNumber(row['Actual GSM']),
+                valueAddition: getString(row['Value Addition']),
+                valueAdditionCost: parseNumber(row['Value Addition Cost']),
+                styleReference: getString(row['Style Reference']),
+                description: getString(row['Description']),
+                notes: getString(row['Notes']),
+                isGeneric: row['Is Generic']?.toString().toUpperCase() === 'TRUE',
+                isActive: row['Is Active']?.toString().toUpperCase() === 'TRUE',
+                suppliers: [],
+              };
 
-            // Debug logging for first row
-            if (index === 0) {
-              logDebug('First row Excel data:', row);
-              logDebug('Parsed fabric data:', result);
+              // Debug logging for first row
+              if (index === 0) {
+                logDebug('First row Excel data:', row);
+                logDebug('Parsed fabric data:', result);
+              }
+
+              return result;
             }
-
-            return result;
-          });
+          );
 
           // Get auth token
           const authStorage = localStorage.getItem('auth-storage');
@@ -275,17 +325,14 @@ export default function FabricBulkImport() {
           }
 
           // Call bulk import API
-          const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/fabric-management/fabric/bulk-import`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({ fabrics: fabricData }),
-            }
-          );
+          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/fabric-management/fabric/bulk-import`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ fabrics: fabricData }),
+          });
 
           if (!response.ok) {
             const errorData = await response.json();
@@ -334,7 +381,9 @@ export default function FabricBulkImport() {
               <ol className="list-decimal list-inside space-y-1 text-sm">
                 <li>Download the Excel template below</li>
                 <li>Fill in the fabric data (Greige Code is required, must exist in system)</li>
-                <li>Optional fields: Cutable Width (auto-calculated if empty), Value Addition fields, Style Reference</li>
+                <li>
+                  Optional fields: Cutable Width (auto-calculated if empty), Value Addition fields, Style Reference
+                </li>
                 <li>For generic fabrics: Set "Is Generic" to TRUE and leave Style Reference empty</li>
                 <li>For style-specific fabrics: Set "Is Generic" to FALSE and provide Style Reference</li>
                 <li>Upload the completed file and click "Import"</li>
@@ -376,9 +425,7 @@ export default function FabricBulkImport() {
                 />
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <FileSpreadsheet className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-sm text-gray-600 mb-2">
-                    Click to upload or drag and drop
-                  </p>
+                  <p className="text-sm text-gray-600 mb-2">Click to upload or drag and drop</p>
                   <p className="text-xs text-gray-500">Excel files (.xlsx, .xls)</p>
                 </label>
               </div>
@@ -452,11 +499,7 @@ export default function FabricBulkImport() {
               <CardTitle>Step 3: Import Data</CardTitle>
             </CardHeader>
             <CardContent>
-              <Button
-                onClick={handleImport}
-                disabled={importing}
-                className="w-full"
-              >
+              <Button onClick={handleImport} disabled={importing} className="w-full">
                 {importing ? (
                   <>
                     <Upload className="h-4 w-4 mr-2 animate-spin" />
@@ -514,9 +557,7 @@ export default function FabricBulkImport() {
                 )}
 
                 <div className="flex gap-2">
-                  <Button onClick={() => navigate('/fabric')}>
-                    View Imported Fabrics
-                  </Button>
+                  <Button onClick={() => navigate('/fabric')}>View Imported Fabrics</Button>
                   <Button
                     variant="outline"
                     onClick={() => {

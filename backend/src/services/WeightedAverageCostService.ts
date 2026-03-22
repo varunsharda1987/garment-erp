@@ -21,12 +21,7 @@ export class WeightedAverageCostService {
    * @param newCost - Cost per unit of new stock
    * @returns New weighted average cost
    */
-  static calculateNewAverageCost(
-    currentQty: number,
-    currentAvgCost: number,
-    newQty: number,
-    newCost: number
-  ): number {
+  static calculateNewAverageCost(currentQty: number, currentAvgCost: number, newQty: number, newCost: number): number {
     // If no current quantity, new cost becomes the average
     if (currentQty === 0) {
       return newCost;
@@ -51,9 +46,7 @@ export class WeightedAverageCostService {
    * @param transactions - Array of quantity and cost pairs
    * @returns Weighted average cost
    */
-  static calculateWeightedAverageCost(
-    transactions: Array<{ quantity: number; unitCost: number }>
-  ): number {
+  static calculateWeightedAverageCost(transactions: Array<{ quantity: number; unitCost: number }>): number {
     if (transactions.length === 0) {
       return 0;
     }
@@ -81,11 +74,7 @@ export class WeightedAverageCostService {
    * @param newCost - Cost per unit of new stock
    * @returns New weighted average cost
    */
-  static async calculateWeightedAverage(
-    fabricId: string,
-    newQuantity: number,
-    newCost: number
-  ): Promise<number> {
+  static async calculateWeightedAverage(fabricId: string, newQuantity: number, newCost: number): Promise<number> {
     try {
       // Get current stock for this fabric
       const currentStock = await prisma.fabric_stock.aggregate({
@@ -105,12 +94,7 @@ export class WeightedAverageCostService {
       const existingAvgCost = Number(currentStock._avg.weightedAvgCost) || 0;
 
       // Use the pure calculation function
-      return this.calculateNewAverageCost(
-        existingQuantity,
-        existingAvgCost,
-        newQuantity,
-        newCost
-      );
+      return this.calculateNewAverageCost(existingQuantity, existingAvgCost, newQuantity, newCost);
     } catch (error) {
       logError('Error calculating weighted average cost:', error);
       throw error;
@@ -349,7 +333,7 @@ export class WeightedAverageCostService {
         totalValue,
         weightedAvgCost: Math.round(weightedAvgCost * 100) / 100,
         stockRecords: stocks.length,
-        stocks: stocks.map(s => ({
+        stocks: stocks.map((s) => ({
           id: s.id,
           quantity: Number(s.quantityAvailable),
           cost: Number(s.weightedAvgCost),

@@ -110,7 +110,7 @@ export const pagination = (config: PaginationConfig = {}) => {
       limit,
       offset,
       skip: offset, // Prisma alias
-      take: limit,  // Prisma alias
+      take: limit, // Prisma alias
     };
 
     next();
@@ -129,11 +129,7 @@ export const pagination = (config: PaginationConfig = {}) => {
  * const total = await prisma.items.count();
  * res.json(formatPaginatedResponse(items, total, req.pagination));
  */
-export function formatPaginatedResponse<T>(
-  data: T[],
-  total: number,
-  params: PaginationParams
-): PaginatedResponse<T> {
+export function formatPaginatedResponse<T>(data: T[], total: number, params: PaginationParams): PaginatedResponse<T> {
   const totalPages = Math.ceil(total / params.limit);
 
   return {
@@ -197,9 +193,7 @@ export function parseSortParams(
   const field = allowedFields.includes(sortBy) ? sortBy : defaultField;
 
   // Validate order
-  const order: 'asc' | 'desc' = sortOrder === 'asc' || sortOrder === 'desc'
-    ? sortOrder
-    : defaultOrder;
+  const order: 'asc' | 'desc' = sortOrder === 'asc' || sortOrder === 'desc' ? sortOrder : defaultOrder;
 
   return { [field]: order };
 }

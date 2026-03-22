@@ -38,9 +38,7 @@ class ProcessingBatchService {
    * Get batch by ID
    */
   async getById(id: string): Promise<ProcessingBatch> {
-    const response = await api.get<ApiResponse<ProcessingBatch>>(
-      `${this.basePath}/${id}`
-    );
+    const response = await api.get<ApiResponse<ProcessingBatch>>(`${this.basePath}/${id}`);
     if (!response.data.data) {
       throw new Error('Batch not found');
     }
@@ -51,10 +49,7 @@ class ProcessingBatchService {
    * Create new processing batch
    */
   async create(data: CreateProcessingBatchDTO): Promise<ProcessingBatch> {
-    const response = await api.post<ApiResponse<ProcessingBatch>>(
-      this.basePath,
-      data
-    );
+    const response = await api.post<ApiResponse<ProcessingBatch>>(this.basePath, data);
     if (!response.data.data) {
       throw new Error('Failed to create batch');
     }
@@ -64,14 +59,8 @@ class ProcessingBatchService {
   /**
    * Update processing batch
    */
-  async update(
-    id: string,
-    data: UpdateProcessingBatchDTO
-  ): Promise<ProcessingBatch> {
-    const response = await api.put<ApiResponse<ProcessingBatch>>(
-      `${this.basePath}/${id}`,
-      data
-    );
+  async update(id: string, data: UpdateProcessingBatchDTO): Promise<ProcessingBatch> {
+    const response = await api.put<ApiResponse<ProcessingBatch>>(`${this.basePath}/${id}`, data);
     if (!response.data.data) {
       throw new Error('Failed to update batch');
     }
@@ -82,9 +71,7 @@ class ProcessingBatchService {
    * Get batches by processor
    */
   async getByProcessor(processorId: string): Promise<ProcessingBatch[]> {
-    const response = await api.get<ApiResponse<ProcessingBatch[]>>(
-      `${this.basePath}/processor/${processorId}`
-    );
+    const response = await api.get<ApiResponse<ProcessingBatch[]>>(`${this.basePath}/processor/${processorId}`);
     return response.data.data || [];
   }
 
@@ -92,9 +79,7 @@ class ProcessingBatchService {
    * Get job work summary
    */
   async getJobWorkSummary(): Promise<JobWorkSummary> {
-    const response = await api.get<ApiResponse<JobWorkSummary>>(
-      `${this.basePath}/summary/job-work`
-    );
+    const response = await api.get<ApiResponse<JobWorkSummary>>(`${this.basePath}/summary/job-work`);
     if (!response.data.data) {
       throw new Error('Failed to fetch job work summary');
     }
@@ -105,9 +90,7 @@ class ProcessingBatchService {
    * Cancel batch
    */
   async cancel(id: string): Promise<ProcessingBatch> {
-    const response = await api.post<ApiResponse<ProcessingBatch>>(
-      `${this.basePath}/${id}/cancel`
-    );
+    const response = await api.post<ApiResponse<ProcessingBatch>>(`${this.basePath}/${id}/cancel`);
     if (!response.data.data) {
       throw new Error('Failed to cancel batch');
     }
@@ -118,9 +101,7 @@ class ProcessingBatchService {
    * Complete batch
    */
   async complete(id: string): Promise<ProcessingBatch> {
-    const response = await api.post<ApiResponse<ProcessingBatch>>(
-      `${this.basePath}/${id}/complete`
-    );
+    const response = await api.post<ApiResponse<ProcessingBatch>>(`${this.basePath}/${id}/complete`);
     if (!response.data.data) {
       throw new Error('Failed to complete batch');
     }
@@ -130,10 +111,7 @@ class ProcessingBatchService {
   /**
    * Receive processed lace (creates finished stock)
    */
-  async receiveProcessedLace(
-    batchId: string,
-    data: ReceiveProcessedLaceDTO
-  ): Promise<ReceiveProcessedLaceResponse> {
+  async receiveProcessedLace(batchId: string, data: ReceiveProcessedLaceDTO): Promise<ReceiveProcessedLaceResponse> {
     const response = await api.post<ApiResponse<ReceiveProcessedLaceResponse>>(
       `${this.basePath}/${batchId}/receive-lace`,
       data
@@ -148,9 +126,7 @@ class ProcessingBatchService {
    * Get lace processing summary
    */
   async getLaceProcessingSummary(): Promise<LaceProcessingSummary> {
-    const response = await api.get<ApiResponse<LaceProcessingSummary>>(
-      `${this.basePath}/summary/lace`
-    );
+    const response = await api.get<ApiResponse<LaceProcessingSummary>>(`${this.basePath}/summary/lace`);
     if (!response.data.data) {
       throw new Error('Failed to fetch lace processing summary');
     }

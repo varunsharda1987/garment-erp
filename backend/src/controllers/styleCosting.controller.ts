@@ -65,21 +65,18 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     const existingCostSheet = await prisma.style_costing.findFirst({
       where: {
         styleId: validatedData.styleId,
-        purpose: validatedData.purpose,  // Only check within same mode
+        purpose: validatedData.purpose, // Only check within same mode
       },
     });
 
     // Generate width combination hash and description from fabric widths
     const fabricWidths = validatedData.fabricDetails
-      .map(f => f.fabricWidth)
-      .filter(w => w > 0)
+      .map((f) => f.fabricWidth)
+      .filter((w) => w > 0)
       .sort((a, b) => a - b);
-    const widthCombinationHash = fabricWidths.length > 0
-      ? fabricWidths.join('-')
-      : 'default';
-    const widthCombinationDescription = fabricWidths.length > 0
-      ? fabricWidths.map(w => `${w}"`).join(' + ')
-      : 'Default Width';
+    const widthCombinationHash = fabricWidths.length > 0 ? fabricWidths.join('-') : 'default';
+    const widthCombinationDescription =
+      fabricWidths.length > 0 ? fabricWidths.map((w) => `${w}"`).join(' + ') : 'Default Width';
 
     // Check if a cost sheet with the same width combination already exists
     if (existingCostSheet) {
@@ -88,7 +85,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         res.status(400).json({
           error: 'Cost sheet already exists for this width combination',
           message: `A cost sheet for width combination "${widthCombinationDescription}" already exists. Use update or create a new version.`,
-          existingCostSheetId: existingCostSheet.id
+          existingCostSheetId: existingCostSheet.id,
         });
         return;
       }
@@ -109,17 +106,17 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
 
     // Calculate totals from arrays (excluding items marked as Not Applicable)
     const fabricTotal = validatedData.fabricDetails
-      .filter(f => !f.isNotApplicable)
+      .filter((f) => !f.isNotApplicable)
       .reduce((sum, f) => sum + f.fabricTotal, 0);
     const trimsTotal = validatedData.trimsDetails
-      .filter(t => !t.isNotApplicable)
+      .filter((t) => !t.isNotApplicable)
       .reduce((sum, t) => sum + t.trimTotal, 0);
     const cmtTotal = Object.values(validatedData.cmtCosts).reduce((sum, c) => sum + c, 0);
     const embroideryTotal = validatedData.embroideryDetails
-      .filter(e => !e.isNotApplicable)
+      .filter((e) => !e.isNotApplicable)
       .reduce((sum, e) => sum + e.embroideryTotal, 0);
     const accessoriesTotal = validatedData.accessoriesDetails
-      .filter(a => !a.isNotApplicable)
+      .filter((a) => !a.isNotApplicable)
       .reduce((sum, a) => sum + a.accessoryTotal, 0);
 
     // Calculate subtotal (before value loss and markup)
@@ -147,8 +144,8 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       data: {
         id: costSheetId,
         styleId: validatedData.styleId,
-        purpose: validatedData.purpose,  // Cost sheet purpose/mode
-        version: nextVersion,  // Version per (styleId, purpose) combination
+        purpose: validatedData.purpose, // Cost sheet purpose/mode
+        version: nextVersion, // Version per (styleId, purpose) combination
 
         // Basic Information
         numberOfComponents: validatedData.numberOfComponents,
@@ -332,12 +329,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
  */
 export const getAllCostSheets = async (req: Request, res: Response): Promise<void> => {
   try {
-    const {
-      page = '1',
-      limit = '10',
-      search = '',
-      approved = 'all',
-    } = req.query;
+    const { page = '1', limit = '10', search = '', approved = 'all' } = req.query;
 
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
@@ -571,10 +563,7 @@ export const getCostSheetsGroupedByWidth = async (req: Request, res: Response): 
 
     const costSheets = await prisma.style_costing.findMany({
       where: { styleId },
-      orderBy: [
-        { widthCombinationHash: 'asc' },
-        { version: 'desc' },
-      ],
+      orderBy: [{ widthCombinationHash: 'asc' }, { version: 'desc' }],
       include: {
         styles: {
           select: {
@@ -604,11 +593,14 @@ export const getCostSheetsGroupedByWidth = async (req: Request, res: Response): 
     });
 
     // Group by width combination
-    const grouped: Record<string, {
-      widthCombinationHash: string;
-      widthCombinationDescription: string;
-      costSheets: typeof costSheets;
-    }> = {};
+    const grouped: Record<
+      string,
+      {
+        widthCombinationHash: string;
+        widthCombinationDescription: string;
+        costSheets: typeof costSheets;
+      }
+    > = {};
 
     for (const cs of costSheets) {
       const hash = (cs as any).widthCombinationHash || 'default';
@@ -664,13 +656,14 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
 
     // Cannot update approved cost sheets
     // Use approvalStatus if available (new enum), fallback to legacy isApproved
-    const isApprovedCostSheet = (existingCostSheet as any).approvalStatus === 'APPROVED' ||
-                                 existingCostSheet.isApproved;
+    const isApprovedCostSheet =
+      (existingCostSheet as any).approvalStatus === 'APPROVED' || existingCostSheet.isApproved;
 
     if (isApprovedCostSheet) {
       res.status(400).json({
         error: 'Cannot update approved cost sheet',
-        message: 'Please create a new version if changes are needed. Approved cost sheets are locked to maintain pricing integrity.'
+        message:
+          'Please create a new version if changes are needed. Approved cost sheets are locked to maintain pricing integrity.',
       });
       return;
     }
@@ -679,8 +672,11 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     const shouldResetToPending = (existingCostSheet as any).approvalStatus === 'REJECTED';
 
     // Get current or updated values - use JSON parse/stringify for safe type conversion
-    const fabricDetails = validatedData.fabricDetails || parseJsonArray(existingCostSheet.fabricDetails, FabricDetailSchema, 'fabricDetails');
-    const trimsDetails = validatedData.trimsDetails || parseJsonArray(existingCostSheet.trimsDetails, TrimDetailSchema, 'trimsDetails');
+    const fabricDetails =
+      validatedData.fabricDetails ||
+      parseJsonArray(existingCostSheet.fabricDetails, FabricDetailSchema, 'fabricDetails');
+    const trimsDetails =
+      validatedData.trimsDetails || parseJsonArray(existingCostSheet.trimsDetails, TrimDetailSchema, 'trimsDetails');
     const cmtCosts = validatedData.cmtCosts || {
       cuttingCost: Number(existingCostSheet.cuttingCost),
       stitchingCost: Number(existingCostSheet.stitchingCost),
@@ -688,8 +684,12 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       buttonAttachmentCost: Number(existingCostSheet.buttonAttachmentCost),
       handworkCost: Number(existingCostSheet.handworkCmtCost),
     };
-    const embroideryDetails = validatedData.embroideryDetails || parseJsonArray(existingCostSheet.embroideryDetails, EmbroideryDetailSchema, 'embroideryDetails');
-    const accessoriesDetails = validatedData.accessoriesDetails || parseJsonArray(existingCostSheet.accessoriesDetails, AccessoryDetailSchema, 'accessoriesDetails');
+    const embroideryDetails =
+      validatedData.embroideryDetails ||
+      parseJsonArray(existingCostSheet.embroideryDetails, EmbroideryDetailSchema, 'embroideryDetails');
+    const accessoriesDetails =
+      validatedData.accessoriesDetails ||
+      parseJsonArray(existingCostSheet.accessoriesDetails, AccessoryDetailSchema, 'accessoriesDetails');
     const valueLossPercent = validatedData.valueLossPercent ?? Number(existingCostSheet.valueLossPercent);
     const markupPercent = validatedData.markupPercent ?? Number(existingCostSheet.markupPercent);
 
@@ -700,7 +700,7 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     const trimsTotal = trimsDetails
       .filter((t: TrimDetail) => !t.isNotApplicable)
       .reduce((sum: number, t: TrimDetail) => sum + (t.trimTotal || 0), 0);
-    const cmtTotal = Object.values(cmtCosts).reduce((sum: number, c) => sum + (c as number || 0), 0);
+    const cmtTotal = Object.values(cmtCosts).reduce((sum: number, c) => sum + ((c as number) || 0), 0);
     const embroideryTotal = embroideryDetails
       .filter((e: EmbroideryDetail) => !e.isNotApplicable)
       .reduce((sum: number, e: EmbroideryDetail) => sum + (e.embroideryTotal || 0), 0);
@@ -748,10 +748,14 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       }),
       cmtTotal,
 
-      ...(validatedData.embroideryDetails && { embroideryDetails: JSON.parse(JSON.stringify(validatedData.embroideryDetails)) }),
+      ...(validatedData.embroideryDetails && {
+        embroideryDetails: JSON.parse(JSON.stringify(validatedData.embroideryDetails)),
+      }),
       embroideryTotal,
 
-      ...(validatedData.accessoriesDetails && { accessoriesDetails: JSON.parse(JSON.stringify(validatedData.accessoriesDetails)) }),
+      ...(validatedData.accessoriesDetails && {
+        accessoriesDetails: JSON.parse(JSON.stringify(validatedData.accessoriesDetails)),
+      }),
       accessoriesTotal,
 
       ...(validatedData.valueLossPercent !== undefined && { valueLossPercent }),
@@ -812,7 +816,9 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
         orderBy: { updatedAt: 'desc' },
       });
 
-      const currentFabricDetails = validatedData.fabricDetails || parseJsonArray(existingCostSheet.fabricDetails, FabricDetailSchema, 'fabricDetails');
+      const currentFabricDetails =
+        validatedData.fabricDetails ||
+        parseJsonArray(existingCostSheet.fabricDetails, FabricDetailSchema, 'fabricDetails');
       const seenComponents = new Set<string>();
       const fabricItemsToCreate: any[] = [];
 
@@ -901,7 +907,7 @@ export const deleteCostSheet = async (req: Request, res: Response): Promise<void
     if (costSheet.isApproved) {
       res.status(400).json({
         error: 'Cannot delete approved cost sheet',
-        message: 'Approved cost sheets cannot be deleted for audit purposes'
+        message: 'Approved cost sheets cannot be deleted for audit purposes',
       });
       return;
     }

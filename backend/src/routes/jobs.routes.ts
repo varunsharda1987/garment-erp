@@ -27,9 +27,7 @@ const router = Router();
 router.get('/status', authenticateToken, (req: Request, res: Response) => {
   res.json({
     available: isQueueAvailable(),
-    message: isQueueAvailable()
-      ? 'Job queue is running'
-      : 'Job queue is not available (Redis not configured)',
+    message: isQueueAvailable() ? 'Job queue is running' : 'Job queue is not available (Redis not configured)',
   });
 });
 
@@ -87,19 +85,23 @@ router.get(
  *       404:
  *         description: Job not found
  */
-router.get('/:jobId', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
-  const { jobId } = req.params;
-  const status = await getJobStatus(jobId);
+router.get(
+  '/:jobId',
+  authenticateToken,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { jobId } = req.params;
+    const status = await getJobStatus(jobId);
 
-  if (!status) {
-    throw new NotFoundError('Job', jobId);
-  }
+    if (!status) {
+      throw new NotFoundError('Job', jobId);
+    }
 
-  res.json({
-    jobId,
-    ...status,
-  });
-}));
+    res.json({
+      jobId,
+      ...status,
+    });
+  })
+);
 
 /**
  * @swagger

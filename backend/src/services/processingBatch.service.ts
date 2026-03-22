@@ -699,14 +699,8 @@ class ProcessingBatchService {
 
     const summary = {
       totalBatches: activeLaceBatches.length,
-      totalQuantityInProcess: activeLaceBatches.reduce(
-        (sum, b) => sum + Number(b.quantityInProcess),
-        0
-      ),
-      totalQuantityInTransit: activeLaceBatches.reduce(
-        (sum, b) => sum + Number(b.quantityInTransit),
-        0
-      ),
+      totalQuantityInProcess: activeLaceBatches.reduce((sum, b) => sum + Number(b.quantityInProcess), 0),
+      totalQuantityInTransit: activeLaceBatches.reduce((sum, b) => sum + Number(b.quantityInTransit), 0),
       batches: activeLaceBatches,
     };
 

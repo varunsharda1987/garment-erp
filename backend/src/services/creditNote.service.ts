@@ -31,7 +31,6 @@ interface CreditNoteQueryParams {
 }
 
 export class CreditNoteService {
-
   /**
    * Generate next credit note number (CN-001, CN-002, etc.)
    */

@@ -33,9 +33,7 @@ export class GeminiProvider implements IAIProvider {
       const model = this.client.getGenerativeModel({ model: this.defaultModel });
 
       // Combine system prompt and user prompt
-      const fullPrompt = request.systemPrompt
-        ? `${request.systemPrompt}\n\n${request.prompt}`
-        : request.prompt;
+      const fullPrompt = request.systemPrompt ? `${request.systemPrompt}\n\n${request.prompt}` : request.prompt;
 
       const result = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
@@ -74,7 +72,9 @@ export class GeminiProvider implements IAIProvider {
         dimensions: result.embedding.values.length,
       };
     } catch (error: unknown) {
-      throw new Error(`Google Gemini generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Google Gemini generateEmbedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -137,15 +137,12 @@ export class GeminiProvider implements IAIProvider {
     }
   }
 
-  async extractStructuredData(
-    request: AIStructuredExtractionRequest
-  ): Promise<AIStructuredExtractionResponse> {
+  async extractStructuredData(request: AIStructuredExtractionRequest): Promise<AIStructuredExtractionResponse> {
     try {
       const model = this.client.getGenerativeModel({ model: this.defaultModel });
 
       const prompt =
-        request.prompt ||
-        `Extract structured data according to the schema: ${JSON.stringify(request.schema)}`;
+        request.prompt || `Extract structured data according to the schema: ${JSON.stringify(request.schema)}`;
       const fullPrompt = `${prompt}\n\nText to extract from:\n${request.text}\n\nRespond with ONLY valid JSON matching the schema, no additional text.`;
 
       const result = await model.generateContent({
@@ -171,7 +168,9 @@ export class GeminiProvider implements IAIProvider {
         confidence: 0.9,
       };
     } catch (error: unknown) {
-      throw new Error(`Google Gemini extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Google Gemini extractStructuredData failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -179,9 +178,7 @@ export class GeminiProvider implements IAIProvider {
     try {
       const model = this.client.getGenerativeModel({ model: this.defaultModel });
 
-      const fullPrompt = request.systemPrompt
-        ? `${request.systemPrompt}\n\n${request.prompt}`
-        : request.prompt;
+      const fullPrompt = request.systemPrompt ? `${request.systemPrompt}\n\n${request.prompt}` : request.prompt;
 
       const result = await model.generateContentStream({
         contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
@@ -198,7 +195,9 @@ export class GeminiProvider implements IAIProvider {
         }
       }
     } catch (error: unknown) {
-      throw new Error(`Google Gemini generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Google Gemini generateTextStream failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 

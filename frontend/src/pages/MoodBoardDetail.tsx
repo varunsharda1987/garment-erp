@@ -5,17 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  LayoutGrid,
-  ArrowLeft,
-  Upload,
-  Type,
-  Palette,
-  Trash2,
-  Settings,
-  ChevronUp,
-  ChevronDown,
-} from 'lucide-react';
+import { LayoutGrid, ArrowLeft, Upload, Type, Palette, Trash2, Settings, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,13 +19,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { moodBoardService } from '@/services/moodBoard.service';
@@ -44,9 +28,21 @@ import type { MoodBoard, MoodBoardItem, MoodBoardStatus } from '@/types/moodBoar
 
 // Preset colors for quick selection
 const PRESET_COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
-  '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f43f5e',
-  '#000000', '#374151', '#6b7280', '#9ca3af', '#ffffff',
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#14b8a6',
+  '#3b82f6',
+  '#6366f1',
+  '#a855f7',
+  '#ec4899',
+  '#f43f5e',
+  '#000000',
+  '#374151',
+  '#6b7280',
+  '#9ca3af',
+  '#ffffff',
 ];
 
 export function MoodBoardDetail() {
@@ -275,9 +271,7 @@ export function MoodBoardDetail() {
     if (!moodBoard) return;
 
     // Update local state immediately
-    setItems((prev) =>
-      prev.map((item) => (item.id === itemId ? { ...item, ...updates } : item))
-    );
+    setItems((prev) => prev.map((item) => (item.id === itemId ? { ...item, ...updates } : item)));
     setHasChanges(true);
 
     // Debounced save to server (simplified - just save immediately for now)
@@ -344,21 +338,13 @@ export function MoodBoardDetail() {
           </Button>
           <div className="flex items-center gap-2">
             <LayoutGrid className="h-5 w-5 text-gray-600" />
-            <span className="font-semibold">
-              {moodBoard ? moodBoard.name : 'New Mood Board'}
-            </span>
-            {moodBoard && (
-              <Badge variant="secondary">{moodBoard.status}</Badge>
-            )}
+            <span className="font-semibold">{moodBoard ? moodBoard.name : 'New Mood Board'}</span>
+            {moodBoard && <Badge variant="secondary">{moodBoard.status}</Badge>}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSettingsOpen(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
             <Settings className="h-4 w-4 mr-1" />
             Settings
           </Button>
@@ -369,13 +355,7 @@ export function MoodBoardDetail() {
       <div className="flex-1 flex">
         {/* Toolbar */}
         <div className="w-16 border-r bg-gray-50 flex flex-col items-center py-4 gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageUpload}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
 
           <Button
             variant="ghost"
@@ -481,13 +461,9 @@ export function MoodBoardDetail() {
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {isNew ? 'Create Mood Board' : 'Mood Board Settings'}
-            </DialogTitle>
+            <DialogTitle>{isNew ? 'Create Mood Board' : 'Mood Board Settings'}</DialogTitle>
             <DialogDescription>
-              {isNew
-                ? 'Give your mood board a name to get started'
-                : 'Update mood board settings'}
+              {isNew ? 'Give your mood board a name to get started' : 'Update mood board settings'}
             </DialogDescription>
           </DialogHeader>
 
@@ -532,10 +508,7 @@ export function MoodBoardDetail() {
                 Cancel
               </Button>
             )}
-            <Button
-              onClick={isNew ? handleCreate : handleUpdateSettings}
-              disabled={saving || !name.trim()}
-            >
+            <Button onClick={isNew ? handleCreate : handleUpdateSettings} disabled={saving || !name.trim()}>
               {saving ? 'Saving...' : isNew ? 'Create' : 'Save'}
             </Button>
           </DialogFooter>

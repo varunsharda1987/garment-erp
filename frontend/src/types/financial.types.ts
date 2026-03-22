@@ -8,7 +8,7 @@ export const AccountType = {
   REVENUE: 'REVENUE',
   EXPENSE: 'EXPENSE',
 } as const;
-export type AccountType = typeof AccountType[keyof typeof AccountType];
+export type AccountType = (typeof AccountType)[keyof typeof AccountType];
 
 export const AccountGroup = {
   CURRENT_ASSET: 'CURRENT_ASSET',
@@ -20,7 +20,7 @@ export const AccountGroup = {
   DIRECT_EXPENSE: 'DIRECT_EXPENSE',
   INDIRECT_EXPENSE: 'INDIRECT_EXPENSE',
 } as const;
-export type AccountGroup = typeof AccountGroup[keyof typeof AccountGroup];
+export type AccountGroup = (typeof AccountGroup)[keyof typeof AccountGroup];
 
 export interface ChartOfAccount {
   id: string;
@@ -58,7 +58,7 @@ export const TaxType = {
   CESS: 'CESS',
   OTHER: 'OTHER',
 } as const;
-export type TaxType = typeof TaxType[keyof typeof TaxType];
+export type TaxType = (typeof TaxType)[keyof typeof TaxType];
 
 export interface TaxMaster {
   id: number;
@@ -125,7 +125,7 @@ export const ExchangeRateType = {
   SELLING: 'SELLING',
   AVERAGE: 'AVERAGE',
 } as const;
-export type ExchangeRateType = typeof ExchangeRateType[keyof typeof ExchangeRateType];
+export type ExchangeRateType = (typeof ExchangeRateType)[keyof typeof ExchangeRateType];
 
 export interface Currency {
   id: number;
@@ -172,7 +172,7 @@ export const CostCenterType = {
   CUSTOMER: 'CUSTOMER',
   OTHER: 'OTHER',
 } as const;
-export type CostCenterType = typeof CostCenterType[keyof typeof CostCenterType];
+export type CostCenterType = (typeof CostCenterType)[keyof typeof CostCenterType];
 
 export interface CostCenter {
   id: number;
@@ -228,7 +228,7 @@ export const BankAccountType = {
   CASH_CREDIT: 'CASH_CREDIT',
   OTHER: 'OTHER',
 } as const;
-export type BankAccountType = typeof BankAccountType[keyof typeof BankAccountType];
+export type BankAccountType = (typeof BankAccountType)[keyof typeof BankAccountType];
 
 export interface BankAccount {
   id: number;

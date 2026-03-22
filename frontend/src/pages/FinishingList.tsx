@@ -20,21 +20,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,10 +33,7 @@ import type {
   FinishingIncomingTransferSlip,
   FinishingStyleSizeSummaryItem,
 } from '@/types/finishing.types';
-import {
-  FinishingStatusLabels,
-  FinishingStatusColors,
-} from '@/types/finishing.types';
+import { FinishingStatusLabels, FinishingStatusColors } from '@/types/finishing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { format } from 'date-fns';
 
@@ -85,7 +69,7 @@ export default function FinishingList() {
           page,
           limit: 20,
           search: search || undefined,
-          status: statusFilter as FinishingStatus || undefined,
+          status: (statusFilter as FinishingStatus) || undefined,
         }),
         finishingSummaryService.getSummary(),
       ]);
@@ -207,9 +191,7 @@ export default function FinishingList() {
   };
 
   const getStatusBadge = (status: FinishingStatus) => (
-    <Badge className={FinishingStatusColors[status]}>
-      {FinishingStatusLabels[status]}
-    </Badge>
+    <Badge className={FinishingStatusColors[status]}>{FinishingStatusLabels[status]}</Badge>
   );
 
   return (
@@ -220,18 +202,11 @@ export default function FinishingList() {
           <CheckSquare className="h-8 w-8 text-purple-600" />
           <div>
             <h1 className="text-2xl font-bold">Finishing</h1>
-            <p className="text-muted-foreground">
-              Manage finishing issues, QC, and packing operations
-            </p>
+            <p className="text-muted-foreground">Manage finishing issues, QC, and packing operations</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <Button asChild>
@@ -259,9 +234,7 @@ export default function FinishingList() {
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Issues
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Issues</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{summary.total}</div>
@@ -269,9 +242,7 @@ export default function FinishingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Pending Receipt
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Pending Receipt</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-gray-600">{summary.pendingReceipt}</div>
@@ -279,9 +250,7 @@ export default function FinishingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    In Progress
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-yellow-600">{summary.inProgress}</div>
@@ -289,9 +258,7 @@ export default function FinishingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Packing
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Packing</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-purple-600">{summary.packing}</div>
@@ -299,9 +266,7 @@ export default function FinishingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Completed
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
@@ -309,14 +274,10 @@ export default function FinishingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Finished
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Finished</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-teal-600">
-                    {summary.totalFinished.toLocaleString()}
-                  </div>
+                  <div className="text-2xl font-bold text-teal-600">{summary.totalFinished.toLocaleString()}</div>
                 </CardContent>
               </Card>
             </div>
@@ -363,9 +324,7 @@ export default function FinishingList() {
                   <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : issues.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No finishing issues found
-                </div>
+                <div className="text-center py-8 text-muted-foreground">No finishing issues found</div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -384,25 +343,17 @@ export default function FinishingList() {
                     {issues.map((issue) => (
                       <TableRow key={issue.id}>
                         <TableCell className="font-medium">{issue.issueNumber}</TableCell>
-                        <TableCell>
-                          {issue.workOrder?.workOrderNumber || '-'}
-                        </TableCell>
+                        <TableCell>{issue.workOrder?.workOrderNumber || '-'}</TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">
-                              {issue.workOrder?.style?.styleCode || '-'}
-                            </div>
+                            <div className="font-medium">{issue.workOrder?.style?.styleCode || '-'}</div>
                             <div className="text-sm text-muted-foreground">
                               {issue.workOrder?.style?.styleName || ''}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {issue.contractor?.name || issue.manager?.name || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(issue.issueDate), 'dd MMM yyyy')}
-                        </TableCell>
+                        <TableCell>{issue.contractor?.name || issue.manager?.name || '-'}</TableCell>
+                        <TableCell>{format(new Date(issue.issueDate), 'dd MMM yyyy')}</TableCell>
                         <TableCell className="text-right">
                           {issue.skuBreakdown?.reduce((sum, sku) => sum + sku.issuedQty, 0) || 0}
                         </TableCell>
@@ -479,12 +430,7 @@ export default function FinishingList() {
                     Page {page} of {totalPages}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page - 1)}
-                      disabled={page === 1}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>
                       <ChevronLeft className="h-4 w-4" />
                       Previous
                     </Button>
@@ -513,9 +459,7 @@ export default function FinishingList() {
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : incomingSlips.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No pending transfer slips from stitching
-            </div>
+            <div className="text-center py-8 text-muted-foreground">No pending transfer slips from stitching</div>
           ) : (
             incomingSlips.map((slip) => (
               <Card key={slip.id}>
@@ -578,9 +522,7 @@ export default function FinishingList() {
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : sizeSummary.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No active finishing issues to display
-            </div>
+            <div className="text-center py-8 text-muted-foreground">No active finishing issues to display</div>
           ) : (
             sizeSummary.map((item) => (
               <Card key={item.workOrderId}>
@@ -589,9 +531,7 @@ export default function FinishingList() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-base font-semibold">{item.styleCode}</span>
-                        {item.styleName && (
-                          <span className="text-sm text-muted-foreground">{item.styleName}</span>
-                        )}
+                        {item.styleName && <span className="text-sm text-muted-foreground">{item.styleName}</span>}
                         <span className="text-sm text-muted-foreground">({item.workOrderNumber})</span>
                         {item.customerName && (
                           <Badge variant="secondary" className="text-xs font-normal">
@@ -600,9 +540,7 @@ export default function FinishingList() {
                         )}
                       </div>
                       {item.orderNumber && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Order: {item.orderNumber}
-                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">Order: {item.orderNumber}</div>
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap shrink-0">
@@ -657,31 +595,21 @@ export default function FinishingList() {
                       {item.sizes.map((size) => (
                         <TableRow key={size.sizeId}>
                           <TableCell className="font-medium">{size.sizeName}</TableCell>
-                          <TableCell className="text-right text-gray-600">
-                            {size.pending || '-'}
-                          </TableCell>
+                          <TableCell className="text-right text-gray-600">{size.pending || '-'}</TableCell>
                           <TableCell className="text-right text-blue-600 font-medium">
                             {size.inProgress || '-'}
                           </TableCell>
                           <TableCell className="text-right text-green-600 font-medium">
                             {size.completed || '-'}
                           </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {size.total}
-                          </TableCell>
+                          <TableCell className="text-right font-bold">{size.total}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-bold border-t-2">
                         <TableCell>Total</TableCell>
-                        <TableCell className="text-right text-gray-600">
-                          {item.totalPending}
-                        </TableCell>
-                        <TableCell className="text-right text-blue-600">
-                          {item.totalInProgress}
-                        </TableCell>
-                        <TableCell className="text-right text-green-600">
-                          {item.totalCompleted}
-                        </TableCell>
+                        <TableCell className="text-right text-gray-600">{item.totalPending}</TableCell>
+                        <TableCell className="text-right text-blue-600">{item.totalInProgress}</TableCell>
+                        <TableCell className="text-right text-green-600">{item.totalCompleted}</TableCell>
                         <TableCell className="text-right">
                           {item.totalPending + item.totalInProgress + item.totalCompleted}
                         </TableCell>

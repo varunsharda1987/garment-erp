@@ -4,13 +4,7 @@
  */
 
 import api from '../lib/api';
-import type {
-  TCSEntry,
-  CreateTCSRequest,
-  TCSQueryParams,
-  TCSListResponse,
-  TCSSummary,
-} from '@/types/tcs.types';
+import type { TCSEntry, CreateTCSRequest, TCSQueryParams, TCSListResponse, TCSSummary } from '@/types/tcs.types';
 
 const BASE_URL = '/tcs';
 

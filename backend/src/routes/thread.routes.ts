@@ -7,7 +7,7 @@ import {
   deleteThread,
   bulkImportThreads,
   downloadTemplate,
-  getThreadStock
+  getThreadStock,
 } from '../controllers/thread.controller';
 import * as threadConversionController from '../controllers/thread-conversion.controller';
 import { authenticateToken } from '../middleware/auth.middleware';

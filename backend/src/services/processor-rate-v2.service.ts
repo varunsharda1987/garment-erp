@@ -159,7 +159,9 @@ export async function getProcessorRateMatrix(
       // Shrinkage fallback: Use rate card shrinkage if set, otherwise fall back to greige master average
       const shrinkagePercent = rc.shrinkagePercent
         ? Number(rc.shrinkagePercent)
-        : (rc.greige.averageShrinkagePercent ? Number(rc.greige.averageShrinkagePercent) : null);
+        : rc.greige.averageShrinkagePercent
+          ? Number(rc.greige.averageShrinkagePercent)
+          : null;
 
       greigeMap.set(greigeId, {
         id: rc.greige.id,
@@ -554,11 +556,15 @@ export async function saveProcessorRateMatrix(
  * Copy rate structure from source processor to target processor
  * For PRINTING, printingType determines which printing sub-type's rates to copy
  */
-export async function copyProcessorRates(
-  input: CopyRatesInput,
-  userId: string
-): Promise<void> {
-  const { sourceProcessorId, targetProcessorId, processingType, printingType, copySlabs, copyRates: copyRatesFlag } = input;
+export async function copyProcessorRates(input: CopyRatesInput, userId: string): Promise<void> {
+  const {
+    sourceProcessorId,
+    targetProcessorId,
+    processingType,
+    printingType,
+    copySlabs,
+    copyRates: copyRatesFlag,
+  } = input;
 
   // Validate printingType for PRINTING
   if (processingType === 'PRINTING' && !printingType) {
@@ -831,7 +837,9 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
   // 3. If neither exists → return null
   const shrinkagePercent = rateCard.shrinkagePercent
     ? Number(rateCard.shrinkagePercent)
-    : (rateCard.greige.averageShrinkagePercent ? Number(rateCard.greige.averageShrinkagePercent) : null);
+    : rateCard.greige.averageShrinkagePercent
+      ? Number(rateCard.greige.averageShrinkagePercent)
+      : null;
 
   return {
     id: rateCard.id,
@@ -858,70 +866,63 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
  */
 export async function getProcessorRateCardSummary(): Promise<ProcessorRateCardSummary> {
   // Run all queries in parallel for efficiency
-  const [
-    processors,
-    slabCounts,
-    rateStats,
-    greigeCounts,
-    slabDetails,
-    lastUpdated,
-    totalGreigeCount,
-  ] = await Promise.all([
-    // 1. Get all DYEING/PRINTING processors
-    getAllDyeingPrintingProcessors(),
+  const [processors, slabCounts, rateStats, greigeCounts, slabDetails, lastUpdated, totalGreigeCount] =
+    await Promise.all([
+      // 1. Get all DYEING/PRINTING processors
+      getAllDyeingPrintingProcessors(),
 
-    // 2. Count slabs per processor/processingType
-    prisma.processor_quantity_slabs.groupBy({
-      by: ['processorId', 'processingType'],
-      where: { isActive: true },
-      _count: { id: true },
-    }),
+      // 2. Count slabs per processor/processingType
+      prisma.processor_quantity_slabs.groupBy({
+        by: ['processorId', 'processingType'],
+        where: { isActive: true },
+        _count: { id: true },
+      }),
 
-    // 3. Get rate statistics per processor/processingType
-    prisma.processor_rate_card.groupBy({
-      by: ['processorId', 'processingType'],
-      where: {
-        isActive: true,
-        greigeId: { not: null },
-        slabId: { not: null },
-      },
-      _count: { id: true },
-      _min: { ratePerMeter: true },
-      _max: { ratePerMeter: true },
-    }),
+      // 3. Get rate statistics per processor/processingType
+      prisma.processor_rate_card.groupBy({
+        by: ['processorId', 'processingType'],
+        where: {
+          isActive: true,
+          greigeId: { not: null },
+          slabId: { not: null },
+        },
+        _count: { id: true },
+        _min: { ratePerMeter: true },
+        _max: { ratePerMeter: true },
+      }),
 
-    // 4. Count unique greiges with rates per processor/processingType
-    prisma.processor_rate_card.groupBy({
-      by: ['processorId', 'processingType', 'greigeId'],
-      where: {
-        isActive: true,
-        greigeId: { not: null },
-        slabId: { not: null },
-      },
-    }),
+      // 4. Count unique greiges with rates per processor/processingType
+      prisma.processor_rate_card.groupBy({
+        by: ['processorId', 'processingType', 'greigeId'],
+        where: {
+          isActive: true,
+          greigeId: { not: null },
+          slabId: { not: null },
+        },
+      }),
 
-    // 5. Get slab labels for each processor/processingType
-    prisma.processor_quantity_slabs.findMany({
-      where: { isActive: true },
-      select: {
-        processorId: true,
-        processingType: true,
-        slabLabel: true,
-        minQuantity: true,
-        maxQuantity: true,
-      },
-      orderBy: { slabOrder: 'asc' },
-    }),
+      // 5. Get slab labels for each processor/processingType
+      prisma.processor_quantity_slabs.findMany({
+        where: { isActive: true },
+        select: {
+          processorId: true,
+          processingType: true,
+          slabLabel: true,
+          minQuantity: true,
+          maxQuantity: true,
+        },
+        orderBy: { slabOrder: 'asc' },
+      }),
 
-    // 6. Get last updated timestamp per processor
-    prisma.processor_rate_card.groupBy({
-      by: ['processorId'],
-      _max: { updatedAt: true },
-    }),
+      // 6. Get last updated timestamp per processor
+      prisma.processor_rate_card.groupBy({
+        by: ['processorId'],
+        _max: { updatedAt: true },
+      }),
 
-    // 7. Total active greige count
-    prisma.greige_master.count({ where: { isActive: true } }),
-  ]);
+      // 7. Total active greige count
+      prisma.greige_master.count({ where: { isActive: true } }),
+    ]);
 
   // Build lookup maps for efficient access
   const slabCountMap = new Map<string, number>();
@@ -998,7 +999,10 @@ export async function getProcessorRateCardSummary(): Promise<ProcessorRateCardSu
   // - NOT_CONFIGURED: No slabs for either DYEING or PRINTING
   // - COMPLETE: Has slabs + any rates defined (for either type)
   // - PARTIAL: Has slabs but no rates
-  function determineStatus(dyeing: ProcessorTypeStats, printing: ProcessorTypeStats): 'NOT_CONFIGURED' | 'PARTIAL' | 'COMPLETE' {
+  function determineStatus(
+    dyeing: ProcessorTypeStats,
+    printing: ProcessorTypeStats
+  ): 'NOT_CONFIGURED' | 'PARTIAL' | 'COMPLETE' {
     const dyeingConfigured = dyeing.slabCount > 0;
     const printingConfigured = printing.slabCount > 0;
 
@@ -1064,9 +1068,7 @@ export async function getProcessorRateCardSummary(): Promise<ProcessorRateCardSu
       }
     }
 
-    const averageCoverage = processorsConfigured > 0
-      ? Math.round(coverageSum / processorsConfigured)
-      : 0;
+    const averageCoverage = processorsConfigured > 0 ? Math.round(coverageSum / processorsConfigured) : 0;
 
     return { totalSlabs, totalRates, processorsConfigured, averageCoverage };
   }
@@ -1325,11 +1327,7 @@ export async function saveLaceRateMatrix(
  * Add a greige lace to processor's rate card
  * Creates empty rate entries for all slabs
  */
-export async function addLaceToProcessor(
-  processorId: string,
-  laceId: string,
-  userId: string
-): Promise<void> {
+export async function addLaceToProcessor(processorId: string, laceId: string, userId: string): Promise<void> {
   // Verify lace exists and is greige
   const lace = await prisma.lace_master.findFirst({
     where: { id: laceId, isGreige: true, isActive: true },
@@ -1378,10 +1376,7 @@ export async function addLaceToProcessor(
  * Remove a greige lace from processor's rate card
  * Deletes all rate entries for this lace
  */
-export async function removeLaceFromProcessor(
-  processorId: string,
-  laceId: string
-): Promise<void> {
+export async function removeLaceFromProcessor(processorId: string, laceId: string): Promise<void> {
   await prisma.processor_rate_card.deleteMany({
     where: {
       processorId,
@@ -1488,7 +1483,9 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
   const totalCost = quantityMeters * ratePerMeter;
   const shrinkagePercent = rateCard.shrinkagePercent
     ? Number(rateCard.shrinkagePercent)
-    : (rateCard.lace.expectedShrinkagePercent ? Number(rateCard.lace.expectedShrinkagePercent) : null);
+    : rateCard.lace.expectedShrinkagePercent
+      ? Number(rateCard.lace.expectedShrinkagePercent)
+      : null;
 
   return {
     ratePerMeter,

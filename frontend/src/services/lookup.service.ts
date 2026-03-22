@@ -15,12 +15,9 @@ import type {
 /**
  * Get lookup values by category
  */
-export const getLookupsByCategory = async (
-  category: string,
-  includeInactive = false
-): Promise<LookupValue[]> => {
+export const getLookupsByCategory = async (category: string, includeInactive = false): Promise<LookupValue[]> => {
   const { data } = await api.get<LookupListResponse>('/lookups', {
-    params: { category, includeInactive }
+    params: { category, includeInactive },
   });
   return data.data;
 };
@@ -44,10 +41,7 @@ export const createLookup = async (request: CreateLookupRequest): Promise<Lookup
 /**
  * Update a lookup value
  */
-export const updateLookup = async (
-  id: string,
-  updates: UpdateLookupRequest
-): Promise<LookupValue> => {
+export const updateLookup = async (id: string, updates: UpdateLookupRequest): Promise<LookupValue> => {
   const { data } = await api.put<{ data: LookupValue; message: string }>(`/lookups/${id}`, updates);
   return data.data;
 };

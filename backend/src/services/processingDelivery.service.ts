@@ -96,9 +96,7 @@ class ProcessingDeliveryService {
     const availableForDelivery = Number(stage.quantitySent) - alreadyDelivered;
 
     if (data.quantityDelivered > availableForDelivery) {
-      throw new Error(
-        `Cannot deliver ${data.quantityDelivered}. Only ${availableForDelivery} available.`
-      );
+      throw new Error(`Cannot deliver ${data.quantityDelivered}. Only ${availableForDelivery} available.`);
     }
 
     const deliveryNumber = await this.generateDeliveryNumber();
@@ -466,13 +464,8 @@ class ProcessingDeliveryService {
     }
 
     // Validate quantities
-    if (
-      data.quantityAccepted + data.quantityRejected !==
-      Number(delivery.quantityDelivered)
-    ) {
-      throw new Error(
-        'Accepted + Rejected quantity must equal delivered quantity'
-      );
+    if (data.quantityAccepted + data.quantityRejected !== Number(delivery.quantityDelivered)) {
+      throw new Error('Accepted + Rejected quantity must equal delivered quantity');
     }
 
     const updatedDelivery = await prisma.processing_delivery.update({
@@ -622,9 +615,7 @@ class ProcessingDeliveryService {
           };
         }
         acc.byStatus[delivery.qualityStatus].count += 1;
-        acc.byStatus[delivery.qualityStatus].quantity += Number(
-          delivery.quantityDelivered
-        );
+        acc.byStatus[delivery.qualityStatus].quantity += Number(delivery.quantityDelivered);
 
         return acc;
       },
@@ -640,8 +631,7 @@ class ProcessingDeliveryService {
 
     // Calculate rejection rate
     if (summary.totalDelivered > 0) {
-      summary.rejectionRate =
-        (summary.totalRejected / summary.totalDelivered) * 100;
+      summary.rejectionRate = (summary.totalRejected / summary.totalDelivered) * 100;
     }
 
     return summary;

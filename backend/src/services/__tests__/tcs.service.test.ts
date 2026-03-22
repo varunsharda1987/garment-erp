@@ -312,7 +312,7 @@ describe('TCSService', () => {
       expect(result.quarterSummary[0].quarter).toBe(1);
       expect(result.quarterSummary[0].count).toBe(2);
       expect(result.quarterSummary[0].totalSaleAmount).toBe(11200000); // 6000000 + 5200000
-      expect(result.quarterSummary[0].totalTCS).toBe(11200);           // 6000 + 5200
+      expect(result.quarterSummary[0].totalTCS).toBe(11200); // 6000 + 5200
       expect(result.quarterSummary[0].deposited).toBe(1);
       expect(result.quarterSummary[0].pending).toBe(1);
 
@@ -342,7 +342,7 @@ describe('TCSService', () => {
       // Grand totals
       expect(result.totalEntries).toBe(5);
       expect(result.totalSaleAmount).toBe(32200000); // sum of all saleAmounts
-      expect(result.totalTCS).toBe(32200);            // sum of all tcsAmounts
+      expect(result.totalTCS).toBe(32200); // sum of all tcsAmounts
     });
 
     it('should return all zeros for empty financial year', async () => {
@@ -397,7 +397,7 @@ describe('TCSService', () => {
 
       expect(result.totalEntries).toBe(4);
       expect(result.totalSaleAmount).toBe(27000000); // 5100000 + 6200000 + 7300000 + 8400000
-      expect(result.totalTCS).toBe(27000);            // 5100 + 6200 + 7300 + 8400
+      expect(result.totalTCS).toBe(27000); // 5100 + 6200 + 7300 + 8400
     });
 
     it('should query with correct financialYear filter and ordering', async () => {

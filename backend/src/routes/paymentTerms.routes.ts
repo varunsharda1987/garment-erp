@@ -10,7 +10,11 @@ import {
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
-import { createPaymentTermSchema, updatePaymentTermSchema, paymentTermQuerySchema } from '../schemas/paymentTerms.schema';
+import {
+  createPaymentTermSchema,
+  updatePaymentTermSchema,
+  paymentTermQuerySchema,
+} from '../schemas/paymentTerms.schema';
 
 const router = express.Router();
 

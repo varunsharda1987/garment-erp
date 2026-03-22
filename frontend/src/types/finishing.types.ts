@@ -6,12 +6,7 @@
 // Status Enums
 // ============================================
 
-export type FinishingStatus =
-  | 'PENDING_RECEIPT'
-  | 'RECEIVED'
-  | 'IN_PROGRESS'
-  | 'PACKING'
-  | 'COMPLETED';
+export type FinishingStatus = 'PENDING_RECEIPT' | 'RECEIVED' | 'IN_PROGRESS' | 'PACKING' | 'COMPLETED';
 
 export const FinishingStatusLabels: Record<FinishingStatus, string> = {
   PENDING_RECEIPT: 'Pending Receipt',

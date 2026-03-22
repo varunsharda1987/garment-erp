@@ -72,9 +72,9 @@ export default function StockLevelList() {
         // Apply search filter client-side if needed
         if (searchTerm) {
           const search = searchTerm.toLowerCase();
-          data = data.filter((sl: StockLevel) =>
-            sl.materials?.code?.toLowerCase().includes(search) ||
-            sl.materials?.name?.toLowerCase().includes(search)
+          data = data.filter(
+            (sl: StockLevel) =>
+              sl.materials?.code?.toLowerCase().includes(search) || sl.materials?.name?.toLowerCase().includes(search)
           );
         }
       } else if (showLowStockOnly) {
@@ -82,7 +82,7 @@ export default function StockLevelList() {
       } else {
         data = await stockLevelService.getAll({
           warehouseId: warehouseFilter !== 'all' ? warehouseFilter : undefined,
-          search: searchTerm || undefined
+          search: searchTerm || undefined,
         });
       }
       setStockLevels(data);
@@ -115,25 +115,17 @@ export default function StockLevelList() {
     {
       key: 'code',
       header: 'Material Code',
-      render: (stock) => (
-        <div className="font-medium text-gray-900">{stock.materials?.code}</div>
-      ),
+      render: (stock) => <div className="font-medium text-gray-900">{stock.materials?.code}</div>,
     },
     {
       key: 'name',
       header: 'Material Name',
-      render: (stock) => (
-        <div className="text-sm text-gray-900">{stock.materials?.name}</div>
-      ),
+      render: (stock) => <div className="text-sm text-gray-900">{stock.materials?.name}</div>,
     },
     {
       key: 'materialType',
       header: 'Type',
-      render: (stock) => (
-        <Badge variant="outline">
-          {formatMaterialType(stock.materials?.materialType || '')}
-        </Badge>
-      ),
+      render: (stock) => <Badge variant="outline">{formatMaterialType(stock.materials?.materialType || '')}</Badge>,
     },
     {
       key: 'warehouse',
@@ -165,11 +157,7 @@ export default function StockLevelList() {
       header: 'Valuation Rate',
       headerClassName: 'text-right',
       className: 'text-right',
-      render: (stock) => (
-        <div className="text-sm text-gray-900">
-          ₹{Number(stock.valuationRate).toFixed(2)}
-        </div>
-      ),
+      render: (stock) => <div className="text-sm text-gray-900">₹{Number(stock.valuationRate).toFixed(2)}</div>,
     },
     {
       key: 'stockValue',
@@ -177,9 +165,7 @@ export default function StockLevelList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (stock) => (
-        <div className="font-medium text-gray-900">
-          ₹{Number(stock.stockValue).toLocaleString('en-IN')}
-        </div>
+        <div className="font-medium text-gray-900">₹{Number(stock.stockValue).toLocaleString('en-IN')}</div>
       ),
     },
     {
@@ -188,9 +174,7 @@ export default function StockLevelList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (stock) => (
-        <div className="text-sm text-gray-700">
-          {stock.reorderLevel ? Number(stock.reorderLevel).toFixed(2) : '-'}
-        </div>
+        <div className="text-sm text-gray-700">{stock.reorderLevel ? Number(stock.reorderLevel).toFixed(2) : '-'}</div>
       ),
     },
     {
@@ -228,7 +212,10 @@ export default function StockLevelList() {
           <Package className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             <span>
-              Showing stock for: <Badge variant="secondary" className="ml-2">{formatMaterialType(materialTypeFilter)}</Badge>
+              Showing stock for:{' '}
+              <Badge variant="secondary" className="ml-2">
+                {formatMaterialType(materialTypeFilter)}
+              </Badge>
             </span>
             <Button
               variant="ghost"
@@ -251,11 +238,7 @@ export default function StockLevelList() {
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
               <Label htmlFor="search">Search Material</Label>
-              <SearchInput
-                value={searchTerm}
-                onChange={setSearchTerm}
-                placeholder="Search materials..."
-              />
+              <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search materials..." />
             </div>
             <div className="w-64">
               <Label htmlFor="materialTypeFilter">Material Type</Label>
@@ -314,11 +297,12 @@ export default function StockLevelList() {
           emptyState={{
             icon: <Package className="h-16 w-16" />,
             title: showLowStockOnly ? 'No low stock items' : 'No stock levels found',
-            description: searchTerm || warehouseFilter
-              ? 'Try adjusting your search or filter criteria'
-              : showLowStockOnly
-              ? 'All materials are adequately stocked'
-              : 'Stock levels will appear here once materials are added to warehouses',
+            description:
+              searchTerm || warehouseFilter
+                ? 'Try adjusting your search or filter criteria'
+                : showLowStockOnly
+                  ? 'All materials are adequately stocked'
+                  : 'Stock levels will appear here once materials are added to warehouses',
           }}
         />
       </Card>

@@ -48,9 +48,10 @@ export function transformResponse(req: Request, res: Response, next: NextFunctio
         return originalJson({
           success: false,
           error: 'Internal server error during response transformation',
-          message: process.env.NODE_ENV === 'development'
-            ? (transformError as Error).message
-            : 'An error occurred while processing the response',
+          message:
+            process.env.NODE_ENV === 'development'
+              ? (transformError as Error).message
+              : 'An error occurred while processing the response',
         });
       }
       // If headers already sent, we can't send an error response

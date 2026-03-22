@@ -34,10 +34,7 @@ class StockLevelService {
     }
 
     if (filters?.belowReorderLevel) {
-      where.AND = [
-        { reorderLevel: { not: null } },
-        { quantity: { lte: prisma.stock_levels.fields.reorderLevel } },
-      ];
+      where.AND = [{ reorderLevel: { not: null } }, { quantity: { lte: prisma.stock_levels.fields.reorderLevel } }];
     }
 
     if (filters?.search) {
@@ -279,13 +276,7 @@ class StockLevelService {
   /**
    * Increase stock level (internal use by stock movement service)
    */
-  async increaseStock(
-    materialId: string,
-    warehouseId: string,
-    quantity: Decimal,
-    unit: Unit,
-    rate?: Decimal
-  ) {
+  async increaseStock(materialId: string, warehouseId: string, quantity: Decimal, unit: Unit, rate?: Decimal) {
     const existing = await this.getStockLevel(materialId, warehouseId);
 
     if (existing) {
@@ -297,9 +288,7 @@ class StockLevelService {
       let newStockValue = existing.stockValue;
 
       if (rate) {
-        const oldValue = existing.stockValue
-          ? new Decimal(existing.stockValue.toString())
-          : new Decimal(0);
+        const oldValue = existing.stockValue ? new Decimal(existing.stockValue.toString()) : new Decimal(0);
         const newValue = new Decimal(quantity.toString()).mul(rate.toString());
         const totalValue = oldValue.add(newValue);
         newValuationRate = totalValue.div(newQuantity);
@@ -339,11 +328,7 @@ class StockLevelService {
   /**
    * Decrease stock level (internal use by stock movement service)
    */
-  async decreaseStock(
-    materialId: string,
-    warehouseId: string,
-    quantity: Decimal
-  ) {
+  async decreaseStock(materialId: string, warehouseId: string, quantity: Decimal) {
     const existing = await this.getStockLevel(materialId, warehouseId);
 
     if (!existing) {
@@ -354,9 +339,7 @@ class StockLevelService {
     const decreaseQty = new Decimal(quantity.toString());
 
     if (currentQty.lt(decreaseQty)) {
-      throw new Error(
-        `Insufficient stock. Available: ${currentQty}, Requested: ${decreaseQty}`
-      );
+      throw new Error(`Insufficient stock. Available: ${currentQty}, Requested: ${decreaseQty}`);
     }
 
     const newQuantity = currentQty.sub(decreaseQty);
@@ -364,9 +347,7 @@ class StockLevelService {
     // Update stock value proportionally
     let newStockValue = existing.stockValue;
     if (existing.stockValue && existing.valuationRate) {
-      newStockValue = new Decimal(newQuantity.toString()).mul(
-        existing.valuationRate.toString()
-      );
+      newStockValue = new Decimal(newQuantity.toString()).mul(existing.valuationRate.toString());
     }
 
     const updated = await prisma.stock_levels.update({
@@ -454,9 +435,7 @@ class StockLevelService {
 
     const now = new Date();
     const aging = stockLevels.map((level) => {
-      const daysSinceUpdate = Math.floor(
-        (now.getTime() - level.lastUpdated.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const daysSinceUpdate = Math.floor((now.getTime() - level.lastUpdated.getTime()) / (1000 * 60 * 60 * 24));
 
       let ageCategory = '0-30 days';
       if (daysSinceUpdate > 180) ageCategory = '180+ days';

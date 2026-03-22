@@ -18,14 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Loader2,
   ShoppingCart,
@@ -110,15 +103,13 @@ export default function BulkPOGenerationDialog({
       defaultDate.setDate(defaultDate.getDate() + 14);
       const dateString = defaultDate.toISOString().split('T')[0];
 
-      const groups: SupplierGroup[] = Object.entries(result.groups).map(
-        ([supplierId, requirements]) => ({
-          supplierId,
-          supplierName: requirements[0]?.preferredSupplier?.name || 'Unknown Supplier',
-          requirements,
-          deliveryDate: dateString,
-          remarks: '',
-        })
-      );
+      const groups: SupplierGroup[] = Object.entries(result.groups).map(([supplierId, requirements]) => ({
+        supplierId,
+        supplierName: requirements[0]?.preferredSupplier?.name || 'Unknown Supplier',
+        requirements,
+        deliveryDate: dateString,
+        remarks: '',
+      }));
 
       setSupplierGroups(groups);
     } catch (err) {
@@ -130,18 +121,12 @@ export default function BulkPOGenerationDialog({
 
   const handleDeliveryDateChange = (supplierId: string, date: string) => {
     setSupplierGroups((prev) =>
-      prev.map((group) =>
-        group.supplierId === supplierId ? { ...group, deliveryDate: date } : group
-      )
+      prev.map((group) => (group.supplierId === supplierId ? { ...group, deliveryDate: date } : group))
     );
   };
 
   const handleRemarksChange = (supplierId: string, remarks: string) => {
-    setSupplierGroups((prev) =>
-      prev.map((group) =>
-        group.supplierId === supplierId ? { ...group, remarks } : group
-      )
-    );
+    setSupplierGroups((prev) => prev.map((group) => (group.supplierId === supplierId ? { ...group, remarks } : group)));
   };
 
   const calculateTotal = (requirements: MaterialRequirement[]): number => {
@@ -204,38 +189,46 @@ export default function BulkPOGenerationDialog({
   }, []);
 
   // Recalculate GST for an item based on edited price
-  const getRecalculatedItem = useCallback((group: POPreviewGroup, item: POPreviewItem): POPreviewItem => {
-    const price = editedPrices[group.supplierId]?.[item.materialId] ?? item.unitPrice;
-    const lineTotal = item.quantity * price;
-    const gstRate = item.gstRate;
+  const getRecalculatedItem = useCallback(
+    (group: POPreviewGroup, item: POPreviewItem): POPreviewItem => {
+      const price = editedPrices[group.supplierId]?.[item.materialId] ?? item.unitPrice;
+      const lineTotal = item.quantity * price;
+      const gstRate = item.gstRate;
 
-    let cgstRate = 0, cgstAmount = 0, sgstRate = 0, sgstAmount = 0, igstRate = 0, igstAmount = 0;
-    if (group.isInterstate) {
-      igstRate = gstRate;
-      igstAmount = parseFloat(((lineTotal * gstRate) / 100).toFixed(2));
-    } else {
-      cgstRate = gstRate / 2;
-      sgstRate = gstRate / 2;
-      cgstAmount = parseFloat(((lineTotal * cgstRate) / 100).toFixed(2));
-      sgstAmount = parseFloat(((lineTotal * sgstRate) / 100).toFixed(2));
-    }
-    const taxAmount = cgstAmount + sgstAmount + igstAmount;
+      let cgstRate = 0,
+        cgstAmount = 0,
+        sgstRate = 0,
+        sgstAmount = 0,
+        igstRate = 0,
+        igstAmount = 0;
+      if (group.isInterstate) {
+        igstRate = gstRate;
+        igstAmount = parseFloat(((lineTotal * gstRate) / 100).toFixed(2));
+      } else {
+        cgstRate = gstRate / 2;
+        sgstRate = gstRate / 2;
+        cgstAmount = parseFloat(((lineTotal * cgstRate) / 100).toFixed(2));
+        sgstAmount = parseFloat(((lineTotal * sgstRate) / 100).toFixed(2));
+      }
+      const taxAmount = cgstAmount + sgstAmount + igstAmount;
 
-    return {
-      ...item,
-      unitPrice: price,
-      lineTotal,
-      cgstRate,
-      cgstAmount,
-      sgstRate,
-      sgstAmount,
-      igstRate,
-      igstAmount,
-      taxAmount,
-      totalWithTax: lineTotal + taxAmount,
-      priceRequired: price <= 0,
-    };
-  }, [editedPrices]);
+      return {
+        ...item,
+        unitPrice: price,
+        lineTotal,
+        cgstRate,
+        cgstAmount,
+        sgstRate,
+        sgstAmount,
+        igstRate,
+        igstAmount,
+        taxAmount,
+        totalWithTax: lineTotal + taxAmount,
+        priceRequired: price <= 0,
+      };
+    },
+    [editedPrices]
+  );
 
   // Check if any group has zero price items
   const hasAnyZeroPriceItems = useCallback((): boolean => {
@@ -249,30 +242,33 @@ export default function BulkPOGenerationDialog({
   }, [previewData, editedPrices]);
 
   // Calculate group totals from edited prices
-  const getGroupTotals = useCallback((group: POPreviewGroup) => {
-    let subtotal = 0;
-    let totalCgst = 0;
-    let totalSgst = 0;
-    let totalIgst = 0;
+  const getGroupTotals = useCallback(
+    (group: POPreviewGroup) => {
+      let subtotal = 0;
+      let totalCgst = 0;
+      let totalSgst = 0;
+      let totalIgst = 0;
 
-    for (const item of group.items) {
-      const recalc = getRecalculatedItem(group, item);
-      subtotal += recalc.lineTotal;
-      totalCgst += recalc.cgstAmount;
-      totalSgst += recalc.sgstAmount;
-      totalIgst += recalc.igstAmount;
-    }
+      for (const item of group.items) {
+        const recalc = getRecalculatedItem(group, item);
+        subtotal += recalc.lineTotal;
+        totalCgst += recalc.cgstAmount;
+        totalSgst += recalc.sgstAmount;
+        totalIgst += recalc.igstAmount;
+      }
 
-    const totalTax = totalCgst + totalSgst + totalIgst;
-    return {
-      subtotal: parseFloat(subtotal.toFixed(2)),
-      totalCgst: parseFloat(totalCgst.toFixed(2)),
-      totalSgst: parseFloat(totalSgst.toFixed(2)),
-      totalIgst: parseFloat(totalIgst.toFixed(2)),
-      totalTax: parseFloat(totalTax.toFixed(2)),
-      grandTotal: parseFloat((subtotal + totalTax).toFixed(2)),
-    };
-  }, [getRecalculatedItem]);
+      const totalTax = totalCgst + totalSgst + totalIgst;
+      return {
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        totalCgst: parseFloat(totalCgst.toFixed(2)),
+        totalSgst: parseFloat(totalSgst.toFixed(2)),
+        totalIgst: parseFloat(totalIgst.toFixed(2)),
+        totalTax: parseFloat(totalTax.toFixed(2)),
+        grandTotal: parseFloat((subtotal + totalTax).toFixed(2)),
+      };
+    },
+    [getRecalculatedItem]
+  );
 
   // Step 2 → Generate
   const handleGenerate = async () => {
@@ -327,9 +323,7 @@ export default function BulkPOGenerationDialog({
               <ShoppingCart className="h-6 w-6 text-green-600" />
             </div>
             <div>
-              <DialogTitle>
-                {step === 'grouping' ? 'Bulk PO Generation' : 'Review Prices & GST'}
-              </DialogTitle>
+              <DialogTitle>{step === 'grouping' ? 'Bulk PO Generation' : 'Review Prices & GST'}</DialogTitle>
               <DialogDescription className="mt-1">
                 {step === 'grouping'
                   ? `Step 1: Configure ${requirementIds.length} requirement(s) for PO generation`
@@ -356,27 +350,21 @@ export default function BulkPOGenerationDialog({
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
                         <Package className="h-4 w-4 text-blue-600" />
-                        <div className="text-2xl font-bold text-blue-700">
-                          {groupedData.summary.totalRequirements}
-                        </div>
+                        <div className="text-2xl font-bold text-blue-700">{groupedData.summary.totalRequirements}</div>
                       </div>
                       <div className="text-xs text-blue-600">Total Requirements</div>
                     </div>
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
                         <Users className="h-4 w-4 text-green-600" />
-                        <div className="text-2xl font-bold text-green-700">
-                          {groupedData.summary.totalSuppliers}
-                        </div>
+                        <div className="text-2xl font-bold text-green-700">{groupedData.summary.totalSuppliers}</div>
                       </div>
                       <div className="text-xs text-green-600">Suppliers</div>
                     </div>
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
                         <AlertCircle className="h-4 w-4 text-orange-600" />
-                        <div className="text-2xl font-bold text-orange-700">
-                          {groupedData.summary.unassignedCount}
-                        </div>
+                        <div className="text-2xl font-bold text-orange-700">{groupedData.summary.unassignedCount}</div>
                       </div>
                       <div className="text-xs text-orange-600">Unassigned</div>
                     </div>
@@ -387,8 +375,8 @@ export default function BulkPOGenerationDialog({
                   <Alert variant="destructive" className="mb-4">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
-                      {groupedData.unassigned.length} requirement(s) have no assigned vendor. Please
-                      use "Assign Vendors" to assign suppliers before generating POs.
+                      {groupedData.unassigned.length} requirement(s) have no assigned vendor. Please use "Assign
+                      Vendors" to assign suppliers before generating POs.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -408,9 +396,7 @@ export default function BulkPOGenerationDialog({
                               <Sparkles className="h-4 w-4 text-primary" />
                               {group.supplierName}
                             </CardTitle>
-                            <div className="text-sm text-muted-foreground">
-                              {group.requirements.length} item(s)
-                            </div>
+                            <div className="text-sm text-muted-foreground">{group.requirements.length} item(s)</div>
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
@@ -427,31 +413,23 @@ export default function BulkPOGenerationDialog({
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-2">
-                              <Label htmlFor={`delivery-${group.supplierId}`}>
-                                Expected Delivery Date *
-                              </Label>
+                              <Label htmlFor={`delivery-${group.supplierId}`}>Expected Delivery Date *</Label>
                               <Input
                                 id={`delivery-${group.supplierId}`}
                                 type="date"
                                 value={group.deliveryDate}
-                                onChange={(e) =>
-                                  handleDeliveryDateChange(group.supplierId, e.target.value)
-                                }
+                                onChange={(e) => handleDeliveryDateChange(group.supplierId, e.target.value)}
                                 min={new Date().toISOString().split('T')[0]}
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor={`remarks-${group.supplierId}`}>
-                                Remarks (Optional)
-                              </Label>
+                              <Label htmlFor={`remarks-${group.supplierId}`}>Remarks (Optional)</Label>
                               <Input
                                 id={`remarks-${group.supplierId}`}
                                 type="text"
                                 placeholder="Special instructions..."
                                 value={group.remarks}
-                                onChange={(e) =>
-                                  handleRemarksChange(group.supplierId, e.target.value)
-                                }
+                                onChange={(e) => handleRemarksChange(group.supplierId, e.target.value)}
                               />
                             </div>
                           </div>
@@ -505,9 +483,7 @@ export default function BulkPOGenerationDialog({
                         <CardTitle className="text-base flex items-center gap-2">
                           <Sparkles className="h-4 w-4 text-primary" />
                           {group.supplierName}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            ({group.supplierCode})
-                          </span>
+                          <span className="text-xs font-normal text-muted-foreground">({group.supplierCode})</span>
                         </CardTitle>
                         <div className="flex items-center gap-2">
                           {group.isInterstate ? (
@@ -542,11 +518,7 @@ export default function BulkPOGenerationDialog({
                               const recalc = getRecalculatedItem(group, item);
                               const currentPrice = editedPrices[group.supplierId]?.[item.materialId] ?? item.unitPrice;
                               const isZeroPrice = currentPrice <= 0;
-                              const rowClass = item.isGreige
-                                ? 'bg-orange-50'
-                                : isZeroPrice
-                                ? 'bg-red-50'
-                                : '';
+                              const rowClass = item.isGreige ? 'bg-orange-50' : isZeroPrice ? 'bg-red-50' : '';
 
                               return (
                                 <TableRow key={item.materialId} className={rowClass}>
@@ -561,9 +533,7 @@ export default function BulkPOGenerationDialog({
                                       </span>
                                     )}
                                   </TableCell>
-                                  <TableCell className="text-xs text-muted-foreground">
-                                    {item.hsnCode || '-'}
-                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
                                   <TableCell className="text-xs text-right font-mono">
                                     {item.quantity.toLocaleString('en-IN', { maximumFractionDigits: 3 })}
                                   </TableCell>
@@ -582,9 +552,7 @@ export default function BulkPOGenerationDialog({
                                       }
                                     />
                                   </TableCell>
-                                  <TableCell className="text-xs text-right font-mono">
-                                    {recalc.gstRate}%
-                                  </TableCell>
+                                  <TableCell className="text-xs text-right font-mono">{recalc.gstRate}%</TableCell>
                                   <TableCell className="text-xs text-right font-mono">
                                     {formatCurrency(recalc.taxAmount)}
                                   </TableCell>
@@ -643,18 +611,11 @@ export default function BulkPOGenerationDialog({
             )}
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setStep('grouping')}
-                disabled={isGenerating}
-              >
+              <Button variant="outline" onClick={() => setStep('grouping')} disabled={isGenerating}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || hasAnyZeroPriceItems()}
-              >
+              <Button onClick={handleGenerate} disabled={isGenerating || hasAnyZeroPriceItems()}>
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />

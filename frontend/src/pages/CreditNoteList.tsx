@@ -7,12 +7,25 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { creditNoteService } from '@/services/creditNote.service';
 import api from '@/lib/api';
-import type { CreditNote, CreditNoteQueryParams, DocumentStatus, CreditNoteReason, CreateCreditNoteRequest } from '@/types/creditNote.types';
+import type {
+  CreditNote,
+  CreditNoteQueryParams,
+  DocumentStatus,
+  CreditNoteReason,
+  CreateCreditNoteRequest,
+} from '@/types/creditNote.types';
 import { CreditNoteReasonLabels, DocumentStatusLabels, DocumentStatusColors } from '@/types/creditNote.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -178,9 +191,7 @@ export default function CreditNoteList() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Credit Notes</h1>
-            <p className="text-sm text-gray-500">
-              Manage credit notes issued against customer invoices
-            </p>
+            <p className="text-sm text-gray-500">Manage credit notes issued against customer invoices</p>
           </div>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2">
@@ -231,11 +242,7 @@ export default function CreditNoteList() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No credit notes found</p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setCreateOpen(true)}
-              >
+              <Button variant="outline" className="mt-4" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Create your first credit note
               </Button>
@@ -257,42 +264,26 @@ export default function CreditNoteList() {
                 </TableHeader>
                 <TableBody>
                   {creditNotes.map((cn) => (
-                    <TableRow
-                      key={cn.id}
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/credit-notes/${cn.id}`)}
-                    >
-                      <TableCell className="font-mono text-sm font-medium">
-                        {cn.creditNoteNumber}
-                      </TableCell>
+                    <TableRow key={cn.id} className="cursor-pointer" onClick={() => navigate(`/credit-notes/${cn.id}`)}>
+                      <TableCell className="font-mono text-sm font-medium">{cn.creditNoteNumber}</TableCell>
                       <TableCell>
                         <div className="text-sm font-medium">
                           {cn.customer?.billingName || cn.customer?.name || '-'}
                         </div>
-                        {cn.customer?.code && (
-                          <div className="text-xs text-muted-foreground">{cn.customer.code}</div>
-                        )}
+                        {cn.customer?.code && <div className="text-xs text-muted-foreground">{cn.customer.code}</div>}
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-blue-600">
-                          {cn.invoice?.invoiceNumber || '-'}
-                        </span>
+                        <span className="text-sm text-blue-600">{cn.invoice?.invoiceNumber || '-'}</span>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {formatDate(cn.creditNoteDate)}
-                      </TableCell>
+                      <TableCell className="text-sm">{formatDate(cn.creditNoteDate)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
                           {CreditNoteReasonLabels[cn.reason] || cn.reason}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium text-sm">
-                        {formatCurrency(cn.totalAmount)}
-                      </TableCell>
+                      <TableCell className="text-right font-medium text-sm">{formatCurrency(cn.totalAmount)}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusBadgeClasses(cn.status)}>
-                          {DocumentStatusLabels[cn.status]}
-                        </Badge>
+                        <Badge className={getStatusBadgeClasses(cn.status)}>{DocumentStatusLabels[cn.status]}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
@@ -306,28 +297,13 @@ export default function CreditNoteList() {
                           </Button>
                           {cn.status === 'DRAFT' && (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Approve"
-                                onClick={() => setApproveTarget(cn)}
-                              >
+                              <Button variant="ghost" size="icon" title="Approve" onClick={() => setApproveTarget(cn)}>
                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Cancel"
-                                onClick={() => setCancelTarget(cn)}
-                              >
+                              <Button variant="ghost" size="icon" title="Cancel" onClick={() => setCancelTarget(cn)}>
                                 <XCircle className="h-4 w-4 text-orange-500" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Delete"
-                                onClick={() => setDeleteTarget(cn)}
-                              >
+                              <Button variant="ghost" size="icon" title="Delete" onClick={() => setDeleteTarget(cn)}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </>
@@ -376,30 +352,42 @@ export default function CreditNoteList() {
 
       <ConfirmDialog
         open={!!approveTarget}
-        onOpenChange={(open) => { if (!open) setApproveTarget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setApproveTarget(null);
+        }}
         title="Approve Credit Note"
         description={`Are you sure you want to approve credit note ${approveTarget?.creditNoteNumber}? This will finalise the document.`}
         confirmText={approveMutation.isPending ? 'Approving...' : 'Approve'}
-        onConfirm={() => { if (approveTarget) approveMutation.mutate(approveTarget.id); }}
+        onConfirm={() => {
+          if (approveTarget) approveMutation.mutate(approveTarget.id);
+        }}
       />
 
       <ConfirmDialog
         open={!!cancelTarget}
-        onOpenChange={(open) => { if (!open) setCancelTarget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setCancelTarget(null);
+        }}
         title="Cancel Credit Note"
         description={`Are you sure you want to cancel credit note ${cancelTarget?.creditNoteNumber}? This action cannot be undone.`}
         confirmText={cancelMutation.isPending ? 'Cancelling...' : 'Cancel Credit Note'}
-        onConfirm={() => { if (cancelTarget) cancelMutation.mutate(cancelTarget.id); }}
+        onConfirm={() => {
+          if (cancelTarget) cancelMutation.mutate(cancelTarget.id);
+        }}
         variant="destructive"
       />
 
       <ConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
         title="Delete Credit Note"
         description={`Are you sure you want to delete credit note ${deleteTarget?.creditNoteNumber}? This action cannot be undone.`}
         confirmText={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-        onConfirm={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget.id); }}
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+        }}
         variant="destructive"
       />
 
@@ -491,9 +479,7 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
   };
 
   const updateLineItem = (index: number, field: keyof CreditNoteLineItem, value: string | number) => {
-    setLineItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
-    );
+    setLineItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   };
 
   const removeLineItem = (index: number) => {
@@ -532,9 +518,7 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Credit Note</DialogTitle>
-          <DialogDescription>
-            Issue a credit note against an existing customer invoice.
-          </DialogDescription>
+          <DialogDescription>Issue a credit note against an existing customer invoice.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -544,9 +528,7 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
             {selectedInvoice ? (
               <div className="flex items-center justify-between rounded-md border p-3 bg-muted/30">
                 <div>
-                  <span className="font-mono font-medium text-sm">
-                    {selectedInvoice.invoiceNumber}
-                  </span>
+                  <span className="font-mono font-medium text-sm">{selectedInvoice.invoiceNumber}</span>
                   <span className="mx-2 text-muted-foreground">-</span>
                   <span className="text-sm">
                     {selectedInvoice.customers?.billingName || selectedInvoice.customers?.name || 'N/A'}
@@ -688,12 +670,7 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
                             {formatCurrency(item.quantity * item.unitPrice)}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => removeLineItem(idx)}
-                            >
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLineItem(idx)}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
                             </Button>
                           </TableCell>

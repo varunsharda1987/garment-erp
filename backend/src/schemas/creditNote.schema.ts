@@ -14,11 +14,7 @@ export const CreditNoteReasonEnum = z.enum([
 /**
  * DocumentStatus Enum - matches Prisma DocumentStatus enum
  */
-export const DocumentStatusEnum = z.enum([
-  'DRAFT',
-  'APPROVED',
-  'CANCELLED',
-]);
+export const DocumentStatusEnum = z.enum(['DRAFT', 'APPROVED', 'CANCELLED']);
 
 /**
  * Credit Note Item Schema
@@ -45,9 +41,7 @@ export const createCreditNoteSchema = z.object({
   creditNoteDate: z.string().optional().nullable(),
   reason: CreditNoteReasonEnum,
   remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional().nullable(),
-  items: z
-    .array(creditNoteItemSchema)
-    .min(1, 'At least one item is required'),
+  items: z.array(creditNoteItemSchema).min(1, 'At least one item is required'),
 });
 
 /**

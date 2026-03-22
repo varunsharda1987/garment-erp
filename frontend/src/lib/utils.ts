@@ -1,8 +1,8 @@
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 /**
@@ -26,7 +26,10 @@ export function generateId(): string {
  * e.g. "processing" → "PROCESSING", "embroideryService" → "EMBROIDERY_SERVICE"
  */
 export function toUpperSnakeCase(str: string): string {
-  return str.replace(/([A-Z])/g, '_$1').toUpperCase().replace(/^_/, '');
+  return str
+    .replace(/([A-Z])/g, '_$1')
+    .toUpperCase()
+    .replace(/^_/, '');
 }
 
 /**
@@ -35,7 +38,5 @@ export function toUpperSnakeCase(str: string): string {
  * used as Record keys (e.g. { PROCESSING: 1 } → { processing: 1 }).
  */
 export function normalizeEnumRecord(record: Record<string, number>): Record<string, number> {
-  return Object.fromEntries(
-    Object.entries(record).map(([k, v]) => [toUpperSnakeCase(k), v])
-  );
+  return Object.fromEntries(Object.entries(record).map(([k, v]) => [toUpperSnakeCase(k), v]));
 }

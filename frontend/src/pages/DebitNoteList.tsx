@@ -221,14 +221,9 @@ export default function DebitNoteList() {
     setLineItems((prev) => (prev.length <= 1 ? prev : prev.filter((li) => li.key !== key)));
   }, []);
 
-  const updateLineItem = useCallback(
-    (key: number, field: keyof LineItem, value: string | number) => {
-      setLineItems((prev) =>
-        prev.map((li) => (li.key === key ? { ...li, [field]: value } : li))
-      );
-    },
-    []
-  );
+  const updateLineItem = useCallback((key: number, field: keyof LineItem, value: string | number) => {
+    setLineItems((prev) => prev.map((li) => (li.key === key ? { ...li, [field]: value } : li)));
+  }, []);
 
   const lineTotal = lineItems.reduce((sum, li) => sum + li.quantity * li.unitPrice, 0);
 
@@ -381,17 +376,13 @@ export default function DebitNoteList() {
                     <TableCell>
                       <div>
                         <div className="text-sm font-medium">{dn.supplier?.name ?? '-'}</div>
-                        {dn.supplier?.code && (
-                          <div className="text-xs text-gray-500">{dn.supplier.code}</div>
-                        )}
+                        {dn.supplier?.code && <div className="text-xs text-gray-500">{dn.supplier.code}</div>}
                       </div>
                     </TableCell>
                     <TableCell>{dn.purchaseOrder?.poNumber ?? '-'}</TableCell>
                     <TableCell>{formatDate(dn.debitNoteDate)}</TableCell>
                     <TableCell>{DebitNoteReasonLabels[dn.reason] ?? dn.reason}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(dn.totalAmount)}
-                    </TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(dn.totalAmount)}</TableCell>
                     <TableCell>
                       <Badge className={DocumentStatusColors[dn.status] ?? ''} variant="outline">
                         {DocumentStatusLabels[dn.status] ?? dn.status}
@@ -405,9 +396,7 @@ export default function DebitNoteList() {
                               variant="ghost"
                               size="sm"
                               className="text-green-600 hover:text-green-700 hover:bg-green-50 gap-1"
-                              onClick={() =>
-                                setApproveTarget({ id: dn.id, number: dn.debitNoteNumber })
-                              }
+                              onClick={() => setApproveTarget({ id: dn.id, number: dn.debitNoteNumber })}
                             >
                               <CheckCircle2 className="h-4 w-4" />
                               Approve
@@ -416,9 +405,7 @@ export default function DebitNoteList() {
                               variant="ghost"
                               size="sm"
                               className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 gap-1"
-                              onClick={() =>
-                                setCancelTarget({ id: dn.id, number: dn.debitNoteNumber })
-                              }
+                              onClick={() => setCancelTarget({ id: dn.id, number: dn.debitNoteNumber })}
                             >
                               <XCircle className="h-4 w-4" />
                               Cancel
@@ -427,9 +414,7 @@ export default function DebitNoteList() {
                               variant="ghost"
                               size="sm"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1"
-                              onClick={() =>
-                                setDeleteTarget({ id: dn.id, number: dn.debitNoteNumber })
-                              }
+                              onClick={() => setDeleteTarget({ id: dn.id, number: dn.debitNoteNumber })}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -452,20 +437,10 @@ export default function DebitNoteList() {
                 {Math.min(page * limit, pagination.total)} of {pagination.total}
               </p>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canPrev}
-                  onClick={() => setPage((p) => p - 1)}
-                >
+                <Button variant="outline" size="sm" disabled={!canPrev} onClick={() => setPage((p) => p - 1)}>
                   Previous
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canNext}
-                  onClick={() => setPage((p) => p + 1)}
-                >
+                <Button variant="outline" size="sm" disabled={!canNext} onClick={() => setPage((p) => p + 1)}>
                   Next
                 </Button>
               </div>
@@ -673,9 +648,7 @@ export default function DebitNoteList() {
                             type="number"
                             min={0}
                             value={li.quantity}
-                            onChange={(e) =>
-                              updateLineItem(li.key, 'quantity', parseFloat(e.target.value) || 0)
-                            }
+                            onChange={(e) => updateLineItem(li.key, 'quantity', parseFloat(e.target.value) || 0)}
                             className="h-8 text-sm text-right w-20"
                           />
                         </TableCell>
@@ -685,9 +658,7 @@ export default function DebitNoteList() {
                             min={0}
                             step="0.01"
                             value={li.unitPrice}
-                            onChange={(e) =>
-                              updateLineItem(li.key, 'unitPrice', parseFloat(e.target.value) || 0)
-                            }
+                            onChange={(e) => updateLineItem(li.key, 'unitPrice', parseFloat(e.target.value) || 0)}
                             className="h-8 text-sm text-right w-28"
                           />
                         </TableCell>
@@ -713,9 +684,7 @@ export default function DebitNoteList() {
 
               {/* Line total */}
               <div className="flex justify-end">
-                <div className="text-sm font-medium text-gray-700">
-                  Subtotal: {formatCurrency(lineTotal)}
-                </div>
+                <div className="text-sm font-medium text-gray-700">Subtotal: {formatCurrency(lineTotal)}</div>
               </div>
             </div>
 

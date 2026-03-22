@@ -14,21 +14,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Plus, Trash2, Save, X, Loader2 } from 'lucide-react';
 import type {
@@ -101,14 +88,16 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [threadOptions, setThreadOptions] = useState<Array<{
-    id: string;
-    threadCode: string;
-    threadName: string;
-    ply: ThreadPly;
-    materialComposition: ThreadMaterial;
-    colorName: string;
-  }>>([]);
+  const [threadOptions, setThreadOptions] = useState<
+    Array<{
+      id: string;
+      threadCode: string;
+      threadName: string;
+      ply: ThreadPly;
+      materialComposition: ThreadMaterial;
+      colorName: string;
+    }>
+  >([]);
 
   // Load thread options from API
   useEffect(() => {
@@ -126,8 +115,8 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
 
       // Map threads to thread options (filter for threads with new module fields)
       const options = response.data
-        .filter(thread => thread.isActive && thread.ply && thread.materialComposition)
-        .map(thread => ({
+        .filter((thread) => thread.isActive && thread.ply && thread.materialComposition)
+        .map((thread) => ({
           id: thread.id,
           threadCode: thread.threadCode,
           threadName: thread.threadName,
@@ -151,7 +140,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
       const result = await getThreadRequirements(orderId);
 
       // Map to row format
-      const loadedRows: ThreadRequirementRow[] = result.requirements.map(req => ({
+      const loadedRows: ThreadRequirementRow[] = result.requirements.map((req) => ({
         id: req.id,
         threadId: req.threadId,
         threadName: req.threadName,
@@ -160,7 +149,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
         colorName: req.colorName,
         packagingType: req.packagingType,
         inputType: req.inputType,
-        value: req.inputType === 'UNITS' ? (req.unitsOrdered || 0) : (req.boxesOrdered || 0),
+        value: req.inputType === 'UNITS' ? req.unitsOrdered || 0 : req.boxesOrdered || 0,
         unitPrice: req.unitPrice ? parseFloat(req.unitPrice.toString()) : undefined,
         totalUnits: parseFloat(req.totalUnits.toString()),
         totalBoxes: parseFloat(req.totalBoxes.toString()),
@@ -219,7 +208,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
       return;
     }
 
-    const thread = threadOptions.find(t => t.id === threadId);
+    const thread = threadOptions.find((t) => t.id === threadId);
     if (thread) {
       updateRow(index, {
         threadId: thread.id,
@@ -302,11 +291,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
         <div className="flex items-center justify-between">
           <CardTitle>Thread Requirements for Order: {orderId}</CardTitle>
           {!readOnly && (
-            <Button
-              onClick={addRow}
-              disabled={saving}
-              size="sm"
-            >
+            <Button onClick={addRow} disabled={saving} size="sm">
               <Plus className="h-4 w-4 mr-1" />
               Add Thread Line
             </Button>
@@ -363,9 +348,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
                   </TableCell>
 
                   <TableCell>{row.colorName || '-'}</TableCell>
-                  <TableCell>
-                    {row.ply ? THREAD_PLY_LABELS[row.ply] : '-'}
-                  </TableCell>
+                  <TableCell>{row.ply ? THREAD_PLY_LABELS[row.ply] : '-'}</TableCell>
                   <TableCell>
                     {row.materialComposition ? THREAD_MATERIAL_LABELS[row.materialComposition] : '-'}
                   </TableCell>
@@ -418,9 +401,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
                   </TableCell>
 
                   {/* Total Cost */}
-                  <TableCell className="text-right">
-                    {row.totalCost ? `₹ ${row.totalCost.toFixed(2)}` : '-'}
-                  </TableCell>
+                  <TableCell className="text-right">{row.totalCost ? `₹ ${row.totalCost.toFixed(2)}` : '-'}</TableCell>
 
                   {/* Actions */}
                   {!readOnly && (
@@ -480,19 +461,12 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
         {!readOnly && (
           <div className="flex justify-end gap-2 pt-2">
             {onCancel && (
-              <Button
-                variant="outline"
-                onClick={onCancel}
-                disabled={saving}
-              >
+              <Button variant="outline" onClick={onCancel} disabled={saving}>
                 <X className="h-4 w-4 mr-1" />
                 Cancel
               </Button>
             )}
-            <Button
-              onClick={handleSave}
-              disabled={saving || rows.length === 0}
-            >
+            <Button onClick={handleSave} disabled={saving || rows.length === 0}>
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />

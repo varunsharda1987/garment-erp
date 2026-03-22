@@ -12,31 +12,14 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Plus,
-  Trash2,
-  Edit2,
-  Star,
-  StarOff,
-  ChevronDown,
-  ChevronUp,
-  Package,
-  Save,
-} from 'lucide-react';
+import { Plus, Trash2, Edit2, Star, StarOff, ChevronDown, ChevronUp, Package, Save } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,15 +35,15 @@ import {
   customerService,
   type AccessoryPreset,
   type AccessoryPresetItem as BaseAccessoryPresetItem,
-  type CreateAccessoryPresetRequest
+  type CreateAccessoryPresetRequest,
 } from '../services/customer.service';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
 
 // Extended type for UI display (includes fields from picker)
 interface AccessoryPresetItem extends BaseAccessoryPresetItem {
-  itemName?: string;      // Display name (from picker)
-  unit?: string;          // Unit of measure (from picker)
+  itemName?: string; // Display name (from picker)
+  unit?: string; // Unit of measure (from picker)
   specification?: string; // Material code (from picker)
 }
 
@@ -69,10 +52,7 @@ interface CustomerAccessoryPresetsProps {
   customerName: string;
 }
 
-export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> = ({
-  customerId,
-  customerName
-}) => {
+export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> = ({ customerId, customerName }) => {
   const [presets, setPresets] = useState<AccessoryPreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
@@ -119,28 +99,24 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
     setPresetName(preset.presetName);
     setPresetDescription(preset.description || '');
     // Map backend items to component format - handle both LABEL and PACKAGING types
-    const mappedItems: AccessoryPresetItem[] = (preset.items || []).map(item => ({
+    const mappedItems: AccessoryPresetItem[] = (preset.items || []).map((item) => ({
       id: item.id,
       materialType: item.materialType,
       materialId: item.materialId || undefined,
       // For LABEL type, show label info; for PACKAGING, show material info
-      itemName: item.materialType === 'LABEL'
-        ? (item.label?.labelName || '')
-        : (item.material?.name || ''), // Use material name for packaging
+      itemName: item.materialType === 'LABEL' ? item.label?.labelName || '' : item.material?.name || '', // Use material name for packaging
       quantity: Number(item.quantity) || 1,
-      unit: item.materialType === 'LABEL' ? 'pcs' : (item.material?.unit || 'pcs'),
-      usageCategory: (item.usageCategory as 'GARMENT' | 'PACKAGING') ||
-        (item.materialType === 'LABEL' ? 'GARMENT' : 'PACKAGING'),
-      specification: item.materialType === 'LABEL'
-        ? (item.label?.labelCode || '')
-        : (item.material?.code || ''), // Use material code for packaging
+      unit: item.materialType === 'LABEL' ? 'pcs' : item.material?.unit || 'pcs',
+      usageCategory:
+        (item.usageCategory as 'GARMENT' | 'PACKAGING') || (item.materialType === 'LABEL' ? 'GARMENT' : 'PACKAGING'),
+      specification: item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || '', // Use material code for packaging
       sortOrder: item.sortOrder,
       // Label-specific fields
       labelId: item.labelId || undefined,
       componentName: item.componentName || undefined,
       extraPercentage: item.extraPercentage ? Number(item.extraPercentage) : undefined,
       label: item.label,
-      material: item.material
+      material: item.material,
     }));
     setPresetItems(mappedItems);
     setEditingPreset(preset);
@@ -177,13 +153,13 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
       // Label-specific fields
       labelId: item.materialType === 'LABEL' ? item.labelId : undefined,
       componentName: item.materialType === 'LABEL' ? item.componentName : undefined,
-      extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : undefined
+      extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : undefined,
     }));
-    setPresetItems(prev => [...prev, ...newItems]);
+    setPresetItems((prev) => [...prev, ...newItems]);
   };
 
   const handleRemoveItem = (itemId: string) => {
-    setPresetItems(prev => prev.filter(item => item.id !== itemId));
+    setPresetItems((prev) => prev.filter((item) => item.id !== itemId));
   };
 
   const handleSavePreset = async () => {
@@ -201,16 +177,16 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
           materialType: item.materialType,
           // For PACKAGING: use materialId; For LABEL: use labelId
           // Send null instead of empty string for foreign key fields
-          materialId: item.materialType === 'PACKAGING' ? (item.materialId || null) : undefined,
-          labelId: item.materialType === 'LABEL' ? (item.labelId || null) : undefined,
+          materialId: item.materialType === 'PACKAGING' ? item.materialId || null : undefined,
+          labelId: item.materialType === 'LABEL' ? item.labelId || null : undefined,
           quantity: item.materialType === 'PACKAGING' ? item.quantity : undefined, // Only for packaging
           usageCategory: item.usageCategory,
           sortOrder: item.sortOrder ?? index,
           // Label-specific fields
           componentName: item.materialType === 'LABEL' ? item.componentName : undefined,
-          extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : undefined
+          extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : undefined,
         })),
-        isDefault: false
+        isDefault: false,
       };
 
       if (editingPreset) {
@@ -271,12 +247,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label>Accessory Items ({presetItems.length})</Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setShowMaterialPicker(true)}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowMaterialPicker(true)}>
             <Plus className="h-4 w-4 mr-1" />
             Add Item
           </Button>
@@ -291,16 +262,13 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
         ) : (
           <div className="space-y-2 max-h-60 overflow-auto">
             {presetItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
-              >
+              <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-xs",
+                        'text-xs',
                         item.materialType === 'LABEL' ? 'bg-blue-50 border-blue-200 text-blue-700' : ''
                       )}
                     >
@@ -308,9 +276,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                     </Badge>
                     <span className="font-medium text-sm">{item.itemName}</span>
                     {item.specification && (
-                      <span className="text-xs text-gray-400 font-mono">
-                        {item.specification}
-                      </span>
+                      <span className="text-xs text-gray-400 font-mono">{item.specification}</span>
                     )}
                   </div>
                   {item.materialType === 'LABEL' ? (
@@ -325,12 +291,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                     </p>
                   )}
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemoveItem(item.id)}
-                >
+                <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveItem(item.id)}>
                   <Trash2 className="h-4 w-4 text-red-500" />
                 </Button>
               </div>
@@ -344,10 +305,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
   return (
     <>
       <Card>
-        <CardHeader
-          className="cursor-pointer"
-          onClick={() => setExpanded(!expanded)}
-        >
+        <CardHeader className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -399,9 +357,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                     key={preset.id}
                     className={cn(
                       'p-4 rounded-lg border transition-all',
-                      preset.isDefault
-                        ? 'border-yellow-400 bg-yellow-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                      preset.isDefault ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 hover:border-gray-300'
                     )}
                   >
                     <div className="flex items-start justify-between">
@@ -409,18 +365,17 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold">{preset.presetName}</h4>
                           {preset.isDefault && (
-                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                            <Badge
+                              variant="secondary"
+                              className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300"
+                            >
                               <Star className="h-3 w-3 mr-1 fill-current" />
                               Default
                             </Badge>
                           )}
                         </div>
-                        {preset.description && (
-                          <p className="text-sm text-gray-600 mt-1">{preset.description}</p>
-                        )}
-                        <p className="text-xs text-gray-500 mt-2">
-                          {preset.items?.length || 0} items
-                        </p>
+                        {preset.description && <p className="text-sm text-gray-600 mt-1">{preset.description}</p>}
+                        <p className="text-xs text-gray-500 mt-2">{preset.items?.length || 0} items</p>
                       </div>
                       <div className="flex items-center gap-1">
                         {!preset.isDefault && (
@@ -464,12 +419,12 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                               key={idx}
                               variant="outline"
                               className={cn(
-                                "text-xs",
+                                'text-xs',
                                 item.materialType === 'LABEL' ? 'bg-blue-50 border-blue-200' : ''
                               )}
                             >
                               {item.materialType === 'LABEL'
-                                ? (item.label?.labelName || item.labelId?.slice(0, 8) || 'Label')
+                                ? item.label?.labelName || item.labelId?.slice(0, 8) || 'Label'
                                 : `${item.materialType} (${item.quantity})`}
                             </Badge>
                           ))}
@@ -494,9 +449,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create Accessory Preset</DialogTitle>
-            <DialogDescription>
-              Create a new preset of standard accessories for {customerName}
-            </DialogDescription>
+            <DialogDescription>Create a new preset of standard accessories for {customerName}</DialogDescription>
           </DialogHeader>
           {renderPresetForm()}
           <DialogFooter>
@@ -516,9 +469,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Accessory Preset</DialogTitle>
-            <DialogDescription>
-              Update the preset configuration
-            </DialogDescription>
+            <DialogDescription>Update the preset configuration</DialogDescription>
           </DialogHeader>
           {renderPresetForm()}
           <DialogFooter>
@@ -539,8 +490,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Preset</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{editingPreset?.presetName}"?
-              This action cannot be undone.
+              Are you sure you want to delete "{editingPreset?.presetName}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

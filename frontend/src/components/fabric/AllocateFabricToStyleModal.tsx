@@ -15,36 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { fabricService } from '@/services/fabricGreigeService';
 import { styleService } from '@/services/style.service';
-import type {
-  PatternPartForAllocation,
-  AllocateToStyleRequest,
-} from '@/types/fabric-greige.types';
+import type { PatternPartForAllocation, AllocateToStyleRequest } from '@/types/fabric-greige.types';
 import type { Style } from '@/types/style.types';
 
 interface AllocateFabricToStyleModalProps {
@@ -127,7 +107,9 @@ export default function AllocateFabricToStyleModal({
   // Load pattern parts when component is selected
   useEffect(() => {
     if (selectedComponentId && selectedStyle) {
-      const component = selectedStyle.components?.find(c => c.id === selectedComponentId) as StyleComponent | undefined;
+      const component = selectedStyle.components?.find((c) => c.id === selectedComponentId) as
+        | StyleComponent
+        | undefined;
       if (component?.componentMaster?.id) {
         loadPatternParts(component.componentMaster.id);
       } else {
@@ -175,9 +157,9 @@ export default function AllocateFabricToStyleModal({
   };
 
   const handlePatternPartToggle = (partId: string) => {
-    setSelectedPatternPartIds(prev => {
+    setSelectedPatternPartIds((prev) => {
       if (prev.includes(partId)) {
-        return prev.filter(id => id !== partId);
+        return prev.filter((id) => id !== partId);
       }
       return [...prev, partId];
     });
@@ -187,7 +169,7 @@ export default function AllocateFabricToStyleModal({
     if (selectedPatternPartIds.length === patternParts.length) {
       setSelectedPatternPartIds([]);
     } else {
-      setSelectedPatternPartIds(patternParts.map(p => p.id));
+      setSelectedPatternPartIds(patternParts.map((p) => p.id));
     }
   };
 
@@ -257,13 +239,12 @@ export default function AllocateFabricToStyleModal({
                   variant="outline"
                   role="combobox"
                   aria-expanded={styleOpen}
-                  className={cn(
-                    'w-full justify-between font-normal',
-                    !selectedStyle && 'text-muted-foreground'
-                  )}
+                  className={cn('w-full justify-between font-normal', !selectedStyle && 'text-muted-foreground')}
                 >
                   {selectedStyle ? (
-                    <span>{selectedStyle.styleCode} - {selectedStyle.styleName}</span>
+                    <span>
+                      {selectedStyle.styleCode} - {selectedStyle.styleName}
+                    </span>
                   ) : (
                     <span>Select style...</span>
                   )}
@@ -285,9 +266,7 @@ export default function AllocateFabricToStyleModal({
                       </div>
                     ) : styles.length === 0 ? (
                       <CommandEmpty>
-                        {debouncedSearch
-                          ? `No styles found for "${debouncedSearch}"`
-                          : 'No active styles available.'}
+                        {debouncedSearch ? `No styles found for "${debouncedSearch}"` : 'No active styles available.'}
                       </CommandEmpty>
                     ) : (
                       <CommandGroup>
@@ -306,9 +285,7 @@ export default function AllocateFabricToStyleModal({
                             />
                             <div className="flex-1 min-w-0">
                               <div className="font-medium">{style.styleCode}</div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {style.styleName}
-                              </div>
+                              <div className="text-xs text-muted-foreground truncate">{style.styleName}</div>
                             </div>
                           </CommandItem>
                         ))}
@@ -329,13 +306,15 @@ export default function AllocateFabricToStyleModal({
               disabled={!selectedStyle || components.length === 0}
             >
               <SelectTrigger>
-                <SelectValue placeholder={
-                  !selectedStyle
-                    ? 'Select a style first'
-                    : components.length === 0
-                      ? 'No components in this style'
-                      : 'Select component...'
-                } />
+                <SelectValue
+                  placeholder={
+                    !selectedStyle
+                      ? 'Select a style first'
+                      : components.length === 0
+                        ? 'No components in this style'
+                        : 'Select component...'
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {components.map((comp) => {
@@ -344,9 +323,7 @@ export default function AllocateFabricToStyleModal({
                     <SelectItem key={component.id} value={component.id}>
                       {component.componentMaster?.name || 'Unknown Component'}
                       {component.componentMaster?.code && (
-                        <span className="text-muted-foreground ml-2">
-                          ({component.componentMaster.code})
-                        </span>
+                        <span className="text-muted-foreground ml-2">({component.componentMaster.code})</span>
                       )}
                     </SelectItem>
                   );
@@ -394,14 +371,9 @@ export default function AllocateFabricToStyleModal({
                       checked={selectedPatternPartIds.includes(part.id)}
                       onCheckedChange={() => handlePatternPartToggle(part.id)}
                     />
-                    <label
-                      htmlFor={`part-${part.id}`}
-                      className="text-sm cursor-pointer flex-1"
-                    >
+                    <label htmlFor={`part-${part.id}`} className="text-sm cursor-pointer flex-1">
                       {part.name}
-                      {part.code && (
-                        <span className="text-muted-foreground ml-1">({part.code})</span>
-                      )}
+                      {part.code && <span className="text-muted-foreground ml-1">({part.code})</span>}
                     </label>
                   </div>
                 ))}
@@ -434,11 +406,7 @@ export default function AllocateFabricToStyleModal({
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting || !selectedComponentId}
-          >
+          <Button type="button" onClick={handleSubmit} disabled={isSubmitting || !selectedComponentId}>
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

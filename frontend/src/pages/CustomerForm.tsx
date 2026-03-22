@@ -6,7 +6,14 @@ import { z } from 'zod';
 import { customerService } from '@/services/customer.service';
 import { testingLabsService, testTemplatesService } from '@/services/testing.service';
 import { productCategoryService } from '@/services/productCategory.service';
-import { CustomerType, CustomerCategory, BusinessType, MarketType, type Customer, type CreateCustomerRequest } from '@/types/customer.types';
+import {
+  CustomerType,
+  CustomerCategory,
+  BusinessType,
+  MarketType,
+  type Customer,
+  type CreateCustomerRequest,
+} from '@/types/customer.types';
 import type { ProductCategory } from '@/types/productCategory.types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,8 +83,12 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
   // Testing labs and templates
   const [testingLabs, setTestingLabs] = useState<Array<{ id: string; labCode: string; labName: string }>>([]);
-  const [fptTemplates, setFptTemplates] = useState<Array<{ id: string; templateCode: string; templateName: string }>>([]);
-  const [gptTemplates, setGptTemplates] = useState<Array<{ id: string; templateCode: string; templateName: string }>>([]);
+  const [fptTemplates, setFptTemplates] = useState<Array<{ id: string; templateCode: string; templateName: string }>>(
+    []
+  );
+  const [gptTemplates, setGptTemplates] = useState<Array<{ id: string; templateCode: string; templateName: string }>>(
+    []
+  );
 
   // Product category data
   const [mainCategories, setMainCategories] = useState<ProductCategory[]>([]);
@@ -93,29 +104,53 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     productCategoryId: string; // The final selected category ID
   }
 
-  const [brandData, setBrandData] = useState<Array<{
-    brandName: string;
-    categories: BrandCategorySelection[];
-  }>>([
-    { brandName: '', categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }] }
+  const [brandData, setBrandData] = useState<
+    Array<{
+      brandName: string;
+      categories: BrandCategorySelection[];
+    }>
+  >([
+    {
+      brandName: '',
+      categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }],
+    },
   ]);
 
   // GST Numbers structure
-  const [gstNumbers, setGstNumbers] = useState<Array<{
-    stateId?: string;
-    stateName: string;
-    stateCode: string;
-    gstNumber: string;
-    billingAddress?: string;
-    billingCityId?: string;
-    billingPincode?: string;
-    isPrimary: boolean;
-  }>>([{ stateId: '', stateName: '', stateCode: '', gstNumber: '', billingAddress: '', billingCityId: '', billingPincode: '', isPrimary: false }]);
+  const [gstNumbers, setGstNumbers] = useState<
+    Array<{
+      stateId?: string;
+      stateName: string;
+      stateCode: string;
+      gstNumber: string;
+      billingAddress?: string;
+      billingCityId?: string;
+      billingPincode?: string;
+      isPrimary: boolean;
+    }>
+  >([
+    {
+      stateId: '',
+      stateName: '',
+      stateCode: '',
+      gstNumber: '',
+      billingAddress: '',
+      billingCityId: '',
+      billingPincode: '',
+      isPrimary: false,
+    },
+  ]);
 
   // Note: Old format (brandNames, brandCategories, categories) is handled via brandData state above
   // The old text-based format is still supported for backward compatibility when loading existing customers
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CustomerFormData>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<CustomerFormData>({
     resolver: zodResolver(customerFormSchema),
     defaultValues: {
       type: CustomerType.BUYER,
@@ -178,7 +213,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     if (!parentId || subCategoriesMap[parentId]) return;
     try {
       const children = await productCategoryService.getChildren(parentId);
-      setSubCategoriesMap(prev => ({ ...prev, [parentId]: children }));
+      setSubCategoriesMap((prev) => ({ ...prev, [parentId]: children }));
     } catch (error) {
       console.error('Failed to load sub-categories:', error);
     }
@@ -189,7 +224,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     if (!parentId || subSubCategoriesMap[parentId]) return;
     try {
       const children = await productCategoryService.getChildren(parentId);
-      setSubSubCategoriesMap(prev => ({ ...prev, [parentId]: children }));
+      setSubSubCategoriesMap((prev) => ({ ...prev, [parentId]: children }));
     } catch (error) {
       console.error('Failed to load sub-sub-categories:', error);
     }
@@ -209,17 +244,17 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           const marketCode = watchMarket === MarketType.INTERNATIONAL ? 'INT' : 'DOM';
 
           const prefix = `CUST-${businessTypeCode}-${marketCode}-`;
-          const matchingCustomers = customers.filter(c => c.code.startsWith(prefix));
+          const matchingCustomers = customers.filter((c) => c.code.startsWith(prefix));
 
           let nextNumber = 1;
           if (matchingCustomers.length > 0) {
             // Extract numbers from existing codes and find the max
             const numbers = matchingCustomers
-              .map(c => {
+              .map((c) => {
                 const match = c.code.match(/CUST-[^-]+-[^-]+-(\d+)/);
                 return match ? parseInt(match[1], 10) : 0;
               })
-              .filter(n => !isNaN(n));
+              .filter((n) => !isNaN(n));
 
             nextNumber = numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
           }
@@ -236,126 +271,153 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         }
       };
 
-      generateCode().then(code => setValue('code', code));
+      generateCode().then((code) => setValue('code', code));
     }
   }, [isNewCustomer, setValue, watchBusinessType, watchMarket]);
 
   // Load existing customer data for edit mode
   useEffect(() => {
     if (id && !isNewCustomer) {
-      customerService.getCustomerById(id).then((customer: Customer) => {
-        setValue('code', customer.code);
-        setValue('name', customer.name);
-        setValue('billingName', customer.billingName || '');
+      customerService
+        .getCustomerById(id)
+        .then((customer: Customer) => {
+          setValue('code', customer.code);
+          setValue('name', customer.name);
+          setValue('billingName', customer.billingName || '');
 
-        // Parse brand categories from new structure
-        // Note: For existing customers with old format, categories are stored as text
-        // For new selections, we use the cascading dropdown with productCategoryId
-        if (customer.brandCategories && customer.brandCategories.length > 0) {
-          // Group by brand name
-          const grouped = customer.brandCategories.reduce((acc: Record<string, Array<{ category: string; productCategoryId?: string }>>, bc: { brandName: string; category: string; productCategoryId?: string }) => {
-            if (!acc[bc.brandName]) {
-              acc[bc.brandName] = [];
-            }
-            acc[bc.brandName].push({ category: bc.category, productCategoryId: bc.productCategoryId });
-            return acc;
-          }, {});
+          // Parse brand categories from new structure
+          // Note: For existing customers with old format, categories are stored as text
+          // For new selections, we use the cascading dropdown with productCategoryId
+          if (customer.brandCategories && customer.brandCategories.length > 0) {
+            // Group by brand name
+            const grouped = customer.brandCategories.reduce(
+              (
+                acc: Record<string, Array<{ category: string; productCategoryId?: string }>>,
+                bc: { brandName: string; category: string; productCategoryId?: string }
+              ) => {
+                if (!acc[bc.brandName]) {
+                  acc[bc.brandName] = [];
+                }
+                acc[bc.brandName].push({ category: bc.category, productCategoryId: bc.productCategoryId });
+                return acc;
+              },
+              {}
+            );
 
-          const parsedBrandData = Object.keys(grouped).map(brandName => ({
-            brandName,
-            categories: grouped[brandName].map(c => ({
-              level1Id: '',
-              level2Id: '',
-              level3Id: '',
-              categoryName: c.category,
-              productCategoryId: c.productCategoryId || ''
-            }))
-          }));
-
-          setBrandData(parsedBrandData.length > 0 ? parsedBrandData : [{
-            brandName: '',
-            categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }]
-          }]);
-        } else if (customer.brandNames) {
-          // Fallback to old format (text-based categories)
-          const brands = customer.brandNames.split('\n').filter((b: string) => b.trim());
-          const cats = customer.categories ? customer.categories.split('\n').filter((c: string) => c.trim()) : [];
-
-          const parsedBrandData = brands.map((brand: string, index: number) => ({
-            brandName: brand,
-            categories: cats[index] ?
-              cats[index].split(',').map((c: string) => ({
+            const parsedBrandData = Object.keys(grouped).map((brandName) => ({
+              brandName,
+              categories: grouped[brandName].map((c) => ({
                 level1Id: '',
                 level2Id: '',
                 level3Id: '',
-                categoryName: c.trim(),
-                productCategoryId: ''
-              })) :
-              [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }]
-          }));
+                categoryName: c.category,
+                productCategoryId: c.productCategoryId || '',
+              })),
+            }));
 
-          setBrandData(parsedBrandData.length > 0 ? parsedBrandData : [{
-            brandName: '',
-            categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }]
-          }]);
-        }
+            setBrandData(
+              parsedBrandData.length > 0
+                ? parsedBrandData
+                : [
+                    {
+                      brandName: '',
+                      categories: [
+                        { level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' },
+                      ],
+                    },
+                  ]
+            );
+          } else if (customer.brandNames) {
+            // Fallback to old format (text-based categories)
+            const brands = customer.brandNames.split('\n').filter((b: string) => b.trim());
+            const cats = customer.categories ? customer.categories.split('\n').filter((c: string) => c.trim()) : [];
 
-        // Parse GST numbers from new structure
-        if (customer.customerGstNumbers && customer.customerGstNumbers.length > 0) {
-          const parsedGstNumbers = customer.customerGstNumbers.map((gst) => ({
-            stateId: gst.stateId || '',
-            stateName: gst.stateName || '',
-            stateCode: gst.stateCode || '',
-            gstNumber: gst.gstNumber || '',
-            billingAddress: gst.billingAddress || '',
-            billingCityId: gst.billingCityId || '',
-            billingPincode: gst.billingPincode || '',
-            isPrimary: gst.isPrimary || false
-          }));
-          setGstNumbers(parsedGstNumbers);
-        } else if (customer.gstNumber) {
-          // Fallback to old single GST format
-          setGstNumbers([{
-            stateName: '',
-            stateCode: '',
-            gstNumber: customer.gstNumber,
-            billingAddress: customer.billingAddress || '',
-            billingCityId: '',
-            billingPincode: '',
-            isPrimary: true
-          }]);
-        }
+            const parsedBrandData = brands.map((brand: string, index: number) => ({
+              brandName: brand,
+              categories: cats[index]
+                ? cats[index].split(',').map((c: string) => ({
+                    level1Id: '',
+                    level2Id: '',
+                    level3Id: '',
+                    categoryName: c.trim(),
+                    productCategoryId: '',
+                  }))
+                : [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }],
+            }));
 
-        setValue('type', customer.type);
-        setValue('category', customer.category);
-        setValue('businessType', customer.businessType || BusinessType.B2B);
-        setValue('market', customer.market || MarketType.DOMESTIC);
-        setValue('contactPerson', customer.contactPerson || '');
-        setValue('email', customer.email || '');
-        setValue('phone', customer.phone || '');
-        setValue('billingAddress', customer.billingAddress || '');
-        setValue('shippingAddress', customer.shippingAddress || '');
-        setValue('gstNumber', customer.gstNumber || '');
-        setValue('creditLimit', customer.creditLimit?.toString() || '');
-        setValue('creditDays', customer.creditDays?.toString() || '');
+            setBrandData(
+              parsedBrandData.length > 0
+                ? parsedBrandData
+                : [
+                    {
+                      brandName: '',
+                      categories: [
+                        { level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' },
+                      ],
+                    },
+                  ]
+            );
+          }
 
-        // Testing requirements
-        setValue('requiresFPT', customer.requiresFPT || false);
-        setValue('requiresGPT', customer.requiresGPT || false);
-        setValue('fptBlocksProduction', customer.fptBlocksProduction || false);
-        setValue('gptBlocksShipment', customer.gptBlocksShipment !== false); // Default true
-        setValue('buyerApprovesFPT', customer.buyerApprovesFPT || false);
-        setValue('buyerApprovesGPT', customer.buyerApprovesGPT || false);
-        setValue('fptTemplateId', customer.fptTemplateId || '');
-        setValue('gptTemplateId', customer.gptTemplateId || '');
-        setValue('defaultTestingLabId', customer.defaultTestingLabId || '');
-        // Agent fields
-        setValue('agencyId', customer.agencyId || '');
-        setValue('agentId', customer.agentId || '');
-        setValue('agentCommissionPercent', customer.agentCommissionPercent?.toString() || '');
-      }).catch(() => {
-        setSubmitError('Failed to load customer data');
-      });
+          // Parse GST numbers from new structure
+          if (customer.customerGstNumbers && customer.customerGstNumbers.length > 0) {
+            const parsedGstNumbers = customer.customerGstNumbers.map((gst) => ({
+              stateId: gst.stateId || '',
+              stateName: gst.stateName || '',
+              stateCode: gst.stateCode || '',
+              gstNumber: gst.gstNumber || '',
+              billingAddress: gst.billingAddress || '',
+              billingCityId: gst.billingCityId || '',
+              billingPincode: gst.billingPincode || '',
+              isPrimary: gst.isPrimary || false,
+            }));
+            setGstNumbers(parsedGstNumbers);
+          } else if (customer.gstNumber) {
+            // Fallback to old single GST format
+            setGstNumbers([
+              {
+                stateName: '',
+                stateCode: '',
+                gstNumber: customer.gstNumber,
+                billingAddress: customer.billingAddress || '',
+                billingCityId: '',
+                billingPincode: '',
+                isPrimary: true,
+              },
+            ]);
+          }
+
+          setValue('type', customer.type);
+          setValue('category', customer.category);
+          setValue('businessType', customer.businessType || BusinessType.B2B);
+          setValue('market', customer.market || MarketType.DOMESTIC);
+          setValue('contactPerson', customer.contactPerson || '');
+          setValue('email', customer.email || '');
+          setValue('phone', customer.phone || '');
+          setValue('billingAddress', customer.billingAddress || '');
+          setValue('shippingAddress', customer.shippingAddress || '');
+          setValue('gstNumber', customer.gstNumber || '');
+          setValue('creditLimit', customer.creditLimit?.toString() || '');
+          setValue('creditDays', customer.creditDays?.toString() || '');
+
+          // Testing requirements
+          setValue('requiresFPT', customer.requiresFPT || false);
+          setValue('requiresGPT', customer.requiresGPT || false);
+          setValue('fptBlocksProduction', customer.fptBlocksProduction || false);
+          setValue('gptBlocksShipment', customer.gptBlocksShipment !== false); // Default true
+          setValue('buyerApprovesFPT', customer.buyerApprovesFPT || false);
+          setValue('buyerApprovesGPT', customer.buyerApprovesGPT || false);
+          setValue('fptTemplateId', customer.fptTemplateId || '');
+          setValue('gptTemplateId', customer.gptTemplateId || '');
+          setValue('defaultTestingLabId', customer.defaultTestingLabId || '');
+          // Agent fields
+          setValue('agencyId', customer.agencyId || '');
+          setValue('agentId', customer.agentId || '');
+          setValue('agentCommissionPercent', customer.agentCommissionPercent?.toString() || '');
+        })
+        .catch(() => {
+          setSubmitError('Failed to load customer data');
+        });
     }
   }, [id, isNewCustomer, setValue]);
 
@@ -369,13 +431,13 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   // Build category name from selections
   const buildCategoryName = (level1Id: string, level2Id: string, level3Id: string): string => {
     const parts: string[] = [];
-    const level1 = mainCategories.find(c => c.id === level1Id);
+    const level1 = mainCategories.find((c) => c.id === level1Id);
     if (level1) parts.push(level1.name);
 
-    const level2 = subCategoriesMap[level1Id]?.find(c => c.id === level2Id);
+    const level2 = subCategoriesMap[level1Id]?.find((c) => c.id === level2Id);
     if (level2) parts.push(level2.name);
 
-    const level3 = subSubCategoriesMap[level2Id]?.find(c => c.id === level3Id);
+    const level3 = subSubCategoriesMap[level2Id]?.find((c) => c.id === level3Id);
     if (level3) parts.push(level3.name);
 
     return parts.join(' > ');
@@ -434,10 +496,13 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   };
 
   const addBrand = () => {
-    setBrandData([...brandData, {
-      brandName: '',
-      categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }]
-    }]);
+    setBrandData([
+      ...brandData,
+      {
+        brandName: '',
+        categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }],
+      },
+    ]);
   };
 
   const removeBrand = (brandIndex: number) => {
@@ -448,7 +513,13 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
   const addCategory = (brandIndex: number) => {
     const newBrandData = [...brandData];
-    newBrandData[brandIndex].categories.push({ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' });
+    newBrandData[brandIndex].categories.push({
+      level1Id: '',
+      level2Id: '',
+      level3Id: '',
+      categoryName: '',
+      productCategoryId: '',
+    });
     setBrandData(newBrandData);
   };
 
@@ -462,16 +533,19 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
   // GST Number handlers
   const addGstNumber = () => {
-    setGstNumbers([...gstNumbers, {
-      stateId: '',
-      stateName: '',
-      stateCode: '',
-      gstNumber: '',
-      billingAddress: '',
-      billingCityId: '',
-      billingPincode: '',
-      isPrimary: false
-    }]);
+    setGstNumbers([
+      ...gstNumbers,
+      {
+        stateId: '',
+        stateName: '',
+        stateCode: '',
+        gstNumber: '',
+        billingAddress: '',
+        billingCityId: '',
+        billingPincode: '',
+        isPrimary: false,
+      },
+    ]);
   };
 
   const removeGstNumber = (index: number) => {
@@ -487,29 +561,37 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
       // Prepare brand categories with product category IDs
       const brandCategories = brandData
-        .filter(bd => bd.brandName.trim())
-        .map(bd => ({
+        .filter((bd) => bd.brandName.trim())
+        .map((bd) => ({
           brandName: bd.brandName.trim(),
           categories: bd.categories
-            .filter(c => c.categoryName && c.categoryName.trim())
-            .map(c => c.categoryName.trim()),
+            .filter((c) => c.categoryName && c.categoryName.trim())
+            .map((c) => c.categoryName.trim()),
           productCategoryIds: bd.categories
-            .filter(c => c.categoryName && c.categoryName.trim())
-            .map(c => c.productCategoryId || null)
-            .filter(id => id !== null)
+            .filter((c) => c.categoryName && c.categoryName.trim())
+            .map((c) => c.productCategoryId || null)
+            .filter((id) => id !== null),
         }))
-        .filter(bd => bd.categories.length > 0);
+        .filter((bd) => bd.categories.length > 0);
 
       // Also prepare old format for backward compatibility
-      const brandNamesString = brandData.map(bd => bd.brandName.trim()).filter(b => b).join('\n');
+      const brandNamesString = brandData
+        .map((bd) => bd.brandName.trim())
+        .filter((b) => b)
+        .join('\n');
       const categoriesString = brandData
-        .map(bd => bd.categories.map(c => c.categoryName).filter(n => n).join(', '))
+        .map((bd) =>
+          bd.categories
+            .map((c) => c.categoryName)
+            .filter((n) => n)
+            .join(', ')
+        )
         .join('\n');
 
       // Prepare GST numbers (filter out empty ones)
       const validGstNumbers = gstNumbers
-        .filter(gst => gst.gstNumber.trim())
-        .map(gst => ({
+        .filter((gst) => gst.gstNumber.trim())
+        .map((gst) => ({
           stateId: gst.stateId && gst.stateId.trim() ? gst.stateId : undefined,
           stateName: gst.stateName.trim(),
           stateCode: gst.stateCode.trim(),
@@ -517,7 +599,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           billingAddress: gst.billingAddress && gst.billingAddress.trim() ? gst.billingAddress : undefined,
           billingCityId: gst.billingCityId && gst.billingCityId.trim() ? gst.billingCityId : undefined,
           billingPincode: gst.billingPincode && gst.billingPincode.trim() ? gst.billingPincode : undefined,
-          isPrimary: gst.isPrimary
+          isPrimary: gst.isPrimary,
         }));
 
       const payload: CreateCustomerRequest = {
@@ -550,7 +632,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         // Convert empty strings to undefined for UUID foreign keys
         fptTemplateId: data.fptTemplateId && data.fptTemplateId.trim() ? data.fptTemplateId : undefined,
         gptTemplateId: data.gptTemplateId && data.gptTemplateId.trim() ? data.gptTemplateId : undefined,
-        defaultTestingLabId: data.defaultTestingLabId && data.defaultTestingLabId.trim() ? data.defaultTestingLabId : undefined,
+        defaultTestingLabId:
+          data.defaultTestingLabId && data.defaultTestingLabId.trim() ? data.defaultTestingLabId : undefined,
         // Agent fields (for WHOLESALER/RETAILER)
         agencyId: data.agencyId && data.agencyId.trim() ? data.agencyId : null,
         agentId: data.agentId && data.agentId.trim() ? data.agentId : null,
@@ -560,12 +643,12 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       if (isNewCustomer) {
         await customerService.createCustomer(payload);
         notify.success('Customer created', {
-          description: `${data.name} has been successfully created.`
+          description: `${data.name} has been successfully created.`,
         });
       } else if (id) {
         await customerService.updateCustomer(id, payload);
         notify.success('Customer updated', {
-          description: `${data.name} has been successfully updated.`
+          description: `${data.name} has been successfully updated.`,
         });
       }
 
@@ -587,7 +670,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => navigate('/customers')}>← Back to Customers</Button>
+          <Button variant="ghost" onClick={() => navigate('/customers')}>
+            ← Back to Customers
+          </Button>
         </div>
       </header>
       <main className="max-w-4xl mx-auto px-4 py-8">
@@ -597,9 +682,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           </CardHeader>
           <CardContent>
             {submitError && (
-              <div className="p-4 mb-4 bg-red-50 text-red-800 rounded-md border border-red-200">
-                {submitError}
-              </div>
+              <div className="p-4 mb-4 bg-red-50 text-red-800 rounded-md border border-red-200">{submitError}</div>
             )}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Company Information */}
@@ -671,7 +754,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         <AgentCombobox
                           value={watch('agentId') || ''}
                           onValueChange={(value) => setValue('agentId', value)}
-                          placeholder={watch('agencyId') ? "Select agent..." : "Select agency first"}
+                          placeholder={watch('agencyId') ? 'Select agent...' : 'Select agency first'}
                           agencyId={watch('agencyId') || undefined}
                           disabled={!watch('agencyId')}
                         />
@@ -703,9 +786,15 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   <div className="md:col-span-2">
                     <Label htmlFor="billingName">
                       Billing Name
-                      <span className="ml-2 text-sm text-gray-500">(Used on invoices and dispatch documents. If left blank, company name will be used.)</span>
+                      <span className="ml-2 text-sm text-gray-500">
+                        (Used on invoices and dispatch documents. If left blank, company name will be used.)
+                      </span>
                     </Label>
-                    <Input id="billingName" {...register('billingName')} placeholder="Leave blank to use company name" />
+                    <Input
+                      id="billingName"
+                      {...register('billingName')}
+                      placeholder="Leave blank to use company name"
+                    />
                     {errors.billingName && <p className="text-sm text-red-600 mt-1">{errors.billingName.message}</p>}
                   </div>
                   <div className="md:col-span-2">
@@ -771,11 +860,13 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                       <ChevronRight className="h-4 w-4 text-gray-400" />
                                       <div className="flex-1 min-w-[140px]">
                                         <Combobox
-                                          options={subCategoriesMap[category.level1Id]?.map((cat) => ({
-                                            value: cat.id,
-                                            label: cat.name,
-                                            searchText: cat.name,
-                                          })) || []}
+                                          options={
+                                            subCategoriesMap[category.level1Id]?.map((cat) => ({
+                                              value: cat.id,
+                                              label: cat.name,
+                                              searchText: cat.name,
+                                            })) || []
+                                          }
                                           value={category.level2Id}
                                           onValueChange={(value) => handleLevel2Change(brandIndex, catIndex, value)}
                                           placeholder="Select Sub-Category"
@@ -792,11 +883,13 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                       <ChevronRight className="h-4 w-4 text-gray-400" />
                                       <div className="flex-1 min-w-[140px]">
                                         <Combobox
-                                          options={subSubCategoriesMap[category.level2Id]?.map((cat) => ({
-                                            value: cat.id,
-                                            label: cat.name,
-                                            searchText: cat.name,
-                                          })) || []}
+                                          options={
+                                            subSubCategoriesMap[category.level2Id]?.map((cat) => ({
+                                              value: cat.id,
+                                              label: cat.name,
+                                              searchText: cat.name,
+                                            })) || []
+                                          }
                                           value={category.level3Id}
                                           onValueChange={(value) => handleLevel3Change(brandIndex, catIndex, value)}
                                           placeholder="Select Type"
@@ -861,7 +954,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                       ))}
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Add brands and their product categories. Use the cascading dropdowns to select categories at different levels (e.g., Western Wear → T-Shirts, or Kids Wear → Boys → Shirts).
+                      Add brands and their product categories. Use the cascading dropdowns to select categories at
+                      different levels (e.g., Western Wear → T-Shirts, or Kids Wear → Boys → Shirts).
                     </p>
                   </div>
                   <div className="md:col-span-2">
@@ -914,7 +1008,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     <Input id="contactPerson" {...register('contactPerson')} placeholder="Enter contact person name" />
                   </div>
                   <div>
-                    <Label htmlFor="phone">Phone <span className="text-gray-500 text-sm">(Max 10 digits)</span></Label>
+                    <Label htmlFor="phone">
+                      Phone <span className="text-gray-500 text-sm">(Max 10 digits)</span>
+                    </Label>
                     <Input id="phone" {...register('phone')} placeholder="Enter phone number" maxLength={10} />
                     {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone.message}</p>}
                   </div>
@@ -932,21 +1028,11 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="billingAddress">Billing Address</Label>
-                    <Textarea
-                      id="billingAddress"
-                      {...register('billingAddress')}
-                      rows={3}
-                      className="resize-none"
-                    />
+                    <Textarea id="billingAddress" {...register('billingAddress')} rows={3} className="resize-none" />
                   </div>
                   <div>
                     <Label htmlFor="shippingAddress">Shipping Address</Label>
-                    <Textarea
-                      id="shippingAddress"
-                      {...register('shippingAddress')}
-                      rows={3}
-                      className="resize-none"
-                    />
+                    <Textarea id="shippingAddress" {...register('shippingAddress')} rows={3} className="resize-none" />
                   </div>
                 </div>
               </div>
@@ -957,22 +1043,11 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="creditLimit">Credit Limit (₹)</Label>
-                    <Input
-                      id="creditLimit"
-                      type="number"
-                      step="0.01"
-                      {...register('creditLimit')}
-                      placeholder="0.00"
-                    />
+                    <Input id="creditLimit" type="number" step="0.01" {...register('creditLimit')} placeholder="0.00" />
                   </div>
                   <div>
                     <Label htmlFor="creditDays">Credit Days</Label>
-                    <Input
-                      id="creditDays"
-                      type="number"
-                      {...register('creditDays')}
-                      placeholder="0"
-                    />
+                    <Input id="creditDays" type="number" {...register('creditDays')} placeholder="0" />
                   </div>
                 </div>
               </div>
@@ -980,7 +1055,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
               {/* Testing Requirements (FPT/GPT) */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900">Testing Requirements (FPT/GPT)</h3>
-                <p className="text-sm text-gray-500">Configure fabric and garment testing requirements for this customer.</p>
+                <p className="text-sm text-gray-500">
+                  Configure fabric and garment testing requirements for this customer.
+                </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* FPT Section */}
@@ -1001,7 +1078,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         <div className="flex items-center justify-between">
                           <div>
                             <Label className="text-sm">FPT Blocks Production</Label>
-                            <p className="text-xs text-gray-500">Block cutting and all production stages if FPT fails</p>
+                            <p className="text-xs text-gray-500">
+                              Block cutting and all production stages if FPT fails
+                            </p>
                           </div>
                           <Switch
                             checked={watch('fptBlocksProduction')}
@@ -1058,7 +1137,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         <div className="flex items-center justify-between">
                           <div>
                             <Label className="text-sm">GPT Blocks Production</Label>
-                            <p className="text-xs text-gray-500">Block cutting and all subsequent stages if GPT fails</p>
+                            <p className="text-xs text-gray-500">
+                              Block cutting and all subsequent stages if GPT fails
+                            </p>
                           </div>
                           <Switch
                             checked={watch('gptBlocksShipment') !== false}
@@ -1134,7 +1215,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         <Package className="h-5 w-5 text-gray-600" />
                         <h3 className="text-lg font-semibold text-gray-900">Accessory Presets</h3>
                       </div>
-                      <ChevronDown className={`h-5 w-5 text-gray-500 transition-transform ${presetsOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown
+                        className={`h-5 w-5 text-gray-500 transition-transform ${presetsOpen ? 'rotate-180' : ''}`}
+                      />
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-3">
@@ -1145,18 +1228,15 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                           <div>
                             <p className="font-medium text-blue-900">Save customer first</p>
                             <p className="text-sm text-blue-700 mt-1">
-                              Accessory presets can be configured after the customer is created.
-                              These presets define standard labels, packaging, and other accessories
-                              that will be auto-populated when creating styles for this customer.
+                              Accessory presets can be configured after the customer is created. These presets define
+                              standard labels, packaging, and other accessories that will be auto-populated when
+                              creating styles for this customer.
                             </p>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <CustomerAccessoryPresets
-                        customerId={id!}
-                        customerName={watch('name') || 'this customer'}
-                      />
+                      <CustomerAccessoryPresets customerId={id!} customerName={watch('name') || 'this customer'} />
                     )}
                   </CollapsibleContent>
                 </Collapsible>
@@ -1172,9 +1252,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                       <Package className="h-5 w-5 text-blue-600" />
                       <div className="text-left">
                         <h3 className="font-semibold">Size Category Presets</h3>
-                        <p className="text-sm text-gray-500">
-                          Define reusable size templates for this customer
-                        </p>
+                        <p className="text-sm text-gray-500">Define reusable size templates for this customer</p>
                       </div>
                     </div>
                     {sizePresetsExpanded ? (
@@ -1189,15 +1267,10 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                       <div className="text-center py-8 text-gray-500">
                         <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                         <p className="font-medium">Save customer first</p>
-                        <p className="text-sm mt-1">
-                          Size category presets can be managed after creating the customer
-                        </p>
+                        <p className="text-sm mt-1">Size category presets can be managed after creating the customer</p>
                       </div>
                     ) : (
-                      <CustomerSizeCategoryPresets
-                        customerId={id!}
-                        customerName={watch('name') || 'this customer'}
-                      />
+                      <CustomerSizeCategoryPresets customerId={id!} customerName={watch('name') || 'this customer'} />
                     )}
                   </CollapsibleContent>
                 </Collapsible>

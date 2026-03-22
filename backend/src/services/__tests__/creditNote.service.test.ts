@@ -411,7 +411,11 @@ describe('CreditNoteService', () => {
         isInterstate: false,
       });
       (mockGstService.calculateLineItemGST as jest.Mock).mockResolvedValue({
-        gstRate: 12, cgstAmount: 60, sgstAmount: 60, igstAmount: 0, taxAmount: 120,
+        gstRate: 12,
+        cgstAmount: 60,
+        sgstAmount: 60,
+        igstAmount: 0,
+        taxAmount: 120,
       });
       (mockTx.credit_notes.create as jest.Mock).mockResolvedValue({ id: 'cn-id-4' });
 
@@ -434,7 +438,11 @@ describe('CreditNoteService', () => {
         isInterstate: false,
       });
       (mockGstService.calculateLineItemGST as jest.Mock).mockResolvedValue({
-        gstRate: 12, cgstAmount: 60, sgstAmount: 60, igstAmount: 0, taxAmount: 120,
+        gstRate: 12,
+        cgstAmount: 60,
+        sgstAmount: 60,
+        igstAmount: 0,
+        taxAmount: 120,
       });
       (mockTx.credit_notes.create as jest.Mock).mockResolvedValue({ id: 'cn-id-5' });
 
@@ -458,7 +466,11 @@ describe('CreditNoteService', () => {
         isInterstate: false,
       });
       (mockGstService.calculateLineItemGST as jest.Mock).mockResolvedValue({
-        gstRate: 12, cgstAmount: 60, sgstAmount: 60, igstAmount: 0, taxAmount: 120,
+        gstRate: 12,
+        cgstAmount: 60,
+        sgstAmount: 60,
+        igstAmount: 0,
+        taxAmount: 120,
       });
       (mockTx.credit_notes.create as jest.Mock).mockResolvedValue({ id: 'cn-id-6' });
 
@@ -482,7 +494,11 @@ describe('CreditNoteService', () => {
         isInterstate: false,
       });
       (mockGstService.calculateLineItemGST as jest.Mock).mockResolvedValue({
-        gstRate: 12, cgstAmount: 60, sgstAmount: 60, igstAmount: 0, taxAmount: 120,
+        gstRate: 12,
+        cgstAmount: 60,
+        sgstAmount: 60,
+        igstAmount: 0,
+        taxAmount: 120,
       });
       (mockTx.credit_notes.create as jest.Mock).mockResolvedValue({ id: 'cn-id-7' });
 
@@ -714,9 +730,7 @@ describe('CreditNoteService', () => {
     it('should throw error when credit note not found', async () => {
       (mockPrisma.credit_notes.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.approve('non-existent')).rejects.toThrow(
-        'Credit note not found'
-      );
+      await expect(service.approve('non-existent')).rejects.toThrow('Credit note not found');
     });
 
     it('should throw error when status is APPROVED', async () => {
@@ -724,9 +738,7 @@ describe('CreditNoteService', () => {
         status: 'APPROVED',
       });
 
-      await expect(service.approve('cn-1')).rejects.toThrow(
-        'Only DRAFT credit notes can be approved'
-      );
+      await expect(service.approve('cn-1')).rejects.toThrow('Only DRAFT credit notes can be approved');
     });
 
     it('should throw error when status is CANCELLED', async () => {
@@ -734,9 +746,7 @@ describe('CreditNoteService', () => {
         status: 'CANCELLED',
       });
 
-      await expect(service.approve('cn-1')).rejects.toThrow(
-        'Only DRAFT credit notes can be approved'
-      );
+      await expect(service.approve('cn-1')).rejects.toThrow('Only DRAFT credit notes can be approved');
     });
   });
 
@@ -771,9 +781,7 @@ describe('CreditNoteService', () => {
     it('should throw error when credit note not found', async () => {
       (mockPrisma.credit_notes.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.cancel('non-existent')).rejects.toThrow(
-        'Credit note not found'
-      );
+      await expect(service.cancel('non-existent')).rejects.toThrow('Credit note not found');
     });
 
     it('should throw error when status is APPROVED', async () => {
@@ -781,9 +789,7 @@ describe('CreditNoteService', () => {
         status: 'APPROVED',
       });
 
-      await expect(service.cancel('cn-1')).rejects.toThrow(
-        'Only DRAFT credit notes can be cancelled'
-      );
+      await expect(service.cancel('cn-1')).rejects.toThrow('Only DRAFT credit notes can be cancelled');
     });
 
     it('should throw error when status is CANCELLED', async () => {
@@ -791,9 +797,7 @@ describe('CreditNoteService', () => {
         status: 'CANCELLED',
       });
 
-      await expect(service.cancel('cn-1')).rejects.toThrow(
-        'Only DRAFT credit notes can be cancelled'
-      );
+      await expect(service.cancel('cn-1')).rejects.toThrow('Only DRAFT credit notes can be cancelled');
     });
   });
 
@@ -820,9 +824,7 @@ describe('CreditNoteService', () => {
     it('should throw error when credit note not found', async () => {
       (mockPrisma.credit_notes.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.delete('non-existent')).rejects.toThrow(
-        'Credit note not found'
-      );
+      await expect(service.delete('non-existent')).rejects.toThrow('Credit note not found');
     });
 
     it('should throw error when status is APPROVED', async () => {
@@ -830,9 +832,7 @@ describe('CreditNoteService', () => {
         status: 'APPROVED',
       });
 
-      await expect(service.delete('cn-1')).rejects.toThrow(
-        'Only DRAFT credit notes can be deleted'
-      );
+      await expect(service.delete('cn-1')).rejects.toThrow('Only DRAFT credit notes can be deleted');
     });
 
     it('should throw error when status is CANCELLED', async () => {
@@ -840,9 +840,7 @@ describe('CreditNoteService', () => {
         status: 'CANCELLED',
       });
 
-      await expect(service.delete('cn-1')).rejects.toThrow(
-        'Only DRAFT credit notes can be deleted'
-      );
+      await expect(service.delete('cn-1')).rejects.toThrow('Only DRAFT credit notes can be deleted');
     });
 
     it('should not call delete when status check fails', async () => {

@@ -3,13 +3,7 @@ import { z } from 'zod';
 /**
  * ExpenseCategory Enum - matches Prisma ExpenseCategory
  */
-export const ExpenseCategoryEnum = z.enum([
-  'DIRECT',
-  'INDIRECT',
-  'OVERHEAD',
-  'ADMINISTRATIVE',
-  'MARKETING',
-]);
+export const ExpenseCategoryEnum = z.enum(['DIRECT', 'INDIRECT', 'OVERHEAD', 'ADMINISTRATIVE', 'MARKETING']);
 
 /**
  * Create Expense Type Schema
@@ -29,12 +23,7 @@ export const createExpenseTypeSchema = z.object({
   expenseCategory: ExpenseCategoryEnum,
   accountId: z.string().uuid('Invalid account ID format').optional().nullable(),
   isRecurring: z.boolean().optional().default(false),
-  description: z
-    .string()
-    .max(500, 'Description must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -58,12 +47,7 @@ export const updateExpenseTypeSchema = z.object({
   expenseCategory: ExpenseCategoryEnum.optional(),
   accountId: z.string().uuid('Invalid account ID format').optional().nullable(),
   isRecurring: z.boolean().optional(),
-  description: z
-    .string()
-    .max(500, 'Description must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
@@ -93,10 +77,7 @@ export const expenseTypeQuerySchema = z.object({
       return val === 'true';
     })
     .pipe(z.boolean().optional()),
-  sortBy: z
-    .enum(['expenseCode', 'expenseName', 'expenseCategory', 'createdAt'])
-    .optional()
-    .default('expenseCode'),
+  sortBy: z.enum(['expenseCode', 'expenseName', 'expenseCategory', 'createdAt']).optional().default('expenseCode'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
 });
 

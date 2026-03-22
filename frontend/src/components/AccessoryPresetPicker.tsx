@@ -10,13 +10,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
 import { Search } from 'lucide-react';
 
@@ -64,12 +58,7 @@ interface PickerItem {
 
 type TabType = 'LABEL' | 'PACKAGING';
 
-export default function AccessoryPresetPicker({
-  isOpen,
-  onClose,
-  onSelect,
-  customerId,
-}: AccessoryPresetPickerProps) {
+export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, customerId }: AccessoryPresetPickerProps) {
   const [activeTab, setActiveTab] = useState<TabType>('LABEL');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -79,15 +68,18 @@ export default function AccessoryPresetPicker({
   const [packaging, setPackaging] = useState<PickerItem[]>([]);
 
   // Selected items with quantities and label-specific fields
-  const [selectedItems, setSelectedItems] = useState<Map<string, {
-    item: PickerItem;
-    type: TabType;
-    quantity: number;
-    componentName?: string;
-    extraPercentage?: number;
-  }>>(
-    new Map()
-  );
+  const [selectedItems, setSelectedItems] = useState<
+    Map<
+      string,
+      {
+        item: PickerItem;
+        type: TabType;
+        quantity: number;
+        componentName?: string;
+        extraPercentage?: number;
+      }
+    >
+  >(new Map());
 
   // Load data when modal opens or customerId changes
   useEffect(() => {
@@ -289,7 +281,11 @@ export default function AccessoryPresetPicker({
 
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <Tabs
+            value={activeTab}
+            onValueChange={(val) => setActiveTab(val as TabType)}
+            className="flex-1 min-h-0 flex flex-col overflow-hidden"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="LABEL" className="relative">
                 🏷️ Labels
@@ -397,15 +393,7 @@ export default function AccessoryPresetPicker({
 }
 
 // Common label component locations
-const COMPONENT_LOCATIONS = [
-  'Back Neck',
-  'Side Seam',
-  'Hangtag Loop',
-  'Bottom Hem',
-  'Sleeve',
-  'Pocket',
-  'Other',
-];
+const COMPONENT_LOCATIONS = ['Back Neck', 'Side Seam', 'Hangtag Loop', 'Bottom Hem', 'Sleeve', 'Pocket', 'Other'];
 
 // Item Row Component
 interface ItemRowProps {
@@ -462,13 +450,20 @@ function ItemRow({
               </div>
               <div className="flex items-center gap-2 mt-1 text-sm text-gray-600 flex-wrap">
                 {item.labelCategory && (
-                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                    item.labelCategory === 'SEWN_IN' ? 'bg-blue-100 text-blue-700' :
-                    item.labelCategory === 'HANGTAG' ? 'bg-green-100 text-green-700' :
-                    'bg-purple-100 text-purple-700'
-                  }`}>
-                    {item.labelCategory === 'SEWN_IN' ? 'Sewn-in' :
-                     item.labelCategory === 'HANGTAG' ? 'Hangtag' : 'Price Tag'}
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                      item.labelCategory === 'SEWN_IN'
+                        ? 'bg-blue-100 text-blue-700'
+                        : item.labelCategory === 'HANGTAG'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-purple-100 text-purple-700'
+                    }`}
+                  >
+                    {item.labelCategory === 'SEWN_IN'
+                      ? 'Sewn-in'
+                      : item.labelCategory === 'HANGTAG'
+                        ? 'Hangtag'
+                        : 'Price Tag'}
                   </span>
                 )}
                 {item.subType && <span className="text-gray-500">{item.subType}</span>}
@@ -509,7 +504,9 @@ function ItemRow({
                   className="w-full h-8 text-sm rounded border border-gray-300 px-2 mt-1"
                 >
                   {COMPONENT_LOCATIONS.map((loc) => (
-                    <option key={loc} value={loc}>{loc}</option>
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
                   ))}
                 </select>
               </div>

@@ -16,14 +16,14 @@ const prisma = new PrismaClient();
 
 // Size order for sorting
 const SIZE_ORDER: Record<string, number> = {
-  'XS': 10,
-  'S': 20,
-  'M': 30,
-  'L': 40,
-  'XL': 50,
-  'XXL': 60,
+  XS: 10,
+  S: 20,
+  M: 30,
+  L: 40,
+  XL: 50,
+  XXL: 60,
   '2XL': 60,
-  'XXXL': 70,
+  XXXL: 70,
   '3XL': 70,
   '4XL': 80,
   '5XL': 90,
@@ -72,7 +72,7 @@ async function main() {
     console.log(`\nProcessing style ${styleId} with ${variants.length} variants...`);
 
     // Get unique size names
-    const uniqueSizes = [...new Set(variants.map(v => v.sizeName).filter(Boolean))];
+    const uniqueSizes = [...new Set(variants.map((v) => v.sizeName).filter(Boolean))];
 
     for (const sizeName of uniqueSizes) {
       if (!sizeName) continue;
@@ -99,7 +99,7 @@ async function main() {
       }
 
       // Update all variants with this size
-      const variantsToUpdate = variants.filter(v => v.sizeName === sizeName);
+      const variantsToUpdate = variants.filter((v) => v.sizeName === sizeName);
       for (const variant of variantsToUpdate) {
         await prisma.style_variants.update({
           where: { id: variant.id },

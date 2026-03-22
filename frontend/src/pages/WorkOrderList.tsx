@@ -45,7 +45,7 @@ export default function WorkOrderList() {
       const data = await workOrderService.getAll({
         status: statusFilter || undefined,
         priority: priorityFilter || undefined,
-        search: searchQuery || undefined
+        search: searchQuery || undefined,
       });
       setWorkOrders(data);
     } catch (err: unknown) {
@@ -92,7 +92,7 @@ export default function WorkOrderList() {
     return new Date(dateString).toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -106,9 +106,7 @@ export default function WorkOrderList() {
     {
       key: 'workOrderNumber',
       header: 'Production Run #',
-      render: (wo) => (
-        <div className="font-medium text-gray-900">{wo.workOrderNumber}</div>
-      ),
+      render: (wo) => <div className="font-medium text-gray-900">{wo.workOrderNumber}</div>,
     },
     {
       key: 'order',
@@ -122,7 +120,9 @@ export default function WorkOrderList() {
             </>
           ) : wo.stockProductionOrderId ? (
             <>
-              <div className="font-medium text-blue-700">{wo.stockProductionOrder?.spoNumber || 'Stock Production'}</div>
+              <div className="font-medium text-blue-700">
+                {wo.stockProductionOrder?.spoNumber || 'Stock Production'}
+              </div>
               <div className="text-xs text-blue-500">Make-to-Stock</div>
             </>
           ) : (
@@ -158,9 +158,7 @@ export default function WorkOrderList() {
           <div className="font-medium text-gray-900">
             {wo.completedQuantity} / {wo.totalQuantity}
           </div>
-          <div className="text-xs text-gray-500">
-            {calculateProgress(wo)}% complete
-          </div>
+          <div className="text-xs text-gray-500">{calculateProgress(wo)}% complete</div>
         </div>
       ),
     },
@@ -173,9 +171,7 @@ export default function WorkOrderList() {
           <div className="w-full">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className={`h-2 rounded-full ${
-                  progress === 100 ? 'bg-green-600' : 'bg-blue-600'
-                }`}
+                className={`h-2 rounded-full ${progress === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -186,19 +182,12 @@ export default function WorkOrderList() {
     {
       key: 'priority',
       header: 'Priority',
-      render: (wo) => (
-        <StatusBadge status={wo.priority} variant={getPriorityVariant(wo.priority)} />
-      ),
+      render: (wo) => <StatusBadge status={wo.priority} variant={getPriorityVariant(wo.priority)} />,
     },
     {
       key: 'status',
       header: 'Status',
-      render: (wo) => (
-        <StatusBadge
-          status={wo.status.replace(/_/g, ' ')}
-          variant={getStatusVariant(wo.status)}
-        />
-      ),
+      render: (wo) => <StatusBadge status={wo.status.replace(/_/g, ' ')} variant={getStatusVariant(wo.status)} />,
     },
     {
       key: 'dates',
@@ -267,7 +256,10 @@ export default function WorkOrderList() {
             </div>
             <div className="w-40">
               <Label htmlFor="statusFilter">Status</Label>
-              <Select value={statusFilter || 'ALL'} onValueChange={(value) => setStatusFilter(value === 'ALL' ? '' : value as OrderStatus)}>
+              <Select
+                value={statusFilter || 'ALL'}
+                onValueChange={(value) => setStatusFilter(value === 'ALL' ? '' : (value as OrderStatus))}
+              >
                 <SelectTrigger id="statusFilter">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
@@ -283,7 +275,10 @@ export default function WorkOrderList() {
             </div>
             <div className="w-32">
               <Label htmlFor="priorityFilter">Priority</Label>
-              <Select value={priorityFilter || 'ALL'} onValueChange={(value) => setPriorityFilter(value === 'ALL' ? '' : value as Priority)}>
+              <Select
+                value={priorityFilter || 'ALL'}
+                onValueChange={(value) => setPriorityFilter(value === 'ALL' ? '' : (value as Priority))}
+              >
                 <SelectTrigger id="priorityFilter">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
@@ -311,9 +306,10 @@ export default function WorkOrderList() {
           emptyState={{
             icon: <ClipboardList className="h-16 w-16" />,
             title: 'No production runs found',
-            description: searchQuery || statusFilter || priorityFilter
-              ? 'Try adjusting your search or filter criteria'
-              : 'Production runs are auto-created when orders are saved',
+            description:
+              searchQuery || statusFilter || priorityFilter
+                ? 'Try adjusting your search or filter criteria'
+                : 'Production runs are auto-created when orders are saved',
           }}
           onRowClick={(wo) => navigate(`/production/work-orders/${wo.id}`)}
         />

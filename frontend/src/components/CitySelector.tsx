@@ -71,7 +71,7 @@ export default function CitySelector({
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/locations/cities?${params.toString()}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -141,11 +141,7 @@ export default function CitySelector({
         `}
       >
         <option value="">
-          {loading
-            ? 'Loading cities...'
-            : !stateId && !searchTerm
-            ? 'Select a state first'
-            : placeholder}
+          {loading ? 'Loading cities...' : !stateId && !searchTerm ? 'Select a state first' : placeholder}
         </option>
         {cities.map((city) => (
           <option key={city.id} value={city.id}>
@@ -154,13 +150,9 @@ export default function CitySelector({
         ))}
       </select>
 
-      {loadError && (
-        <p className="mt-1 text-sm text-orange-600">{loadError}</p>
-      )}
+      {loadError && <p className="mt-1 text-sm text-orange-600">{loadError}</p>}
 
-      {error && !loadError && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
+      {error && !loadError && <p className="mt-1 text-sm text-red-600">{error}</p>}
 
       {cities.length === 0 && !loading && stateId && (
         <p className="mt-1 text-sm text-gray-500">No cities found for selected state</p>

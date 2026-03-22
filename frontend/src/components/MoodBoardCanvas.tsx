@@ -395,10 +395,7 @@ export function MoodBoardCanvas({
   }, [selectedItemId, editable, onItemDelete, onItemSelect]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-full bg-gray-200 overflow-hidden flex items-center justify-center"
-    >
+    <div ref={containerRef} className="w-full h-full bg-gray-200 overflow-hidden flex items-center justify-center">
       <Stage
         ref={stageRef}
         width={canvasWidth * scale}
@@ -423,14 +420,7 @@ export function MoodBoardCanvas({
           />
 
           {/* Canvas border */}
-          <Rect
-            x={0}
-            y={0}
-            width={canvasWidth}
-            height={canvasHeight}
-            stroke="#e5e7eb"
-            strokeWidth={1}
-          />
+          <Rect x={0} y={0} width={canvasWidth} height={canvasHeight} stroke="#e5e7eb" strokeWidth={1} />
 
           {/* Render items */}
           {sortedItems.map((item) => {

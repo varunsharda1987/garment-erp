@@ -6,7 +6,7 @@ import {
   updateButton,
   deleteButton,
   bulkImportButtons,
-  downloadTemplate
+  downloadTemplate,
 } from '../controllers/button.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

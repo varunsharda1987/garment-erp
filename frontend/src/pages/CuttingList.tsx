@@ -17,21 +17,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,10 +29,7 @@ import type {
   CuttingSummary,
   CuttingStyleSizeSummaryItem,
 } from '@/types/cutting.types';
-import {
-  CuttingBatchStatusLabels,
-  CuttingBatchStatusColors,
-} from '@/types/cutting.types';
+import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { format } from 'date-fns';
 
@@ -82,7 +66,7 @@ export default function CuttingList() {
           page,
           limit: 20,
           search: search || undefined,
-          status: statusFilter as CuttingBatchStatus || undefined,
+          status: (statusFilter as CuttingBatchStatus) || undefined,
         }),
         cuttingSummaryService.getSummary(),
       ]);
@@ -145,9 +129,7 @@ export default function CuttingList() {
   };
 
   const getStatusBadge = (status: CuttingBatchStatus) => (
-    <Badge className={CuttingBatchStatusColors[status]}>
-      {CuttingBatchStatusLabels[status]}
-    </Badge>
+    <Badge className={CuttingBatchStatusColors[status]}>{CuttingBatchStatusLabels[status]}</Badge>
   );
 
   return (
@@ -158,18 +140,11 @@ export default function CuttingList() {
           <Scissors className="h-8 w-8 text-orange-600" />
           <div>
             <h1 className="text-2xl font-bold">Cutting</h1>
-            <p className="text-muted-foreground">
-              Manage cutting batches and track fabric consumption
-            </p>
+            <p className="text-muted-foreground">Manage cutting batches and track fabric consumption</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <Button asChild>
@@ -193,9 +168,7 @@ export default function CuttingList() {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Batches
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Batches</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{summary.total}</div>
@@ -203,9 +176,7 @@ export default function CuttingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Pending
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-gray-600">{summary.pending}</div>
@@ -213,9 +184,7 @@ export default function CuttingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    In Progress
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600">{summary.inProgress}</div>
@@ -223,9 +192,7 @@ export default function CuttingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Completed
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
@@ -233,14 +200,10 @@ export default function CuttingList() {
               </Card>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Fabric Used (m)
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Fabric Used (m)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">
-                    {summary.totalFabricConsumed.toFixed(1)}
-                  </div>
+                  <div className="text-2xl font-bold text-orange-600">{summary.totalFabricConsumed.toFixed(1)}</div>
                 </CardContent>
               </Card>
             </div>
@@ -286,9 +249,7 @@ export default function CuttingList() {
                   <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : batches.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No cutting batches found
-                </div>
+                <div className="text-center py-8 text-muted-foreground">No cutting batches found</div>
               ) : (
                 <Table>
                   <TableHeader>
@@ -308,31 +269,21 @@ export default function CuttingList() {
                     {batches.map((batch) => (
                       <TableRow key={batch.id}>
                         <TableCell className="font-medium">{batch.batchNumber}</TableCell>
-                        <TableCell>
-                          {batch.workOrder?.workOrderNumber || '-'}
-                        </TableCell>
+                        <TableCell>{batch.workOrder?.workOrderNumber || '-'}</TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">
-                              {batch.workOrder?.style?.styleCode || '-'}
-                            </div>
+                            <div className="font-medium">{batch.workOrder?.style?.styleCode || '-'}</div>
                             <div className="text-sm text-muted-foreground">
                               {batch.workOrder?.style?.styleName || ''}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {batch.component?.componentName || 'Main'}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(batch.cuttingDate), 'dd MMM yyyy')}
-                        </TableCell>
+                        <TableCell>{batch.component?.componentName || 'Main'}</TableCell>
+                        <TableCell>{format(new Date(batch.cuttingDate), 'dd MMM yyyy')}</TableCell>
                         <TableCell className="text-right">
                           {batch.layersPerLay} × {batch.numberOfLays}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {batch.fabricConsumed?.toFixed(2) || '0.00'}
-                        </TableCell>
+                        <TableCell className="text-right">{batch.fabricConsumed?.toFixed(2) || '0.00'}</TableCell>
                         <TableCell>{getStatusBadge(batch.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
@@ -396,12 +347,7 @@ export default function CuttingList() {
                     Page {page} of {totalPages}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page - 1)}
-                      disabled={page === 1}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>
                       <ChevronLeft className="h-4 w-4" />
                       Previous
                     </Button>
@@ -428,9 +374,7 @@ export default function CuttingList() {
               <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : sizeSummary.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No active cutting batches to display
-            </div>
+            <div className="text-center py-8 text-muted-foreground">No active cutting batches to display</div>
           ) : (
             sizeSummary.map((item) => (
               <Card key={item.workOrderId}>
@@ -439,9 +383,7 @@ export default function CuttingList() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-base font-semibold">{item.styleCode}</span>
-                        {item.styleName && (
-                          <span className="text-sm text-muted-foreground">{item.styleName}</span>
-                        )}
+                        {item.styleName && <span className="text-sm text-muted-foreground">{item.styleName}</span>}
                         <span className="text-sm text-muted-foreground">({item.workOrderNumber})</span>
                         {item.customerName && (
                           <Badge variant="secondary" className="text-xs font-normal">
@@ -450,9 +392,7 @@ export default function CuttingList() {
                         )}
                       </div>
                       {item.orderNumber && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Order: {item.orderNumber}
-                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">Order: {item.orderNumber}</div>
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap shrink-0">
@@ -495,15 +435,9 @@ export default function CuttingList() {
                       {item.sizes.map((size) => (
                         <TableRow key={size.sizeId}>
                           <TableCell className="font-medium">{size.sizeName}</TableCell>
-                          <TableCell className="text-right text-gray-600">
-                            {size.planned || '-'}
-                          </TableCell>
-                          <TableCell className="text-right text-blue-600 font-medium">
-                            {size.cut || '-'}
-                          </TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">
-                            {size.goodPcs || '-'}
-                          </TableCell>
+                          <TableCell className="text-right text-gray-600">{size.planned || '-'}</TableCell>
+                          <TableCell className="text-right text-blue-600 font-medium">{size.cut || '-'}</TableCell>
+                          <TableCell className="text-right text-green-600 font-medium">{size.goodPcs || '-'}</TableCell>
                           <TableCell className="text-right text-orange-600 font-medium">
                             {size.pending || '-'}
                           </TableCell>
@@ -511,15 +445,9 @@ export default function CuttingList() {
                       ))}
                       <TableRow className="font-bold border-t-2">
                         <TableCell>Total</TableCell>
-                        <TableCell className="text-right text-gray-600">
-                          {item.totalPlanned}
-                        </TableCell>
-                        <TableCell className="text-right text-blue-600">
-                          {item.totalCut}
-                        </TableCell>
-                        <TableCell className="text-right text-green-600">
-                          {item.totalGoodPcs}
-                        </TableCell>
+                        <TableCell className="text-right text-gray-600">{item.totalPlanned}</TableCell>
+                        <TableCell className="text-right text-blue-600">{item.totalCut}</TableCell>
+                        <TableCell className="text-right text-green-600">{item.totalGoodPcs}</TableCell>
                         <TableCell className="text-right text-orange-600">
                           {item.sizes.reduce((sum, s) => sum + s.pending, 0)}
                         </TableCell>

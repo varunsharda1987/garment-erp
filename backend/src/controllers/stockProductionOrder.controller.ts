@@ -3,18 +3,8 @@ import { stockProductionOrderService } from '../services/stockProductionOrder.se
 import { NotFoundError, ValidationError } from '../errors';
 
 export class StockProductionOrderController {
-
   async getAll(req: Request, res: Response) {
-    const {
-      page = '1',
-      limit = '20',
-      search,
-      status,
-      styleId,
-      isActive,
-      sortBy,
-      sortOrder,
-    } = req.query;
+    const { page = '1', limit = '20', search, status, styleId, isActive, sortBy, sortOrder } = req.query;
 
     const result = await stockProductionOrderService.getAll({
       page: parseInt(page as string, 10),

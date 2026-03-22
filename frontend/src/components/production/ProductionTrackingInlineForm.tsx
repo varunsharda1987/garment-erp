@@ -3,13 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import { stageValidationService } from '@/services/stageValidation.service';
@@ -70,7 +64,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
   const [showOverrideModal, setShowOverrideModal] = useState<boolean>(false);
 
   // Get stages that come after the current stage
-  const currentStageIndex = PRODUCTION_STAGES.findIndex(s => s.value === currentStage);
+  const currentStageIndex = PRODUCTION_STAGES.findIndex((s) => s.value === currentStage);
   const availableStages = PRODUCTION_STAGES.filter((_, index) => index > currentStageIndex);
 
   // Validate stage transition when stage changes
@@ -86,18 +80,15 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
   const validateStageTransition = async (targetStage: string) => {
     setIsValidating(true);
     try {
-      const validation = await stageValidationService.checkStageTransition(
-        workOrderId,
-        targetStage
-      );
+      const validation = await stageValidationService.checkStageTransition(workOrderId, targetStage);
 
       setValidationBlockers(validation.blockers || []);
       setCanProceed(!validation.isBlocked);
 
       // Show notification if blockers detected
       if (validation.isBlocked && validation.blockers.length > 0) {
-        const criticalBlockers = validation.blockers.filter(b => b.severity === 'CRITICAL');
-        const targetStageLabel = PRODUCTION_STAGES.find(s => s.value === targetStage)?.label;
+        const criticalBlockers = validation.blockers.filter((b) => b.severity === 'CRITICAL');
+        const targetStageLabel = PRODUCTION_STAGES.find((s) => s.value === targetStage)?.label;
 
         toast.error('Production Blockers Detected', {
           description: `Cannot transition to ${targetStageLabel}. ${criticalBlockers.length || validation.blockers.length} issue(s) must be resolved${user?.role === 'ADMIN' ? ' or overridden' : ''}.`,
@@ -149,10 +140,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
     await submitStageUpdate(false, null);
   };
 
-  const submitStageUpdate = async (
-    adminOverride: boolean,
-    overrideReason: string | null
-  ) => {
+  const submitStageUpdate = async (adminOverride: boolean, overrideReason: string | null) => {
     setIsSaving(true);
     try {
       await workOrderService.addProductionTracking(workOrderId, {
@@ -163,7 +151,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
         overrideReason: overrideReason || undefined,
       });
 
-      const stageLabel = PRODUCTION_STAGES.find(s => s.value === selectedStage)?.label;
+      const stageLabel = PRODUCTION_STAGES.find((s) => s.value === selectedStage)?.label;
 
       if (adminOverride) {
         toast.warning('Admin Override Used', {
@@ -274,9 +262,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
             ))}
           </ul>
           {user?.role === 'ADMIN' && (
-            <p className="text-xs text-red-700 mt-2">
-              As an admin, you can override these blocks by proceeding.
-            </p>
+            <p className="text-xs text-red-700 mt-2">As an admin, you can override these blocks by proceeding.</p>
           )}
         </div>
       )}
@@ -294,10 +280,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
         <Button variant="outline" onClick={onCancel} disabled={isSaving}>
           Cancel
         </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={!selectedStage || quantityCompleted <= 0 || isSaving || isValidating}
-        >
+        <Button onClick={handleSubmit} disabled={!selectedStage || quantityCompleted <= 0 || isSaving || isValidating}>
           {isSaving ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -314,7 +297,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
         isOpen={showOverrideModal}
         onClose={() => setShowOverrideModal(false)}
         onConfirm={handleOverrideConfirm}
-        action={`transition to ${PRODUCTION_STAGES.find(s => s.value === selectedStage)?.label}`}
+        action={`transition to ${PRODUCTION_STAGES.find((s) => s.value === selectedStage)?.label}`}
         blockers={validationBlockers}
       />
     </div>

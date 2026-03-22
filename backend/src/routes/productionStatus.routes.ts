@@ -1,8 +1,5 @@
 import { Router } from 'express';
-import {
-  getAllProductionStatus,
-  getProductionStatusSummary,
-} from '../controllers/productionStatus.controller';
+import { getAllProductionStatus, getProductionStatusSummary } from '../controllers/productionStatus.controller';
 import {
   getOrderStatusList,
   getOrderStatusSummary,

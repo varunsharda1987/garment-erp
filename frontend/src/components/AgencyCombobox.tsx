@@ -14,7 +14,7 @@ interface AgencyComboboxProps {
 export function AgencyCombobox({
   value,
   onValueChange,
-  placeholder = "Select agency...",
+  placeholder = 'Select agency...',
   className,
   disabled = false,
 }: AgencyComboboxProps) {
@@ -56,7 +56,7 @@ export function AgencyCombobox({
       options={agencies}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? "Loading agencies..." : placeholder}
+      placeholder={!initialLoaded ? 'Loading agencies...' : placeholder}
       searchPlaceholder="Search by code, name..."
       emptyText="No agencies found."
       disabled={disabled || !initialLoaded}

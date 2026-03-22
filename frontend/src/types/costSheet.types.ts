@@ -37,9 +37,9 @@ export type TrimDetail = {
   // Not Applicable flag - if true, item is excluded from calculations and 0 values are allowed
   isNotApplicable?: boolean;
   // New fields for auto-population from style_material_bom
-  unit?: string;           // 'pcs', 'meters', 'lot', etc.
-  bomId?: string;          // Reference to style_material_bom.id
-  materialType?: string;   // 'BUTTON', 'ZIPPER', 'THREAD', 'ELASTIC', 'LABEL', 'PACKAGING', etc.
+  unit?: string; // 'pcs', 'meters', 'lot', etc.
+  bomId?: string; // Reference to style_material_bom.id
+  materialType?: string; // 'BUTTON', 'ZIPPER', 'THREAD', 'ELASTIC', 'LABEL', 'PACKAGING', etc.
   // Master ID fields — link to specific master records for MRP
   threadId?: string;
   buttonId?: string;
@@ -47,7 +47,7 @@ export type TrimDetail = {
   elasticId?: string;
   labelId?: string;
   packagingId?: string;
-  materialId?: string;     // FK to unified materials table
+  materialId?: string; // FK to unified materials table
 };
 
 // ============================================
@@ -126,8 +126,8 @@ export type AccessoryDetail = {
   // Master ID fields — link to specific master records for MRP
   labelId?: string;
   packagingId?: string;
-  materialId?: string;     // FK to unified materials table
-  materialType?: string;   // 'LABEL' | 'PACKAGING'
+  materialId?: string; // FK to unified materials table
+  materialType?: string; // 'LABEL' | 'PACKAGING'
 };
 
 // ============================================
@@ -143,7 +143,7 @@ export type CostSheetPurpose = 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCT
 export type CostSheet = {
   id: string;
   styleId: string;
-  purpose: CostSheetPurpose;  // Cost sheet mode
+  purpose: CostSheetPurpose; // Cost sheet mode
 
   // Versioning Support
   version: number;
@@ -270,7 +270,7 @@ export type CostSheet = {
 
 export type CreateCostSheetInput = {
   styleId: string;
-  purpose?: CostSheetPurpose;  // Optional, defaults to COSTING
+  purpose?: CostSheetPurpose; // Optional, defaults to COSTING
   numberOfComponents?: number;
   category?: string;
   subCategory?: string;
@@ -309,7 +309,7 @@ export type CreateCostSheetInput = {
 };
 
 export type UpdateCostSheetInput = {
-  purpose?: CostSheetPurpose;  // Can update mode
+  purpose?: CostSheetPurpose; // Can update mode
   numberOfComponents?: number;
   category?: string;
   subCategory?: string;

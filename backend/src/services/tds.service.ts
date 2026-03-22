@@ -5,7 +5,7 @@ interface TDSCreateInput {
   paymentId?: string;
   deductorName: string;
   deducteeName: string;
-  tdsSection: string;  // "194C", "194J", etc.
+  tdsSection: string; // "194C", "194J", etc.
   tdsRate: number;
   grossAmount: number;
   tdsAmount: number;
@@ -40,7 +40,16 @@ class TDSService {
   }
 
   async getAll(params: TDSQueryParams) {
-    const { page = 1, limit = 20, search, financialYear, quarter, status, sortBy = 'deductionDate', sortOrder = 'desc' } = params;
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      financialYear,
+      quarter,
+      status,
+      sortBy = 'deductionDate',
+      sortOrder = 'desc',
+    } = params;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -97,17 +106,17 @@ class TDSService {
       orderBy: { quarter: 'asc' },
     });
 
-    const quarterSummary = [1, 2, 3, 4].map(q => {
-      const qEntries = entries.filter(e => e.quarter === q);
+    const quarterSummary = [1, 2, 3, 4].map((q) => {
+      const qEntries = entries.filter((e) => e.quarter === q);
       return {
         quarter: q,
         count: qEntries.length,
         totalGross: qEntries.reduce((s, e) => s + Number(e.grossAmount), 0),
         totalTDS: qEntries.reduce((s, e) => s + Number(e.tdsAmount), 0),
         totalNet: qEntries.reduce((s, e) => s + Number(e.netAmount), 0),
-        pending: qEntries.filter(e => e.status === 'PENDING').length,
-        certificateReceived: qEntries.filter(e => e.status === 'CERTIFICATE_RECEIVED').length,
-        verified: qEntries.filter(e => e.status === 'VERIFIED').length,
+        pending: qEntries.filter((e) => e.status === 'PENDING').length,
+        certificateReceived: qEntries.filter((e) => e.status === 'CERTIFICATE_RECEIVED').length,
+        verified: qEntries.filter((e) => e.status === 'VERIFIED').length,
       };
     });
 

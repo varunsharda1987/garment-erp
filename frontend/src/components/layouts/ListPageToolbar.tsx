@@ -75,23 +75,15 @@ export function ListPageToolbar({
         {/* Search */}
         {onSearchChange && (
           <div className="flex-1 max-w-md">
-            <SearchInput
-              value={search || ''}
-              onChange={onSearchChange}
-              placeholder={searchPlaceholder}
-            />
+            <SearchInput value={search || ''} onChange={onSearchChange} placeholder={searchPlaceholder} />
           </div>
         )}
 
         {/* Export/Import buttons */}
         {(exportModule || importModule) && (
           <div className="flex items-center gap-2">
-            {exportModule && (
-              <ExportButton module={exportModule} filters={exportFilters} />
-            )}
-            {importModule && (
-              <ImportButton module={importModule} onSuccess={onImportSuccess} />
-            )}
+            {exportModule && <ExportButton module={exportModule} filters={exportFilters} />}
+            {importModule && <ImportButton module={importModule} onSuccess={onImportSuccess} />}
           </div>
         )}
       </div>
@@ -119,9 +111,7 @@ export function ListPageToolbar({
   if (useCard) {
     return (
       <Card className="mb-4">
-        <CardContent className="pt-6">
-          {content}
-        </CardContent>
+        <CardContent className="pt-6">{content}</CardContent>
       </Card>
     );
   }

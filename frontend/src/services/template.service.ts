@@ -36,9 +36,7 @@ class TemplateService {
       logApiError('Create template error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to create template'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to create template'
       );
     }
   }
@@ -48,22 +46,17 @@ class TemplateService {
    */
   async getTemplatesByModule(moduleName: string): Promise<ExportTemplate[]> {
     try {
-      const response = await axios.get<{ success: boolean; templates: ExportTemplate[] }>(
-        `${API_URL}/api/templates`,
-        {
-          params: { module: moduleName },
-          headers: this.getAuthHeaders(),
-        }
-      );
+      const response = await axios.get<{ success: boolean; templates: ExportTemplate[] }>(`${API_URL}/api/templates`, {
+        params: { module: moduleName },
+        headers: this.getAuthHeaders(),
+      });
 
       return response.data.templates;
     } catch (error: unknown) {
       logApiError('Get templates error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to get templates'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to get templates'
       );
     }
   }
@@ -83,9 +76,7 @@ class TemplateService {
       logApiError('Get template error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to get template'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to get template'
       );
     }
   }
@@ -106,9 +97,7 @@ class TemplateService {
       logApiError('Update template error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to update template'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to update template'
       );
     }
   }
@@ -118,17 +107,12 @@ class TemplateService {
    */
   async deleteTemplate(id: string): Promise<void> {
     try {
-      await axios.delete(
-        `${API_URL}/api/templates/${id}`,
-        { headers: this.getAuthHeaders() }
-      );
+      await axios.delete(`${API_URL}/api/templates/${id}`, { headers: this.getAuthHeaders() });
     } catch (error: unknown) {
       logApiError('Delete template error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to delete template'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to delete template'
       );
     }
   }
@@ -148,9 +132,7 @@ class TemplateService {
       logApiError('Get modules error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to get modules'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to get modules'
       );
     }
   }
@@ -170,9 +152,7 @@ class TemplateService {
       logApiError('Get columns error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to get columns'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to get columns'
       );
     }
   }

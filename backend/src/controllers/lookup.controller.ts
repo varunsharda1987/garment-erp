@@ -35,10 +35,7 @@ export const getLookupsByCategory = async (req: Request, res: Response) => {
 
     const lookups = await prisma.lookup_values.findMany({
       where,
-      orderBy: [
-        { sortOrder: 'asc' },
-        { value: 'asc' }
-      ],
+      orderBy: [{ sortOrder: 'asc' }, { value: 'asc' }],
       select: {
         id: true,
         category: true,
@@ -48,7 +45,7 @@ export const getLookupsByCategory = async (req: Request, res: Response) => {
         sortOrder: true,
         isActive: true,
         isSystem: true,
-      }
+      },
     });
 
     res.json({ data: lookups });
@@ -56,7 +53,7 @@ export const getLookupsByCategory = async (req: Request, res: Response) => {
     console.error('Error fetching lookups:', error);
     res.status(500).json({
       error: 'Failed to fetch lookup values',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -70,17 +67,17 @@ export const getAllCategories = async (req: Request, res: Response) => {
     const categories = await prisma.lookup_values.groupBy({
       by: ['category'],
       _count: { id: true },
-      orderBy: { category: 'asc' }
+      orderBy: { category: 'asc' },
     });
 
-    const result = categories.map(c => ({
+    const result = categories.map((c) => ({
       category: c.category,
-      count: c._count.id
+      count: c._count.id,
     }));
 
     res.json({
       data: result,
-      predefinedCategories: Object.keys(LOOKUP_CATEGORIES)
+      predefinedCategories: Object.keys(LOOKUP_CATEGORIES),
     });
   } catch (error: unknown) {
     console.error('Error fetching categories:', error);
@@ -109,9 +106,9 @@ export const createLookup = async (req: Request, res: Response) => {
       where: {
         category_value: {
           category: normalizedCategory,
-          value: trimmedValue
-        }
-      }
+          value: trimmedValue,
+        },
+      },
     });
 
     if (existing) {
@@ -128,7 +125,7 @@ export const createLookup = async (req: Request, res: Response) => {
         isActive: true,
         isSystem: false,
         createdById: userId || null,
-      }
+      },
     });
 
     res.status(201).json({ data: lookup, message: 'Lookup value created successfully' });
@@ -136,7 +133,7 @@ export const createLookup = async (req: Request, res: Response) => {
     console.error('Error creating lookup:', error);
     res.status(500).json({
       error: 'Failed to create lookup value',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -161,8 +158,8 @@ export const updateLookup = async (req: Request, res: Response) => {
         where: {
           category: existing.category,
           value: String(value).trim(),
-          id: { not: id }
-        }
+          id: { not: id },
+        },
       });
       if (duplicate) {
         return res.status(409).json({ error: 'This value already exists in this category' });
@@ -177,7 +174,7 @@ export const updateLookup = async (req: Request, res: Response) => {
         ...(description !== undefined && { description }),
         ...(sortOrder !== undefined && { sortOrder }),
         ...(isActive !== undefined && { isActive }),
-      }
+      },
     });
 
     res.json({ data: updated, message: 'Lookup value updated successfully' });
@@ -185,7 +182,7 @@ export const updateLookup = async (req: Request, res: Response) => {
     console.error('Error updating lookup:', error);
     res.status(500).json({
       error: 'Failed to update lookup value',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -214,7 +211,7 @@ export const deleteLookup = async (req: Request, res: Response) => {
     console.error('Error deleting lookup:', error);
     res.status(500).json({
       error: 'Failed to delete lookup value',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -239,15 +236,18 @@ export const bulkCreateLookups = async (req: Request, res: Response) => {
     for (let i = 0; i < values.length; i++) {
       const item = values[i];
       const value = typeof item === 'string' ? item : item.value;
-      const code = typeof item === 'string' ? value.toUpperCase().replace(/[\s\/]+/g, '_') : item.code || value.toUpperCase().replace(/[\s\/]+/g, '_');
+      const code =
+        typeof item === 'string'
+          ? value.toUpperCase().replace(/[\s\/]+/g, '_')
+          : item.code || value.toUpperCase().replace(/[\s\/]+/g, '_');
 
       try {
         const lookup = await prisma.lookup_values.upsert({
           where: {
             category_value: {
               category: normalizedCategory,
-              value: value.trim()
-            }
+              value: value.trim(),
+            },
           },
           update: {},
           create: {
@@ -258,7 +258,7 @@ export const bulkCreateLookups = async (req: Request, res: Response) => {
             isActive: true,
             isSystem: false,
             createdById: userId || null,
-          }
+          },
         });
         results.push({ success: true, value: value, id: lookup.id });
       } catch (err: unknown) {
@@ -270,15 +270,15 @@ export const bulkCreateLookups = async (req: Request, res: Response) => {
       data: results,
       summary: {
         total: values.length,
-        success: results.filter(r => r.success).length,
-        failed: results.filter(r => !r.success).length
-      }
+        success: results.filter((r) => r.success).length,
+        failed: results.filter((r) => !r.success).length,
+      },
     });
   } catch (error: unknown) {
     console.error('Error bulk creating lookups:', error);
     res.status(500).json({
       error: 'Failed to bulk create lookup values',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

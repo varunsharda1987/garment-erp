@@ -43,11 +43,7 @@ export function BackButton({
   };
 
   return (
-    <Button
-      variant={ghost ? 'ghost' : 'outline'}
-      onClick={handleClick}
-      {...props}
-    >
+    <Button variant={ghost ? 'ghost' : 'outline'} onClick={handleClick} {...props}>
       {showIcon && <ArrowLeft className="h-4 w-4 mr-2" />}
       {children}
     </Button>

@@ -14,13 +14,7 @@ describe('Pagination Component', () => {
   });
 
   it('should render pagination controls', () => {
-    render(
-      <Pagination
-        currentPage={1}
-        totalPages={5}
-        onPageChange={mockOnPageChange}
-      />
-    );
+    render(<Pagination currentPage={1} totalPages={5} onPageChange={mockOnPageChange} />);
 
     expect(screen.getByText('Previous')).toBeInTheDocument();
     expect(screen.getByText('Next')).toBeInTheDocument();
@@ -28,39 +22,21 @@ describe('Pagination Component', () => {
   });
 
   it('should disable Previous button on first page', () => {
-    render(
-      <Pagination
-        currentPage={1}
-        totalPages={5}
-        onPageChange={mockOnPageChange}
-      />
-    );
+    render(<Pagination currentPage={1} totalPages={5} onPageChange={mockOnPageChange} />);
 
     const previousButton = screen.getByText('Previous').closest('button');
     expect(previousButton).toBeDisabled();
   });
 
   it('should disable Next button on last page', () => {
-    render(
-      <Pagination
-        currentPage={5}
-        totalPages={5}
-        onPageChange={mockOnPageChange}
-      />
-    );
+    render(<Pagination currentPage={5} totalPages={5} onPageChange={mockOnPageChange} />);
 
     const nextButton = screen.getByText('Next').closest('button');
     expect(nextButton).toBeDisabled();
   });
 
   it('should call onPageChange with correct page number when clicking Next', () => {
-    render(
-      <Pagination
-        currentPage={2}
-        totalPages={5}
-        onPageChange={mockOnPageChange}
-      />
-    );
+    render(<Pagination currentPage={2} totalPages={5} onPageChange={mockOnPageChange} />);
 
     const nextButton = screen.getByText('Next');
     fireEvent.click(nextButton);
@@ -70,13 +46,7 @@ describe('Pagination Component', () => {
   });
 
   it('should call onPageChange with correct page number when clicking Previous', () => {
-    render(
-      <Pagination
-        currentPage={3}
-        totalPages={5}
-        onPageChange={mockOnPageChange}
-      />
-    );
+    render(<Pagination currentPage={3} totalPages={5} onPageChange={mockOnPageChange} />);
 
     const previousButton = screen.getByText('Previous');
     fireEvent.click(previousButton);
@@ -86,13 +56,7 @@ describe('Pagination Component', () => {
   });
 
   it('should render correctly with single page', () => {
-    render(
-      <Pagination
-        currentPage={1}
-        totalPages={1}
-        onPageChange={mockOnPageChange}
-      />
-    );
+    render(<Pagination currentPage={1} totalPages={1} onPageChange={mockOnPageChange} />);
 
     const previousButton = screen.getByText('Previous').closest('button');
     const nextButton = screen.getByText('Next').closest('button');
@@ -103,13 +67,7 @@ describe('Pagination Component', () => {
   });
 
   it('should render correctly with zero pages', () => {
-    render(
-      <Pagination
-        currentPage={1}
-        totalPages={0}
-        onPageChange={mockOnPageChange}
-      />
-    );
+    render(<Pagination currentPage={1} totalPages={0} onPageChange={mockOnPageChange} />);
 
     const previousButton = screen.getByText('Previous').closest('button');
     const nextButton = screen.getByText('Next').closest('button');
@@ -119,13 +77,7 @@ describe('Pagination Component', () => {
   });
 
   it('should not call onPageChange when clicking disabled buttons', () => {
-    render(
-      <Pagination
-        currentPage={1}
-        totalPages={5}
-        onPageChange={mockOnPageChange}
-      />
-    );
+    render(<Pagination currentPage={1} totalPages={5} onPageChange={mockOnPageChange} />);
 
     const previousButton = screen.getByText('Previous');
     fireEvent.click(previousButton);

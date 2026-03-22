@@ -10,25 +10,8 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import {
-  TestTube,
-  Plus,
-  Eye,
-  Pencil,
-  Trash2,
-  RefreshCcw,
-  Filter,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-} from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { TestTube, Plus, Eye, Pencil, Trash2, RefreshCcw, Filter, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Local type definition for DataTable
 type Column<T> = {
@@ -204,9 +187,7 @@ export default function SampleList() {
     {
       key: 'customer',
       header: 'Customer',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{item.customer?.name || '-'}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.customer?.name || '-'}</div>,
     },
     {
       key: 'requiredDate',
@@ -230,9 +211,7 @@ export default function SampleList() {
       key: 'version',
       header: 'Ver.',
       render: (item) => (
-        <div className="text-sm text-gray-700">
-          {item.sampleType === 'FIT_SAMPLE' ? `v${item.version}` : '-'}
-        </div>
+        <div className="text-sm text-gray-700">{item.sampleType === 'FIT_SAMPLE' ? `v${item.version}` : '-'}</div>
       ),
     },
     {
@@ -369,11 +348,7 @@ export default function SampleList() {
         <CardContent>
           <div className="flex flex-wrap gap-4">
             <div className="w-64">
-              <SearchInput
-                placeholder="Search samples..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
+              <SearchInput placeholder="Search samples..." value={searchQuery} onChange={setSearchQuery} />
             </div>
             <div className="w-48">
               <Select value={typeFilter} onValueChange={handleTypeFilterChange}>

@@ -17,10 +17,7 @@ export const getAllPresetsForCustomer = async (req: Request, res: Response) => {
     include: {
       sizeCategory: true,
     },
-    orderBy: [
-      { isDefault: 'desc' },
-      { presetName: 'asc' },
-    ],
+    orderBy: [{ isDefault: 'desc' }, { presetName: 'asc' }],
   });
 
   res.status(200).json({
@@ -345,9 +342,7 @@ export const clonePreset = async (req: Request, res: Response) => {
     data: {
       customerId,
       presetName,
-      description: sourcePreset.description
-        ? `${sourcePreset.description} (Copy)`
-        : 'Cloned preset',
+      description: sourcePreset.description ? `${sourcePreset.description} (Copy)` : 'Cloned preset',
       sizeCategoryId: sourcePreset.sizeCategoryId,
       isDefault: false, // Cloned preset is never default
     },

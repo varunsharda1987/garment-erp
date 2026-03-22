@@ -171,8 +171,24 @@ export const getMasterDataSummary = async (req: Request, res: Response) => {
       },
       fastenersClosures: {
         category: 'Fasteners & Closures',
-        totalCount: buttonsTotal + zippersTotal + hookEyeTotal + snapButtonTotal + buckleTotal + beltTotal + velcroTotal + otherFastenerTotal,
-        activeCount: buttonsActive + zippersActive + hookEyeActive + snapButtonActive + buckleActive + beltActive + velcroActive + otherFastenerActive,
+        totalCount:
+          buttonsTotal +
+          zippersTotal +
+          hookEyeTotal +
+          snapButtonTotal +
+          buckleTotal +
+          beltTotal +
+          velcroTotal +
+          otherFastenerTotal,
+        activeCount:
+          buttonsActive +
+          zippersActive +
+          hookEyeActive +
+          snapButtonActive +
+          buckleActive +
+          beltActive +
+          velcroActive +
+          otherFastenerActive,
         masters: [
           {
             type: 'buttons',

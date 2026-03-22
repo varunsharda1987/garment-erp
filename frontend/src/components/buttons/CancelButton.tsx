@@ -19,13 +19,7 @@ export interface CancelButtonProps extends Omit<ButtonProps, 'variant'> {
   showIcon?: boolean;
 }
 
-export function CancelButton({
-  children = 'Cancel',
-  to,
-  onClick,
-  showIcon = false,
-  ...props
-}: CancelButtonProps) {
+export function CancelButton({ children = 'Cancel', to, onClick, showIcon = false, ...props }: CancelButtonProps) {
   const navigate = useNavigate();
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -37,11 +31,7 @@ export function CancelButton({
   };
 
   return (
-    <Button
-      variant="outline"
-      onClick={handleClick}
-      {...props}
-    >
+    <Button variant="outline" onClick={handleClick} {...props}>
       {showIcon && <X className="h-4 w-4 mr-2" />}
       {children}
     </Button>

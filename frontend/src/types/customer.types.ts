@@ -5,7 +5,7 @@ export const CustomerType = {
   BUYER: 'BUYER',
 } as const;
 
-export type CustomerType = typeof CustomerType[keyof typeof CustomerType];
+export type CustomerType = (typeof CustomerType)[keyof typeof CustomerType];
 
 export const CustomerCategory = {
   DOMESTIC: 'DOMESTIC',
@@ -14,21 +14,21 @@ export const CustomerCategory = {
   RETAILER: 'RETAILER',
 } as const;
 
-export type CustomerCategory = typeof CustomerCategory[keyof typeof CustomerCategory];
+export type CustomerCategory = (typeof CustomerCategory)[keyof typeof CustomerCategory];
 
 export const BusinessType = {
   B2B: 'B2B',
   B2C: 'B2C',
 } as const;
 
-export type BusinessType = typeof BusinessType[keyof typeof BusinessType];
+export type BusinessType = (typeof BusinessType)[keyof typeof BusinessType];
 
 export const MarketType = {
   INTERNATIONAL: 'INTERNATIONAL',
   DOMESTIC: 'DOMESTIC',
 } as const;
 
-export type MarketType = typeof MarketType[keyof typeof MarketType];
+export type MarketType = (typeof MarketType)[keyof typeof MarketType];
 
 export interface BrandCategory {
   id: string;

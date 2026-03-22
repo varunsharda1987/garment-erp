@@ -227,7 +227,10 @@ describe('GSTReportService', () => {
           sgstAmount: 300,
           igstAmount: 0,
           customers: {
-            id: 'c10', name: 'Walk-in 1', billingName: null, gstNumber: null,
+            id: 'c10',
+            name: 'Walk-in 1',
+            billingName: null,
+            gstNumber: null,
             billingState: { stateName: 'Karnataka', stateCode: '29' },
           },
           placeOfSupply: { stateName: 'Karnataka', stateCode: '29' },
@@ -239,7 +242,10 @@ describe('GSTReportService', () => {
           sgstAmount: 480,
           igstAmount: 0,
           customers: {
-            id: 'c11', name: 'Walk-in 2', billingName: null, gstNumber: null,
+            id: 'c11',
+            name: 'Walk-in 2',
+            billingName: null,
+            gstNumber: null,
             billingState: { stateName: 'Karnataka', stateCode: '29' },
           },
           placeOfSupply: { stateName: 'Karnataka', stateCode: '29' },
@@ -251,7 +257,10 @@ describe('GSTReportService', () => {
           sgstAmount: 0,
           igstAmount: 540,
           customers: {
-            id: 'c12', name: 'Walk-in 3', billingName: null, gstNumber: null,
+            id: 'c12',
+            name: 'Walk-in 3',
+            billingName: null,
+            gstNumber: null,
             billingState: { stateName: 'Maharashtra', stateCode: '27' },
           },
           placeOfSupply: { stateName: 'Maharashtra', stateCode: '27' },
@@ -264,15 +273,15 @@ describe('GSTReportService', () => {
         expect(result.b2cs).toHaveLength(2);
 
         // Karnataka grouped (inv1 + inv2)
-        const karnataka = result.b2cs.find(e => e.placeOfSupply === 'Karnataka');
+        const karnataka = result.b2cs.find((e) => e.placeOfSupply === 'Karnataka');
         expect(karnataka).toBeDefined();
         expect(karnataka!.taxableValue).toBe(13000); // 5000 + 8000
-        expect(karnataka!.cgstAmount).toBe(780);     // 300 + 480
-        expect(karnataka!.sgstAmount).toBe(780);     // 300 + 480
+        expect(karnataka!.cgstAmount).toBe(780); // 300 + 480
+        expect(karnataka!.sgstAmount).toBe(780); // 300 + 480
         expect(karnataka!.igstAmount).toBe(0);
 
         // Maharashtra (inv3 only)
-        const maharashtra = result.b2cs.find(e => e.placeOfSupply === 'Maharashtra');
+        const maharashtra = result.b2cs.find((e) => e.placeOfSupply === 'Maharashtra');
         expect(maharashtra).toBeDefined();
         expect(maharashtra!.taxableValue).toBe(3000);
         expect(maharashtra!.igstAmount).toBe(540);
@@ -380,7 +389,7 @@ describe('GSTReportService', () => {
 
         expect(result.hsnSummary).toHaveLength(2);
 
-        const garmentHsn = result.hsnSummary.find(h => h.hsnCode === '62114210');
+        const garmentHsn = result.hsnSummary.find((h) => h.hsnCode === '62114210');
         expect(garmentHsn).toBeDefined();
         expect(garmentHsn!.totalQuantity).toBe(100);
         expect(garmentHsn!.taxableValue).toBe(8000);
@@ -388,7 +397,7 @@ describe('GSTReportService', () => {
         expect(garmentHsn!.sgstAmount).toBe(480);
         expect(garmentHsn!.totalTax).toBe(960);
 
-        const buttonHsn = result.hsnSummary.find(h => h.hsnCode === '96064100');
+        const buttonHsn = result.hsnSummary.find((h) => h.hsnCode === '96064100');
         expect(buttonHsn).toBeDefined();
         expect(buttonHsn!.totalQuantity).toBe(200);
         expect(buttonHsn!.taxableValue).toBe(2000);
@@ -399,8 +408,13 @@ describe('GSTReportService', () => {
           invoiceNumber: 'INV-001',
           invoice_items: [
             {
-              hsnCode: '62114210', quantity: 50, totalPrice: 5000,
-              cgstAmount: 300, sgstAmount: 300, igstAmount: 0, taxAmount: 600,
+              hsnCode: '62114210',
+              quantity: 50,
+              totalPrice: 5000,
+              cgstAmount: 300,
+              sgstAmount: 300,
+              igstAmount: 0,
+              taxAmount: 600,
               style: { hsnCode: '62114210' },
             },
           ],
@@ -409,8 +423,13 @@ describe('GSTReportService', () => {
           invoiceNumber: 'INV-002',
           invoice_items: [
             {
-              hsnCode: '62114210', quantity: 75, totalPrice: 7500,
-              cgstAmount: 450, sgstAmount: 450, igstAmount: 0, taxAmount: 900,
+              hsnCode: '62114210',
+              quantity: 75,
+              totalPrice: 7500,
+              cgstAmount: 450,
+              sgstAmount: 450,
+              igstAmount: 0,
+              taxAmount: 900,
               style: { hsnCode: '62114210' },
             },
           ],
@@ -431,8 +450,13 @@ describe('GSTReportService', () => {
         const inv = makeInvoice({
           invoice_items: [
             {
-              hsnCode: null, quantity: 50, totalPrice: 5000,
-              cgstAmount: 300, sgstAmount: 300, igstAmount: 0, taxAmount: 600,
+              hsnCode: null,
+              quantity: 50,
+              totalPrice: 5000,
+              cgstAmount: 300,
+              sgstAmount: 300,
+              igstAmount: 0,
+              taxAmount: 600,
               style: { hsnCode: '62041200' },
             },
           ],
@@ -529,7 +553,10 @@ describe('GSTReportService', () => {
           sgstAmount: 450,
           igstAmount: 0,
           customers: {
-            id: 'c3', name: 'Walk-in', billingName: null, gstNumber: null,
+            id: 'c3',
+            name: 'Walk-in',
+            billingName: null,
+            gstNumber: null,
             billingState: { stateName: 'Karnataka', stateCode: '29' },
           },
         });
@@ -540,10 +567,10 @@ describe('GSTReportService', () => {
 
         expect(result.totals.totalInvoices).toBe(3);
         expect(result.totals.totalTaxableValue).toBe(35000); // 10000 + 20000 + 5000
-        expect(result.totals.totalCgst).toBe(1050);          // 600 + 0 + 450
-        expect(result.totals.totalSgst).toBe(1050);          // 600 + 0 + 450
-        expect(result.totals.totalIgst).toBe(3600);          // 0 + 3600 + 0
-        expect(result.totals.totalTax).toBe(5700);           // 1050 + 1050 + 3600
+        expect(result.totals.totalCgst).toBe(1050); // 600 + 0 + 450
+        expect(result.totals.totalSgst).toBe(1050); // 600 + 0 + 450
+        expect(result.totals.totalIgst).toBe(3600); // 0 + 3600 + 0
+        expect(result.totals.totalTax).toBe(5700); // 1050 + 1050 + 3600
         expect(result.totals.totalInvoiceValue).toBe(40700); // 11200 + 23600 + 5900
       });
     });
@@ -562,19 +589,25 @@ describe('GSTReportService', () => {
       // Outward: CGST 600, SGST 600, IGST 3600
       const invoices = [
         {
-          subtotal: 10000, cgstAmount: 600, sgstAmount: 600, igstAmount: 0,
-          totalAmount: 11200, supplyType: 'TAXABLE',
+          subtotal: 10000,
+          cgstAmount: 600,
+          sgstAmount: 600,
+          igstAmount: 0,
+          totalAmount: 11200,
+          supplyType: 'TAXABLE',
         },
         {
-          subtotal: 20000, cgstAmount: 0, sgstAmount: 0, igstAmount: 3600,
-          totalAmount: 23600, supplyType: 'TAXABLE',
+          subtotal: 20000,
+          cgstAmount: 0,
+          sgstAmount: 0,
+          igstAmount: 3600,
+          totalAmount: 23600,
+          supplyType: 'TAXABLE',
         },
       ];
 
       // ITC: CGST 200, SGST 200, IGST 1000
-      const purchaseOrders = [
-        { totalCgst: 200, totalSgst: 200, totalIgst: 1000 },
-      ];
+      const purchaseOrders = [{ totalCgst: 200, totalSgst: 200, totalIgst: 1000 }];
 
       (mockPrisma.invoices.findMany as jest.Mock).mockResolvedValue(invoices);
       (mockPrisma.purchase_orders.findMany as jest.Mock).mockResolvedValue(purchaseOrders);
@@ -593,8 +626,8 @@ describe('GSTReportService', () => {
       expect(result.inputTaxCredit.fromPurchases.igst).toBe(1000);
 
       // Net payable (outward - ITC, minimum 0)
-      expect(result.netTaxPayable.cgst).toBe(400);  // 600 - 200
-      expect(result.netTaxPayable.sgst).toBe(400);  // 600 - 200
+      expect(result.netTaxPayable.cgst).toBe(400); // 600 - 200
+      expect(result.netTaxPayable.sgst).toBe(400); // 600 - 200
       expect(result.netTaxPayable.igst).toBe(2600); // 3600 - 1000
       expect(result.netTaxPayable.total).toBe(3400); // 400 + 400 + 2600
     });
@@ -603,15 +636,17 @@ describe('GSTReportService', () => {
       // Outward: CGST 300, SGST 300, IGST 0
       const invoices = [
         {
-          subtotal: 5000, cgstAmount: 300, sgstAmount: 300, igstAmount: 0,
-          totalAmount: 5600, supplyType: 'TAXABLE',
+          subtotal: 5000,
+          cgstAmount: 300,
+          sgstAmount: 300,
+          igstAmount: 0,
+          totalAmount: 5600,
+          supplyType: 'TAXABLE',
         },
       ];
 
       // ITC: CGST 1000, SGST 1000, IGST 2000 (much higher than outward)
-      const purchaseOrders = [
-        { totalCgst: 1000, totalSgst: 1000, totalIgst: 2000 },
-      ];
+      const purchaseOrders = [{ totalCgst: 1000, totalSgst: 1000, totalIgst: 2000 }];
 
       (mockPrisma.invoices.findMany as jest.Mock).mockResolvedValue(invoices);
       (mockPrisma.purchase_orders.findMany as jest.Mock).mockResolvedValue(purchaseOrders);
@@ -648,14 +683,16 @@ describe('GSTReportService', () => {
       // Verify the correct statuses are passed in the query
       const invoices = [
         {
-          subtotal: 10000, cgstAmount: 600, sgstAmount: 600, igstAmount: 0,
-          totalAmount: 11200, supplyType: 'TAXABLE',
+          subtotal: 10000,
+          cgstAmount: 600,
+          sgstAmount: 600,
+          igstAmount: 0,
+          totalAmount: 11200,
+          supplyType: 'TAXABLE',
         },
       ];
 
-      const purchaseOrders = [
-        { totalCgst: 500, totalSgst: 500, totalIgst: 0 },
-      ];
+      const purchaseOrders = [{ totalCgst: 500, totalSgst: 500, totalIgst: 0 }];
 
       (mockPrisma.invoices.findMany as jest.Mock).mockResolvedValue(invoices);
       (mockPrisma.purchase_orders.findMany as jest.Mock).mockResolvedValue(purchaseOrders);
@@ -664,16 +701,18 @@ describe('GSTReportService', () => {
 
       // Verify the PO query includes correct status filter
       const poCall = (mockPrisma.purchase_orders.findMany as jest.Mock).mock.calls[0][0];
-      expect(poCall.where.status.in).toEqual([
-        'SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED',
-      ]);
+      expect(poCall.where.status.in).toEqual(['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED']);
     });
 
     it('should handle POs with null GST values', async () => {
       const invoices = [
         {
-          subtotal: 10000, cgstAmount: 600, sgstAmount: 600, igstAmount: 0,
-          totalAmount: 11200, supplyType: 'TAXABLE',
+          subtotal: 10000,
+          cgstAmount: 600,
+          sgstAmount: 600,
+          igstAmount: 0,
+          totalAmount: 11200,
+          supplyType: 'TAXABLE',
         },
       ];
 
@@ -696,8 +735,12 @@ describe('GSTReportService', () => {
     it('should aggregate multiple POs for ITC', async () => {
       const invoices = [
         {
-          subtotal: 50000, cgstAmount: 3000, sgstAmount: 3000, igstAmount: 0,
-          totalAmount: 56000, supplyType: 'TAXABLE',
+          subtotal: 50000,
+          cgstAmount: 3000,
+          sgstAmount: 3000,
+          igstAmount: 0,
+          totalAmount: 56000,
+          supplyType: 'TAXABLE',
         },
       ];
 
@@ -712,13 +755,13 @@ describe('GSTReportService', () => {
 
       const result = await gstReportService.generateGSTR3B(DEFAULT_PARAMS);
 
-      expect(result.inputTaxCredit.fromPurchases.cgst).toBe(800);  // 300 + 500
-      expect(result.inputTaxCredit.fromPurchases.sgst).toBe(800);  // 300 + 500
+      expect(result.inputTaxCredit.fromPurchases.cgst).toBe(800); // 300 + 500
+      expect(result.inputTaxCredit.fromPurchases.sgst).toBe(800); // 300 + 500
       expect(result.inputTaxCredit.fromPurchases.igst).toBe(1800);
 
-      expect(result.netTaxPayable.cgst).toBe(2200);  // 3000 - 800
-      expect(result.netTaxPayable.sgst).toBe(2200);  // 3000 - 800
-      expect(result.netTaxPayable.igst).toBe(0);      // 0 - 1800 = negative, clamped to 0
+      expect(result.netTaxPayable.cgst).toBe(2200); // 3000 - 800
+      expect(result.netTaxPayable.sgst).toBe(2200); // 3000 - 800
+      expect(result.netTaxPayable.igst).toBe(0); // 0 - 1800 = negative, clamped to 0
       expect(result.netTaxPayable.total).toBe(4400);
     });
   });

@@ -296,12 +296,12 @@ export interface SaveLaceMatrixRequest {
 // Statistics for a single processing type (DYEING or PRINTING)
 export interface ProcessorTypeStats {
   slabCount: number;
-  greigeCount: number;      // Greiges with rates configured
-  totalRateCount: number;   // Total rate entries
-  coverage: number;         // Percentage of matrix filled (0-100)
+  greigeCount: number; // Greiges with rates configured
+  totalRateCount: number; // Total rate entries
+  coverage: number; // Percentage of matrix filled (0-100)
   minRate?: number;
   maxRate?: number;
-  slabRanges?: string[];    // e.g., ["0-500m", "500-2000m"]
+  slabRanges?: string[]; // e.g., ["0-500m", "500-2000m"]
 }
 
 // Summary for a single processor

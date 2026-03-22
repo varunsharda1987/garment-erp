@@ -34,15 +34,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { finishingIssueService } from '@/services/finishing.service';
-import type {
-  FinishingIssue,
-  FinishingStatus,
-  RecordDailyOutputRequest,
-} from '@/types/finishing.types';
-import {
-  FinishingStatusLabels,
-  FinishingStatusColors,
-} from '@/types/finishing.types';
+import type { FinishingIssue, FinishingStatus, RecordDailyOutputRequest } from '@/types/finishing.types';
+import { FinishingStatusLabels, FinishingStatusColors } from '@/types/finishing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { format } from 'date-fns';
 
@@ -87,22 +80,24 @@ export default function FinishingDetail() {
 
       // Initialize output entries from SKU breakdown
       if (data.skuBreakdown) {
-        const existingOutputs = data.dailyOutputs?.flatMap(o => o.skuOutputs || []) || [];
-        setOutputEntries(data.skuBreakdown.map(sku => {
-          const finished = existingOutputs
-            .filter(o => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
-            .reduce((sum, o) => sum + o.finishedQty, 0);
-          return {
-            colorId: sku.colorId,
-            colorName: sku.color?.colorName || 'Unknown',
-            sizeId: sku.sizeId,
-            sizeName: sku.size?.sizeName || 'Unknown',
-            issuedQty: sku.issuedQty,
-            finishedQty: finished,
-            todayFinished: 0,
-            defectQty: 0,
-          };
-        }));
+        const existingOutputs = data.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
+        setOutputEntries(
+          data.skuBreakdown.map((sku) => {
+            const finished = existingOutputs
+              .filter((o) => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
+              .reduce((sum, o) => sum + o.finishedQty, 0);
+            return {
+              colorId: sku.colorId,
+              colorName: sku.color?.colorName || 'Unknown',
+              sizeId: sku.sizeId,
+              sizeName: sku.size?.sizeName || 'Unknown',
+              issuedQty: sku.issuedQty,
+              finishedQty: finished,
+              todayFinished: 0,
+              defectQty: 0,
+            };
+          })
+        );
       }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -118,11 +113,12 @@ export default function FinishingDetail() {
       setActionLoading(true);
       await finishingIssueService.receive(issue.id, {
         transferSlipId: '',
-        skuReceived: issue.skuBreakdown?.map(sku => ({
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          receivedQty: sku.availableQty,
-        })) || [],
+        skuReceived:
+          issue.skuBreakdown?.map((sku) => ({
+            colorId: sku.colorId,
+            sizeId: sku.sizeId,
+            receivedQty: sku.availableQty,
+          })) || [],
       });
       handleApiSuccess('Success', 'Items received from stitching');
       loadIssue();
@@ -151,8 +147,8 @@ export default function FinishingDetail() {
     if (!issue) return;
 
     const skuOutputs = outputEntries
-      .filter(e => e.todayFinished > 0 || e.defectQty > 0)
-      .map(e => ({
+      .filter((e) => e.todayFinished > 0 || e.defectQty > 0)
+      .map((e) => ({
         colorId: e.colorId,
         sizeId: e.sizeId,
         finishedQty: e.todayFinished,
@@ -226,9 +222,7 @@ export default function FinishingDetail() {
   };
 
   const getStatusBadge = (status: FinishingStatus) => (
-    <Badge className={`${FinishingStatusColors[status]} text-sm px-3 py-1`}>
-      {FinishingStatusLabels[status]}
-    </Badge>
+    <Badge className={`${FinishingStatusColors[status]} text-sm px-3 py-1`}>{FinishingStatusLabels[status]}</Badge>
   );
 
   const getTotalIssued = () => {
@@ -236,12 +230,12 @@ export default function FinishingDetail() {
   };
 
   const getTotalFinished = () => {
-    const allOutputs = issue?.dailyOutputs?.flatMap(o => o.skuOutputs || []) || [];
+    const allOutputs = issue?.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
     return allOutputs.reduce((sum, o) => sum + o.finishedQty, 0);
   };
 
   const getTotalDefects = () => {
-    const allOutputs = issue?.dailyOutputs?.flatMap(o => o.skuOutputs || []) || [];
+    const allOutputs = issue?.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
     return allOutputs.reduce((sum, o) => sum + o.defectQty, 0);
   };
 
@@ -252,7 +246,7 @@ export default function FinishingDetail() {
   };
 
   const updateOutputEntry = (index: number, field: 'todayFinished' | 'defectQty', value: number) => {
-    setOutputEntries(prev => {
+    setOutputEntries((prev) => {
       const updated = [...prev];
       const remaining = updated[index].issuedQty - updated[index].finishedQty;
       updated[index] = {
@@ -377,9 +371,7 @@ export default function FinishingDetail() {
             <div className="mt-6">
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
-                  className={`h-3 rounded-full transition-all ${
-                    progress === 100 ? 'bg-green-600' : 'bg-purple-600'
-                  }`}
+                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-green-600' : 'bg-purple-600'}`}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -414,15 +406,11 @@ export default function FinishingDetail() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Customer</span>
-                <span className="font-medium">
-                  {issue.workOrder?.order?.customer?.name || '-'}
-                </span>
+                <span className="font-medium">{issue.workOrder?.order?.customer?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Issue Date</span>
-                <span className="font-medium">
-                  {format(new Date(issue.issueDate), 'dd MMM yyyy')}
-                </span>
+                <span className="font-medium">{format(new Date(issue.issueDate), 'dd MMM yyyy')}</span>
               </div>
             </CardContent>
           </Card>
@@ -442,25 +430,19 @@ export default function FinishingDetail() {
               <div className="flex justify-between">
                 <span className="text-gray-500">Expected Completion</span>
                 <span className="font-medium">
-                  {issue.expectedCompletionDate
-                    ? format(new Date(issue.expectedCompletionDate), 'dd MMM yyyy')
-                    : '-'}
+                  {issue.expectedCompletionDate ? format(new Date(issue.expectedCompletionDate), 'dd MMM yyyy') : '-'}
                 </span>
               </div>
               {issue.startDate && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Started On</span>
-                  <span className="font-medium">
-                    {format(new Date(issue.startDate), 'dd MMM yyyy')}
-                  </span>
+                  <span className="font-medium">{format(new Date(issue.startDate), 'dd MMM yyyy')}</span>
                 </div>
               )}
               {issue.endDate && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Completed On</span>
-                  <span className="font-medium">
-                    {format(new Date(issue.endDate), 'dd MMM yyyy')}
-                  </span>
+                  <span className="font-medium">{format(new Date(issue.endDate), 'dd MMM yyyy')}</span>
                 </div>
               )}
             </CardContent>
@@ -488,26 +470,20 @@ export default function FinishingDetail() {
                   </TableHeader>
                   <TableBody>
                     {issue.skuBreakdown.map((sku) => {
-                      const outputs = issue.dailyOutputs?.flatMap(o => o.skuOutputs || []) || [];
+                      const outputs = issue.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
                       const finished = outputs
-                        .filter(o => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
+                        .filter((o) => o.colorId === sku.colorId && o.sizeId === sku.sizeId)
                         .reduce((sum, o) => sum + o.finishedQty, 0);
                       const remaining = sku.issuedQty - finished;
 
                       return (
                         <TableRow key={sku.id}>
-                          <TableCell className="font-medium">
-                            {sku.color?.colorName || '-'}
-                          </TableCell>
+                          <TableCell className="font-medium">{sku.color?.colorName || '-'}</TableCell>
                           <TableCell>{sku.size?.sizeName || '-'}</TableCell>
                           <TableCell className="text-right">{sku.availableQty}</TableCell>
                           <TableCell className="text-right font-medium">{sku.issuedQty}</TableCell>
-                          <TableCell className="text-right font-medium text-green-600">
-                            {finished}
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-amber-600">
-                            {remaining}
-                          </TableCell>
+                          <TableCell className="text-right font-medium text-green-600">{finished}</TableCell>
+                          <TableCell className="text-right font-medium text-amber-600">{remaining}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -520,12 +496,8 @@ export default function FinishingDetail() {
                       <td className="px-4 py-3 text-sm text-right font-bold">
                         {issue.skuBreakdown.reduce((sum, s) => sum + s.availableQty, 0)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right font-bold">
-                        {getTotalIssued()}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
-                        {getTotalFinished()}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-bold">{getTotalIssued()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-green-600">{getTotalFinished()}</td>
                       <td className="px-4 py-3 text-sm text-right font-bold text-amber-600">
                         {getTotalIssued() - getTotalFinished()}
                       </td>
@@ -545,9 +517,7 @@ export default function FinishingDetail() {
                 <Calendar className="h-5 w-5" />
                 Daily Outputs
               </CardTitle>
-              <CardDescription>
-                Production output recorded by date
-              </CardDescription>
+              <CardDescription>Production output recorded by date</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -560,9 +530,7 @@ export default function FinishingDetail() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-gray-400" />
-                          <span className="font-medium">
-                            {format(new Date(output.outputDate), 'dd MMM yyyy')}
-                          </span>
+                          <span className="font-medium">{format(new Date(output.outputDate), 'dd MMM yyyy')}</span>
                         </div>
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-green-600">Finished: {totalFinished}</span>
@@ -579,9 +547,7 @@ export default function FinishingDetail() {
                           ))}
                         </div>
                       )}
-                      {output.remarks && (
-                        <p className="text-sm text-gray-500 mt-2 italic">{output.remarks}</p>
-                      )}
+                      {output.remarks && <p className="text-sm text-gray-500 mt-2 italic">{output.remarks}</p>}
                     </div>
                   );
                 })}
@@ -608,20 +574,14 @@ export default function FinishingDetail() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Record Daily Output</DialogTitle>
-            <DialogDescription>
-              Enter the finishing output for each SKU
-            </DialogDescription>
+            <DialogDescription>Enter the finishing output for each SKU</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Output Date *</Label>
-                <Input
-                  type="date"
-                  value={outputDate}
-                  onChange={(e) => setOutputDate(e.target.value)}
-                />
+                <Input type="date" value={outputDate} onChange={(e) => setOutputDate(e.target.value)} />
               </div>
             </div>
 
@@ -643,9 +603,7 @@ export default function FinishingDetail() {
                       <TableRow key={`${entry.colorId}-${entry.sizeId}`}>
                         <TableCell>{entry.colorName}</TableCell>
                         <TableCell>{entry.sizeName}</TableCell>
-                        <TableCell className="text-right text-amber-600 font-medium">
-                          {remaining}
-                        </TableCell>
+                        <TableCell className="text-right text-amber-600 font-medium">{remaining}</TableCell>
                         <TableCell className="text-right">
                           <Input
                             type="number"

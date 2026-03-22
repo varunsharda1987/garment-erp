@@ -1,25 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Package,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  Search,
-  ExternalLink,
-} from 'lucide-react';
+import { Package, Layers, ChevronDown, ChevronUp, Search, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
-import { masterDataService, type MasterDataSummary, type MasterCategory, type MasterType } from '@/services/masterData.service';
+import {
+  masterDataService,
+  type MasterDataSummary,
+  type MasterCategory,
+  type MasterType,
+} from '@/services/masterData.service';
 
 // Category colors
 const CATEGORY_COLORS: Record<string, string> = {
@@ -66,9 +60,7 @@ export default function MasterDataDashboard() {
 
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
     );
   };
 
@@ -127,47 +119,33 @@ export default function MasterDataDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Masters
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Masters</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totals.totalItems}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totals.activeItems} active
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">{totals.activeItems} active</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Categories
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Categories</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{totals.categories}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Organized groups
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Organized groups</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Coverage
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Coverage</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {totals.totalItems > 0
-                ? Math.round((totals.activeItems / totals.totalItems) * 100)
-                : 0}%
+              {totals.totalItems > 0 ? Math.round((totals.activeItems / totals.totalItems) * 100) : 0}%
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Active masters
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Active masters</p>
           </CardContent>
         </Card>
       </div>
@@ -198,11 +176,7 @@ export default function MasterDataDashboard() {
             const colorClass = CATEGORY_COLORS[key] || 'bg-gray-50 border-gray-200';
 
             return (
-              <Collapsible
-                key={key}
-                open={isExpanded}
-                onOpenChange={() => toggleCategory(key)}
-              >
+              <Collapsible key={key} open={isExpanded} onOpenChange={() => toggleCategory(key)}>
                 <Card className={`border-2 ${colorClass}`}>
                   <CollapsibleTrigger className="w-full">
                     <CardHeader className="cursor-pointer hover:bg-white/50 transition-colors">
@@ -210,12 +184,9 @@ export default function MasterDataDashboard() {
                         <div className="flex items-center gap-3">
                           <Layers className="h-5 w-5" />
                           <div className="text-left">
-                            <CardTitle className="text-lg">
-                              {categoryData.category}
-                            </CardTitle>
+                            <CardTitle className="text-lg">{categoryData.category}</CardTitle>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {categoryData.totalCount} total •{' '}
-                              {categoryData.activeCount} active
+                              {categoryData.totalCount} total • {categoryData.activeCount} active
                             </p>
                           </div>
                         </div>
@@ -223,11 +194,7 @@ export default function MasterDataDashboard() {
                           <Badge variant="secondary" className="text-base px-3 py-1">
                             {categoryData.totalCount}
                           </Badge>
-                          {isExpanded ? (
-                            <ChevronUp className="h-5 w-5" />
-                          ) : (
-                            <ChevronDown className="h-5 w-5" />
-                          )}
+                          {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                         </div>
                       </div>
                     </CardHeader>
@@ -273,9 +240,7 @@ export default function MasterDataDashboard() {
           <CardContent className="py-12 text-center">
             <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No masters found</h3>
-            <p className="text-muted-foreground">
-              Try adjusting your search query
-            </p>
+            <p className="text-muted-foreground">Try adjusting your search query</p>
           </CardContent>
         </Card>
       )}

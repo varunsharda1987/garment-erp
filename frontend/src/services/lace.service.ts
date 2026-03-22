@@ -44,21 +44,18 @@ export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
     ...laceData,
     width: laceData.width ? Number(laceData.width) : undefined,
     styleCodes: laceData.styleCodes || [],
-    suppliers: laceData.suppliers?.map(s => ({
-      supplierId: s.supplierId,
-      isPreferred: s.isPreferred,
-      isActive: s.isActive,
-      notes: s.notes,
-      pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
-    })) || [],
+    suppliers:
+      laceData.suppliers?.map((s) => ({
+        supplierId: s.supplierId,
+        isPreferred: s.isPreferred,
+        isActive: s.isActive,
+        notes: s.notes,
+        pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
+      })) || [],
     // Greige-specific fields
     isGreige: laceData.isGreige || false,
-    expectedShrinkagePercent: laceData.expectedShrinkagePercent
-      ? Number(laceData.expectedShrinkagePercent)
-      : undefined,
-    costPerMeterGreige: laceData.costPerMeterGreige
-      ? Number(laceData.costPerMeterGreige)
-      : undefined,
+    expectedShrinkagePercent: laceData.expectedShrinkagePercent ? Number(laceData.expectedShrinkagePercent) : undefined,
+    costPerMeterGreige: laceData.costPerMeterGreige ? Number(laceData.costPerMeterGreige) : undefined,
     sourceGreigeLaceId: laceData.sourceGreigeLaceId || undefined,
   };
 
@@ -75,21 +72,18 @@ export const updateLace = async (id: string, laceData: LaceFormData): Promise<La
     ...laceData,
     width: laceData.width ? Number(laceData.width) : undefined,
     styleCodes: laceData.styleCodes || [],
-    suppliers: laceData.suppliers?.map(s => ({
-      supplierId: s.supplierId,
-      isPreferred: s.isPreferred,
-      isActive: s.isActive,
-      notes: s.notes,
-      pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
-    })) || [],
+    suppliers:
+      laceData.suppliers?.map((s) => ({
+        supplierId: s.supplierId,
+        isPreferred: s.isPreferred,
+        isActive: s.isActive,
+        notes: s.notes,
+        pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
+      })) || [],
     // Greige-specific fields
     isGreige: laceData.isGreige || false,
-    expectedShrinkagePercent: laceData.expectedShrinkagePercent
-      ? Number(laceData.expectedShrinkagePercent)
-      : undefined,
-    costPerMeterGreige: laceData.costPerMeterGreige
-      ? Number(laceData.costPerMeterGreige)
-      : undefined,
+    expectedShrinkagePercent: laceData.expectedShrinkagePercent ? Number(laceData.expectedShrinkagePercent) : undefined,
+    costPerMeterGreige: laceData.costPerMeterGreige ? Number(laceData.costPerMeterGreige) : undefined,
     sourceGreigeLaceId: laceData.sourceGreigeLaceId || undefined,
   };
 
@@ -107,14 +101,8 @@ export const deleteLace = async (id: string): Promise<void> => {
 /**
  * Bulk import lace items from Excel data
  */
-export const bulkImportLace = async (
-  data: BulkImportRow[],
-  createStock?: boolean
-): Promise<BulkImportResponse> => {
-  const { data: response } = await api.post<BulkImportResponse>(
-    '/materials/lace/bulk-import',
-    { data, createStock }
-  );
+export const bulkImportLace = async (data: BulkImportRow[], createStock?: boolean): Promise<BulkImportResponse> => {
+  const { data: response } = await api.post<BulkImportResponse>('/materials/lace/bulk-import', { data, createStock });
   return response;
 };
 
@@ -158,9 +146,7 @@ export const getFinishedLace = async (params?: {
 /**
  * Get lace items formatted for cost sheet selection
  */
-export const getLaceForCosting = async (params?: {
-  search?: string;
-}): Promise<LaceListResponse> => {
+export const getLaceForCosting = async (params?: { search?: string }): Promise<LaceListResponse> => {
   const { data } = await api.get<LaceListResponse>('/materials/lace/for-costing', {
     params,
   });

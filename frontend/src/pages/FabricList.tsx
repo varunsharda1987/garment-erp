@@ -117,9 +117,7 @@ export default function FabricList() {
       render: (fabric) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{fabric.fabricName}</div>
-          {fabric.finishType && (
-            <div className="text-xs text-gray-500">{fabric.finishType}</div>
-          )}
+          {fabric.finishType && <div className="text-xs text-gray-500">{fabric.finishType}</div>}
         </div>
       ),
     },
@@ -128,12 +126,8 @@ export default function FabricList() {
       header: 'Color',
       render: (fabric) => (
         <div>
-          {fabric.colorName && (
-            <div className="text-sm text-gray-900">{fabric.colorName}</div>
-          )}
-          {fabric.colorCode && (
-            <div className="text-xs text-gray-500">{fabric.colorCode}</div>
-          )}
+          {fabric.colorName && <div className="text-sm text-gray-900">{fabric.colorName}</div>}
+          {fabric.colorCode && <div className="text-xs text-gray-500">{fabric.colorCode}</div>}
         </div>
       ),
     },
@@ -152,11 +146,7 @@ export default function FabricList() {
       render: (fabric) => (
         <div>
           <div className="text-sm text-gray-900">{Number(fabric.actualWidth)}"</div>
-          {fabric.cutableWidth && (
-            <div className="text-xs text-gray-500">
-              Cutable: {Number(fabric.cutableWidth)}"
-            </div>
-          )}
+          {fabric.cutableWidth && <div className="text-xs text-gray-500">Cutable: {Number(fabric.cutableWidth)}"</div>}
         </div>
       ),
     },
@@ -166,9 +156,7 @@ export default function FabricList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (fabric) => (
-        <div className="text-sm font-medium text-gray-900">
-          {formatCurrency(fabric.costPerMeter)}
-        </div>
+        <div className="text-sm font-medium text-gray-900">{formatCurrency(fabric.costPerMeter)}</div>
       ),
     },
     {
@@ -220,15 +208,11 @@ export default function FabricList() {
               <div key={idx} className="text-xs">
                 <span className="font-medium text-blue-600">{entry.styleCode}</span>
                 {entry.components.length > 0 && (
-                  <span className="text-gray-500 ml-1">
-                    ({entry.components.join(', ')})
-                  </span>
+                  <span className="text-gray-500 ml-1">({entry.components.join(', ')})</span>
                 )}
               </div>
             ))}
-            {styleCount > 2 && (
-              <span className="text-xs text-gray-400">+{styleCount - 2} more</span>
-            )}
+            {styleCount > 2 && <span className="text-xs text-gray-400">+{styleCount - 2} more</span>}
           </div>
         );
       },
@@ -354,9 +338,10 @@ export default function FabricList() {
           emptyState={{
             icon: <Layers className="h-16 w-16" />,
             title: 'No fabric masters found',
-            description: searchTerm || filterActive !== 'true'
-              ? 'Try adjusting your search or filter criteria'
-              : 'Create your first fabric master to get started',
+            description:
+              searchTerm || filterActive !== 'true'
+                ? 'Try adjusting your search or filter criteria'
+                : 'Create your first fabric master to get started',
             actionLabel: !searchTerm && filterActive === 'true' ? 'Create First Fabric' : undefined,
             onAction: !searchTerm && filterActive === 'true' ? () => navigate('/fabric/new') : undefined,
           }}

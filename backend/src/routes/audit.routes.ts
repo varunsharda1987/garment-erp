@@ -7,11 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import {
-  getAuditLogsForEntity,
-  getAuditLogsByUser,
-  getRecentAuditLogs,
-} from '../services/audit.service';
+import { getAuditLogsForEntity, getAuditLogsByUser, getRecentAuditLogs } from '../services/audit.service';
 
 const router = Router();
 
@@ -41,20 +37,25 @@ const router = Router();
  *       200:
  *         description: List of audit logs
  */
-router.get('/', authenticateToken, authorize('ADMIN', 'PRODUCTION_MANAGER'), asyncHandler(async (req: Request, res: Response) => {
-  const limit = parseInt(req.query.limit as string) || 100;
-  const entityType = req.query.entityType as string | undefined;
-  const action = req.query.action as string | undefined;
+router.get(
+  '/',
+  authenticateToken,
+  authorize('ADMIN', 'PRODUCTION_MANAGER'),
+  asyncHandler(async (req: Request, res: Response) => {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const entityType = req.query.entityType as string | undefined;
+    const action = req.query.action as string | undefined;
 
-  const logs = await getRecentAuditLogs({ limit, entityType, action });
+    const logs = await getRecentAuditLogs({ limit, entityType, action });
 
-  res.status(200).json({
-    data: logs,
-    pagination: {
-      limit,
-    },
-  });
-}));
+    res.status(200).json({
+      data: logs,
+      pagination: {
+        limit,
+      },
+    });
+  })
+);
 
 /**
  * @swagger

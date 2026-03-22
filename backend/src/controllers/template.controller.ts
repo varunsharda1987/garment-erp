@@ -18,7 +18,7 @@ export const createTemplate = async (req: Request, res: Response) => {
 
     if (!moduleName || !templateName || !columnConfig) {
       return res.status(400).json({
-        error: 'Missing required fields: moduleName, templateName, columnConfig'
+        error: 'Missing required fields: moduleName, templateName, columnConfig',
       });
     }
 
@@ -28,20 +28,19 @@ export const createTemplate = async (req: Request, res: Response) => {
       description,
       columnConfig,
       isDefault,
-      createdById: userId
+      createdById: userId,
     });
 
     res.status(201).json({
       success: true,
       message: 'Template created successfully',
-      template
+      template,
     });
-
   } catch (error: unknown) {
     logError('Create template error:', error);
     res.status(500).json({
       error: 'Failed to create template',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -58,20 +57,19 @@ export const getTemplates = async (req: Request, res: Response) => {
       const templates = await templateService.getTemplatesByModule(module as string);
       return res.json({
         success: true,
-        templates
+        templates,
       });
     }
 
     // If no module specified, return error (too broad)
     res.status(400).json({
-      error: 'Please specify a module name using ?module=customers'
+      error: 'Please specify a module name using ?module=customers',
     });
-
   } catch (error: unknown) {
     logError('Get templates error:', error);
     res.status(500).json({
       error: 'Failed to retrieve templates',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -89,14 +87,13 @@ export const getModuleTemplates = async (req: Request, res: Response) => {
     res.json({
       success: true,
       module: moduleName,
-      templates
+      templates,
     });
-
   } catch (error: unknown) {
     logError('Get module templates error:', error);
     res.status(500).json({
       error: 'Failed to retrieve templates',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -117,14 +114,13 @@ export const getTemplateById = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      template
+      template,
     });
-
   } catch (error: unknown) {
     logError('Get template error:', error);
     res.status(500).json({
       error: 'Failed to retrieve template',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -142,20 +138,19 @@ export const updateTemplate = async (req: Request, res: Response) => {
       templateName,
       description,
       columnConfig,
-      isDefault
+      isDefault,
     });
 
     res.json({
       success: true,
       message: 'Template updated successfully',
-      template
+      template,
     });
-
   } catch (error: unknown) {
     logError('Update template error:', error);
     res.status(500).json({
       error: 'Failed to update template',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -172,14 +167,13 @@ export const deleteTemplate = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: 'Template deleted successfully'
+      message: 'Template deleted successfully',
     });
-
   } catch (error: unknown) {
     logError('Delete template error:', error);
     res.status(500).json({
       error: 'Failed to delete template',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -194,14 +188,13 @@ export const getAvailableModules = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      modules
+      modules,
     });
-
   } catch (error: unknown) {
     logError('Get modules error:', error);
     res.status(500).json({
       error: 'Failed to retrieve modules',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -218,21 +211,20 @@ export const getAvailableColumns = async (req: Request, res: Response) => {
 
     if (!columns || columns.length === 0) {
       return res.status(404).json({
-        error: `No column definitions found for module: ${moduleName}`
+        error: `No column definitions found for module: ${moduleName}`,
       });
     }
 
     res.json({
       success: true,
       module: moduleName,
-      columns
+      columns,
     });
-
   } catch (error: unknown) {
     logError('Get columns error:', error);
     res.status(500).json({
       error: 'Failed to retrieve columns',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };

@@ -8,18 +8,8 @@ import type { ReactNode } from 'react';
 import type { ComponentMaster } from '../../../types/componentMaster.types';
 import type { Customer, BrandCategory } from '../../../types/customer.types';
 import type { MaterialBOMEntry } from '../../../components/MaterialBOMPicker';
-import {
-  createDefaultFabric,
-  createDefaultSKUVariants,
-  createDefaultProcesses,
-} from './types';
-import type {
-  FabricEntry,
-  SKUVariant,
-  ProcessEntry,
-  SelectedComponent,
-  ProcessType,
-} from './types';
+import { createDefaultFabric, createDefaultSKUVariants, createDefaultProcesses } from './types';
+import type { FabricEntry, SKUVariant, ProcessEntry, SelectedComponent, ProcessType } from './types';
 
 // ============================================
 // Accessory Preset Interface
@@ -263,16 +253,14 @@ function styleFormReducer(state: StyleFormState, action: StyleFormAction): Style
       if (state.fabrics.length <= 1) return state;
       return {
         ...state,
-        fabrics: state.fabrics.filter(f => f.id !== action.payload),
+        fabrics: state.fabrics.filter((f) => f.id !== action.payload),
       };
 
     case 'UPDATE_FABRIC':
       return {
         ...state,
-        fabrics: state.fabrics.map(f =>
-          f.id === action.payload.id
-            ? { ...f, [action.payload.field]: action.payload.value }
-            : f
+        fabrics: state.fabrics.map((f) =>
+          f.id === action.payload.id ? { ...f, [action.payload.field]: action.payload.value } : f
         ),
       };
 
@@ -294,7 +282,7 @@ function styleFormReducer(state: StyleFormState, action: StyleFormAction): Style
     case 'TOGGLE_PROCESS':
       return {
         ...state,
-        processes: state.processes.map(p =>
+        processes: state.processes.map((p) =>
           p.processType === action.payload ? { ...p, isRequired: !p.isRequired } : p
         ),
       };
@@ -302,10 +290,8 @@ function styleFormReducer(state: StyleFormState, action: StyleFormAction): Style
     case 'UPDATE_PROCESS':
       return {
         ...state,
-        processes: state.processes.map(p =>
-          p.processType === action.payload.processType
-            ? { ...p, [action.payload.field]: action.payload.value }
-            : p
+        processes: state.processes.map((p) =>
+          p.processType === action.payload.processType ? { ...p, [action.payload.field]: action.payload.value } : p
         ),
       };
 
@@ -467,11 +453,7 @@ export function StyleFormProvider({
     setPickerOpen,
   };
 
-  return (
-    <StyleFormContext.Provider value={value}>
-      {children}
-    </StyleFormContext.Provider>
-  );
+  return <StyleFormContext.Provider value={value}>{children}</StyleFormContext.Provider>;
 }
 
 // ============================================

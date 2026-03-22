@@ -2,13 +2,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,65 +100,34 @@ export function AgencyFormDialog({
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                placeholder="Enter agency name"
-                {...register('name')}
-              />
-              {errors.name && (
-                <p className="text-sm text-destructive">{errors.name.message}</p>
-              )}
+              <Input id="name" placeholder="Enter agency name" {...register('name')} />
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                placeholder="Enter phone number"
-                {...register('phone')}
-              />
+              <Input id="phone" placeholder="Enter phone number" {...register('phone')} />
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter email address"
-                {...register('email')}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
+              <Input id="email" type="email" placeholder="Enter email address" {...register('email')} />
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="address">Address</Label>
-              <Textarea
-                id="address"
-                placeholder="Enter address"
-                rows={2}
-                {...register('address')}
-              />
+              <Textarea id="address" placeholder="Enter address" rows={2} {...register('address')} />
             </div>
 
             <div className="flex items-center justify-between">
               <Label htmlFor="isActive">Active</Label>
-              <Switch
-                id="isActive"
-                checked={isActive}
-                onCheckedChange={(checked) => setValue('isActive', checked)}
-              />
+              <Switch id="isActive" checked={isActive} onCheckedChange={(checked) => setValue('isActive', checked)} />
             </div>
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>

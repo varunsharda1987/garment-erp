@@ -5,13 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { testTemplatesService } from '@/services/testing.service';
 import type { TestTemplate, TestTemplateType } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -55,17 +49,9 @@ export default function TestTemplates() {
 
   const getTemplateTypeBadge = (type: TestTemplateType) => {
     if (type === 'FPT') {
-      return (
-        <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-          FPT - Fabric
-        </Badge>
-      );
+      return <Badge className="bg-blue-100 text-blue-800 border-blue-300">FPT - Fabric</Badge>;
     }
-    return (
-      <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-        GPT - Garment
-      </Badge>
-    );
+    return <Badge className="bg-purple-100 text-purple-800 border-purple-300">GPT - Garment</Badge>;
   };
 
   if (loading) {
@@ -88,9 +74,7 @@ export default function TestTemplates() {
             <FileText className="h-8 w-8 text-orange-600" />
             Test Templates
           </h1>
-          <p className="text-gray-500 mt-1">
-            Define test parameters and tolerance ranges for buyers
-          </p>
+          <p className="text-gray-500 mt-1">Define test parameters and tolerance ranges for buyers</p>
         </div>
         <Button onClick={() => navigate('/test-templates/new')} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
@@ -148,9 +132,7 @@ export default function TestTemplates() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {template.templateName}
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{template.templateName}</h3>
                     {getTemplateTypeBadge(template.templateType)}
                     {template.isActive ? (
                       <Badge className="bg-green-100 text-green-800 border-green-300">
@@ -166,9 +148,7 @@ export default function TestTemplates() {
                   </div>
                   <p className="text-sm text-gray-500 font-mono mb-4">{template.templateCode}</p>
 
-                  {template.description && (
-                    <p className="text-sm text-gray-600 mb-4">{template.description}</p>
-                  )}
+                  {template.description && <p className="text-sm text-gray-600 mb-4">{template.description}</p>}
 
                   {/* Required Parameters */}
                   <div className="mb-3">
@@ -201,19 +181,20 @@ export default function TestTemplates() {
                     <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                       <p className="text-xs font-semibold text-gray-700 mb-2">Tolerance Ranges:</p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                        {Object.entries(template.toleranceRanges).map(([key, range]) => (
-                          range && (
-                            <div key={key} className="text-xs">
-                              <span className="text-gray-600 capitalize">{key}:</span>
-                              <span className="ml-1 font-medium text-gray-900">
-                                {range.min !== undefined && `${range.min}`}
-                                {range.min !== undefined && range.max !== undefined && ' - '}
-                                {range.max !== undefined && `${range.max}`}
-                                {range.unit && ` ${range.unit}`}
-                              </span>
-                            </div>
-                          )
-                        ))}
+                        {Object.entries(template.toleranceRanges).map(
+                          ([key, range]) =>
+                            range && (
+                              <div key={key} className="text-xs">
+                                <span className="text-gray-600 capitalize">{key}:</span>
+                                <span className="ml-1 font-medium text-gray-900">
+                                  {range.min !== undefined && `${range.min}`}
+                                  {range.min !== undefined && range.max !== undefined && ' - '}
+                                  {range.max !== undefined && `${range.max}`}
+                                  {range.unit && ` ${range.unit}`}
+                                </span>
+                              </div>
+                            )
+                        )}
                       </div>
                     </div>
                   )}
@@ -228,19 +209,11 @@ export default function TestTemplates() {
 
                 {/* Actions */}
                 <div className="flex gap-2 ml-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/test-templates/${template.id}/edit`)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/test-templates/${template.id}/edit`)}>
                     <Edit className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/test-templates/${template.id}`)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/test-templates/${template.id}`)}>
                     View
                   </Button>
                 </div>
@@ -253,11 +226,7 @@ export default function TestTemplates() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
+          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
             Previous
           </Button>
           <span className="px-4 py-2 text-sm text-gray-600">

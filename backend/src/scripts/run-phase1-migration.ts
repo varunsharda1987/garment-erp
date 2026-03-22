@@ -31,24 +31,24 @@ async function runMigration() {
     `;
 
     console.log('Created tables:');
-    tables.forEach(t => console.log(`  ✅ ${t.tablename}`));
+    tables.forEach((t) => console.log(`  ✅ ${t.tablename}`));
 
     // Verify material categories were seeded
     const categories = await prisma.material_categories.findMany({
       where: {
         name: {
-          in: ['Trims', 'Lace', 'Buttons', 'Threads']
-        }
+          in: ['Trims', 'Lace', 'Buttons', 'Threads'],
+        },
       },
       select: {
         name: true,
         level: true,
-        parentCategoryId: true
-      }
+        parentCategoryId: true,
+      },
     });
 
     console.log('\nSeeded categories:');
-    categories.forEach(c => console.log(`  ✅ ${c.name} (Level ${c.level})`));
+    categories.forEach((c) => console.log(`  ✅ ${c.name} (Level ${c.level})`));
 
     // Check if MaterialType enum was updated
     console.log('\n🔍 Checking Material Type enum values...');
@@ -61,14 +61,13 @@ async function runMigration() {
     `;
 
     console.log('MaterialType enum values:');
-    enumValues.forEach(e => console.log(`  - ${e.enumlabel}`));
+    enumValues.forEach((e) => console.log(`  - ${e.enumlabel}`));
 
     console.log('\n✅ Phase 1 migration verified successfully!');
     console.log('\n📋 Summary:');
     console.log(`  - Created ${tables.length} new master tables`);
     console.log(`  - Seeded ${categories.length} material categories`);
     console.log(`  - MaterialType enum has ${enumValues.length} values`);
-
   } catch (error) {
     console.error('❌ Migration failed:', error);
     throw error;

@@ -11,51 +11,13 @@ import { logError } from '../../utils/logger';
 import { aiPermissionService } from './ai-permission.service';
 
 // Context types that can be fetched
-type ContextType =
-  | 'orders'
-  | 'styles'
-  | 'inventory'
-  | 'production'
-  | 'customers'
-  | 'suppliers'
-  | 'summary';
+type ContextType = 'orders' | 'styles' | 'inventory' | 'production' | 'customers' | 'suppliers' | 'summary';
 
 // Keywords that trigger specific context types
 const CONTEXT_KEYWORDS: Record<ContextType, string[]> = {
-  orders: [
-    'order',
-    'orders',
-    'delivery',
-    'deliveries',
-    'pending',
-    'shipment',
-    'dispatch',
-    'due',
-    'overdue',
-    'shipped',
-  ],
-  styles: [
-    'style',
-    'styles',
-    'design',
-    'garment',
-    'product',
-    'bom',
-    'bill of materials',
-    'cost sheet',
-    'costing',
-  ],
-  inventory: [
-    'stock',
-    'inventory',
-    'material',
-    'fabric',
-    'trim',
-    'warehouse',
-    'quantity',
-    'low stock',
-    'reorder',
-  ],
+  orders: ['order', 'orders', 'delivery', 'deliveries', 'pending', 'shipment', 'dispatch', 'due', 'overdue', 'shipped'],
+  styles: ['style', 'styles', 'design', 'garment', 'product', 'bom', 'bill of materials', 'cost sheet', 'costing'],
+  inventory: ['stock', 'inventory', 'material', 'fabric', 'trim', 'warehouse', 'quantity', 'low stock', 'reorder'],
   production: [
     'production',
     'work order',
@@ -512,7 +474,9 @@ class ERPContextService {
           lines.push('\nActive Work Orders:');
           workOrders.slice(0, 5).forEach((wo) => {
             const style = wo.styles as { styleCode: string; styleName: string } | null;
-            lines.push(`- ${wo.workOrderNumber}: ${style?.styleCode || 'N/A'} - Qty: ${wo.totalQuantity} - ${wo.status}`);
+            lines.push(
+              `- ${wo.workOrderNumber}: ${style?.styleCode || 'N/A'} - Qty: ${wo.totalQuantity} - ${wo.status}`
+            );
           });
         }
       }

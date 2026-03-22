@@ -32,9 +32,7 @@ export async function calculateRequirements(
 /**
  * Generate Fabric PO
  */
-export async function generateFabricPO(
-  request: GenerateFabricPORequest
-): Promise<GeneratePOResponse> {
+export async function generateFabricPO(request: GenerateFabricPORequest): Promise<GeneratePOResponse> {
   const response = await api.post(`${BASE_URL}/generate/fabric`, request);
   return response.data;
 }
@@ -42,9 +40,7 @@ export async function generateFabricPO(
 /**
  * Generate Greige PO
  */
-export async function generateGreigePO(
-  request: GenerateGreigePORequest
-): Promise<GeneratePOResponse> {
+export async function generateGreigePO(request: GenerateGreigePORequest): Promise<GeneratePOResponse> {
   const response = await api.post(`${BASE_URL}/generate/greige`, request);
   return response.data;
 }
@@ -52,9 +48,7 @@ export async function generateGreigePO(
 /**
  * Generate Processing PO
  */
-export async function generateProcessingPO(
-  request: GenerateProcessingPORequest
-): Promise<GeneratePOResponse> {
+export async function generateProcessingPO(request: GenerateProcessingPORequest): Promise<GeneratePOResponse> {
   const response = await api.post(`${BASE_URL}/generate/processing`, request);
   return response.data;
 }
@@ -62,9 +56,7 @@ export async function generateProcessingPO(
 /**
  * Generate Trims PO
  */
-export async function generateTrimsPO(
-  request: GenerateTrimsPORequest
-): Promise<GeneratePOResponse> {
+export async function generateTrimsPO(request: GenerateTrimsPORequest): Promise<GeneratePOResponse> {
   const response = await api.post(`${BASE_URL}/generate/trims`, request);
   return response.data;
 }
@@ -72,9 +64,7 @@ export async function generateTrimsPO(
 /**
  * Get PO generation status for a cost sheet
  */
-export async function getGenerationStatus(
-  costSheetId: string
-): Promise<GenerationStatusResponse> {
+export async function getGenerationStatus(costSheetId: string): Promise<GenerationStatusResponse> {
   const response = await api.get(`${BASE_URL}/status/${costSheetId}`);
   return response.data;
 }
@@ -82,9 +72,7 @@ export async function getGenerationStatus(
 /**
  * Get PO generation history for a cost sheet
  */
-export async function getGenerationHistory(
-  costSheetId: string
-): Promise<GenerationStatusResponse> {
+export async function getGenerationHistory(costSheetId: string): Promise<GenerationStatusResponse> {
   const response = await api.get(`${BASE_URL}/history/${costSheetId}`);
   return response.data;
 }

@@ -51,9 +51,7 @@ export const getGRNById = async (id: string): Promise<GRN> => {
 /**
  * Get all GRNs for a specific PO
  */
-export const getGRNsByPO = async (
-  poId: string
-): Promise<{ success: boolean; data: GRN[]; count: number }> => {
+export const getGRNsByPO = async (poId: string): Promise<{ success: boolean; data: GRN[]; count: number }> => {
   const { data } = await api.get(`${BASE_URL}/po/${poId}`);
   return data;
 };
@@ -85,15 +83,11 @@ export const createGRN = async (grnData: CreateGRNRequest): Promise<GRN> => {
 /**
  * Approve a GRN (PENDING_QC -> ACCEPTED)
  */
-export const approveGRN = async (
-  id: string,
-  warehouseId?: string,
-  processingQC?: ProcessingQCData
-): Promise<GRN> => {
-  const { data } = await api.patch<GRNResponse>(
-    `${BASE_URL}/${id}/approve`,
-    { ...(warehouseId && { warehouseId }), ...(processingQC && { processingQC }) }
-  );
+export const approveGRN = async (id: string, warehouseId?: string, processingQC?: ProcessingQCData): Promise<GRN> => {
+  const { data } = await api.patch<GRNResponse>(`${BASE_URL}/${id}/approve`, {
+    ...(warehouseId && { warehouseId }),
+    ...(processingQC && { processingQC }),
+  });
   return data.data;
 };
 

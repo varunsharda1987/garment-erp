@@ -3,12 +3,7 @@ import { Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { greigeService } from '../services/fabricGreigeService';
 import { notify } from '../lib/notify';
 import { logError } from '../lib/logger';
@@ -39,7 +34,7 @@ export function QuickCreateGreigeModal({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: type === 'number' ? parseFloat(value) || 0 : value,
     }));
@@ -48,7 +43,7 @@ export function QuickCreateGreigeModal({
   // Auto-calculate defaultCutableWidth when greigeWidth changes
   const handleWidthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const greigeWidth = parseFloat(e.target.value) || 0;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       greigeWidth,
       defaultCutableWidth: greigeWidth > 4 ? greigeWidth - 4 : greigeWidth,
@@ -124,7 +119,7 @@ export function QuickCreateGreigeModal({
             </Label>
             <GenericGreigeSelector
               value={formData.genericGreigeName}
-              onChange={(value) => setFormData(prev => ({ ...prev, genericGreigeName: value }))}
+              onChange={(value) => setFormData((prev) => ({ ...prev, genericGreigeName: value }))}
               placeholder="e.g., Cambric, Poplin, Net..."
               required
             />
@@ -149,9 +144,7 @@ export function QuickCreateGreigeModal({
               />
             </div>
             <div>
-              <Label htmlFor="defaultCutableWidth">
-                Cutable Width (inches)
-              </Label>
+              <Label htmlFor="defaultCutableWidth">Cutable Width (inches)</Label>
               <Input
                 id="defaultCutableWidth"
                 name="defaultCutableWidth"

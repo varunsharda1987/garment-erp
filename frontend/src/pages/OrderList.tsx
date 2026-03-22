@@ -50,7 +50,11 @@ export default function OrderList() {
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState<{ id: string; orderNumber: string; canHardDelete: boolean } | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<{
+    id: string;
+    orderNumber: string;
+    canHardDelete: boolean;
+  } | null>(null);
 
   // BOM creation loading state
   const [bomLoadingId, setBomLoadingId] = useState<string | null>(null);
@@ -179,8 +183,10 @@ export default function OrderList() {
     const bom = order.orderBoms?.[0];
     if (!bom) return { label: 'Create BOM', type: 'create' as const };
     if (bom.status === 'DRAFT') return { label: 'Review BOM', type: 'navigate' as const, path: `/order-bom/${bom.id}` };
-    if (bom.status === 'APPROVED') return { label: 'Lock BOM', type: 'navigate' as const, path: `/order-bom/${bom.id}` };
-    if (bom.status === 'LOCKED') return { label: 'View MRP', type: 'navigate' as const, path: `/mrp/requirements?orderId=${order.id}` };
+    if (bom.status === 'APPROVED')
+      return { label: 'Lock BOM', type: 'navigate' as const, path: `/order-bom/${bom.id}` };
+    if (bom.status === 'LOCKED')
+      return { label: 'View MRP', type: 'navigate' as const, path: `/mrp/requirements?orderId=${order.id}` };
     return null;
   };
 
@@ -231,9 +237,7 @@ export default function OrderList() {
           >
             {order.orderNumber}
           </button>
-          <div className="text-xs text-gray-500 mt-0.5">
-            {formatDate(order.orderDate)}
-          </div>
+          <div className="text-xs text-gray-500 mt-0.5">{formatDate(order.orderDate)}</div>
         </div>
       ),
     },
@@ -251,9 +255,7 @@ export default function OrderList() {
       key: 'styles',
       header: 'Style(s)',
       render: (order) => {
-        const styleCodes = order.orderItems
-          ?.map((item) => item.style?.styleCode)
-          .filter(Boolean) as string[] || [];
+        const styleCodes = (order.orderItems?.map((item) => item.style?.styleCode).filter(Boolean) as string[]) || [];
         const unique = [...new Set(styleCodes)];
         if (unique.length === 0) return <span className="text-xs text-gray-400">-</span>;
         return (
@@ -270,19 +272,13 @@ export default function OrderList() {
     {
       key: 'expectedDeliveryDate',
       header: 'Delivery Date',
-      render: (order) => (
-        <div className="text-sm text-gray-700">
-          {formatDate(order.expectedDeliveryDate)}
-        </div>
-      ),
+      render: (order) => <div className="text-sm text-gray-700">{formatDate(order.expectedDeliveryDate)}</div>,
     },
     {
       key: 'quantity',
       header: 'Quantity',
       render: (order) => (
-        <div className="text-sm font-medium text-gray-900">
-          {order.totalQuantity?.toLocaleString() || 0} pcs
-        </div>
+        <div className="text-sm font-medium text-gray-900">{order.totalQuantity?.toLocaleString() || 0} pcs</div>
       ),
     },
     {
@@ -293,9 +289,7 @@ export default function OrderList() {
           {Number(order.totalAmount) > 0 ? (
             <span className="text-gray-900">{formatCurrency(order.totalAmount)}</span>
           ) : (
-            <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs">
-              Price TBD
-            </span>
+            <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs">Price TBD</span>
           )}
         </div>
       ),
@@ -333,8 +327,8 @@ export default function OrderList() {
             >
               View
             </Button>
-            {workflowAction && (
-              workflowAction.type === 'create' ? (
+            {workflowAction &&
+              (workflowAction.type === 'create' ? (
                 <Button
                   variant="default"
                   size="sm"
@@ -357,8 +351,7 @@ export default function OrderList() {
                 >
                   {workflowAction.label} <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
-              )
-            )}
+              ))}
             {order.status !== 'CANCELLED' && (
               <Button
                 variant="outline"
@@ -404,13 +397,8 @@ export default function OrderList() {
                   priority: priorityFilter !== 'all' ? priorityFilter : undefined,
                 }}
               />
-              <ImportButton
-                module="orders"
-                onSuccess={fetchOrders}
-              />
-              <Button onClick={() => navigate('/orders/new')}>
-                + Create New Order
-              </Button>
+              <ImportButton module="orders" onSuccess={fetchOrders} />
+              <Button onClick={() => navigate('/orders/new')}>+ Create New Order</Button>
             </div>
           </div>
         </CardHeader>
@@ -479,9 +467,10 @@ export default function OrderList() {
             emptyState={{
               icon: <ShoppingCart className="h-16 w-16" />,
               title: 'No orders found',
-              description: searchQuery || customerFilter || statusFilter || priorityFilter
-                ? 'Try adjusting your search or filter criteria'
-                : 'Get started by creating your first order',
+              description:
+                searchQuery || customerFilter || statusFilter || priorityFilter
+                  ? 'Try adjusting your search or filter criteria'
+                  : 'Get started by creating your first order',
               actionLabel: 'Create First Order',
               onAction: () => navigate('/orders/new'),
             }}
@@ -502,13 +491,13 @@ export default function OrderList() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title={orderToDelete?.canHardDelete ? "Delete Order" : "Cancel Order"}
+        title={orderToDelete?.canHardDelete ? 'Delete Order' : 'Cancel Order'}
         description={
           orderToDelete?.canHardDelete
             ? `Are you sure you want to permanently delete order ${orderToDelete?.orderNumber}? This will remove all related records and cannot be undone.`
             : `Are you sure you want to cancel order ${orderToDelete?.orderNumber}? This action cannot be undone.`
         }
-        confirmText={orderToDelete?.canHardDelete ? "Delete Order" : "Cancel Order"}
+        confirmText={orderToDelete?.canHardDelete ? 'Delete Order' : 'Cancel Order'}
         cancelText="Keep Order"
         onConfirm={confirmDelete}
         variant="destructive"

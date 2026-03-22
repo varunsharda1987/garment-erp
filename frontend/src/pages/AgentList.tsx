@@ -5,21 +5,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,12 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { AgentFormDialog } from '@/components/AgentFormDialog';
-import {
-  getAllAgents,
-  createAgent,
-  updateAgent,
-  deleteAgent,
-} from '@/services/agent.service';
+import { getAllAgents, createAgent, updateAgent, deleteAgent } from '@/services/agent.service';
 import type { Agent, CreateAgentRequest, UpdateAgentRequest } from '@/types/agent.types';
 
 export default function AgentList() {
@@ -69,8 +51,7 @@ export default function AgentList() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateAgentRequest }) =>
-      updateAgent(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UpdateAgentRequest }) => updateAgent(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agents'] });
       toast.success('Agent updated successfully');
@@ -128,9 +109,7 @@ export default function AgentList() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Agents</h1>
-          <p className="text-muted-foreground">
-            Manage sales agents for wholesaler and retailer customers
-          </p>
+          <p className="text-muted-foreground">Manage sales agents for wholesaler and retailer customers</p>
         </div>
         <Button
           onClick={() => {
@@ -148,9 +127,7 @@ export default function AgentList() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Agent List</CardTitle>
-              <CardDescription>
-                {pagination?.total || 0} agents total
-              </CardDescription>
+              <CardDescription>{pagination?.total || 0} agents total</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -205,9 +182,7 @@ export default function AgentList() {
                 <TableBody>
                   {agents.map((agent) => (
                     <TableRow key={agent.id}>
-                      <TableCell className="font-mono text-sm">
-                        {agent.code}
-                      </TableCell>
+                      <TableCell className="font-mono text-sm">{agent.code}</TableCell>
                       <TableCell className="font-medium">{agent.name}</TableCell>
                       <TableCell>
                         {agent.agency ? (
@@ -219,9 +194,7 @@ export default function AgentList() {
                       <TableCell>{agent.phone || '-'}</TableCell>
                       <TableCell>{agent.email || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {agent._count?.customers || 0}
-                        </Badge>
+                        <Badge variant="secondary">{agent._count?.customers || 0}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant={agent.isActive ? 'default' : 'secondary'}>
@@ -230,18 +203,10 @@ export default function AgentList() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(agent)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(agent)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(agent)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(agent)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -297,8 +262,7 @@ export default function AgentList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Agent</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete agent "{agentToDelete?.name}"? This
-              action cannot be undone.
+              Are you sure you want to delete agent "{agentToDelete?.name}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

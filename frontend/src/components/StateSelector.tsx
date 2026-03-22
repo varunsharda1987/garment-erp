@@ -47,7 +47,7 @@ export default function StateSelector({
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/locations/states?${params.toString()}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -90,9 +90,7 @@ export default function StateSelector({
           ${error ? 'border-red-500' : 'border-gray-300'}
         `}
       >
-        <option value="">
-          {loading ? 'Loading states...' : placeholder}
-        </option>
+        <option value="">{loading ? 'Loading states...' : placeholder}</option>
         {states.map((state) => (
           <option key={state.id} value={state.id}>
             {state.stateName}
@@ -101,13 +99,9 @@ export default function StateSelector({
         ))}
       </select>
 
-      {loadError && (
-        <p className="mt-1 text-sm text-orange-600">{loadError}</p>
-      )}
+      {loadError && <p className="mt-1 text-sm text-orange-600">{loadError}</p>}
 
-      {error && !loadError && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
+      {error && !loadError && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   );
 }

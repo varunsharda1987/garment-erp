@@ -5,10 +5,7 @@ export class StyleVariantService {
   /**
    * Create or update variants for a style
    */
-  async upsertStyleVariants(
-    styleId: string,
-    variants: StyleVariantData[]
-  ): Promise<number> {
+  async upsertStyleVariants(styleId: string, variants: StyleVariantData[]): Promise<number> {
     let createdCount = 0;
 
     for (const variant of variants) {

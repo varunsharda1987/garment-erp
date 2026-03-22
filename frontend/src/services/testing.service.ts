@@ -174,10 +174,7 @@ export const garmentPhysicalTestsService = {
     return data;
   },
 
-  buyerApprove: async (
-    id: string,
-    input: { buyerRemarks?: string }
-  ): Promise<ApiResponse<GarmentPhysicalTest>> => {
+  buyerApprove: async (id: string, input: { buyerRemarks?: string }): Promise<ApiResponse<GarmentPhysicalTest>> => {
     const { data } = await api.post(`/garment-physical-tests/${id}/buyer-approve`, input);
     return data;
   },

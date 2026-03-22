@@ -39,7 +39,7 @@ export default function UserForm({ mode }: UserFormProps) {
 
   useEffect(() => {
     if (id && !isNewUser) {
-      userService.getUserById(id).then(user => {
+      userService.getUserById(id).then((user) => {
         setValue('email', user.email);
         setValue('firstName', user.firstName);
         setValue('lastName', user.lastName);
@@ -96,7 +96,9 @@ export default function UserForm({ mode }: UserFormProps) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => navigate('/users')}>Back</Button>
+          <Button variant="ghost" onClick={() => navigate('/users')}>
+            Back
+          </Button>
         </div>
       </header>
       <main className="max-w-3xl mx-auto px-4 py-8">
@@ -129,7 +131,11 @@ export default function UserForm({ mode }: UserFormProps) {
               </div>
               <div>
                 <Label htmlFor="role">Role</Label>
-                <select id="role" {...register('role')} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select
+                  id="role"
+                  {...register('role')}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
                   <option value="ADMIN">Admin</option>
                   <option value="MERCHANDISER">Merchandiser</option>
                   <option value="PRODUCTION_MANAGER">Production Manager</option>
@@ -143,7 +149,11 @@ export default function UserForm({ mode }: UserFormProps) {
               </div>
               <div>
                 <Label htmlFor="department">Department</Label>
-                <select id="department" {...register('department')} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select
+                  id="department"
+                  {...register('department')}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
                   <option value="">-- Select Department --</option>
                   <option value="Merchandising">Merchandising</option>
                   <option value="Production">Production</option>
@@ -164,8 +174,12 @@ export default function UserForm({ mode }: UserFormProps) {
                 </select>
               </div>
               <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => navigate('/users')}>Cancel</Button>
-                <Button type="submit" disabled={loading}>{loading ? 'Saving...' : isNewUser ? 'Create User' : 'Update User'}</Button>
+                <Button type="button" variant="outline" onClick={() => navigate('/users')}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Saving...' : isNewUser ? 'Create User' : 'Update User'}
+                </Button>
               </div>
             </form>
           </CardContent>

@@ -11,7 +11,7 @@ export type Column<T> = {
   render?: (item: T) => ReactNode;
   className?: string;
   headerClassName?: string;
-}
+};
 
 export type DataTableProps<T> = {
   // Data
@@ -48,7 +48,7 @@ export type DataTableProps<T> = {
   className?: string;
   headerClassName?: string;
   loadingRows?: number;
-}
+};
 
 export default function DataTable<T>({
   data,
@@ -75,13 +75,7 @@ export default function DataTable<T>({
 
   // Error state
   if (error) {
-    return (
-      <EmptyState
-        title="Error loading data"
-        description={error}
-        className={className}
-      />
-    );
+    return <EmptyState title="Error loading data" description={error} className={className} />;
   }
 
   // Empty state
@@ -106,10 +100,7 @@ export default function DataTable<T>({
           <TableHeader>
             <TableRow className={headerClassName}>
               {columns.map((column) => (
-                <TableHead
-                  key={column.key}
-                  className={cn('font-semibold', column.headerClassName)}
-                >
+                <TableHead key={column.key} className={cn('font-semibold', column.headerClassName)}>
                   {column.header}
                 </TableHead>
               ))}
@@ -123,17 +114,11 @@ export default function DataTable<T>({
               return (
                 <TableRow
                   key={key}
-                  className={cn(
-                    onRowClick && 'cursor-pointer',
-                    customRowClass
-                  )}
+                  className={cn(onRowClick && 'cursor-pointer', customRowClass)}
                   onClick={() => onRowClick?.(item)}
                 >
                   {columns.map((column) => (
-                    <TableCell
-                      key={`${key}-${column.key}`}
-                      className={column.className}
-                    >
+                    <TableCell key={`${key}-${column.key}`} className={column.className}>
                       {column.render
                         ? column.render(item)
                         : String((item as Record<string, unknown>)[column.key] ?? '-')}

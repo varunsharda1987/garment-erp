@@ -40,7 +40,6 @@ interface SOQueryParams {
 }
 
 export class SaleOrderService {
-
   private async generateSONumber(): Promise<string> {
     const now = new Date();
     const yy = now.getFullYear().toString().slice(-2);
@@ -78,7 +77,7 @@ export class SaleOrderService {
         remarks: data.remarks || null,
         createdById: data.createdById,
         items: {
-          create: data.items.map(item => ({
+          create: data.items.map((item) => ({
             id: randomUUID(),
             styleId: item.styleId,
             colorId: item.colorId || null,
@@ -173,7 +172,7 @@ export class SaleOrderService {
         const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
         await tx.sale_order_items.createMany({
-          data: data.items.map(item => ({
+          data: data.items.map((item) => ({
             id: randomUUID(),
             saleOrderId: id,
             styleId: item.styleId,
@@ -295,8 +294,8 @@ export class SaleOrderService {
           where: { saleOrderId: soItem.saleOrderId },
         });
 
-        const allFullyAllocated = allItems.every(item => item.allocatedQty >= item.quantity);
-        const someAllocated = allItems.some(item => item.allocatedQty > 0);
+        const allFullyAllocated = allItems.every((item) => item.allocatedQty >= item.quantity);
+        const someAllocated = allItems.some((item) => item.allocatedQty > 0);
 
         let newStatus: SaleOrderStatus | undefined;
         if (allFullyAllocated) {
@@ -337,14 +336,19 @@ export class SaleOrderService {
       },
     });
 
-    return stocks.map(stock => {
-      const allocatedQty = stock.fg_stock_allocations.reduce((sum: number, a: { allocatedQty: number }) => sum + a.allocatedQty, 0);
-      return {
-        ...stock,
-        availableQty: stock.quantity - allocatedQty,
-        allocatedQty,
-      };
-    }).filter(s => s.availableQty > 0);
+    return stocks
+      .map((stock) => {
+        const allocatedQty = stock.fg_stock_allocations.reduce(
+          (sum: number, a: { allocatedQty: number }) => sum + a.allocatedQty,
+          0
+        );
+        return {
+          ...stock,
+          availableQty: stock.quantity - allocatedQty,
+          allocatedQty,
+        };
+      })
+      .filter((s) => s.availableQty > 0);
   }
 
   async search(params: { search?: string; limit?: number }) {

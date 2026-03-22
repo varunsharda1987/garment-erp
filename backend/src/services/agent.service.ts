@@ -225,9 +225,7 @@ class AgentServiceClass extends BaseService<Agent, CreateAgentInput, UpdateAgent
       const total = await prisma.agents.count({ where });
 
       // Build orderBy
-      const orderBy: OrderByClause = sortBy
-        ? { [sortBy]: sortOrder || 'asc' }
-        : { createdAt: 'desc' };
+      const orderBy: OrderByClause = sortBy ? { [sortBy]: sortOrder || 'asc' } : { createdAt: 'desc' };
 
       // Fetch agents
       const agents = await prisma.agents.findMany({

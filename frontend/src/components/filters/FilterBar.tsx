@@ -38,12 +38,7 @@ export function FilterBar({
     <div className={`flex flex-wrap items-end gap-4 ${className}`}>
       {children}
       {onClear && hasActiveFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClear}
-          className="text-muted-foreground hover:text-foreground"
-        >
+        <Button variant="ghost" size="sm" onClick={onClear} className="text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4 mr-1" />
           {clearText}
         </Button>

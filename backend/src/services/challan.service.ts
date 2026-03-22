@@ -82,9 +82,7 @@ export interface ReceiveChallanInput {
 // CHALLAN NUMBER GENERATION
 // ============================================
 
-async function generateChallanNumber(
-  tx?: Prisma.TransactionClient
-): Promise<string> {
+async function generateChallanNumber(tx?: Prisma.TransactionClient): Promise<string> {
   const client = tx || prisma;
   const now = new Date();
   const year = now.getFullYear().toString().slice(-2);
@@ -202,11 +200,7 @@ export async function issueChallan(id: string, userId?: string) {
 
         // 1. Greige stock deduction
         if (item.greigeStockId) {
-          await greigeStockService.consumeGreigeStock(
-            item.greigeStockId,
-            qty,
-            effectiveUserId
-          );
+          await greigeStockService.consumeGreigeStock(item.greigeStockId, qty, effectiveUserId);
         }
 
         // 2. Fabric stock deduction
@@ -216,7 +210,10 @@ export async function issueChallan(id: string, userId?: string) {
           });
           if (!fabricStock) throw new Error(`Fabric stock ${item.fabricStockId} not found`);
           const newAvailable = Number(fabricStock.quantityAvailable) - qty;
-          if (newAvailable < 0) throw new Error(`Insufficient fabric stock. Available: ${fabricStock.quantityAvailable}, Requested: ${qty}`);
+          if (newAvailable < 0)
+            throw new Error(
+              `Insufficient fabric stock. Available: ${fabricStock.quantityAvailable}, Requested: ${qty}`
+            );
 
           await tx.fabric_stock.update({
             where: { id: item.fabricStockId },
@@ -236,7 +233,8 @@ export async function issueChallan(id: string, userId?: string) {
           });
           if (!laceStock) throw new Error(`Lace stock ${item.laceStockId} not found`);
           const newAvailable = Number(laceStock.quantityAvailable) - qty;
-          if (newAvailable < 0) throw new Error(`Insufficient lace stock. Available: ${laceStock.quantityAvailable}, Requested: ${qty}`);
+          if (newAvailable < 0)
+            throw new Error(`Insufficient lace stock. Available: ${laceStock.quantityAvailable}, Requested: ${qty}`);
 
           await tx.lace_stock.update({
             where: { id: item.laceStockId },
@@ -421,22 +419,14 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
       where: { challanId: id },
     });
 
-    const totalReceived = allItems.reduce(
-      (sum, item) => sum + Number(item.receivedQty || 0),
-      0
-    );
-    const totalExpected = allItems.reduce(
-      (sum, item) => sum + Number(item.quantity),
-      0
-    );
+    const totalReceived = allItems.reduce((sum, item) => sum + Number(item.receivedQty || 0), 0);
+    const totalExpected = allItems.reduce((sum, item) => sum + Number(item.quantity), 0);
 
     // Determine status
     const allReceived = allItems.every(
       (item) => item.receivedQty !== null && Number(item.receivedQty) >= Number(item.quantity)
     );
-    const someReceived = allItems.some(
-      (item) => item.receivedQty !== null && Number(item.receivedQty) > 0
-    );
+    const someReceived = allItems.some((item) => item.receivedQty !== null && Number(item.receivedQty) > 0);
 
     let newStatus: ChallanStatus = 'IN_TRANSIT';
     if (allReceived) {

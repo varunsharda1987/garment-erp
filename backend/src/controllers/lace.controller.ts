@@ -37,7 +37,7 @@ export const createLace = async (req: Request, res: Response) => {
     expectedShrinkagePercent, // Shrinkage during dyeing (for greige)
     costPerMeterGreige, // Greige cost (if isGreige=true)
     sourceGreigeLaceId, // For finished lace: links to source greige
-    pricePerMeter // Price per meter for ready lace
+    pricePerMeter, // Price per meter for ready lace
   } = req.body;
 
   // Auto-generate lace code
@@ -58,7 +58,7 @@ export const createLace = async (req: Request, res: Response) => {
 
   // Get Lace category ID
   const laceCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Lace' }
+    where: { name: 'Lace' },
   });
 
   if (!laceCategory) {
@@ -70,10 +70,10 @@ export const createLace = async (req: Request, res: Response) => {
   if (styleCodes.length > 0) {
     validStyles = await prisma.styles.findMany({
       where: { styleCode: { in: styleCodes } },
-      select: { id: true, styleCode: true }
+      select: { id: true, styleCode: true },
     });
 
-    const foundCodes = validStyles.map(s => s.styleCode);
+    const foundCodes = validStyles.map((s) => s.styleCode);
     const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
     if (invalidCodes.length > 0) {
       throw new ValidationError('Invalid style codes', { invalidCodes });
@@ -81,13 +81,13 @@ export const createLace = async (req: Request, res: Response) => {
   }
 
   // For greige lace, color is not applicable (color applied during dyeing)
-  const finalColor = isGreige ? null : (color || null);
+  const finalColor = isGreige ? null : color || null;
 
   // Validate sourceGreigeLaceId if provided (for finished lace)
   if (sourceGreigeLaceId) {
     const sourceGreige = await prisma.lace_master.findUnique({
       where: { id: sourceGreigeLaceId },
-      select: { id: true, isGreige: true }
+      select: { id: true, isGreige: true },
     });
     if (!sourceGreige || !sourceGreige.isGreige) {
       throw new ValidationError('Invalid sourceGreigeLaceId: Source lace must be a greige lace (isGreige=true)');
@@ -137,10 +137,10 @@ export const createLace = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       sourceGreigeLace: {
         select: {
@@ -148,10 +148,10 @@ export const createLace = async (req: Request, res: Response) => {
           laceCode: true,
           laceName: true,
           expectedShrinkagePercent: true,
-          costPerMeterGreige: true
-        }
-      }
-    }
+          costPerMeterGreige: true,
+        },
+      },
+    },
   });
 
   // Create style associations if provided
@@ -160,15 +160,15 @@ export const createLace = async (req: Request, res: Response) => {
       data: validStyles.map((style, index) => ({
         laceId: laceRecord.id,
         styleId: style.id,
-        isPrimary: index === 0 // First style is primary
-      }))
+        isPrimary: index === 0, // First style is primary
+      })),
     });
   }
 
   // Create corresponding material entry with SAME ID as lace_master
   const material = await prisma.materials.create({
     data: {
-      id: laceRecord.id,  // Use same ID as lace_master for consistency
+      id: laceRecord.id, // Use same ID as lace_master for consistency
       code: laceCode,
       name: finalLaceName,
       materialType: 'LACE',
@@ -176,16 +176,16 @@ export const createLace = async (req: Request, res: Response) => {
       categoryId: laceCategory.id,
       unit: 'METER',
       isActive: true,
-    }
+    },
   });
 
   res.status(201).json({
     lace: {
       ...laceRecord,
-      styleCodes: validStyles.map(s => s.styleCode),
+      styleCodes: validStyles.map((s) => s.styleCode),
     },
     material,
-    message: 'Lace created successfully'
+    message: 'Lace created successfully',
   });
 };
 
@@ -201,7 +201,7 @@ export const getAllLace = async (req: Request, res: Response) => {
     search = '',
     supplierId = '',
     styleCode = '', // Filter by specific style
-    isGreige = '' // Filter by greige status: 'true', 'false', or empty for all
+    isGreige = '', // Filter by greige status: 'true', 'false', or empty for all
   } = req.query;
 
   const pageNum = Number(page);
@@ -228,7 +228,7 @@ export const getAllLace = async (req: Request, res: Response) => {
     where.OR = [
       { laceName: { contains: String(search), mode: 'insensitive' } },
       { laceCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } }
+      { color: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -237,8 +237,8 @@ export const getAllLace = async (req: Request, res: Response) => {
     where.lace_suppliers = {
       some: {
         supplierId: String(supplierId),
-        isActive: true
-      }
+        isActive: true,
+      },
     };
   }
 
@@ -246,8 +246,8 @@ export const getAllLace = async (req: Request, res: Response) => {
   if (styleCode) {
     where.lace_style_associations = {
       some: {
-        style: { styleCode: String(styleCode) }
-      }
+        style: { styleCode: String(styleCode) },
+      },
     };
   }
 
@@ -259,7 +259,7 @@ export const getAllLace = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       lace_suppliers: {
         include: {
@@ -272,17 +272,17 @@ export const getAllLace = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       lace_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
-        }
+            select: { styleCode: true, styleName: true },
+          },
+        },
       },
       // Include source greige lace for finished lace items
       sourceGreigeLace: {
@@ -291,8 +291,8 @@ export const getAllLace = async (req: Request, res: Response) => {
           laceCode: true,
           laceName: true,
           expectedShrinkagePercent: true,
-          costPerMeterGreige: true
-        }
+          costPerMeterGreige: true,
+        },
       },
       // Include finished laces that were made from this greige
       finishedLaces: {
@@ -301,13 +301,13 @@ export const getAllLace = async (req: Request, res: Response) => {
           id: true,
           laceCode: true,
           laceName: true,
-          color: true
-        }
-      }
+          color: true,
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -329,8 +329,8 @@ export const getAllLace = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -345,7 +345,7 @@ export const getLaceById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       lace_suppliers: {
         include: {
@@ -358,18 +358,18 @@ export const getLaceById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       lace_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
+            select: { styleCode: true, styleName: true },
+          },
         },
-        orderBy: { isPrimary: 'desc' }
+        orderBy: { isPrimary: 'desc' },
       },
       // Include source greige lace for finished lace items
       sourceGreigeLace: {
@@ -380,8 +380,8 @@ export const getLaceById = async (req: Request, res: Response) => {
           width: true,
           composition: true,
           expectedShrinkagePercent: true,
-          costPerMeterGreige: true
-        }
+          costPerMeterGreige: true,
+        },
       },
       // Include finished laces that were made from this greige
       finishedLaces: {
@@ -391,10 +391,10 @@ export const getLaceById = async (req: Request, res: Response) => {
           laceCode: true,
           laceName: true,
           color: true,
-          pricePerMeter: true
-        }
-      }
-    }
+          pricePerMeter: true,
+        },
+      },
+    },
   });
 
   if (!lace) {
@@ -443,12 +443,12 @@ export const updateLace = async (req: Request, res: Response) => {
     expectedShrinkagePercent,
     costPerMeterGreige,
     sourceGreigeLaceId,
-    pricePerMeter
+    pricePerMeter,
   } = req.body;
 
   // Check if lace exists
   const existing = await prisma.lace_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -464,7 +464,7 @@ export const updateLace = async (req: Request, res: Response) => {
   if (sourceGreigeLaceId !== undefined && sourceGreigeLaceId !== null) {
     const sourceGreige = await prisma.lace_master.findUnique({
       where: { id: sourceGreigeLaceId },
-      select: { id: true, isGreige: true }
+      select: { id: true, isGreige: true },
     });
     if (!sourceGreige || !sourceGreige.isGreige) {
       throw new ValidationError('Invalid sourceGreigeLaceId: Source lace must be a greige lace (isGreige=true)');
@@ -477,10 +477,10 @@ export const updateLace = async (req: Request, res: Response) => {
     if (styleCodes.length > 0) {
       validStyles = await prisma.styles.findMany({
         where: { styleCode: { in: styleCodes } },
-        select: { id: true, styleCode: true }
+        select: { id: true, styleCode: true },
       });
 
-      const foundCodes = validStyles.map(s => s.styleCode);
+      const foundCodes = validStyles.map((s) => s.styleCode);
       const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
       if (invalidCodes.length > 0) {
         throw new ValidationError('Invalid style codes', { invalidCodes });
@@ -489,7 +489,7 @@ export const updateLace = async (req: Request, res: Response) => {
 
     // Delete existing associations and create new ones
     await prisma.lace_style_associations.deleteMany({
-      where: { laceId: id }
+      where: { laceId: id },
     });
 
     if (validStyles.length > 0) {
@@ -497,8 +497,8 @@ export const updateLace = async (req: Request, res: Response) => {
         data: validStyles.map((style, index) => ({
           laceId: id,
           styleId: style.id,
-          isPrimary: index === 0
-        }))
+          isPrimary: index === 0,
+        })),
       });
     }
   }
@@ -507,7 +507,7 @@ export const updateLace = async (req: Request, res: Response) => {
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     // Delete existing supplier relationships
     await prisma.lace_suppliers.deleteMany({
-      where: { laceId: id }
+      where: { laceId: id },
     });
 
     // Create new supplier relationships
@@ -520,7 +520,7 @@ export const updateLace = async (req: Request, res: Response) => {
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
           pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
-        }))
+        })),
       });
     }
   }
@@ -547,7 +547,7 @@ export const updateLace = async (req: Request, res: Response) => {
   }
 
   // For greige lace, color should not be updated
-  const finalColorToUpdate = existing.isGreige ? undefined : (color !== undefined ? (color || null) : undefined);
+  const finalColorToUpdate = existing.isGreige ? undefined : color !== undefined ? color || null : undefined;
 
   // Update lace
   const updated = await prisma.lace_master.update({
@@ -564,14 +564,18 @@ export const updateLace = async (req: Request, res: Response) => {
       ...(description !== undefined && { description: description || null }),
       ...(isActive !== undefined && { isActive }),
       // Greige lace fields
-      ...(expectedShrinkagePercent !== undefined && { expectedShrinkagePercent: expectedShrinkagePercent ? parseFloat(expectedShrinkagePercent) : null }),
-      ...(costPerMeterGreige !== undefined && { costPerMeterGreige: costPerMeterGreige ? parseFloat(costPerMeterGreige) : null }),
+      ...(expectedShrinkagePercent !== undefined && {
+        expectedShrinkagePercent: expectedShrinkagePercent ? parseFloat(expectedShrinkagePercent) : null,
+      }),
+      ...(costPerMeterGreige !== undefined && {
+        costPerMeterGreige: costPerMeterGreige ? parseFloat(costPerMeterGreige) : null,
+      }),
       ...(sourceGreigeLaceId !== undefined && { sourceGreigeLaceId: sourceGreigeLaceId || null }),
       ...(pricePerMeter !== undefined && { pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null }),
     },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       lace_suppliers: {
         include: {
@@ -584,17 +588,17 @@ export const updateLace = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       lace_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
-        }
+            select: { styleCode: true, styleName: true },
+          },
+        },
       },
       sourceGreigeLace: {
         select: {
@@ -602,8 +606,8 @@ export const updateLace = async (req: Request, res: Response) => {
           laceCode: true,
           laceName: true,
           expectedShrinkagePercent: true,
-          costPerMeterGreige: true
-        }
+          costPerMeterGreige: true,
+        },
       },
       finishedLaces: {
         where: { isActive: true },
@@ -611,17 +615,17 @@ export const updateLace = async (req: Request, res: Response) => {
           id: true,
           laceCode: true,
           laceName: true,
-          color: true
-        }
-      }
-    }
+          color: true,
+        },
+      },
+    },
   });
 
   // Also update material name if laceName changed
   if (finalLaceName) {
     await prisma.materials.updateMany({
       where: { laceId: id },
-      data: { name: finalLaceName }
+      data: { name: finalLaceName },
     });
   }
 
@@ -640,7 +644,7 @@ export const updateLace = async (req: Request, res: Response) => {
 
   res.json({
     lace: transformed,
-    message: 'Lace updated successfully'
+    message: 'Lace updated successfully',
   });
 };
 
@@ -653,7 +657,7 @@ export const deleteLace = async (req: Request, res: Response) => {
 
   // Check if lace exists
   const existing = await prisma.lace_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -663,8 +667,8 @@ export const deleteLace = async (req: Request, res: Response) => {
   // Check if used in BOM
   const bomUsage = await prisma.order_bom_items.count({
     where: {
-      laceId: id
-    }
+      laceId: id,
+    },
   });
 
   if (bomUsage > 0) {
@@ -673,12 +677,12 @@ export const deleteLace = async (req: Request, res: Response) => {
 
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
-    where: { laceId: id }
+    where: { laceId: id },
   });
 
   // Delete lace
   await prisma.lace_master.delete({
-    where: { id }
+    where: { id },
   });
 
   res.json({ message: 'Lace deleted successfully' });
@@ -697,7 +701,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
 
   // Get Lace category
   const laceCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Lace' }
+    where: { name: 'Lace' },
   });
 
   if (!laceCategory) {
@@ -712,7 +716,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
   if (createStock) {
     defaultWarehouse = await prisma.warehouses.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -728,7 +732,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Lace name is required'
+          error: 'Lace name is required',
         });
         continue;
       }
@@ -748,7 +752,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
           pricePerMeter: row.pricePerMeter ? parseFloat(row.pricePerMeter) : null,
           description: row.description || null,
           isActive: true,
-        }
+        },
       });
 
       // Create material
@@ -763,7 +767,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
           categoryId: laceCategory.id,
           unit: 'METER',
           isActive: true,
-        }
+        },
       });
 
       // Create stock if requested
@@ -777,7 +781,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
             unit: 'METER',
             reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
             maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          }
+          },
         });
         stockCreated = true;
       }
@@ -788,30 +792,29 @@ export const bulkImportLace = async (req: Request, res: Response) => {
         laceCode,
         materialCode: laceCode,
         laceName: row.laceName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: any) {
       // Per-row error collection - keep inner try-catch for bulk operations
       results.push({
         success: false,
         row: i + 1,
         laceCode,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   const summary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -820,11 +823,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
  * Convenience endpoint - filters isGreige=true
  */
 export const getGreigeLace = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 50,
-    search = ''
-  } = req.query;
+  const { page = 1, limit = 50, search = '' } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
@@ -832,14 +831,14 @@ export const getGreigeLace = async (req: Request, res: Response) => {
 
   const where: any = {
     isActive: true,
-    isGreige: true
+    isGreige: true,
   };
 
   if (search) {
     where.OR = [
       { laceName: { contains: String(search), mode: 'insensitive' } },
       { laceCode: { contains: String(search), mode: 'insensitive' } },
-      { composition: { contains: String(search), mode: 'insensitive' } }
+      { composition: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -859,12 +858,12 @@ export const getGreigeLace = async (req: Request, res: Response) => {
       createdAt: true,
       // Count how many finished laces were made from this greige
       _count: {
-        select: { finishedLaces: true }
-      }
+        select: { finishedLaces: true },
+      },
     },
     orderBy: { laceName: 'asc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   res.json({
@@ -873,8 +872,8 @@ export const getGreigeLace = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -883,12 +882,7 @@ export const getGreigeLace = async (req: Request, res: Response) => {
  * Convenience endpoint - filters isGreige=false
  */
 export const getFinishedLace = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 50,
-    search = '',
-    color = ''
-  } = req.query;
+  const { page = 1, limit = 50, search = '', color = '' } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
@@ -896,14 +890,14 @@ export const getFinishedLace = async (req: Request, res: Response) => {
 
   const where: any = {
     isActive: true,
-    isGreige: false
+    isGreige: false,
   };
 
   if (search) {
     where.OR = [
       { laceName: { contains: String(search), mode: 'insensitive' } },
       { laceCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } }
+      { color: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -930,13 +924,13 @@ export const getFinishedLace = async (req: Request, res: Response) => {
         select: {
           id: true,
           laceCode: true,
-          laceName: true
-        }
-      }
+          laceName: true,
+        },
+      },
     },
     orderBy: { laceName: 'asc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   res.json({
@@ -945,8 +939,8 @@ export const getFinishedLace = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -963,7 +957,7 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
     where.OR = [
       { laceName: { contains: String(search), mode: 'insensitive' } },
       { laceCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } }
+      { color: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -975,10 +969,10 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
         where: { isActive: true },
         include: {
           supplier: {
-            select: { id: true, code: true, name: true }
-          }
+            select: { id: true, code: true, name: true },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       sourceGreigeLace: {
         select: {
@@ -986,8 +980,8 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
           laceCode: true,
           laceName: true,
           expectedShrinkagePercent: true,
-          costPerMeterGreige: true
-        }
+          costPerMeterGreige: true,
+        },
       },
       // Check available stock
       laceStock: {
@@ -997,11 +991,11 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
           quantityAvailable: true,
           weightedAvgCost: true,
           qualityGrade: true,
-          dyeLotNumber: true
-        }
-      }
+          dyeLotNumber: true,
+        },
+      },
     },
-    orderBy: { laceName: 'asc' }
+    orderBy: { laceName: 'asc' },
   });
 
   // Transform data for costing dropdown
@@ -1010,9 +1004,11 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
       (sum: number, stock: any) => sum + Number(stock.quantityAvailable),
       0
     );
-    const avgStockCost = lace.laceStock.length > 0
-      ? lace.laceStock.reduce((sum: number, stock: any) => sum + Number(stock.weightedAvgCost), 0) / lace.laceStock.length
-      : null;
+    const avgStockCost =
+      lace.laceStock.length > 0
+        ? lace.laceStock.reduce((sum: number, stock: any) => sum + Number(stock.weightedAvgCost), 0) /
+          lace.laceStock.length
+        : null;
 
     return {
       id: lace.id,
@@ -1023,8 +1019,10 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
       isGreige: lace.isGreige,
       // Cost options
       readyLaceCost: !lace.isGreige ? lace.pricePerMeter : null,
-      greigeCost: lace.isGreige ? lace.costPerMeterGreige : (lace.sourceGreigeLace?.costPerMeterGreige || null),
-      expectedShrinkagePercent: lace.isGreige ? lace.expectedShrinkagePercent : (lace.sourceGreigeLace?.expectedShrinkagePercent || null),
+      greigeCost: lace.isGreige ? lace.costPerMeterGreige : lace.sourceGreigeLace?.costPerMeterGreige || null,
+      expectedShrinkagePercent: lace.isGreige
+        ? lace.expectedShrinkagePercent
+        : lace.sourceGreigeLace?.expectedShrinkagePercent || null,
       // Stock info
       stockAvailable: totalAvailableStock,
       stockCost: avgStockCost,
@@ -1032,13 +1030,13 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
       // Suppliers
       suppliers: lace.lace_suppliers,
       // Source greige (for finished lace from processed greige)
-      sourceGreigeLace: lace.sourceGreigeLace
+      sourceGreigeLace: lace.sourceGreigeLace,
     };
   });
 
   res.json({
     data: costingOptions,
-    total: costingOptions.length
+    total: costingOptions.length,
   });
 };
 
@@ -1058,7 +1056,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { name: 'laceType', required: false, description: 'Type of lace (Optional)' },
       { name: 'pricePerMeter', required: false, description: 'Price per meter (Optional)' },
       { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' }
+      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
     ],
     exampleData: [
       {
@@ -1070,11 +1068,11 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         color: 'White',
         composition: '100% Polyester',
         laceType: 'Cotton',
-        pricePerMeter: 15.50,
+        pricePerMeter: 15.5,
         stockQuantity: 100,
-        locationCode: 'WH-01'
-      }
-    ]
+        locationCode: 'WH-01',
+      },
+    ],
   };
 
   res.json(template);

@@ -44,7 +44,9 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
       // Generate CAD group key based on fabric name + finish type + embroidery
       // hasEmbroidery alone determines if it's embroidered - embroideryId is optional
       const embroideryPart = fabric.hasEmbroidery
-        ? (fabric.embroideryId ? `EMB-${fabric.embroideryId.substring(0, 8)}` : 'EMB-PENDING')
+        ? fabric.embroideryId
+          ? `EMB-${fabric.embroideryId.substring(0, 8)}`
+          : 'EMB-PENDING'
         : 'NO_EMB';
       const finishPart = fabric.fabricFinishType || 'RAW';
 
@@ -71,7 +73,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
     return Array.from(groupMap.values());
   }, [fabrics]);
 
-  if (fabrics.length === 0 || !fabrics.some(f => f.genericGreigeName)) {
+  if (fabrics.length === 0 || !fabrics.some((f) => f.genericGreigeName)) {
     return null;
   }
 
@@ -85,16 +87,11 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
       </CardHeader>
       <CardContent className="py-2 px-4">
         {groups.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Add fabrics with generic names to see CAD groups
-          </p>
+          <p className="text-sm text-gray-500">Add fabrics with generic names to see CAD groups</p>
         ) : (
           <div className="space-y-2">
             {groups.map((group, index) => (
-              <div
-                key={group.key}
-                className="flex items-center gap-2 p-2 bg-white rounded border text-sm"
-              >
+              <div key={group.key} className="flex items-center gap-2 p-2 bg-white rounded border text-sm">
                 <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-medium">
                   {index + 1}
                 </div>

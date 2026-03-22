@@ -41,13 +41,10 @@ export function ProcessesTab({ onPrevious, onNext }: ProcessesTabProps) {
               )}
             >
               <div className="flex items-start gap-3">
-                <Checkbox
-                  checked={process.isRequired}
-                  onCheckedChange={() => toggleProcess(process.processType)}
-                />
+                <Checkbox checked={process.isRequired} onCheckedChange={() => toggleProcess(process.processType)} />
                 <div className="flex-1">
                   <div className="font-medium">
-                    {PRODUCTION_PROCESSES.find(p => p.type === process.processType)?.label}
+                    {PRODUCTION_PROCESSES.find((p) => p.type === process.processType)?.label}
                   </div>
                   {process.isRequired && (
                     <div className="mt-3 grid grid-cols-3 gap-3">
@@ -73,7 +70,13 @@ export function ProcessesTab({ onPrevious, onNext }: ProcessesTabProps) {
                           type="number"
                           step="0.01"
                           value={process.estimatedCost || ''}
-                          onChange={(e) => updateProcess(process.processType, 'estimatedCost', e.target.value ? parseFloat(e.target.value) : 0)}
+                          onChange={(e) =>
+                            updateProcess(
+                              process.processType,
+                              'estimatedCost',
+                              e.target.value ? parseFloat(e.target.value) : 0
+                            )
+                          }
                           placeholder="0.00"
                         />
                       </div>

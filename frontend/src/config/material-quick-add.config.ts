@@ -198,7 +198,7 @@ const createGenericTrimConfig = (trimType: string): MaterialTypeConfig => {
     categoryLabel: config.category.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
     codeField: config.codeField,
     nameField: config.nameField,
-    fields: config.fields.map(field => ({
+    fields: config.fields.map((field) => ({
       ...field,
       gridColumn: field.name === 'color' ? '1/3' : '1/2',
     })),
@@ -212,7 +212,7 @@ const createGenericTrimConfig = (trimType: string): MaterialTypeConfig => {
       }
 
       // Copy other fields
-      config.fields.forEach(field => {
+      config.fields.forEach((field) => {
         if (data[field.name] !== undefined && data[field.name] !== '') {
           payload[field.name] = data[field.name];
         }
@@ -234,7 +234,13 @@ const LABEL_CONFIG: MaterialTypeConfig = {
   codeField: 'labelCode',
   nameField: 'labelName',
   fields: [
-    { name: 'labelType', label: 'Label Type', type: 'select', options: ['Hangtag', 'Price Tag', 'Brand Tag', 'Barcode Tag'], required: false },
+    {
+      name: 'labelType',
+      label: 'Label Type',
+      type: 'select',
+      options: ['Hangtag', 'Price Tag', 'Brand Tag', 'Barcode Tag'],
+      required: false,
+    },
     { name: 'size', label: 'Size', type: 'text', required: false, placeholder: 'e.g., 2x3 inches' },
     { name: 'material', label: 'Material', type: 'text', required: false, placeholder: 'Polyester, Satin, Card' },
     { name: 'printMethod', label: 'Print Method', type: 'text', required: false, placeholder: 'Screen Print, Digital' },
@@ -270,7 +276,13 @@ const PACKAGING_CONFIG: MaterialTypeConfig = {
   codeField: 'packagingCode',
   nameField: 'packagingName',
   fields: [
-    { name: 'packagingType', label: 'Packaging Type', type: 'select', options: ['Polybag', 'Carton', 'Hanger', 'Tissue', 'Sticker'], required: false },
+    {
+      name: 'packagingType',
+      label: 'Packaging Type',
+      type: 'select',
+      options: ['Polybag', 'Carton', 'Hanger', 'Tissue', 'Sticker'],
+      required: false,
+    },
     { name: 'size', label: 'Size', type: 'text', required: false, placeholder: 'e.g., 12x16 inches' },
     { name: 'material', label: 'Material', type: 'text', required: false, placeholder: 'LDPE, Cardboard' },
     { name: 'thickness', label: 'Thickness', type: 'text', required: false, placeholder: '40 microns, 3 ply' },
@@ -364,16 +376,16 @@ export const ACCESSORY_CATEGORIES: CategoryConfig[] = [
  */
 export const getMaterialConfigs = (domain: 'TRIM' | 'ACCESSORY'): MaterialTypeConfig[] => {
   if (domain === 'TRIM') {
-    return ALL_MATERIAL_CONFIGS.filter(config => config.category !== 'ACCESSORIES');
+    return ALL_MATERIAL_CONFIGS.filter((config) => config.category !== 'ACCESSORIES');
   }
-  return ALL_MATERIAL_CONFIGS.filter(config => config.category === 'ACCESSORIES');
+  return ALL_MATERIAL_CONFIGS.filter((config) => config.category === 'ACCESSORIES');
 };
 
 /**
  * Get configuration for a specific material type
  */
 export const getMaterialConfig = (type: string): MaterialTypeConfig | undefined => {
-  return ALL_MATERIAL_CONFIGS.find(config => config.type === type);
+  return ALL_MATERIAL_CONFIGS.find((config) => config.type === type);
 };
 
 /**

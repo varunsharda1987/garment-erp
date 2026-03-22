@@ -15,15 +15,7 @@
  * - Transaction-safe operations
  */
 
-import {
-  PrismaClient,
-  POCategory,
-  POSource,
-  PurchaseOrderStatus,
-  ServiceType,
-  Unit,
-  Prisma,
-} from '@prisma/client';
+import { PrismaClient, POCategory, POSource, PurchaseOrderStatus, ServiceType, Unit, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { generateUnifiedPONumberInTransaction } from '../utils/po-number-generator';
 
@@ -169,9 +161,7 @@ export interface UnifiedPOCreationResult {
 /**
  * Validate PO creation input
  */
-export async function validateUnifiedPOInput(
-  input: UnifiedPOCreationInput
-): Promise<ValidationResult> {
+export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Promise<ValidationResult> {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
 
@@ -280,15 +270,7 @@ export async function validateUnifiedPOInput(
   // 4. Category validation for source type
   const categorySourceMap: Record<POSource, POCategory[]> = {
     MANUAL: Object.values(POCategory) as POCategory[],
-    COST_SHEET: [
-      'FABRIC',
-      'GREIGE',
-      'PROCESSING',
-      'TRIMS',
-      'LACE',
-      'GREIGE_LACE',
-      'LACE_PROCESSING',
-    ] as POCategory[],
+    COST_SHEET: ['FABRIC', 'GREIGE', 'PROCESSING', 'TRIMS', 'LACE', 'GREIGE_LACE', 'LACE_PROCESSING'] as POCategory[],
     MRP: ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GENERAL'] as POCategory[],
     SERVICE_REQUIREMENT: [
       'EMBROIDERY_SERVICE',
@@ -475,15 +457,10 @@ export async function createUnifiedPO(
 
       if (duplicateWarnings.hasDuplicates && !options.allowDuplicates) {
         const duplicateInfo = duplicateWarnings.duplicates
-          .map(
-            (d) =>
-              `${d.materialName || d.materialId}: ${d.existingPOs.map((p) => p.poNumber).join(', ')}`
-          )
+          .map((d) => `${d.materialName || d.materialId}: ${d.existingPOs.map((p) => p.poNumber).join(', ')}`)
           .join('; ');
 
-        throw new Error(
-          `Duplicate POs detected for materials: ${duplicateInfo}. Set allowDuplicates=true to proceed.`
-        );
+        throw new Error(`Duplicate POs detected for materials: ${duplicateInfo}. Set allowDuplicates=true to proceed.`);
       }
     }
   }
@@ -801,8 +778,8 @@ export function mapMaterialTypeToPOCategory(materialType: string): POCategory {
 export function mapServiceTypeToPOCategory(serviceType: ServiceType): POCategory {
   const mapping: Record<ServiceType, POCategory> = {
     EMBROIDERY: 'EMBROIDERY_SERVICE',
-    PRINTING: 'PROCESSING',   // Printing handled at Order level as PROCESSING
-    DYEING: 'PROCESSING',     // Dyeing handled at Order level as PROCESSING
+    PRINTING: 'PROCESSING', // Printing handled at Order level as PROCESSING
+    DYEING: 'PROCESSING', // Dyeing handled at Order level as PROCESSING
     WASHING: 'WASHING_SERVICE',
     FINISHING: 'FINISHING_SERVICE',
     CUTTING: 'CUTTING_SERVICE',

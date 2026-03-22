@@ -5,7 +5,22 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, X, Eye, ArrowLeft, Save, Loader2, Info, RefreshCw, FileText, AlertCircle, Clock, Package, CheckCircle2, Trash2 } from 'lucide-react';
+import {
+  Search,
+  X,
+  Eye,
+  ArrowLeft,
+  Save,
+  Loader2,
+  Info,
+  RefreshCw,
+  FileText,
+  AlertCircle,
+  Clock,
+  Package,
+  CheckCircle2,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -14,14 +29,7 @@ import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
 import { Switch } from '../components/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -183,9 +191,7 @@ export default function FabricCostingPage() {
           const response = await styleService.getStyleById(preselectedStyleId);
           if (response) {
             setSelectedStyleId(preselectedStyleId);
-            setStyleSearchQuery(
-              response.styleCode + (response.styleName ? ` - ${response.styleName}` : '')
-            );
+            setStyleSearchQuery(response.styleCode + (response.styleName ? ` - ${response.styleName}` : ''));
             // Set customer if available
             if (response.customerName) {
               const customer = customers.find((c) => c.name === response.customerName);
@@ -251,7 +257,7 @@ export default function FabricCostingPage() {
 
     // Find and set the customer from the style
     if (style.customerName) {
-      const customer = customers.find(c => c.name === style.customerName);
+      const customer = customers.find((c) => c.name === style.customerName);
       if (customer) {
         setSelectedCustomerId(customer.id);
       }
@@ -293,7 +299,7 @@ export default function FabricCostingPage() {
 
       setIsLoadingStyles(true);
       try {
-        const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+        const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
         if (!selectedCustomer) {
           setStyles([]);
           return;
@@ -319,57 +325,55 @@ export default function FabricCostingPage() {
   }, [selectedCustomerId, customers]);
 
   // Fetch fabrics for selected style - extracted to useCallback so it can be called after save
-  const fetchStyleFabrics = useCallback(async (preserveUserEdits = false) => {
-    if (!selectedStyleId) {
-      setFabricRows([]);
-      return;
-    }
-
-    setIsLoadingFabrics(true);
-    try {
-      const response = await fabricCostingService.getStyleFabrics(selectedStyleId, purpose);
-
-      // If preserveUserEdits is true, merge new IDs with existing row data
-      // This preserves user's edits while updating fabricWidthCadId from saved records
-      if (preserveUserEdits && fabricRows.length > 0) {
-        const updatedRows = fabricRows.map(existingRow => {
-          // Find matching fabric from response by id (the cadRow.id which becomes fabricWidthCadId)
-          // The backend returns data directly on fabric objects, not in widthOptions
-          const matchingFabric = response.fabrics.find(
-            (f: FabricForCosting) => f.id === existingRow.id
-          );
-          if (matchingFabric) {
-            return {
-              ...existingRow,
-              fabricWidthCadId: matchingFabric.id, // Update with the saved ID from database
-            };
-          }
-          return existingRow;
-        });
-        setFabricRows(updatedRows);
-        setIsLoadingFabrics(false);
+  const fetchStyleFabrics = useCallback(
+    async (preserveUserEdits = false) => {
+      if (!selectedStyleId) {
+        setFabricRows([]);
         return;
       }
 
-      // Convert FabricForCosting to FabricCostingRow
+      setIsLoadingFabrics(true);
+      try {
+        const response = await fabricCostingService.getStyleFabrics(selectedStyleId, purpose);
+
+        // If preserveUserEdits is true, merge new IDs with existing row data
+        // This preserves user's edits while updating fabricWidthCadId from saved records
+        if (preserveUserEdits && fabricRows.length > 0) {
+          const updatedRows = fabricRows.map((existingRow) => {
+            // Find matching fabric from response by id (the cadRow.id which becomes fabricWidthCadId)
+            // The backend returns data directly on fabric objects, not in widthOptions
+            const matchingFabric = response.fabrics.find((f: FabricForCosting) => f.id === existingRow.id);
+            if (matchingFabric) {
+              return {
+                ...existingRow,
+                fabricWidthCadId: matchingFabric.id, // Update with the saved ID from database
+              };
+            }
+            return existingRow;
+          });
+          setFabricRows(updatedRows);
+          setIsLoadingFabrics(false);
+          return;
+        }
+
+        // Convert FabricForCosting to FabricCostingRow
         const rows: FabricCostingRow[] = response.fabrics.map((fabric: FabricForCosting) => {
           // Check if ready fabric cost is available from fabric_master
           const hasReadyFabricCost = fabric.readyFabricCost != null && fabric.readyFabricCost > 0;
 
           // Check for existing costing data in widthOptions (from fabric_width_cad)
           // Try to find a matching width option with costing data for this style
-          const existingCosting = fabric.widthOptions?.find(
-            (opt) => opt.costingStyleId === selectedStyleId && opt.cutableWidth === fabric.width
-          ) || fabric.widthOptions?.find(
-            (opt) => opt.totalCostPerMeter != null && opt.cutableWidth === fabric.width
-          );
+          const existingCosting =
+            fabric.widthOptions?.find(
+              (opt) => opt.costingStyleId === selectedStyleId && opt.cutableWidth === fabric.width
+            ) || fabric.widthOptions?.find((opt) => opt.totalCostPerMeter != null && opt.cutableWidth === fabric.width);
 
           // If we have existing costing data (from widthOptions OR directly on fabric), use it
           // The redesigned backend returns costing data directly on fabric object
           if ((existingCosting && existingCosting.totalCostPerMeter != null) || fabric.totalCostPerMeter != null) {
             // Use existingCosting from widthOptions if available, otherwise use fabric directly
             // The redesigned backend returns costing data directly on fabric object
-            const cs = existingCosting || {} as any; // Costing source from widthOptions
+            const cs = existingCosting || ({} as any); // Costing source from widthOptions
             return {
               id: fabric.id,
               styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
@@ -398,13 +402,23 @@ export default function FabricCostingPage() {
               costInputMode: ((cs.costInputMode || (fabric as any).costInputMode) as CostInputMode) || 'BUILD_UP',
 
               // Landed price mode
-              landedPricePerMeter: (cs.costInputMode || (fabric as any).costInputMode) === 'LANDED_PRICE'
-                ? (cs.totalCostPerMeter || fabric.totalCostPerMeter)
-                : null,
+              landedPricePerMeter:
+                (cs.costInputMode || (fabric as any).costInputMode) === 'LANDED_PRICE'
+                  ? cs.totalCostPerMeter || fabric.totalCostPerMeter
+                  : null,
 
               // Build-up mode - Greige & Transport (from saved data)
-              greigeCostPerMeter: cs.greigeCostPerMeter || fabric.greigeCostPerMeterSaved || fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
-              greigeCostSource: (cs.greigeCostPerMeter || fabric.greigeCostPerMeterSaved) ? 'MANUAL' : (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
+              greigeCostPerMeter:
+                cs.greigeCostPerMeter ||
+                fabric.greigeCostPerMeterSaved ||
+                fabric.greigeCostPerMeter ||
+                fabric.greigeDefaultCost,
+              greigeCostSource:
+                cs.greigeCostPerMeter || fabric.greigeCostPerMeterSaved
+                  ? 'MANUAL'
+                  : fabric.greigeDefaultCost
+                    ? 'GREIGE_MASTER'
+                    : 'MANUAL',
               transportCostMode: 'PER_METER' as TransportCostMode,
               transportCostPerMeter: cs.transportCostPerMeter ?? fabric.transportCostPerMeter ?? 2, // Default ₹2/m
               transportFixedAmount: null,
@@ -416,8 +430,12 @@ export default function FabricCostingPage() {
               // Processor selection (from saved data or fabric directly)
               processorId: cs.processorId || fabric.processorId,
               processorName: cs.processorName || fabric.processorName,
-              processingType: fabric.finishType === 'PRINTED' ? 'PRINTING' :
-                              (fabric.finishType === 'DYED' || fabric.finishType === 'YARN_DYED') ? 'DYEING' : null,
+              processingType:
+                fabric.finishType === 'PRINTED'
+                  ? 'PRINTING'
+                  : fabric.finishType === 'DYED' || fabric.finishType === 'YARN_DYED'
+                    ? 'DYEING'
+                    : null,
               printingType: null,
               processingCostPerMeter: cs.processingPricePerMeter || fabric.processingPricePerMeter,
               slabLabel: null,
@@ -453,85 +471,91 @@ export default function FabricCostingPage() {
           // CAD rows have id (cadRow.id) ≠ styleFabricId, legacy rows have id = styleFabricId
           const isCadRow = fabric.id !== (fabric.styleFabricId || fabric.id);
           return {
-          id: fabric.id,
-          styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
-          fabricId: fabric.fabricId,
-          fabricWidthCadId: isCadRow ? fabric.id : null, // Use fabric.id for CAD rows (it's the cadRow.id)
-          savedOrderQuantityPcs: null, // No saved quantity for new rows
-          rowQuantity: undefined, // Will use global orderQuantity
-          createdAt: null, // New row, not yet saved
-          fabricName: fabric.fabricName,
-          genericGreigeName: fabric.genericGreigeName,
-          componentName: fabric.componentName,
-          cadMeters: fabric.cadMeters || 0,
-          width: fabric.width || 0,
-          finishType: fabric.finishType,
+            id: fabric.id,
+            styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
+            fabricId: fabric.fabricId,
+            fabricWidthCadId: isCadRow ? fabric.id : null, // Use fabric.id for CAD rows (it's the cadRow.id)
+            savedOrderQuantityPcs: null, // No saved quantity for new rows
+            rowQuantity: undefined, // Will use global orderQuantity
+            createdAt: null, // New row, not yet saved
+            fabricName: fabric.fabricName,
+            genericGreigeName: fabric.genericGreigeName,
+            componentName: fabric.componentName,
+            cadMeters: fabric.cadMeters || 0,
+            width: fabric.width || 0,
+            finishType: fabric.finishType,
 
-          // Greige reference
-          greigeId: fabric.greigeId,
-          greigeName: fabric.greigeName,
-          greigeCode: fabric.greigeCode,
-          greigeDefaultCost: fabric.greigeDefaultCost,
+            // Greige reference
+            greigeId: fabric.greigeId,
+            greigeName: fabric.greigeName,
+            greigeCode: fabric.greigeCode,
+            greigeDefaultCost: fabric.greigeDefaultCost,
 
-          // Ready fabric cost from fabric_master
-          readyFabricCost: fabric.readyFabricCost,
+            // Ready fabric cost from fabric_master
+            readyFabricCost: fabric.readyFabricCost,
 
-          // Default to Landed Price mode if ready fabric cost is available, otherwise Build-up
-          costInputMode: hasReadyFabricCost ? 'LANDED_PRICE' as CostInputMode : 'BUILD_UP' as CostInputMode,
+            // Default to Landed Price mode if ready fabric cost is available, otherwise Build-up
+            costInputMode: hasReadyFabricCost ? ('LANDED_PRICE' as CostInputMode) : ('BUILD_UP' as CostInputMode),
 
-          // Landed price mode - default to ready fabric cost if available
-          landedPricePerMeter: hasReadyFabricCost ? fabric.readyFabricCost : null,
+            // Landed price mode - default to ready fabric cost if available
+            landedPricePerMeter: hasReadyFabricCost ? fabric.readyFabricCost : null,
 
-          // Build-up mode - Greige & Transport
-          // Use saved greigeCostPerMeter, then stock cost, then default cost
-          greigeCostPerMeter: fabric.greigeCostPerMeterSaved || fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
-          greigeCostSource: fabric.greigeCostPerMeterSaved ? 'MANUAL' : (fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL')),
-          transportCostMode: 'PER_METER' as TransportCostMode,
-          transportCostPerMeter: fabric.transportCostPerMeter ?? 2, // Use saved or default ₹2/m
-          transportFixedAmount: null,
+            // Build-up mode - Greige & Transport
+            // Use saved greigeCostPerMeter, then stock cost, then default cost
+            greigeCostPerMeter: fabric.greigeCostPerMeterSaved || fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
+            greigeCostSource: fabric.greigeCostPerMeterSaved
+              ? 'MANUAL'
+              : fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
+            transportCostMode: 'PER_METER' as TransportCostMode,
+            transportCostPerMeter: fabric.transportCostPerMeter ?? 2, // Use saved or default ₹2/m
+            transportFixedAmount: null,
 
-          // Shrinkage - use API response which includes greige master fallback
-          shrinkagePercent: fabric.shrinkagePercent || null,
-          shrinkageValue: null,
+            // Shrinkage - use API response which includes greige master fallback
+            shrinkagePercent: fabric.shrinkagePercent || null,
+            shrinkageValue: null,
 
-          // Processor selection - use API response if available (from saved CAD data)
-          processorId: fabric.processorId || null,
-          processorName: fabric.processorName || null,
-          processingType: fabric.finishType === 'PRINTED' ? 'PRINTING' :
-                          (fabric.finishType === 'DYED' || fabric.finishType === 'YARN_DYED') ? 'DYEING' : null,
-          printingType: null,
-          processingCostPerMeter: fabric.processingPricePerMeter || null,
-          slabLabel: null,
-          rateCardId: null,
+            // Processor selection - use API response if available (from saved CAD data)
+            processorId: fabric.processorId || null,
+            processorName: fabric.processorName || null,
+            processingType:
+              fabric.finishType === 'PRINTED'
+                ? 'PRINTING'
+                : fabric.finishType === 'DYED' || fabric.finishType === 'YARN_DYED'
+                  ? 'DYEING'
+                  : null,
+            printingType: null,
+            processingCostPerMeter: fabric.processingPricePerMeter || null,
+            slabLabel: null,
+            rateCardId: null,
 
-          // Screen cost - use API response if available
-          numberOfColors: fabric.numberOfColors,
-          screenType: (fabric.screenType as ScreenType) || null,
-          screenCostPerScreen: null,
-          screenCostTotal: null,
-          screenCostPerMeter: null,
+            // Screen cost - use API response if available
+            numberOfColors: fabric.numberOfColors,
+            screenType: (fabric.screenType as ScreenType) || null,
+            screenCostPerScreen: null,
+            screenCostTotal: null,
+            screenCostPerMeter: null,
 
-          // Calculated totals - use API response if available
-          totalCostPerMeter: fabric.totalCostPerMeter || null,
-          totalCostForQuantity: null,
+            // Calculated totals - use API response if available
+            totalCostPerMeter: fabric.totalCostPerMeter || null,
+            totalCostForQuantity: null,
 
-          // Processing batch group
-          processingBatchGroupColorId: (fabric as any).processingBatchGroupColorId || null,
-          processingBatchGroupColorName: null,
-          batchRate: null,
-          individualRate: null,
-          batchSavings: null,
-          batchGroupTotalQuantity: null,
+            // Processing batch group
+            processingBatchGroupColorId: (fabric as any).processingBatchGroupColorId || null,
+            processingBatchGroupColorName: null,
+            batchRate: null,
+            individualRate: null,
+            batchSavings: null,
+            batchGroupTotalQuantity: null,
 
-          // UI state
-          isExpanded: false,
-          isLoading: false,
-          error: null,
-        };
+            // UI state
+            isExpanded: false,
+            isLoading: false,
+            error: null,
+          };
         });
 
         // Calculate initial totalCostPerMeter for rows that have landed price set
-        const rowsWithTotals = rows.map(row => {
+        const rowsWithTotals = rows.map((row) => {
           if (row.costInputMode === 'LANDED_PRICE' && row.landedPricePerMeter) {
             return {
               ...row,
@@ -563,11 +587,11 @@ export default function FabricCostingPage() {
           }
 
           // Info if different quantities exist (e.g., 500 pcs and 1000 pcs options)
-          const uniqueQuantities = [...new Set(fabricsWithQuantity.map(f => f.orderQuantityPcs))];
+          const uniqueQuantities = [...new Set(fabricsWithQuantity.map((f) => f.orderQuantityPcs))];
           if (uniqueQuantities.length > 1) {
             notify.info(
               `Multiple quantity options found: ${uniqueQuantities.join(', ')} pcs. ` +
-              `Loading most recent: ${mostRecentQuantity} pcs.`
+                `Loading most recent: ${mostRecentQuantity} pcs.`
             );
           }
         } else {
@@ -580,7 +604,9 @@ export default function FabricCostingPage() {
       } finally {
         setIsLoadingFabrics(false);
       }
-  }, [selectedStyleId, fabricRows.length, purpose]); // eslint-disable-line react-hooks/exhaustive-deps
+    },
+    [selectedStyleId, fabricRows.length, purpose]
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Validate if style has CAD data from CAD Planning
   const validateCADData = useCallback(async () => {
@@ -640,78 +666,79 @@ export default function FabricCostingPage() {
   // Calculate cost per meter for a row
   // Note: totalCostForQuantity is kept for internal calculations (screen cost amortization)
   // but is NOT displayed to users - this page only shows ₹/m
-  const calculateRowTotals = useCallback((row: FabricCostingRow): FabricCostingRow => {
-    // Use row-level quantity if set, otherwise fall back to global orderQuantity
-    const rowQty = (row as any).rowQuantity || orderQuantity;
-    const totalQuantity = row.cadMeters * rowQty;
+  const calculateRowTotals = useCallback(
+    (row: FabricCostingRow): FabricCostingRow => {
+      // Use row-level quantity if set, otherwise fall back to global orderQuantity
+      const rowQty = (row as any).rowQuantity || orderQuantity;
+      const totalQuantity = row.cadMeters * rowQty;
 
-    // If landed price mode
-    if (row.costInputMode === 'LANDED_PRICE') {
-      const totalCostPerMeter = row.landedPricePerMeter;
+      // If landed price mode
+      if (row.costInputMode === 'LANDED_PRICE') {
+        const totalCostPerMeter = row.landedPricePerMeter;
+        return {
+          ...row,
+          totalCostPerMeter,
+          totalCostForQuantity: null, // Not used in this page
+        };
+      }
+
+      // Build-up mode
+      const greigeCost = row.greigeCostPerMeter || 0;
+
+      // Transport cost per meter
+      let transportPerMeter = 0;
+      if (row.transportCostMode === 'PER_METER') {
+        transportPerMeter = row.transportCostPerMeter || 0;
+      } else if (row.transportFixedAmount && totalQuantity > 0) {
+        transportPerMeter = row.transportFixedAmount / totalQuantity;
+      }
+
+      // Shrinkage value (per meter)
+      const shrinkageValue = row.shrinkagePercent ? greigeCost * (row.shrinkagePercent / 100) : 0;
+
+      // Processing cost
+      const processingCost = row.processingCostPerMeter || 0;
+
+      // Screen cost per meter (for PRINTING only - amortized over estimated quantity)
+      let screenCostPerMeter = 0;
+      let screenCostTotal = null;
+      let effectiveScreenCostPerScreen = row.screenCostPerScreen;
+
+      // If no screen cost from processor rate card, use default based on screenType
+      if (!effectiveScreenCostPerScreen && row.screenType) {
+        effectiveScreenCostPerScreen = DEFAULT_SCREEN_COSTS[row.screenType];
+      }
+
+      if (row.processingType === 'PRINTING' && effectiveScreenCostPerScreen && row.numberOfColors) {
+        screenCostTotal = effectiveScreenCostPerScreen * row.numberOfColors;
+        screenCostPerMeter = totalQuantity > 0 ? screenCostTotal / totalQuantity : 0;
+      }
+
+      // Total per meter
+      const totalCostPerMeter = greigeCost + transportPerMeter + shrinkageValue + processingCost + screenCostPerMeter;
+
       return {
         ...row,
+        shrinkageValue,
+        screenCostTotal,
+        screenCostPerMeter: screenCostPerMeter > 0 ? screenCostPerMeter : null,
         totalCostPerMeter,
         totalCostForQuantity: null, // Not used in this page
       };
-    }
-
-    // Build-up mode
-    const greigeCost = row.greigeCostPerMeter || 0;
-
-    // Transport cost per meter
-    let transportPerMeter = 0;
-    if (row.transportCostMode === 'PER_METER') {
-      transportPerMeter = row.transportCostPerMeter || 0;
-    } else if (row.transportFixedAmount && totalQuantity > 0) {
-      transportPerMeter = row.transportFixedAmount / totalQuantity;
-    }
-
-    // Shrinkage value (per meter)
-    const shrinkageValue = row.shrinkagePercent
-      ? greigeCost * (row.shrinkagePercent / 100)
-      : 0;
-
-    // Processing cost
-    const processingCost = row.processingCostPerMeter || 0;
-
-    // Screen cost per meter (for PRINTING only - amortized over estimated quantity)
-    let screenCostPerMeter = 0;
-    let screenCostTotal = null;
-    let effectiveScreenCostPerScreen = row.screenCostPerScreen;
-
-    // If no screen cost from processor rate card, use default based on screenType
-    if (!effectiveScreenCostPerScreen && row.screenType) {
-      effectiveScreenCostPerScreen = DEFAULT_SCREEN_COSTS[row.screenType];
-    }
-
-    if (row.processingType === 'PRINTING' && effectiveScreenCostPerScreen && row.numberOfColors) {
-      screenCostTotal = effectiveScreenCostPerScreen * row.numberOfColors;
-      screenCostPerMeter = totalQuantity > 0 ? screenCostTotal / totalQuantity : 0;
-    }
-
-    // Total per meter
-    const totalCostPerMeter = greigeCost + transportPerMeter + shrinkageValue + processingCost + screenCostPerMeter;
-
-    return {
-      ...row,
-      shrinkageValue,
-      screenCostTotal,
-      screenCostPerMeter: screenCostPerMeter > 0 ? screenCostPerMeter : null,
-      totalCostPerMeter,
-      totalCostForQuantity: null, // Not used in this page
-    };
-  }, [orderQuantity]);
+    },
+    [orderQuantity]
+  );
 
   // Recalculate all rows when orderQuantity changes
   useEffect(() => {
     if (fabricRows.length > 0) {
-      setFabricRows(rows => rows.map(row => calculateRowTotals(row)));
+      setFabricRows((rows) => rows.map((row) => calculateRowTotals(row)));
     }
   }, [orderQuantity, calculateRowTotals]);
 
   // Update a single row
   const updateRow = (index: number, updates: Partial<FabricCostingRow>) => {
-    setFabricRows(rows => {
+    setFabricRows((rows) => {
       const newRows = [...rows];
       newRows[index] = calculateRowTotals({ ...newRows[index], ...updates });
       return newRows;
@@ -757,7 +784,7 @@ export default function FabricCostingPage() {
           r.processingBatchGroupColorId === row.processingBatchGroupColorId
         ) {
           const rQty = (r as any).rowQuantity || orderQuantity;
-          return sum + (r.cadMeters * rQty);
+          return sum + r.cadMeters * rQty;
         }
         return sum;
       }, 0);
@@ -825,41 +852,46 @@ export default function FabricCostingPage() {
               const otherRowMeters = r.cadMeters * otherRowQty;
 
               // Lookup individual rate for this row asynchronously
-              fabricCostingService.lookupRate({
-                processorId: r.processorId!,
-                processingType: r.processingType!,
-                printingType: r.printingType || undefined,
-                greigeId: r.greigeId!,
-                quantityMeters: otherRowMeters,
-              }).then(otherIndivResult => {
-                const otherIndivRate = otherIndivResult?.ratePerMeter ?? null;
-                const otherSavings = otherIndivRate != null ? otherIndivRate - batchRate : null;
-                updateRow(i, {
-                  processingCostPerMeter: batchRate,
-                  slabLabel: result.slabLabel,
-                  shrinkagePercent: result.shrinkagePercent,
-                  screenCostPerScreen: result.screenCostPerScreen,
-                  batchRate: batchRate,
-                  individualRate: otherIndivRate,
-                  batchSavings: otherSavings,
-                  batchGroupTotalQuantity: batchQuantityMeters,
+              fabricCostingService
+                .lookupRate({
+                  processorId: r.processorId!,
+                  processingType: r.processingType!,
+                  printingType: r.printingType || undefined,
+                  greigeId: r.greigeId!,
+                  quantityMeters: otherRowMeters,
+                })
+                .then((otherIndivResult) => {
+                  const otherIndivRate = otherIndivResult?.ratePerMeter ?? null;
+                  const otherSavings = otherIndivRate != null ? otherIndivRate - batchRate : null;
+                  updateRow(i, {
+                    processingCostPerMeter: batchRate,
+                    slabLabel: result.slabLabel,
+                    shrinkagePercent: result.shrinkagePercent,
+                    screenCostPerScreen: result.screenCostPerScreen,
+                    batchRate: batchRate,
+                    individualRate: otherIndivRate,
+                    batchSavings: otherSavings,
+                    batchGroupTotalQuantity: batchQuantityMeters,
+                  });
+                })
+                .catch(() => {
+                  // Still apply batch rate even if individual lookup fails
+                  updateRow(i, {
+                    processingCostPerMeter: batchRate,
+                    slabLabel: result.slabLabel,
+                    shrinkagePercent: result.shrinkagePercent,
+                    batchRate: batchRate,
+                    individualRate: null,
+                    batchSavings: null,
+                    batchGroupTotalQuantity: batchQuantityMeters,
+                  });
                 });
-              }).catch(() => {
-                // Still apply batch rate even if individual lookup fails
-                updateRow(i, {
-                  processingCostPerMeter: batchRate,
-                  slabLabel: result.slabLabel,
-                  shrinkagePercent: result.shrinkagePercent,
-                  batchRate: batchRate,
-                  individualRate: null,
-                  batchSavings: null,
-                  batchGroupTotalQuantity: batchQuantityMeters,
-                });
-              });
             }
           });
 
-          notify.success(`Batch rate loaded: ₹${batchRate}/m for ${batchQuantityMeters.toFixed(0)}m combined (${result.slabLabel})`);
+          notify.success(
+            `Batch rate loaded: ₹${batchRate}/m for ${batchQuantityMeters.toFixed(0)}m combined (${result.slabLabel})`
+          );
         } else {
           notify.success(`Rate loaded: ₹${result.ratePerMeter}/m (${result.slabLabel})`);
         }
@@ -902,7 +934,7 @@ export default function FabricCostingPage() {
     }
 
     // Save rows that have a calculated cost (fabricId is optional - supports generic fabrics)
-    const rowsToSave = fabricRows.filter(row => row.totalCostPerMeter != null);
+    const rowsToSave = fabricRows.filter((row) => row.totalCostPerMeter != null);
 
     if (rowsToSave.length === 0) {
       notify.warning('No fabrics with calculated costs to save');
@@ -913,47 +945,47 @@ export default function FabricCostingPage() {
     try {
       const response = await fabricCostingService.saveFabricCosting({
         styleId: selectedStyleId,
-        fabricCostings: rowsToSave.map(row => {
+        fabricCostings: rowsToSave.map((row) => {
           // Detect quantity change: if saved quantity exists and current quantity is different, clone instead of update
           const currentQty = (row as any).rowQuantity ?? orderQuantity ?? 0;
           const savedQty = row.savedOrderQuantityPcs;
           const quantityChanged = savedQty != null && savedQty > 0 && currentQty !== savedQty && currentQty > 0;
 
           return {
-          // fabric_width_cad identification - clone mode if quantity changed
-          fabricWidthCadId: quantityChanged ? null : row.fabricWidthCadId,
-          cloneFromCadId: quantityChanged ? (row.fabricWidthCadId ?? undefined) : undefined,
-          styleFabricId: row.styleFabricId, // For unique key (multi-fabric same-component support)
-          fabricId: row.fabricId,
-          // NOTE: cutableWidth and componentName are CAD-owned fields - don't send them
-          // They are managed by CAD Planning module only
-          // Greige and Transport
-          greigeId: row.greigeId,
-          greigeCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.greigeCostPerMeter : null,
-          transportCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.transportCostPerMeter : null,
-          // Processing
-          processorId: row.processorId,
-          processingCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.processingCostPerMeter : null,
-          // Shrinkage
-          shrinkagePercent: row.shrinkagePercent,
-          shrinkageCostPerMeter: row.shrinkageValue,
-          // Screen cost (for printing)
-          screenCostPerMeter: row.screenCostPerMeter,
-          screenType: row.screenType,
-          numberOfColors: row.numberOfColors,
-          // Total
-          totalCostPerMeter: row.totalCostPerMeter,
-          // Mode
-          costInputMode: row.costInputMode,
-          // Order quantity used for slab rate lookup (use row-level if set)
-          // Use nullish coalescing (??) to preserve 0 as a valid value
-          orderQuantityPcs: (row as any).rowQuantity ?? orderQuantity ?? 0,
-          // NOTE: cadMeters is CAD-owned - don't send it (managed by CAD Planning)
-          // Workflow purpose mode
-          purpose: purpose,
-          // Processing batch group
-          processingBatchGroupColorId: row.processingBatchGroupColorId || null,
-        };
+            // fabric_width_cad identification - clone mode if quantity changed
+            fabricWidthCadId: quantityChanged ? null : row.fabricWidthCadId,
+            cloneFromCadId: quantityChanged ? (row.fabricWidthCadId ?? undefined) : undefined,
+            styleFabricId: row.styleFabricId, // For unique key (multi-fabric same-component support)
+            fabricId: row.fabricId,
+            // NOTE: cutableWidth and componentName are CAD-owned fields - don't send them
+            // They are managed by CAD Planning module only
+            // Greige and Transport
+            greigeId: row.greigeId,
+            greigeCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.greigeCostPerMeter : null,
+            transportCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.transportCostPerMeter : null,
+            // Processing
+            processorId: row.processorId,
+            processingCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.processingCostPerMeter : null,
+            // Shrinkage
+            shrinkagePercent: row.shrinkagePercent,
+            shrinkageCostPerMeter: row.shrinkageValue,
+            // Screen cost (for printing)
+            screenCostPerMeter: row.screenCostPerMeter,
+            screenType: row.screenType,
+            numberOfColors: row.numberOfColors,
+            // Total
+            totalCostPerMeter: row.totalCostPerMeter,
+            // Mode
+            costInputMode: row.costInputMode,
+            // Order quantity used for slab rate lookup (use row-level if set)
+            // Use nullish coalescing (??) to preserve 0 as a valid value
+            orderQuantityPcs: (row as any).rowQuantity ?? orderQuantity ?? 0,
+            // NOTE: cadMeters is CAD-owned - don't send it (managed by CAD Planning)
+            // Workflow purpose mode
+            purpose: purpose,
+            // Processing batch group
+            processingBatchGroupColorId: row.processingBatchGroupColorId || null,
+          };
         }),
       });
 
@@ -972,9 +1004,7 @@ export default function FabricCostingPage() {
 
       // Collect saved CAD IDs for potential run creation
       // After refetch, get the IDs from fabricRows
-      const cadIds = fabricRows
-        .filter((row) => row.fabricWidthCadId)
-        .map((row) => row.fabricWidthCadId as string);
+      const cadIds = fabricRows.filter((row) => row.fabricWidthCadId).map((row) => row.fabricWidthCadId as string);
       if (cadIds.length > 0) {
         setSavedCadIds(cadIds);
         // Show create run dialog
@@ -1043,7 +1073,7 @@ export default function FabricCostingPage() {
   void handleApproveRow; // Suppress unused warning - will be used later
 
   // Count fabrics with calculated costs
-  const fabricsWithCosts = fabricRows.filter(row => row.totalCostPerMeter != null).length;
+  const fabricsWithCosts = fabricRows.filter((row) => row.totalCostPerMeter != null).length;
 
   // Group rows by greigeId only for subtotals (all widths of same greige grouped together)
   const groupedRows = React.useMemo(() => {
@@ -1077,7 +1107,9 @@ export default function FabricCostingPage() {
             day: '2-digit',
             month: 'short',
             year: 'numeric',
-          }) + ' ' + new Date(row.createdAt).toLocaleTimeString('en-IN', {
+          }) +
+          ' ' +
+          new Date(row.createdAt).toLocaleTimeString('en-IN', {
             hour: '2-digit',
             minute: '2-digit',
           })
@@ -1099,7 +1131,10 @@ export default function FabricCostingPage() {
 
       // Step 3: Within each quantity, group by greige (for subtotals)
       const quantityGroups = Object.entries(byQty).map(([qtyKey, qtyRows]) => {
-        const byGreige: Record<string, { rows: (FabricCostingRow & { _originalIndex: number })[]; greigeId: string; greigeName: string }> = {};
+        const byGreige: Record<
+          string,
+          { rows: (FabricCostingRow & { _originalIndex: number })[]; greigeId: string; greigeName: string }
+        > = {};
         qtyRows.forEach((row) => {
           const greigeId = row.greigeId || 'no-greige';
           if (!byGreige[greigeId]) {
@@ -1111,7 +1146,12 @@ export default function FabricCostingPage() {
           }
           byGreige[greigeId].rows.push(row);
         });
-        return { qtyKey, qtyValue: qtyKey === 'No Qty' ? 0 : Number(qtyKey), greigeGroups: byGreige, totalRows: qtyRows.length };
+        return {
+          qtyKey,
+          qtyValue: qtyKey === 'No Qty' ? 0 : Number(qtyKey),
+          greigeGroups: byGreige,
+          totalRows: qtyRows.length,
+        };
       });
 
       // Sort quantities descending (largest first, "No Qty" last)
@@ -1145,7 +1185,7 @@ export default function FabricCostingPage() {
 
   // Check if we need to show nested grouping headers (only when multiple dates or quantities exist)
   const hasMultipleDateGroups = nestedGroups.length > 1;
-  const hasMultipleQtyGroups = nestedGroups.some(dg => dg.quantityGroups.length > 1);
+  const hasMultipleQtyGroups = nestedGroups.some((dg) => dg.quantityGroups.length > 1);
   const showNestedGrouping = hasMultipleDateGroups || hasMultipleQtyGroups;
 
   // Calculate subtotals for a group of rows
@@ -1185,15 +1225,35 @@ export default function FabricCostingPage() {
   const getFinishTypeBadge = (finishType: string | null) => {
     switch (finishType) {
       case 'DYED':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-700">Dyed</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+            Dyed
+          </Badge>
+        );
       case 'PRINTED':
-        return <Badge variant="secondary" className="bg-purple-100 text-purple-700">Printed</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+            Printed
+          </Badge>
+        );
       case 'YARN_DYED':
-        return <Badge variant="secondary" className="bg-green-100 text-green-700">Yarn Dyed</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-green-100 text-green-700">
+            Yarn Dyed
+          </Badge>
+        );
       case 'RAW':
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-700">Raw</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+            Raw
+          </Badge>
+        );
       default:
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-500">-</Badge>;
+        return (
+          <Badge variant="secondary" className="bg-gray-100 text-gray-500">
+            -
+          </Badge>
+        );
     }
   };
 
@@ -1208,18 +1268,28 @@ export default function FabricCostingPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate(selectedStyleId ? `/fabric-costing/options?styleId=${selectedStyleId}` : '/fabric-costing/options')}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(
+                selectedStyleId ? `/fabric-costing/options?styleId=${selectedStyleId}` : '/fabric-costing/options'
+              )
+            }
+          >
             <Eye className="w-4 h-4 mr-2" />
             View All Options
           </Button>
-          <Button variant="outline" onClick={() => {
-            // Fallback to fabric-costing page if history is empty
-            if (window.history.length > 1) {
-              navigate(-1);
-            } else {
-              navigate('/fabric-costing');
-            }
-          }}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              // Fallback to fabric-costing page if history is empty
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/fabric-costing');
+              }
+            }}
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
@@ -1234,10 +1304,16 @@ export default function FabricCostingPage() {
             <TabsTrigger value="COSTING" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
               Costing
             </TabsTrigger>
-            <TabsTrigger value="RAW_MATERIAL_CALCULATION" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700">
+            <TabsTrigger
+              value="RAW_MATERIAL_CALCULATION"
+              className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700"
+            >
               Raw Mat Calculation
             </TabsTrigger>
-            <TabsTrigger value="PRODUCTION" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">
+            <TabsTrigger
+              value="PRODUCTION"
+              className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700"
+            >
               Production
             </TabsTrigger>
           </TabsList>
@@ -1300,17 +1376,26 @@ export default function FabricCostingPage() {
                         {status && (
                           <div className="flex items-center gap-1">
                             {status.hasProduction && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-300">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-300"
+                              >
                                 Costed
                               </Badge>
                             )}
                             {!status.hasProduction && status.hasApproved && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-300">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-300"
+                              >
                                 Approved
                               </Badge>
                             )}
                             {!status.hasProduction && !status.hasApproved && status.hasPending && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300"
+                              >
                                 Pending
                               </Badge>
                             )}
@@ -1397,23 +1482,16 @@ export default function FabricCostingPage() {
             )}
             {previousQuantity && previousQuantity !== orderQuantity && previousQuantity > 0 && orderQuantity > 0 && (
               <p className="text-xs text-blue-600 mt-1">
-                💡 This will create a NEW costing option. Original ({previousQuantity.toLocaleString()} pcs) will be preserved.
+                💡 This will create a NEW costing option. Original ({previousQuantity.toLocaleString()} pcs) will be
+                preserved.
               </p>
             )}
           </div>
 
           <div className="flex flex-col gap-2">
             <div className="flex items-end gap-2">
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || fabricRows.length === 0}
-                className="flex-1"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
+              <Button onClick={handleSave} disabled={isSaving || fabricRows.length === 0} className="flex-1">
+                {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Save Costing
               </Button>
               {selectedStyleId && (
@@ -1450,7 +1528,8 @@ export default function FabricCostingPage() {
             <div className="flex-1">
               <h3 className="font-semibold text-amber-900 mb-1">No CAD Data Found</h3>
               <p className="text-sm text-amber-800 mb-3">
-                This style has no CAD data from CAD Planning. Fabric costing requires CAD consumption data (meters per piece) to calculate costs accurately.
+                This style has no CAD data from CAD Planning. Fabric costing requires CAD consumption data (meters per
+                piece) to calculate costs accurately.
               </p>
               <Button
                 variant="outline"
@@ -1492,10 +1571,7 @@ export default function FabricCostingPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {existingRuns.map((run) => (
-                  <div
-                    key={run.id}
-                    className="p-3 border rounded-lg bg-white hover:shadow-sm transition-shadow"
-                  >
+                  <div key={run.id} className="p-3 border rounded-lg bg-white hover:shadow-sm transition-shadow">
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-medium text-sm">{run.runName}</span>
                       <div className="flex items-center gap-1">
@@ -1505,9 +1581,7 @@ export default function FabricCostingPage() {
                             Complete
                           </Badge>
                         ) : (
-                          <Badge className="bg-amber-100 text-amber-700 text-xs">
-                            Incomplete
-                          </Badge>
+                          <Badge className="bg-amber-100 text-amber-700 text-xs">Incomplete</Badge>
                         )}
                         <Button
                           variant="ghost"
@@ -1526,12 +1600,8 @@ export default function FabricCostingPage() {
                     </div>
                     <div className="text-xs text-gray-600 space-y-1">
                       <p>{run.fabricCount} fabrics</p>
-                      <p>
-                        ₹{run.totalFabricCost?.toFixed(2) ?? '0.00'}/garment
-                      </p>
-                      <p className="text-gray-400">
-                        {new Date(run.createdAt).toLocaleDateString()}
-                      </p>
+                      <p>₹{run.totalFabricCost?.toFixed(2) ?? '0.00'}/garment</p>
+                      <p className="text-gray-400">{new Date(run.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                 ))}
@@ -1540,1103 +1610,1279 @@ export default function FabricCostingPage() {
           )}
 
           <Card className="overflow-x-auto">
-          <Table className="w-full table-fixed">
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead className="w-[130px] px-1 text-xs">Greige</TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight" title="Processing batch color - rows with same color are dyed together for combined rate">Batch Color</TableHead>
-                <TableHead className="w-[50px] px-1 text-center text-xs whitespace-normal leading-tight" title="Fabric consumption per piece (from CAD Planning)">CAD (m/pc)</TableHead>
-                <TableHead className="w-[60px] px-1 text-center text-xs">
-                  <div>Qty</div>
-                  <div className="text-[10px] text-gray-500">(pcs)</div>
-                </TableHead>
-                <TableHead className="w-[45px] px-1 text-center text-xs" title="Cutable Width">CW</TableHead>
-                <TableHead className="w-[42px] px-1 text-center text-xs">Finish</TableHead>
-                <TableHead className="w-[48px] px-1 text-center text-xs">Mode</TableHead>
-                <TableHead className="w-[75px] px-1 text-center text-xs">
-                  <div>Greige +Trp</div>
-                  <div className="text-[10px] text-gray-500">(₹/m)</div>
-                </TableHead>
-                <TableHead className="w-[170px] px-1 text-center text-xs">Processor</TableHead>
-                <TableHead className="w-[55px] px-1 text-center text-xs">Colors</TableHead>
-                <TableHead className="w-[85px] px-1 text-center text-xs">Print Type</TableHead>
-                <TableHead className="w-[80px] px-1 text-center text-xs">Screen</TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs">
-                  <div>Process</div>
-                  <div className="text-[10px] text-gray-500">(₹/m)</div>
-                </TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs">
-                  <div>Shrink</div>
-                  <div className="text-[10px] text-gray-500">(₹/m)</div>
-                </TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs font-semibold">
-                  <div>Total</div>
-                  <div className="text-[10px] text-gray-500">(₹/m)</div>
-                </TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs">
-                  <div>Part Cost</div>
-                  <div className="text-[10px] text-gray-500">(₹)</div>
-                </TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs">
-                  <div>Fabric Req</div>
-                  <div className="text-[10px] text-gray-500">(m)</div>
-                </TableHead>
-                <TableHead className="w-[70px] px-1 text-center text-xs">
-                  <div>Greige Req</div>
-                  <div className="text-[10px] text-gray-500">(m)</div>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {/* Conditional rendering based on whether nested grouping is needed */}
-              {showNestedGrouping ? (
-                /* Nested grouping: Date → Quantity → Greige */
-                nestedGroups.map((dateGroup) => (
-                  <React.Fragment key={dateGroup.dateKey}>
-                    {/* Date Group Header */}
-                    <TableRow className="bg-amber-50 border-t-2 border-amber-200">
-                      <TableCell colSpan={18} className="py-2 px-3">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-amber-600" />
-                          <span className="font-semibold text-amber-800">
-                            {dateGroup.dateKey === 'New (Unsaved)' ? 'New (Unsaved)' : `Created: ${dateGroup.dateKey}`}
-                          </span>
-                          <Badge variant="secondary" className="text-xs">
-                            {dateGroup.totalRows} row{dateGroup.totalRows !== 1 ? 's' : ''}
-                          </Badge>
-                          {dateGroup.dateKey === 'New (Unsaved)' && (
-                            <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">
-                              Not yet saved
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-
-                    {/* Quantity Sub-Groups */}
-                    {dateGroup.quantityGroups.map((qtyGroup) => (
-                      <React.Fragment key={qtyGroup.qtyKey}>
-                        {/* Quantity Sub-Header (only if multiple qty groups in this date) */}
-                        {dateGroup.quantityGroups.length > 1 && (
-                          <TableRow className="bg-blue-50 border-t border-blue-200">
-                            <TableCell colSpan={18} className="py-1.5 px-3">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-blue-800">
-                                  Order Qty: {qtyGroup.qtyKey === 'No Qty' ? 'Not specified' : `${Number(qtyGroup.qtyKey).toLocaleString()} pcs`}
-                                </span>
-                                <Badge variant="secondary" className="text-xs">
-                                  {qtyGroup.totalRows} row{qtyGroup.totalRows !== 1 ? 's' : ''}
+            <Table className="w-full table-fixed">
+              <TableHeader>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="w-[130px] px-1 text-xs">Greige</TableHead>
+                  <TableHead
+                    className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight"
+                    title="Processing batch color - rows with same color are dyed together for combined rate"
+                  >
+                    Batch Color
+                  </TableHead>
+                  <TableHead
+                    className="w-[50px] px-1 text-center text-xs whitespace-normal leading-tight"
+                    title="Fabric consumption per piece (from CAD Planning)"
+                  >
+                    CAD (m/pc)
+                  </TableHead>
+                  <TableHead className="w-[60px] px-1 text-center text-xs">
+                    <div>Qty</div>
+                    <div className="text-[10px] text-gray-500">(pcs)</div>
+                  </TableHead>
+                  <TableHead className="w-[45px] px-1 text-center text-xs" title="Cutable Width">
+                    CW
+                  </TableHead>
+                  <TableHead className="w-[42px] px-1 text-center text-xs">Finish</TableHead>
+                  <TableHead className="w-[48px] px-1 text-center text-xs">Mode</TableHead>
+                  <TableHead className="w-[75px] px-1 text-center text-xs">
+                    <div>Greige +Trp</div>
+                    <div className="text-[10px] text-gray-500">(₹/m)</div>
+                  </TableHead>
+                  <TableHead className="w-[170px] px-1 text-center text-xs">Processor</TableHead>
+                  <TableHead className="w-[55px] px-1 text-center text-xs">Colors</TableHead>
+                  <TableHead className="w-[85px] px-1 text-center text-xs">Print Type</TableHead>
+                  <TableHead className="w-[80px] px-1 text-center text-xs">Screen</TableHead>
+                  <TableHead className="w-[70px] px-1 text-center text-xs">
+                    <div>Process</div>
+                    <div className="text-[10px] text-gray-500">(₹/m)</div>
+                  </TableHead>
+                  <TableHead className="w-[70px] px-1 text-center text-xs">
+                    <div>Shrink</div>
+                    <div className="text-[10px] text-gray-500">(₹/m)</div>
+                  </TableHead>
+                  <TableHead className="w-[70px] px-1 text-center text-xs font-semibold">
+                    <div>Total</div>
+                    <div className="text-[10px] text-gray-500">(₹/m)</div>
+                  </TableHead>
+                  <TableHead className="w-[70px] px-1 text-center text-xs">
+                    <div>Part Cost</div>
+                    <div className="text-[10px] text-gray-500">(₹)</div>
+                  </TableHead>
+                  <TableHead className="w-[70px] px-1 text-center text-xs">
+                    <div>Fabric Req</div>
+                    <div className="text-[10px] text-gray-500">(m)</div>
+                  </TableHead>
+                  <TableHead className="w-[70px] px-1 text-center text-xs">
+                    <div>Greige Req</div>
+                    <div className="text-[10px] text-gray-500">(m)</div>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* Conditional rendering based on whether nested grouping is needed */}
+                {showNestedGrouping
+                  ? /* Nested grouping: Date → Quantity → Greige */
+                    nestedGroups.map((dateGroup) => (
+                      <React.Fragment key={dateGroup.dateKey}>
+                        {/* Date Group Header */}
+                        <TableRow className="bg-amber-50 border-t-2 border-amber-200">
+                          <TableCell colSpan={18} className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-amber-600" />
+                              <span className="font-semibold text-amber-800">
+                                {dateGroup.dateKey === 'New (Unsaved)'
+                                  ? 'New (Unsaved)'
+                                  : `Created: ${dateGroup.dateKey}`}
+                              </span>
+                              <Badge variant="secondary" className="text-xs">
+                                {dateGroup.totalRows} row{dateGroup.totalRows !== 1 ? 's' : ''}
+                              </Badge>
+                              {dateGroup.dateKey === 'New (Unsaved)' && (
+                                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">
+                                  Not yet saved
                                 </Badge>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-
-                        {/* Greige Groups within this Quantity */}
-                        {Object.entries(qtyGroup.greigeGroups).map(([greigeKey, greigeGroup]) => {
-                          const subtotals = calculateGroupSubtotals(greigeGroup.rows);
-                          const showSubtotal = greigeGroup.rows.length > 1 || Object.keys(qtyGroup.greigeGroups).length > 1;
-
-                          return (
-                            <React.Fragment key={greigeKey}>
-                              {greigeGroup.rows.map((row) => {
-                                const index = (row as any)._originalIndex;
-                                return (
-                                  <React.Fragment key={row.id}>
-                                    <TableRow>
-                    {/* Fabric Info */}
-                    <TableCell className="px-1 overflow-hidden">
-                      <div>
-                        {(() => {
-                          const greigeName = row.greigeName || row.fabricName;
-                          const parsed = parseGreigeName(greigeName);
-                          return (
-                            <>
-                              <div className="flex items-center gap-1">
-                                <p className="font-medium text-xs" title={greigeName}>{parsed.line1}</p>
-                                {row.readyFabricCost && (
-                                  <Badge variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0">
-                                    ₹{row.readyFabricCost}
-                                  </Badge>
-                                )}
-                              </div>
-                              {parsed.line2 && (
-                                <p className="text-[10px] text-gray-600">{parsed.line2}</p>
                               )}
-                            </>
-                          );
-                        })()}
-                        <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
-                        {row.greigeCode && (
-                          <p className="text-[9px] text-gray-400 truncate" title={`Greige Code: ${row.greigeCode}`}>
-                            {row.greigeCode}
-                          </p>
-                        )}
-                        {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
-                          <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>Fabric: {row.fabricName}</p>
-                        )}
-                      </div>
-                    </TableCell>
+                            </div>
+                          </TableCell>
+                        </TableRow>
 
-                    {/* Batch Color */}
-                    <TableCell className="px-1 text-center">
-                      <Combobox
-                        options={[
-                          { value: '', label: '-' },
-                          ...globalColors.map(color => ({
-                            value: color.id,
-                            label: color.colorName + (color.colorCode ? ` (${color.colorCode})` : ''),
-                          }))
-                        ]}
-                        value={row.processingBatchGroupColorId || ''}
-                        onValueChange={(colorId) => {
-                          const color = globalColors.find(c => c.id === colorId);
-                          updateRow(index, {
-                            processingBatchGroupColorId: colorId || null,
-                            processingBatchGroupColorName: color?.colorName || null,
-                            batchRate: null,
-                            individualRate: null,
-                            batchSavings: null,
-                            batchGroupTotalQuantity: null,
-                          });
-                        }}
-                        placeholder="-"
-                        searchPlaceholder="Search color..."
-                        className="h-7 text-[10px] px-1 min-w-0"
-                      />
-                      {row.batchGroupTotalQuantity != null && (
-                        <div className="text-[9px] text-blue-600 mt-0.5" title="Combined batch quantity for rate slab">
-                          {row.batchGroupTotalQuantity.toFixed(0)}m batch
-                        </div>
-                      )}
-                      {row.batchSavings != null && row.batchSavings > 0 && (
-                        <div className="text-[9px] text-green-600 font-medium" title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}>
-                          save ₹{row.batchSavings.toFixed(2)}/m
-                        </div>
-                      )}
-                    </TableCell>
-
-                    {/* CAD */}
-                    <TableCell className="px-1 text-center text-xs">
-                      <div className="flex items-center justify-center gap-0.5">
-                        <span
-                          className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}
-                          title="Per-piece fabric consumption (calculated from CAD Planning)"
-                        >
-                          {row.cadMeters.toFixed(3)}
-                        </span>
-                        {row.cadMeters === 0 && (
-                          <span
-                            className="text-red-600 cursor-help text-[10px]"
-                            title="No CAD data - set consumption in CAD Planning first"
-                          >
-                            !
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    {/* Qty (pcs) */}
-                    <TableCell className="px-1 text-center">
-                      <Input
-                        type="number"
-                        className="h-7 w-full text-xs text-center px-1"
-                        value={row.rowQuantity ?? row.savedOrderQuantityPcs ?? orderQuantity ?? ''}
-                        onChange={(e) => {
-                          const newQty = parseInt(e.target.value) || undefined;
-                          updateRow(index, { rowQuantity: newQty });
-                        }}
-                        placeholder={orderQuantity?.toString() || '-'}
-                        title="Order quantity for this row (leave empty to use global quantity)"
-                      />
-                    </TableCell>
-
-                    {/* Width */}
-                    <TableCell className="px-1 text-center text-xs">
-                      {row.width}"
-                    </TableCell>
-
-                    {/* Finish */}
-                    <TableCell className="px-1 text-center">
-                      {getFinishTypeBadge(row.finishType)}
-                    </TableCell>
-
-                    {/* Mode Toggle (Build-up vs Landed) */}
-                    <TableCell className="px-1 text-center">
-                      <div className="flex items-center justify-center gap-0.5">
-                        <span className={`text-[9px] ${row.costInputMode === 'BUILD_UP' ? 'text-blue-600 font-semibold' : 'text-gray-400'}`}>B</span>
-                        <Switch
-                          checked={row.costInputMode === 'LANDED_PRICE'}
-                          onCheckedChange={(checked) => {
-                            updateRow(index, {
-                              costInputMode: checked ? 'LANDED_PRICE' : 'BUILD_UP',
-                              // When switching to landed price, default to ready fabric cost if available
-                              landedPricePerMeter: checked ? (row.readyFabricCost || null) : null,
-                            });
-                          }}
-                          className="scale-75"
-                        />
-                        <span className={`text-[9px] ${row.costInputMode === 'LANDED_PRICE' ? 'text-green-600 font-semibold' : 'text-gray-400'}`}>L</span>
-                      </div>
-                    </TableCell>
-
-                    {/* Greige + Transport Cost */}
-                    <TableCell className="px-1 text-center">
-                      {row.costInputMode === 'BUILD_UP' ? (
-                        <div className="flex items-center gap-0.5 justify-center">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="h-7 w-12 text-xs text-center px-0.5"
-                            value={row.greigeCostPerMeter || ''}
-                            onChange={(e) => {
-                              const greigeCost = parseFloat(e.target.value) || 0;
-                              const shrinkage = row.shrinkagePercent || 0;
-                              const shrinkageValue = greigeCost * (shrinkage / 100);
-                              const transportCost = row.transportCostPerMeter || 2;
-                              const processingCost = row.processingCostPerMeter || 0;
-                              const screenCost = row.screenCostPerMeter || 0;
-                              const total = greigeCost + transportCost + shrinkageValue + processingCost + screenCost;
-                              updateRow(index, {
-                                greigeCostPerMeter: greigeCost,
-                                greigeCostSource: 'MANUAL',
-                                shrinkageValue,
-                                totalCostPerMeter: total,
-                              });
-                            }}
-                            placeholder="Greige"
-                            title={`Greige cost (source: ${row.greigeCostSource || 'MANUAL'})`}
-                          />
-                          <span className="text-[10px] text-gray-400">+</span>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            className="h-7 w-10 text-xs text-center px-0.5"
-                            value={row.transportCostPerMeter || ''}
-                            onChange={(e) => {
-                              const transportCost = parseFloat(e.target.value) || 0;
-                              const greigeCost = row.greigeCostPerMeter || 0;
-                              const shrinkageValue = row.shrinkageValue || 0;
-                              const processingCost = row.processingCostPerMeter || 0;
-                              const screenCost = row.screenCostPerMeter || 0;
-                              const total = greigeCost + transportCost + shrinkageValue + processingCost + screenCost;
-                              updateRow(index, {
-                                transportCostPerMeter: transportCost,
-                                totalCostPerMeter: total,
-                              });
-                            }}
-                            placeholder="Trp"
-                            title="Transport cost per meter"
-                          />
-                        </div>
-                      ) : (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="h-7 w-full text-xs text-center"
-                          value={row.landedPricePerMeter || ''}
-                          onChange={(e) => {
-                            const landedPrice = parseFloat(e.target.value) || 0;
-                            updateRow(index, {
-                              landedPricePerMeter: landedPrice,
-                              totalCostPerMeter: landedPrice,
-                            });
-                          }}
-                          placeholder="Landed ₹/m"
-                          title="Landed price per meter (includes all costs)"
-                        />
-                      )}
-                    </TableCell>
-
-                    {/* Processor Selection */}
-                    <TableCell className="px-1 text-center">
-                      {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                        <span className="text-gray-400 text-xs">-</span>
-                      ) : (
-                        <div className="flex items-center justify-center gap-0.5">
-                          <Combobox
-                            value={row.processorId || ''}
-                            onValueChange={(value) => {
-                              const processor = processors.find(p => p.id === value);
-                              updateRow(index, {
-                                processorId: value,
-                                processorName: processor?.name || null,
-                                processingCostPerMeter: null,
-                                slabLabel: null,
-                                shrinkagePercent: null,
-                                screenCostPerScreen: null,
-                              });
-
-                              // Auto-lookup rates for DYEING (no printing type needed)
-                              if (row.processingType === 'DYEING' && value && row.greigeId) {
-                                lookupRate(index, { processorId: value });
-                              }
-                            }}
-                            options={processors.map((p) => ({ value: p.id, label: p.name }))}
-                            placeholder="Select"
-                            searchPlaceholder="Search processor..."
-                            emptyText="No processors found"
-                            className="w-[150px] h-7 text-[10px]"
-                            hideChevron
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => lookupRate(index)}
-                            disabled={row.isLoading || !row.processorId || !row.greigeId}
-                          >
-                            {row.isLoading ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <RefreshCw className="w-3 h-3" />
+                        {/* Quantity Sub-Groups */}
+                        {dateGroup.quantityGroups.map((qtyGroup) => (
+                          <React.Fragment key={qtyGroup.qtyKey}>
+                            {/* Quantity Sub-Header (only if multiple qty groups in this date) */}
+                            {dateGroup.quantityGroups.length > 1 && (
+                              <TableRow className="bg-blue-50 border-t border-blue-200">
+                                <TableCell colSpan={18} className="py-1.5 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-blue-800">
+                                      Order Qty:{' '}
+                                      {qtyGroup.qtyKey === 'No Qty'
+                                        ? 'Not specified'
+                                        : `${Number(qtyGroup.qtyKey).toLocaleString()} pcs`}
+                                    </span>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {qtyGroup.totalRows} row{qtyGroup.totalRows !== 1 ? 's' : ''}
+                                    </Badge>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
                             )}
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
 
-                    {/* Colors */}
-                    <TableCell className="px-1 text-center">
-                      {row.finishType === 'PRINTED' ? (
-                        <Input
-                          type="number"
-                          min="1"
-                          max="12"
-                          className="h-7 w-full text-xs text-center px-0.5"
-                          value={row.numberOfColors || ''}
-                          onChange={(e) => {
-                            const numColors = parseInt(e.target.value) || null;
-                            // Recalculate screen cost
-                            const screenType = row.screenType;
-                            const defaultCost = screenType ? DEFAULT_SCREEN_COSTS[screenType] : 0;
-                            const costPerScreen = row.screenCostPerScreen || defaultCost;
-                            const totalScreenCost = numColors && costPerScreen ? numColors * costPerScreen : null;
-                            const qty = row.rowQuantity ?? orderQuantity;
-                            const fabricMeters = row.cadMeters * (qty || 0);
-                            const screenCostPerMeter = totalScreenCost && fabricMeters > 0 ? totalScreenCost / fabricMeters : null;
-                            // Recalc total
-                            const greigeCost = row.greigeCostPerMeter || 0;
-                            const transportCost = row.transportCostPerMeter || 0;
-                            const shrinkageValue = row.shrinkageValue || 0;
-                            const processingCost = row.processingCostPerMeter || 0;
-                            const total = greigeCost + transportCost + shrinkageValue + processingCost + (screenCostPerMeter || 0);
-                            updateRow(index, {
-                              numberOfColors: numColors,
-                              screenCostTotal: totalScreenCost,
-                              screenCostPerMeter,
-                              totalCostPerMeter: row.costInputMode === 'BUILD_UP' ? total : row.totalCostPerMeter,
-                            });
-                          }}
-                          placeholder="#"
-                          title="Number of colors/screens"
-                        />
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                            {/* Greige Groups within this Quantity */}
+                            {Object.entries(qtyGroup.greigeGroups).map(([greigeKey, greigeGroup]) => {
+                              const subtotals = calculateGroupSubtotals(greigeGroup.rows);
+                              const showSubtotal =
+                                greigeGroup.rows.length > 1 || Object.keys(qtyGroup.greigeGroups).length > 1;
 
-                    {/* Print Type */}
-                    <TableCell className="px-1 text-center">
-                      {row.finishType === 'PRINTED' ? (
-                        <select
-                          className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
-                          value={row.screenType || ''}
-                          onChange={(e) => {
-                            const screenType = (e.target.value || null) as ScreenType | null;
-                            const defaultCost = screenType ? DEFAULT_SCREEN_COSTS[screenType] : 0;
-                            const costPerScreen = defaultCost;
-                            const numColors = row.numberOfColors || 0;
-                            const totalScreenCost = numColors && costPerScreen ? numColors * costPerScreen : null;
-                            const qty = row.rowQuantity ?? orderQuantity;
-                            const fabricMeters = row.cadMeters * (qty || 0);
-                            const screenCostPerMeter = totalScreenCost && fabricMeters > 0 ? totalScreenCost / fabricMeters : null;
-                            // Recalc total
-                            const greigeCost = row.greigeCostPerMeter || 0;
-                            const transportCost = row.transportCostPerMeter || 0;
-                            const shrinkageValue = row.shrinkageValue || 0;
-                            const processingCost = row.processingCostPerMeter || 0;
-                            const total = greigeCost + transportCost + shrinkageValue + processingCost + (screenCostPerMeter || 0);
-                            updateRow(index, {
-                              screenType,
-                              screenCostPerScreen: costPerScreen,
-                              screenCostTotal: totalScreenCost,
-                              screenCostPerMeter,
-                              totalCostPerMeter: row.costInputMode === 'BUILD_UP' ? total : row.totalCostPerMeter,
-                            });
-                          }}
-                        >
-                          <option value="">-</option>
-                          {Object.entries(SCREEN_TYPE_LABELS).map(([value, label]) => (
-                            <option key={value} value={value}>{label}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                              return (
+                                <React.Fragment key={greigeKey}>
+                                  {greigeGroup.rows.map((row) => {
+                                    const index = (row as any)._originalIndex;
+                                    return (
+                                      <React.Fragment key={row.id}>
+                                        <TableRow>
+                                          {/* Fabric Info */}
+                                          <TableCell className="px-1 overflow-hidden">
+                                            <div>
+                                              {(() => {
+                                                const greigeName = row.greigeName || row.fabricName;
+                                                const parsed = parseGreigeName(greigeName);
+                                                return (
+                                                  <>
+                                                    <div className="flex items-center gap-1">
+                                                      <p className="font-medium text-xs" title={greigeName}>
+                                                        {parsed.line1}
+                                                      </p>
+                                                      {row.readyFabricCost && (
+                                                        <Badge
+                                                          variant="outline"
+                                                          className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0"
+                                                        >
+                                                          ₹{row.readyFabricCost}
+                                                        </Badge>
+                                                      )}
+                                                    </div>
+                                                    {parsed.line2 && (
+                                                      <p className="text-[10px] text-gray-600">{parsed.line2}</p>
+                                                    )}
+                                                  </>
+                                                );
+                                              })()}
+                                              <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
+                                              {row.greigeCode && (
+                                                <p
+                                                  className="text-[9px] text-gray-400 truncate"
+                                                  title={`Greige Code: ${row.greigeCode}`}
+                                                >
+                                                  {row.greigeCode}
+                                                </p>
+                                              )}
+                                              {row.greigeName &&
+                                                row.fabricName &&
+                                                row.greigeName !== row.fabricName && (
+                                                  <p
+                                                    className="text-[10px] text-gray-400 truncate"
+                                                    title={row.fabricName}
+                                                  >
+                                                    Fabric: {row.fabricName}
+                                                  </p>
+                                                )}
+                                            </div>
+                                          </TableCell>
 
-                    {/* Screen Cost */}
-                    <TableCell className="px-1 text-center">
-                      {row.finishType === 'PRINTED' && row.screenCostPerMeter ? (
-                        <span className="text-xs" title={`Total screen cost: ₹${row.screenCostTotal?.toLocaleString() || 0}`}>
-                          ₹{row.screenCostPerMeter.toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                                          {/* Batch Color */}
+                                          <TableCell className="px-1 text-center">
+                                            <Combobox
+                                              options={[
+                                                { value: '', label: '-' },
+                                                ...globalColors.map((color) => ({
+                                                  value: color.id,
+                                                  label:
+                                                    color.colorName + (color.colorCode ? ` (${color.colorCode})` : ''),
+                                                })),
+                                              ]}
+                                              value={row.processingBatchGroupColorId || ''}
+                                              onValueChange={(colorId) => {
+                                                const color = globalColors.find((c) => c.id === colorId);
+                                                updateRow(index, {
+                                                  processingBatchGroupColorId: colorId || null,
+                                                  processingBatchGroupColorName: color?.colorName || null,
+                                                  batchRate: null,
+                                                  individualRate: null,
+                                                  batchSavings: null,
+                                                  batchGroupTotalQuantity: null,
+                                                });
+                                              }}
+                                              placeholder="-"
+                                              searchPlaceholder="Search color..."
+                                              className="h-7 text-[10px] px-1 min-w-0"
+                                            />
+                                            {row.batchGroupTotalQuantity != null && (
+                                              <div
+                                                className="text-[9px] text-blue-600 mt-0.5"
+                                                title="Combined batch quantity for rate slab"
+                                              >
+                                                {row.batchGroupTotalQuantity.toFixed(0)}m batch
+                                              </div>
+                                            )}
+                                            {row.batchSavings != null && row.batchSavings > 0 && (
+                                              <div
+                                                className="text-[9px] text-green-600 font-medium"
+                                                title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}
+                                              >
+                                                save ₹{row.batchSavings.toFixed(2)}/m
+                                              </div>
+                                            )}
+                                          </TableCell>
 
-                    {/* Processing Cost */}
-                    <TableCell className="px-1 text-center">
-                      {row.processingCostPerMeter != null ? (
-                        <div>
-                          <span className="text-xs">₹{row.processingCostPerMeter.toFixed(2)}</span>
-                          {row.slabLabel && (
-                            <div className="text-[9px] text-gray-500 truncate" title={row.slabLabel}>{row.slabLabel}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                                          {/* CAD */}
+                                          <TableCell className="px-1 text-center text-xs">
+                                            <div className="flex items-center justify-center gap-0.5">
+                                              <span
+                                                className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}
+                                                title="Per-piece fabric consumption (calculated from CAD Planning)"
+                                              >
+                                                {row.cadMeters.toFixed(3)}
+                                              </span>
+                                              {row.cadMeters === 0 && (
+                                                <span
+                                                  className="text-red-600 cursor-help text-[10px]"
+                                                  title="No CAD data - set consumption in CAD Planning first"
+                                                >
+                                                  !
+                                                </span>
+                                              )}
+                                            </div>
+                                          </TableCell>
 
-                    {/* Shrinkage Cost */}
-                    <TableCell className="px-1 text-center">
-                      {row.shrinkageValue ? (
-                        <div>
-                          <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
-                          {row.shrinkagePercent && (
-                            <div className="text-[9px] text-gray-500">{row.shrinkagePercent}%</div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                                          {/* Qty (pcs) */}
+                                          <TableCell className="px-1 text-center">
+                                            <Input
+                                              type="number"
+                                              className="h-7 w-full text-xs text-center px-1"
+                                              value={
+                                                row.rowQuantity ?? row.savedOrderQuantityPcs ?? orderQuantity ?? ''
+                                              }
+                                              onChange={(e) => {
+                                                const newQty = parseInt(e.target.value) || undefined;
+                                                updateRow(index, { rowQuantity: newQty });
+                                              }}
+                                              placeholder={orderQuantity?.toString() || '-'}
+                                              title="Order quantity for this row (leave empty to use global quantity)"
+                                            />
+                                          </TableCell>
 
-                    {/* Total Cost */}
-                    <TableCell className="px-1 text-center">
-                      {row.totalCostPerMeter ? (
-                        <span className="text-xs font-semibold text-green-700">
-                          ₹{row.totalCostPerMeter.toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                                          {/* Width */}
+                                          <TableCell className="px-1 text-center text-xs">{row.width}"</TableCell>
 
-                    {/* Part Cost (CAD × Total) */}
-                    <TableCell className="px-1 text-center">
-                      {row.totalCostPerMeter && row.cadMeters > 0 ? (
-                        <span className="text-xs font-medium">
-                          ₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                                          {/* Finish */}
+                                          <TableCell className="px-1 text-center">
+                                            {getFinishTypeBadge(row.finishType)}
+                                          </TableCell>
 
-                    {/* Fabric Req (CAD × Qty) */}
-                    <TableCell className="px-1 text-center">
-                      {row.cadMeters > 0 && (row.rowQuantity || orderQuantity) > 0 ? (
-                        <span className="text-xs">
-                          {((row.rowQuantity ?? orderQuantity) * row.cadMeters).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                                          {/* Mode Toggle (Build-up vs Landed) */}
+                                          <TableCell className="px-1 text-center">
+                                            <div className="flex items-center justify-center gap-0.5">
+                                              <span
+                                                className={`text-[9px] ${row.costInputMode === 'BUILD_UP' ? 'text-blue-600 font-semibold' : 'text-gray-400'}`}
+                                              >
+                                                B
+                                              </span>
+                                              <Switch
+                                                checked={row.costInputMode === 'LANDED_PRICE'}
+                                                onCheckedChange={(checked) => {
+                                                  updateRow(index, {
+                                                    costInputMode: checked ? 'LANDED_PRICE' : 'BUILD_UP',
+                                                    // When switching to landed price, default to ready fabric cost if available
+                                                    landedPricePerMeter: checked ? row.readyFabricCost || null : null,
+                                                  });
+                                                }}
+                                                className="scale-75"
+                                              />
+                                              <span
+                                                className={`text-[9px] ${row.costInputMode === 'LANDED_PRICE' ? 'text-green-600 font-semibold' : 'text-gray-400'}`}
+                                              >
+                                                L
+                                              </span>
+                                            </div>
+                                          </TableCell>
 
-                    {/* Greige Req (adjusted for shrinkage) */}
-                    <TableCell className="px-1 text-center">
-                      {row.cadMeters > 0 && (row.rowQuantity || orderQuantity) > 0 ? (
-                        (() => {
-                          const qty = row.rowQuantity ?? orderQuantity;
-                          const fabricReq = row.cadMeters * qty;
-                          const shrinkage = row.shrinkagePercent || 0;
-                          const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
-                          return (
-                            <span className="text-xs" title={shrinkage > 0 ? `Fabric req ÷ (1 - ${shrinkage}% shrinkage)` : 'No shrinkage applied'}>
-                              {greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            </span>
-                          );
-                        })()
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
+                                          {/* Greige + Transport Cost */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.costInputMode === 'BUILD_UP' ? (
+                                              <div className="flex items-center gap-0.5 justify-center">
+                                                <Input
+                                                  type="number"
+                                                  step="0.01"
+                                                  className="h-7 w-12 text-xs text-center px-0.5"
+                                                  value={row.greigeCostPerMeter || ''}
+                                                  onChange={(e) => {
+                                                    const greigeCost = parseFloat(e.target.value) || 0;
+                                                    const shrinkage = row.shrinkagePercent || 0;
+                                                    const shrinkageValue = greigeCost * (shrinkage / 100);
+                                                    const transportCost = row.transportCostPerMeter || 2;
+                                                    const processingCost = row.processingCostPerMeter || 0;
+                                                    const screenCost = row.screenCostPerMeter || 0;
+                                                    const total =
+                                                      greigeCost +
+                                                      transportCost +
+                                                      shrinkageValue +
+                                                      processingCost +
+                                                      screenCost;
+                                                    updateRow(index, {
+                                                      greigeCostPerMeter: greigeCost,
+                                                      greigeCostSource: 'MANUAL',
+                                                      shrinkageValue,
+                                                      totalCostPerMeter: total,
+                                                    });
+                                                  }}
+                                                  placeholder="Greige"
+                                                  title={`Greige cost (source: ${row.greigeCostSource || 'MANUAL'})`}
+                                                />
+                                                <span className="text-[10px] text-gray-400">+</span>
+                                                <Input
+                                                  type="number"
+                                                  step="0.1"
+                                                  className="h-7 w-10 text-xs text-center px-0.5"
+                                                  value={row.transportCostPerMeter || ''}
+                                                  onChange={(e) => {
+                                                    const transportCost = parseFloat(e.target.value) || 0;
+                                                    const greigeCost = row.greigeCostPerMeter || 0;
+                                                    const shrinkageValue = row.shrinkageValue || 0;
+                                                    const processingCost = row.processingCostPerMeter || 0;
+                                                    const screenCost = row.screenCostPerMeter || 0;
+                                                    const total =
+                                                      greigeCost +
+                                                      transportCost +
+                                                      shrinkageValue +
+                                                      processingCost +
+                                                      screenCost;
+                                                    updateRow(index, {
+                                                      transportCostPerMeter: transportCost,
+                                                      totalCostPerMeter: total,
+                                                    });
+                                                  }}
+                                                  placeholder="Trp"
+                                                  title="Transport cost per meter"
+                                                />
+                                              </div>
+                                            ) : (
+                                              <Input
+                                                type="number"
+                                                step="0.01"
+                                                className="h-7 w-full text-xs text-center"
+                                                value={row.landedPricePerMeter || ''}
+                                                onChange={(e) => {
+                                                  const landedPrice = parseFloat(e.target.value) || 0;
+                                                  updateRow(index, {
+                                                    landedPricePerMeter: landedPrice,
+                                                    totalCostPerMeter: landedPrice,
+                                                  });
+                                                }}
+                                                placeholder="Landed ₹/m"
+                                                title="Landed price per meter (includes all costs)"
+                                              />
+                                            )}
+                                          </TableCell>
 
-                    </TableRow>
-                  </React.Fragment>
-                                );
-                              })}
+                                          {/* Processor Selection */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            ) : (
+                                              <div className="flex items-center justify-center gap-0.5">
+                                                <Combobox
+                                                  value={row.processorId || ''}
+                                                  onValueChange={(value) => {
+                                                    const processor = processors.find((p) => p.id === value);
+                                                    updateRow(index, {
+                                                      processorId: value,
+                                                      processorName: processor?.name || null,
+                                                      processingCostPerMeter: null,
+                                                      slabLabel: null,
+                                                      shrinkagePercent: null,
+                                                      screenCostPerScreen: null,
+                                                    });
 
-                              {/* Subtotal Row for this greige group */}
-                              {showSubtotal && (
-                                <TableRow className="bg-blue-50 font-medium border-t-2 border-blue-200">
-                                  <TableCell className="px-1" colSpan={3}>
-                                    <span className="text-xs font-semibold text-blue-800">
-                                      Subtotal: {greigeGroup.greigeName}
-                                    </span>
+                                                    // Auto-lookup rates for DYEING (no printing type needed)
+                                                    if (row.processingType === 'DYEING' && value && row.greigeId) {
+                                                      lookupRate(index, { processorId: value });
+                                                    }
+                                                  }}
+                                                  options={processors.map((p) => ({ value: p.id, label: p.name }))}
+                                                  placeholder="Select"
+                                                  searchPlaceholder="Search processor..."
+                                                  emptyText="No processors found"
+                                                  className="w-[150px] h-7 text-[10px]"
+                                                  hideChevron
+                                                />
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 w-6 p-0"
+                                                  onClick={() => lookupRate(index)}
+                                                  disabled={row.isLoading || !row.processorId || !row.greigeId}
+                                                >
+                                                  {row.isLoading ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                  ) : (
+                                                    <RefreshCw className="w-3 h-3" />
+                                                  )}
+                                                </Button>
+                                              </div>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Colors */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.finishType === 'PRINTED' ? (
+                                              <Input
+                                                type="number"
+                                                min="1"
+                                                max="12"
+                                                className="h-7 w-full text-xs text-center px-0.5"
+                                                value={row.numberOfColors || ''}
+                                                onChange={(e) => {
+                                                  const numColors = parseInt(e.target.value) || null;
+                                                  // Recalculate screen cost
+                                                  const screenType = row.screenType;
+                                                  const defaultCost = screenType ? DEFAULT_SCREEN_COSTS[screenType] : 0;
+                                                  const costPerScreen = row.screenCostPerScreen || defaultCost;
+                                                  const totalScreenCost =
+                                                    numColors && costPerScreen ? numColors * costPerScreen : null;
+                                                  const qty = row.rowQuantity ?? orderQuantity;
+                                                  const fabricMeters = row.cadMeters * (qty || 0);
+                                                  const screenCostPerMeter =
+                                                    totalScreenCost && fabricMeters > 0
+                                                      ? totalScreenCost / fabricMeters
+                                                      : null;
+                                                  // Recalc total
+                                                  const greigeCost = row.greigeCostPerMeter || 0;
+                                                  const transportCost = row.transportCostPerMeter || 0;
+                                                  const shrinkageValue = row.shrinkageValue || 0;
+                                                  const processingCost = row.processingCostPerMeter || 0;
+                                                  const total =
+                                                    greigeCost +
+                                                    transportCost +
+                                                    shrinkageValue +
+                                                    processingCost +
+                                                    (screenCostPerMeter || 0);
+                                                  updateRow(index, {
+                                                    numberOfColors: numColors,
+                                                    screenCostTotal: totalScreenCost,
+                                                    screenCostPerMeter,
+                                                    totalCostPerMeter:
+                                                      row.costInputMode === 'BUILD_UP' ? total : row.totalCostPerMeter,
+                                                  });
+                                                }}
+                                                placeholder="#"
+                                                title="Number of colors/screens"
+                                              />
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Print Type */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.finishType === 'PRINTED' ? (
+                                              <select
+                                                className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
+                                                value={row.screenType || ''}
+                                                onChange={(e) => {
+                                                  const screenType = (e.target.value || null) as ScreenType | null;
+                                                  const defaultCost = screenType ? DEFAULT_SCREEN_COSTS[screenType] : 0;
+                                                  const costPerScreen = defaultCost;
+                                                  const numColors = row.numberOfColors || 0;
+                                                  const totalScreenCost =
+                                                    numColors && costPerScreen ? numColors * costPerScreen : null;
+                                                  const qty = row.rowQuantity ?? orderQuantity;
+                                                  const fabricMeters = row.cadMeters * (qty || 0);
+                                                  const screenCostPerMeter =
+                                                    totalScreenCost && fabricMeters > 0
+                                                      ? totalScreenCost / fabricMeters
+                                                      : null;
+                                                  // Recalc total
+                                                  const greigeCost = row.greigeCostPerMeter || 0;
+                                                  const transportCost = row.transportCostPerMeter || 0;
+                                                  const shrinkageValue = row.shrinkageValue || 0;
+                                                  const processingCost = row.processingCostPerMeter || 0;
+                                                  const total =
+                                                    greigeCost +
+                                                    transportCost +
+                                                    shrinkageValue +
+                                                    processingCost +
+                                                    (screenCostPerMeter || 0);
+                                                  updateRow(index, {
+                                                    screenType,
+                                                    screenCostPerScreen: costPerScreen,
+                                                    screenCostTotal: totalScreenCost,
+                                                    screenCostPerMeter,
+                                                    totalCostPerMeter:
+                                                      row.costInputMode === 'BUILD_UP' ? total : row.totalCostPerMeter,
+                                                  });
+                                                }}
+                                              >
+                                                <option value="">-</option>
+                                                {Object.entries(SCREEN_TYPE_LABELS).map(([value, label]) => (
+                                                  <option key={value} value={value}>
+                                                    {label}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Screen Cost */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.finishType === 'PRINTED' && row.screenCostPerMeter ? (
+                                              <span
+                                                className="text-xs"
+                                                title={`Total screen cost: ₹${row.screenCostTotal?.toLocaleString() || 0}`}
+                                              >
+                                                ₹{row.screenCostPerMeter.toFixed(2)}
+                                              </span>
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Processing Cost */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.processingCostPerMeter != null ? (
+                                              <div>
+                                                <span className="text-xs">
+                                                  ₹{row.processingCostPerMeter.toFixed(2)}
+                                                </span>
+                                                {row.slabLabel && (
+                                                  <div
+                                                    className="text-[9px] text-gray-500 truncate"
+                                                    title={row.slabLabel}
+                                                  >
+                                                    {row.slabLabel}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Shrinkage Cost */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.shrinkageValue ? (
+                                              <div>
+                                                <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
+                                                {row.shrinkagePercent && (
+                                                  <div className="text-[9px] text-gray-500">
+                                                    {row.shrinkagePercent}%
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Total Cost */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.totalCostPerMeter ? (
+                                              <span className="text-xs font-semibold text-green-700">
+                                                ₹{row.totalCostPerMeter.toFixed(2)}
+                                              </span>
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Part Cost (CAD × Total) */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.totalCostPerMeter && row.cadMeters > 0 ? (
+                                              <span className="text-xs font-medium">
+                                                ₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}
+                                              </span>
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Fabric Req (CAD × Qty) */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.cadMeters > 0 && (row.rowQuantity || orderQuantity) > 0 ? (
+                                              <span className="text-xs">
+                                                {((row.rowQuantity ?? orderQuantity) * row.cadMeters).toLocaleString(
+                                                  undefined,
+                                                  { maximumFractionDigits: 0 }
+                                                )}
+                                              </span>
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+
+                                          {/* Greige Req (adjusted for shrinkage) */}
+                                          <TableCell className="px-1 text-center">
+                                            {row.cadMeters > 0 && (row.rowQuantity || orderQuantity) > 0 ? (
+                                              (() => {
+                                                const qty = row.rowQuantity ?? orderQuantity;
+                                                const fabricReq = row.cadMeters * qty;
+                                                const shrinkage = row.shrinkagePercent || 0;
+                                                const greigeReq =
+                                                  shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                                return (
+                                                  <span
+                                                    className="text-xs"
+                                                    title={
+                                                      shrinkage > 0
+                                                        ? `Fabric req ÷ (1 - ${shrinkage}% shrinkage)`
+                                                        : 'No shrinkage applied'
+                                                    }
+                                                  >
+                                                    {greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                  </span>
+                                                );
+                                              })()
+                                            ) : (
+                                              <span className="text-gray-400 text-xs">-</span>
+                                            )}
+                                          </TableCell>
+                                        </TableRow>
+                                      </React.Fragment>
+                                    );
+                                  })}
+
+                                  {/* Subtotal Row for this greige group */}
+                                  {showSubtotal && (
+                                    <TableRow className="bg-blue-50 font-medium border-t-2 border-blue-200">
+                                      <TableCell className="px-1" colSpan={3}>
+                                        <span className="text-xs font-semibold text-blue-800">
+                                          Subtotal: {greigeGroup.greigeName}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="px-1 text-center">
+                                        <span className="text-xs font-semibold text-blue-800">
+                                          {subtotals.totalCadMeters.toFixed(3)}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell colSpan={10} className="px-1"></TableCell>
+                                      <TableCell className="px-1 text-center">
+                                        {subtotals.totalRowCost !== null ? (
+                                          <span className="text-xs font-bold text-blue-800">
+                                            ₹{subtotals.totalRowCost.toFixed(2)}/pc
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400 text-xs">-</span>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="px-1 text-center">
+                                        <span className="text-xs font-semibold text-blue-800">
+                                          {subtotals.totalFabricReq.toLocaleString(undefined, {
+                                            maximumFractionDigits: 0,
+                                          })}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="px-1 text-center">
+                                        <span className="text-xs font-semibold text-blue-800">
+                                          {subtotals.totalGreigeReq.toLocaleString(undefined, {
+                                            maximumFractionDigits: 0,
+                                          })}
+                                        </span>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </React.Fragment>
+                        ))}
+                      </React.Fragment>
+                    ))
+                  : /* Simple grouping: Just Greige (no date/qty headers) */
+                    Object.entries(groupedRows).map(([groupKey, group]) => {
+                      const subtotals = calculateGroupSubtotals(group.rows);
+                      const showSubtotal = group.rows.length > 1 || Object.keys(groupedRows).length > 1;
+
+                      return (
+                        <React.Fragment key={groupKey}>
+                          {/* Render rows in this group */}
+                          {group.rows.map((row) => {
+                            const index = (row as any)._originalIndex;
+                            return (
+                              <React.Fragment key={row.id}>
+                                {/* Main Row */}
+                                <TableRow>
+                                  {/* Fabric Info */}
+                                  <TableCell className="px-1 overflow-hidden">
+                                    <div>
+                                      {(() => {
+                                        const greigeName = row.greigeName || row.fabricName;
+                                        const parsed = parseGreigeName(greigeName);
+                                        return (
+                                          <>
+                                            <div className="flex items-center gap-1">
+                                              <p className="font-medium text-xs" title={greigeName}>
+                                                {parsed.line1}
+                                              </p>
+                                              {row.readyFabricCost && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0"
+                                                >
+                                                  ₹{row.readyFabricCost}
+                                                </Badge>
+                                              )}
+                                            </div>
+                                            {parsed.line2 && (
+                                              <p className="text-[10px] text-gray-600">{parsed.line2}</p>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                      <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
+                                      {row.greigeCode && (
+                                        <p
+                                          className="text-[9px] text-gray-400 truncate"
+                                          title={`Greige Code: ${row.greigeCode}`}
+                                        >
+                                          {row.greigeCode}
+                                        </p>
+                                      )}
+                                      {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
+                                        <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>
+                                          Fabric: {row.fabricName}
+                                        </p>
+                                      )}
+                                    </div>
                                   </TableCell>
+
+                                  {/* Batch Color */}
                                   <TableCell className="px-1 text-center">
-                                    <span className="text-xs font-semibold text-blue-800">
-                                      {subtotals.totalCadMeters.toFixed(3)}
-                                    </span>
+                                    <Combobox
+                                      options={[
+                                        { value: '', label: '-' },
+                                        ...globalColors.map((color) => ({
+                                          value: color.id,
+                                          label: color.colorName + (color.colorCode ? ` (${color.colorCode})` : ''),
+                                        })),
+                                      ]}
+                                      value={row.processingBatchGroupColorId || ''}
+                                      onValueChange={(colorId) => {
+                                        const color = globalColors.find((c) => c.id === colorId);
+                                        updateRow(index, {
+                                          processingBatchGroupColorId: colorId || null,
+                                          processingBatchGroupColorName: color?.colorName || null,
+                                          batchRate: null,
+                                          individualRate: null,
+                                          batchSavings: null,
+                                          batchGroupTotalQuantity: null,
+                                        });
+                                      }}
+                                      placeholder="-"
+                                      searchPlaceholder="Search color..."
+                                      className="h-7 text-[10px] px-1 min-w-0"
+                                    />
+                                    {row.batchGroupTotalQuantity != null && (
+                                      <div
+                                        className="text-[9px] text-blue-600 mt-0.5"
+                                        title="Combined batch quantity for rate slab"
+                                      >
+                                        {row.batchGroupTotalQuantity.toFixed(0)}m batch
+                                      </div>
+                                    )}
+                                    {row.batchSavings != null && row.batchSavings > 0 && (
+                                      <div
+                                        className="text-[9px] text-green-600 font-medium"
+                                        title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}
+                                      >
+                                        save ₹{row.batchSavings.toFixed(2)}/m
+                                      </div>
+                                    )}
                                   </TableCell>
-                                  <TableCell colSpan={10} className="px-1"></TableCell>
+
+                                  {/* CAD */}
+                                  <TableCell className="px-1 text-center text-xs">
+                                    <div className="flex items-center justify-center gap-0.5">
+                                      <span
+                                        className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}
+                                        title="Per-piece fabric consumption (calculated from CAD Planning)"
+                                      >
+                                        {row.cadMeters.toFixed(3)}
+                                      </span>
+                                      {row.cadMeters === 0 && (
+                                        <span
+                                          className="text-red-600 cursor-help text-[10px]"
+                                          title="CAD consumption not set. Complete CAD Planning for this style first."
+                                        >
+                                          ⚠️
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Row Quantity */}
                                   <TableCell className="px-1 text-center">
-                                    {subtotals.totalRowCost !== null ? (
-                                      <span className="text-xs font-bold text-blue-800">
-                                        ₹{subtotals.totalRowCost.toFixed(2)}/pc
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      className="w-20 text-center text-xs h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      value={(row as any).rowQuantity || orderQuantity}
+                                      onChange={(e) =>
+                                        updateRow(index, {
+                                          rowQuantity: parseInt(e.target.value) || 1,
+                                        } as any)
+                                      }
+                                    />
+                                  </TableCell>
+
+                                  {/* Cutable Width */}
+                                  <TableCell className="px-1 text-center text-xs">
+                                    {row.width ? `${row.width}"` : '-'}
+                                  </TableCell>
+
+                                  {/* Finish Type */}
+                                  <TableCell className="px-1 text-center">
+                                    {getFinishTypeBadge(row.finishType)}
+                                  </TableCell>
+
+                                  {/* Cost Mode Toggle */}
+                                  <TableCell className="px-1">
+                                    <div className="flex items-center gap-1 justify-center">
+                                      <span
+                                        className={`text-[10px] ${row.costInputMode === 'BUILD_UP' ? 'font-medium' : 'text-gray-400'}`}
+                                      >
+                                        B
+                                      </span>
+                                      <Switch
+                                        checked={row.costInputMode === 'LANDED_PRICE'}
+                                        onCheckedChange={(checked) =>
+                                          updateRow(index, {
+                                            costInputMode: checked ? 'LANDED_PRICE' : 'BUILD_UP',
+                                          })
+                                        }
+                                        className="scale-75"
+                                      />
+                                      <span
+                                        className={`text-[10px] ${row.costInputMode === 'LANDED_PRICE' ? 'font-medium' : 'text-gray-400'}`}
+                                      >
+                                        L
+                                      </span>
+                                    </div>
+                                  </TableCell>
+
+                                  {/* Greige + Transport Combined */}
+                                  <TableCell className="px-1">
+                                    {row.costInputMode === 'LANDED_PRICE' ? (
+                                      <div className="flex items-center justify-center gap-0.5">
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          placeholder="Landed ₹"
+                                          className="w-16 text-center text-xs h-7 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                          value={row.landedPricePerMeter || ''}
+                                          onChange={(e) =>
+                                            updateRow(index, {
+                                              landedPricePerMeter: parseFloat(e.target.value) || null,
+                                            })
+                                          }
+                                        />
+                                        {row.readyFabricCost && row.landedPricePerMeter !== row.readyFabricCost && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-5 w-5 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                            onClick={() =>
+                                              updateRow(index, {
+                                                landedPricePerMeter: row.readyFabricCost,
+                                              })
+                                            }
+                                            title={`Use fabric master price: ₹${row.readyFabricCost}/m`}
+                                          >
+                                            <RefreshCw className="w-2.5 h-2.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        {/* Greige Cost */}
+                                        <div className="flex items-center gap-0.5">
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="Greige"
+                                            className={`w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${row.greigeCostSource === 'MANUAL' ? 'border-amber-400 bg-amber-50' : ''}`}
+                                            value={row.greigeCostPerMeter || ''}
+                                            onChange={(e) =>
+                                              updateRow(index, {
+                                                greigeCostPerMeter: parseFloat(e.target.value) || null,
+                                                greigeCostSource: 'MANUAL',
+                                              })
+                                            }
+                                            title={
+                                              row.greigeCostSource === 'MANUAL'
+                                                ? 'Manual price - click (R) to reset to default'
+                                                : row.greigeCostSource === 'GREIGE_PROCUREMENT'
+                                                  ? `Stock price ₹${row.greigeDefaultCost}/m`
+                                                  : `Default price ₹${row.greigeDefaultCost}/m`
+                                            }
+                                          />
+                                          {row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
+                                            <span
+                                              className="text-[9px] text-green-600 font-medium"
+                                              title="Using greige stock cost from latest procurement"
+                                            >
+                                              S
+                                            </span>
+                                          )}
+                                          {row.greigeCostSource === 'GREIGE_MASTER' && (
+                                            <span
+                                              className="text-[9px] text-blue-600"
+                                              title="Using default greige cost from greige master"
+                                            >
+                                              D
+                                            </span>
+                                          )}
+                                          {row.greigeCostSource === 'MANUAL' && (
+                                            <span
+                                              className="text-[9px] text-amber-600 font-medium cursor-pointer hover:text-amber-800"
+                                              title={`Manual price - Click to reset to ${row.greigeDefaultCost ? `₹${row.greigeDefaultCost}/m` : 'default'}`}
+                                              onClick={() =>
+                                                updateRow(index, {
+                                                  greigeCostPerMeter: row.greigeDefaultCost,
+                                                  greigeCostSource: row.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL',
+                                                })
+                                              }
+                                            >
+                                              M
+                                            </span>
+                                          )}
+                                        </div>
+                                        {/* Transport Cost */}
+                                        <div className="flex items-center gap-0.5">
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="+Trp"
+                                            className="w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            value={row.transportCostPerMeter || ''}
+                                            onChange={(e) =>
+                                              updateRow(index, {
+                                                transportCostPerMeter: parseFloat(e.target.value) || null,
+                                              })
+                                            }
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Processor Selection */}
+                                  <TableCell className="px-1 text-center">
+                                    {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    ) : (
+                                      <div className="flex items-center justify-center gap-0.5">
+                                        <Combobox
+                                          value={row.processorId || ''}
+                                          onValueChange={(value) => {
+                                            const processor = processors.find((p) => p.id === value);
+                                            updateRow(index, {
+                                              processorId: value,
+                                              processorName: processor?.name || null,
+                                              processingCostPerMeter: null,
+                                              slabLabel: null,
+                                              shrinkagePercent: null,
+                                              screenCostPerScreen: null,
+                                            });
+
+                                            // Auto-lookup rates for DYEING (no printing type needed)
+                                            // For PRINTING, wait until printing type is selected
+                                            if (row.processingType === 'DYEING' && value && row.greigeId) {
+                                              // Pass the new processorId as override since state hasn't updated yet
+                                              lookupRate(index, { processorId: value });
+                                            }
+                                          }}
+                                          options={processors.map((p) => ({ value: p.id, label: p.name }))}
+                                          placeholder="Select"
+                                          searchPlaceholder="Search processor..."
+                                          emptyText="No processors found"
+                                          className="w-[150px] h-7 text-[10px]"
+                                          hideChevron
+                                        />
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0"
+                                          onClick={() => lookupRate(index)}
+                                          disabled={row.isLoading || !row.processorId || !row.greigeId}
+                                        >
+                                          {row.isLoading ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <RefreshCw className="w-3 h-3" />
+                                          )}
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Number of Colors */}
+                                  <TableCell className="px-1 text-center">
+                                    {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        max="20"
+                                        className="w-9 text-center text-xs h-7 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        value={row.numberOfColors || ''}
+                                        onChange={(e) =>
+                                          updateRow(index, {
+                                            numberOfColors: parseInt(e.target.value) || null,
+                                          })
+                                        }
+                                        placeholder="#"
+                                      />
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Printing Type */}
+                                  <TableCell className="px-1 text-center">
+                                    {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
+                                      <Select
+                                        value={row.printingType || ''}
+                                        onValueChange={(value) => {
+                                          const newPrintingType = value as
+                                            | 'PIGMENT'
+                                            | 'PROCIAN'
+                                            | 'DISCHARGE'
+                                            | 'PIGMENT_DISCHARGE';
+                                          updateRow(index, {
+                                            printingType: newPrintingType,
+                                            processingCostPerMeter: null,
+                                            slabLabel: null,
+                                          });
+                                          // Auto-lookup after printing type is selected
+                                          if (value && row.processorId && row.greigeId) {
+                                            // Pass the new printingType as override since state hasn't updated yet
+                                            lookupRate(index, { printingType: newPrintingType });
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="w-[70px] h-7 text-[10px]">
+                                          <SelectValue placeholder="Type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="PIGMENT" className="text-xs">
+                                            Pigment
+                                          </SelectItem>
+                                          <SelectItem value="PROCIAN" className="text-xs">
+                                            Procian
+                                          </SelectItem>
+                                          <SelectItem value="DISCHARGE" className="text-xs">
+                                            Discharge
+                                          </SelectItem>
+                                          <SelectItem value="PIGMENT_DISCHARGE" className="text-xs">
+                                            Pig+Dis
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Screen Type */}
+                                  <TableCell className="px-1 text-center">
+                                    {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
+                                      <Select
+                                        value={row.screenType || ''}
+                                        onValueChange={(value) =>
+                                          updateRow(index, {
+                                            screenType: value as 'ROTARY' | 'FLATBELT' | 'TABLE',
+                                          })
+                                        }
+                                      >
+                                        <SelectTrigger className="w-[65px] h-7 text-[10px]">
+                                          <SelectValue placeholder="Screen" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="ROTARY" className="text-xs">
+                                            Rotary
+                                          </SelectItem>
+                                          <SelectItem value="FLATBELT" className="text-xs">
+                                            Flat Belt
+                                          </SelectItem>
+                                          <SelectItem value="TABLE" className="text-xs">
+                                            Table
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Processing Cost */}
+                                  <TableCell className="px-1 text-center">
+                                    {row.processingCostPerMeter ? (
+                                      <div>
+                                        <span className="font-medium text-xs">
+                                          ₹{row.processingCostPerMeter.toFixed(2)}
+                                        </span>
+                                        {row.slabLabel && (
+                                          <p className="text-[9px] text-gray-500 truncate" title={row.slabLabel}>
+                                            {row.slabLabel}
+                                          </p>
+                                        )}
+                                        {/* Show individual rate comparison when in a batch group */}
+                                        {row.individualRate != null &&
+                                          row.batchRate != null &&
+                                          row.individualRate !== row.batchRate && (
+                                            <p
+                                              className="text-[9px] text-gray-400 line-through"
+                                              title="Individual rate (without batch grouping)"
+                                            >
+                                              ₹{row.individualRate.toFixed(2)}
+                                            </p>
+                                          )}
+                                      </div>
+                                    ) : row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    ) : (
+                                      <span className="text-gray-400 text-[10px]">Select</span>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Shrinkage Cost */}
+                                  <TableCell className="px-1 text-center">
+                                    {row.shrinkageValue ? (
+                                      <div>
+                                        <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
+                                        {row.shrinkagePercent && (
+                                          <div className="text-[9px] text-gray-500">{row.shrinkagePercent}%</div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Total Cost */}
+                                  <TableCell className="px-1 text-center">
+                                    {row.totalCostPerMeter ? (
+                                      <span className="font-bold text-xs">₹{row.totalCostPerMeter.toFixed(2)}</span>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    )}
+                                  </TableCell>
+
+                                  {/* Part Cost (CAD × Total ₹/m) */}
+                                  <TableCell className="px-1 text-center">
+                                    {row.totalCostPerMeter && row.cadMeters > 0 ? (
+                                      <span className="text-xs">
+                                        ₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}
                                       </span>
                                     ) : (
                                       <span className="text-gray-400 text-xs">-</span>
                                     )}
                                   </TableCell>
+
+                                  {/* Fabric Requirement (CAD × Qty) */}
                                   <TableCell className="px-1 text-center">
-                                    <span className="text-xs font-semibold text-blue-800">
-                                      {subtotals.totalFabricReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </span>
+                                    {row.cadMeters > 0 ? (
+                                      <span className="text-xs">
+                                        {(((row as any).rowQuantity || orderQuantity) * row.cadMeters).toLocaleString(
+                                          undefined,
+                                          { maximumFractionDigits: 0 }
+                                        )}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    )}
                                   </TableCell>
+
+                                  {/* Greige Requirement (Fabric Req ÷ (1 - Shrinkage%)) */}
                                   <TableCell className="px-1 text-center">
-                                    <span className="text-xs font-semibold text-blue-800">
-                                      {subtotals.totalGreigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </span>
+                                    {row.cadMeters > 0 ? (
+                                      (() => {
+                                        const qty = (row as any).rowQuantity || orderQuantity;
+                                        const fabricReq = row.cadMeters * qty;
+                                        const shrinkage = row.shrinkagePercent || 0;
+                                        const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                        return (
+                                          <span className="text-xs">
+                                            {greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                          </span>
+                                        );
+                                      })()
+                                    ) : (
+                                      <span className="text-gray-400 text-xs">-</span>
+                                    )}
                                   </TableCell>
                                 </TableRow>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </React.Fragment>
-                ))
-              ) : (
-                /* Simple grouping: Just Greige (no date/qty headers) */
-                Object.entries(groupedRows).map(([groupKey, group]) => {
-                const subtotals = calculateGroupSubtotals(group.rows);
-                const showSubtotal = group.rows.length > 1 || Object.keys(groupedRows).length > 1;
+                              </React.Fragment>
+                            );
+                          })}
 
-                return (
-                  <React.Fragment key={groupKey}>
-                    {/* Render rows in this group */}
-                    {group.rows.map((row) => {
-                      const index = (row as any)._originalIndex;
-                      return (
-                        <React.Fragment key={row.id}>
-                          {/* Main Row */}
-                          <TableRow>
-                    {/* Fabric Info */}
-                    <TableCell className="px-1 overflow-hidden">
-                      <div>
-                        {(() => {
-                          const greigeName = row.greigeName || row.fabricName;
-                          const parsed = parseGreigeName(greigeName);
-                          return (
-                            <>
-                              <div className="flex items-center gap-1">
-                                <p className="font-medium text-xs" title={greigeName}>{parsed.line1}</p>
-                                {row.readyFabricCost && (
-                                  <Badge variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0">
-                                    ₹{row.readyFabricCost}
-                                  </Badge>
+                          {/* Subtotal Row for this greige group */}
+                          {showSubtotal && (
+                            <TableRow className="bg-blue-50 font-medium border-t-2 border-blue-200">
+                              <TableCell className="px-1" colSpan={3}>
+                                <span className="text-xs font-semibold text-blue-800">
+                                  Subtotal: {group.greigeName}
+                                </span>
+                              </TableCell>
+                              <TableCell className="px-1 text-center">
+                                <span className="text-xs font-semibold text-blue-800">
+                                  {subtotals.totalCadMeters.toFixed(3)}
+                                </span>
+                              </TableCell>
+                              <TableCell colSpan={10} className="px-1"></TableCell>
+                              <TableCell className="px-1 text-center">
+                                {subtotals.totalRowCost !== null ? (
+                                  <span className="text-xs font-bold text-blue-800">
+                                    ₹{subtotals.totalRowCost.toFixed(2)}/pc
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">-</span>
                                 )}
-                              </div>
-                              {parsed.line2 && (
-                                <p className="text-[10px] text-gray-600">{parsed.line2}</p>
-                              )}
-                            </>
-                          );
-                        })()}
-                        <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
-                        {row.greigeCode && (
-                          <p className="text-[9px] text-gray-400 truncate" title={`Greige Code: ${row.greigeCode}`}>
-                            {row.greigeCode}
-                          </p>
-                        )}
-                        {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
-                          <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>Fabric: {row.fabricName}</p>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    {/* Batch Color */}
-                    <TableCell className="px-1 text-center">
-                      <Combobox
-                        options={[
-                          { value: '', label: '-' },
-                          ...globalColors.map(color => ({
-                            value: color.id,
-                            label: color.colorName + (color.colorCode ? ` (${color.colorCode})` : ''),
-                          }))
-                        ]}
-                        value={row.processingBatchGroupColorId || ''}
-                        onValueChange={(colorId) => {
-                          const color = globalColors.find(c => c.id === colorId);
-                          updateRow(index, {
-                            processingBatchGroupColorId: colorId || null,
-                            processingBatchGroupColorName: color?.colorName || null,
-                            batchRate: null,
-                            individualRate: null,
-                            batchSavings: null,
-                            batchGroupTotalQuantity: null,
-                          });
-                        }}
-                        placeholder="-"
-                        searchPlaceholder="Search color..."
-                        className="h-7 text-[10px] px-1 min-w-0"
-                      />
-                      {row.batchGroupTotalQuantity != null && (
-                        <div className="text-[9px] text-blue-600 mt-0.5" title="Combined batch quantity for rate slab">
-                          {row.batchGroupTotalQuantity.toFixed(0)}m batch
-                        </div>
-                      )}
-                      {row.batchSavings != null && row.batchSavings > 0 && (
-                        <div className="text-[9px] text-green-600 font-medium" title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}>
-                          save ₹{row.batchSavings.toFixed(2)}/m
-                        </div>
-                      )}
-                    </TableCell>
-
-                    {/* CAD */}
-                    <TableCell className="px-1 text-center text-xs">
-                      <div className="flex items-center justify-center gap-0.5">
-                        <span
-                          className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}
-                          title="Per-piece fabric consumption (calculated from CAD Planning)"
-                        >
-                          {row.cadMeters.toFixed(3)}
-                        </span>
-                        {row.cadMeters === 0 && (
-                          <span
-                            className="text-red-600 cursor-help text-[10px]"
-                            title="CAD consumption not set. Complete CAD Planning for this style first."
-                          >
-                            ⚠️
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    {/* Row Quantity */}
-                    <TableCell className="px-1 text-center">
-                      <Input
-                        type="number"
-                        min="1"
-                        className="w-20 text-center text-xs h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        value={(row as any).rowQuantity || orderQuantity}
-                        onChange={(e) =>
-                          updateRow(index, {
-                            rowQuantity: parseInt(e.target.value) || 1,
-                          } as any)
-                        }
-                      />
-                    </TableCell>
-
-                    {/* Cutable Width */}
-                    <TableCell className="px-1 text-center text-xs">
-                      {row.width ? `${row.width}"` : '-'}
-                    </TableCell>
-
-                    {/* Finish Type */}
-                    <TableCell className="px-1 text-center">
-                      {getFinishTypeBadge(row.finishType)}
-                    </TableCell>
-
-                    {/* Cost Mode Toggle */}
-                    <TableCell className="px-1">
-                      <div className="flex items-center gap-1 justify-center">
-                        <span className={`text-[10px] ${row.costInputMode === 'BUILD_UP' ? 'font-medium' : 'text-gray-400'}`}>
-                          B
-                        </span>
-                        <Switch
-                          checked={row.costInputMode === 'LANDED_PRICE'}
-                          onCheckedChange={(checked) =>
-                            updateRow(index, {
-                              costInputMode: checked ? 'LANDED_PRICE' : 'BUILD_UP',
-                            })
-                          }
-                          className="scale-75"
-                        />
-                        <span className={`text-[10px] ${row.costInputMode === 'LANDED_PRICE' ? 'font-medium' : 'text-gray-400'}`}>
-                          L
-                        </span>
-                      </div>
-                    </TableCell>
-
-                    {/* Greige + Transport Combined */}
-                    <TableCell className="px-1">
-                      {row.costInputMode === 'LANDED_PRICE' ? (
-                        <div className="flex items-center justify-center gap-0.5">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Landed ₹"
-                            className="w-16 text-center text-xs h-7 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            value={row.landedPricePerMeter || ''}
-                            onChange={(e) =>
-                              updateRow(index, {
-                                landedPricePerMeter: parseFloat(e.target.value) || null,
-                              })
-                            }
-                          />
-                          {row.readyFabricCost && row.landedPricePerMeter !== row.readyFabricCost && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-5 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={() =>
-                                updateRow(index, {
-                                  landedPricePerMeter: row.readyFabricCost,
-                                })
-                              }
-                              title={`Use fabric master price: ₹${row.readyFabricCost}/m`}
-                            >
-                              <RefreshCw className="w-2.5 h-2.5" />
-                            </Button>
+                              </TableCell>
+                              <TableCell className="px-1 text-center">
+                                <span className="text-xs font-semibold text-blue-800">
+                                  {subtotals.totalFabricReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                              </TableCell>
+                              <TableCell className="px-1 text-center">
+                                <span className="text-xs font-semibold text-blue-800">
+                                  {subtotals.totalGreigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                              </TableCell>
+                            </TableRow>
                           )}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-0.5">
-                          {/* Greige Cost */}
-                          <div className="flex items-center gap-0.5">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Greige"
-                              className={`w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${row.greigeCostSource === 'MANUAL' ? 'border-amber-400 bg-amber-50' : ''}`}
-                              value={row.greigeCostPerMeter || ''}
-                              onChange={(e) =>
-                                updateRow(index, {
-                                  greigeCostPerMeter: parseFloat(e.target.value) || null,
-                                  greigeCostSource: 'MANUAL',
-                                })
-                              }
-                              title={
-                                row.greigeCostSource === 'MANUAL' ? 'Manual price - click (R) to reset to default' :
-                                row.greigeCostSource === 'GREIGE_PROCUREMENT' ? `Stock price ₹${row.greigeDefaultCost}/m` :
-                                `Default price ₹${row.greigeDefaultCost}/m`
-                              }
-                            />
-                            {row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
-                              <span className="text-[9px] text-green-600 font-medium" title="Using greige stock cost from latest procurement">S</span>
-                            )}
-                            {row.greigeCostSource === 'GREIGE_MASTER' && (
-                              <span className="text-[9px] text-blue-600" title="Using default greige cost from greige master">D</span>
-                            )}
-                            {row.greigeCostSource === 'MANUAL' && (
-                              <span
-                                className="text-[9px] text-amber-600 font-medium cursor-pointer hover:text-amber-800"
-                                title={`Manual price - Click to reset to ${row.greigeDefaultCost ? `₹${row.greigeDefaultCost}/m` : 'default'}`}
-                                onClick={() => updateRow(index, {
-                                  greigeCostPerMeter: row.greigeDefaultCost,
-                                  greigeCostSource: row.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL',
-                                })}
-                              >
-                                M
-                              </span>
-                            )}
-                          </div>
-                          {/* Transport Cost */}
-                          <div className="flex items-center gap-0.5">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="+Trp"
-                              className="w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              value={row.transportCostPerMeter || ''}
-                              onChange={(e) =>
-                                updateRow(index, { transportCostPerMeter: parseFloat(e.target.value) || null })
-                              }
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </TableCell>
+                        </React.Fragment>
+                      );
+                    })}
+              </TableBody>
+            </Table>
 
-                    {/* Processor Selection */}
-                    <TableCell className="px-1 text-center">
-                      {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                        <span className="text-gray-400 text-xs">-</span>
-                      ) : (
-                        <div className="flex items-center justify-center gap-0.5">
-                          <Combobox
-                            value={row.processorId || ''}
-                            onValueChange={(value) => {
-                              const processor = processors.find(p => p.id === value);
-                              updateRow(index, {
-                                processorId: value,
-                                processorName: processor?.name || null,
-                                processingCostPerMeter: null,
-                                slabLabel: null,
-                                shrinkagePercent: null,
-                                screenCostPerScreen: null,
-                              });
-
-                              // Auto-lookup rates for DYEING (no printing type needed)
-                              // For PRINTING, wait until printing type is selected
-                              if (row.processingType === 'DYEING' && value && row.greigeId) {
-                                // Pass the new processorId as override since state hasn't updated yet
-                                lookupRate(index, { processorId: value });
-                              }
-                            }}
-                            options={processors.map((p) => ({ value: p.id, label: p.name }))}
-                            placeholder="Select"
-                            searchPlaceholder="Search processor..."
-                            emptyText="No processors found"
-                            className="w-[150px] h-7 text-[10px]"
-                            hideChevron
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => lookupRate(index)}
-                            disabled={row.isLoading || !row.processorId || !row.greigeId}
-                          >
-                            {row.isLoading ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <RefreshCw className="w-3 h-3" />
-                            )}
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
-
-                    {/* Number of Colors */}
-                    <TableCell className="px-1 text-center">
-                      {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
-                        <Input
-                          type="number"
-                          min="1"
-                          max="20"
-                          className="w-9 text-center text-xs h-7 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          value={row.numberOfColors || ''}
-                          onChange={(e) =>
-                            updateRow(index, {
-                              numberOfColors: parseInt(e.target.value) || null,
-                            })
-                          }
-                          placeholder="#"
-                        />
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
-
-                    {/* Printing Type */}
-                    <TableCell className="px-1 text-center">
-                      {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
-                        <Select
-                          value={row.printingType || ''}
-                          onValueChange={(value) => {
-                            const newPrintingType = value as 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE';
-                            updateRow(index, {
-                              printingType: newPrintingType,
-                              processingCostPerMeter: null,
-                              slabLabel: null,
-                            });
-                            // Auto-lookup after printing type is selected
-                            if (value && row.processorId && row.greigeId) {
-                              // Pass the new printingType as override since state hasn't updated yet
-                              lookupRate(index, { printingType: newPrintingType });
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-[70px] h-7 text-[10px]">
-                            <SelectValue placeholder="Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="PIGMENT" className="text-xs">Pigment</SelectItem>
-                            <SelectItem value="PROCIAN" className="text-xs">Procian</SelectItem>
-                            <SelectItem value="DISCHARGE" className="text-xs">Discharge</SelectItem>
-                            <SelectItem value="PIGMENT_DISCHARGE" className="text-xs">Pig+Dis</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
-
-                    {/* Screen Type */}
-                    <TableCell className="px-1 text-center">
-                      {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
-                        <Select
-                          value={row.screenType || ''}
-                          onValueChange={(value) =>
-                            updateRow(index, {
-                              screenType: value as 'ROTARY' | 'FLATBELT' | 'TABLE',
-                            })
-                          }
-                        >
-                          <SelectTrigger className="w-[65px] h-7 text-[10px]">
-                            <SelectValue placeholder="Screen" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ROTARY" className="text-xs">Rotary</SelectItem>
-                            <SelectItem value="FLATBELT" className="text-xs">Flat Belt</SelectItem>
-                            <SelectItem value="TABLE" className="text-xs">Table</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
-
-                    {/* Processing Cost */}
-                    <TableCell className="px-1 text-center">
-                      {row.processingCostPerMeter ? (
-                        <div>
-                          <span className="font-medium text-xs">₹{row.processingCostPerMeter.toFixed(2)}</span>
-                          {row.slabLabel && (
-                            <p className="text-[9px] text-gray-500 truncate" title={row.slabLabel}>{row.slabLabel}</p>
-                          )}
-                          {/* Show individual rate comparison when in a batch group */}
-                          {row.individualRate != null && row.batchRate != null && row.individualRate !== row.batchRate && (
-                            <p className="text-[9px] text-gray-400 line-through" title="Individual rate (without batch grouping)">
-                              ₹{row.individualRate.toFixed(2)}
-                            </p>
-                          )}
-                        </div>
-                      ) : row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                        <span className="text-gray-400 text-xs">-</span>
-                      ) : (
-                        <span className="text-gray-400 text-[10px]">Select</span>
-                      )}
-                    </TableCell>
-
-                    {/* Shrinkage Cost */}
-                    <TableCell className="px-1 text-center">
-                      {row.shrinkageValue ? (
-                        <div>
-                          <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
-                          {row.shrinkagePercent && (
-                            <div className="text-[9px] text-gray-500">{row.shrinkagePercent}%</div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
-
-                    {/* Total Cost */}
-                    <TableCell className="px-1 text-center">
-                      {row.totalCostPerMeter ? (
-                        <span className="font-bold text-xs">₹{row.totalCostPerMeter.toFixed(2)}</span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
-
-                    {/* Part Cost (CAD × Total ₹/m) */}
-                    <TableCell className="px-1 text-center">
-                      {row.totalCostPerMeter && row.cadMeters > 0 ? (
-                        <span className="text-xs">₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}</span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
-
-                    {/* Fabric Requirement (CAD × Qty) */}
-                    <TableCell className="px-1 text-center">
-                      {row.cadMeters > 0 ? (
-                        <span className="text-xs">
-                          {(((row as any).rowQuantity || orderQuantity) * row.cadMeters).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
-
-                    {/* Greige Requirement (Fabric Req ÷ (1 - Shrinkage%)) */}
-                    <TableCell className="px-1 text-center">
-                      {row.cadMeters > 0 ? (() => {
-                        const qty = (row as any).rowQuantity || orderQuantity;
-                        const fabricReq = row.cadMeters * qty;
-                        const shrinkage = row.shrinkagePercent || 0;
-                        const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
-                        return <span className="text-xs">{greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>;
-                      })() : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )}
-                    </TableCell>
-
-                    </TableRow>
-                  </React.Fragment>
-                );
-              })}
-
-                    {/* Subtotal Row for this greige group */}
-                    {showSubtotal && (
-                      <TableRow className="bg-blue-50 font-medium border-t-2 border-blue-200">
-                        <TableCell className="px-1" colSpan={3}>
-                          <span className="text-xs font-semibold text-blue-800">
-                            Subtotal: {group.greigeName}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-1 text-center">
-                          <span className="text-xs font-semibold text-blue-800">
-                            {subtotals.totalCadMeters.toFixed(3)}
-                          </span>
-                        </TableCell>
-                        <TableCell colSpan={10} className="px-1"></TableCell>
-                        <TableCell className="px-1 text-center">
-                          {subtotals.totalRowCost !== null ? (
-                            <span className="text-xs font-bold text-blue-800">
-                              ₹{subtotals.totalRowCost.toFixed(2)}/pc
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-1 text-center">
-                          <span className="text-xs font-semibold text-blue-800">
-                            {subtotals.totalFabricReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-1 text-center">
-                          <span className="text-xs font-semibold text-blue-800">
-                            {subtotals.totalGreigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                );
-              })
-              )}
-            </TableBody>
-          </Table>
-
-          {/* Summary Footer */}
-          <div className="p-4 bg-gray-50 border-t flex justify-between items-center">
-            <div className="text-sm text-gray-600">
-              {fabricRows.length} fabric{fabricRows.length !== 1 ? 's' : ''} •
-              {fabricsWithCosts} with cost calculated
+            {/* Summary Footer */}
+            <div className="p-4 bg-gray-50 border-t flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                {fabricRows.length} fabric{fabricRows.length !== 1 ? 's' : ''} •{fabricsWithCosts} with cost calculated
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-1 text-sm text-gray-500">
+                  <Info className="w-4 h-4" />
+                  Cost per meter will be used in Cost Sheet calculation
+                </span>
+                {selectedStyleId && fabricsWithCosts > 0 && purpose === 'COSTING' && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => navigate(`/cost-sheets/new?styleId=${selectedStyleId}`)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Create Cost Sheet
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1 text-sm text-gray-500">
-                <Info className="w-4 h-4" />
-                Cost per meter will be used in Cost Sheet calculation
-              </span>
-              {selectedStyleId && fabricsWithCosts > 0 && purpose === 'COSTING' && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => navigate(`/cost-sheets/new?styleId=${selectedStyleId}`)}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Create Cost Sheet
-                </Button>
-              )}
-            </div>
-          </div>
-        </Card>
+          </Card>
         </>
       )}
 
@@ -2649,8 +2895,8 @@ export default function FabricCostingPage() {
               Create Costing Run?
             </DialogTitle>
             <DialogDescription>
-              Save these {savedCadIds.length} fabric(s) as a new costing run. This allows you to
-              easily select this combination when creating a Cost Sheet.
+              Save these {savedCadIds.length} fabric(s) as a new costing run. This allows you to easily select this
+              combination when creating a Cost Sheet.
             </DialogDescription>
           </DialogHeader>
 
@@ -2661,24 +2907,23 @@ export default function FabricCostingPage() {
               </p>
               <ul className="mt-2 text-sm text-blue-700 list-disc list-inside">
                 <li>{savedCadIds.length} fabric entries</li>
-                <li>Purpose: {purpose === 'COSTING' ? 'Costing' : purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material Calculation' : 'Production'}</li>
+                <li>
+                  Purpose:{' '}
+                  {purpose === 'COSTING'
+                    ? 'Costing'
+                    : purpose === 'RAW_MATERIAL_CALCULATION'
+                      ? 'Raw Material Calculation'
+                      : 'Production'}
+                </li>
               </ul>
             </div>
           </div>
 
           <DialogFooter className="flex gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateRunDialog(false)}
-              disabled={isCreatingRun}
-            >
+            <Button variant="outline" onClick={() => setShowCreateRunDialog(false)} disabled={isCreatingRun}>
               Skip
             </Button>
-            <Button
-              onClick={handleCreateRun}
-              disabled={isCreatingRun}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
+            <Button onClick={handleCreateRun} disabled={isCreatingRun} className="bg-blue-600 hover:bg-blue-700">
               {isCreatingRun ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

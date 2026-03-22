@@ -34,18 +34,14 @@ export type OrderBOMItemMaterialType =
 /**
  * Usage category for Order BOM items
  */
-export type OrderBOMItemUsageCategory =
-  | 'GARMENT_TRIM'
-  | 'PACKAGING'
-  | 'VALUE_ADDITION'
-  | 'FABRIC';
+export type OrderBOMItemUsageCategory = 'GARMENT_TRIM' | 'PACKAGING' | 'VALUE_ADDITION' | 'FABRIC';
 
 /**
  * Order BOM item input for creation
  */
 export interface OrderBOMItemInput {
   materialType: OrderBOMItemMaterialType;
-  materialId?: string;      // Generic materials table
+  materialId?: string; // Generic materials table
   buttonId?: string;
   threadId?: string;
   zipperId?: string;

@@ -40,8 +40,11 @@ export default function Settings() {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
-    if (passwordData.currentPassword && passwordData.newPassword &&
-        passwordData.currentPassword === passwordData.newPassword) {
+    if (
+      passwordData.currentPassword &&
+      passwordData.newPassword &&
+      passwordData.currentPassword === passwordData.newPassword
+    ) {
       newErrors.newPassword = 'New password must be different from current password';
     }
 
@@ -59,11 +62,7 @@ export default function Settings() {
     try {
       setIsSaving(true);
 
-      await userService.changePassword(
-        currentUser.id,
-        passwordData.currentPassword,
-        passwordData.newPassword
-      );
+      await userService.changePassword(currentUser.id, passwordData.currentPassword, passwordData.newPassword);
 
       // Clear form
       setPasswordData({
@@ -82,10 +81,10 @@ export default function Settings() {
   };
 
   const handleChange = (field: keyof typeof passwordData, value: string) => {
-    setPasswordData(prev => ({ ...prev, [field]: value }));
+    setPasswordData((prev) => ({ ...prev, [field]: value }));
     // Clear error for this field when user starts typing
     if (errors[field]) {
-      setErrors(prev => {
+      setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
@@ -152,9 +151,7 @@ export default function Settings() {
                     {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.currentPassword && (
-                  <p className="mt-1 text-sm text-red-600">{errors.currentPassword}</p>
-                )}
+                {errors.currentPassword && <p className="mt-1 text-sm text-red-600">{errors.currentPassword}</p>}
               </div>
 
               {/* New Password */}
@@ -180,9 +177,7 @@ export default function Settings() {
                     {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.newPassword && (
-                  <p className="mt-1 text-sm text-red-600">{errors.newPassword}</p>
-                )}
+                {errors.newPassword && <p className="mt-1 text-sm text-red-600">{errors.newPassword}</p>}
               </div>
 
               {/* Confirm New Password */}
@@ -208,9 +203,7 @@ export default function Settings() {
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
-                )}
+                {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
               </div>
 
               {/* Action Buttons */}

@@ -20,9 +20,7 @@ const INVOICE_API_PATH = '/invoices';
 /**
  * Get all invoices with pagination and filters
  */
-export const getInvoices = async (
-  params: InvoiceQueryParams = {}
-): Promise<InvoiceListResponse> => {
+export const getInvoices = async (params: InvoiceQueryParams = {}): Promise<InvoiceListResponse> => {
   const response = await api.get<InvoiceListResponse>(INVOICE_API_PATH, { params });
   return response.data;
 };
@@ -39,24 +37,15 @@ export const getInvoiceById = async (id: string): Promise<Invoice> => {
  * Create a new invoice
  */
 export const createInvoice = async (data: CreateInvoiceRequest): Promise<Invoice> => {
-  const response = await api.post<{ data: Invoice; message: string }>(
-    INVOICE_API_PATH,
-    data
-  );
+  const response = await api.post<{ data: Invoice; message: string }>(INVOICE_API_PATH, data);
   return response.data.data;
 };
 
 /**
  * Update invoice
  */
-export const updateInvoice = async (
-  id: string,
-  data: UpdateInvoiceRequest
-): Promise<Invoice> => {
-  const response = await api.put<{ data: Invoice; message: string }>(
-    `${INVOICE_API_PATH}/${id}`,
-    data
-  );
+export const updateInvoice = async (id: string, data: UpdateInvoiceRequest): Promise<Invoice> => {
+  const response = await api.put<{ data: Invoice; message: string }>(`${INVOICE_API_PATH}/${id}`, data);
   return response.data.data;
 };
 
@@ -70,10 +59,7 @@ export const deleteInvoice = async (id: string): Promise<void> => {
 /**
  * Record a payment for an invoice
  */
-export const recordPayment = async (
-  invoiceId: string,
-  data: RecordPaymentRequest
-): Promise<Payment> => {
+export const recordPayment = async (invoiceId: string, data: RecordPaymentRequest): Promise<Payment> => {
   const response = await api.post<{ data: Payment; message: string }>(
     `${INVOICE_API_PATH}/${invoiceId}/payments`,
     data
@@ -86,10 +72,7 @@ export const recordPayment = async (
  */
 export const getInvoiceSummary = async (customerId?: string): Promise<InvoiceSummary> => {
   const params = customerId ? { customerId } : {};
-  const response = await api.get<{ data: InvoiceSummary }>(
-    `${INVOICE_API_PATH}/summary`,
-    { params }
-  );
+  const response = await api.get<{ data: InvoiceSummary }>(`${INVOICE_API_PATH}/summary`, { params });
   return response.data.data;
 };
 
@@ -97,9 +80,7 @@ export const getInvoiceSummary = async (customerId?: string): Promise<InvoiceSum
  * Update overdue invoices (admin only)
  */
 export const updateOverdueInvoices = async (): Promise<{ count: number }> => {
-  const response = await api.post<{ data: { count: number }; message: string }>(
-    `${INVOICE_API_PATH}/update-overdue`
-  );
+  const response = await api.post<{ data: { count: number }; message: string }>(`${INVOICE_API_PATH}/update-overdue`);
   return response.data.data;
 };
 

@@ -93,7 +93,7 @@ export const updateDefaultComponent = async (req: Request, res: Response, next: 
 
     // First find the record by category and component
     const defaults = await categoryComponentDefaultService.getByProductCategoryId(categoryId);
-    const existing = defaults.find(d => d.componentMasterId === componentId);
+    const existing = defaults.find((d) => d.componentMasterId === componentId);
 
     if (!existing) {
       res.status(404).json({ message: 'Default component not found for this category' });

@@ -6,7 +6,7 @@ import {
   updatePackaging,
   deletePackaging,
   bulkImportPackaging,
-  downloadTemplate
+  downloadTemplate,
 } from '../controllers/packaging.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

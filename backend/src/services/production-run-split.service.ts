@@ -42,11 +42,7 @@ export interface SplitResult {
  * - Parent status becomes SPLIT
  * - work_order_breakup entries proportionally distributed to children
  */
-export async function splitProductionRun(
-  parentId: string,
-  splits: SplitInput[],
-  userId: string
-): Promise<SplitResult> {
+export async function splitProductionRun(parentId: string, splits: SplitInput[], userId: string): Promise<SplitResult> {
   if (!splits || splits.length < 2) {
     throw new Error('At least 2 splits are required');
   }
@@ -73,9 +69,7 @@ export async function splitProductionRun(
     // 3. Validate quantities
     const totalSplitQty = splits.reduce((sum, s) => sum + s.quantity, 0);
     if (totalSplitQty !== parent.totalQuantity) {
-      throw new Error(
-        `Split quantities (${totalSplitQty}) must equal parent total (${parent.totalQuantity})`
-      );
+      throw new Error(`Split quantities (${totalSplitQty}) must equal parent total (${parent.totalQuantity})`);
     }
 
     // 4. Generate child work order numbers
@@ -113,7 +107,7 @@ export async function splitProductionRun(
           remarks: split.remarks || `Split from ${parent.workOrderNumber}`,
           createdById: userId,
           parentRunId: parent.id,
-          fabricLotInfo: split.fabricLotInfo ? split.fabricLotInfo as any : undefined,
+          fabricLotInfo: split.fabricLotInfo ? (split.fabricLotInfo as any) : undefined,
           splitReason: split.remarks,
         },
       });

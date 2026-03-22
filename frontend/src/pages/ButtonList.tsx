@@ -119,20 +119,14 @@ export default function ButtonList() {
       render: (button) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{button.buttonName}</div>
-          {button.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{button.description}</div>
-          )}
+          {button.description && <div className="text-xs text-gray-500 line-clamp-1">{button.description}</div>}
         </div>
       ),
     },
     {
       key: 'size',
       header: 'Size',
-      render: (button) => (
-        <div className="text-sm text-gray-700">
-          {button.size || '-'}
-        </div>
-      ),
+      render: (button) => <div className="text-sm text-gray-700">{button.size || '-'}</div>,
     },
     {
       key: 'holes',
@@ -146,20 +140,12 @@ export default function ButtonList() {
     {
       key: 'color',
       header: 'Color',
-      render: (button) => (
-        <div className="text-sm text-gray-700">
-          {button.color || '-'}
-        </div>
-      ),
+      render: (button) => <div className="text-sm text-gray-700">{button.color || '-'}</div>,
     },
     {
       key: 'material',
       header: 'Material',
-      render: (button) => (
-        <div className="text-sm text-gray-700">
-          {button.material || '-'}
-        </div>
-      ),
+      render: (button) => <div className="text-sm text-gray-700">{button.material || '-'}</div>,
     },
     {
       key: 'styleCodes',
@@ -181,11 +167,7 @@ export default function ButtonList() {
     {
       key: 'shape',
       header: 'Shape',
-      render: (button) => (
-        <div className="text-sm text-gray-700">
-          {button.shape || '-'}
-        </div>
-      ),
+      render: (button) => <div className="text-sm text-gray-700">{button.shape || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -241,11 +223,7 @@ export default function ButtonList() {
       className: 'text-right',
       render: (button) => (
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/materials/button/${button.id}/edit`)}
-          >
+          <Button variant="outline" size="sm" onClick={() => navigate(`/materials/button/${button.id}/edit`)}>
             Edit
           </Button>
           <Button
@@ -271,17 +249,9 @@ export default function ButtonList() {
             <CardTitle>Button Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="BUTTON" stockCount={stockCount} />
-              <ExportButton
-                module="button"
-                filters={{}}
-              />
-              <ImportButton
-                module="button"
-                onSuccess={fetchButtonItems}
-              />
-              <Button onClick={() => navigate('/materials/button/new')}>
-                + Add New Button
-              </Button>
+              <ExportButton module="button" filters={{}} />
+              <ImportButton module="button" onSuccess={fetchButtonItems} />
+              <Button onClick={() => navigate('/materials/button/new')}>+ Add New Button</Button>
             </div>
           </div>
         </CardHeader>

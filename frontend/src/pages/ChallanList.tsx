@@ -7,12 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { challanService } from '@/services/challan.service';
 import type { Challan, ChallanFilters } from '@/types/challan.types';
-import {
-  ChallanTypeLabels,
-  ChallanTypeColors,
-  ChallanStatusLabels,
-  ChallanStatusColors,
-} from '@/types/challan.types';
+import { ChallanTypeLabels, ChallanTypeColors, ChallanStatusLabels, ChallanStatusColors } from '@/types/challan.types';
 import DataTable, { type Column } from '@/components/DataTable';
 import { handleApiError } from '@/lib/api-error-handler';
 import { Plus, Eye, FileText, ArrowRight } from 'lucide-react';
@@ -112,15 +107,9 @@ export default function ChallanList() {
       header: 'Linked To',
       render: (challan) => (
         <div className="text-sm">
-          {challan.purchaseOrder && (
-            <span className="text-blue-600">{challan.purchaseOrder.poNumber}</span>
-          )}
-          {challan.order && (
-            <span className="text-purple-600">{challan.order.orderNumber}</span>
-          )}
-          {challan.productionRun && (
-            <span className="text-orange-600">{challan.productionRun.workOrderNumber}</span>
-          )}
+          {challan.purchaseOrder && <span className="text-blue-600">{challan.purchaseOrder.poNumber}</span>}
+          {challan.order && <span className="text-purple-600">{challan.order.orderNumber}</span>}
+          {challan.productionRun && <span className="text-orange-600">{challan.productionRun.workOrderNumber}</span>}
         </div>
       ),
     },
@@ -137,11 +126,7 @@ export default function ChallanList() {
       key: 'actions',
       header: '',
       render: (challan) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/manufacturing/challans/${challan.id}`)}
-        >
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/manufacturing/challans/${challan.id}`)}>
           <Eye className="h-4 w-4" />
         </Button>
       ),
@@ -170,28 +155,47 @@ export default function ChallanList() {
             <Input
               placeholder="Search challans..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               className="w-64"
             />
-            <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
+            <Select
+              value={typeFilter}
+              onValueChange={(v) => {
+                setTypeFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 {Object.entries(ChallanTypeLabels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 {Object.entries(ChallanStatusLabels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -201,20 +205,10 @@ export default function ChallanList() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable
-            data={challans}
-            columns={columns}
-            isLoading={isLoading}
-            emptyMessage="No challans found"
-          />
+          <DataTable data={challans} columns={columns} isLoading={isLoading} emptyMessage="No challans found" />
           {total > pageSize && (
             <div className="flex items-center justify-between mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
                 Previous
               </Button>
               <span className="text-sm text-muted-foreground">

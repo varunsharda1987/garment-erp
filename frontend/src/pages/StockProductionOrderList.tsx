@@ -6,27 +6,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,22 +19,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  getAllSPOs,
-  createSPO,
-  deleteSPO,
-} from '@/services/stockProductionOrder.service';
+import { getAllSPOs, createSPO, deleteSPO } from '@/services/stockProductionOrder.service';
 import { styleService } from '@/services/style.service';
-import type { StockProductionOrder, StockProductionOrderStatus, CreateSPORequest } from '@/types/stockProductionOrder.types';
+import type {
+  StockProductionOrder,
+  StockProductionOrderStatus,
+  CreateSPORequest,
+} from '@/types/stockProductionOrder.types';
 
 const STATUS_COLORS: Record<StockProductionOrderStatus, string> = {
   DRAFT: 'bg-gray-100 text-gray-800',
@@ -168,11 +144,14 @@ export default function StockProductionOrderList() {
             <Warehouse className="h-6 w-6" />
             Stock Production Orders
           </h1>
-          <p className="text-muted-foreground">
-            Produce garments for stock without a specific customer order
-          </p>
+          <p className="text-muted-foreground">Produce garments for stock without a specific customer order</p>
         </div>
-        <Button onClick={() => { resetForm(); setCreateDialogOpen(true); }}>
+        <Button
+          onClick={() => {
+            resetForm();
+            setCreateDialogOpen(true);
+          }}
+        >
           <Plus className="h-4 w-4 mr-2" />
           New Stock Production
         </Button>
@@ -186,11 +165,20 @@ export default function StockProductionOrderList() {
               <Input
                 placeholder="Search by SPO number or style..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className="pl-10"
               />
             </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -246,25 +234,17 @@ export default function StockProductionOrderList() {
                         <div className="text-sm text-muted-foreground">{spo.style?.styleName}</div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {spo.totalQuantity.toLocaleString()}
-                    </TableCell>
+                    <TableCell className="text-right font-medium">{spo.totalQuantity.toLocaleString()}</TableCell>
                     <TableCell>
                       <Badge className={STATUS_COLORS[spo.status]} variant="secondary">
                         {spo.status.replace('_', ' ')}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {spo.targetDate
-                        ? new Date(spo.targetDate).toLocaleDateString()
-                        : '-'}
-                    </TableCell>
+                    <TableCell>{spo.targetDate ? new Date(spo.targetDate).toLocaleDateString() : '-'}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{spo.priority}</Badge>
                     </TableCell>
-                    <TableCell>
-                      {spo._count?.workOrders || 0}
-                    </TableCell>
+                    <TableCell>{spo._count?.workOrders || 0}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -371,11 +351,7 @@ export default function StockProductionOrderList() {
               </div>
               <div className="space-y-2">
                 <Label>Target Date</Label>
-                <Input
-                  type="date"
-                  value={targetDate}
-                  onChange={(e) => setTargetDate(e.target.value)}
-                />
+                <Input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
               </div>
             </div>
             <div className="space-y-2">
@@ -394,11 +370,7 @@ export default function StockProductionOrderList() {
             </div>
             <div className="space-y-2">
               <Label>Remarks</Label>
-              <Textarea
-                placeholder="Optional notes..."
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-              />
+              <Textarea placeholder="Optional notes..." value={remarks} onChange={(e) => setRemarks(e.target.value)} />
             </div>
           </div>
           <DialogFooter>

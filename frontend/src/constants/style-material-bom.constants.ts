@@ -9,14 +9,14 @@ export const MaterialTypeLabels: Record<MaterialType, string> = {
   ZIPPER: 'Zipper',
   ELASTIC: 'Elastic',
   LABEL: 'Label',
-  PACKAGING: 'Packaging'
+  PACKAGING: 'Packaging',
 };
 
 // Helper const for usage category display names
 export const UsageCategoryLabels: Record<MaterialUsageCategory, string> = {
   GARMENT_TRIM: 'Garment Trim',
   VALUE_ADDITION: 'Value Addition',
-  PACKAGING: 'Packaging'
+  PACKAGING: 'Packaging',
 };
 
 // Unit options
@@ -27,5 +27,5 @@ export const UnitOptions = [
   { value: 'kg', label: 'Kilograms' },
   { value: 'cones', label: 'Cones' },
   { value: 'rolls', label: 'Rolls' },
-  { value: 'yards', label: 'Yards' }
+  { value: 'yards', label: 'Yards' },
 ];

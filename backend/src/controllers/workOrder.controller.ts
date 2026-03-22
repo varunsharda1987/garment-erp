@@ -1,6 +1,11 @@
 // Work Order Controller - RESTful API endpoints for work order management
 import { Request, Response } from 'express';
-import workOrderService, { CreateWorkOrderDTO, UpdateWorkOrderDTO, ProductionTrackingDTO, SplitWorkOrderDTO } from '../services/workOrder.service';
+import workOrderService, {
+  CreateWorkOrderDTO,
+  UpdateWorkOrderDTO,
+  ProductionTrackingDTO,
+  SplitWorkOrderDTO,
+} from '../services/workOrder.service';
 import { OrderStatus, Priority, ProductionStage } from '@prisma/client';
 import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
@@ -208,11 +213,7 @@ export const addProductionTracking = async (req: Request, res: Response) => {
   const adminOverride = req.body.adminOverride === true;
   const overrideReason = req.body.overrideReason;
 
-  const tracking = await workOrderService.addProductionTracking(
-    trackingData,
-    adminOverride,
-    overrideReason
-  );
+  const tracking = await workOrderService.addProductionTracking(trackingData, adminOverride, overrideReason);
 
   res.status(201).json({
     success: true,

@@ -7,7 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Elastic } from '@/types/elastic.types';
 import { handleApiError } from '@/lib/api-error-handler';
-import { ArrowLeft, Edit, Package, Palette, Ruler, DollarSign, Building2, FileText, Percent, Users, Star, Check, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Package,
+  Palette,
+  Ruler,
+  DollarSign,
+  Building2,
+  FileText,
+  Percent,
+  Users,
+  Star,
+  Check,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/currency';
 
@@ -19,7 +33,8 @@ export default function ElasticDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -108,9 +123,7 @@ export default function ElasticDetail() {
                   />
                 </div>
                 <p className="text-gray-600">Elastic Code: {elastic.elasticCode}</p>
-                {elastic.materialCode && (
-                  <p className="text-gray-500 text-sm">Material Code: {elastic.materialCode}</p>
-                )}
+                {elastic.materialCode && <p className="text-gray-500 text-sm">Material Code: {elastic.materialCode}</p>}
               </div>
               {elastic.image && (
                 <img
@@ -203,9 +216,7 @@ export default function ElasticDetail() {
               {elastic.pricePerMeter ? (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Meter</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    {formatCurrency(elastic.pricePerMeter)}
-                  </p>
+                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(elastic.pricePerMeter)}</p>
                 </div>
               ) : (
                 <p className="text-gray-500 text-sm">No pricing information available</p>
@@ -254,10 +265,18 @@ export default function ElasticDetail() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Meter</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Supplier
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price/Meter
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Notes
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -293,9 +312,7 @@ export default function ElasticDetail() {
                               </Badge>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
-                            {s.notes || '-'}
-                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{s.notes || '-'}</td>
                         </tr>
                       ))}
                     </tbody>

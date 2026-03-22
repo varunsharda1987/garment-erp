@@ -8,16 +8,7 @@
 import React from 'react';
 
 // Lucide Icons
-import {
-  Package,
-  Shirt,
-  Scissors,
-  Factory,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Loader2,
-} from 'lucide-react';
+import { Package, Shirt, Scissors, Factory, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 // Custom Icons
 import {
@@ -125,20 +116,15 @@ export const MenuIconExample = () => {
   return (
     <nav className="space-y-2">
       {menuItems.map((item, index) => (
-        <div
-          key={index}
-          className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded-md cursor-pointer"
-        >
-          {typeof item.icon === 'function' ? (
-            React.createElement(item.icon, {
-              size: 20,
-              className: item.color,
-            })
-          ) : (
-            React.createElement(item.icon, {
-              className: `h-5 w-5 ${item.color}`,
-            })
-          )}
+        <div key={index} className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 rounded-md cursor-pointer">
+          {typeof item.icon === 'function'
+            ? React.createElement(item.icon, {
+                size: 20,
+                className: item.color,
+              })
+            : React.createElement(item.icon, {
+                className: `h-5 w-5 ${item.color}`,
+              })}
           <span>{item.label}</span>
         </div>
       ))}
@@ -170,21 +156,15 @@ export const ProcessStepsExample = () => {
               step.completed ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
             } border`}
           >
-            {typeof IconComponent === 'function' ? (
-              React.createElement(IconComponent, {
-                size: 24,
-                className: step.completed ? 'text-green-600' : 'text-gray-400',
-              })
-            ) : (
-              React.createElement(IconComponent, {
-                className: `h-6 w-6 ${step.completed ? 'text-green-600' : 'text-gray-400'}`,
-              })
-            )}
-            <span
-              className={`font-medium ${step.completed ? 'text-green-900' : 'text-gray-600'}`}
-            >
-              {step.title}
-            </span>
+            {typeof IconComponent === 'function'
+              ? React.createElement(IconComponent, {
+                  size: 24,
+                  className: step.completed ? 'text-green-600' : 'text-gray-400',
+                })
+              : React.createElement(IconComponent, {
+                  className: `h-6 w-6 ${step.completed ? 'text-green-600' : 'text-gray-400'}`,
+                })}
+            <span className={`font-medium ${step.completed ? 'text-green-900' : 'text-gray-600'}`}>{step.title}</span>
             {step.completed && <CheckCircle className="h-5 w-5 text-green-600 ml-auto" />}
           </div>
         );
@@ -216,16 +196,14 @@ export const IconDashboardExample = () => {
                 <p className="text-2xl font-bold mt-2">{card.value}</p>
               </div>
               <div className={`p-3 rounded-full ${card.color}`}>
-                {typeof IconComponent === 'function' ? (
-                  React.createElement(IconComponent, {
-                    size: 24,
-                    className: 'text-white',
-                  })
-                ) : (
-                  React.createElement(IconComponent, {
-                    className: 'h-6 w-6 text-white',
-                  })
-                )}
+                {typeof IconComponent === 'function'
+                  ? React.createElement(IconComponent, {
+                      size: 24,
+                      className: 'text-white',
+                    })
+                  : React.createElement(IconComponent, {
+                      className: 'h-6 w-6 text-white',
+                    })}
               </div>
             </div>
           </div>

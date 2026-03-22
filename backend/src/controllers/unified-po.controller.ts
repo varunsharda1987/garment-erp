@@ -165,15 +165,7 @@ export async function validatePOInputController(req: Request, res: Response) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const {
-      supplierId,
-      expectedDeliveryDate,
-      source,
-      poCategory,
-      items,
-      sourceLinks,
-      linkedGreigePOId,
-    } = req.body;
+    const { supplierId, expectedDeliveryDate, source, poCategory, items, sourceLinks, linkedGreigePOId } = req.body;
 
     const input: UnifiedPOCreationInput = {
       supplierId,

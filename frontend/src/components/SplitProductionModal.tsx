@@ -1,13 +1,6 @@
 // Split Production Modal - Split a work order for partial dispatch
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -125,8 +118,8 @@ export default function SplitProductionModal({
         <DialogHeader>
           <DialogTitle>Split Production Run</DialogTitle>
           <DialogDescription>
-            Split {workOrder.workOrderNumber} for partial dispatch. Select the quantities to move
-            to a new production run.
+            Split {workOrder.workOrderNumber} for partial dispatch. Select the quantities to move to a new production
+            run.
           </DialogDescription>
         </DialogHeader>
 
@@ -172,18 +165,10 @@ export default function SplitProductionModal({
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Color
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Size
-                    </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                      Available
-                    </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
-                      Split Qty
-                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Available</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Split Qty</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -191,9 +176,7 @@ export default function SplitProductionModal({
                     <tr key={`${entry.colorId}-${entry.sizeId}`} className="hover:bg-gray-50">
                       <td className="px-4 py-2 text-sm">{entry.colorName}</td>
                       <td className="px-4 py-2 text-sm">{entry.sizeName}</td>
-                      <td className="px-4 py-2 text-sm text-right font-medium">
-                        {entry.availableQuantity}
-                      </td>
+                      <td className="px-4 py-2 text-sm text-right font-medium">{entry.availableQuantity}</td>
                       <td className="px-4 py-2">
                         <Input
                           type="number"
@@ -213,9 +196,7 @@ export default function SplitProductionModal({
                     <td colSpan={3} className="px-4 py-2 text-right font-medium">
                       Total to Split:
                     </td>
-                    <td className="px-4 py-2 text-right font-bold text-blue-600">
-                      {getTotalSplitQuantity()} pcs
-                    </td>
+                    <td className="px-4 py-2 text-right font-bold text-blue-600">{getTotalSplitQuantity()} pcs</td>
                   </tr>
                 </tfoot>
               </table>
@@ -227,8 +208,7 @@ export default function SplitProductionModal({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
               <div className="font-medium text-blue-900 mb-1">Split Summary</div>
               <div className="text-blue-700">
-                Moving <strong>{getTotalSplitQuantity()}</strong> pieces to a new production run
-                with dispatch date{' '}
+                Moving <strong>{getTotalSplitQuantity()}</strong> pieces to a new production run with dispatch date{' '}
                 <strong>{new Date(plannedDispatchDate).toLocaleDateString()}</strong>
               </div>
               <div className="text-blue-600 mt-1">

@@ -30,15 +30,7 @@ export async function createIssueNote(req: Request, res: Response) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
 
-  const {
-    orderId,
-    styleId,
-    cuttingBatchId,
-    stockId,
-    laceId,
-    issuedQuantity,
-    notes,
-  } = req.body;
+  const { orderId, styleId, cuttingBatchId, stockId, laceId, issuedQuantity, notes } = req.body;
 
   if (!orderId || !styleId || !stockId || !laceId || issuedQuantity === undefined) {
     throw new ValidationError('Missing required fields: orderId, styleId, stockId, laceId, issuedQuantity');
@@ -55,11 +47,13 @@ export async function createIssueNote(req: Request, res: Response) {
     issuedById: userId,
   });
 
-  res.status(201).json(serialize({
-    success: true,
-    data: issueNote,
-    message: 'Lace issued to production successfully',
-  }));
+  res.status(201).json(
+    serialize({
+      success: true,
+      data: issueNote,
+      message: 'Lace issued to production successfully',
+    })
+  );
 }
 
 /**
@@ -86,11 +80,13 @@ export async function recordConsumptionController(req: Request, res: Response) {
     performedById: userId,
   });
 
-  res.json(serialize({
-    success: true,
-    data: issueNote,
-    message: 'Consumption recorded successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: issueNote,
+      message: 'Consumption recorded successfully',
+    })
+  );
 }
 
 /**
@@ -117,11 +113,13 @@ export async function returnToStockController(req: Request, res: Response) {
     performedById: userId,
   });
 
-  res.json(serialize({
-    success: true,
-    data: issueNote,
-    message: 'Material returned to stock successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: issueNote,
+      message: 'Material returned to stock successfully',
+    })
+  );
 }
 
 /**
@@ -138,11 +136,13 @@ export async function closeIssueNoteController(req: Request, res: Response) {
 
   const issueNote = await closeIssueNote(id, userId);
 
-  res.json(serialize({
-    success: true,
-    data: issueNote,
-    message: 'Issue note closed successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: issueNote,
+      message: 'Issue note closed successfully',
+    })
+  );
 }
 
 /**
@@ -158,10 +158,12 @@ export async function getIssueNoteByIdController(req: Request, res: Response) {
     throw new NotFoundError('Issue note', id);
   }
 
-  res.json(serialize({
-    success: true,
-    data: issueNote,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: issueNote,
+    })
+  );
 }
 
 /**
@@ -169,16 +171,7 @@ export async function getIssueNoteByIdController(req: Request, res: Response) {
  * Get issue notes with filters and pagination
  */
 export async function getIssueNotesController(req: Request, res: Response) {
-  const {
-    orderId,
-    styleId,
-    stockId,
-    laceId,
-    status,
-    search,
-    page,
-    limit,
-  } = req.query;
+  const { orderId, styleId, stockId, laceId, status, search, page, limit } = req.query;
 
   const result = await getIssueNotes({
     orderId: orderId as string,
@@ -191,10 +184,12 @@ export async function getIssueNotesController(req: Request, res: Response) {
     limit: limit ? parseInt(limit as string) : undefined,
   });
 
-  res.json(serialize({
-    success: true,
-    ...result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      ...result,
+    })
+  );
 }
 
 /**
@@ -206,10 +201,12 @@ export async function getIssueNotesByOrderController(req: Request, res: Response
 
   const issueNotes = await getIssueNotesByOrder(orderId);
 
-  res.json(serialize({
-    success: true,
-    data: issueNotes,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: issueNotes,
+    })
+  );
 }
 
 export default {

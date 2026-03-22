@@ -17,22 +17,10 @@ export const MovementType = z.enum([
 ]);
 
 // Stock count type enum - matches Prisma CountType
-export const CountType = z.enum([
-  'FULL',
-  'PARTIAL',
-  'CYCLE',
-  'SPOT_CHECK',
-]);
+export const CountType = z.enum(['FULL', 'PARTIAL', 'CYCLE', 'SPOT_CHECK']);
 
 // Stock count status enum - matches Prisma CountStatus
-export const CountStatus = z.enum([
-  'DRAFT',
-  'IN_PROGRESS',
-  'COUNTED',
-  'VERIFIED',
-  'APPROVED',
-  'CANCELLED',
-]);
+export const CountStatus = z.enum(['DRAFT', 'IN_PROGRESS', 'COUNTED', 'VERIFIED', 'APPROVED', 'CANCELLED']);
 
 // Stock movement schema
 export const createStockMovementSchema = z.object({

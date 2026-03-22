@@ -80,7 +80,6 @@ export default function FinishingForm() {
 
       setPendingTransferSlips(slipsData);
       setContractors(contractorsData);
-
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to load data');
@@ -90,7 +89,7 @@ export default function FinishingForm() {
   };
 
   const handleTransferSlipSelect = async (slipId: string) => {
-    const slip = pendingTransferSlips.find(s => s.id === slipId);
+    const slip = pendingTransferSlips.find((s) => s.id === slipId);
     if (!slip) return;
 
     setSelectedTransferSlip(slip);
@@ -98,24 +97,28 @@ export default function FinishingForm() {
 
     // Get SKU breakdown from the transfer slip
     if (slip.skuBreakdown && slip.skuBreakdown.length > 0) {
-      setSkuBreakdown(slip.skuBreakdown.map(sku => ({
-        colorId: sku.colorId,
-        colorName: sku.colorName,
-        sizeId: sku.sizeId,
-        sizeName: sku.sizeName,
-        availableQty: sku.quantity,
-        issuedQty: sku.quantity, // Default to all available
-      })));
+      setSkuBreakdown(
+        slip.skuBreakdown.map((sku) => ({
+          colorId: sku.colorId,
+          colorName: sku.colorName,
+          sizeId: sku.sizeId,
+          sizeName: sku.sizeName,
+          availableQty: sku.quantity,
+          issuedQty: sku.quantity, // Default to all available
+        }))
+      );
     } else {
       // Placeholder if no detailed breakdown available
-      setSkuBreakdown([{
-        colorId: null,
-        colorName: 'All Colors',
-        sizeId: 'unknown',
-        sizeName: 'All Sizes',
-        availableQty: slip.totalGoodPieces,
-        issuedQty: slip.totalGoodPieces,
-      }]);
+      setSkuBreakdown([
+        {
+          colorId: null,
+          colorName: 'All Colors',
+          sizeId: 'unknown',
+          sizeName: 'All Sizes',
+          availableQty: slip.totalGoodPieces,
+          issuedQty: slip.totalGoodPieces,
+        },
+      ]);
     }
 
     // Set default expected completion (5 days from issue for finishing)
@@ -125,7 +128,7 @@ export default function FinishingForm() {
   };
 
   const updateSKUQuantity = (index: number, value: number) => {
-    setSkuBreakdown(prev => {
+    setSkuBreakdown((prev) => {
       const updated = [...prev];
       updated[index] = {
         ...updated[index],
@@ -179,8 +182,8 @@ export default function FinishingForm() {
         expectedCompletionDate: expectedCompletionDate || undefined,
         remarks: remarks || undefined,
         skuBreakdown: skuBreakdown
-          .filter(sku => sku.issuedQty > 0)
-          .map(sku => ({
+          .filter((sku) => sku.issuedQty > 0)
+          .map((sku) => ({
             colorId: sku.colorId,
             sizeId: sku.sizeId,
             availableQty: sku.availableQty,
@@ -193,7 +196,6 @@ export default function FinishingForm() {
       handleApiSuccess('Success', `Finishing issue ${result.issueNumber} created successfully`);
 
       navigate(`/manufacturing/finishing/${result.id}`);
-
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || 'Failed to create finishing issue');
@@ -234,9 +236,7 @@ export default function FinishingForm() {
                 <Package className="h-5 w-5" />
                 Source Selection
               </CardTitle>
-              <CardDescription>
-                Select a transfer slip from stitching to create a finishing issue
-              </CardDescription>
+              <CardDescription>Select a transfer slip from stitching to create a finishing issue</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -254,13 +254,18 @@ export default function FinishingForm() {
                     <SelectValue placeholder="Select a transfer slip..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="NONE" disabled>Select a transfer slip...</SelectItem>
+                    <SelectItem value="NONE" disabled>
+                      Select a transfer slip...
+                    </SelectItem>
                     {pendingTransferSlips.length === 0 ? (
-                      <SelectItem value="empty" disabled>No pending transfer slips</SelectItem>
+                      <SelectItem value="empty" disabled>
+                        No pending transfer slips
+                      </SelectItem>
                     ) : (
                       pendingTransferSlips.map((slip) => (
                         <SelectItem key={slip.id} value={slip.id}>
-                          {slip.slipNumber} - {slip.workOrderNumber} ({slip.styleCode || slip.styleName}) - {slip.totalGoodPieces} pcs
+                          {slip.slipNumber} - {slip.workOrderNumber} ({slip.styleCode || slip.styleName}) -{' '}
+                          {slip.totalGoodPieces} pcs
                         </SelectItem>
                       ))
                     )}
@@ -325,15 +330,14 @@ export default function FinishingForm() {
 
                 <div>
                   <Label htmlFor="contractor">Finishing Contractor *</Label>
-                  <Select
-                    value={contractorId || 'NONE'}
-                    onValueChange={(v) => setContractorId(v === 'NONE' ? '' : v)}
-                  >
+                  <Select value={contractorId || 'NONE'} onValueChange={(v) => setContractorId(v === 'NONE' ? '' : v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select contractor..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="NONE" disabled>Select contractor...</SelectItem>
+                      <SelectItem value="NONE" disabled>
+                        Select contractor...
+                      </SelectItem>
                       {contractors.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name} ({c.code})
@@ -396,9 +400,7 @@ export default function FinishingForm() {
                         <TableRow key={`${sku.colorId || 'null'}-${sku.sizeId}`}>
                           <TableCell className="font-medium">{sku.colorName || '—'}</TableCell>
                           <TableCell>{sku.sizeName}</TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">
-                            {sku.availableQty}
-                          </TableCell>
+                          <TableCell className="text-right text-green-600 font-medium">{sku.availableQty}</TableCell>
                           <TableCell className="text-right">
                             <Input
                               type="number"
@@ -417,12 +419,8 @@ export default function FinishingForm() {
                         <td colSpan={2} className="px-4 py-3 text-sm font-semibold">
                           Total
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
-                          {getTotalAvailable()}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-purple-600">
-                          {getTotalIssued()}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-green-600">{getTotalAvailable()}</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-purple-600">{getTotalIssued()}</td>
                       </tr>
                     </tfoot>
                   </Table>
@@ -430,8 +428,8 @@ export default function FinishingForm() {
 
                 {getTotalIssued() < getTotalAvailable() && (
                   <p className="text-sm text-amber-600 mt-2">
-                    Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} available pieces.
-                    Remaining pieces can be issued later.
+                    Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} available pieces. Remaining pieces
+                    can be issued later.
                   </p>
                 )}
               </CardContent>
@@ -448,11 +446,7 @@ export default function FinishingForm() {
                 </div>
 
                 <div className="flex gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate('/manufacturing/finishing')}
-                  >
+                  <Button type="button" variant="outline" onClick={() => navigate('/manufacturing/finishing')}>
                     Cancel
                   </Button>
                   <Button

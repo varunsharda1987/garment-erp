@@ -12,11 +12,11 @@ import { randomUUID } from 'crypto';
 import { ProcessType } from '@prisma/client';
 
 const processTypeMapping: Record<string, ProcessType> = {
-  'embroidery': ProcessType.EMBROIDERY,
-  'handwork': ProcessType.FINISHING,  // Map handwork to FINISHING
-  'dyeing': ProcessType.DYEING,
-  'washing': ProcessType.WASHING,
-  'printing': ProcessType.PRINTING,
+  embroidery: ProcessType.EMBROIDERY,
+  handwork: ProcessType.FINISHING, // Map handwork to FINISHING
+  dyeing: ProcessType.DYEING,
+  washing: ProcessType.WASHING,
+  printing: ProcessType.PRINTING,
 };
 
 async function migrateValueAdditionsToProcesses() {
@@ -30,9 +30,9 @@ async function migrateValueAdditionsToProcesses() {
           select: {
             id: true,
             styleCode: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     console.log(`📊 Found ${valueAdditions.length} value additions to migrate`);
@@ -47,7 +47,9 @@ async function migrateValueAdditionsToProcesses() {
         const processType = processTypeMapping[additionType];
 
         if (!processType) {
-          console.warn(`⚠️  Skipping unknown addition type: ${addition.additionType} for style ${addition.styles.styleCode}`);
+          console.warn(
+            `⚠️  Skipping unknown addition type: ${addition.additionType} for style ${addition.styles.styleCode}`
+          );
           skipped++;
           continue;
         }
@@ -57,7 +59,7 @@ async function migrateValueAdditionsToProcesses() {
           where: {
             styleId: addition.styleId,
             processType: processType,
-          }
+          },
         });
 
         if (existingProcess) {
@@ -80,12 +82,11 @@ async function migrateValueAdditionsToProcesses() {
             notes: buildNotes(addition),
             createdAt: addition.createdAt,
             updatedAt: addition.updatedAt,
-          }
+          },
         });
 
         migrated++;
         console.log(`✅ Migrated ${processType} for style ${addition.styles.styleCode}`);
-
       } catch (error) {
         errors++;
         console.error(`❌ Error migrating addition ${addition.id}:`, error);
@@ -103,7 +104,6 @@ async function migrateValueAdditionsToProcesses() {
       console.log('   Review the migrated data in style_processes before deleting the old table.');
       console.log('   To delete old data, run: DELETE FROM style_value_additions;');
     }
-
   } catch (error) {
     console.error('❌ Migration failed:', error);
     throw error;

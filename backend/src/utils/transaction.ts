@@ -104,10 +104,7 @@ export async function withRetryableTransaction<T>(
       lastError = error as Error;
 
       // Check if it's a serialization failure (P2034)
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2034'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
         logDebug(`Transaction serialization failure, attempt ${attempt}/${maxRetries}`);
 
         if (attempt < maxRetries) {

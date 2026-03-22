@@ -41,11 +41,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const [greigeLaces, setGreigeLaces] = useState<Lace[]>([]);
   const [sourceGreigeLaceId, setSourceGreigeLaceId] = useState<string>('');
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-  } = useForm<LaceFormData>();
+  const { register, handleSubmit, setValue } = useForm<LaceFormData>();
 
   const isNewLace = mode === 'create' || !id;
 
@@ -113,13 +109,15 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
           // Set suppliers from junction table
           if (lace.laceSuppliers && lace.laceSuppliers.length > 0) {
-            setSuppliers(lace.laceSuppliers.map(s => ({
-              supplierId: s.supplierId,
-              isPreferred: s.isPreferred,
-              isActive: s.isActive,
-              notes: s.notes || '',
-              pricePerMeter: s.pricePerMeter?.toString() || '',
-            })));
+            setSuppliers(
+              lace.laceSuppliers.map((s) => ({
+                supplierId: s.supplierId,
+                isPreferred: s.isPreferred,
+                isActive: s.isActive,
+                notes: s.notes || '',
+                pricePerMeter: s.pricePerMeter?.toString() || '',
+              }))
+            );
           }
 
           // Set style codes
@@ -139,23 +137,24 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
   // Supplier management functions
   const handleAddSupplier = () => {
-    setSuppliers(prev => [...prev, {
-      supplierId: '',
-      isPreferred: prev.length === 0, // First supplier is preferred by default
-      isActive: true,
-      notes: '',
-      pricePerMeter: '',
-    }]);
+    setSuppliers((prev) => [
+      ...prev,
+      {
+        supplierId: '',
+        isPreferred: prev.length === 0, // First supplier is preferred by default
+        isActive: true,
+        notes: '',
+        pricePerMeter: '',
+      },
+    ]);
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setSuppliers(prev => prev.filter((_, i) => i !== index));
+    setSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: keyof LaceSupplierInput, value: string | boolean) => {
-    setSuppliers(prev => prev.map((s, i) =>
-      i === index ? { ...s, [field]: value } : s
-    ));
+    setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const onSubmit = async (data: LaceFormData) => {
@@ -164,7 +163,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
       setError(null);
 
       // Validate suppliers have valid supplier IDs
-      const validSuppliers = suppliers.filter(s => s.supplierId);
+      const validSuppliers = suppliers.filter((s) => s.supplierId);
 
       // If name wasn't manually edited (or is same as original), send empty to trigger auto-regeneration
       // This ensures the name updates when attributes change
@@ -179,12 +178,9 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
         suppliers: validSuppliers,
         // Greige fields
         isGreige,
-        expectedShrinkagePercent: isGreige && data.expectedShrinkagePercent
-          ? Number(data.expectedShrinkagePercent)
-          : undefined,
-        costPerMeterGreige: isGreige && data.costPerMeterGreige
-          ? Number(data.costPerMeterGreige)
-          : undefined,
+        expectedShrinkagePercent:
+          isGreige && data.expectedShrinkagePercent ? Number(data.expectedShrinkagePercent) : undefined,
+        costPerMeterGreige: isGreige && data.costPerMeterGreige ? Number(data.costPerMeterGreige) : undefined,
         sourceGreigeLaceId: !isGreige && sourceGreigeLaceId ? sourceGreigeLaceId : undefined,
         // Clear color for greige lace (greige has no color)
         color: isGreige ? undefined : data.color,
@@ -200,11 +196,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
       navigate('/materials/lace');
     } catch (err: unknown) {
-      const errorMessage = handleApiError(
-        err,
-        `Failed to ${isNewLace ? 'create' : 'update'} lace`,
-        false
-      );
+      const errorMessage = handleApiError(err, `Failed to ${isNewLace ? 'create' : 'update'} lace`, false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -227,11 +219,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* LACE INFORMATION */}
             <div>
@@ -263,9 +251,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         placeholder="Will be auto-generated (e.g., LACE-000001)"
                         className="bg-gray-50 cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Code will be automatically assigned upon creation
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
                     </>
                   )}
                 </div>
@@ -274,9 +260,11 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                 <div className="md:col-span-2">
                   <Label className="mb-3 block">Lace Nature</Label>
                   <div className="flex gap-4">
-                    <label className={`flex items-center gap-2 px-4 py-3 border rounded-lg cursor-pointer transition-colors ${
-                      !isGreige ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'
-                    }`}>
+                    <label
+                      className={`flex items-center gap-2 px-4 py-3 border rounded-lg cursor-pointer transition-colors ${
+                        !isGreige ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
                       <input
                         type="radio"
                         name="laceNature"
@@ -289,9 +277,11 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         <p className="text-xs text-gray-500">Colored lace ready for production</p>
                       </div>
                     </label>
-                    <label className={`flex items-center gap-2 px-4 py-3 border rounded-lg cursor-pointer transition-colors ${
-                      isGreige ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 hover:bg-gray-50'
-                    }`}>
+                    <label
+                      className={`flex items-center gap-2 px-4 py-3 border rounded-lg cursor-pointer transition-colors ${
+                        isGreige ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
                       <input
                         type="radio"
                         name="laceNature"
@@ -321,15 +311,14 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         if (e.target.value !== originalLaceName) {
                           setNameManuallyEdited(true);
                         }
-                      }
+                      },
                     })}
                     placeholder="Leave empty to auto-generate from color, design, composition, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     {isNewLace
                       ? 'If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Design Composition Lace Width")'
-                      : 'Name will auto-update when you change attributes. Edit manually to override.'
-                    }
+                      : 'Name will auto-update when you change attributes. Edit manually to override.'}
                   </p>
                 </div>
 
@@ -348,13 +337,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                 {/* Width */}
                 <div>
                   <Label htmlFor="width">Width (inches)</Label>
-                  <Input
-                    id="width"
-                    type="number"
-                    step="0.01"
-                    {...register('width')}
-                    placeholder="e.g., 2.0"
-                  />
+                  <Input id="width" type="number" step="0.01" {...register('width')} placeholder="e.g., 2.0" />
                 </div>
 
                 {/* Color - Only show for finished lace */}
@@ -395,9 +378,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         {...register('expectedShrinkagePercent')}
                         placeholder="e.g., 5"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Shrinkage during dyeing process (typically 3-8%)
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Shrinkage during dyeing process (typically 3-8%)</p>
                     </div>
                     <div>
                       <Label htmlFor="costPerMeterGreige">Greige Cost (per meter)</Label>
@@ -408,9 +389,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         {...register('costPerMeterGreige')}
                         placeholder="e.g., 18.50"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Raw lace cost before processing
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Raw lace cost before processing</p>
                     </div>
                   </>
                 )}
@@ -428,7 +407,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">None</SelectItem>
-                        {greigeLaces.map(gl => (
+                        {greigeLaces.map((gl) => (
                           <SelectItem key={gl.id} value={gl.id}>
                             {gl.laceCode} - {gl.laceName}
                           </SelectItem>
@@ -454,21 +433,13 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                 {/* Design */}
                 <div>
                   <Label htmlFor="design">Design</Label>
-                  <Input
-                    id="design"
-                    {...register('design')}
-                    placeholder="e.g., Floral, Geometric"
-                  />
+                  <Input id="design" {...register('design')} placeholder="e.g., Floral, Geometric" />
                 </div>
 
                 {/* Buyer Code */}
                 <div>
                   <Label htmlFor="buyerCode">Buyer Code</Label>
-                  <Input
-                    id="buyerCode"
-                    {...register('buyerCode')}
-                    placeholder="Buyer's reference code (optional)"
-                  />
+                  <Input id="buyerCode" {...register('buyerCode')} placeholder="Buyer's reference code (optional)" />
                 </div>
               </div>
             </div>
@@ -477,12 +448,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddSupplier}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
                 </Button>
@@ -500,7 +466,9 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
-                          <Label>Supplier <span className="text-red-500">*</span></Label>
+                          <Label>
+                            Supplier <span className="text-red-500">*</span>
+                          </Label>
                           <Select
                             value={supplier.supplierId || undefined}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
@@ -509,7 +477,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                               <SelectValue placeholder="Select supplier..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableSuppliers.map(s => (
+                              {availableSuppliers.map((s) => (
                                 <SelectItem key={s.id} value={s.id}>
                                   {s.code} - {s.name}
                                 </SelectItem>
@@ -625,12 +593,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
             {/* ACTION BUTTONS */}
             <div className="flex gap-4 justify-end pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/materials/lace')}
-                disabled={isLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/materials/lace')} disabled={isLoading}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>

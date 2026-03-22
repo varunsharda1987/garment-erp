@@ -10,13 +10,13 @@ interface MaterialComboboxProps {
   className?: string;
   disabled?: boolean;
   categoryFilter?: string; // Optional filter by material category/type
-  supplierId?: string;     // Optional filter by supplier
+  supplierId?: string; // Optional filter by supplier
 }
 
 export function MaterialCombobox({
   value,
   onValueChange,
-  placeholder = "Select material...",
+  placeholder = 'Select material...',
   className,
   disabled = false,
   categoryFilter,
@@ -31,40 +31,43 @@ export function MaterialCombobox({
     loadMaterials('');
   }, [categoryFilter, supplierId]);
 
-  const loadMaterials = useCallback(async (search: string) => {
-    try {
-      setIsLoading(true);
-      // Server-side search with reasonable limit
-      const response = await getAllMaterials({
-        limit: 50,
-        search: search || undefined,
-        supplierId: supplierId || undefined,
-      });
+  const loadMaterials = useCallback(
+    async (search: string) => {
+      try {
+        setIsLoading(true);
+        // Server-side search with reasonable limit
+        const response = await getAllMaterials({
+          limit: 50,
+          search: search || undefined,
+          supplierId: supplierId || undefined,
+        });
 
-      const materialOptions: ComboboxOption[] = (response.data || []).map((material: any) => ({
-        value: material.id,
-        label: `${material.code} - ${material.name}`,
-        searchText: `${material.code} ${material.name} ${material.category || ''} ${material.description || ''}`,
-      }));
+        const materialOptions: ComboboxOption[] = (response.data || []).map((material: any) => ({
+          value: material.id,
+          label: `${material.code} - ${material.name}`,
+          searchText: `${material.code} ${material.name} ${material.category || ''} ${material.description || ''}`,
+        }));
 
-      setMaterials(materialOptions);
-      setInitialLoaded(true);
-    } catch (error: any) {
-      console.error('Failed to load materials:', error);
-      toast.error(error?.message || 'Failed to load materials');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [categoryFilter, supplierId]);
+        setMaterials(materialOptions);
+        setInitialLoaded(true);
+      } catch (error: any) {
+        console.error('Failed to load materials:', error);
+        toast.error(error?.message || 'Failed to load materials');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [categoryFilter, supplierId]
+  );
 
   return (
     <Combobox
       options={materials}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? "Loading materials..." : placeholder}
+      placeholder={!initialLoaded ? 'Loading materials...' : placeholder}
       searchPlaceholder="Search by code, name, category..."
-      emptyText={categoryFilter ? `No ${categoryFilter.toLowerCase()} materials found.` : "No materials found."}
+      emptyText={categoryFilter ? `No ${categoryFilter.toLowerCase()} materials found.` : 'No materials found.'}
       disabled={disabled || !initialLoaded}
       className={className}
       onSearchChange={loadMaterials}

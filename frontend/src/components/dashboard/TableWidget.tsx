@@ -8,14 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Column<T> {
   key: keyof T | string;
@@ -117,10 +110,7 @@ export function TableWidget<T extends Record<string, unknown>>({
             <TableHeader>
               <TableRow>
                 {columns.map((column) => (
-                  <TableHead
-                    key={String(column.key)}
-                    className={getAlignment(column.align)}
-                  >
+                  <TableHead key={String(column.key)} className={getAlignment(column.align)}>
                     {column.label}
                   </TableHead>
                 ))}
@@ -134,10 +124,7 @@ export function TableWidget<T extends Record<string, unknown>>({
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((column) => (
-                    <TableCell
-                      key={String(column.key)}
-                      className={getAlignment(column.align)}
-                    >
+                    <TableCell key={String(column.key)} className={getAlignment(column.align)}>
                       {getCellValue(row, column)}
                     </TableCell>
                   ))}

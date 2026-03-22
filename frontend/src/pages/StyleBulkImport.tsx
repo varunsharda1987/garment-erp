@@ -33,9 +33,11 @@ export default function StyleBulkImport() {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ];
 
-    if (!validTypes.includes(selectedFile.type) &&
-        !selectedFile.name.endsWith('.csv') &&
-        !selectedFile.name.endsWith('.xlsx')) {
+    if (
+      !validTypes.includes(selectedFile.type) &&
+      !selectedFile.name.endsWith('.csv') &&
+      !selectedFile.name.endsWith('.xlsx')
+    ) {
       setError('Please upload a CSV or Excel file');
       return;
     }
@@ -78,7 +80,9 @@ export default function StyleBulkImport() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to download template';
+      const errorMessage =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to download template';
       setError(errorMessage);
     }
   };
@@ -108,7 +112,8 @@ export default function StyleBulkImport() {
         setError('Import completed with errors. See details below.');
       }
     } catch (err) {
-      const errorMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Import failed';
+      const errorMessage =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Import failed';
       setError(errorMessage);
     } finally {
       setIsUploading(false);
@@ -134,18 +139,11 @@ export default function StyleBulkImport() {
             <FileSpreadsheet className="h-10 w-10 text-blue-600" />
             <div>
               <p className="font-medium text-gray-900">{file.name}</p>
-              <p className="text-sm text-gray-500">
-                {(file.size / 1024).toFixed(2)} KB
-              </p>
+              <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
             </div>
           </div>
           {!importResult && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleReset}
-              className="text-red-600 hover:text-red-700"
-            >
+            <Button variant="ghost" size="sm" onClick={handleReset} className="text-red-600 hover:text-red-700">
               Remove
             </Button>
           )}
@@ -230,18 +228,10 @@ export default function StyleBulkImport() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Row
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Style Code
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Component
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Error
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Row</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Style Code</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Component</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Error</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -265,11 +255,7 @@ export default function StyleBulkImport() {
           <Button variant="outline" onClick={handleReset}>
             Import Another File
           </Button>
-          {summary.errorCount === 0 && (
-            <Button onClick={() => navigate('/styles')}>
-              View Styles
-            </Button>
-          )}
+          {summary.errorCount === 0 && <Button onClick={() => navigate('/styles')}>View Styles</Button>}
         </div>
       </div>
     );
@@ -294,12 +280,7 @@ export default function StyleBulkImport() {
                   Download the sample template to see the required format for your import file.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadTemplate}
-                className="flex items-center gap-2"
-              >
+              <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
                 Download Template
               </Button>
@@ -363,8 +344,9 @@ export default function StyleBulkImport() {
                         </span>
                       </label>
                       <div className="ml-6 mt-1 text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-                        <strong>Warning:</strong> Only updates basic style info (Name, Customer, Season, Gender, Category).
-                        Components, Fabrics, CAD data, Variants, and Production Processes will be <strong>added new</strong>, not replaced.
+                        <strong>Warning:</strong> Only updates basic style info (Name, Customer, Season, Gender,
+                        Category). Components, Fabrics, CAD data, Variants, and Production Processes will be{' '}
+                        <strong>added new</strong>, not replaced.
                       </div>
                     </div>
                     <div>
@@ -400,11 +382,7 @@ export default function StyleBulkImport() {
                 <Button variant="outline" onClick={() => navigate('/styles')}>
                   Cancel
                 </Button>
-                <Button
-                  onClick={handleImport}
-                  disabled={!file || isUploading}
-                  className="flex items-center gap-2"
-                >
+                <Button onClick={handleImport} disabled={!file || isUploading} className="flex items-center gap-2">
                   {isProcessing ? (
                     <>
                       <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

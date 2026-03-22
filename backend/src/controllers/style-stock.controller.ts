@@ -49,10 +49,7 @@ class StyleStockController {
       }));
 
       // Bulk create stock
-      const result = await FabricStockService.bulkCreateStyleStock(
-        stockEntries,
-        userId
-      );
+      const result = await FabricStockService.bulkCreateStyleStock(stockEntries, userId);
 
       // If ALL entries failed, return error status
       if (result.success === 0 && result.failed > 0) {
@@ -181,10 +178,7 @@ class StyleStockController {
       const stockData = req.body;
 
       // Use new GreigeStockService with dedicated greige_stock table
-      const result = await GreigeStockService.createGreigeStock(
-        stockData,
-        userId
-      );
+      const result = await GreigeStockService.createGreigeStock(stockData, userId);
 
       return res.status(201).json({
         success: true,

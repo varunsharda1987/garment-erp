@@ -5,26 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getReceivablePurchaseOrders, getPendingItemsForPO } from '@/services/purchaseOrder.service';
 import { createGRN, getProcessingContext } from '@/services/grn.service';
 import { warehouseService } from '@/services/warehouse.service';
 import type { PurchaseOrder, PendingPOItem } from '@/types/purchaseOrder.types';
-import type { CreateGRNRequest, CreateGRNItemRequest, ProcessingContext, ProcessingReceiveData } from '@/types/grn.types';
+import type {
+  CreateGRNRequest,
+  CreateGRNItemRequest,
+  ProcessingContext,
+  ProcessingReceiveData,
+} from '@/types/grn.types';
 import type { Warehouse } from '@/types/inventory.types';
 import { Badge } from '@/components/ui/badge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -61,9 +53,7 @@ export default function GRNForm() {
   const [selectedPOId, setSelectedPOId] = useState(preselectedPOId || '');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [warehouseId, setWarehouseId] = useState('');
-  const [receivingDate, setReceivingDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  const [receivingDate, setReceivingDate] = useState(new Date().toISOString().split('T')[0]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -202,14 +192,9 @@ export default function GRNForm() {
       return false;
     }
 
-    const hasReceivedItems = items.some(
-      (item) => parseFloat(item.receivedQuantity) > 0
-    );
+    const hasReceivedItems = items.some((item) => parseFloat(item.receivedQuantity) > 0);
     if (!hasReceivedItems) {
-      handleApiError(
-        new Error('Please enter received quantity for at least one item'),
-        'Validation Error'
-      );
+      handleApiError(new Error('Please enter received quantity for at least one item'), 'Validation Error');
       return false;
     }
 
@@ -272,13 +257,16 @@ export default function GRNForm() {
         invoiceDate: invoiceDate || undefined,
         remarks: remarks || undefined,
         items: grnItems,
-        processingData: selectedPO?.poCategory === 'PROCESSING' ? {
-          qtyReceivedMeters: procActualMeters || undefined,
-          receivedWidthInches: parseFloat(procReceivedWidthInches) || 0,
-          thanCount: procThanCount ? parseInt(procThanCount) : undefined,
-          foldLengthCm: procFoldLengthCm ? parseFloat(procFoldLengthCm) : undefined,
-          receivedChallan: procReceivedChallan || undefined,
-        } as ProcessingReceiveData : undefined,
+        processingData:
+          selectedPO?.poCategory === 'PROCESSING'
+            ? ({
+                qtyReceivedMeters: procActualMeters || undefined,
+                receivedWidthInches: parseFloat(procReceivedWidthInches) || 0,
+                thanCount: procThanCount ? parseInt(procThanCount) : undefined,
+                foldLengthCm: procFoldLengthCm ? parseFloat(procFoldLengthCm) : undefined,
+                receivedChallan: procReceivedChallan || undefined,
+              } as ProcessingReceiveData)
+            : undefined,
       };
 
       const grn = await createGRN(data);
@@ -301,12 +289,9 @@ export default function GRNForm() {
       const q = poSearch.toLowerCase();
       const matchesPO = po.poNumber.toLowerCase().includes(q);
       const matchesSupplier = po.supplier?.name?.toLowerCase().includes(q) ?? false;
-      const matchesMaterial =
-        (po.items ?? []).some(
-          (item) =>
-            item.materials?.code?.toLowerCase().includes(q) ||
-            item.materials?.name?.toLowerCase().includes(q)
-        );
+      const matchesMaterial = (po.items ?? []).some(
+        (item) => item.materials?.code?.toLowerCase().includes(q) || item.materials?.name?.toLowerCase().includes(q)
+      );
       const matchesStyle = (po.styleCodes ?? []).some((s) => s.toLowerCase().includes(q));
       const matchesCustomer = (po.customerNames ?? []).some((c) => c.toLowerCase().includes(q));
       return matchesPO || matchesSupplier || matchesMaterial || matchesStyle || matchesCustomer;
@@ -315,18 +300,17 @@ export default function GRNForm() {
   });
 
   // Processing computed values
-  const procCalculatedMeters = procThanCount && procFoldLengthCm
-    ? (parseFloat(procThanCount) * parseFloat(procFoldLengthCm)) / 100
-    : null;
-  const procActualMeters = procQtyReceivedMeters
-    ? parseFloat(procQtyReceivedMeters)
-    : procCalculatedMeters || 0;
-  const procShrinkage = processingContext && processingContext.qtySentMeters > 0 && procActualMeters > 0
-    ? ((processingContext.qtySentMeters - procActualMeters) / processingContext.qtySentMeters) * 100
-    : 0;
-  const procWidthVar = procReceivedWidthInches && processingContext
-    ? parseFloat(procReceivedWidthInches) - processingContext.sentWidthInches
-    : 0;
+  const procCalculatedMeters =
+    procThanCount && procFoldLengthCm ? (parseFloat(procThanCount) * parseFloat(procFoldLengthCm)) / 100 : null;
+  const procActualMeters = procQtyReceivedMeters ? parseFloat(procQtyReceivedMeters) : procCalculatedMeters || 0;
+  const procShrinkage =
+    processingContext && processingContext.qtySentMeters > 0 && procActualMeters > 0
+      ? ((processingContext.qtySentMeters - procActualMeters) / processingContext.qtySentMeters) * 100
+      : 0;
+  const procWidthVar =
+    procReceivedWidthInches && processingContext
+      ? parseFloat(procReceivedWidthInches) - processingContext.sentWidthInches
+      : 0;
 
   if (isLoading) {
     return (
@@ -410,32 +394,19 @@ export default function GRNForm() {
               <SelectContent>
                 {filteredPOs.map((po) => {
                   const materialTypes = [
-                    ...new Set(
-                      (po.items ?? [])
-                        .map((i) => i.materials?.materialType)
-                        .filter(Boolean) as string[]
-                    ),
+                    ...new Set((po.items ?? []).map((i) => i.materials?.materialType).filter(Boolean) as string[]),
                   ].join(', ');
-                  const styleInfo = po.styleCodes && po.styleCodes.length > 0
-                    ? po.styleCodes.join(', ')
-                    : null;
-                  const customerInfo = po.customerNames && po.customerNames.length > 0
-                    ? po.customerNames.join(', ')
-                    : null;
+                  const styleInfo = po.styleCodes && po.styleCodes.length > 0 ? po.styleCodes.join(', ') : null;
+                  const customerInfo =
+                    po.customerNames && po.customerNames.length > 0 ? po.customerNames.join(', ') : null;
                   return (
                     <SelectItem key={po.id} value={po.id}>
                       <span className="font-medium">{po.poNumber}</span>
                       {' — '}
                       <span>{po.supplier?.name}</span>
-                      {materialTypes && (
-                        <span className="text-muted-foreground ml-1 text-xs">({materialTypes})</span>
-                      )}
-                      {styleInfo && (
-                        <span className="text-muted-foreground ml-1 text-xs">| {styleInfo}</span>
-                      )}
-                      {customerInfo && (
-                        <span className="text-muted-foreground ml-1 text-xs">| {customerInfo}</span>
-                      )}
+                      {materialTypes && <span className="text-muted-foreground ml-1 text-xs">({materialTypes})</span>}
+                      {styleInfo && <span className="text-muted-foreground ml-1 text-xs">| {styleInfo}</span>}
+                      {customerInfo && <span className="text-muted-foreground ml-1 text-xs">| {customerInfo}</span>}
                     </SelectItem>
                   );
                 })}
@@ -482,9 +453,7 @@ export default function GRNForm() {
                 </div>
                 <div>
                   <span className="text-gray-500">Expected Delivery:</span>
-                  <p>
-                    {new Date(selectedPO.expectedDeliveryDate).toLocaleDateString('en-IN')}
-                  </p>
+                  <p>{new Date(selectedPO.expectedDeliveryDate).toLocaleDateString('en-IN')}</p>
                 </div>
                 <div>
                   <span className="text-gray-500">PO Status:</span>
@@ -633,7 +602,8 @@ export default function GRNForm() {
                   Shrinkage: {procShrinkage.toFixed(1)}%
                 </Badge>
                 <Badge variant={Math.abs(procWidthVar) > 1 ? 'destructive' : 'secondary'}>
-                  Width Variance: {procWidthVar > 0 ? '+' : ''}{procWidthVar.toFixed(1)}"
+                  Width Variance: {procWidthVar > 0 ? '+' : ''}
+                  {procWidthVar.toFixed(1)}"
                 </Badge>
               </div>
             )}
@@ -671,15 +641,9 @@ export default function GRNForm() {
                         <div className="text-xs text-gray-400">{item.unit}</div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {item.orderedQuantity.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.alreadyReceived.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {item.pendingQuantity.toLocaleString()}
-                    </TableCell>
+                    <TableCell className="text-right">{item.orderedQuantity.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{item.alreadyReceived.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-medium">{item.pendingQuantity.toLocaleString()}</TableCell>
                     <TableCell>
                       <Input
                         type="number"

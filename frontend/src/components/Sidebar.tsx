@@ -77,14 +77,59 @@ interface SidebarProps {
 
 // Map icon name strings to React components
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Building2, Package, UserCircle, Shirt, ClipboardList,
-  ListChecks, Calculator, Warehouse, BarChart3, ClipboardCheck, Wallet,
-  Factory, Sparkles, Ruler, FileSpreadsheet, Scissors, Box, Layers,
-  ShoppingCart, PackageOpen, CalendarClock, FileBarChart, Shuffle, PackageX,
-  ShieldAlert, Truck, Palette, Cog, Beaker, Droplets, CheckSquare, Send,
-  TestTube, PackagePlus, Scale, Wrench, Activity, FlaskConical, FolderTree,
-  Tag, BookOpen, Settings, PackageSearch, Lock, Puzzle, Calendar, Users,
-  Receipt, BookImage, FileText, UserCheck, Hash,
+  LayoutDashboard,
+  Building2,
+  Package,
+  UserCircle,
+  Shirt,
+  ClipboardList,
+  ListChecks,
+  Calculator,
+  Warehouse,
+  BarChart3,
+  ClipboardCheck,
+  Wallet,
+  Factory,
+  Sparkles,
+  Ruler,
+  FileSpreadsheet,
+  Scissors,
+  Box,
+  Layers,
+  ShoppingCart,
+  PackageOpen,
+  CalendarClock,
+  FileBarChart,
+  Shuffle,
+  PackageX,
+  ShieldAlert,
+  Truck,
+  Palette,
+  Cog,
+  Beaker,
+  Droplets,
+  CheckSquare,
+  Send,
+  TestTube,
+  PackagePlus,
+  Scale,
+  Wrench,
+  Activity,
+  FlaskConical,
+  FolderTree,
+  Tag,
+  BookOpen,
+  Settings,
+  PackageSearch,
+  Lock,
+  Puzzle,
+  Calendar,
+  Users,
+  Receipt,
+  BookImage,
+  FileText,
+  UserCheck,
+  Hash,
 };
 
 function getIcon(name: string, size: 'sm' | 'md' = 'sm'): ReactNode {
@@ -119,24 +164,23 @@ export default function Sidebar({ isOpen }: SidebarProps) {
 
   // Filter top-level items by permission
   const filteredTopLevelItems = useMemo(() => {
-    return TOP_LEVEL_ITEMS.filter(item => !item.permission || can(item.permission));
+    return TOP_LEVEL_ITEMS.filter((item) => !item.permission || can(item.permission));
   }, [can]);
 
   // Filter groups and their items by permission
   const filteredNavGroups = useMemo(() => {
-    return NAV_GROUPS
-      .filter(group => !group.permission || can(group.permission))
-      .map(group => ({
+    return NAV_GROUPS.filter((group) => !group.permission || can(group.permission))
+      .map((group) => ({
         ...group,
-        items: group.items.filter(item => {
+        items: group.items.filter((item) => {
           if (item === 'divider') return true;
           if (isSubHeader(item)) return true;
           if (isNavItem(item)) return !item.permission || can(item.permission);
           return true;
         }),
       }))
-      .filter(group => group.items.some(item => isNavItem(item)))
-      .map(group => ({
+      .filter((group) => group.items.some((item) => isNavItem(item)))
+      .map((group) => ({
         ...group,
         items: cleanDividers(group.items),
       }));
@@ -148,30 +192,28 @@ export default function Sidebar({ isOpen }: SidebarProps) {
 
   const searchFilteredTopLevel = useMemo(() => {
     if (!isSearching) return filteredTopLevelItems;
-    return filteredTopLevelItems.filter(item =>
-      item.title.toLowerCase().includes(searchLower)
-    );
+    return filteredTopLevelItems.filter((item) => item.title.toLowerCase().includes(searchLower));
   }, [filteredTopLevelItems, searchLower, isSearching]);
 
   const searchFilteredGroups = useMemo(() => {
     if (!isSearching) return filteredNavGroups;
     return filteredNavGroups
-      .map(group => ({
+      .map((group) => ({
         ...group,
-        items: group.items.filter(item => {
+        items: group.items.filter((item) => {
           if (item === 'divider') return false; // hide dividers during search
-          if (isSubHeader(item)) return false;  // hide sub-headers during search
+          if (isSubHeader(item)) return false; // hide sub-headers during search
           if (isNavItem(item)) return item.title.toLowerCase().includes(searchLower);
           return false;
         }),
       }))
-      .filter(group => group.items.length > 0);
+      .filter((group) => group.items.length > 0);
   }, [filteredNavGroups, searchLower, isSearching]);
 
   // Pinned items resolved
   const resolvedPinnedItems = useMemo(() => {
     return pinnedItems
-      .map(path => allFlatItems.find(item => item.path === path))
+      .map((path) => allFlatItems.find((item) => item.path === path))
       .filter(Boolean) as typeof allFlatItems;
   }, [pinnedItems, allFlatItems]);
 
@@ -187,7 +229,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             type="text"
             placeholder="Filter menu..."
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 bg-gray-50"
           />
           {searchTerm && (
@@ -204,9 +246,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             style={{ display: searchTerm ? 'none' : 'block' }}
             title="Search all pages (Ctrl+K)"
           >
-            <kbd className="text-[10px] bg-gray-200 text-gray-500 px-1 py-0.5 rounded font-mono">
-              /
-            </kbd>
+            <kbd className="text-[10px] bg-gray-200 text-gray-500 px-1 py-0.5 rounded font-mono">/</kbd>
           </button>
         </div>
 
@@ -218,15 +258,13 @@ export default function Sidebar({ isOpen }: SidebarProps) {
               <span>Favorites</span>
             </div>
             <div className="space-y-0.5">
-              {resolvedPinnedItems.map(item => (
+              {resolvedPinnedItems.map((item) => (
                 <div key={item.path} className="group relative">
                   <NavLink
                     to={item.path}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                        isActive
-                          ? 'bg-indigo-50 text-indigo-700 font-medium'
-                          : 'text-gray-600 hover:bg-gray-100'
+                        isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
                       }`
                     }
                   >
@@ -234,7 +272,10 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                     <span className="truncate">{item.title}</span>
                   </NavLink>
                   <button
-                    onClick={(e) => { e.stopPropagation(); togglePin(item.path); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      togglePin(item.path);
+                    }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-amber-400 hover:text-amber-600 transition-opacity"
                     title="Unpin"
                   >
@@ -256,18 +297,14 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 `flex items-center gap-3 px-3 py-2 rounded-md ${
                   index === searchFilteredTopLevel.length - 1 ? 'mb-4' : 'mb-1'
                 } transition-colors ${
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
+                  isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
                 }`
               }
             >
               {getIcon(item.iconName, 'md')}
               <span>{item.title}</span>
               {item.badge && (
-                <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                  {item.badge}
-                </span>
+                <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{item.badge}</span>
               )}
             </NavLink>
             {!pinnedItems.includes(item.path) && (
@@ -294,7 +331,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 {getIcon(group.iconName, 'md')}
                 <span>{group.title}</span>
               </div>
-              {(isSearching || expandedGroups.includes(group.title)) ? (
+              {isSearching || expandedGroups.includes(group.title) ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
                 <ChevronRight className="h-4 w-4" />
@@ -303,9 +340,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
 
             {/* Group Items */}
             {(isSearching || expandedGroups.includes(group.title)) && (
-              <div className="mt-1 ml-2 space-y-0.5">
-                {renderGroupItems(group.items, group.title)}
-              </div>
+              <div className="mt-1 ml-2 space-y-0.5">{renderGroupItems(group.items, group.title)}</div>
             )}
           </div>
         ))}
@@ -336,9 +371,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             to="/ai-assistant"
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-md mt-2 text-sm transition-colors ${
-                isActive
-                  ? 'bg-indigo-50 text-indigo-700 font-medium'
-                  : 'text-gray-600 hover:bg-gray-100'
+                isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
               }`
             }
           >
@@ -378,11 +411,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                   <span className="text-[10px] normal-case font-normal">
                     {isCollapsed ? `${subSectionItems.length} items` : ''}
                   </span>
-                  {isCollapsed ? (
-                    <ChevronRight className="h-3 w-3" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
+                  {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </span>
               </button>
             ) : (
@@ -391,15 +420,13 @@ export default function Sidebar({ isOpen }: SidebarProps) {
               </div>
             )}
             {(!isCollapsible || !isCollapsed) && (
-              <div className="space-y-0.5">
-                {subSectionItems.map(navItem => renderNavItem(navItem))}
-              </div>
+              <div className="space-y-0.5">{subSectionItems.map((navItem) => renderNavItem(navItem))}</div>
             )}
           </div>
         );
       } else if (subSectionItems.length > 0) {
         // No sub-header, just render items directly
-        subSectionItems.forEach(navItem => {
+        subSectionItems.forEach((navItem) => {
           result.push(renderNavItem(navItem));
         });
       }
@@ -410,9 +437,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
     for (const item of items) {
       if (item === 'divider') {
         flushSubSection();
-        result.push(
-          <div key={`divider-${itemIndex}`} className="my-1.5 border-t border-gray-100 mx-3" />
-        );
+        result.push(<div key={`divider-${itemIndex}`} className="my-1.5 border-t border-gray-100 mx-3" />);
       } else if (isSubHeader(item)) {
         flushSubSection();
         currentSubHeader = item;
@@ -433,9 +458,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
           to={item.path}
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
-              isActive
-                ? 'bg-indigo-50 text-indigo-700 font-medium'
-                : 'text-gray-600 hover:bg-gray-100'
+              isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
             }`
           }
         >

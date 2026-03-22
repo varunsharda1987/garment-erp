@@ -9,9 +9,7 @@ import type {
 /**
  * Get all size category presets for a customer
  */
-export const getAllPresetsForCustomer = async (
-  customerId: string
-): Promise<CustomerSizePreset[]> => {
+export const getAllPresetsForCustomer = async (customerId: string): Promise<CustomerSizePreset[]> => {
   const response = await api.get(`/customers/${customerId}/size-category-presets`);
   return response.data.data;
 };
@@ -19,9 +17,7 @@ export const getAllPresetsForCustomer = async (
 /**
  * Get default size category preset for a customer
  */
-export const getDefaultPreset = async (
-  customerId: string
-): Promise<CustomerSizePreset> => {
+export const getDefaultPreset = async (customerId: string): Promise<CustomerSizePreset> => {
   const response = await api.get(`/customers/${customerId}/size-category-presets/default`);
   return response.data.data;
 };
@@ -29,10 +25,7 @@ export const getDefaultPreset = async (
 /**
  * Get a specific size category preset by ID
  */
-export const getPresetById = async (
-  customerId: string,
-  presetId: string
-): Promise<CustomerSizePreset> => {
+export const getPresetById = async (customerId: string, presetId: string): Promise<CustomerSizePreset> => {
   const response = await api.get(`/customers/${customerId}/size-category-presets/${presetId}`);
   return response.data.data;
 };
@@ -63,20 +56,14 @@ export const updatePreset = async (
 /**
  * Delete a size category preset
  */
-export const deletePreset = async (
-  customerId: string,
-  presetId: string
-): Promise<void> => {
+export const deletePreset = async (customerId: string, presetId: string): Promise<void> => {
   await api.delete(`/customers/${customerId}/size-category-presets/${presetId}`);
 };
 
 /**
  * Set a preset as default
  */
-export const setAsDefault = async (
-  customerId: string,
-  presetId: string
-): Promise<CustomerSizePreset> => {
+export const setAsDefault = async (customerId: string, presetId: string): Promise<CustomerSizePreset> => {
   const response = await api.post(`/customers/${customerId}/size-category-presets/${presetId}/set-default`);
   return response.data.data;
 };

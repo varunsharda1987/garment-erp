@@ -574,7 +574,9 @@ export async function consumeStock(input: ConsumeStockInput) {
   const remaining = allocated - consumed;
 
   if (input.quantityConsumed > remaining) {
-    throw new Error(`Cannot consume more than allocated. Remaining: ${remaining}, Requested: ${input.quantityConsumed}`);
+    throw new Error(
+      `Cannot consume more than allocated. Remaining: ${remaining}, Requested: ${input.quantityConsumed}`
+    );
   }
 
   const result = await prisma.$transaction(async (tx) => {

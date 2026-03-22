@@ -82,18 +82,11 @@ export function UnsavedChangesDialog({
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">
           <AlertDialogCancel disabled={saving}>{cancelText}</AlertDialogCancel>
-          <Button
-            variant="destructive"
-            onClick={handleDiscard}
-            disabled={saving}
-          >
+          <Button variant="destructive" onClick={handleDiscard} disabled={saving}>
             {discardText}
           </Button>
           {onSave && (
-            <AlertDialogAction
-              onClick={handleSave}
-              disabled={saving}
-            >
+            <AlertDialogAction onClick={handleSave} disabled={saving}>
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

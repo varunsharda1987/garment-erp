@@ -1,13 +1,7 @@
 import { Search, Maximize2, Minimize2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ProcessCategory } from '@/types/processGuide.types';
 
 interface ProcessGuideHeaderProps {
@@ -31,12 +25,8 @@ export default function ProcessGuideHeader({
     <div className="space-y-6">
       {/* Title Section */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">
-          Process Guide - Style Creation to Dispatch
-        </h1>
-        <p className="mt-2 text-lg text-gray-600">
-          Your complete workflow reference for the garment ERP system
-        </p>
+        <h1 className="text-3xl font-bold text-gray-900">Process Guide - Style Creation to Dispatch</h1>
+        <p className="mt-2 text-lg text-gray-600">Your complete workflow reference for the garment ERP system</p>
       </div>
 
       {/* Controls Section */}
@@ -56,9 +46,7 @@ export default function ProcessGuideHeader({
         {/* Category Filter */}
         <Select
           value={categoryFilter}
-          onValueChange={(value) =>
-            onCategoryFilterChange(value as ProcessCategory | 'all')
-          }
+          onValueChange={(value) => onCategoryFilterChange(value as ProcessCategory | 'all')}
         >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter by category" />
@@ -73,11 +61,7 @@ export default function ProcessGuideHeader({
         </Select>
 
         {/* Expand/Collapse All */}
-        <Button
-          variant="outline"
-          onClick={onToggleExpand}
-          className="w-full sm:w-auto"
-        >
+        <Button variant="outline" onClick={onToggleExpand} className="w-full sm:w-auto">
           {allExpanded ? (
             <>
               <Minimize2 className="mr-2 h-4 w-4" />

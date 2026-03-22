@@ -8,7 +8,13 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import MaterialCategoryFields from '../components/material/MaterialCategoryFields';
-import { createMaterial, getMaterialById, updateMaterial, getParentCategories, getChildCategories } from '../services/material.service';
+import {
+  createMaterial,
+  getMaterialById,
+  updateMaterial,
+  getParentCategories,
+  getChildCategories,
+} from '../services/material.service';
 import { getAllSuppliers } from '../services/supplier.service';
 import { searchHSNSACMasters } from '../services/hsnSacMaster.service';
 import { Unit, UnitLabels } from '../types/material.types';
@@ -57,25 +63,31 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     }
   }, []);
 
-  const handleHsnSearchChange = useCallback((value: string) => {
-    setHsnSearch(value);
-    setValue('hsnCode', value);
-    if (hsnDebounceRef.current) clearTimeout(hsnDebounceRef.current);
-    hsnDebounceRef.current = setTimeout(() => searchHSN(value), 300);
-  }, [searchHSN, setValue]);
+  const handleHsnSearchChange = useCallback(
+    (value: string) => {
+      setHsnSearch(value);
+      setValue('hsnCode', value);
+      if (hsnDebounceRef.current) clearTimeout(hsnDebounceRef.current);
+      hsnDebounceRef.current = setTimeout(() => searchHSN(value), 300);
+    },
+    [searchHSN, setValue]
+  );
 
-  const selectHsnCode = useCallback((item: HSNSACSearchResult) => {
-    setHsnSearch(item.code);
-    setValue('hsnCode', item.code);
-    const rate = String(Number(item.defaultGstRate));
-    setValue('gstRate', rate);
-    setSelectedGstRate(rate);
-    setHsnDropdownOpen(false);
-  }, [setValue]);
+  const selectHsnCode = useCallback(
+    (item: HSNSACSearchResult) => {
+      setHsnSearch(item.code);
+      setValue('hsnCode', item.code);
+      const rate = String(Number(item.defaultGstRate));
+      setValue('gstRate', rate);
+      setSelectedGstRate(rate);
+      setHsnDropdownOpen(false);
+    },
+    [setValue]
+  );
 
   // Get filtered suppliers based on selected material category
   const filteredSuppliers = (() => {
-    const selectedCategory = childCategories.find(c => c.id === selectedCategoryId);
+    const selectedCategory = childCategories.find((c) => c.id === selectedCategoryId);
     if (!selectedCategory) {
       return suppliers; // Show all if no category selected
     }
@@ -85,9 +97,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
       return suppliers; // Show all if no mapping defined
     }
 
-    return suppliers.filter(s =>
-      (s.supplierCategories || []).some(cat => relevantCategories.includes(cat))
-    );
+    return suppliers.filter((s) => (s.supplierCategories || []).some((cat) => relevantCategories.includes(cat)));
   })();
 
   const {
@@ -104,7 +114,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     if (isNewMaterial) {
       const generateCode = () => {
         const timestamp = Date.now().toString().slice(-6);
-        const randomNum = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        const randomNum = Math.floor(Math.random() * 100)
+          .toString()
+          .padStart(2, '0');
         return `MAT${timestamp}${randomNum}`;
       };
       setValue('code', generateCode());
@@ -177,17 +189,31 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
           // Load suppliers
           if (material.supplier && material.supplier.length > 0) {
-            setMaterialSuppliers(material.supplier.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string | null; supplierPrice?: number | null; leadTimeDays?: number | null; moq?: number | null; moqUnit?: string | null; isPrimary?: boolean }) => ({
-              supplierId: s.supplier.id,
-              isPreferred: s.isPreferred,
-              isActive: s.isActive,
-              notes: s.notes || '',
-              supplierPrice: s.supplierPrice ?? null,
-              leadTimeDays: s.leadTimeDays ?? null,
-              moq: s.moq ?? null,
-              moqUnit: s.moqUnit || '',
-              isPrimary: s.isPrimary || false,
-            })));
+            setMaterialSuppliers(
+              material.supplier.map(
+                (s: {
+                  supplier: { id: string };
+                  isPreferred: boolean;
+                  isActive: boolean;
+                  notes?: string | null;
+                  supplierPrice?: number | null;
+                  leadTimeDays?: number | null;
+                  moq?: number | null;
+                  moqUnit?: string | null;
+                  isPrimary?: boolean;
+                }) => ({
+                  supplierId: s.supplier.id,
+                  isPreferred: s.isPreferred,
+                  isActive: s.isActive,
+                  notes: s.notes || '',
+                  supplierPrice: s.supplierPrice ?? null,
+                  leadTimeDays: s.leadTimeDays ?? null,
+                  moq: s.moq ?? null,
+                  moqUnit: s.moqUnit || '',
+                  isPrimary: s.isPrimary || false,
+                })
+              )
+            );
           }
 
           if (material.categoryData) {
@@ -205,17 +231,15 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   }, [id, isNewMaterial, setValue]);
 
   const handleAddSupplier = () => {
-    setMaterialSuppliers(prev => [...prev, { supplierId: '', isPreferred: false, isActive: true, notes: '' }]);
+    setMaterialSuppliers((prev) => [...prev, { supplierId: '', isPreferred: false, isActive: true, notes: '' }]);
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setMaterialSuppliers(prev => prev.filter((_, i) => i !== index));
+    setMaterialSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: string, value: string | boolean) => {
-    setMaterialSuppliers(prev =>
-      prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
-    );
+    setMaterialSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const onSubmit = async (data: CreateMaterialRequest) => {
@@ -243,11 +267,13 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         reorderLevel: data.reorderLevel ? Number(data.reorderLevel) : undefined,
         hsnCode: data.hsnCode || undefined,
         gstRate: data.gstRate ? Number(data.gstRate) : undefined,
-        categoryData: Object.keys(categoryData).length > 0
-          ? Object.fromEntries(
-              Object.entries(categoryData).filter(([_, v]) => v !== undefined)
-            ) as Record<string, string | number | boolean | null>
-          : undefined,
+        categoryData:
+          Object.keys(categoryData).length > 0
+            ? (Object.fromEntries(Object.entries(categoryData).filter(([_, v]) => v !== undefined)) as Record<
+                string,
+                string | number | boolean | null
+              >)
+            : undefined,
       };
 
       if (isNewMaterial) {
@@ -258,7 +284,8 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
       navigate('/materials');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : `Failed to ${isNewMaterial ? 'create' : 'update'} material`;
+      const errorMessage =
+        err instanceof Error ? err.message : `Failed to ${isNewMaterial ? 'create' : 'update'} material`;
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -281,11 +308,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* MATERIAL INFORMATION */}
             <div>
@@ -320,7 +343,11 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                     disabled={!selectedParentCategoryId}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={selectedParentCategoryId ? "Select material category" : "Select category type first"} />
+                      <SelectValue
+                        placeholder={
+                          selectedParentCategoryId ? 'Select material category' : 'Select category type first'
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {childCategories.map((category) => (
@@ -339,9 +366,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                     {...register('name', { required: 'Material name is required' })}
                     placeholder="e.g., Metal Button, Poly Thread"
                   />
-                  {errors.name && (
-                    <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
-                  )}
+                  {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>}
                 </div>
 
                 <div>
@@ -352,9 +377,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                     readOnly
                     className="bg-gray-100"
                   />
-                  {errors.code && (
-                    <p className="text-sm text-red-600 mt-1">{errors.code.message}</p>
-                  )}
+                  {errors.code && <p className="text-sm text-red-600 mt-1">{errors.code.message}</p>}
                 </div>
 
                 <div>
@@ -386,10 +409,10 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
             </div>
 
             {/* CATEGORY-SPECIFIC FIELDS */}
-            {selectedCategoryId && childCategories.find(c => c.id === selectedCategoryId) && (
+            {selectedCategoryId && childCategories.find((c) => c.id === selectedCategoryId) && (
               <div className="border-t pt-6">
                 <MaterialCategoryFields
-                  categoryName={childCategories.find(c => c.id === selectedCategoryId)?.name || ''}
+                  categoryName={childCategories.find((c) => c.id === selectedCategoryId)?.name || ''}
                   data={categoryData}
                   onChange={setCategoryData}
                 />
@@ -429,7 +452,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                                   No relevant suppliers found for this material category
                                 </div>
                               ) : (
-                                filteredSuppliers.map(s => (
+                                filteredSuppliers.map((s) => (
                                   <SelectItem key={s.id} value={s.id}>
                                     {s.code} - {s.name}
                                   </SelectItem>
@@ -479,7 +502,13 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                             type="number"
                             step="0.01"
                             value={supplier.supplierPrice ?? ''}
-                            onChange={(e) => handleSupplierChange(index, 'supplierPrice', e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) =>
+                              handleSupplierChange(
+                                index,
+                                'supplierPrice',
+                                e.target.value ? Number(e.target.value) : null
+                              )
+                            }
                             placeholder="Price per unit"
                           />
                         </div>
@@ -489,7 +518,13 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                           <Input
                             type="number"
                             value={supplier.leadTimeDays ?? ''}
-                            onChange={(e) => handleSupplierChange(index, 'leadTimeDays', e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) =>
+                              handleSupplierChange(
+                                index,
+                                'leadTimeDays',
+                                e.target.value ? Number(e.target.value) : null
+                              )
+                            }
                             placeholder="Lead time in days"
                           />
                         </div>
@@ -500,7 +535,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                             type="number"
                             step="0.01"
                             value={supplier.moq ?? ''}
-                            onChange={(e) => handleSupplierChange(index, 'moq', e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) =>
+                              handleSupplierChange(index, 'moq', e.target.value ? Number(e.target.value) : null)
+                            }
                             placeholder="Minimum order quantity"
                           />
                         </div>
@@ -546,9 +583,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                     placeholder="Search HSN code..."
                     autoComplete="off"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Type to search HSN codes from master data
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Type to search HSN codes from master data</p>
                   {hsnDropdownOpen && hsnResults.length > 0 && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {hsnResults.map((item) => (
@@ -590,9 +625,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                     </SelectContent>
                   </Select>
                   <input type="hidden" {...register('gstRate')} />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Auto-filled from HSN code, or select manually
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Auto-filled from HSN code, or select manually</p>
                 </div>
               </div>
             </div>
@@ -625,12 +658,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
             {/* ACTION BUTTONS */}
             <div className="flex gap-4 justify-end pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/materials')}
-                disabled={isLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/materials')} disabled={isLoading}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>

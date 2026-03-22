@@ -27,9 +27,7 @@ interface ApiResponse<T> {
 /**
  * Get all defects with filters and pagination
  */
-export const getAllDefects = async (
-  filters?: DefectFilters
-): Promise<DefectListResponse> => {
+export const getAllDefects = async (filters?: DefectFilters): Promise<DefectListResponse> => {
   const { data } = await api.get<DefectListResponse>(BASE_URL, {
     params: filters,
   });
@@ -55,42 +53,24 @@ export const logDefect = async (input: LogDefectInput): Promise<LaceDefect> => {
 /**
  * Submit claim for a defect
  */
-export const submitClaim = async (
-  defectId: string,
-  input: SubmitClaimInput
-): Promise<LaceDefect> => {
-  const { data } = await api.post<ApiResponse<LaceDefect>>(
-    `${BASE_URL}/${defectId}/claim/submit`,
-    input
-  );
+export const submitClaim = async (defectId: string, input: SubmitClaimInput): Promise<LaceDefect> => {
+  const { data } = await api.post<ApiResponse<LaceDefect>>(`${BASE_URL}/${defectId}/claim/submit`, input);
   return data.data;
 };
 
 /**
  * Update claim status
  */
-export const updateClaimStatus = async (
-  defectId: string,
-  input: UpdateClaimStatusInput
-): Promise<LaceDefect> => {
-  const { data } = await api.put<ApiResponse<LaceDefect>>(
-    `${BASE_URL}/${defectId}/claim/status`,
-    input
-  );
+export const updateClaimStatus = async (defectId: string, input: UpdateClaimStatusInput): Promise<LaceDefect> => {
+  const { data } = await api.put<ApiResponse<LaceDefect>>(`${BASE_URL}/${defectId}/claim/status`, input);
   return data.data;
 };
 
 /**
  * Record replacement material
  */
-export const recordReplacement = async (
-  defectId: string,
-  input: RecordReplacementInput
-): Promise<LaceDefect> => {
-  const { data } = await api.put<ApiResponse<LaceDefect>>(
-    `${BASE_URL}/${defectId}/replacement`,
-    input
-  );
+export const recordReplacement = async (defectId: string, input: RecordReplacementInput): Promise<LaceDefect> => {
+  const { data } = await api.put<ApiResponse<LaceDefect>>(`${BASE_URL}/${defectId}/replacement`, input);
   return data.data;
 };
 
@@ -98,9 +78,7 @@ export const recordReplacement = async (
  * Get pending claims dashboard
  */
 export const getPendingClaims = async (): Promise<PendingClaimsResponse> => {
-  const { data } = await api.get<ApiResponse<PendingClaimsResponse>>(
-    `${BASE_URL}/claims/pending`
-  );
+  const { data } = await api.get<ApiResponse<PendingClaimsResponse>>(`${BASE_URL}/claims/pending`);
   return data.data;
 };
 
@@ -108,9 +86,7 @@ export const getPendingClaims = async (): Promise<PendingClaimsResponse> => {
  * Get defect statistics
  */
 export const getStatistics = async (): Promise<DefectStatistics> => {
-  const { data } = await api.get<ApiResponse<DefectStatistics>>(
-    `${BASE_URL}/statistics`
-  );
+  const { data } = await api.get<ApiResponse<DefectStatistics>>(`${BASE_URL}/statistics`);
   return data.data;
 };
 

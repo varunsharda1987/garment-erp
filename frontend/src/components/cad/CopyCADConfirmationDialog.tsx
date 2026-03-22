@@ -6,14 +6,7 @@
  */
 
 import React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Copy, AlertCircle } from 'lucide-react';
@@ -64,9 +57,7 @@ export const CopyCADConfirmationDialog: React.FC<CopyCADConfirmationDialogProps>
             <Copy className="h-5 w-5" />
             Copy to {targetPurposeLabel} Mode
           </DialogTitle>
-          <DialogDescription>
-            This will create a new draft record for review and approval
-          </DialogDescription>
+          <DialogDescription>This will create a new draft record for review and approval</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -74,9 +65,7 @@ export const CopyCADConfirmationDialog: React.FC<CopyCADConfirmationDialogProps>
           <div className="rounded-lg border bg-gray-50 p-4">
             <div className="mb-2 flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Source Record:</span>
-              <Badge className={PURPOSE_COLORS[sourcePurpose]}>
-                {sourcePurposeLabel} (Approved)
-              </Badge>
+              <Badge className={PURPOSE_COLORS[sourcePurpose]}>{sourcePurposeLabel} (Approved)</Badge>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -121,9 +110,7 @@ export const CopyCADConfirmationDialog: React.FC<CopyCADConfirmationDialogProps>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
             <div className="mb-2 flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-900">
-                New Draft Will Be Created:
-              </span>
+              <span className="text-sm font-medium text-amber-900">New Draft Will Be Created:</span>
             </div>
 
             <ul className="space-y-1.5 text-sm text-amber-900">
@@ -166,9 +153,7 @@ export const CopyCADConfirmationDialog: React.FC<CopyCADConfirmationDialogProps>
                 <span className="font-medium">2.</span>
                 <span>
                   Adjust values based on{' '}
-                  {targetPurpose === 'RAW_MATERIAL_CALCULATION'
-                    ? 'confirmed order details'
-                    : 'actual fabric stock'}
+                  {targetPurpose === 'RAW_MATERIAL_CALCULATION' ? 'confirmed order details' : 'actual fabric stock'}
                 </span>
               </li>
               <li className="flex items-start gap-2">

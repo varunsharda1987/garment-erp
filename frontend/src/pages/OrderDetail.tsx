@@ -5,10 +5,29 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Eye, Split, Factory, TrendingUp, TrendingDown, Minus, DollarSign, Calculator, AlertCircle, Package, ExternalLink, ArrowRight, Wrench, ClipboardList } from 'lucide-react';
+import {
+  Eye,
+  Split,
+  Factory,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  DollarSign,
+  Calculator,
+  AlertCircle,
+  Package,
+  ExternalLink,
+  ArrowRight,
+  Wrench,
+  ClipboardList,
+} from 'lucide-react';
 import { getOrderById } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
-import { getByOrderId as getOrderBOM, createFromCostSheet as createOrderBOMFromCostSheet, calculateMRPStandalone } from '../services/orderBom.service';
+import {
+  getByOrderId as getOrderBOM,
+  createFromCostSheet as createOrderBOMFromCostSheet,
+  calculateMRPStandalone,
+} from '../services/orderBom.service';
 import { getStatusBadgeColor } from '../services/orderBom.service';
 import { useToast } from '@/hooks/use-toast';
 import { getCostSheetVersionsByStyle } from '../services/costSheet.service';
@@ -177,10 +196,7 @@ export default function OrderDetail() {
 
       // Validate cost sheet ID before sending
       if (!approvedCostSheet.id) {
-        handleApiError(
-          new Error('Cost sheet ID is missing'),
-          'Cost sheet data is invalid - ID is missing'
-        );
+        handleApiError(new Error('Cost sheet ID is missing'), 'Cost sheet data is invalid - ID is missing');
         console.error('Cost sheet missing ID:', approvedCostSheet);
         return;
       }
@@ -278,8 +294,7 @@ export default function OrderDetail() {
     if (percent > 0) {
       return (
         <Badge variant="destructive" className="flex items-center gap-1">
-          <TrendingUp className="h-3 w-3" />
-          +{percent.toFixed(1)}%
+          <TrendingUp className="h-3 w-3" />+{percent.toFixed(1)}%
         </Badge>
       );
     } else if (percent < 0) {
@@ -356,13 +371,17 @@ export default function OrderDetail() {
               </div>
               <div>
                 <div className="text-gray-500">Actual Cost/Pc</div>
-                <div className={`font-medium ${hasVariance && Number(costing.costVariancePercent) > 0 ? 'text-red-600' : hasVariance && Number(costing.costVariancePercent) < 0 ? 'text-green-600' : ''}`}>
+                <div
+                  className={`font-medium ${hasVariance && Number(costing.costVariancePercent) > 0 ? 'text-red-600' : hasVariance && Number(costing.costVariancePercent) < 0 ? 'text-green-600' : ''}`}
+                >
                   {hasActualCost ? formatCurrency(costing.actualCostPerPiece!) : '-'}
                 </div>
               </div>
               <div>
                 <div className="text-gray-500">Variance Amount</div>
-                <div className={`font-medium ${costing.costVarianceAmount && Number(costing.costVarianceAmount) > 0 ? 'text-red-600' : costing.costVarianceAmount && Number(costing.costVarianceAmount) < 0 ? 'text-green-600' : ''}`}>
+                <div
+                  className={`font-medium ${costing.costVarianceAmount && Number(costing.costVarianceAmount) > 0 ? 'text-red-600' : costing.costVarianceAmount && Number(costing.costVarianceAmount) < 0 ? 'text-green-600' : ''}`}
+                >
                   {costing.costVarianceAmount !== null && costing.costVarianceAmount !== undefined
                     ? `${Number(costing.costVarianceAmount) > 0 ? '+' : ''}${formatCurrency(costing.costVarianceAmount)}`
                     : '-'}
@@ -417,17 +436,11 @@ export default function OrderDetail() {
         <h1 className="text-3xl font-bold">Order Details</h1>
         <div className="flex gap-2">
           {/* Document Download Menu */}
-          <DocumentShareMenu
-            documentType="order"
-            documentId={order.id}
-            documentNumber={order.orderNumber}
-          />
+          <DocumentShareMenu documentType="order" documentId={order.id} documentNumber={order.orderNumber} />
           <Button variant="outline" onClick={() => navigate('/orders')}>
             Back to Orders
           </Button>
-          <Button onClick={() => navigate(`/orders/${order.id}/edit`)}>
-            Edit Order
-          </Button>
+          <Button onClick={() => navigate(`/orders/${order.id}/edit`)}>Edit Order</Button>
         </div>
       </div>
 
@@ -437,11 +450,7 @@ export default function OrderDetail() {
           <CardTitle className="flex items-center justify-between">
             <span>{order.orderNumber}</span>
             <div className="flex gap-2">
-              <span
-                className={`px-3 py-1 rounded text-sm font-medium ${getPriorityBadgeColor(
-                  order.priority
-                )}`}
-              >
+              <span className={`px-3 py-1 rounded text-sm font-medium ${getPriorityBadgeColor(order.priority)}`}>
                 {PriorityLabels[order.priority]}
               </span>
               <span
@@ -479,9 +488,7 @@ export default function OrderDetail() {
                 {Number(order.totalAmount) > 0 ? (
                   formatCurrency(order.totalAmount, { decimals: 0 })
                 ) : (
-                  <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded text-sm">
-                    Pricing Pending
-                  </span>
+                  <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded text-sm">Pricing Pending</span>
                 )}
               </div>
             </div>
@@ -524,11 +531,13 @@ export default function OrderDetail() {
                   status: orderBom.status,
                 }
               : null,
-            mrpSummary: mrpSummary ? {
-              totalRequirements: mrpSummary.totalRequirements,
-              requirementsNeedingPO: mrpSummary.requirementsNeedingPO,
-              hasShortfall: mrpSummary.totalShortfall > 0,
-            } : null,
+            mrpSummary: mrpSummary
+              ? {
+                  totalRequirements: mrpSummary.totalRequirements,
+                  requirementsNeedingPO: mrpSummary.requirementsNeedingPO,
+                  hasShortfall: mrpSummary.totalShortfall > 0,
+                }
+              : null,
           },
           {
             onCreateBOM: handleCreateBOM,
@@ -544,7 +553,8 @@ export default function OrderDetail() {
       />
 
       {/* Unified Order Procurement Summary */}
-      {((mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) || (serviceSummary && serviceSummary.totalServices > 0)) && (
+      {((mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) ||
+        (serviceSummary && serviceSummary.totalServices > 0)) && (
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -555,7 +565,7 @@ export default function OrderDetail() {
             </div>
           </CardHeader>
           <CardContent>
-            {(mrpLoading || serviceLoading) ? (
+            {mrpLoading || serviceLoading ? (
               <div className="text-center py-4 text-muted-foreground">Loading procurement data...</div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -606,7 +616,12 @@ export default function OrderDetail() {
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span className="text-blue-600">Progress</span>
                           <span className="font-medium text-blue-700">
-                            {Math.round(((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100)}%
+                            {Math.round(
+                              ((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) /
+                                mrpSummary.totalRequirements) *
+                                100
+                            )}
+                            %
                           </span>
                         </div>
                         <div className="w-full bg-blue-100 rounded-full h-2">
@@ -665,7 +680,11 @@ export default function OrderDetail() {
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span className="text-purple-600">Progress</span>
                           <span className="font-medium text-purple-700">
-                            {Math.round(((serviceSummary.poGenerated + serviceSummary.completed) / serviceSummary.totalServices) * 100)}%
+                            {Math.round(
+                              ((serviceSummary.poGenerated + serviceSummary.completed) / serviceSummary.totalServices) *
+                                100
+                            )}
+                            %
                           </span>
                         </div>
                         <div className="w-full bg-purple-100 rounded-full h-2">
@@ -687,25 +706,27 @@ export default function OrderDetail() {
                 )}
 
                 {/* Placeholder when only materials or only services */}
-                {mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') && (!serviceSummary || serviceSummary.totalServices === 0) && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
-                    <Wrench className="h-10 w-10 text-gray-300 mb-2" />
-                    <div className="text-gray-500 font-medium">No Service Requirements</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      Calculate services from Work Orders to track service POs
+                {mrpSummary &&
+                  (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') &&
+                  (!serviceSummary || serviceSummary.totalServices === 0) && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+                      <Wrench className="h-10 w-10 text-gray-300 mb-2" />
+                      <div className="text-gray-500 font-medium">No Service Requirements</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Calculate services from Work Orders to track service POs
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {serviceSummary && serviceSummary.totalServices > 0 && (!mrpSummary || !(orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
-                    <Package className="h-10 w-10 text-gray-300 mb-2" />
-                    <div className="text-gray-500 font-medium">No Material Requirements</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      Approve Order BOM to track material POs
+                {serviceSummary &&
+                  serviceSummary.totalServices > 0 &&
+                  (!mrpSummary || !(orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+                      <Package className="h-10 w-10 text-gray-300 mb-2" />
+                      <div className="text-gray-500 font-medium">No Material Requirements</div>
+                      <div className="text-xs text-gray-400 mt-1">Approve Order BOM to track material POs</div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             )}
           </CardContent>
@@ -758,11 +779,13 @@ export default function OrderDetail() {
                     </div>
                     <div>
                       <div className="text-sm text-gray-500">Delivery Date</div>
-                      <div>{item.deliveryDate
-                        ? new Date(item.deliveryDate).toLocaleDateString()
-                        : order.expectedDeliveryDate
-                          ? new Date(order.expectedDeliveryDate).toLocaleDateString()
-                          : 'N/A'}</div>
+                      <div>
+                        {item.deliveryDate
+                          ? new Date(item.deliveryDate).toLocaleDateString()
+                          : order.expectedDeliveryDate
+                            ? new Date(order.expectedDeliveryDate).toLocaleDateString()
+                            : 'N/A'}
+                      </div>
                     </div>
                   </div>
 
@@ -792,12 +815,8 @@ export default function OrderDetail() {
                                 <td className="border px-4 py-2">
                                   {breakup.colors?.colorName || (breakup.colorId === null ? '-' : 'N/A')}
                                 </td>
-                                <td className="border px-4 py-2">
-                                  {breakup.sizes?.sizeName || 'N/A'}
-                                </td>
-                                <td className="border px-4 py-2 text-right font-medium">
-                                  {breakup.quantity}
-                                </td>
+                                <td className="border px-4 py-2">{breakup.sizes?.sizeName || 'N/A'}</td>
+                                <td className="border px-4 py-2 text-right font-medium">{breakup.quantity}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -821,11 +840,12 @@ export default function OrderDetail() {
                         <div className="flex-1">
                           <div className="font-medium text-blue-800">Size breakdown not specified</div>
                           <p className="text-sm text-blue-700 mt-1">
-                            This order was created with total quantity only ({item.totalQuantity} pcs).
-                            Size breakdown can be added by editing the order.
+                            This order was created with total quantity only ({item.totalQuantity} pcs). Size breakdown
+                            can be added by editing the order.
                           </p>
                           <p className="text-xs text-blue-600 mt-2">
-                            Note: Size-independent materials (fabric, greige, processing, most trims) can still be procured without size breakdown.
+                            Note: Size-independent materials (fabric, greige, processing, most trims) can still be
+                            procured without size breakdown.
                           </p>
                           <Button
                             variant="outline"
@@ -871,19 +891,18 @@ export default function OrderDetail() {
                       {orderBom.style?.styleCode} - {orderBom.style?.styleName}
                     </span>
                     <Badge variant="outline">v{orderBom.version}</Badge>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(orderBom.status)}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(orderBom.status)}`}
+                    >
                       {orderBom.status}
                     </span>
                   </div>
                   <div className="text-sm text-gray-500">
-                    {orderBom.items?.length || 0} items | Total: {orderBom.totalMaterialCost ? `${Number(orderBom.totalMaterialCost).toFixed(2)}` : 'N/A'}
+                    {orderBom.items?.length || 0} items | Total:{' '}
+                    {orderBom.totalMaterialCost ? `${Number(orderBom.totalMaterialCost).toFixed(2)}` : 'N/A'}
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/order-bom/${orderBom.id}`)}
-                >
+                <Button variant="outline" size="sm" onClick={() => navigate(`/order-bom/${orderBom.id}`)}>
                   <ExternalLink className="h-4 w-4 mr-1" />
                   View Details
                 </Button>
@@ -893,9 +912,7 @@ export default function OrderDetail() {
             <div className="text-center py-8">
               <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
               <div className="text-gray-500">No Order BOM found</div>
-              <div className="text-sm text-gray-400 mt-1">
-                Create an Order BOM from an approved Cost Sheet
-              </div>
+              <div className="text-sm text-gray-400 mt-1">Create an Order BOM from an approved Cost Sheet</div>
             </div>
           )}
         </CardContent>
@@ -928,18 +945,13 @@ export default function OrderDetail() {
               {workOrders.map((wo) => {
                 const progress = calculateProgress(wo);
                 return (
-                  <div
-                    key={wo.id}
-                    className="border rounded-lg p-4 hover:border-gray-400 transition-colors"
-                  >
+                  <div key={wo.id} className="border rounded-lg p-4 hover:border-gray-400 transition-colors">
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold text-lg">{wo.workOrderNumber}</h4>
                           <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium ${getWorkOrderStatusColor(
-                              wo.status
-                            )}`}
+                            className={`px-2 py-0.5 rounded text-xs font-medium ${getWorkOrderStatusColor(wo.status)}`}
                           >
                             {wo.status.replace(/_/g, ' ')}
                           </span>
@@ -975,9 +987,7 @@ export default function OrderDetail() {
                       <div>
                         <div className="text-gray-500">Location</div>
                         <div className="font-medium">
-                          {wo.locations?.locationName || (
-                            <span className="text-amber-600">Not Assigned</span>
-                          )}
+                          {wo.locations?.locationName || <span className="text-amber-600">Not Assigned</span>}
                         </div>
                       </div>
                       <div>
@@ -988,15 +998,11 @@ export default function OrderDetail() {
                       </div>
                       <div>
                         <div className="text-gray-500">Planned Start</div>
-                        <div className="font-medium">
-                          {new Date(wo.plannedStartDate).toLocaleDateString()}
-                        </div>
+                        <div className="font-medium">{new Date(wo.plannedStartDate).toLocaleDateString()}</div>
                       </div>
                       <div>
                         <div className="text-gray-500">Planned End</div>
-                        <div className="font-medium">
-                          {new Date(wo.plannedEndDate).toLocaleDateString()}
-                        </div>
+                        <div className="font-medium">{new Date(wo.plannedEndDate).toLocaleDateString()}</div>
                       </div>
                     </div>
 
@@ -1008,9 +1014,7 @@ export default function OrderDetail() {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
-                          className={`h-2 rounded-full ${
-                            progress === 100 ? 'bg-green-600' : 'bg-blue-600'
-                          }`}
+                          className={`h-2 rounded-full ${progress === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -1023,9 +1027,7 @@ export default function OrderDetail() {
             <div className="text-center py-8">
               <Factory className="h-12 w-12 text-gray-300 mx-auto mb-3" />
               <div className="text-gray-500">No production runs found for this order</div>
-              <div className="text-sm text-gray-400 mt-1">
-                Production runs are auto-created when orders are saved
-              </div>
+              <div className="text-sm text-gray-400 mt-1">Production runs are auto-created when orders are saved</div>
             </div>
           )}
         </CardContent>

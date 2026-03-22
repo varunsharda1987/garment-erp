@@ -229,12 +229,15 @@ export const updateCAD = async (req: Request, res: Response) => {
       cadMeters: cadMeters !== undefined ? (cadMeters ? parseFloat(cadMeters) : null) : undefined,
       cadYards: cadYards !== undefined ? (cadYards ? parseFloat(cadYards) : null) : undefined,
       cadWastagePercent: cadWastagePercent ? parseFloat(cadWastagePercent) : undefined,
-      markerEfficiency: markerEfficiency !== undefined ? (markerEfficiency ? parseFloat(markerEfficiency) : null) : undefined,
+      markerEfficiency:
+        markerEfficiency !== undefined ? (markerEfficiency ? parseFloat(markerEfficiency) : null) : undefined,
       isPreferred: isPreferred !== undefined ? isPreferred : undefined,
       supplierAvailability,
-      priceDifferential: priceDifferential !== undefined ? (priceDifferential ? parseFloat(priceDifferential) : null) : undefined,
+      priceDifferential:
+        priceDifferential !== undefined ? (priceDifferential ? parseFloat(priceDifferential) : null) : undefined,
       markerPlanFile,
-      markerLengthMeters: markerLengthMeters !== undefined ? (markerLengthMeters ? parseFloat(markerLengthMeters) : null) : undefined,
+      markerLengthMeters:
+        markerLengthMeters !== undefined ? (markerLengthMeters ? parseFloat(markerLengthMeters) : null) : undefined,
       piecesPerMarker: piecesPerMarker !== undefined ? (piecesPerMarker ? parseInt(piecesPerMarker) : null) : undefined,
       notes,
     },
@@ -337,7 +340,7 @@ export const getCostComparison = async (req: Request, res: Response) => {
   // This endpoint now returns consumption/CAD data only
 
   // Calculate consumption for each width option
-  const comparison = fabric.widthCADs.map(cad => {
+  const comparison = fabric.widthCADs.map((cad) => {
     const cadValue = parseFloat((cad.cadMeters || cad.cadYards || 0).toString());
     const totalFabricRequired = cadValue * orderQty;
 
@@ -355,9 +358,10 @@ export const getCostComparison = async (req: Request, res: Response) => {
   });
 
   // Find best option (lowest fabric consumption)
-  const bestOption = comparison.reduce((prev, current) =>
-    current.totalFabricRequired < prev.totalFabricRequired ? current : prev
-  , comparison[0]);
+  const bestOption = comparison.reduce(
+    (prev, current) => (current.totalFabricRequired < prev.totalFabricRequired ? current : prev),
+    comparison[0]
+  );
 
   res.json({
     fabric: {
@@ -369,9 +373,9 @@ export const getCostComparison = async (req: Request, res: Response) => {
     options: comparison,
     bestOption: {
       width: bestOption.width,
-      fabricSaved: comparison.map(opt =>
-        opt.width === bestOption.width ? 0 : opt.totalFabricRequired - bestOption.totalFabricRequired
-      ).reduce((a, b) => Math.max(a, b), 0),
+      fabricSaved: comparison
+        .map((opt) => (opt.width === bestOption.width ? 0 : opt.totalFabricRequired - bestOption.totalFabricRequired))
+        .reduce((a, b) => Math.max(a, b), 0),
     },
   });
 };
@@ -402,7 +406,7 @@ export const getCADStatistics = async (req: Request, res: Response) => {
   res.json({
     totalCADEntries: totalCADs,
     averageMarkerEfficiency: avgEfficiency._avg.markerEfficiency,
-    commonWidths: commonWidths.map(item => ({
+    commonWidths: commonWidths.map((item) => ({
       width: parseFloat(item.available_width.toString()),
       count: Number(item.count),
     })),

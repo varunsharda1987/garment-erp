@@ -91,11 +91,13 @@ export async function addLaceItem(req: Request, res: Response) {
       notes,
     });
 
-    res.status(201).json(serialize({
-      success: true,
-      data: laceItem,
-      message: 'Lace item added to cost sheet',
-    }));
+    res.status(201).json(
+      serialize({
+        success: true,
+        data: laceItem,
+        message: 'Lace item added to cost sheet',
+      })
+    );
   } catch (error: any) {
     console.error('Error adding lace item:', error);
     res.status(500).json({
@@ -128,21 +130,28 @@ export async function updateLaceItemController(req: Request, res: Response) {
     // Parse numeric fields
     const parsedData: any = { ...updateData };
     if (updateData.width !== undefined) parsedData.width = parseFloat(updateData.width);
-    if (updateData.quantityPerGarment !== undefined) parsedData.quantityPerGarment = parseFloat(updateData.quantityPerGarment);
+    if (updateData.quantityPerGarment !== undefined)
+      parsedData.quantityPerGarment = parseFloat(updateData.quantityPerGarment);
     if (updateData.wastagePercent !== undefined) parsedData.wastagePercent = parseFloat(updateData.wastagePercent);
-    if (updateData.greigeCost !== undefined) parsedData.greigeCost = updateData.greigeCost ? parseFloat(updateData.greigeCost) : undefined;
-    if (updateData.processingCost !== undefined) parsedData.processingCost = updateData.processingCost ? parseFloat(updateData.processingCost) : undefined;
-    if (updateData.readyLaceCost !== undefined) parsedData.readyLaceCost = updateData.readyLaceCost ? parseFloat(updateData.readyLaceCost) : undefined;
-    if (updateData.stockCost !== undefined) parsedData.stockCost = updateData.stockCost ? parseFloat(updateData.stockCost) : undefined;
+    if (updateData.greigeCost !== undefined)
+      parsedData.greigeCost = updateData.greigeCost ? parseFloat(updateData.greigeCost) : undefined;
+    if (updateData.processingCost !== undefined)
+      parsedData.processingCost = updateData.processingCost ? parseFloat(updateData.processingCost) : undefined;
+    if (updateData.readyLaceCost !== undefined)
+      parsedData.readyLaceCost = updateData.readyLaceCost ? parseFloat(updateData.readyLaceCost) : undefined;
+    if (updateData.stockCost !== undefined)
+      parsedData.stockCost = updateData.stockCost ? parseFloat(updateData.stockCost) : undefined;
     if (updateData.costPerMeter !== undefined) parsedData.costPerMeter = parseFloat(updateData.costPerMeter);
 
     const laceItem = await updateLaceItem(itemId, parsedData);
 
-    res.json(serialize({
-      success: true,
-      data: laceItem,
-      message: 'Lace item updated',
-    }));
+    res.json(
+      serialize({
+        success: true,
+        data: laceItem,
+        message: 'Lace item updated',
+      })
+    );
   } catch (error: any) {
     console.error('Error updating lace item:', error);
     res.status(500).json({
@@ -162,10 +171,12 @@ export async function deleteLaceItem(req: Request, res: Response) {
 
     await removeLaceItem(itemId);
 
-    res.json(serialize({
-      success: true,
-      message: 'Lace item removed from cost sheet',
-    }));
+    res.json(
+      serialize({
+        success: true,
+        message: 'Lace item removed from cost sheet',
+      })
+    );
   } catch (error: any) {
     console.error('Error removing lace item:', error);
     res.status(500).json({
@@ -188,16 +199,18 @@ export async function getLaceItems(req: Request, res: Response) {
     // Calculate total
     const totalCost = items.reduce((sum, item) => sum + Number(item.totalCost || 0), 0);
 
-    res.json(serialize({
-      success: true,
-      data: {
-        items,
-        summary: {
-          count: items.length,
-          totalCost,
+    res.json(
+      serialize({
+        success: true,
+        data: {
+          items,
+          summary: {
+            count: items.length,
+            totalCost,
+          },
         },
-      },
-    }));
+      })
+    );
   } catch (error: any) {
     console.error('Error fetching lace items:', error);
     res.status(500).json({
@@ -224,10 +237,12 @@ export async function getLaceItem(req: Request, res: Response) {
       });
     }
 
-    res.json(serialize({
-      success: true,
-      data: item,
-    }));
+    res.json(
+      serialize({
+        success: true,
+        data: item,
+      })
+    );
   } catch (error: any) {
     console.error('Error fetching lace item:', error);
     res.status(500).json({
@@ -262,10 +277,12 @@ export async function calculateLaceOptions(req: Request, res: Response) {
       costingId
     );
 
-    res.json(serialize({
-      success: true,
-      data: options,
-    }));
+    res.json(
+      serialize({
+        success: true,
+        data: options,
+      })
+    );
   } catch (error: any) {
     console.error('Error calculating lace options:', error);
     res.status(500).json({
@@ -306,14 +323,16 @@ export async function bulkAddLaceItemsController(req: Request, res: Response) {
 
     const createdItems = await bulkAddLaceItems(costingId, parsedItems);
 
-    res.status(201).json(serialize({
-      success: true,
-      data: {
-        items: createdItems,
-        count: createdItems.length,
-      },
-      message: `${createdItems.length} lace item(s) added to cost sheet`,
-    }));
+    res.status(201).json(
+      serialize({
+        success: true,
+        data: {
+          items: createdItems,
+          count: createdItems.length,
+        },
+        message: `${createdItems.length} lace item(s) added to cost sheet`,
+      })
+    );
   } catch (error: any) {
     console.error('Error bulk adding lace items:', error);
     res.status(500).json({

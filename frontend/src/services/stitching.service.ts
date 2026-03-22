@@ -68,10 +68,7 @@ export const stitchingIssueService = {
 
   // Record daily output
   recordDailyOutput: async (id: string, data: RecordDailyOutputRequest): Promise<StitchingDailyOutput> => {
-    const response = await api.post<{ data: StitchingDailyOutput }>(
-      `${BASE_URL}/issues/${id}/daily-output`,
-      data
-    );
+    const response = await api.post<{ data: StitchingDailyOutput }>(`${BASE_URL}/issues/${id}/daily-output`, data);
     return response.data.data;
   },
 
@@ -109,17 +106,13 @@ export const stitchingSummaryService = {
 
   // Get summary by work order
   getSummaryByWorkOrder: async (workOrderId: string): Promise<StitchingSummary> => {
-    const response = await api.get<{ data: StitchingSummary }>(
-      `${BASE_URL}/summary/work-order/${workOrderId}`
-    );
+    const response = await api.get<{ data: StitchingSummary }>(`${BASE_URL}/summary/work-order/${workOrderId}`);
     return response.data.data;
   },
 
   // Get summary by manager
   getSummaryByManager: async (managerId: string): Promise<StitchingSummary> => {
-    const response = await api.get<{ data: StitchingSummary }>(
-      `${BASE_URL}/summary/manager/${managerId}`
-    );
+    const response = await api.get<{ data: StitchingSummary }>(`${BASE_URL}/summary/manager/${managerId}`);
     return response.data.data;
   },
 

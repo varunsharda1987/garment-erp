@@ -248,19 +248,14 @@ export interface TrimTypeConfig {
 }
 
 // Trim categories for grouping
-export type TrimCategory =
-  | 'FASTENERS_CLOSURES'
-  | 'THREADS_TAPES'
-  | 'DECORATIVE'
-  | 'FUNCTIONAL'
-  | 'OTHERS';
+export type TrimCategory = 'FASTENERS_CLOSURES' | 'THREADS_TAPES' | 'DECORATIVE' | 'FUNCTIONAL' | 'OTHERS';
 
 export const TRIM_CATEGORY_LABELS: Record<TrimCategory, string> = {
   FASTENERS_CLOSURES: 'Fasteners & Closures',
   THREADS_TAPES: 'Threads & Tapes',
   DECORATIVE: 'Decorative',
   FUNCTIONAL: 'Functional',
-  OTHERS: 'Others'
+  OTHERS: 'Others',
 };
 
 // Configuration for all trim types
@@ -278,8 +273,8 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
       { name: 'color', label: 'Color', type: 'text' },
       { name: 'finish', label: 'Finish', type: 'select', options: ['Nickel', 'Antique Brass', 'Black', 'Chrome'] },
       { name: 'pricePerPair', label: 'Price Per Pair', type: 'number' },
-      { name: 'pricePerGross', label: 'Price Per Gross', type: 'number' }
-    ]
+      { name: 'pricePerGross', label: 'Price Per Gross', type: 'number' },
+    ],
   },
   snap_button: {
     type: 'snap_button',
@@ -290,12 +285,17 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'size', label: 'Size', type: 'select', options: ['10mm', '12mm', '15mm', '17mm', '20mm'] },
-      { name: 'type', label: 'Type', type: 'select', options: ['Ring Snap', 'Pearl Snap', 'Heavy Duty', 'Press Button'] },
+      {
+        name: 'type',
+        label: 'Type',
+        type: 'select',
+        options: ['Ring Snap', 'Pearl Snap', 'Heavy Duty', 'Press Button'],
+      },
       { name: 'material', label: 'Material', type: 'select', options: ['Metal', 'Plastic', 'Brass'] },
       { name: 'color', label: 'Color', type: 'text' },
       { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' },
-      { name: 'pricePerGross', label: 'Price Per Gross', type: 'number' }
-    ]
+      { name: 'pricePerGross', label: 'Price Per Gross', type: 'number' },
+    ],
   },
   buckle: {
     type: 'buckle',
@@ -306,12 +306,22 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'width', label: 'Width', type: 'select', options: ['20mm', '25mm', '30mm', '38mm', '50mm'] },
-      { name: 'type', label: 'Type', type: 'select', options: ['Pin Buckle', 'Slide Buckle', 'D-Ring', 'O-Ring', 'Center Bar'] },
+      {
+        name: 'type',
+        label: 'Type',
+        type: 'select',
+        options: ['Pin Buckle', 'Slide Buckle', 'D-Ring', 'O-Ring', 'Center Bar'],
+      },
       { name: 'material', label: 'Material', type: 'select', options: ['Metal', 'Plastic', 'Wooden', 'Alloy'] },
       { name: 'color', label: 'Color', type: 'text' },
-      { name: 'finish', label: 'Finish', type: 'select', options: ['Chrome', 'Antique', 'Matte Black', 'Nickel', 'Gold'] },
-      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' }
-    ]
+      {
+        name: 'finish',
+        label: 'Finish',
+        type: 'select',
+        options: ['Chrome', 'Antique', 'Matte Black', 'Nickel', 'Gold'],
+      },
+      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' },
+    ],
   },
   belt: {
     type: 'belt',
@@ -322,12 +332,27 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'width', label: 'Width', type: 'select', options: ['20mm', '25mm', '30mm', '38mm', '50mm'] },
-      { name: 'type', label: 'Type', type: 'select', options: ['Leather Belt', 'Fabric Belt', 'Chain Belt', 'Elastic Belt', 'Braided Belt', 'Ribbon Belt'] },
-      { name: 'material', label: 'Material', type: 'select', options: ['Genuine Leather', 'PU Leather', 'Canvas', 'Fabric', 'Metal', 'Elastic'] },
+      {
+        name: 'type',
+        label: 'Type',
+        type: 'select',
+        options: ['Leather Belt', 'Fabric Belt', 'Chain Belt', 'Elastic Belt', 'Braided Belt', 'Ribbon Belt'],
+      },
+      {
+        name: 'material',
+        label: 'Material',
+        type: 'select',
+        options: ['Genuine Leather', 'PU Leather', 'Canvas', 'Fabric', 'Metal', 'Elastic'],
+      },
       { name: 'color', label: 'Color', type: 'text' },
-      { name: 'buckleType', label: 'Buckle Type', type: 'select', options: ['Pin Buckle', 'Slide Buckle', 'D-Ring', 'No Buckle', 'Clasp'] },
-      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' }
-    ]
+      {
+        name: 'buckleType',
+        label: 'Buckle Type',
+        type: 'select',
+        options: ['Pin Buckle', 'Slide Buckle', 'D-Ring', 'No Buckle', 'Clasp'],
+      },
+      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' },
+    ],
   },
   velcro: {
     type: 'velcro',
@@ -340,8 +365,8 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
       { name: 'width', label: 'Width', type: 'select', options: ['16mm', '20mm', '25mm', '38mm', '50mm', '100mm'] },
       { name: 'type', label: 'Type', type: 'select', options: ['Sew-On', 'Adhesive', 'Both'] },
       { name: 'color', label: 'Color', type: 'text' },
-      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' }
-    ]
+      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' },
+    ],
   },
   drawstring: {
     type: 'drawstring',
@@ -352,11 +377,16 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     category: 'THREADS_TAPES',
     fields: [
       { name: 'width', label: 'Width/Diameter', type: 'select', options: ['3mm', '5mm', '8mm', '10mm'] },
-      { name: 'material', label: 'Material', type: 'select', options: ['Cotton', 'Polyester', 'Nylon', 'Leather', 'Waxed'] },
+      {
+        name: 'material',
+        label: 'Material',
+        type: 'select',
+        options: ['Cotton', 'Polyester', 'Nylon', 'Leather', 'Waxed'],
+      },
       { name: 'color', label: 'Color', type: 'text' },
       { name: 'hasAglets', label: 'Has Aglets', type: 'boolean' },
-      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' }
-    ]
+      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' },
+    ],
   },
   ribbon: {
     type: 'ribbon',
@@ -370,8 +400,8 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
       { name: 'type', label: 'Type', type: 'select', options: ['Satin', 'Grosgrain', 'Velvet', 'Organza', 'Cotton'] },
       { name: 'color', label: 'Color', type: 'text' },
       { name: 'pattern', label: 'Pattern', type: 'select', options: ['Solid', 'Striped', 'Printed', 'Checked'] },
-      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' }
-    ]
+      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' },
+    ],
   },
   sequin: {
     type: 'sequin',
@@ -387,8 +417,8 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
       { name: 'color', label: 'Color', type: 'text' },
       { name: 'onTape', label: 'On Tape', type: 'boolean' },
       { name: 'pricePerMeter', label: 'Price Per Meter (Tape)', type: 'number' },
-      { name: 'pricePerPack', label: 'Price Per Pack (Loose)', type: 'number' }
-    ]
+      { name: 'pricePerPack', label: 'Price Per Pack (Loose)', type: 'number' },
+    ],
   },
   bead: {
     type: 'bead',
@@ -400,11 +430,16 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     fields: [
       { name: 'size', label: 'Size', type: 'select', options: ['2mm', '3mm', '4mm', '6mm', '8mm', '10mm'] },
       { name: 'shape', label: 'Shape', type: 'select', options: ['Round', 'Oval', 'Tube', 'Drop', 'Bicone'] },
-      { name: 'material', label: 'Material', type: 'select', options: ['Glass', 'Plastic', 'Pearl', 'Crystal', 'Wood'] },
+      {
+        name: 'material',
+        label: 'Material',
+        type: 'select',
+        options: ['Glass', 'Plastic', 'Pearl', 'Crystal', 'Wood'],
+      },
       { name: 'color', label: 'Color', type: 'text' },
       { name: 'packSize', label: 'Pack Size (count)', type: 'number' },
-      { name: 'pricePerPack', label: 'Price Per Pack', type: 'number' }
-    ]
+      { name: 'pricePerPack', label: 'Price Per Pack', type: 'number' },
+    ],
   },
   motif: {
     type: 'motif',
@@ -415,11 +450,16 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     category: 'DECORATIVE',
     fields: [
       { name: 'size', label: 'Size', type: 'select', options: ['Small', 'Medium', 'Large', 'Extra Large'] },
-      { name: 'type', label: 'Type', type: 'select', options: ['Embroidered', 'Beaded', 'Sequined', 'Applique', 'Patch'] },
+      {
+        name: 'type',
+        label: 'Type',
+        type: 'select',
+        options: ['Embroidered', 'Beaded', 'Sequined', 'Applique', 'Patch'],
+      },
       { name: 'design', label: 'Design Description', type: 'text' },
       { name: 'color', label: 'Color', type: 'text' },
-      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' }
-    ]
+      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' },
+    ],
   },
   interlining: {
     type: 'interlining',
@@ -429,13 +469,18 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     defaultUnit: 'METER',
     category: 'FUNCTIONAL',
     fields: [
-      { name: 'weight', label: 'Weight (GSM)', type: 'select', options: ['30gsm', '45gsm', '60gsm', '75gsm', '90gsm', '120gsm'] },
+      {
+        name: 'weight',
+        label: 'Weight (GSM)',
+        type: 'select',
+        options: ['30gsm', '45gsm', '60gsm', '75gsm', '90gsm', '120gsm'],
+      },
       { name: 'type', label: 'Type', type: 'select', options: ['Woven', 'Non-Woven', 'Knit'] },
       { name: 'fusible', label: 'Fusible', type: 'boolean' },
       { name: 'width', label: 'Width', type: 'select', options: ['90cm', '115cm', '150cm'] },
       { name: 'color', label: 'Color', type: 'select', options: ['White', 'Black', 'Charcoal', 'Grey'] },
-      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' }
-    ]
+      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' },
+    ],
   },
   padding: {
     type: 'padding',
@@ -445,14 +490,19 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     defaultUnit: 'PAIR',
     category: 'FUNCTIONAL',
     fields: [
-      { name: 'type', label: 'Type', type: 'select', options: ['Shoulder Pad', 'Bra Cup', 'Sleeve Head', 'Chest Pad', 'Hip Pad'] },
+      {
+        name: 'type',
+        label: 'Type',
+        type: 'select',
+        options: ['Shoulder Pad', 'Bra Cup', 'Sleeve Head', 'Chest Pad', 'Hip Pad'],
+      },
       { name: 'size', label: 'Size', type: 'select', options: ['XS', 'Small', 'Medium', 'Large', 'XL'] },
       { name: 'thickness', label: 'Thickness', type: 'select', options: ['Thin', 'Medium', 'Thick', 'Extra Thick'] },
       { name: 'material', label: 'Material', type: 'select', options: ['Foam', 'Cotton', 'Polyester', 'Sponge'] },
       { name: 'color', label: 'Color', type: 'text' },
       { name: 'pricePerPair', label: 'Price Per Pair', type: 'number' },
-      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' }
-    ]
+      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' },
+    ],
   },
   // "Others" categories - for miscellaneous items
   other_fastener: {
@@ -467,8 +517,8 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
       { name: 'size', label: 'Size', type: 'text' },
       { name: 'material', label: 'Material', type: 'text' },
       { name: 'color', label: 'Color', type: 'text' },
-      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' }
-    ]
+      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' },
+    ],
   },
   other_tape: {
     type: 'other_tape',
@@ -482,8 +532,8 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
       { name: 'width', label: 'Width', type: 'text' },
       { name: 'material', label: 'Material', type: 'text' },
       { name: 'color', label: 'Color', type: 'text' },
-      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' }
-    ]
+      { name: 'pricePerMeter', label: 'Price Per Meter', type: 'number' },
+    ],
   },
   other_decorative: {
     type: 'other_decorative',
@@ -497,8 +547,8 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
       { name: 'size', label: 'Size', type: 'text' },
       { name: 'material', label: 'Material', type: 'text' },
       { name: 'color', label: 'Color', type: 'text' },
-      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' }
-    ]
+      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' },
+    ],
   },
   other_functional: {
     type: 'other_functional',
@@ -512,9 +562,9 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
       { name: 'size', label: 'Size', type: 'text' },
       { name: 'material', label: 'Material', type: 'text' },
       { name: 'color', label: 'Color', type: 'text' },
-      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' }
-    ]
-  }
+      { name: 'pricePerPiece', label: 'Price Per Piece', type: 'number' },
+    ],
+  },
 };
 
 // Group configurations by category
@@ -522,23 +572,23 @@ export const TRIM_CATEGORIES = [
   {
     category: 'FASTENERS_CLOSURES' as TrimCategory,
     label: 'Fasteners & Closures',
-    types: ['hook_eye', 'snap_button', 'buckle', 'belt', 'velcro', 'other_fastener']
+    types: ['hook_eye', 'snap_button', 'buckle', 'belt', 'velcro', 'other_fastener'],
   },
   {
     category: 'THREADS_TAPES' as TrimCategory,
     label: 'Threads & Tapes',
-    types: ['drawstring', 'ribbon', 'other_tape']
+    types: ['drawstring', 'ribbon', 'other_tape'],
   },
   {
     category: 'DECORATIVE' as TrimCategory,
     label: 'Decorative',
-    types: ['sequin', 'bead', 'motif', 'other_decorative']
+    types: ['sequin', 'bead', 'motif', 'other_decorative'],
   },
   {
     category: 'FUNCTIONAL' as TrimCategory,
     label: 'Functional',
-    types: ['interlining', 'padding', 'other_functional']
-  }
+    types: ['interlining', 'padding', 'other_functional'],
+  },
 ];
 
 // API Response types

@@ -154,12 +154,7 @@ export function ListPageLayout({
   if (loading) {
     return (
       <div className={className}>
-        <ListPageHeader
-          title={title}
-          subtitle={subtitle}
-          createButton={createButton}
-          actions={headerActions}
-        />
+        <ListPageHeader title={title} subtitle={subtitle} createButton={createButton} actions={headerActions} />
         {shouldShowToolbar && (
           <ListPageToolbar
             search={search}
@@ -187,12 +182,7 @@ export function ListPageLayout({
   if (error) {
     return (
       <div className={className}>
-        <ListPageHeader
-          title={title}
-          subtitle={subtitle}
-          createButton={createButton}
-          actions={headerActions}
-        />
+        <ListPageHeader title={title} subtitle={subtitle} createButton={createButton} actions={headerActions} />
         {shouldShowToolbar && (
           <ListPageToolbar
             search={search}
@@ -226,12 +216,7 @@ export function ListPageLayout({
   if (empty) {
     return (
       <div className={className}>
-        <ListPageHeader
-          title={title}
-          subtitle={subtitle}
-          createButton={createButton}
-          actions={headerActions}
-        />
+        <ListPageHeader title={title} subtitle={subtitle} createButton={createButton} actions={headerActions} />
         {shouldShowToolbar && (
           <ListPageToolbar
             search={search}
@@ -264,12 +249,7 @@ export function ListPageLayout({
   // Render normal content
   return (
     <div className={className}>
-      <ListPageHeader
-        title={title}
-        subtitle={subtitle}
-        createButton={createButton}
-        actions={headerActions}
-      />
+      <ListPageHeader title={title} subtitle={subtitle} createButton={createButton} actions={headerActions} />
       {shouldShowToolbar && (
         <ListPageToolbar
           search={search}
@@ -286,11 +266,7 @@ export function ListPageLayout({
       )}
       {children}
       {pagination && totalPages !== undefined && totalItems !== undefined && (
-        <Pagination
-          {...pagination}
-          totalPages={totalPages}
-          totalItems={totalItems}
-        />
+        <Pagination {...pagination} totalPages={totalPages} totalItems={totalItems} />
       )}
     </div>
   );

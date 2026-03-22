@@ -9,13 +9,7 @@ import { NotFoundError, ValidationError, ConflictError } from '../errors';
  * POST /api/currencies
  */
 export const createCurrency = async (req: Request, res: Response): Promise<void> => {
-  const {
-    currencyCode,
-    currencyName,
-    currencySymbol,
-    isBaseCurrency,
-    decimalPlaces,
-  } = req.body;
+  const { currencyCode, currencyName, currencySymbol, isBaseCurrency, decimalPlaces } = req.body;
 
   // Check if currency code already exists
   const existingCurrency = await prisma.currencies.findUnique({

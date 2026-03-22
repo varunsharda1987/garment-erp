@@ -144,7 +144,13 @@ export const getImportTemplate = async (_req: Request, res: Response): Promise<v
     columns: [
       { field: 'colorName', header: 'Color Name', required: true, description: 'Name of the color (e.g., Navy Blue)' },
       { field: 'hexCode', header: 'Hex Code', required: false, description: 'Color hex code (e.g., #000080)' },
-      { field: 'colorFamily', header: 'Color Family', required: false, description: 'Family: Reds, Blues, Greens, Yellows, Oranges, Purples, Pinks, Browns, Neutrals, Prints, Metallics' },
+      {
+        field: 'colorFamily',
+        header: 'Color Family',
+        required: false,
+        description:
+          'Family: Reds, Blues, Greens, Yellows, Oranges, Purples, Pinks, Browns, Neutrals, Prints, Metallics',
+      },
       { field: 'description', header: 'Description', required: false, description: 'Optional description' },
     ],
     sampleData: [

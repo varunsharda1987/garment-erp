@@ -20,10 +20,7 @@ export const createThreadRequirement = async (
   orderId: string,
   data: Omit<CreateThreadRequirementDto, 'orderId'>
 ): Promise<OrderThreadRequirement> => {
-  const response = await api.post(
-    `${BASE_URL}/orders/${orderId}/thread-requirements`,
-    data
-  );
+  const response = await api.post(`${BASE_URL}/orders/${orderId}/thread-requirements`, data);
   return response.data.data;
 };
 
@@ -45,10 +42,7 @@ export const updateThreadRequirement = async (
   id: string,
   data: Partial<OrderThreadRequirement>
 ): Promise<OrderThreadRequirement> => {
-  const response = await api.put(
-    `${BASE_URL}/orders/${orderId}/thread-requirements/${id}`,
-    data
-  );
+  const response = await api.put(`${BASE_URL}/orders/${orderId}/thread-requirements/${id}`, data);
   return response.data.data;
 };
 
@@ -85,9 +79,7 @@ export const checkThreadShortages = async (
   shortages: ThreadShortage[];
   summary: { totalShortages: number; hasShortages: boolean };
 }> => {
-  const response = await api.post(
-    `${BASE_URL}/orders/${orderId}/thread-requirements/check-shortage`
-  );
+  const response = await api.post(`${BASE_URL}/orders/${orderId}/thread-requirements/check-shortage`);
   return {
     shortages: response.data.data,
     summary: response.data.summary,

@@ -74,10 +74,7 @@ const listProcessingSchema = z.object({
  * GET /api/processing
  * List all processing batches with optional filters
  */
-export const listProcessingBatches = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const listProcessingBatches = async (req: Request, res: Response): Promise<void> => {
   const query = listProcessingSchema.parse({
     processingStatus: req.query.processingStatus,
     processingMillId: req.query.processingMillId,
@@ -144,10 +141,7 @@ export const listProcessingBatches = async (
  * GET /api/processing/:id
  * Get details of a specific processing batch
  */
-export const getProcessingDetails = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getProcessingDetails = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
 
   const batch = await prisma.fabric_processing.findUnique({
@@ -187,10 +181,7 @@ export const getProcessingDetails = async (
  * - Calculate cost per meter based on expected output
  * - Set initial processingStatus to "SENT"
  */
-export const sendForProcessing = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const sendForProcessing = async (req: Request, res: Response): Promise<void> => {
   const data = sendForProcessingSchema.parse(req.body);
   const userId = (req as any).user.id;
 
@@ -198,14 +189,10 @@ export const sendForProcessing = async (
   const totalFinishedCost = data.greigeCost + data.processingCost;
 
   // Calculate expected output quantity (after shrinkage)
-  const expectedQuantityAfterShrinkage =
-    data.greigeQuantitySent * (1 - data.expectedShrinkagePercent / 100);
+  const expectedQuantityAfterShrinkage = data.greigeQuantitySent * (1 - data.expectedShrinkagePercent / 100);
 
   // Calculate cost per meter
-  const costPerMeter =
-    expectedQuantityAfterShrinkage > 0
-      ? totalFinishedCost / expectedQuantityAfterShrinkage
-      : 0;
+  const costPerMeter = expectedQuantityAfterShrinkage > 0 ? totalFinishedCost / expectedQuantityAfterShrinkage : 0;
 
   // Create processing batch
   const batch = await prisma.fabric_processing.create({
@@ -224,9 +211,7 @@ export const sendForProcessing = async (
       totalFinishedCost,
       costPerMeter,
       sentDate: new Date(data.sentDate),
-      expectedReturnDate: data.expectedReturnDate
-        ? new Date(data.expectedReturnDate)
-        : null,
+      expectedReturnDate: data.expectedReturnDate ? new Date(data.expectedReturnDate) : null,
       batchNumber: data.batchNumber || null,
       processSpecifications: data.processSpecifications || null,
       processingStatus: 'SENT',
@@ -256,10 +241,7 @@ export const sendForProcessing = async (
  * - Create fabric stock entry for finished fabric
  * - Calculate mill performance (compare actual vs mill historical avg)
  */
-export const receiveFinishedFabric = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const receiveFinishedFabric = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const data = receiveFinishedFabricSchema.parse(req.body);
 
@@ -275,13 +257,10 @@ export const receiveFinishedFabric = async (
 
   // Calculate variance metrics
   const expectedAvgWidth =
-    (Number(existingBatch.expectedFinishedWidthMin) +
-      Number(existingBatch.expectedFinishedWidthMax)) /
-    2;
+    (Number(existingBatch.expectedFinishedWidthMin) + Number(existingBatch.expectedFinishedWidthMax)) / 2;
   const widthVarianceInches = data.actualFinishedWidth - expectedAvgWidth;
 
-  const shrinkageVariancePercent =
-    data.actualShrinkagePercent - Number(existingBatch.expectedShrinkagePercent);
+  const shrinkageVariancePercent = data.actualShrinkagePercent - Number(existingBatch.expectedShrinkagePercent);
 
   // Calculate mill performance (get historical average)
   const millHistoricalAvg = await prisma.fabric_processing.aggregate({
@@ -300,10 +279,7 @@ export const receiveFinishedFabric = async (
     ? Number(millHistoricalAvg._avg.actualShrinkagePercent)
     : null;
 
-  const varianceFromMillAvg =
-    millAvgShrinkage !== null
-      ? data.actualShrinkagePercent - millAvgShrinkage
-      : null;
+  const varianceFromMillAvg = millAvgShrinkage !== null ? data.actualShrinkagePercent - millAvgShrinkage : null;
 
   // Recalculate cost per meter based on actual quantity
   const updatedCostPerMeter =
@@ -361,10 +337,7 @@ export const receiveFinishedFabric = async (
  * - Average delivery time
  * - Total batches processed
  */
-export const getMillPerformance = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getMillPerformance = async (req: Request, res: Response): Promise<void> => {
   // Get all completed processing batches grouped by mill
   const batches = await prisma.fabric_processing.findMany({
     where: {
@@ -401,37 +374,25 @@ export const getMillPerformance = async (
     // Calculate delivery time if both dates exist
     if (batch.sentDate && batch.actualReturnDate) {
       const deliveryTime =
-        (new Date(batch.actualReturnDate).getTime() -
-          new Date(batch.sentDate).getTime()) /
-        (1000 * 60 * 60 * 24); // Convert to days
+        (new Date(batch.actualReturnDate).getTime() - new Date(batch.sentDate).getTime()) / (1000 * 60 * 60 * 24); // Convert to days
       millData.totalDeliveryTime += deliveryTime;
       millData.batchesWithDeliveryTime += 1;
     }
   }
 
   // Calculate averages
-  const millPerformance = Array.from(millPerformanceMap.values()).map(
-    (data) => ({
-      mill: {
-        id: data.mill.id,
-        name: data.mill.name,
-        code: data.mill.code,
-      },
-      totalBatches: data.totalBatches,
-      averageShrinkagePercent:
-        data.totalBatches > 0
-          ? (data.totalShrinkage / data.totalBatches).toFixed(2)
-          : '0.00',
-      averageLossMeters:
-        data.totalBatches > 0
-          ? (data.totalLoss / data.totalBatches).toFixed(2)
-          : '0.00',
-      averageDeliveryDays:
-        data.batchesWithDeliveryTime > 0
-          ? (data.totalDeliveryTime / data.batchesWithDeliveryTime).toFixed(1)
-          : null,
-    })
-  );
+  const millPerformance = Array.from(millPerformanceMap.values()).map((data) => ({
+    mill: {
+      id: data.mill.id,
+      name: data.mill.name,
+      code: data.mill.code,
+    },
+    totalBatches: data.totalBatches,
+    averageShrinkagePercent: data.totalBatches > 0 ? (data.totalShrinkage / data.totalBatches).toFixed(2) : '0.00',
+    averageLossMeters: data.totalBatches > 0 ? (data.totalLoss / data.totalBatches).toFixed(2) : '0.00',
+    averageDeliveryDays:
+      data.batchesWithDeliveryTime > 0 ? (data.totalDeliveryTime / data.batchesWithDeliveryTime).toFixed(1) : null,
+  }));
 
   // Sort by total batches (most active mills first)
   millPerformance.sort((a, b) => b.totalBatches - a.totalBatches);

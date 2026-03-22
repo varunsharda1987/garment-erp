@@ -10,10 +10,7 @@ interface CostComparisonTableProps {
   className?: string;
 }
 
-export default function CostComparisonTable({
-  fabricResults,
-  className = '',
-}: CostComparisonTableProps) {
+export default function CostComparisonTable({ fabricResults, className = '' }: CostComparisonTableProps) {
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount === null || amount === undefined) return '-';
     return `₹${amount.toFixed(2)}`;
@@ -29,18 +26,11 @@ export default function CostComparisonTable({
       0
     );
     const greigeTotal = fabricResults.reduce(
-      (sum, fabric) =>
-        sum + (fabric.greigeProcessing.available ? fabric.greigeProcessing.totalCost || 0 : 0),
+      (sum, fabric) => sum + (fabric.greigeProcessing.available ? fabric.greigeProcessing.totalCost || 0 : 0),
       0
     );
-    const recommendedTotal = fabricResults.reduce(
-      (sum, fabric) => sum + (fabric.recommendedCost || 0),
-      0
-    );
-    const totalSavings = fabricResults.reduce(
-      (sum, fabric) => sum + (fabric.savings || 0),
-      0
-    );
+    const recommendedTotal = fabricResults.reduce((sum, fabric) => sum + (fabric.recommendedCost || 0), 0);
+    const totalSavings = fabricResults.reduce((sum, fabric) => sum + (fabric.savings || 0), 0);
 
     return {
       stockTotal,
@@ -77,9 +67,7 @@ export default function CostComparisonTable({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fabric
-              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fabric</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Quantity
               </th>
@@ -106,9 +94,7 @@ export default function CostComparisonTable({
                 {/* Fabric Name */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{fabric.fabricName}</div>
-                  <div className="text-xs text-gray-500">
-                    {fabric.width}" width
-                  </div>
+                  <div className="text-xs text-gray-500">{fabric.width}" width</div>
                 </td>
 
                 {/* Quantity */}
@@ -123,13 +109,9 @@ export default function CostComparisonTable({
                       <div className="text-sm font-semibold text-gray-900">
                         {formatCurrency(fabric.stockReuse.totalCost)}
                       </div>
-                      <div className="text-xs text-gray-600">
-                        {formatCurrency(fabric.stockReuse.stockCost)}/m
-                      </div>
+                      <div className="text-xs text-gray-600">{formatCurrency(fabric.stockReuse.stockCost)}/m</div>
                       {fabric.recommendedStrategy === 'STOCK_REUSE' && (
-                        <div className="text-xs text-green-700 font-medium mt-1">
-                          ✓ Recommended
-                        </div>
+                        <div className="text-xs text-green-700 font-medium mt-1">✓ Recommended</div>
                       )}
                     </div>
                   ) : (
@@ -148,9 +130,7 @@ export default function CostComparisonTable({
                         {formatCurrency(fabric.readyFabric.readyFabricCost)}/m
                       </div>
                       {fabric.recommendedStrategy === 'READY_FABRIC' && (
-                        <div className="text-xs text-blue-700 font-medium mt-1">
-                          ✓ Recommended
-                        </div>
+                        <div className="text-xs text-blue-700 font-medium mt-1">✓ Recommended</div>
                       )}
                     </div>
                   ) : (
@@ -171,9 +151,7 @@ export default function CostComparisonTable({
                         Process: {formatCurrency(fabric.greigeProcessing.processingCost)}/m
                       </div>
                       {fabric.recommendedStrategy === 'GREIGE_PROCESSED' && (
-                        <div className="text-xs text-purple-700 font-medium mt-1">
-                          ✓ Recommended
-                        </div>
+                        <div className="text-xs text-purple-700 font-medium mt-1">✓ Recommended</div>
                       )}
                     </div>
                   ) : (
@@ -183,9 +161,7 @@ export default function CostComparisonTable({
 
                 {/* Recommended */}
                 <td className="px-6 py-4 whitespace-nowrap text-right bg-yellow-50">
-                  <div className="text-sm font-bold text-gray-900">
-                    {formatCurrency(fabric.recommendedCost)}
-                  </div>
+                  <div className="text-sm font-bold text-gray-900">{formatCurrency(fabric.recommendedCost)}</div>
                   <div className="text-xs text-gray-600 capitalize">
                     {fabric.recommendedStrategy.replace('_', ' ').toLowerCase()}
                   </div>
@@ -194,9 +170,7 @@ export default function CostComparisonTable({
                 {/* Savings */}
                 <td className="px-6 py-4 whitespace-nowrap text-right bg-yellow-50">
                   {fabric.savings ? (
-                    <div className="text-sm font-semibold text-green-700">
-                      {formatCurrency(fabric.savings)}
-                    </div>
+                    <div className="text-sm font-semibold text-green-700">{formatCurrency(fabric.savings)}</div>
                   ) : (
                     <span className="text-sm text-gray-400">-</span>
                   )}
@@ -210,29 +184,19 @@ export default function CostComparisonTable({
                 TOTAL
               </td>
               <td className="px-6 py-4 text-right bg-green-100">
-                <div className="text-sm font-bold text-gray-900">
-                  {formatCurrency(totals.stockTotal)}
-                </div>
+                <div className="text-sm font-bold text-gray-900">{formatCurrency(totals.stockTotal)}</div>
               </td>
               <td className="px-6 py-4 text-right bg-blue-100">
-                <div className="text-sm font-bold text-gray-900">
-                  {formatCurrency(totals.readyTotal)}
-                </div>
+                <div className="text-sm font-bold text-gray-900">{formatCurrency(totals.readyTotal)}</div>
               </td>
               <td className="px-6 py-4 text-right bg-purple-100">
-                <div className="text-sm font-bold text-gray-900">
-                  {formatCurrency(totals.greigeTotal)}
-                </div>
+                <div className="text-sm font-bold text-gray-900">{formatCurrency(totals.greigeTotal)}</div>
               </td>
               <td className="px-6 py-4 text-right bg-yellow-100">
-                <div className="text-base font-bold text-gray-900">
-                  {formatCurrency(totals.recommendedTotal)}
-                </div>
+                <div className="text-base font-bold text-gray-900">{formatCurrency(totals.recommendedTotal)}</div>
               </td>
               <td className="px-6 py-4 text-right bg-yellow-100">
-                <div className="text-base font-bold text-green-700">
-                  {formatCurrency(totals.totalSavings)}
-                </div>
+                <div className="text-base font-bold text-green-700">{formatCurrency(totals.totalSavings)}</div>
               </td>
             </tr>
           </tbody>

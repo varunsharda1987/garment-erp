@@ -39,11 +39,7 @@ export function createSelectionColumn<T extends Record<string, any>>(
   selection: UseRowSelectionReturn,
   options: SelectionColumnOptions = {}
 ): Column<T> {
-  const {
-    idKey = 'id',
-    headerLabel: _headerLabel = 'Select all rows',
-    rowLabel = () => 'Select row',
-  } = options;
+  const { idKey = 'id', headerLabel: _headerLabel = 'Select all rows', rowLabel = () => 'Select row' } = options;
 
   return {
     key: '__selection__',
@@ -53,10 +49,7 @@ export function createSelectionColumn<T extends Record<string, any>>(
     render: (item: T) => {
       const id = item[idKey] as string | number;
       return (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="flex items-center justify-center"
-        >
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-center">
           <Checkbox
             checked={selection.isSelected(id)}
             onCheckedChange={() => selection.toggleRow(id)}
@@ -102,11 +95,7 @@ export interface SelectionCellProps {
 export function SelectionCell({ selection, id, label = 'Select row' }: SelectionCellProps) {
   return (
     <div onClick={(e) => e.stopPropagation()}>
-      <Checkbox
-        checked={selection.isSelected(id)}
-        onCheckedChange={() => selection.toggleRow(id)}
-        aria-label={label}
-      />
+      <Checkbox checked={selection.isSelected(id)} onCheckedChange={() => selection.toggleRow(id)} aria-label={label} />
     </div>
   );
 }

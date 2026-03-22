@@ -5,7 +5,8 @@ import { Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 export const createCostCenter = async (req: Request, res: Response): Promise<void> => {
-  const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } = req.body;
+  const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } =
+    req.body;
 
   const existing = await prisma.cost_centers.findFirst({ where: { costCenterCode, isActive: true } });
   if (existing) {
@@ -64,7 +65,10 @@ export const getAllCostCenters = async (req: Request, res: Response): Promise<vo
     prisma.cost_centers.count({ where }),
   ]);
 
-  res.json({ data: costCenters, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
+  res.json({
+    data: costCenters,
+    pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+  });
 };
 
 export const getCostCenterById = async (req: Request, res: Response): Promise<void> => {
@@ -86,7 +90,8 @@ export const getCostCenterById = async (req: Request, res: Response): Promise<vo
 
 export const updateCostCenter = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } = req.body;
+  const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } =
+    req.body;
 
   const existing = await prisma.cost_centers.findUnique({ where: { id } });
   if (!existing) {

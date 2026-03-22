@@ -15,12 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { dyeingService } from '@/services/dyeing.service';
-import type {
-  DyeLabDip,
-  DyeingSummary,
-  ProcessPO,
-  ProcessPOStatus,
-} from '@/types/dyeing.types';
+import type { DyeLabDip, DyeingSummary, ProcessPO, ProcessPOStatus } from '@/types/dyeing.types';
 import {
   LabDipStatusLabels,
   LabDipStatusColors,
@@ -55,13 +50,7 @@ import {
   Undo,
   IndianRupee,
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Local type definition for DataTable
 type Column<T> = {
@@ -93,13 +82,13 @@ export default function DyeingList() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>(
-    searchParams.get('status') || 'all'
-  );
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'processPO' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'processPO' } | null>(
+    null
+  );
 
   // Receive dialog state
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
@@ -255,7 +244,7 @@ export default function DyeingList() {
     const thans = parseFloat(receiveForm.thanCount);
     const foldL = parseFloat(receiveForm.foldLengthCm);
     if (thans > 0 && foldL > 0) {
-      return (thans * foldL / 100).toFixed(2);
+      return ((thans * foldL) / 100).toFixed(2);
     }
     return '';
   })();
@@ -344,11 +333,7 @@ export default function DyeingList() {
     {
       key: 'fabric',
       header: 'Fabric',
-      render: (item) => (
-        <div className="text-sm text-gray-700">
-          {item.fabric?.fabricCode || '-'}
-        </div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.fabric?.fabricCode || '-'}</div>,
     },
     {
       key: 'targetColor',
@@ -371,29 +356,24 @@ export default function DyeingList() {
     {
       key: 'mill',
       header: 'Mill',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{item.mill?.name || '-'}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.mill?.name || '-'}</div>,
     },
     {
       key: 'submissionDate',
       header: 'Submitted',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{formatDate(item.submissionDate)}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{formatDate(item.submissionDate)}</div>,
     },
     {
       key: 'colorMatchRating',
       header: 'Match Rating',
-      render: (item) => (
+      render: (item) =>
         item.colorMatchRating ? (
           <Badge className={ColorMatchRatingColors[item.colorMatchRating] || ''}>
             {ColorMatchRatingLabels[item.colorMatchRating] || item.colorMatchRating}
           </Badge>
         ) : (
           <span className="text-gray-400">-</span>
-        )
-      ),
+        ),
     },
     {
       key: 'status',
@@ -499,9 +479,7 @@ export default function DyeingList() {
     {
       key: 'supplier',
       header: 'Mill / Supplier',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>,
     },
     {
       key: 'fabric',
@@ -560,9 +538,7 @@ export default function DyeingList() {
     {
       key: 'poDate',
       header: 'PO Date',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{formatDate(item.poDate)}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{formatDate(item.poDate)}</div>,
     },
     {
       key: 'status',
@@ -700,10 +676,7 @@ export default function DyeingList() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/manufacturing/dyeing/lab-dip/new')}
-          >
+          <Button variant="outline" onClick={() => navigate('/manufacturing/dyeing/lab-dip/new')}>
             <Beaker className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
@@ -810,11 +783,7 @@ export default function DyeingList() {
             <CardContent>
               <div className="flex flex-wrap gap-4">
                 <div className="w-64">
-                  <SearchInput
-                    placeholder="Search lab dips..."
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                  />
+                  <SearchInput placeholder="Search lab dips..." value={searchQuery} onChange={setSearchQuery} />
                 </div>
                 <div className="w-48">
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
@@ -894,11 +863,7 @@ export default function DyeingList() {
             <CardContent>
               <div className="flex flex-wrap gap-4">
                 <div className="w-64">
-                  <SearchInput
-                    placeholder="Search process POs..."
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                  />
+                  <SearchInput placeholder="Search process POs..." value={searchQuery} onChange={setSearchQuery} />
                 </div>
                 <div className="w-48">
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
@@ -984,10 +949,13 @@ export default function DyeingList() {
       />
 
       {/* Receive from Mill Dialog */}
-      <Dialog open={receiveDialogOpen} onOpenChange={(open) => {
-        setReceiveDialogOpen(open);
-        if (!open) setSelectedPOForReceive(null);
-      }}>
+      <Dialog
+        open={receiveDialogOpen}
+        onOpenChange={(open) => {
+          setReceiveDialogOpen(open);
+          if (!open) setSelectedPOForReceive(null);
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Receive from Mill</DialogTitle>
@@ -1000,7 +968,9 @@ export default function DyeingList() {
             <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-gray-500">Sent Qty:</span>
-                <span className="font-medium">{selectedPOForReceive?.jobWorkOrder?.qtySentMeters?.toFixed(2)} mtrs</span>
+                <span className="font-medium">
+                  {selectedPOForReceive?.jobWorkOrder?.qtySentMeters?.toFixed(2)} mtrs
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Sent Width:</span>
@@ -1026,7 +996,7 @@ export default function DyeingList() {
                     min="1"
                     placeholder="e.g. 50"
                     value={receiveForm.thanCount}
-                    onChange={(e) => setReceiveForm(f => ({ ...f, thanCount: e.target.value }))}
+                    onChange={(e) => setReceiveForm((f) => ({ ...f, thanCount: e.target.value }))}
                   />
                 </div>
                 <div>
@@ -1038,7 +1008,7 @@ export default function DyeingList() {
                     min="1"
                     placeholder="e.g. 97.5"
                     value={receiveForm.foldLengthCm}
-                    onChange={(e) => setReceiveForm(f => ({ ...f, foldLengthCm: e.target.value }))}
+                    onChange={(e) => setReceiveForm((f) => ({ ...f, foldLengthCm: e.target.value }))}
                   />
                 </div>
               </div>
@@ -1059,7 +1029,7 @@ export default function DyeingList() {
                 step="0.01"
                 placeholder={calculatedActualMeters ? `Auto: ${calculatedActualMeters}` : 'Enter manually'}
                 value={receiveForm.qtyReceivedMeters}
-                onChange={(e) => setReceiveForm(f => ({ ...f, qtyReceivedMeters: e.target.value }))}
+                onChange={(e) => setReceiveForm((f) => ({ ...f, qtyReceivedMeters: e.target.value }))}
               />
               <p className="text-xs text-gray-400 mt-1">Leave blank to use calculated value from thans x L</p>
             </div>
@@ -1072,19 +1042,21 @@ export default function DyeingList() {
                 type="number"
                 step="0.1"
                 value={receiveForm.receivedWidthInches}
-                onChange={(e) => setReceiveForm(f => ({ ...f, receivedWidthInches: e.target.value }))}
+                onChange={(e) => setReceiveForm((f) => ({ ...f, receivedWidthInches: e.target.value }))}
               />
-              {receiveForm.receivedWidthInches && selectedPOForReceive?.jobWorkOrder?.sentWidthInches && (
+              {receiveForm.receivedWidthInches &&
+                selectedPOForReceive?.jobWorkOrder?.sentWidthInches &&
                 (() => {
-                  const diff = parseFloat(receiveForm.receivedWidthInches) - selectedPOForReceive.jobWorkOrder.sentWidthInches;
+                  const diff =
+                    parseFloat(receiveForm.receivedWidthInches) - selectedPOForReceive.jobWorkOrder.sentWidthInches;
                   if (diff === 0 || isNaN(diff)) return null;
                   return (
                     <p className={`text-xs mt-1 ${diff < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                      {diff > 0 ? '+' : ''}{diff.toFixed(1)}" vs sent width
+                      {diff > 0 ? '+' : ''}
+                      {diff.toFixed(1)}" vs sent width
                     </p>
                   );
-                })()
-              )}
+                })()}
             </div>
 
             {/* Date and challan */}
@@ -1095,7 +1067,7 @@ export default function DyeingList() {
                   id="receivedDate"
                   type="date"
                   value={receiveForm.receivedDate}
-                  onChange={(e) => setReceiveForm(f => ({ ...f, receivedDate: e.target.value }))}
+                  onChange={(e) => setReceiveForm((f) => ({ ...f, receivedDate: e.target.value }))}
                 />
               </div>
               <div>
@@ -1104,7 +1076,7 @@ export default function DyeingList() {
                   id="receivedChallan"
                   placeholder="Challan number"
                   value={receiveForm.receivedChallan}
-                  onChange={(e) => setReceiveForm(f => ({ ...f, receivedChallan: e.target.value }))}
+                  onChange={(e) => setReceiveForm((f) => ({ ...f, receivedChallan: e.target.value }))}
                 />
               </div>
             </div>
@@ -1115,7 +1087,7 @@ export default function DyeingList() {
                 id="invoiceNumber"
                 placeholder="Invoice number (optional)"
                 value={receiveForm.invoiceNumber}
-                onChange={(e) => setReceiveForm(f => ({ ...f, invoiceNumber: e.target.value }))}
+                onChange={(e) => setReceiveForm((f) => ({ ...f, invoiceNumber: e.target.value }))}
               />
             </div>
           </div>
@@ -1134,74 +1106,78 @@ export default function DyeingList() {
       </Dialog>
 
       {/* Update Stock Confirmation Dialog */}
-      <Dialog open={updateStockDialogOpen} onOpenChange={(open) => {
-        setUpdateStockDialogOpen(open);
-        if (!open) setSelectedPOForStock(null);
-      }}>
+      <Dialog
+        open={updateStockDialogOpen}
+        onOpenChange={(open) => {
+          setUpdateStockDialogOpen(open);
+          if (!open) setSelectedPOForStock(null);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Update Stock</DialogTitle>
-            <DialogDescription>
-              Create inventory stock from received fabric
-            </DialogDescription>
+            <DialogDescription>Create inventory stock from received fabric</DialogDescription>
           </DialogHeader>
-          {selectedPOForStock && (() => {
-            const jwo = selectedPOForStock.jobWorkOrder;
-            return (
-              <div className="space-y-3 py-2">
-                <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">PO:</span>
-                    <span className="font-medium">{selectedPOForStock.poNumber}</span>
+          {selectedPOForStock &&
+            (() => {
+              const jwo = selectedPOForStock.jobWorkOrder;
+              return (
+                <div className="space-y-3 py-2">
+                  <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">PO:</span>
+                      <span className="font-medium">{selectedPOForStock.poNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Finished Fabric:</span>
+                      <span className="font-medium">{jwo?.finishedFabric?.fabricCode || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Qty Received:</span>
+                      <span className="font-medium">
+                        {(jwo?.qtyReceivedMeters || Number(jwo?.calculatedActualMeters) || 0).toFixed(2)} mtrs
+                      </span>
+                    </div>
+                    {jwo?.defectMeters != null && jwo.defectMeters > 0 && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Defect Meters:</span>
+                          <span className="font-medium text-red-600">{jwo.defectMeters} mtrs</span>
+                        </div>
+                        <div className="flex justify-between border-t pt-1">
+                          <span className="text-gray-500">Good Qty:</span>
+                          <span className="font-bold text-green-700">
+                            {(
+                              (jwo.qtyReceivedMeters || Number(jwo.calculatedActualMeters) || 0) -
+                              (jwo.defectMeters || 0)
+                            ).toFixed(2)}{' '}
+                            mtrs
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Quality Grade:</span>
+                      <Badge variant="outline">{jwo?.qualityGrade || '-'}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Width:</span>
+                      <span className="font-medium">{jwo?.receivedWidthInches}"</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Finished Fabric:</span>
-                    <span className="font-medium">{jwo?.finishedFabric?.fabricCode || '-'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Qty Received:</span>
-                    <span className="font-medium">
-                      {(jwo?.qtyReceivedMeters || Number(jwo?.calculatedActualMeters) || 0).toFixed(2)} mtrs
-                    </span>
-                  </div>
-                  {jwo?.defectMeters != null && jwo.defectMeters > 0 && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Defect Meters:</span>
-                        <span className="font-medium text-red-600">{jwo.defectMeters} mtrs</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-1">
-                        <span className="text-gray-500">Good Qty:</span>
-                        <span className="font-bold text-green-700">
-                          {((jwo.qtyReceivedMeters || Number(jwo.calculatedActualMeters) || 0) - (jwo.defectMeters || 0)).toFixed(2)} mtrs
-                        </span>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Quality Grade:</span>
-                    <Badge variant="outline">{jwo?.qualityGrade || '-'}</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Width:</span>
-                    <span className="font-medium">{jwo?.receivedWidthInches}"</span>
-                  </div>
+                  <p className="text-sm text-gray-600">
+                    This will create a fabric stock entry for{' '}
+                    <strong>{jwo?.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above
+                    quantities.
+                  </p>
                 </div>
-                <p className="text-sm text-gray-600">
-                  This will create a fabric stock entry for <strong>{jwo?.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above quantities.
-                </p>
-              </div>
-            );
-          })()}
+              );
+            })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setUpdateStockDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleUpdateStock}
-              disabled={stockLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
+            <Button onClick={handleUpdateStock} disabled={stockLoading} className="bg-green-600 hover:bg-green-700">
               {stockLoading ? 'Creating Stock...' : 'Confirm & Create Stock'}
             </Button>
           </DialogFooter>

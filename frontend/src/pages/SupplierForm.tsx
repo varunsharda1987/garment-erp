@@ -19,18 +19,51 @@ import { X, Plus } from 'lucide-react';
 
 // List of Indian Banks for dropdown
 const INDIAN_BANKS = [
-  'State Bank of India', 'Punjab National Bank', 'Bank of Baroda', 'Canara Bank',
-  'Union Bank of India', 'Bank of India', 'Indian Bank', 'Central Bank of India',
-  'Indian Overseas Bank', 'UCO Bank', 'Bank of Maharashtra', 'Punjab & Sind Bank',
-  'HDFC Bank', 'ICICI Bank', 'Axis Bank', 'Kotak Mahindra Bank',
-  'IndusInd Bank', 'Yes Bank', 'IDFC First Bank', 'Federal Bank',
-  'RBL Bank', 'South Indian Bank', 'Karnataka Bank', 'Karur Vysya Bank',
-  'City Union Bank', 'DCB Bank', 'Bandhan Bank', 'Citibank',
-  'HSBC Bank', 'Standard Chartered Bank', 'DBS Bank', 'Deutsche Bank',
-  'Barclays Bank', 'BNP Paribas', 'AU Small Finance Bank', 'Equitas Small Finance Bank',
-  'Ujjivan Small Finance Bank', 'Jana Small Finance Bank', 'Suryoday Small Finance Bank',
-  'Utkarsh Small Finance Bank', 'ESAF Small Finance Bank', 'Fincare Small Finance Bank',
-  'Paytm Payments Bank', 'Airtel Payments Bank', 'India Post Payments Bank',
+  'State Bank of India',
+  'Punjab National Bank',
+  'Bank of Baroda',
+  'Canara Bank',
+  'Union Bank of India',
+  'Bank of India',
+  'Indian Bank',
+  'Central Bank of India',
+  'Indian Overseas Bank',
+  'UCO Bank',
+  'Bank of Maharashtra',
+  'Punjab & Sind Bank',
+  'HDFC Bank',
+  'ICICI Bank',
+  'Axis Bank',
+  'Kotak Mahindra Bank',
+  'IndusInd Bank',
+  'Yes Bank',
+  'IDFC First Bank',
+  'Federal Bank',
+  'RBL Bank',
+  'South Indian Bank',
+  'Karnataka Bank',
+  'Karur Vysya Bank',
+  'City Union Bank',
+  'DCB Bank',
+  'Bandhan Bank',
+  'Citibank',
+  'HSBC Bank',
+  'Standard Chartered Bank',
+  'DBS Bank',
+  'Deutsche Bank',
+  'Barclays Bank',
+  'BNP Paribas',
+  'AU Small Finance Bank',
+  'Equitas Small Finance Bank',
+  'Ujjivan Small Finance Bank',
+  'Jana Small Finance Bank',
+  'Suryoday Small Finance Bank',
+  'Utkarsh Small Finance Bank',
+  'ESAF Small Finance Bank',
+  'Fincare Small Finance Bank',
+  'Paytm Payments Bank',
+  'Airtel Payments Bank',
+  'India Post Payments Bank',
 ];
 
 interface SupplierFormProps {
@@ -46,7 +79,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<SupplierCategory[]>([]);
-  const [categoryData, setCategoryData] = useState<Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>>({});
+  const [categoryData, setCategoryData] = useState<
+    Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>
+  >({});
   const [selectedBank, setSelectedBank] = useState<string>('');
   const [gstNumbers, setGstNumbers] = useState<GstNumberInput[]>([]);
   const [copyBillingToShipping, setCopyBillingToShipping] = useState(false);
@@ -72,7 +107,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
     if (isNewSupplier) {
       const generateCode = () => {
         const timestamp = Date.now().toString().slice(-6);
-        const randomNum = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        const randomNum = Math.floor(Math.random() * 100)
+          .toString()
+          .padStart(2, '0');
         return `SUP${timestamp}${randomNum}`;
       };
       setValue('code', generateCode());
@@ -116,16 +153,18 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
 
           // GST Numbers
           if (supplier.gstNumbers && supplier.gstNumbers.length > 0) {
-            setGstNumbers(supplier.gstNumbers.map(gst => ({
-              stateId: gst.stateId || '',
-              stateName: gst.stateName,
-              stateCode: gst.stateCode,
-              gstNumber: gst.gstNumber,
-              billingAddress: gst.billingAddress || '',
-              billingCityId: '',
-              billingPincode: '',
-              isPrimary: gst.isPrimary,
-            })));
+            setGstNumbers(
+              supplier.gstNumbers.map((gst) => ({
+                stateId: gst.stateId || '',
+                stateName: gst.stateName,
+                stateCode: gst.stateCode,
+                gstNumber: gst.gstNumber,
+                billingAddress: gst.billingAddress || '',
+                billingCityId: '',
+                billingPincode: '',
+                isPrimary: gst.isPrimary,
+              }))
+            );
           }
 
           setValue('paymentTerms', supplier.paymentTerms || '');
@@ -139,9 +178,16 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
           setValue('bankAccountNumber', supplier.bankAccountNumber || '');
           setValue('ifscCode', supplier.ifscCode || '');
 
-          setCategoryData((supplier.categoryData || {}) as Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>);
+          setCategoryData(
+            (supplier.categoryData || {}) as Record<
+              string,
+              string | number | boolean | null | undefined | string[] | Record<string, unknown>[]
+            >
+          );
         } catch (err: unknown) {
-          setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to load supplier');
+          setError(
+            (err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to load supplier'
+          );
         } finally {
           setIsLoading(false);
         }
@@ -210,7 +256,10 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
       const returnPage = searchParams.get('page');
       navigate(returnPage ? `/suppliers?page=${returnPage}` : '/suppliers');
     } catch (err: unknown) {
-      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || `Failed to ${isNewSupplier ? 'create' : 'update'} supplier`);
+      setError(
+        (err as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          `Failed to ${isNewSupplier ? 'create' : 'update'} supplier`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -229,12 +278,12 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
       <Card>
         <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b">
           <CardTitle className="text-2xl font-bold text-gray-900">
-            {isNewSupplier ? '✨ Create New Supplier' : (
+            {isNewSupplier ? (
+              '✨ Create New Supplier'
+            ) : (
               <div className="flex flex-col gap-1">
                 <span>✏️ Edit Supplier</span>
-                {supplierName && (
-                  <span className="text-lg font-semibold text-indigo-600">{supplierName}</span>
-                )}
+                {supplierName && <span className="text-lg font-semibold text-indigo-600">{supplierName}</span>}
               </div>
             )}
           </CardTitle>
@@ -298,7 +347,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                           <button
                             type="button"
                             onClick={() => {
-                              setSelectedCategories(prev => prev.filter(c => c !== cat));
+                              setSelectedCategories((prev) => prev.filter((c) => c !== cat));
                             }}
                             className="hover:text-indigo-950 transition-colors"
                           >
@@ -311,14 +360,17 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
 
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-5 border-2 border-dashed rounded-lg bg-white max-h-72 overflow-y-auto">
                     {Object.entries(SupplierCategoryLabels).map(([value, label]) => (
-                      <label key={value} className="flex items-center gap-3 cursor-pointer hover:bg-indigo-50 p-3 rounded-lg transition-colors">
+                      <label
+                        key={value}
+                        className="flex items-center gap-3 cursor-pointer hover:bg-indigo-50 p-3 rounded-lg transition-colors"
+                      >
                         <Checkbox
                           checked={selectedCategories.includes(value as SupplierCategory)}
                           onCheckedChange={(checked) => {
                             if (checked) {
-                              setSelectedCategories(prev => [...prev, value as SupplierCategory]);
+                              setSelectedCategories((prev) => [...prev, value as SupplierCategory]);
                             } else {
-                              setSelectedCategories(prev => prev.filter(c => c !== value));
+                              setSelectedCategories((prev) => prev.filter((c) => c !== value));
                             }
                           }}
                           className="border-2"
@@ -327,7 +379,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                       </label>
                     ))}
                   </div>
-                  {selectedCategories.length === 0 && <p className="text-red-600 text-sm mt-2">At least one category is required</p>}
+                  {selectedCategories.length === 0 && (
+                    <p className="text-red-600 text-sm mt-2">At least one category is required</p>
+                  )}
                 </div>
               </div>
             </section>
@@ -340,17 +394,34 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="contactPerson" className="text-sm font-medium text-gray-700">Contact Person</Label>
-                  <Input id="contactPerson" {...register('contactPerson')} placeholder="Name of contact person" className="mt-1.5" />
+                  <Label htmlFor="contactPerson" className="text-sm font-medium text-gray-700">
+                    Contact Person
+                  </Label>
+                  <Input
+                    id="contactPerson"
+                    {...register('contactPerson')}
+                    placeholder="Name of contact person"
+                    className="mt-1.5"
+                  />
                 </div>
 
                 <div>
-                  <Label htmlFor="phone" className="text-sm font-medium text-gray-700">Phone Number</Label>
-                  <Input id="phone" {...register('phone')} placeholder="10-digit mobile number" maxLength={10} className="mt-1.5" />
+                  <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+                    Phone Number
+                  </Label>
+                  <Input
+                    id="phone"
+                    {...register('phone')}
+                    placeholder="10-digit mobile number"
+                    maxLength={10}
+                    className="mt-1.5"
+                  />
                 </div>
 
                 <div>
-                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address</Label>
+                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Email Address
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -367,8 +438,16 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label htmlFor="address" className="text-sm font-medium text-gray-700">Office Address</Label>
-                  <Textarea id="address" {...register('address')} rows={3} placeholder="Complete office address" className="mt-1.5" />
+                  <Label htmlFor="address" className="text-sm font-medium text-gray-700">
+                    Office Address
+                  </Label>
+                  <Textarea
+                    id="address"
+                    {...register('address')}
+                    rows={3}
+                    placeholder="Complete office address"
+                    className="mt-1.5"
+                  />
                 </div>
               </div>
             </section>
@@ -381,7 +460,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <Label htmlFor="billingStateId" className="text-sm font-medium text-gray-700">State</Label>
+                  <Label htmlFor="billingStateId" className="text-sm font-medium text-gray-700">
+                    State
+                  </Label>
                   <div className="mt-1.5">
                     <StateSelector
                       value={billingStateId || ''}
@@ -395,7 +476,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="billingCityId" className="text-sm font-medium text-gray-700">City</Label>
+                  <Label htmlFor="billingCityId" className="text-sm font-medium text-gray-700">
+                    City
+                  </Label>
                   <div className="mt-1.5">
                     <CitySelector
                       value={billingCityId || ''}
@@ -407,7 +490,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="billingPincode" className="text-sm font-medium text-gray-700">PIN Code</Label>
+                  <Label htmlFor="billingPincode" className="text-sm font-medium text-gray-700">
+                    PIN Code
+                  </Label>
                   <Input
                     id="billingPincode"
                     {...register('billingPincode', {
@@ -420,7 +505,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     maxLength={6}
                     className="mt-1.5"
                   />
-                  {errors.billingPincode && <p className="text-red-600 text-sm mt-1">{errors.billingPincode.message}</p>}
+                  {errors.billingPincode && (
+                    <p className="text-red-600 text-sm mt-1">{errors.billingPincode.message}</p>
+                  )}
                 </div>
               </div>
             </section>
@@ -442,7 +529,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <Label htmlFor="shippingStateId" className="text-sm font-medium text-gray-700">State</Label>
+                  <Label htmlFor="shippingStateId" className="text-sm font-medium text-gray-700">
+                    State
+                  </Label>
                   <div className="mt-1.5">
                     <StateSelector
                       value={shippingStateId || ''}
@@ -456,7 +545,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="shippingCityId" className="text-sm font-medium text-gray-700">City</Label>
+                  <Label htmlFor="shippingCityId" className="text-sm font-medium text-gray-700">
+                    City
+                  </Label>
                   <div className="mt-1.5">
                     <CitySelector
                       value={watch('shippingCityId') || ''}
@@ -468,7 +559,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="shippingPincode" className="text-sm font-medium text-gray-700">PIN Code</Label>
+                  <Label htmlFor="shippingPincode" className="text-sm font-medium text-gray-700">
+                    PIN Code
+                  </Label>
                   <Input
                     id="shippingPincode"
                     {...register('shippingPincode', {
@@ -481,12 +574,22 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     maxLength={6}
                     className="mt-1.5"
                   />
-                  {errors.shippingPincode && <p className="text-red-600 text-sm mt-1">{errors.shippingPincode.message}</p>}
+                  {errors.shippingPincode && (
+                    <p className="text-red-600 text-sm mt-1">{errors.shippingPincode.message}</p>
+                  )}
                 </div>
 
                 <div className="md:col-span-3">
-                  <Label htmlFor="shippingAddress" className="text-sm font-medium text-gray-700">Shipping Address (if different)</Label>
-                  <Textarea id="shippingAddress" {...register('shippingAddress')} rows={2} placeholder="Complete shipping address" className="mt-1.5" />
+                  <Label htmlFor="shippingAddress" className="text-sm font-medium text-gray-700">
+                    Shipping Address (if different)
+                  </Label>
+                  <Textarea
+                    id="shippingAddress"
+                    {...register('shippingAddress')}
+                    rows={2}
+                    placeholder="Complete shipping address"
+                    className="mt-1.5"
+                  />
                 </div>
               </div>
             </section>
@@ -547,23 +650,58 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
-                  <Label htmlFor="paymentTerms" className="text-sm font-medium text-gray-700">Payment Terms</Label>
-                  <Input id="paymentTerms" {...register('paymentTerms')} placeholder="e.g., Net 30, Advance 50%" className="mt-1.5" />
+                  <Label htmlFor="paymentTerms" className="text-sm font-medium text-gray-700">
+                    Payment Terms
+                  </Label>
+                  <Input
+                    id="paymentTerms"
+                    {...register('paymentTerms')}
+                    placeholder="e.g., Net 30, Advance 50%"
+                    className="mt-1.5"
+                  />
                 </div>
 
                 <div>
-                  <Label htmlFor="creditLimit" className="text-sm font-medium text-gray-700">Credit Limit (₹)</Label>
-                  <Input id="creditLimit" type="number" step="0.01" {...register('creditLimit')} placeholder="0.00" className="mt-1.5" />
+                  <Label htmlFor="creditLimit" className="text-sm font-medium text-gray-700">
+                    Credit Limit (₹)
+                  </Label>
+                  <Input
+                    id="creditLimit"
+                    type="number"
+                    step="0.01"
+                    {...register('creditLimit')}
+                    placeholder="0.00"
+                    className="mt-1.5"
+                  />
                 </div>
 
                 <div>
-                  <Label htmlFor="creditDays" className="text-sm font-medium text-gray-700">Credit Days</Label>
-                  <Input id="creditDays" type="number" {...register('creditDays')} placeholder="Days" className="mt-1.5" />
+                  <Label htmlFor="creditDays" className="text-sm font-medium text-gray-700">
+                    Credit Days
+                  </Label>
+                  <Input
+                    id="creditDays"
+                    type="number"
+                    {...register('creditDays')}
+                    placeholder="Days"
+                    className="mt-1.5"
+                  />
                 </div>
 
                 <div>
-                  <Label htmlFor="rating" className="text-sm font-medium text-gray-700">Supplier Rating</Label>
-                  <Input id="rating" type="number" min="0" max="5" step="0.1" {...register('rating')} placeholder="0-5" className="mt-1.5" />
+                  <Label htmlFor="rating" className="text-sm font-medium text-gray-700">
+                    Supplier Rating
+                  </Label>
+                  <Input
+                    id="rating"
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    {...register('rating')}
+                    placeholder="0-5"
+                    className="mt-1.5"
+                  />
                 </div>
               </div>
             </section>
@@ -576,7 +714,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="bankName" className="text-sm font-medium text-gray-700">Bank Name</Label>
+                  <Label htmlFor="bankName" className="text-sm font-medium text-gray-700">
+                    Bank Name
+                  </Label>
                   <Combobox
                     options={INDIAN_BANKS.map((bank) => ({
                       value: bank,
@@ -596,7 +736,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="ifscCode" className="text-sm font-medium text-gray-700">IFSC Code</Label>
+                  <Label htmlFor="ifscCode" className="text-sm font-medium text-gray-700">
+                    IFSC Code
+                  </Label>
                   <Input
                     id="ifscCode"
                     {...register('ifscCode', {
@@ -614,7 +756,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label htmlFor="bankAccountNumber" className="text-sm font-medium text-gray-700">Account Number</Label>
+                  <Label htmlFor="bankAccountNumber" className="text-sm font-medium text-gray-700">
+                    Account Number
+                  </Label>
                   <Input
                     id="bankAccountNumber"
                     {...register('bankAccountNumber', {
@@ -627,7 +771,9 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     maxLength={18}
                     className="mt-1.5"
                   />
-                  {errors.bankAccountNumber && <p className="text-red-600 text-sm mt-1">{errors.bankAccountNumber.message}</p>}
+                  {errors.bankAccountNumber && (
+                    <p className="text-red-600 text-sm mt-1">{errors.bankAccountNumber.message}</p>
+                  )}
                 </div>
               </div>
             </section>
@@ -650,7 +796,14 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                       <CategoryFields
                         category={category}
                         data={categoryData}
-                        onChange={(data) => setCategoryData(data as Record<string, string | number | boolean | null | undefined | string[] | Record<string, unknown>[]>)}
+                        onChange={(data) =>
+                          setCategoryData(
+                            data as Record<
+                              string,
+                              string | number | boolean | null | undefined | string[] | Record<string, unknown>[]
+                            >
+                          )
+                        }
                       />
                     </div>
                   ))}

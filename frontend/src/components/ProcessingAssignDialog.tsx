@@ -14,13 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, CheckCircle, AlertTriangle, HelpCircle, Sparkles } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -30,10 +24,7 @@ import {
   getProcessorSuppliers,
   getConfidenceBadgeColor,
 } from '@/services/vendorSuggestion.service';
-import type {
-  ProcessingSuggestionForRequirement,
-  ProcessorAssignmentInput,
-} from '@/services/vendorSuggestion.service';
+import type { ProcessingSuggestionForRequirement, ProcessorAssignmentInput } from '@/services/vendorSuggestion.service';
 
 interface ProcessingAssignDialogProps {
   open: boolean;
@@ -133,10 +124,7 @@ export default function ProcessingAssignDialog({
       }
 
       const result = await bulkAssignProcessorsForProcessing(assignmentList);
-      handleApiSuccess(
-        'Processors Assigned',
-        `${result.updatedCount} processing requirements assigned to processors`
-      );
+      handleApiSuccess('Processors Assigned', `${result.updatedCount} processing requirements assigned to processors`);
       onOpenChange(false);
       onComplete?.();
     } catch (err) {
@@ -157,12 +145,15 @@ export default function ProcessingAssignDialog({
     }
   };
 
-  const stats = suggestions.length > 0 ? {
-    high: suggestions.filter((s) => s.confidence === 'high').length,
-    medium: suggestions.filter((s) => s.confidence === 'medium').length,
-    low: suggestions.filter((s) => s.confidence === 'low').length,
-    withSuggestion: suggestions.filter((s) => s.suggestedProcessorId !== null).length,
-  } : null;
+  const stats =
+    suggestions.length > 0
+      ? {
+          high: suggestions.filter((s) => s.confidence === 'high').length,
+          medium: suggestions.filter((s) => s.confidence === 'medium').length,
+          low: suggestions.filter((s) => s.confidence === 'low').length,
+          withSuggestion: suggestions.filter((s) => s.suggestedProcessorId !== null).length,
+        }
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -246,20 +237,14 @@ export default function ProcessingAssignDialog({
                   </div>
 
                   {/* Suggestion Reason */}
-                  <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
-                    {suggestion.reason}
-                  </div>
+                  <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">{suggestion.reason}</div>
 
                   {/* Processor Selection */}
                   <div className="flex items-center gap-3">
-                    <label className="text-sm font-medium text-foreground min-w-[100px]">
-                      Assign to:
-                    </label>
+                    <label className="text-sm font-medium text-foreground min-w-[100px]">Assign to:</label>
                     <Select
                       value={assignments.get(suggestion.requirementId) || ''}
-                      onValueChange={(value) =>
-                        handleAssignmentChange(suggestion.requirementId, value)
-                      }
+                      onValueChange={(value) => handleAssignmentChange(suggestion.requirementId, value)}
                     >
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Select processor..." />

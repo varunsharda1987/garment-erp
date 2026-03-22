@@ -6,7 +6,7 @@ export const MaterialType = {
   FABRIC: 'FABRIC',
   LACE: 'LACE',
 } as const;
-export type MaterialType = typeof MaterialType[keyof typeof MaterialType];
+export type MaterialType = (typeof MaterialType)[keyof typeof MaterialType];
 
 export const ProcessingType = {
   DYEING: 'DYEING',
@@ -18,14 +18,14 @@ export const ProcessingType = {
   STITCHING: 'STITCHING',
   OTHER: 'OTHER',
 } as const;
-export type ProcessingType = typeof ProcessingType[keyof typeof ProcessingType];
+export type ProcessingType = (typeof ProcessingType)[keyof typeof ProcessingType];
 
 export const BatchStatus = {
   ACTIVE: 'ACTIVE',
   COMPLETED: 'COMPLETED',
   CANCELLED: 'CANCELLED',
 } as const;
-export type BatchStatus = typeof BatchStatus[keyof typeof BatchStatus];
+export type BatchStatus = (typeof BatchStatus)[keyof typeof BatchStatus];
 
 export const StageStatus = {
   PENDING: 'PENDING',
@@ -36,7 +36,7 @@ export const StageStatus = {
   COMPLETED: 'COMPLETED',
   REWORK_REQUIRED: 'REWORK_REQUIRED',
 } as const;
-export type StageStatus = typeof StageStatus[keyof typeof StageStatus];
+export type StageStatus = (typeof StageStatus)[keyof typeof StageStatus];
 
 export const ProcessingMovementType = {
   WAREHOUSE_TO_PROCESSOR: 'WAREHOUSE_TO_PROCESSOR',
@@ -44,13 +44,13 @@ export const ProcessingMovementType = {
   PROCESSOR_TO_PROCESSOR: 'PROCESSOR_TO_PROCESSOR',
   REWORK_TO_PROCESSOR: 'REWORK_TO_PROCESSOR',
 } as const;
-export type ProcessingMovementType = typeof ProcessingMovementType[keyof typeof ProcessingMovementType];
+export type ProcessingMovementType = (typeof ProcessingMovementType)[keyof typeof ProcessingMovementType];
 
 export const MovementStatus = {
   IN_TRANSIT: 'IN_TRANSIT',
   DELIVERED: 'DELIVERED',
 } as const;
-export type MovementStatus = typeof MovementStatus[keyof typeof MovementStatus];
+export type MovementStatus = (typeof MovementStatus)[keyof typeof MovementStatus];
 
 export const QualityStatus = {
   PENDING_QC: 'PENDING_QC',
@@ -60,7 +60,7 @@ export const QualityStatus = {
   REJECTED: 'REJECTED',
   REWORK_REQUIRED: 'REWORK_REQUIRED',
 } as const;
-export type QualityStatus = typeof QualityStatus[keyof typeof QualityStatus];
+export type QualityStatus = (typeof QualityStatus)[keyof typeof QualityStatus];
 
 // Processing Batch Types
 export interface ProcessingBatch {
@@ -287,11 +287,14 @@ export interface ProcessorSummary {
   totalStages: number;
   totalQuantity: number;
   totalCost: number;
-  byType: Record<string, {
-    quantity: number;
-    cost: number;
-    count: number;
-  }>;
+  byType: Record<
+    string,
+    {
+      quantity: number;
+      cost: number;
+      count: number;
+    }
+  >;
 }
 
 // Processing Movement Types
@@ -380,10 +383,13 @@ export interface TransitSummary {
   totalQuantity: number;
   delayedCount: number;
   maxDaysInTransit: number;
-  byType: Record<string, {
-    quantity: number;
-    count: number;
-  }>;
+  byType: Record<
+    string,
+    {
+      quantity: number;
+      count: number;
+    }
+  >;
 }
 
 // Processing Delivery Types
@@ -481,10 +487,13 @@ export interface DeliverySummary {
   totalAccepted: number;
   totalRejected: number;
   rejectionRate: number;
-  byStatus: Record<string, {
-    count: number;
-    quantity: number;
-  }>;
+  byStatus: Record<
+    string,
+    {
+      count: number;
+      quantity: number;
+    }
+  >;
 }
 
 // API Response Types

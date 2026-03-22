@@ -5,16 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ShoppingCart,
-  FileText,
-  Users,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  Clock,
-  Shirt,
-} from 'lucide-react';
+import { ShoppingCart, FileText, Users, Calendar, DollarSign, TrendingUp, Clock, Shirt } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
@@ -81,8 +72,8 @@ export default function SalesDashboard() {
       const customerTotal = customersRes.data.pagination?.total || 0;
 
       // Calculate stats
-      const activeOrderCount = orders.filter(
-        (o: { status: string }) => ['PENDING', 'IN_PRODUCTION', 'CONFIRMED'].includes(o.status)
+      const activeOrderCount = orders.filter((o: { status: string }) =>
+        ['PENDING', 'IN_PRODUCTION', 'CONFIRMED'].includes(o.status)
       ).length;
 
       const pendingQuotCount = quotations.filter(
@@ -117,11 +108,11 @@ export default function SalesDashboard() {
       setRecentOrders(
         orders.slice(0, 5).map((o: Record<string, unknown>) => ({
           id: o.id as string,
-          orderNumber: o.orderNumber as string || 'N/A',
+          orderNumber: (o.orderNumber as string) || 'N/A',
           customerName: (o.customer as { name?: string })?.name || 'N/A',
-          totalAmount: o.totalAmount as number || 0,
+          totalAmount: (o.totalAmount as number) || 0,
           status: o.status as string,
-          deliveryDate: o.expectedDeliveryDate as string || '',
+          deliveryDate: (o.expectedDeliveryDate as string) || '',
         }))
       );
 
@@ -129,11 +120,11 @@ export default function SalesDashboard() {
       setPendingQuotations(
         quotations.slice(0, 5).map((q: Record<string, unknown>) => ({
           id: q.id as string,
-          quotationNumber: q.quotationNumber as string || 'N/A',
+          quotationNumber: (q.quotationNumber as string) || 'N/A',
           customerName: (q.customer as { name?: string })?.name || 'N/A',
-          totalAmount: q.totalAmount as number || 0,
+          totalAmount: (q.totalAmount as number) || 0,
           status: q.status as string,
-          validUntil: q.validUntil as string || '',
+          validUntil: (q.validUntil as string) || '',
         }))
       );
 
@@ -158,11 +149,7 @@ export default function SalesDashboard() {
       COMPLETED: 'bg-green-100 text-green-800',
       CANCELLED: 'bg-red-100 text-red-800',
     };
-    return (
-      <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>
-        {status.replace('_', ' ')}
-      </Badge>
-    );
+    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>{status.replace('_', ' ')}</Badge>;
   };
 
   const getQuotationStatusBadge = (status: string) => {
@@ -173,11 +160,7 @@ export default function SalesDashboard() {
       REJECTED: 'bg-red-100 text-red-800',
       EXPIRED: 'bg-orange-100 text-orange-800',
     };
-    return (
-      <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>
-        {status}
-      </Badge>
-    );
+    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>{status}</Badge>;
   };
 
   // Use getQuotationStatusBadge for quotations table if needed

@@ -72,7 +72,11 @@ export const customerService = {
     return response.data.data;
   },
 
-  updateAccessoryPreset: async (customerId: string, presetId: string, data: UpdateAccessoryPresetRequest): Promise<AccessoryPreset> => {
+  updateAccessoryPreset: async (
+    customerId: string,
+    presetId: string,
+    data: UpdateAccessoryPresetRequest
+  ): Promise<AccessoryPreset> => {
     const response = await api.put(`/customers/${customerId}/accessory-presets/${presetId}`, data);
     return response.data.data;
   },

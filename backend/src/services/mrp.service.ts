@@ -3,7 +3,15 @@
  * Handles material requirement calculations, stock allocation, and PO generation
  */
 
-import { Prisma, MaterialRequirementStatus, RequirementSource, Unit, POSource, POCategory, PurchaseOrderStatus } from '@prisma/client';
+import {
+  Prisma,
+  MaterialRequirementStatus,
+  RequirementSource,
+  Unit,
+  POSource,
+  POCategory,
+  PurchaseOrderStatus,
+} from '@prisma/client';
 import { generateCode } from '../utils/code-generator';
 import prisma from '../config/database';
 import {
@@ -64,7 +72,9 @@ async function ensureMaterialForFabric(fabricId: string): Promise<{ id: string }
             notes: 'Auto-linked from fabric_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -113,7 +123,9 @@ async function ensureMaterialForLace(laceId: string): Promise<{ id: string } | n
             notes: 'Auto-linked from lace_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -162,7 +174,9 @@ async function ensureMaterialForGreige(greigeId: string): Promise<{ id: string }
             notes: 'Auto-linked from greige_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -211,7 +225,9 @@ async function ensureMaterialForThread(threadId: string): Promise<{ id: string }
             notes: 'Auto-linked from thread_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -260,7 +276,9 @@ async function ensureMaterialForButton(buttonId: string): Promise<{ id: string }
             notes: 'Auto-linked from button_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -309,7 +327,9 @@ async function ensureMaterialForZipper(zipperId: string): Promise<{ id: string }
             notes: 'Auto-linked from zipper_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -358,7 +378,9 @@ async function ensureMaterialForElastic(elasticId: string): Promise<{ id: string
             notes: 'Auto-linked from elastic_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -407,7 +429,9 @@ async function ensureMaterialForLabel(labelId: string): Promise<{ id: string } |
             notes: 'Auto-linked from label_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -456,7 +480,9 @@ async function ensureMaterialForPackaging(packagingId: string): Promise<{ id: st
             notes: 'Auto-linked from packaging_master default supplier',
           },
         });
-      } catch (_) { /* non-fatal */ }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
 
     return material;
@@ -476,7 +502,9 @@ async function ensureMaterialForPackaging(packagingId: string): Promise<{ id: st
  */
 function normalizeUnit(unit: string | null | undefined): Unit {
   if (!unit) {
-    logWarn('[MRP] normalizeUnit called with null/undefined unit — defaulting to PIECE. This may cause incorrect quantity calculations if the actual unit is METER, YARD, or KILOGRAM. Fix: ensure all BOM items have a unit value set.');
+    logWarn(
+      '[MRP] normalizeUnit called with null/undefined unit — defaulting to PIECE. This may cause incorrect quantity calculations if the actual unit is METER, YARD, or KILOGRAM. Fix: ensure all BOM items have a unit value set.'
+    );
     return Unit.PIECE;
   }
 
@@ -489,31 +517,33 @@ function normalizeUnit(unit: string | null | undefined): Unit {
 
   // Common mappings for abbreviations and variations
   const unitMap: Record<string, Unit> = {
-    'PCS': Unit.PIECE,
-    'PC': Unit.PIECE,
-    'PIECES': Unit.PIECE,
-    'METERS': Unit.METER,
-    'MTR': Unit.METER,
-    'M': Unit.METER,
-    'YARDS': Unit.YARD,
-    'YD': Unit.YARD,
-    'KG': Unit.KILOGRAM,
-    'KGS': Unit.KILOGRAM,
-    'KILOGRAMS': Unit.KILOGRAM,
-    'DOZ': Unit.DOZEN,
-    'DOZENS': Unit.DOZEN,
-    'SETS': Unit.SET,
-    'TUBES': Unit.TUBE,
-    'CONES': Unit.CONE,
-    'SPOOLS': Unit.SPOOL,
-    'BOXES': Unit.BOX,
+    PCS: Unit.PIECE,
+    PC: Unit.PIECE,
+    PIECES: Unit.PIECE,
+    METERS: Unit.METER,
+    MTR: Unit.METER,
+    M: Unit.METER,
+    YARDS: Unit.YARD,
+    YD: Unit.YARD,
+    KG: Unit.KILOGRAM,
+    KGS: Unit.KILOGRAM,
+    KILOGRAMS: Unit.KILOGRAM,
+    DOZ: Unit.DOZEN,
+    DOZENS: Unit.DOZEN,
+    SETS: Unit.SET,
+    TUBES: Unit.TUBE,
+    CONES: Unit.CONE,
+    SPOOLS: Unit.SPOOL,
+    BOXES: Unit.BOX,
   };
 
   if (unitMap[normalized]) {
     return unitMap[normalized];
   }
 
-  logWarn(`[MRP] normalizeUnit: unrecognized unit '${unit}' — defaulting to PIECE. Add a mapping for this unit in normalizeUnit() or fix the BOM data.`);
+  logWarn(
+    `[MRP] normalizeUnit: unrecognized unit '${unit}' — defaulting to PIECE. Add a mapping for this unit in normalizeUnit() or fix the BOM data.`
+  );
   return Unit.PIECE;
 }
 
@@ -615,7 +645,12 @@ async function generateRequirementNumber(): Promise<string> {
 export async function calculateRequirementsFromOrder(
   input: CalculateRequirementsInput,
   userId: string
-): Promise<{ created: number; updated: number; requirements: MaterialRequirementResponse[]; skipped: { componentName: string; materialType: string; reason: string }[] }> {
+): Promise<{
+  created: number;
+  updated: number;
+  requirements: MaterialRequirementResponse[];
+  skipped: { componentName: string; materialType: string; reason: string }[];
+}> {
   const { orderId, orderItemId, requiredDate, checkStock = true } = input;
 
   // Track skipped BOM items with reasons for transparency
@@ -666,7 +701,7 @@ export async function calculateRequirementsFromOrder(
 
   // Cancel existing non-final requirements for the affected BOMs only (not entire order)
   // This prevents wiping requirements from other styles when recalculating for one style
-  const activeBomIds = order.orderBoms.map(b => b.id);
+  const activeBomIds = order.orderBoms.map((b) => b.id);
   if (activeBomIds.length > 0) {
     await prisma.material_requirements.updateMany({
       where: {
@@ -703,8 +738,13 @@ export async function calculateRequirementsFromOrder(
       // LANDED GREIGE: buying greige fabric at a landed price (no processing) — single procurement requirement
       const hasLandedGreige = !hasGreigeProcessing && !!bomItem.greigeId && !bomItem.fabricId;
       // Other master types (thread, button, zipper, elastic, label, packaging)
-      const hasSpecificMaster = bomItem.buttonId || bomItem.threadId || bomItem.zipperId
-        || bomItem.elasticId || bomItem.labelId || bomItem.packagingId;
+      const hasSpecificMaster =
+        bomItem.buttonId ||
+        bomItem.threadId ||
+        bomItem.zipperId ||
+        bomItem.elasticId ||
+        bomItem.labelId ||
+        bomItem.packagingId;
 
       // Early material resolution for specific master types (trim/accessories)
       // so stock check below can use their materialId from the materials table
@@ -741,14 +781,19 @@ export async function calculateRequirementsFromOrder(
           else if (bomItem.packagingId) created = await ensureMaterialForPackaging(bomItem.packagingId);
           if (created) {
             resolvedTrimMaterialId = created.id;
-            console.log(`[MRP] Auto-created materials record for ${bomItem.materialType} "${bomItem.componentName}" → ${created.id}`);
+            console.log(
+              `[MRP] Auto-created materials record for ${bomItem.materialType} "${bomItem.componentName}" → ${created.id}`
+            );
           }
         }
       }
 
       // Fallback: resolve fabricId from style's own style_fabrics (set during CAD approval)
-      if ((bomItem.materialType === 'FABRIC' || (bomItem.materialType === 'GREIGE' && !bomItem.greigeId))
-          && !bomItem.fabricId && !material) {
+      if (
+        (bomItem.materialType === 'FABRIC' || (bomItem.materialType === 'GREIGE' && !bomItem.greigeId)) &&
+        !bomItem.fabricId &&
+        !material
+      ) {
         const styleComponents = await prisma.style_components.findMany({
           where: { styleId: style.id },
           select: { id: true },
@@ -756,7 +801,7 @@ export async function calculateRequirementsFromOrder(
         if (styleComponents.length > 0) {
           const styleFabric = await prisma.style_fabrics.findFirst({
             where: {
-              componentId: { in: styleComponents.map(c => c.id) },
+              componentId: { in: styleComponents.map((c) => c.id) },
               fabricId: { not: null },
             },
             select: { fabricId: true },
@@ -769,7 +814,9 @@ export async function calculateRequirementsFromOrder(
             });
             (bomItem as any).fabricId = styleFabric.fabricId;
             if (bomItem.materialType === 'FABRIC') hasFabric = true;
-            console.log(`[MRP] Resolved fabricId for "${bomItem.componentName}" via style_fabrics → ${styleFabric.fabricId}`);
+            console.log(
+              `[MRP] Resolved fabricId for "${bomItem.componentName}" via style_fabrics → ${styleFabric.fabricId}`
+            );
           }
         }
       }
@@ -790,7 +837,9 @@ export async function calculateRequirementsFromOrder(
           });
           (bomItem as any).laceId = laceBomItem.laceId;
           hasLace = true;
-          console.log(`[MRP] Resolved laceId for "${bomItem.componentName}" via style_material_bom → ${laceBomItem.laceId}`);
+          console.log(
+            `[MRP] Resolved laceId for "${bomItem.componentName}" via style_material_bom → ${laceBomItem.laceId}`
+          );
         }
       }
 
@@ -873,7 +922,7 @@ export async function calculateRequirementsFromOrder(
           }
           // else: no greige stock, defaults remain (PO_REQUIRED)
 
-        // For FABRIC items with CAD width info, check fabric_stock with width filtering
+          // For FABRIC items with CAD width info, check fabric_stock with width filtering
         } else if (bomItem.materialType === 'FABRIC' && bomItem.fabricId && bomItem.fabricWidthInches) {
           const bomWidth = Number(bomItem.fabricWidthInches);
 
@@ -919,7 +968,6 @@ export async function calculateRequirementsFromOrder(
             status = MaterialRequirementStatus.PARTIAL_STOCK;
           }
           // else: no stock at all, defaults remain (PO_REQUIRED)
-
         } else if (bomItem.materialType === 'FABRIC' && bomItem.fabricId && !bomItem.fabricWidthInches) {
           // FABRIC without width info — check fabric_stock at ANY width
           const fabricStockAnyWidth = await prisma.fabric_stock.aggregate({
@@ -943,7 +991,6 @@ export async function calculateRequirementsFromOrder(
             status = MaterialRequirementStatus.PARTIAL_STOCK;
           }
           // else: no stock, defaults remain (PO_REQUIRED)
-
         } else if (bomItem.materialType === 'LACE' && bomItem.laceId) {
           // For LACE items, check lace_stock table
           const laceStockResult = await prisma.lace_stock.aggregate({
@@ -970,7 +1017,6 @@ export async function calculateRequirementsFromOrder(
             status = MaterialRequirementStatus.PARTIAL_STOCK;
           }
           // else: no stock at all, defaults remain (PO_REQUIRED)
-
         } else if (material?.id || resolvedTrimMaterialId) {
           // Non-fabric/non-lace or without specific IDs: use generic stock_levels
           const stockMaterialId = material?.id || resolvedTrimMaterialId!;
@@ -998,7 +1044,7 @@ export async function calculateRequirementsFromOrder(
       // For FABRIC items without materialId, look up or auto-create materials record by fabricId
       if (!effectiveMaterialId && hasFabric) {
         const fabricMaterial = await prisma.materials.findFirst({
-          where: { fabricId: bomItem.fabricId }
+          where: { fabricId: bomItem.fabricId },
         });
         if (fabricMaterial) {
           effectiveMaterialId = fabricMaterial.id;
@@ -1013,7 +1059,9 @@ export async function calculateRequirementsFromOrder(
               materialType: bomItem.materialType,
               reason: `Failed to auto-create material record for fabricId: ${bomItem.fabricId}. Fabric master may not exist.`,
             });
-            console.warn(`[MRP] Cannot resolve materials record for fabric: ${bomItem.componentName} (fabricId: ${bomItem.fabricId}). Skipping.`);
+            console.warn(
+              `[MRP] Cannot resolve materials record for fabric: ${bomItem.componentName} (fabricId: ${bomItem.fabricId}). Skipping.`
+            );
             continue;
           }
         }
@@ -1022,7 +1070,7 @@ export async function calculateRequirementsFromOrder(
       // For LACE items without materialId, look up or auto-create materials record by laceId
       if (!effectiveMaterialId && hasLace) {
         const laceMaterial = await prisma.materials.findFirst({
-          where: { laceId: bomItem.laceId }
+          where: { laceId: bomItem.laceId },
         });
         if (laceMaterial) {
           effectiveMaterialId = laceMaterial.id;
@@ -1036,7 +1084,9 @@ export async function calculateRequirementsFromOrder(
               materialType: bomItem.materialType,
               reason: `Failed to auto-create material record for laceId: ${bomItem.laceId}. Lace master may not exist.`,
             });
-            console.warn(`[MRP] Cannot resolve materials record for lace: ${bomItem.componentName} (laceId: ${bomItem.laceId}). Skipping.`);
+            console.warn(
+              `[MRP] Cannot resolve materials record for lace: ${bomItem.componentName} (laceId: ${bomItem.laceId}). Skipping.`
+            );
             continue;
           }
         }
@@ -1046,7 +1096,7 @@ export async function calculateRequirementsFromOrder(
       let greigeMaterialId: string | null = null;
       if (hasGreigeProcessing || hasLandedGreige) {
         const greigeMaterial = await prisma.materials.findFirst({
-          where: { greigeId: bomItem.greigeId }
+          where: { greigeId: bomItem.greigeId },
         });
         if (greigeMaterial) {
           greigeMaterialId = greigeMaterial.id;
@@ -1060,14 +1110,16 @@ export async function calculateRequirementsFromOrder(
               materialType: bomItem.materialType,
               reason: `Failed to auto-create material record for greigeId: ${bomItem.greigeId}. Greige master may not exist.`,
             });
-            console.warn(`[MRP] Cannot resolve materials record for greige: ${bomItem.componentName} (greigeId: ${bomItem.greigeId}). Skipping.`);
+            console.warn(
+              `[MRP] Cannot resolve materials record for greige: ${bomItem.componentName} (greigeId: ${bomItem.greigeId}). Skipping.`
+            );
             continue;
           }
         }
         // For GREIGE_PROCESSED, we also need the fabric material for the finished product reference
         if (!effectiveMaterialId && hasFabric) {
           const fabricMaterial = await prisma.materials.findFirst({
-            where: { fabricId: bomItem.fabricId }
+            where: { fabricId: bomItem.fabricId },
           });
           if (fabricMaterial) {
             effectiveMaterialId = fabricMaterial.id;
@@ -1213,8 +1265,8 @@ export async function calculateRequirementsFromOrder(
 
   // Upsert requirements inside a transaction for atomicity
   // Process in two passes: first MATERIAL/GREIGE, then PROCESSING (to get linked IDs)
-  const materialReqs = calculatedRequirements.filter(req => req.requirementType === 'MATERIAL');
-  const processingReqs = calculatedRequirements.filter(req => req.requirementType === 'PROCESSING');
+  const materialReqs = calculatedRequirements.filter((req) => req.requirementType === 'MATERIAL');
+  const processingReqs = calculatedRequirements.filter((req) => req.requirementType === 'PROCESSING');
 
   // Pre-calculate starting sequence OUTSIDE the transaction to avoid duplicate requirementNumbers.
   // Inside a transaction, uncommitted writes are invisible to subsequent queries, so calling
@@ -1226,172 +1278,175 @@ export async function calculateRequirementsFromOrder(
     orderBy: { requirementNumber: 'desc' },
     select: { requirementNumber: true },
   });
-  let mrSequence = lastMrReq
-    ? parseInt(lastMrReq.requirementNumber.split('-').pop() || '0', 10)
-    : 0;
+  let mrSequence = lastMrReq ? parseInt(lastMrReq.requirementNumber.split('-').pop() || '0', 10) : 0;
   const nextMrNumber = () => {
     mrSequence++;
     return `${mrDatePrefix}-${mrSequence.toString().padStart(4, '0')}`;
   };
 
-  const { created, updated, savedRequirements } = await prisma.$transaction(async (tx) => {
-    let created = 0;
-    let updated = 0;
-    const savedRequirements: MaterialRequirementResponse[] = [];
+  const { created, updated, savedRequirements } = await prisma.$transaction(
+    async (tx) => {
+      let created = 0;
+      let updated = 0;
+      const savedRequirements: MaterialRequirementResponse[] = [];
 
-    // Track GREIGE requirements by materialId for linking PROCESSING requirements
-    const greigeRequirementIds: Map<string, string> = new Map();
+      // Track GREIGE requirements by materialId for linking PROCESSING requirements
+      const greigeRequirementIds: Map<string, string> = new Map();
 
-    // First pass: Create/update MATERIAL requirements (including GREIGE)
-    for (const req of materialReqs) {
-      // Check if requirement already exists for this order item + material + requirementType
-      const existing = await tx.material_requirements.findFirst({
-        where: {
-          orderId: req.orderId,
-          orderItemId: req.orderItemId,
-          materialId: req.materialId,
-          requirementType: req.requirementType || 'MATERIAL',
-        },
-      });
-
-      let saved;
-      if (existing) {
-        saved = await tx.material_requirements.update({
-          where: { id: existing.id },
-          data: {
-            orderQuantity: req.orderQuantity,
-            quantityPerUnit: req.quantityPerUnit,
-            wastagePercent: req.wastagePercent,
-            totalRequired: req.totalRequired,
-            availableStock: req.availableStock,
-            allocatedFromStock: req.allocatedFromStock,
-            shortfall: req.shortfall,
-            status: req.status,
-            fabricWidth: req.fabricWidth,
-            cadId: req.cadId,
-            calculatedAt: new Date(),
-          },
-          include: getRequirementIncludes(),
-        });
-        updated++;
-      } else {
-        const requirementNumber = nextMrNumber();
-        saved = await tx.material_requirements.create({
-          data: {
-            requirementNumber,
-            source: RequirementSource.SALES_ORDER,
+      // First pass: Create/update MATERIAL requirements (including GREIGE)
+      for (const req of materialReqs) {
+        // Check if requirement already exists for this order item + material + requirementType
+        const existing = await tx.material_requirements.findFirst({
+          where: {
             orderId: req.orderId,
             orderItemId: req.orderItemId,
             materialId: req.materialId,
-            orderBomId: req.orderBomId,
-            orderQuantity: req.orderQuantity,
-            quantityPerUnit: req.quantityPerUnit,
-            wastagePercent: req.wastagePercent,
-            totalRequired: req.totalRequired,
-            unit: req.unit as Unit,
-            availableStock: req.availableStock,
-            allocatedFromStock: req.allocatedFromStock,
-            shortfall: req.shortfall,
-            preferredSupplierId: req.preferredSupplierId,
-            status: req.status,
-            fabricWidth: req.fabricWidth,
-            cadId: req.cadId,
             requirementType: req.requirementType || 'MATERIAL',
-            requiredDate,
-            createdById: userId,
           },
-          include: getRequirementIncludes(),
         });
-        created++;
+
+        let saved;
+        if (existing) {
+          saved = await tx.material_requirements.update({
+            where: { id: existing.id },
+            data: {
+              orderQuantity: req.orderQuantity,
+              quantityPerUnit: req.quantityPerUnit,
+              wastagePercent: req.wastagePercent,
+              totalRequired: req.totalRequired,
+              availableStock: req.availableStock,
+              allocatedFromStock: req.allocatedFromStock,
+              shortfall: req.shortfall,
+              status: req.status,
+              fabricWidth: req.fabricWidth,
+              cadId: req.cadId,
+              calculatedAt: new Date(),
+            },
+            include: getRequirementIncludes(),
+          });
+          updated++;
+        } else {
+          const requirementNumber = nextMrNumber();
+          saved = await tx.material_requirements.create({
+            data: {
+              requirementNumber,
+              source: RequirementSource.SALES_ORDER,
+              orderId: req.orderId,
+              orderItemId: req.orderItemId,
+              materialId: req.materialId,
+              orderBomId: req.orderBomId,
+              orderQuantity: req.orderQuantity,
+              quantityPerUnit: req.quantityPerUnit,
+              wastagePercent: req.wastagePercent,
+              totalRequired: req.totalRequired,
+              unit: req.unit as Unit,
+              availableStock: req.availableStock,
+              allocatedFromStock: req.allocatedFromStock,
+              shortfall: req.shortfall,
+              preferredSupplierId: req.preferredSupplierId,
+              status: req.status,
+              fabricWidth: req.fabricWidth,
+              cadId: req.cadId,
+              requirementType: req.requirementType || 'MATERIAL',
+              requiredDate,
+              createdById: userId,
+            },
+            include: getRequirementIncludes(),
+          });
+          created++;
+        }
+
+        // Track GREIGE requirements for linking to PROCESSING requirements
+        if ((req as any).isGreigeRequirement && saved) {
+          greigeRequirementIds.set(`${req.orderId}-${req.orderItemId}-${req.materialId}`, saved.id);
+        }
+
+        savedRequirements.push(mapToResponse(saved));
       }
 
-      // Track GREIGE requirements for linking to PROCESSING requirements
-      if ((req as any).isGreigeRequirement && saved) {
-        greigeRequirementIds.set(`${req.orderId}-${req.orderItemId}-${req.materialId}`, saved.id);
-      }
+      // Second pass: Create/update PROCESSING requirements with linked GREIGE IDs
+      for (const req of processingReqs) {
+        const linkedGreigeId = greigeRequirementIds.get(
+          `${req.orderId}-${req.orderItemId}-${(req as any).linkedGreigeMaterialId || req.materialId}`
+        );
 
-      savedRequirements.push(mapToResponse(saved));
-    }
-
-    // Second pass: Create/update PROCESSING requirements with linked GREIGE IDs
-    for (const req of processingReqs) {
-      const linkedGreigeId = greigeRequirementIds.get(
-        `${req.orderId}-${req.orderItemId}-${(req as any).linkedGreigeMaterialId || req.materialId}`
-      );
-
-      const existing = await tx.material_requirements.findFirst({
-        where: {
-          orderId: req.orderId,
-          orderItemId: req.orderItemId,
-          materialId: req.materialId,
-          requirementType: 'PROCESSING',
-        },
-      });
-
-      let saved;
-      if (existing) {
-        saved = await tx.material_requirements.update({
-          where: { id: existing.id },
-          data: {
-            orderQuantity: req.orderQuantity,
-            quantityPerUnit: req.quantityPerUnit,
-            wastagePercent: req.wastagePercent,
-            totalRequired: req.totalRequired,
-            availableStock: 0,
-            allocatedFromStock: 0,
-            shortfall: req.shortfall,
-            status: req.status,
-            processorId: (req as any).processorId,
-            processingCost: (req as any).processingCost,
-            linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
-            calculatedAt: new Date(),
-          },
-          include: getRequirementIncludes(),
-        });
-        updated++;
-      } else {
-        const requirementNumber = nextMrNumber();
-        saved = await tx.material_requirements.create({
-          data: {
-            requirementNumber,
-            source: RequirementSource.SALES_ORDER,
+        const existing = await tx.material_requirements.findFirst({
+          where: {
             orderId: req.orderId,
             orderItemId: req.orderItemId,
             materialId: req.materialId,
-            orderBomId: req.orderBomId,
-            orderQuantity: req.orderQuantity,
-            quantityPerUnit: req.quantityPerUnit,
-            wastagePercent: req.wastagePercent,
-            totalRequired: req.totalRequired,
-          unit: req.unit as Unit,
-          availableStock: 0,
-          allocatedFromStock: 0,
-          shortfall: req.shortfall,
-          preferredSupplierId: (req as any).processorId, // Processor is the "supplier"
-          status: req.status,
-          requirementType: 'PROCESSING',
-          processorId: (req as any).processorId,
-          processingCost: (req as any).processingCost,
-          printingType: (req as any).printingType || null,
-          linkedRequirementId: linkedGreigeId,
-          requiredDate,
-          createdById: userId,
-        },
-        include: getRequirementIncludes(),
-      });
-      created++;
-    }
+            requirementType: 'PROCESSING',
+          },
+        });
 
-      savedRequirements.push(mapToResponse(saved));
-    }
+        let saved;
+        if (existing) {
+          saved = await tx.material_requirements.update({
+            where: { id: existing.id },
+            data: {
+              orderQuantity: req.orderQuantity,
+              quantityPerUnit: req.quantityPerUnit,
+              wastagePercent: req.wastagePercent,
+              totalRequired: req.totalRequired,
+              availableStock: 0,
+              allocatedFromStock: 0,
+              shortfall: req.shortfall,
+              status: req.status,
+              processorId: (req as any).processorId,
+              processingCost: (req as any).processingCost,
+              linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
+              calculatedAt: new Date(),
+            },
+            include: getRequirementIncludes(),
+          });
+          updated++;
+        } else {
+          const requirementNumber = nextMrNumber();
+          saved = await tx.material_requirements.create({
+            data: {
+              requirementNumber,
+              source: RequirementSource.SALES_ORDER,
+              orderId: req.orderId,
+              orderItemId: req.orderItemId,
+              materialId: req.materialId,
+              orderBomId: req.orderBomId,
+              orderQuantity: req.orderQuantity,
+              quantityPerUnit: req.quantityPerUnit,
+              wastagePercent: req.wastagePercent,
+              totalRequired: req.totalRequired,
+              unit: req.unit as Unit,
+              availableStock: 0,
+              allocatedFromStock: 0,
+              shortfall: req.shortfall,
+              preferredSupplierId: (req as any).processorId, // Processor is the "supplier"
+              status: req.status,
+              requirementType: 'PROCESSING',
+              processorId: (req as any).processorId,
+              processingCost: (req as any).processingCost,
+              printingType: (req as any).printingType || null,
+              linkedRequirementId: linkedGreigeId,
+              requiredDate,
+              createdById: userId,
+            },
+            include: getRequirementIncludes(),
+          });
+          created++;
+        }
 
-    return { created, updated, savedRequirements };
-  }, { timeout: 30000 }); // 30s timeout for large BOMs
+        savedRequirements.push(mapToResponse(saved));
+      }
+
+      return { created, updated, savedRequirements };
+    },
+    { timeout: 30000 }
+  ); // 30s timeout for large BOMs
 
   // Log summary for debugging
   if (skippedItems.length > 0) {
-    console.warn(`[MRP] ${skippedItems.length} BOM item(s) skipped during MRP calculation for order ${orderId}:`,
-      skippedItems.map(s => `  - ${s.componentName} (${s.materialType}): ${s.reason}`).join('\n'));
+    console.warn(
+      `[MRP] ${skippedItems.length} BOM item(s) skipped during MRP calculation for order ${orderId}:`,
+      skippedItems.map((s) => `  - ${s.componentName} (${s.materialType}): ${s.reason}`).join('\n')
+    );
   }
 
   return { created, updated, requirements: savedRequirements, skipped: skippedItems };
@@ -1589,14 +1644,16 @@ export async function getOrderRequirementsSummary(orderId: string): Promise<Orde
   });
 
   // Group by status
-  const byStatus = Object.values(MaterialRequirementStatus).map((status) => {
-    const matching = requirements.filter((r) => r.status === status);
-    return {
-      status,
-      count: matching.length,
-      totalQuantity: matching.reduce((sum, r) => sum + Number(r.totalRequired), 0),
-    };
-  }).filter((s) => s.count > 0);
+  const byStatus = Object.values(MaterialRequirementStatus)
+    .map((status) => {
+      const matching = requirements.filter((r) => r.status === status);
+      return {
+        status,
+        count: matching.length,
+        totalQuantity: matching.reduce((sum, r) => sum + Number(r.totalRequired), 0),
+      };
+    })
+    .filter((s) => s.count > 0);
 
   const totalShortfall = requirements.reduce((sum, r) => sum + Number(r.shortfall), 0);
   const requirementsNeedingPO = requirements.filter(
@@ -1725,10 +1782,7 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
 /**
  * Allocate stock to a requirement
  */
-export async function allocateStock(
-  data: AllocateStockRequest,
-  userId: string
-): Promise<MaterialRequirementResponse> {
+export async function allocateStock(data: AllocateStockRequest, userId: string): Promise<MaterialRequirementResponse> {
   const requirement = await prisma.material_requirements.findUnique({
     where: { id: data.requirementId },
   });
@@ -1873,7 +1927,7 @@ export async function generatePOFromRequirements(
   }
 
   // Look up supplier prices from material_suppliers (UUID-based)
-  const materialIds = [...new Set(requirements.map(r => r.materialId))];
+  const materialIds = [...new Set(requirements.map((r) => r.materialId))];
   const supplierPrices = await prisma.material_suppliers.findMany({
     where: {
       materialId: { in: materialIds },
@@ -1884,8 +1938,8 @@ export async function generatePOFromRequirements(
   });
   const autoPriceMap = new Map(
     supplierPrices
-      .filter(sp => sp.supplierPrice && Number(sp.supplierPrice) > 0)
-      .map(sp => [sp.materialId, Number(sp.supplierPrice)])
+      .filter((sp) => sp.supplierPrice && Number(sp.supplierPrice) > 0)
+      .map((sp) => [sp.materialId, Number(sp.supplierPrice)])
   );
 
   // Resolve cost-sheet rates for each material (FABRIC / GREIGE priority lookup)
@@ -1919,12 +1973,15 @@ export async function generatePOFromRequirements(
     where: { supplierId, isPrimary: true },
     select: { stateCode: true },
   });
-  const supplierStateCode = supplierGst?.stateCode
-    || (await prisma.supplier_gst_numbers.findFirst({
+  const supplierStateCode =
+    supplierGst?.stateCode ||
+    (
+      await prisma.supplier_gst_numbers.findFirst({
         where: { supplierId },
         select: { stateCode: true },
-      }))?.stateCode
-    || null;
+      })
+    )?.stateCode ||
+    null;
   const isInterstate = supplierStateCode ? supplierStateCode !== COMPANY_CONFIG.stateCode : false;
 
   // Group by material if consolidating
@@ -1946,7 +2003,8 @@ export async function generatePOFromRequirements(
     for (const req of requirements) {
       const key = req.materialId;
       // Priority: manual override → cost sheet rate → supplier price → 0
-      const price = itemPrices?.[req.materialId] ?? costSheetRateMap.get(req.materialId) ?? autoPriceMap.get(req.materialId) ?? 0;
+      const price =
+        itemPrices?.[req.materialId] ?? costSheetRateMap.get(req.materialId) ?? autoPriceMap.get(req.materialId) ?? 0;
       const existing = materialGroups.get(key);
 
       if (existing) {
@@ -1969,7 +2027,8 @@ export async function generatePOFromRequirements(
   } else {
     for (const req of requirements) {
       // Priority: manual override → cost sheet rate → supplier price → 0
-      const price = itemPrices?.[req.materialId] ?? costSheetRateMap.get(req.materialId) ?? autoPriceMap.get(req.materialId) ?? 0;
+      const price =
+        itemPrices?.[req.materialId] ?? costSheetRateMap.get(req.materialId) ?? autoPriceMap.get(req.materialId) ?? 0;
       poItems.push({
         materialId: req.materialId,
         quantity: Number(req.shortfall),
@@ -1983,9 +2042,9 @@ export async function generatePOFromRequirements(
   }
 
   // Validate: no items with zero price
-  const zeroPriceItems = poItems.filter(item => item.unitPrice <= 0);
+  const zeroPriceItems = poItems.filter((item) => item.unitPrice <= 0);
   if (zeroPriceItems.length > 0) {
-    const names = zeroPriceItems.map(i => i.material?.code || i.materialId).join(', ');
+    const names = zeroPriceItems.map((i) => i.material?.code || i.materialId).join(', ');
     throw new Error(`Cannot generate PO with zero-price items: ${names}. Please set prices for all items.`);
   }
 
@@ -1996,7 +2055,7 @@ export async function generatePOFromRequirements(
   let poCategory = determinePOCategoryFromMaterials(materialTypes);
 
   // Check if these are PROCESSING requirements
-  const isProcessingRequirements = requirements.every(req => req.requirementType === 'PROCESSING');
+  const isProcessingRequirements = requirements.every((req) => req.requirementType === 'PROCESSING');
   if (isProcessingRequirements) {
     poCategory = POCategory.PROCESSING;
   }
@@ -2005,7 +2064,7 @@ export async function generatePOFromRequirements(
   let linkedGreigePOId: string | null = null;
   if (isProcessingRequirements) {
     const linkedGreigeReqIds = requirements
-      .map(req => req.linkedRequirementId)
+      .map((req) => req.linkedRequirementId)
       .filter((id): id is string => id !== null);
 
     if (linkedGreigeReqIds.length > 0) {
@@ -2018,9 +2077,8 @@ export async function generatePOFromRequirements(
   }
 
   // Determine initial status
-  const initialStatus = isProcessingRequirements && linkedGreigePOId
-    ? PurchaseOrderStatus.PENDING_GREIGE
-    : PurchaseOrderStatus.DRAFT;
+  const initialStatus =
+    isProcessingRequirements && linkedGreigePOId ? PurchaseOrderStatus.PENDING_GREIGE : PurchaseOrderStatus.DRAFT;
 
   // Create PO with items in a transaction
   const result = await prisma.$transaction(async (tx) => {
@@ -2032,12 +2090,17 @@ export async function generatePOFromRequirements(
     let poTotalSgst = 0;
     let poTotalIgst = 0;
 
-    const itemsWithGst = poItems.map(item => {
+    const itemsWithGst = poItems.map((item) => {
       const mat = item.material;
       const gstRate = mat?.gstRate ? Number(mat.gstRate) : gstService.getDefaultGSTRate(mat?.hsnCode || undefined);
       const lineTotal = item.quantity * item.unitPrice;
 
-      let cgstRate = 0, cgstAmount = 0, sgstRate = 0, sgstAmount = 0, igstRate = 0, igstAmount = 0;
+      let cgstRate = 0,
+        cgstAmount = 0,
+        sgstRate = 0,
+        sgstAmount = 0,
+        igstRate = 0,
+        igstAmount = 0;
       if (isInterstate) {
         igstRate = gstRate;
         igstAmount = parseFloat(((lineTotal * gstRate) / 100).toFixed(2));
@@ -2090,9 +2153,10 @@ export async function generatePOFromRequirements(
         totalIgst: poTotalIgst,
         totalTax,
         isInterstate,
-        remarks: isProcessingRequirements && linkedGreigePOId
-          ? `${remarks || ''}\n[Processing PO] Waiting for greige fabric receipt.`
-          : remarks,
+        remarks:
+          isProcessingRequirements && linkedGreigePOId
+            ? `${remarks || ''}\n[Processing PO] Waiting for greige fabric receipt.`
+            : remarks,
         createdById: userId,
       },
     });
@@ -2127,7 +2191,7 @@ export async function generatePOFromRequirements(
       const reqShortfalls = new Map<string, number>();
       let totalShortfall = 0;
       for (const reqId of item.requirementIds) {
-        const req = requirements.find(r => r.id === reqId);
+        const req = requirements.find((r) => r.id === reqId);
         const shortfall = req ? Number(req.shortfall) : 0;
         reqShortfalls.set(reqId, shortfall);
         totalShortfall += shortfall;
@@ -2136,9 +2200,10 @@ export async function generatePOFromRequirements(
       for (const reqId of item.requirementIds) {
         // Allocate proportionally: each requirement gets its share based on its shortfall
         const reqShortfall = reqShortfalls.get(reqId) || 0;
-        const allocatedQty = totalShortfall > 0
-          ? (reqShortfall / totalShortfall) * item.quantity
-          : item.quantity / item.requirementIds.length; // Fallback to equal split
+        const allocatedQty =
+          totalShortfall > 0
+            ? (reqShortfall / totalShortfall) * item.quantity
+            : item.quantity / item.requirementIds.length; // Fallback to equal split
 
         await tx.requirement_po_links.create({
           data: {
@@ -2244,10 +2309,7 @@ export async function cancelRequirement(id: string, userId: string): Promise<Mat
  * Update received quantity from GRN
  * Called when a GRN is created/updated to update the requirement status
  */
-export async function updateReceivedQuantity(
-  purchaseOrderItemId: string,
-  receivedQuantity: number
-): Promise<void> {
+export async function updateReceivedQuantity(purchaseOrderItemId: string, receivedQuantity: number): Promise<void> {
   // Find all links to this PO item
   const links = await prisma.requirement_po_links.findMany({
     where: { purchaseOrderItemId },
@@ -2657,7 +2719,10 @@ export async function validateBulkPOGeneration(requirementIds: string[]): Promis
   // Check each requirement
   for (const req of requirements) {
     // Check status
-    if (req.status !== MaterialRequirementStatus.PO_REQUIRED && req.status !== MaterialRequirementStatus.PARTIAL_STOCK) {
+    if (
+      req.status !== MaterialRequirementStatus.PO_REQUIRED &&
+      req.status !== MaterialRequirementStatus.PARTIAL_STOCK
+    ) {
       warnings.push(`Requirement ${req.requirementNumber} has status ${req.status} (not eligible for PO)`);
       continue;
     }
@@ -2723,11 +2788,12 @@ export async function convertToGreigeProcessing(
 
   const greigeAllocated = Math.min(greigeAvailable, shortfallQty);
   const greigeShortfall = shortfallQty - greigeAllocated;
-  const greigeStatus = greigeShortfall === 0
-    ? MaterialRequirementStatus.FULFILLED_STOCK
-    : greigeAllocated > 0
-      ? MaterialRequirementStatus.PARTIAL_STOCK
-      : MaterialRequirementStatus.PO_REQUIRED;
+  const greigeStatus =
+    greigeShortfall === 0
+      ? MaterialRequirementStatus.FULFILLED_STOCK
+      : greigeAllocated > 0
+        ? MaterialRequirementStatus.PARTIAL_STOCK
+        : MaterialRequirementStatus.PO_REQUIRED;
 
   // 4. Update original requirement — reduce shortfall by converted amount
   await prisma.material_requirements.update({
@@ -2822,9 +2888,7 @@ export async function convertToGreigeProcessing(
 /**
  * Preview POs from requirements — returns price + GST breakdown without creating POs
  */
-export async function previewPOsFromRequirements(
-  request: POPreviewRequest
-): Promise<POPreviewGroup[]> {
+export async function previewPOsFromRequirements(request: POPreviewRequest): Promise<POPreviewGroup[]> {
   const groups: POPreviewGroup[] = [];
 
   for (const group of request.groups) {
@@ -2843,12 +2907,15 @@ export async function previewPOsFromRequirements(
       select: { stateCode: true },
     });
     // Fallback: try any GST number for this supplier
-    const supplierStateCode = supplierGst?.stateCode
-      || (await prisma.supplier_gst_numbers.findFirst({
+    const supplierStateCode =
+      supplierGst?.stateCode ||
+      (
+        await prisma.supplier_gst_numbers.findFirst({
           where: { supplierId },
           select: { stateCode: true },
-        }))?.stateCode
-      || null;
+        })
+      )?.stateCode ||
+      null;
 
     const isInterstate = supplierStateCode ? supplierStateCode !== COMPANY_CONFIG.stateCode : false;
 
@@ -2867,15 +2934,15 @@ export async function previewPOsFromRequirements(
     if (requirements.length === 0) continue;
 
     // Get supplier prices
-    const materialIds = [...new Set(requirements.map(r => r.materialId))];
+    const materialIds = [...new Set(requirements.map((r) => r.materialId))];
     const supplierPrices = await prisma.material_suppliers.findMany({
       where: { materialId: { in: materialIds }, supplierId, isActive: true },
       select: { materialId: true, supplierPrice: true },
     });
     const priceMap = new Map(
       supplierPrices
-        .filter(sp => sp.supplierPrice && Number(sp.supplierPrice) > 0)
-        .map(sp => [sp.materialId, Number(sp.supplierPrice)])
+        .filter((sp) => sp.supplierPrice && Number(sp.supplierPrice) > 0)
+        .map((sp) => [sp.materialId, Number(sp.supplierPrice)])
     );
 
     // Resolve cost-sheet rates for FABRIC / GREIGE materials
@@ -2904,13 +2971,16 @@ export async function previewPOsFromRequirements(
     }
 
     // Consolidate by material
-    const materialGroups = new Map<string, {
-      materialId: string;
-      quantity: number;
-      unit: string;
-      requirementIds: string[];
-      material: any;
-    }>();
+    const materialGroups = new Map<
+      string,
+      {
+        materialId: string;
+        quantity: number;
+        unit: string;
+        requirementIds: string[];
+        material: any;
+      }
+    >();
 
     for (const req of requirements) {
       const existing = materialGroups.get(req.materialId);
@@ -2949,7 +3019,12 @@ export async function previewPOsFromRequirements(
       const gstRate = mat?.gstRate ? Number(mat.gstRate) : gstService.getDefaultGSTRate(mat?.hsnCode || undefined);
 
       // Calculate GST
-      let cgstRate = 0, cgstAmount = 0, sgstRate = 0, sgstAmount = 0, igstRate = 0, igstAmount = 0;
+      let cgstRate = 0,
+        cgstAmount = 0,
+        sgstRate = 0,
+        sgstAmount = 0,
+        igstRate = 0,
+        igstAmount = 0;
       if (isInterstate) {
         igstRate = gstRate;
         igstAmount = parseFloat(((lineTotal * gstRate) / 100).toFixed(2));

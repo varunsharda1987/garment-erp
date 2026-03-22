@@ -114,9 +114,7 @@ export async function calculateVariance(costSheetId: string) {
     result.cmtVariance = parseFloat((Number(costSheet.cmtActual) - Number(costSheet.cmtBudget)).toFixed(2));
 
     if (Number(costSheet.cmtBudget) !== 0) {
-      result.cmtVariancePercent = parseFloat(
-        ((result.cmtVariance / Number(costSheet.cmtBudget)) * 100).toFixed(2)
-      );
+      result.cmtVariancePercent = parseFloat(((result.cmtVariance / Number(costSheet.cmtBudget)) * 100).toFixed(2));
 
       if (Math.abs(result.cmtVariancePercent) > Number(costSheet.cmtBufferPercent || 5)) {
         exceedsBuffer = true;
@@ -129,7 +127,9 @@ export async function calculateVariance(costSheetId: string) {
   // ==========================================
   if (costSheet.embroideryActual !== null && costSheet.embroideryBudget !== null) {
     hasAnyActuals = true;
-    result.embroideryVariance = parseFloat((Number(costSheet.embroideryActual) - Number(costSheet.embroideryBudget)).toFixed(2));
+    result.embroideryVariance = parseFloat(
+      (Number(costSheet.embroideryActual) - Number(costSheet.embroideryBudget)).toFixed(2)
+    );
 
     if (Number(costSheet.embroideryBudget) !== 0) {
       result.embroideryVariancePercent = parseFloat(
@@ -147,7 +147,9 @@ export async function calculateVariance(costSheetId: string) {
   // ==========================================
   if (costSheet.accessoriesActual !== null && costSheet.accessoriesBudget !== null) {
     hasAnyActuals = true;
-    result.accessoriesVariance = parseFloat((Number(costSheet.accessoriesActual) - Number(costSheet.accessoriesBudget)).toFixed(2));
+    result.accessoriesVariance = parseFloat(
+      (Number(costSheet.accessoriesActual) - Number(costSheet.accessoriesBudget)).toFixed(2)
+    );
 
     if (Number(costSheet.accessoriesBudget) !== 0) {
       result.accessoriesVariancePercent = parseFloat(
@@ -242,7 +244,7 @@ export async function updateCostSheetActuals(params: {
   if (!costSheet) {
     throw new Error(
       `No PROCUREMENT_PRODUCTION cost sheet found for style ${styleId}. ` +
-      `Actual costs can only be updated for procurement cost sheets.`
+        `Actual costs can only be updated for procurement cost sheets.`
     );
   }
 

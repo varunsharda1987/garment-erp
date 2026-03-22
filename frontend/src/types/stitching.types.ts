@@ -6,11 +6,7 @@
 // Status Enums
 // ============================================
 
-export type StitchingIssueStatus =
-  | 'PENDING_RECEIPT'
-  | 'RECEIVED'
-  | 'IN_PROGRESS'
-  | 'COMPLETED';
+export type StitchingIssueStatus = 'PENDING_RECEIPT' | 'RECEIVED' | 'IN_PROGRESS' | 'COMPLETED';
 
 export const StitchingIssueStatusLabels: Record<StitchingIssueStatus, string> = {
   PENDING_RECEIPT: 'Pending Receipt',

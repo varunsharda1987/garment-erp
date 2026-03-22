@@ -75,14 +75,11 @@ export const deleteElastic = async (id: string): Promise<void> => {
 /**
  * Bulk import elastic items from Excel data
  */
-export const bulkImportElastics = async (
-  data: BulkImportRow[],
-  createStock?: boolean
-): Promise<BulkImportResponse> => {
-  const { data: response } = await api.post<BulkImportResponse>(
-    '/materials/elastic/bulk-import',
-    { data, createStock }
-  );
+export const bulkImportElastics = async (data: BulkImportRow[], createStock?: boolean): Promise<BulkImportResponse> => {
+  const { data: response } = await api.post<BulkImportResponse>('/materials/elastic/bulk-import', {
+    data,
+    createStock,
+  });
   return response;
 };
 

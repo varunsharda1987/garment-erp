@@ -36,9 +36,7 @@ export const fabricCostingService = {
    * Get all DYEING_PRINTING processors for dropdown
    */
   async getProcessors(): Promise<ProcessorInfo[]> {
-    const response = await api.get<ApiResponse<ProcessorInfo[]>>(
-      `${BASE_URL}/processors`
-    );
+    const response = await api.get<ApiResponse<ProcessorInfo[]>>(`${BASE_URL}/processors`);
     return response.data.data;
   },
 
@@ -52,9 +50,7 @@ export const fabricCostingService = {
     purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'
   ): Promise<StyleFabricsResponse> {
     const params = purpose ? `?purpose=${purpose}` : '';
-    const response = await api.get<ApiResponse<StyleFabricsResponse>>(
-      `${BASE_URL}/style/${styleId}${params}`
-    );
+    const response = await api.get<ApiResponse<StyleFabricsResponse>>(`${BASE_URL}/style/${styleId}${params}`);
     return response.data.data;
   },
 
@@ -69,10 +65,7 @@ export const fabricCostingService = {
     quantityMeters: number;
   }): Promise<ProcessorRateLookup | null> {
     try {
-      const response = await api.post<ApiResponse<ProcessorRateLookup>>(
-        `${BASE_URL}/lookup-rate`,
-        params
-      );
+      const response = await api.post<ApiResponse<ProcessorRateLookup>>(`${BASE_URL}/lookup-rate`, params);
       return response.data.data;
     } catch (error: any) {
       // Return null if no rate found (404)
@@ -101,26 +94,16 @@ export const fabricCostingService = {
   /**
    * Calculate fabric cost with all sourcing options (legacy)
    */
-  async calculateFabricCost(
-    request: FabricCostingRequest
-  ): Promise<FabricCostCalculationResult> {
-    const response = await api.post<ApiResponse<FabricCostCalculationResult>>(
-      `${BASE_URL}/calculate`,
-      request
-    );
+  async calculateFabricCost(request: FabricCostingRequest): Promise<FabricCostCalculationResult> {
+    const response = await api.post<ApiResponse<FabricCostCalculationResult>>(`${BASE_URL}/calculate`, request);
     return response.data.data;
   },
 
   /**
    * Calculate costs for multiple fabrics (legacy)
    */
-  async calculateBatchFabricCost(
-    request: BatchFabricCostingRequest
-  ): Promise<BatchFabricCostingResult> {
-    const response = await api.post<ApiResponse<BatchFabricCostingResult>>(
-      `${BASE_URL}/batch-calculate`,
-      request
-    );
+  async calculateBatchFabricCost(request: BatchFabricCostingRequest): Promise<BatchFabricCostingResult> {
+    const response = await api.post<ApiResponse<BatchFabricCostingResult>>(`${BASE_URL}/batch-calculate`, request);
     return response.data.data;
   },
 
@@ -141,9 +124,7 @@ export const fabricCostingService = {
     params.append('page', filters.page.toString());
     params.append('limit', filters.limit.toString());
 
-    const response = await api.get<CostingOptionsResponse>(
-      `${BASE_URL}/options?${params.toString()}`
-    );
+    const response = await api.get<CostingOptionsResponse>(`${BASE_URL}/options?${params.toString()}`);
     return response.data;
   },
 
@@ -168,10 +149,7 @@ export const fabricCostingService = {
    * Approve a costing option - marks it as preferred
    */
   async approveCostingOption(optionId: string): Promise<CostingOption> {
-    const response = await api.post<ApiResponse<CostingOption>>(
-      `${BASE_URL}/option/${optionId}/approve`,
-      {}
-    );
+    const response = await api.post<ApiResponse<CostingOption>>(`${BASE_URL}/option/${optionId}/approve`, {});
     return response.data.data;
   },
 
@@ -179,10 +157,7 @@ export const fabricCostingService = {
    * Unapprove a costing option - revert to Pending status
    */
   async unapproveCostingOption(optionId: string): Promise<CostingOption> {
-    const response = await api.patch<ApiResponse<CostingOption>>(
-      `${BASE_URL}/option/${optionId}/unapprove`,
-      {}
-    );
+    const response = await api.patch<ApiResponse<CostingOption>>(`${BASE_URL}/option/${optionId}/unapprove`, {});
     return response.data.data;
   },
 
@@ -190,23 +165,17 @@ export const fabricCostingService = {
    * Delete a costing option
    */
   async deleteCostingOption(optionId: string): Promise<void> {
-    await api.delete(
-      `${BASE_URL}/option/${optionId}`
-    );
+    await api.delete(`${BASE_URL}/option/${optionId}`);
   },
 
   /**
    * Promote a costing option to next workflow stage
    * PLANNING → COSTING → PRODUCTION
    */
-  async promoteCostingOption(
-    optionId: string,
-    targetPurpose: 'COSTING' | 'PRODUCTION'
-  ): Promise<CostingOption> {
-    const response = await api.post<ApiResponse<CostingOption>>(
-      `${BASE_URL}/option/${optionId}/promote`,
-      { targetPurpose }
-    );
+  async promoteCostingOption(optionId: string, targetPurpose: 'COSTING' | 'PRODUCTION'): Promise<CostingOption> {
+    const response = await api.post<ApiResponse<CostingOption>>(`${BASE_URL}/option/${optionId}/promote`, {
+      targetPurpose,
+    });
     return response.data.data;
   },
 
@@ -231,10 +200,10 @@ export const fabricCostingService = {
    * Returns counts and details of new vs existing records
    */
   async checkCADCostingStatus(styleId: string, cadRowIds: string[]): Promise<CADCostingStatusResponse> {
-    const response = await api.post<ApiResponse<CADCostingStatusResponse>>(
-      `${BASE_URL}/check-cad-status`,
-      { styleId, cadRowIds }
-    );
+    const response = await api.post<ApiResponse<CADCostingStatusResponse>>(`${BASE_URL}/check-cad-status`, {
+      styleId,
+      cadRowIds,
+    });
     return response.data.data;
   },
 
@@ -243,10 +212,10 @@ export const fabricCostingService = {
    * Fetches greige cost from latest procurement and initializes costing fields
    */
   async pushFromCAD(styleId: string, cadRowIds: string[]): Promise<PushFromCADResponse> {
-    const response = await api.post<ApiResponse<PushFromCADResponse>>(
-      `${BASE_URL}/push-from-cad`,
-      { styleId, cadRowIds }
-    );
+    const response = await api.post<ApiResponse<PushFromCADResponse>>(`${BASE_URL}/push-from-cad`, {
+      styleId,
+      cadRowIds,
+    });
     return response.data.data;
   },
 
@@ -311,13 +280,25 @@ export interface CADCostingStatusResponse {
   newCount: number;
   existingCount: number;
   newRows: { id: string; greigeId: string | null; greigeName: string | null; width: number }[];
-  existingRows: { id: string; greigeId: string | null; greigeName: string | null; width: number; totalCostPerMeter: number }[];
+  existingRows: {
+    id: string;
+    greigeId: string | null;
+    greigeName: string | null;
+    width: number;
+    totalCostPerMeter: number;
+  }[];
 }
 
 export interface PushFromCADResponse {
   created: number;
   skipped: number;
-  createdRows: { id: string; greigeId: string | null; greigeCostPerMeter: number | null; transportCostPerMeter: number; totalCostPerMeter: number | null }[];
+  createdRows: {
+    id: string;
+    greigeId: string | null;
+    greigeCostPerMeter: number | null;
+    transportCostPerMeter: number;
+    totalCostPerMeter: number | null;
+  }[];
   skippedRows: { id: string; reason: string }[];
 }
 

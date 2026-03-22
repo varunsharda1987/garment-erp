@@ -183,16 +183,7 @@ const asnIncludeOptions = {
 // ============================================
 
 export const getAllDeliveryNotes = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 20,
-    search,
-    status,
-    orderId,
-    customerId,
-    fromDate,
-    toDate,
-  } = req.query;
+  const { page = 1, limit = 20, search, status, orderId, customerId, fromDate, toDate } = req.query;
 
   const skip = (Number(page) - 1) * Number(limit);
 
@@ -284,17 +275,18 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
       status: 'PENDING',
       remarks,
       createdById: userId,
-      delivery_note_items: items?.length > 0
-        ? {
-            create: items.map((item: any) => ({
-              id: crypto.randomUUID(),
-              styleId: item.styleId,
-              colorId: item.colorId,
-              sizeId: item.sizeId,
-              quantity: item.quantity,
-            })),
-          }
-        : undefined,
+      delivery_note_items:
+        items?.length > 0
+          ? {
+              create: items.map((item: any) => ({
+                id: crypto.randomUUID(),
+                styleId: item.styleId,
+                colorId: item.colorId,
+                sizeId: item.sizeId,
+                quantity: item.quantity,
+              })),
+            }
+          : undefined,
     },
     include: deliveryNoteIncludeOptions,
   });
@@ -541,15 +533,7 @@ export const recordPOD = async (req: Request, res: Response) => {
 // ============================================
 
 export const getAllASN = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 20,
-    search,
-    status,
-    orderId,
-    fromDate,
-    toDate,
-  } = req.query;
+  const { page = 1, limit = 20, search, status, orderId, fromDate, toDate } = req.query;
 
   const skip = (Number(page) - 1) * Number(limit);
 
@@ -622,14 +606,7 @@ export const createASN = async (req: Request, res: Response) => {
   if (!userId) {
     return res.status(401).json({ error: 'User not authenticated' });
   }
-  const {
-    orderId,
-    plannedDispatchQty,
-    cartonsPlanned,
-    requestedShipDate,
-    remarks,
-    skus,
-  } = req.body;
+  const { orderId, plannedDispatchQty, cartonsPlanned, requestedShipDate, remarks, skus } = req.body;
 
   // Get order to generate ASN number
   const order = await prisma.orders.findUnique({
@@ -653,15 +630,16 @@ export const createASN = async (req: Request, res: Response) => {
       status: 'PENDING',
       remarks,
       createdById: userId,
-      skuBreakdown: skus?.length > 0
-        ? {
-            create: skus.map((sku: any) => ({
-              colorId: sku.colorId,
-              sizeId: sku.sizeId,
-              plannedQty: sku.plannedQty,
-            })),
-          }
-        : undefined,
+      skuBreakdown:
+        skus?.length > 0
+          ? {
+              create: skus.map((sku: any) => ({
+                colorId: sku.colorId,
+                sizeId: sku.sizeId,
+                plannedQty: sku.plannedQty,
+              })),
+            }
+          : undefined,
     },
     include: asnIncludeOptions,
   });
@@ -809,123 +787,123 @@ export const deleteASN = async (req: Request, res: Response) => {
 
 export const getSummary = async (req: Request, res: Response) => {
   const [deliveryStatusCounts, asnStatusCounts, itemTotals] = await Promise.all([
-      prisma.delivery_notes.groupBy({
-        by: ['status'],
-        _count: { id: true },
-      }),
-      prisma.asn_applications.groupBy({
-        by: ['status'],
-        _count: { id: true },
-      }),
-      prisma.delivery_note_items.aggregate({
-        _sum: {
-          quantity: true,
-        },
-      }),
-    ]);
-
-    res.json({
-      data: {
-        total: deliveryStatusCounts.reduce((sum, s) => sum + s._count.id, 0),
-        pending: deliveryStatusCounts.find((s) => s.status === 'PENDING')?._count.id || 0,
-        inTransit: deliveryStatusCounts.find((s) => s.status === 'IN_TRANSIT')?._count.id || 0,
-        delivered: deliveryStatusCounts.find((s) => s.status === 'DELIVERED')?._count.id || 0,
-        totalPieces: Number(itemTotals._sum?.quantity || 0),
-        totalCartons: 0, // Would need to aggregate from carton_packings
-        asnSummary: {
-          pending: asnStatusCounts.find((s) => s.status === 'PENDING')?._count.id || 0,
-          applied: asnStatusCounts.find((s) => s.status === 'APPLIED')?._count.id || 0,
-          approved: asnStatusCounts.find((s) => s.status === 'APPROVED')?._count.id || 0,
-          rejected: asnStatusCounts.find((s) => s.status === 'REJECTED')?._count.id || 0,
-        },
+    prisma.delivery_notes.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    }),
+    prisma.asn_applications.groupBy({
+      by: ['status'],
+      _count: { id: true },
+    }),
+    prisma.delivery_note_items.aggregate({
+      _sum: {
+        quantity: true,
       },
+    }),
+  ]);
+
+  res.json({
+    data: {
+      total: deliveryStatusCounts.reduce((sum, s) => sum + s._count.id, 0),
+      pending: deliveryStatusCounts.find((s) => s.status === 'PENDING')?._count.id || 0,
+      inTransit: deliveryStatusCounts.find((s) => s.status === 'IN_TRANSIT')?._count.id || 0,
+      delivered: deliveryStatusCounts.find((s) => s.status === 'DELIVERED')?._count.id || 0,
+      totalPieces: Number(itemTotals._sum?.quantity || 0),
+      totalCartons: 0, // Would need to aggregate from carton_packings
+      asnSummary: {
+        pending: asnStatusCounts.find((s) => s.status === 'PENDING')?._count.id || 0,
+        applied: asnStatusCounts.find((s) => s.status === 'APPLIED')?._count.id || 0,
+        approved: asnStatusCounts.find((s) => s.status === 'APPROVED')?._count.id || 0,
+        rejected: asnStatusCounts.find((s) => s.status === 'REJECTED')?._count.id || 0,
+      },
+    },
   });
 };
 
 export const getAvailableCartons = async (req: Request, res: Response) => {
   const { orderId } = req.query;
 
-    const where: Prisma.carton_packingsWhereInput = {
-      status: 'PACKED',
+  const where: Prisma.carton_packingsWhereInput = {
+    status: 'PACKED',
+  };
+
+  if (orderId) {
+    where.workOrder = {
+      orderId: String(orderId),
     };
+  }
 
-    if (orderId) {
-      where.workOrder = {
-        orderId: String(orderId),
-      };
-    }
-
-    const cartons = await prisma.carton_packings.findMany({
-      where,
-      include: {
-        workOrder: {
-          include: {
-            styles: true,
-          },
+  const cartons = await prisma.carton_packings.findMany({
+    where,
+    include: {
+      workOrder: {
+        include: {
+          styles: true,
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 
-    res.json({
-      data: cartons.map((carton) => ({
-        id: carton.id,
-        cartonNumber: carton.cartonNumber,
-        workOrderNumber: carton.workOrder?.workOrderNumber || '',
-        styleName: carton.workOrder?.styles?.styleName || '',
-        totalPieces: carton.pcsPerCarton,
-        packedDate: carton.createdAt,
-      })),
+  res.json({
+    data: cartons.map((carton) => ({
+      id: carton.id,
+      cartonNumber: carton.cartonNumber,
+      workOrderNumber: carton.workOrder?.workOrderNumber || '',
+      styleName: carton.workOrder?.styles?.styleName || '',
+      totalPieces: carton.pcsPerCarton,
+      packedDate: carton.createdAt,
+    })),
   });
 };
 
 export const getOrdersReadyForDispatch = async (req: Request, res: Response) => {
   // Get orders that have packed cartons
-    const orders = await prisma.orders.findMany({
-      where: {
-        work_orders: {
-          some: {
-            carton_packings: {
-              some: {
-                status: 'PACKED',
-              },
+  const orders = await prisma.orders.findMany({
+    where: {
+      work_orders: {
+        some: {
+          carton_packings: {
+            some: {
+              status: 'PACKED',
             },
           },
         },
       },
-      include: {
-        customers: true,
-        work_orders: {
-          include: {
-            carton_packings: {
-              select: {
-                pcsPerCarton: true,
-                status: true,
-              },
+    },
+    include: {
+      customers: true,
+      work_orders: {
+        include: {
+          carton_packings: {
+            select: {
+              pcsPerCarton: true,
+              status: true,
             },
           },
         },
       },
-    });
+    },
+  });
 
-    res.json({
-      data: orders.map((order) => {
-        const allCartons = order.work_orders.flatMap((wo: any) => wo.carton_packings);
-        const packedPieces = allCartons
-          .filter((c: any) => c.status === 'PACKED')
-          .reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0);
-        const dispatchedPieces = allCartons
-          .filter((c: any) => c.status === 'DISPATCHED')
-          .reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0);
+  res.json({
+    data: orders.map((order) => {
+      const allCartons = order.work_orders.flatMap((wo: any) => wo.carton_packings);
+      const packedPieces = allCartons
+        .filter((c: any) => c.status === 'PACKED')
+        .reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0);
+      const dispatchedPieces = allCartons
+        .filter((c: any) => c.status === 'DISPATCHED')
+        .reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0);
 
-        return {
-          id: order.id,
-          orderNumber: order.orderNumber,
-          customerName: order.customers?.name || '',
-          totalPieces: allCartons.reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0),
-          packedPieces,
-          dispatchedPieces,
-        };
-      }),
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customers?.name || '',
+        totalPieces: allCartons.reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0),
+        packedPieces,
+        dispatchedPieces,
+      };
+    }),
   });
 };

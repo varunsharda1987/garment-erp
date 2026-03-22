@@ -1,8 +1,8 @@
 import prisma from '../config/database';
 
 interface GSTReportParams {
-  fromDate: string;  // YYYY-MM-DD
-  toDate: string;    // YYYY-MM-DD
+  fromDate: string; // YYYY-MM-DD
+  toDate: string; // YYYY-MM-DD
 }
 
 interface B2BEntry {
@@ -23,7 +23,7 @@ interface B2BEntry {
 interface HSNSummaryEntry {
   hsnCode: string;
   description: string;
-  uqc: string;  // Unit Quantity Code (PCS, MTR, etc.)
+  uqc: string; // Unit Quantity Code (PCS, MTR, etc.)
   totalQuantity: number;
   taxableValue: number;
   cgstAmount: number;
@@ -49,7 +49,8 @@ interface CDNREntry {
 interface GSTR1Report {
   period: { from: string; to: string };
   b2b: B2BEntry[];
-  b2cs: {  // B2C Small - unregistered customers, state-wise
+  b2cs: {
+    // B2C Small - unregistered customers, state-wise
     placeOfSupply: string;
     taxableValue: number;
     cgstAmount: number;
@@ -102,7 +103,10 @@ class GSTReportService {
       include: {
         customers: {
           select: {
-            id: true, name: true, billingName: true, gstNumber: true,
+            id: true,
+            name: true,
+            billingName: true,
+            gstNumber: true,
             billingState: { select: { stateName: true, stateCode: true } },
           },
         },
@@ -131,8 +135,8 @@ class GSTReportService {
 
     // B2B: Invoices where customer has GSTIN
     const b2b: B2BEntry[] = invoices
-      .filter(inv => inv.customers?.gstNumber)
-      .map(inv => ({
+      .filter((inv) => inv.customers?.gstNumber)
+      .map((inv) => ({
         customerGstin: inv.customers!.gstNumber!,
         customerName: inv.customers!.billingName || inv.customers!.name,
         invoiceNumber: inv.invoiceNumber,
@@ -148,10 +152,13 @@ class GSTReportService {
       }));
 
     // B2CS: Invoices where customer has NO GSTIN, grouped by state
-    const b2csMap = new Map<string, { taxableValue: number; cgstAmount: number; sgstAmount: number; igstAmount: number }>();
+    const b2csMap = new Map<
+      string,
+      { taxableValue: number; cgstAmount: number; sgstAmount: number; igstAmount: number }
+    >();
     invoices
-      .filter(inv => !inv.customers?.gstNumber)
-      .forEach(inv => {
+      .filter((inv) => !inv.customers?.gstNumber)
+      .forEach((inv) => {
         const state = inv.placeOfSupply?.stateName || inv.customers?.billingState?.stateName || 'Unknown';
         const existing = b2csMap.get(state) || { taxableValue: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0 };
         existing.taxableValue += Number(inv.subtotal);
@@ -167,8 +174,8 @@ class GSTReportService {
 
     // CDNR: Credit notes against registered customers
     const cdnr: CDNREntry[] = creditNotes
-      .filter(cn => cn.customer?.gstNumber)
-      .map(cn => ({
+      .filter((cn) => cn.customer?.gstNumber)
+      .map((cn) => ({
         customerGstin: cn.customer!.gstNumber!,
         customerName: cn.customer!.billingName || cn.customer!.name,
         creditNoteNumber: cn.creditNoteNumber,
@@ -184,14 +191,20 @@ class GSTReportService {
 
     // HSN Summary: Aggregate across all invoice items
     const hsnMap = new Map<string, HSNSummaryEntry>();
-    invoices.forEach(inv => {
+    invoices.forEach((inv) => {
       if (inv.invoice_items && inv.invoice_items.length > 0) {
-        inv.invoice_items.forEach(item => {
+        inv.invoice_items.forEach((item) => {
           const hsn = item.hsnCode || item.style?.hsnCode || 'N/A';
           const existing = hsnMap.get(hsn) || {
-            hsnCode: hsn, description: '', uqc: 'PCS',
-            totalQuantity: 0, taxableValue: 0,
-            cgstAmount: 0, sgstAmount: 0, igstAmount: 0, totalTax: 0,
+            hsnCode: hsn,
+            description: '',
+            uqc: 'PCS',
+            totalQuantity: 0,
+            taxableValue: 0,
+            cgstAmount: 0,
+            sgstAmount: 0,
+            igstAmount: 0,
+            totalTax: 0,
           };
           existing.totalQuantity += item.quantity;
           existing.taxableValue += Number(item.totalPrice);
@@ -205,9 +218,15 @@ class GSTReportService {
         // Legacy invoices without items - use header data
         const hsn = 'N/A';
         const existing = hsnMap.get(hsn) || {
-          hsnCode: hsn, description: '', uqc: 'PCS',
-          totalQuantity: 0, taxableValue: 0,
-          cgstAmount: 0, sgstAmount: 0, igstAmount: 0, totalTax: 0,
+          hsnCode: hsn,
+          description: '',
+          uqc: 'PCS',
+          totalQuantity: 0,
+          taxableValue: 0,
+          cgstAmount: 0,
+          sgstAmount: 0,
+          igstAmount: 0,
+          totalTax: 0,
         };
         existing.taxableValue += Number(inv.subtotal);
         existing.cgstAmount += Number(inv.cgstAmount);
@@ -249,8 +268,12 @@ class GSTReportService {
     const invoices = await prisma.invoices.findMany({
       where: { invoiceDate: { gte: fromDate, lte: toDate } },
       select: {
-        subtotal: true, cgstAmount: true, sgstAmount: true, igstAmount: true,
-        totalAmount: true, supplyType: true,
+        subtotal: true,
+        cgstAmount: true,
+        sgstAmount: true,
+        igstAmount: true,
+        totalAmount: true,
+        supplyType: true,
       },
     });
 
@@ -288,7 +311,10 @@ class GSTReportService {
         cgst: Math.max(0, taxable.cgst - itc.cgst),
         sgst: Math.max(0, taxable.sgst - itc.sgst),
         igst: Math.max(0, taxable.igst - itc.igst),
-        total: Math.max(0, taxable.cgst - itc.cgst) + Math.max(0, taxable.sgst - itc.sgst) + Math.max(0, taxable.igst - itc.igst),
+        total:
+          Math.max(0, taxable.cgst - itc.cgst) +
+          Math.max(0, taxable.sgst - itc.sgst) +
+          Math.max(0, taxable.igst - itc.igst),
       },
     };
   }

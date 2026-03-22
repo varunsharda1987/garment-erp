@@ -9,14 +9,7 @@ import { ArrowLeft, Check, Trash2, Loader2, X, ArrowRight, Lock, FileText } from
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { styleService } from '../services/style.service';
@@ -165,17 +158,21 @@ export default function StyleFabricCostingOptionsPage() {
   // Get purpose badge variant
   const getPurposeBadgeVariant = (purpose: string | null) => {
     switch (purpose) {
-      case 'PRODUCTION': return 'default';
-      case 'RAW_MATERIAL_CALCULATION': return 'secondary';
-      case 'COSTING': return 'outline';
-      default: return 'outline';
+      case 'PRODUCTION':
+        return 'default';
+      case 'RAW_MATERIAL_CALCULATION':
+        return 'secondary';
+      case 'COSTING':
+        return 'outline';
+      default:
+        return 'outline';
     }
   };
 
   const componentEntries = Object.entries(components);
   const totalOptions = componentEntries.reduce((sum, [, opts]) => sum + opts.length, 0);
   const approvedCount = componentEntries.reduce(
-    (sum, [, opts]) => sum + opts.filter(o => o.approvalStatus === 'APPROVED').length,
+    (sum, [, opts]) => sum + opts.filter((o) => o.approvalStatus === 'APPROVED').length,
     0
   );
 
@@ -189,19 +186,15 @@ export default function StyleFabricCostingOptionsPage() {
             Back to Costing
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">
-              {style ? `${style.styleCode} - ${style.styleName}` : 'Loading...'}
-            </h1>
+            <h1 className="text-2xl font-bold">{style ? `${style.styleCode} - ${style.styleName}` : 'Loading...'}</h1>
             <p className="text-muted-foreground text-sm">
-              {style?.customerName || 'No Customer'} | {componentEntries.length} components | {totalOptions} options | {approvedCount} approved
+              {style?.customerName || 'No Customer'} | {componentEntries.length} components | {totalOptions} options |{' '}
+              {approvedCount} approved
             </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/fabric-costing?styleId=${styleId}`)}
-          >
+          <Button variant="outline" onClick={() => navigate(`/fabric-costing?styleId=${styleId}`)}>
             Edit Costing
           </Button>
           {approvedCount > 0 && (
@@ -231,16 +224,19 @@ export default function StyleFabricCostingOptionsPage() {
       ) : (
         <div className="space-y-6">
           {componentEntries.map(([componentName, options]) => {
-            const hasApproved = options.some(o => o.approvalStatus === 'APPROVED');
+            const hasApproved = options.some((o) => o.approvalStatus === 'APPROVED');
 
             // Group options by orderQuantityPcs
-            const optionsByQuantity = options.reduce((acc, option) => {
-              const qty = option.orderQuantityPcs || 0;
-              const key = qty > 0 ? qty.toString() : 'No Qty';
-              if (!acc[key]) acc[key] = [];
-              acc[key].push(option);
-              return acc;
-            }, {} as Record<string, CostingOption[]>);
+            const optionsByQuantity = options.reduce(
+              (acc, option) => {
+                const qty = option.orderQuantityPcs || 0;
+                const key = qty > 0 ? qty.toString() : 'No Qty';
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(option);
+                return acc;
+              },
+              {} as Record<string, CostingOption[]>
+            );
 
             // Sort quantities descending (largest first, "No Qty" last)
             const sortedQuantities = Object.keys(optionsByQuantity).sort((a, b) => {
@@ -272,7 +268,7 @@ export default function StyleFabricCostingOptionsPage() {
                 <div className="p-4 space-y-4">
                   {sortedQuantities.map((qty) => {
                     const qtyOptions = optionsByQuantity[qty];
-                    const qtyApproved = qtyOptions.some(o => o.approvalStatus === 'APPROVED');
+                    const qtyApproved = qtyOptions.some((o) => o.approvalStatus === 'APPROVED');
 
                     return (
                       <div key={qty} className="border rounded-lg overflow-hidden">
@@ -280,7 +276,9 @@ export default function StyleFabricCostingOptionsPage() {
                         {sortedQuantities.length > 1 && (
                           <div className="bg-blue-50 px-4 py-2 flex items-center gap-2 border-b">
                             <span className="font-medium text-blue-800">
-                              {qty === 'No Qty' ? 'No Quantity Specified' : `Order Qty: ${Number(qty).toLocaleString()} pcs`}
+                              {qty === 'No Qty'
+                                ? 'No Quantity Specified'
+                                : `Order Qty: ${Number(qty).toLocaleString()} pcs`}
                             </span>
                             <Badge variant="secondary" className="text-xs">
                               {qtyOptions.length} option{qtyOptions.length > 1 ? 's' : ''}
@@ -320,198 +318,204 @@ export default function StyleFabricCostingOptionsPage() {
                           </TableHeader>
                           <TableBody>
                             {qtyOptions.map((option, idx) => (
-                        <TableRow
-                          key={option.id}
-                          className={option.approvalStatus === 'APPROVED' ? 'bg-green-50' : ''}
-                        >
-                          {/* # */}
-                          <TableCell>{idx + 1}</TableCell>
-                          {/* Mode */}
-                          <TableCell className="text-center">
-                            <Badge
-                              variant={getPurposeBadgeVariant(option.purpose)}
-                              className={option.purpose === 'PRODUCTION' ? 'bg-blue-600' : ''}
-                            >
-                              {option.isLocked && <Lock className="h-3 w-3 mr-1" />}
-                              {option.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : (option.purpose || 'Costing')}
-                            </Badge>
-                          </TableCell>
-                          {/* Component */}
-                          <TableCell className="text-xs">
-                            {option.componentName || '-'}
-                          </TableCell>
-                          {/* Part */}
-                          <TableCell className="text-xs">
-                            {option.patternPartName || option.patternPartCode || '-'}
-                          </TableCell>
-                          {/* Greige */}
-                          <TableCell className="font-medium">
-                            {option.greigeName || option.greigeCode || '-'}
-                          </TableCell>
-                          {/* Width */}
-                          <TableCell className="text-center">{option.cutableWidth}"</TableCell>
-                          {/* Qty (pcs) */}
-                          <TableCell className="text-center">
-                            {option.orderQuantityPcs?.toLocaleString() || '-'}
-                          </TableCell>
-                          {/* Processor */}
-                          <TableCell>
-                            {option.processorName || option.processorCode || (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          {/* Greige (₹) */}
-                          <TableCell className="text-center">
-                            {formatCurrency(option.greigeCostPerMeter)}
-                          </TableCell>
-                          {/* Transport (₹) */}
-                          <TableCell className="text-center">
-                            {formatCurrency(option.transportCostPerMeter)}
-                          </TableCell>
-                          {/* Shrink (₹) */}
-                          <TableCell className="text-center">
-                            {formatCurrency(option.shrinkageCostPerMeter)}
-                            {option.shrinkagePercent && (
-                              <span className="text-xs text-muted-foreground ml-1">
-                                ({option.shrinkagePercent}%)
-                              </span>
-                            )}
-                          </TableCell>
-                          {/* Process (₹) */}
-                          <TableCell className="text-center">
-                            {formatCurrency(option.processingPricePerMeter)}
-                          </TableCell>
-                          {/* Screen (₹) */}
-                          <TableCell className="text-center">
-                            {formatCurrency(option.screenCostPerMeter)}
-                            {option.numberOfColors && (
-                              <span className="text-xs text-muted-foreground ml-1">
-                                ({option.numberOfColors}c)
-                              </span>
-                            )}
-                          </TableCell>
-                          {/* Total (₹/m) */}
-                          <TableCell className="text-center font-semibold">
-                            {formatCurrency(option.totalCostPerMeter)}
-                          </TableCell>
-                          {/* Part Cost (₹) */}
-                          <TableCell className="text-center">
-                            {option.cadMeters && option.totalCostPerMeter
-                              ? `₹${(Number(option.cadMeters) * Number(option.totalCostPerMeter)).toFixed(2)}`
-                              : '-'}
-                          </TableCell>
-                          {/* Fabric (m) */}
-                          <TableCell className="text-center">
-                            {option.cadMeters && option.orderQuantityPcs
-                              ? (Number(option.cadMeters) * option.orderQuantityPcs).toLocaleString(undefined, { maximumFractionDigits: 0 })
-                              : '-'}
-                          </TableCell>
-                          {/* Greige Req (m) */}
-                          <TableCell className="text-center">
-                            {option.cadMeters && option.orderQuantityPcs
-                              ? (() => {
-                                  const fabricReq = Number(option.cadMeters) * option.orderQuantityPcs;
-                                  const shrinkage = option.shrinkagePercent ? Number(option.shrinkagePercent) : 0;
-                                  const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
-                                  return greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 });
-                                })()
-                              : '-'}
-                          </TableCell>
-                          {/* Status */}
-                          <TableCell className="text-center">
-                            {option.approvalStatus === 'APPROVED' ? (
-                              <Badge variant="default" className="bg-green-600">
-                                <Check className="h-3 w-3 mr-1" />
-                                Approved
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline">Pending</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              {/* Approve button */}
-                              {option.approvalStatus !== 'APPROVED' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleApprove(option.id)}
-                                  disabled={approvingId === option.id}
-                                  title="Approve"
-                                >
-                                  {approvingId === option.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Check className="h-3 w-3" />
+                              <TableRow
+                                key={option.id}
+                                className={option.approvalStatus === 'APPROVED' ? 'bg-green-50' : ''}
+                              >
+                                {/* # */}
+                                <TableCell>{idx + 1}</TableCell>
+                                {/* Mode */}
+                                <TableCell className="text-center">
+                                  <Badge
+                                    variant={getPurposeBadgeVariant(option.purpose)}
+                                    className={option.purpose === 'PRODUCTION' ? 'bg-blue-600' : ''}
+                                  >
+                                    {option.isLocked && <Lock className="h-3 w-3 mr-1" />}
+                                    {option.purpose === 'RAW_MATERIAL_CALCULATION'
+                                      ? 'Raw Mat'
+                                      : option.purpose || 'Costing'}
+                                  </Badge>
+                                </TableCell>
+                                {/* Component */}
+                                <TableCell className="text-xs">{option.componentName || '-'}</TableCell>
+                                {/* Part */}
+                                <TableCell className="text-xs">
+                                  {option.patternPartName || option.patternPartCode || '-'}
+                                </TableCell>
+                                {/* Greige */}
+                                <TableCell className="font-medium">
+                                  {option.greigeName || option.greigeCode || '-'}
+                                </TableCell>
+                                {/* Width */}
+                                <TableCell className="text-center">{option.cutableWidth}"</TableCell>
+                                {/* Qty (pcs) */}
+                                <TableCell className="text-center">
+                                  {option.orderQuantityPcs?.toLocaleString() || '-'}
+                                </TableCell>
+                                {/* Processor */}
+                                <TableCell>
+                                  {option.processorName || option.processorCode || (
+                                    <span className="text-muted-foreground">-</span>
                                   )}
-                                </Button>
-                              )}
-
-                              {/* Unapprove button */}
-                              {option.approvalStatus === 'APPROVED' && !option.isLocked && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleUnapprove(option.id)}
-                                  disabled={unapprovingId === option.id}
-                                  title="Unapprove"
-                                  className="text-amber-600 hover:text-amber-700"
-                                >
-                                  {unapprovingId === option.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <X className="h-3 w-3" />
+                                </TableCell>
+                                {/* Greige (₹) */}
+                                <TableCell className="text-center">
+                                  {formatCurrency(option.greigeCostPerMeter)}
+                                </TableCell>
+                                {/* Transport (₹) */}
+                                <TableCell className="text-center">
+                                  {formatCurrency(option.transportCostPerMeter)}
+                                </TableCell>
+                                {/* Shrink (₹) */}
+                                <TableCell className="text-center">
+                                  {formatCurrency(option.shrinkageCostPerMeter)}
+                                  {option.shrinkagePercent && (
+                                    <span className="text-xs text-muted-foreground ml-1">
+                                      ({option.shrinkagePercent}%)
+                                    </span>
                                   )}
-                                </Button>
-                              )}
-
-                              {/* Promote to Production */}
-                              {(option.purpose === 'COSTING' || option.purpose === 'RAW_MATERIAL_CALCULATION') && option.approvalStatus === 'APPROVED' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handlePromote(option.id, 'PRODUCTION')}
-                                  disabled={promotingId === option.id}
-                                  className="text-green-600 hover:text-green-700"
-                                  title="Promote to Production"
-                                >
-                                  {promotingId === option.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <>
-                                      <ArrowRight className="h-3 w-3 mr-1" />
-                                      Prod
-                                    </>
+                                </TableCell>
+                                {/* Process (₹) */}
+                                <TableCell className="text-center">
+                                  {formatCurrency(option.processingPricePerMeter)}
+                                </TableCell>
+                                {/* Screen (₹) */}
+                                <TableCell className="text-center">
+                                  {formatCurrency(option.screenCostPerMeter)}
+                                  {option.numberOfColors && (
+                                    <span className="text-xs text-muted-foreground ml-1">
+                                      ({option.numberOfColors}c)
+                                    </span>
                                   )}
-                                </Button>
-                              )}
-
-                              {/* Lock indicator */}
-                              {option.purpose === 'PRODUCTION' && (
-                                <span className="text-muted-foreground text-xs" title="Production records are locked">
-                                  <Lock className="h-3 w-3" />
-                                </span>
-                              )}
-
-                              {/* Delete button */}
-                              {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-destructive hover:text-destructive"
-                                  disabled={deletingId === option.id}
-                                  onClick={() => handleDeleteClick(option.id, componentName)}
-                                >
-                                  {deletingId === option.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                </TableCell>
+                                {/* Total (₹/m) */}
+                                <TableCell className="text-center font-semibold">
+                                  {formatCurrency(option.totalCostPerMeter)}
+                                </TableCell>
+                                {/* Part Cost (₹) */}
+                                <TableCell className="text-center">
+                                  {option.cadMeters && option.totalCostPerMeter
+                                    ? `₹${(Number(option.cadMeters) * Number(option.totalCostPerMeter)).toFixed(2)}`
+                                    : '-'}
+                                </TableCell>
+                                {/* Fabric (m) */}
+                                <TableCell className="text-center">
+                                  {option.cadMeters && option.orderQuantityPcs
+                                    ? (Number(option.cadMeters) * option.orderQuantityPcs).toLocaleString(undefined, {
+                                        maximumFractionDigits: 0,
+                                      })
+                                    : '-'}
+                                </TableCell>
+                                {/* Greige Req (m) */}
+                                <TableCell className="text-center">
+                                  {option.cadMeters && option.orderQuantityPcs
+                                    ? (() => {
+                                        const fabricReq = Number(option.cadMeters) * option.orderQuantityPcs;
+                                        const shrinkage = option.shrinkagePercent ? Number(option.shrinkagePercent) : 0;
+                                        const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                        return greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                                      })()
+                                    : '-'}
+                                </TableCell>
+                                {/* Status */}
+                                <TableCell className="text-center">
+                                  {option.approvalStatus === 'APPROVED' ? (
+                                    <Badge variant="default" className="bg-green-600">
+                                      <Check className="h-3 w-3 mr-1" />
+                                      Approved
+                                    </Badge>
                                   ) : (
-                                    <Trash2 className="h-3 w-3" />
+                                    <Badge variant="outline">Pending</Badge>
                                   )}
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    {/* Approve button */}
+                                    {option.approvalStatus !== 'APPROVED' && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleApprove(option.id)}
+                                        disabled={approvingId === option.id}
+                                        title="Approve"
+                                      >
+                                        {approvingId === option.id ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Check className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    )}
+
+                                    {/* Unapprove button */}
+                                    {option.approvalStatus === 'APPROVED' && !option.isLocked && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleUnapprove(option.id)}
+                                        disabled={unapprovingId === option.id}
+                                        title="Unapprove"
+                                        className="text-amber-600 hover:text-amber-700"
+                                      >
+                                        {unapprovingId === option.id ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <X className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    )}
+
+                                    {/* Promote to Production */}
+                                    {(option.purpose === 'COSTING' || option.purpose === 'RAW_MATERIAL_CALCULATION') &&
+                                      option.approvalStatus === 'APPROVED' && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handlePromote(option.id, 'PRODUCTION')}
+                                          disabled={promotingId === option.id}
+                                          className="text-green-600 hover:text-green-700"
+                                          title="Promote to Production"
+                                        >
+                                          {promotingId === option.id ? (
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                          ) : (
+                                            <>
+                                              <ArrowRight className="h-3 w-3 mr-1" />
+                                              Prod
+                                            </>
+                                          )}
+                                        </Button>
+                                      )}
+
+                                    {/* Lock indicator */}
+                                    {option.purpose === 'PRODUCTION' && (
+                                      <span
+                                        className="text-muted-foreground text-xs"
+                                        title="Production records are locked"
+                                      >
+                                        <Lock className="h-3 w-3" />
+                                      </span>
+                                    )}
+
+                                    {/* Delete button */}
+                                    {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-destructive hover:text-destructive"
+                                        disabled={deletingId === option.id}
+                                        onClick={() => handleDeleteClick(option.id, componentName)}
+                                      >
+                                        {deletingId === option.id ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
                             ))}
                           </TableBody>
                         </Table>

@@ -1,5 +1,10 @@
 import api from '@/lib/api';
-import type { CreditNote, CreateCreditNoteRequest, CreditNoteListResponse, CreditNoteQueryParams } from '@/types/creditNote.types';
+import type {
+  CreditNote,
+  CreateCreditNoteRequest,
+  CreditNoteListResponse,
+  CreditNoteQueryParams,
+} from '@/types/creditNote.types';
 
 const BASE_PATH = '/credit-notes';
 

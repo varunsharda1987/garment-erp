@@ -34,7 +34,7 @@ async function testApiResponse() {
     });
 
     // Find the Kasya customer
-    const kasyaCustomer = customers.find(c => c.name.includes('Kasya'));
+    const kasyaCustomer = customers.find((c) => c.name.includes('Kasya'));
 
     if (kasyaCustomer) {
       console.log('✅ Found customer:', kasyaCustomer.name);
@@ -60,7 +60,6 @@ async function testApiResponse() {
     } else {
       console.log('❌ Customer with "Kasya" not found');
     }
-
   } catch (error) {
     console.error('❌ Error:', error);
   } finally {

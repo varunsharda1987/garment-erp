@@ -117,9 +117,7 @@ export class KimiProvider implements IAIProvider {
     throw new Error('Kimi image analysis not supported. Use OpenAI or Anthropic for image analysis.');
   }
 
-  async extractStructuredData(
-    request: AIStructuredExtractionRequest
-  ): Promise<AIStructuredExtractionResponse> {
+  async extractStructuredData(request: AIStructuredExtractionRequest): Promise<AIStructuredExtractionResponse> {
     try {
       const prompt = request.prompt || 'Extract structured data according to the schema:';
       const systemPrompt = `You are a data extraction assistant. Extract information in valid JSON format matching this schema: ${JSON.stringify(request.schema)}. Return ONLY valid JSON, no other text.`;

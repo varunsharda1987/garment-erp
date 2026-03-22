@@ -1,10 +1,6 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
-import {
-  CreateTestingLabInput,
-  UpdateTestingLabInput,
-  TestingLabQueryOptions,
-} from '../types/testing.types';
+import { CreateTestingLabInput, UpdateTestingLabInput, TestingLabQueryOptions } from '../types/testing.types';
 import { AppError, NotFoundError, ConflictError, InternalError } from '../errors';
 
 class TestingLabsService {
@@ -29,10 +25,7 @@ class TestingLabsService {
   /**
    * Create a new testing lab
    */
-  async createLab(
-    data: CreateTestingLabInput,
-    userId: string
-  ): Promise<any> {
+  async createLab(data: CreateTestingLabInput, userId: string): Promise<any> {
     try {
       // Check if lab code already exists
       const existingLab = await prisma.testing_labs.findFirst({
@@ -65,7 +58,7 @@ class TestingLabsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -83,14 +76,7 @@ class TestingLabsService {
    * Get all labs with pagination and filters
    */
   async getAllLabs(options: TestingLabQueryOptions): Promise<any> {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      isActive,
-      city,
-      state,
-    } = options;
+    const { page = 1, limit = 20, search, isActive, city, state } = options;
 
     const skip = (page - 1) * limit;
 
@@ -145,7 +131,7 @@ class TestingLabsService {
       ]);
 
       return {
-        data: labs.map(lab => this.formatLabResponse(lab)),
+        data: labs.map((lab) => this.formatLabResponse(lab)),
         pagination: {
           page,
           limit,
@@ -172,7 +158,7 @@ class TestingLabsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -200,10 +186,7 @@ class TestingLabsService {
   /**
    * Update lab
    */
-  async updateLab(
-    id: string,
-    data: UpdateTestingLabInput
-  ): Promise<any> {
+  async updateLab(id: string, data: UpdateTestingLabInput): Promise<any> {
     try {
       // Check if lab exists
       const existingLab = await prisma.testing_labs.findUnique({
@@ -247,7 +230,7 @@ class TestingLabsService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -335,24 +318,22 @@ class TestingLabsService {
       // Calculate stats
       const totalTests = lab.fabricTests.length + lab.garmentTests.length;
       const completedTests = [
-        ...lab.fabricTests.filter(t => t.testResultReceivedDate),
-        ...lab.garmentTests.filter(t => t.overallTestResult !== 'PENDING'),
+        ...lab.fabricTests.filter((t) => t.testResultReceivedDate),
+        ...lab.garmentTests.filter((t) => t.overallTestResult !== 'PENDING'),
       ].length;
 
       const passedTests = [
-        ...lab.fabricTests.filter(t => t.overallTestResult === 'PASS'),
-        ...lab.garmentTests.filter(t => t.overallTestResult === 'PASS'),
+        ...lab.fabricTests.filter((t) => t.overallTestResult === 'PASS'),
+        ...lab.garmentTests.filter((t) => t.overallTestResult === 'PASS'),
       ].length;
 
       const failedTests = [
-        ...lab.fabricTests.filter(t => t.overallTestResult === 'FAIL'),
-        ...lab.garmentTests.filter(t => t.overallTestResult === 'FAIL'),
+        ...lab.fabricTests.filter((t) => t.overallTestResult === 'FAIL'),
+        ...lab.garmentTests.filter((t) => t.overallTestResult === 'FAIL'),
       ].length;
 
       // Calculate average turnaround time from completed fabric tests
-      const completedFabricTests = lab.fabricTests.filter(
-        t => t.sentToLabDate && t.testResultReceivedDate
-      );
+      const completedFabricTests = lab.fabricTests.filter((t) => t.sentToLabDate && t.testResultReceivedDate);
 
       let averageTurnaroundActual = 0;
       if (completedFabricTests.length > 0) {

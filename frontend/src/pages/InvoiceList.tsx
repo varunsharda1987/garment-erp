@@ -161,9 +161,7 @@ export default function InvoiceList() {
           >
             {invoice.invoiceNumber}
           </button>
-          <div className="text-xs text-gray-500 mt-0.5">
-            {formatDate(invoice.invoiceDate)}
-          </div>
+          <div className="text-xs text-gray-500 mt-0.5">{formatDate(invoice.invoiceDate)}</div>
         </div>
       ),
     },
@@ -182,11 +180,7 @@ export default function InvoiceList() {
     {
       key: 'order',
       header: 'Order',
-      render: (invoice) => (
-        <div className="text-sm text-gray-700">
-          {invoice.orders?.orderNumber || 'N/A'}
-        </div>
-      ),
+      render: (invoice) => <div className="text-sm text-gray-700">{invoice.orders?.orderNumber || 'N/A'}</div>,
     },
     {
       key: 'dueDate',
@@ -204,19 +198,13 @@ export default function InvoiceList() {
       key: 'totalAmount',
       header: 'Total',
       render: (invoice) => (
-        <div className="text-sm font-medium text-gray-900">
-          {formatCurrency(invoice.totalAmount)}
-        </div>
+        <div className="text-sm font-medium text-gray-900">{formatCurrency(invoice.totalAmount)}</div>
       ),
     },
     {
       key: 'paidAmount',
       header: 'Paid',
-      render: (invoice) => (
-        <div className="text-sm text-gray-700">
-          {formatCurrency(invoice.paidAmount)}
-        </div>
-      ),
+      render: (invoice) => <div className="text-sm text-gray-700">{formatCurrency(invoice.paidAmount)}</div>,
     },
     {
       key: 'balanceAmount',
@@ -297,9 +285,7 @@ export default function InvoiceList() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.total}</div>
-              <p className="text-xs text-gray-500 mt-1">
-                {formatCurrency(summary.totalAmount)}
-              </p>
+              <p className="text-xs text-gray-500 mt-1">{formatCurrency(summary.totalAmount)}</p>
             </CardContent>
           </Card>
           <Card>
@@ -323,12 +309,8 @@ export default function InvoiceList() {
               <CardTitle className="text-sm font-medium text-gray-600">Outstanding</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {formatCurrency(summary.balanceAmount)}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Paid: {formatCurrency(summary.paidAmount)}
-              </p>
+              <div className="text-2xl font-bold text-orange-600">{formatCurrency(summary.balanceAmount)}</div>
+              <p className="text-xs text-gray-500 mt-1">Paid: {formatCurrency(summary.paidAmount)}</p>
             </CardContent>
           </Card>
         </div>
@@ -339,11 +321,7 @@ export default function InvoiceList() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
-              <SearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search by invoice number..."
-              />
+              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search by invoice number..." />
             </div>
             <Select value={customerFilter} onValueChange={setCustomerFilter}>
               <SelectTrigger>

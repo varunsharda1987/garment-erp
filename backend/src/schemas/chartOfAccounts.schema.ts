@@ -39,12 +39,7 @@ export const createChartOfAccountSchema = z.object({
   accountType: AccountTypeEnum,
   accountGroup: AccountGroupEnum,
   parentAccountId: z.string().uuid('Invalid parent account ID format').optional().nullable(),
-  description: z
-    .string()
-    .max(500, 'Description must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -63,12 +58,7 @@ export const updateChartOfAccountSchema = z.object({
   accountType: AccountTypeEnum.optional(),
   accountGroup: AccountGroupEnum.optional(),
   parentAccountId: z.string().uuid('Invalid parent account ID format').optional().nullable(),
-  description: z
-    .string()
-    .max(500, 'Description must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

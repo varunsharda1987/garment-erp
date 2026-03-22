@@ -57,10 +57,7 @@ export default function StyleStockEntry() {
       setIsLoading(true);
       setError(null);
 
-      const [styleData, fabricsData] = await Promise.all([
-        getStyleById(styleId!),
-        getStyleFabrics(styleId!),
-      ]);
+      const [styleData, fabricsData] = await Promise.all([getStyleById(styleId!), getStyleFabrics(styleId!)]);
 
       setStyle(styleData);
       setComponents(fabricsData);
@@ -94,7 +91,11 @@ export default function StyleStockEntry() {
     }
   };
 
-  const handleFieldChange = (fabricId: string, field: keyof StockFormData, value: StockFormData[keyof StockFormData]) => {
+  const handleFieldChange = (
+    fabricId: string,
+    field: keyof StockFormData,
+    value: StockFormData[keyof StockFormData]
+  ) => {
     setStockEntries((prev) => ({
       ...prev,
       [fabricId]: {
@@ -136,7 +137,8 @@ export default function StyleStockEntry() {
 
       // Check for partial failures in the response
       if (response.data?.failed > 0) {
-        const errorMessages = response.data.errors?.map((e: { error: string }) => e.error).join('; ') || 'Unknown error';
+        const errorMessages =
+          response.data.errors?.map((e: { error: string }) => e.error).join('; ') || 'Unknown error';
         if (response.data.success === 0) {
           setError(`Failed to save stock entries: ${errorMessages}`);
           return;
@@ -176,9 +178,7 @@ export default function StyleStockEntry() {
 
   // Find the component that contains a given fabric
   const getComponentForFabric = (fabricId: string): ComponentWithFabrics | undefined => {
-    return components.find((comp) =>
-      comp.fabrics.some((f) => f.fabricId === fabricId)
-    );
+    return components.find((comp) => comp.fabrics.some((f) => f.fabricId === fabricId));
   };
 
   if (isLoading) {
@@ -237,15 +237,11 @@ export default function StyleStockEntry() {
             </div>
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
               <div className="text-sm text-green-600 font-medium">Total Meters</div>
-              <div className="text-2xl font-bold text-green-900">
-                {getTotalMeters().toFixed(2)}
-              </div>
+              <div className="text-2xl font-bold text-green-900">{getTotalMeters().toFixed(2)}</div>
             </div>
             <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
               <div className="text-sm text-purple-600 font-medium">Total Value</div>
-              <div className="text-2xl font-bold text-purple-900">
-                {formatCurrency(getTotalValue())}
-              </div>
+              <div className="text-2xl font-bold text-purple-900">{formatCurrency(getTotalValue())}</div>
             </div>
           </div>
 
@@ -267,10 +263,7 @@ export default function StyleStockEntry() {
                     const patternParts = parentComponent?.patternParts || [];
 
                     return (
-                      <div
-                        key={fabric.fabricId}
-                        className="border border-gray-300 rounded-lg p-4 bg-gray-50"
-                      >
+                      <div key={fabric.fabricId} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
                         <div className="mb-3">
                           <h4 className="font-medium text-gray-900">{fabric.fabricCode}</h4>
                           <p className="text-sm text-gray-600">{fabric.fabricName}</p>
@@ -289,9 +282,7 @@ export default function StyleStockEntry() {
                               type="number"
                               step="0.01"
                               value={entry.quantity}
-                              onChange={(e) =>
-                                handleFieldChange(fabric.fabricId, 'quantity', e.target.value)
-                              }
+                              onChange={(e) => handleFieldChange(fabric.fabricId, 'quantity', e.target.value)}
                               placeholder="Enter meters"
                             />
                           </div>
@@ -300,9 +291,7 @@ export default function StyleStockEntry() {
                             <Label>Part</Label>
                             <Select
                               value={entry.patternPartId}
-                              onValueChange={(value) =>
-                                handleFieldChange(fabric.fabricId, 'patternPartId', value)
-                              }
+                              onValueChange={(value) => handleFieldChange(fabric.fabricId, 'patternPartId', value)}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select part" />
@@ -327,9 +316,7 @@ export default function StyleStockEntry() {
                             <Label>Finish</Label>
                             <Select
                               value={entry.fabricFinishType}
-                              onValueChange={(value) =>
-                                handleFieldChange(fabric.fabricId, 'fabricFinishType', value)
-                              }
+                              onValueChange={(value) => handleFieldChange(fabric.fabricId, 'fabricFinishType', value)}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select finish" />
@@ -350,9 +337,7 @@ export default function StyleStockEntry() {
                               type="number"
                               step="0.01"
                               value={entry.finishedWidth}
-                              onChange={(e) =>
-                                handleFieldChange(fabric.fabricId, 'finishedWidth', e.target.value)
-                              }
+                              onChange={(e) => handleFieldChange(fabric.fabricId, 'finishedWidth', e.target.value)}
                               placeholder="Finished width"
                             />
                           </div>
@@ -363,9 +348,7 @@ export default function StyleStockEntry() {
                               type="number"
                               step="0.01"
                               value={entry.cutableWidth}
-                              onChange={(e) =>
-                                handleFieldChange(fabric.fabricId, 'cutableWidth', e.target.value)
-                              }
+                              onChange={(e) => handleFieldChange(fabric.fabricId, 'cutableWidth', e.target.value)}
                               placeholder="Cutable width"
                             />
                           </div>
@@ -374,9 +357,7 @@ export default function StyleStockEntry() {
                             <Label>Quality Grade</Label>
                             <Select
                               value={entry.qualityGrade}
-                              onValueChange={(value) =>
-                                handleFieldChange(fabric.fabricId, 'qualityGrade', value)
-                              }
+                              onValueChange={(value) => handleFieldChange(fabric.fabricId, 'qualityGrade', value)}
                             >
                               <SelectTrigger>
                                 <SelectValue />
@@ -395,9 +376,7 @@ export default function StyleStockEntry() {
                               type="number"
                               step="0.01"
                               value={entry.purchaseCost}
-                              onChange={(e) =>
-                                handleFieldChange(fabric.fabricId, 'purchaseCost', e.target.value)
-                              }
+                              onChange={(e) => handleFieldChange(fabric.fabricId, 'purchaseCost', e.target.value)}
                               placeholder="Cost per meter"
                             />
                           </div>
@@ -407,9 +386,7 @@ export default function StyleStockEntry() {
                             <Input
                               type="date"
                               value={entry.receivedDate}
-                              onChange={(e) =>
-                                handleFieldChange(fabric.fabricId, 'receivedDate', e.target.value)
-                              }
+                              onChange={(e) => handleFieldChange(fabric.fabricId, 'receivedDate', e.target.value)}
                             />
                           </div>
 
@@ -418,13 +395,7 @@ export default function StyleStockEntry() {
                             <Input
                               type="text"
                               value={entry.warehouseLocation}
-                              onChange={(e) =>
-                                handleFieldChange(
-                                  fabric.fabricId,
-                                  'warehouseLocation',
-                                  e.target.value
-                                )
-                              }
+                              onChange={(e) => handleFieldChange(fabric.fabricId, 'warehouseLocation', e.target.value)}
                               placeholder="e.g., A-15-B"
                             />
                           </div>
@@ -434,9 +405,7 @@ export default function StyleStockEntry() {
                             <Input
                               type="text"
                               value={entry.rollNumbers}
-                              onChange={(e) =>
-                                handleFieldChange(fabric.fabricId, 'rollNumbers', e.target.value)
-                              }
+                              onChange={(e) => handleFieldChange(fabric.fabricId, 'rollNumbers', e.target.value)}
                               placeholder="e.g., R001, R002, R003"
                             />
                           </div>

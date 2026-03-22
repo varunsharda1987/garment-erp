@@ -69,14 +69,24 @@ router.get('/level/:level', asyncHandler(getCategoriesByLevel));
  * @desc    Reorder categories
  * @access  Protected - Admin only
  */
-router.post('/reorder', authorize(UserRole.ADMIN), validateBody(reorderCategoriesSchema), asyncHandler(reorderProductCategories));
+router.post(
+  '/reorder',
+  authorize(UserRole.ADMIN),
+  validateBody(reorderCategoriesSchema),
+  asyncHandler(reorderProductCategories)
+);
 
 /**
  * @route   POST /api/product-categories
  * @desc    Create new product category
  * @access  Protected - Admin only
  */
-router.post('/', authorize(UserRole.ADMIN), validateBody(createProductCategorySchema), asyncHandler(createProductCategory));
+router.post(
+  '/',
+  authorize(UserRole.ADMIN),
+  validateBody(createProductCategorySchema),
+  asyncHandler(createProductCategory)
+);
 
 /**
  * @route   GET /api/product-categories
@@ -118,55 +128,93 @@ router.get('/:id/default-components', validateParams(productCategoryIdParamSchem
  * @desc    Get suggested components with inheritance for a category
  * @access  Protected - All authenticated users
  */
-router.get('/:id/suggested-components', validateParams(productCategoryIdParamSchema), asyncHandler(getSuggestedComponents));
+router.get(
+  '/:id/suggested-components',
+  validateParams(productCategoryIdParamSchema),
+  asyncHandler(getSuggestedComponents)
+);
 
 /**
  * @route   POST /api/product-categories/:id/default-components
  * @desc    Set default components for a category (bulk replace)
  * @access  Protected - Admin only
  */
-router.post('/:id/default-components', authorize(UserRole.ADMIN), validateParams(productCategoryIdParamSchema), asyncHandler(setDefaultComponents));
+router.post(
+  '/:id/default-components',
+  authorize(UserRole.ADMIN),
+  validateParams(productCategoryIdParamSchema),
+  asyncHandler(setDefaultComponents)
+);
 
 /**
  * @route   POST /api/product-categories/:id/default-components/add
  * @desc    Add a single default component to a category
  * @access  Protected - Admin only
  */
-router.post('/:id/default-components/add', authorize(UserRole.ADMIN), validateParams(productCategoryIdParamSchema), asyncHandler(addDefaultComponent));
+router.post(
+  '/:id/default-components/add',
+  authorize(UserRole.ADMIN),
+  validateParams(productCategoryIdParamSchema),
+  asyncHandler(addDefaultComponent)
+);
 
 /**
  * @route   PUT /api/product-categories/:categoryId/default-components/:componentId
  * @desc    Update a default component
  * @access  Protected - Admin only
  */
-router.put('/:categoryId/default-components/:componentId', authorize(UserRole.ADMIN), asyncHandler(updateDefaultComponent));
+router.put(
+  '/:categoryId/default-components/:componentId',
+  authorize(UserRole.ADMIN),
+  asyncHandler(updateDefaultComponent)
+);
 
 /**
  * @route   DELETE /api/product-categories/:categoryId/default-components/:componentId
  * @desc    Remove a default component from a category
  * @access  Protected - Admin only
  */
-router.delete('/:categoryId/default-components/:componentId', authorize(UserRole.ADMIN), asyncHandler(removeDefaultComponent));
+router.delete(
+  '/:categoryId/default-components/:componentId',
+  authorize(UserRole.ADMIN),
+  asyncHandler(removeDefaultComponent)
+);
 
 /**
  * @route   PUT /api/product-categories/:id
  * @desc    Update product category
  * @access  Protected - Admin only
  */
-router.put('/:id', authorize(UserRole.ADMIN), validateParams(productCategoryIdParamSchema), validateBody(updateProductCategorySchema), asyncHandler(updateProductCategory));
+router.put(
+  '/:id',
+  authorize(UserRole.ADMIN),
+  validateParams(productCategoryIdParamSchema),
+  validateBody(updateProductCategorySchema),
+  asyncHandler(updateProductCategory)
+);
 
 /**
  * @route   PATCH /api/product-categories/:id/toggle-active
  * @desc    Toggle category active status
  * @access  Protected - Admin only
  */
-router.patch('/:id/toggle-active', authorize(UserRole.ADMIN), validateParams(productCategoryIdParamSchema), asyncHandler(toggleProductCategoryActive));
+router.patch(
+  '/:id/toggle-active',
+  authorize(UserRole.ADMIN),
+  validateParams(productCategoryIdParamSchema),
+  asyncHandler(toggleProductCategoryActive)
+);
 
 /**
  * @route   DELETE /api/product-categories/:id
  * @desc    Delete (deactivate) product category
  * @access  Protected - Admin only
  */
-router.delete('/:id', authorize(UserRole.ADMIN), validateParams(productCategoryIdParamSchema), asyncHandler(deleteProductCategory));
+router.delete(
+  '/:id',
+  authorize(UserRole.ADMIN),
+  validateParams(productCategoryIdParamSchema),
+  asyncHandler(deleteProductCategory)
+);
 
 export default router;

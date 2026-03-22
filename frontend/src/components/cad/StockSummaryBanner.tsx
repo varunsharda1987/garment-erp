@@ -35,18 +35,21 @@ export function StockSummaryBanner({ stockSummary, styleId: _styleId, onCreatePr
   if (!stockSummary || stockSummary.length === 0) return null;
 
   // Group by greige name for display
-  const byGreige = stockSummary.reduce((acc, item) => {
-    const key = item.greigeName || 'Unknown Greige';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {} as Record<string, StockSummaryItem[]>);
+  const byGreige = stockSummary.reduce(
+    (acc, item) => {
+      const key = item.greigeName || 'Unknown Greige';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    },
+    {} as Record<string, StockSummaryItem[]>
+  );
 
   // Calculate total quantity
   const totalQuantity = stockSummary.reduce((sum, item) => sum + item.quantityAvailable, 0);
 
   // Count CAD status
-  const withCad = stockSummary.filter(s => s.hasProductionCad).length;
+  const withCad = stockSummary.filter((s) => s.hasProductionCad).length;
   const withoutCad = stockSummary.length - withCad;
 
   const handleCreateCAD = async (item: StockSummaryItem) => {
@@ -111,9 +114,7 @@ export function StockSummaryBanner({ stockSummary, styleId: _styleId, onCreatePr
       <div className="p-3">
         <div className="flex items-center gap-2 mb-2">
           <Package className="h-4 w-4 text-green-600" />
-          <span className="font-semibold text-sm text-green-800">
-            Fabric Stock Available
-          </span>
+          <span className="font-semibold text-sm text-green-800">Fabric Stock Available</span>
           <Badge variant="outline" className="text-xs bg-white border-green-300">
             {stockSummary.length} lot{stockSummary.length > 1 ? 's' : ''} ({totalQuantity.toLocaleString()}m)
           </Badge>
@@ -132,7 +133,7 @@ export function StockSummaryBanner({ stockSummary, styleId: _styleId, onCreatePr
           {Object.entries(byGreige).map(([greige, items]) => (
             <div key={greige} className="flex items-center gap-1.5 text-sm flex-wrap">
               <span className="font-medium text-gray-700">{greige}:</span>
-              {items.map(item => (
+              {items.map((item) => (
                 <div key={item.id} className="flex items-center gap-1" title={getTooltipText(item)}>
                   <Badge
                     variant="secondary"

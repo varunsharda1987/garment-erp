@@ -46,24 +46,14 @@ export function AddButton({
 
   if (iconOnly) {
     return (
-      <Button
-        variant={outline ? 'outline' : 'default'}
-        size="icon"
-        onClick={handleClick}
-        {...props}
-      >
+      <Button variant={outline ? 'outline' : 'default'} size="icon" onClick={handleClick} {...props}>
         <Plus className="h-4 w-4" />
       </Button>
     );
   }
 
   return (
-    <Button
-      variant={outline ? 'outline' : 'default'}
-      size={size}
-      onClick={handleClick}
-      {...props}
-    >
+    <Button variant={outline ? 'outline' : 'default'} size={size} onClick={handleClick} {...props}>
       {showIcon && <Plus className="h-4 w-4 mr-2" />}
       {children}
     </Button>

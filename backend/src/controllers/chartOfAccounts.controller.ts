@@ -9,14 +9,7 @@ import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '.
  * POST /api/chart-of-accounts
  */
 export const createAccount = async (req: Request, res: Response): Promise<void> => {
-  const {
-    accountCode,
-    accountName,
-    accountType,
-    accountGroup,
-    parentAccountId,
-    description,
-  } = req.body;
+  const { accountCode, accountName, accountType, accountGroup, parentAccountId, description } = req.body;
 
   // Check if account code already exists
   const existingAccount = await prisma.chart_of_accounts.findFirst({
@@ -79,14 +72,7 @@ export const createAccount = async (req: Request, res: Response): Promise<void> 
  * GET /api/chart-of-accounts
  */
 export const getAllAccounts = async (req: Request, res: Response): Promise<void> => {
-  const {
-    page = '1',
-    limit = '50',
-    search = '',
-    accountType,
-    accountGroup,
-    parentAccountId,
-  } = req.query;
+  const { page = '1', limit = '50', search = '', accountType, accountGroup, parentAccountId } = req.query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
@@ -242,14 +228,7 @@ export const getAccountById = async (req: Request, res: Response): Promise<void>
  */
 export const updateAccount = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const {
-    accountCode,
-    accountName,
-    accountType,
-    accountGroup,
-    parentAccountId,
-    description,
-  } = req.body;
+  const { accountCode, accountName, accountType, accountGroup, parentAccountId, description } = req.body;
 
   // Check if account exists
   const existingAccount = await prisma.chart_of_accounts.findUnique({

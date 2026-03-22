@@ -28,47 +28,13 @@ export const createWarehouseSchema = z.object({
     .max(200, 'Warehouse name must not exceed 200 characters')
     .trim(),
   warehouseType: WarehouseTypeEnum,
-  address: z
-    .string()
-    .max(500, 'Address must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  city: z
-    .string()
-    .max(100, 'City must not exceed 100 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  state: z
-    .string()
-    .max(100, 'State must not exceed 100 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  pincode: z
-    .string()
-    .max(10, 'Pincode must not exceed 10 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  contactPerson: z
-    .string()
-    .max(200, 'Contact person must not exceed 200 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  contactPhone: z
-    .string()
-    .max(20, 'Contact phone must not exceed 20 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  capacity: z
-    .number()
-    .nonnegative('Capacity must be 0 or greater')
-    .optional()
-    .nullable(),
+  address: z.string().max(500, 'Address must not exceed 500 characters').trim().optional().nullable(),
+  city: z.string().max(100, 'City must not exceed 100 characters').trim().optional().nullable(),
+  state: z.string().max(100, 'State must not exceed 100 characters').trim().optional().nullable(),
+  pincode: z.string().max(10, 'Pincode must not exceed 10 characters').trim().optional().nullable(),
+  contactPerson: z.string().max(200, 'Contact person must not exceed 200 characters').trim().optional().nullable(),
+  contactPhone: z.string().max(20, 'Contact phone must not exceed 20 characters').trim().optional().nullable(),
+  capacity: z.number().nonnegative('Capacity must be 0 or greater').optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -84,47 +50,13 @@ export const updateWarehouseSchema = z.object({
     .trim()
     .optional(),
   warehouseType: WarehouseTypeEnum.optional(),
-  address: z
-    .string()
-    .max(500, 'Address must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  city: z
-    .string()
-    .max(100, 'City must not exceed 100 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  state: z
-    .string()
-    .max(100, 'State must not exceed 100 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  pincode: z
-    .string()
-    .max(10, 'Pincode must not exceed 10 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  contactPerson: z
-    .string()
-    .max(200, 'Contact person must not exceed 200 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  contactPhone: z
-    .string()
-    .max(20, 'Contact phone must not exceed 20 characters')
-    .trim()
-    .optional()
-    .nullable(),
-  capacity: z
-    .number()
-    .nonnegative('Capacity must be 0 or greater')
-    .optional()
-    .nullable(),
+  address: z.string().max(500, 'Address must not exceed 500 characters').trim().optional().nullable(),
+  city: z.string().max(100, 'City must not exceed 100 characters').trim().optional().nullable(),
+  state: z.string().max(100, 'State must not exceed 100 characters').trim().optional().nullable(),
+  pincode: z.string().max(10, 'Pincode must not exceed 10 characters').trim().optional().nullable(),
+  contactPerson: z.string().max(200, 'Contact person must not exceed 200 characters').trim().optional().nullable(),
+  contactPhone: z.string().max(20, 'Contact phone must not exceed 20 characters').trim().optional().nullable(),
+  capacity: z.number().nonnegative('Capacity must be 0 or greater').optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

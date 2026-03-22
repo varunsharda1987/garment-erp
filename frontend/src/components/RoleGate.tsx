@@ -42,13 +42,7 @@ interface RoleGateProps {
  *   <AdminPanel />
  * </RoleGate>
  */
-export function RoleGate({
-  children,
-  permission,
-  allowedRoles,
-  fallback = null,
-  requireAll = false,
-}: RoleGateProps) {
+export function RoleGate({ children, permission, allowedRoles, fallback = null, requireAll = false }: RoleGateProps) {
   const { can, hasRole } = usePermissions();
 
   let hasAccess = true;
@@ -75,13 +69,7 @@ export function RoleGate({
 /**
  * Admin-only gate (shortcut for common use case)
  */
-export function AdminGate({
-  children,
-  fallback = null,
-}: {
-  children: ReactNode;
-  fallback?: ReactNode;
-}) {
+export function AdminGate({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) {
   return (
     <RoleGate permission="admin" fallback={fallback}>
       {children}

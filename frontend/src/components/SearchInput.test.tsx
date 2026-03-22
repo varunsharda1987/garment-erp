@@ -15,37 +15,20 @@ describe('SearchInput', () => {
   });
 
   it('renders with placeholder', () => {
-    render(
-      <SearchInput
-        value=""
-        onChange={mockOnChange}
-        placeholder="Search customers..."
-      />
-    );
+    render(<SearchInput value="" onChange={mockOnChange} placeholder="Search customers..." />);
 
     expect(screen.getByPlaceholderText('Search customers...')).toBeInTheDocument();
   });
 
   it('displays the current value', () => {
-    render(
-      <SearchInput
-        value="test query"
-        onChange={mockOnChange}
-      />
-    );
+    render(<SearchInput value="test query" onChange={mockOnChange} />);
 
     const input = screen.getByRole('textbox');
     expect(input).toHaveValue('test query');
   });
 
   it('debounces onChange calls', async () => {
-    render(
-      <SearchInput
-        value=""
-        onChange={mockOnChange}
-        debounceMs={300}
-      />
-    );
+    render(<SearchInput value="" onChange={mockOnChange} debounceMs={300} />);
 
     const input = screen.getByRole('textbox');
 
@@ -69,36 +52,21 @@ describe('SearchInput', () => {
   });
 
   it('shows clear button when input has value', () => {
-    render(
-      <SearchInput
-        value="test"
-        onChange={mockOnChange}
-      />
-    );
+    render(<SearchInput value="test" onChange={mockOnChange} />);
 
     const clearButton = screen.getByRole('button');
     expect(clearButton).toBeInTheDocument();
   });
 
   it('does not show clear button when input is empty', () => {
-    render(
-      <SearchInput
-        value=""
-        onChange={mockOnChange}
-      />
-    );
+    render(<SearchInput value="" onChange={mockOnChange} />);
 
     const clearButton = screen.queryByRole('button');
     expect(clearButton).not.toBeInTheDocument();
   });
 
   it('clears input when clear button is clicked', async () => {
-    render(
-      <SearchInput
-        value="test"
-        onChange={mockOnChange}
-      />
-    );
+    render(<SearchInput value="test" onChange={mockOnChange} />);
 
     const clearButton = screen.getByRole('button');
     fireEvent.click(clearButton);
@@ -108,23 +76,13 @@ describe('SearchInput', () => {
   });
 
   it('syncs with external value changes', () => {
-    const { rerender } = render(
-      <SearchInput
-        value="initial"
-        onChange={mockOnChange}
-      />
-    );
+    const { rerender } = render(<SearchInput value="initial" onChange={mockOnChange} />);
 
     let input = screen.getByRole('textbox');
     expect(input).toHaveValue('initial');
 
     // Update value externally
-    rerender(
-      <SearchInput
-        value="updated"
-        onChange={mockOnChange}
-      />
-    );
+    rerender(<SearchInput value="updated" onChange={mockOnChange} />);
 
     input = screen.getByRole('textbox');
     expect(input).toHaveValue('updated');

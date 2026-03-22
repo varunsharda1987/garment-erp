@@ -1,10 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Edit, CheckCircle, XCircle, GitBranch, Lock, Copy, AlertTriangle, RefreshCw, ShoppingCart, Package } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  CheckCircle,
+  XCircle,
+  GitBranch,
+  Lock,
+  Copy,
+  AlertTriangle,
+  RefreshCw,
+  ShoppingCart,
+  Package,
+} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
 import { PageHeader } from '../components/PageHeader';
@@ -13,7 +32,12 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '../lib/currency';
-import { getCostSheetById, approveCostSheet, rejectCostSheet, createCostSheetVersion } from '../services/costSheet.service';
+import {
+  getCostSheetById,
+  approveCostSheet,
+  rejectCostSheet,
+  createCostSheetVersion,
+} from '../services/costSheet.service';
 import type { CostSheet } from '../types/costSheet.types';
 
 const CostSheetDetail = () => {
@@ -60,7 +84,10 @@ const CostSheetDetail = () => {
 
     try {
       await approveCostSheet(costSheet.id, true);
-      handleApiSuccess('Cost sheet approved', `Cost sheet for ${costSheet.style?.styleCode || 'this style'} has been approved.`);
+      handleApiSuccess(
+        'Cost sheet approved',
+        `Cost sheet for ${costSheet.style?.styleCode || 'this style'} has been approved.`
+      );
       setApproveDialogOpen(false);
       // Refresh data
       const updated = await getCostSheetById(costSheet.id);
@@ -75,7 +102,10 @@ const CostSheetDetail = () => {
 
     try {
       await approveCostSheet(costSheet.id, false);
-      handleApiSuccess('Approval revoked', `Approval for ${costSheet.style?.styleCode || 'this style'} has been revoked.`);
+      handleApiSuccess(
+        'Approval revoked',
+        `Approval for ${costSheet.style?.styleCode || 'this style'} has been revoked.`
+      );
       setRevokeDialogOpen(false);
       // Refresh data
       const updated = await getCostSheetById(costSheet.id);
@@ -96,7 +126,10 @@ const CostSheetDetail = () => {
     try {
       setRejecting(true);
       await rejectCostSheet(costSheet.id, rejectionNotes.trim());
-      handleApiSuccess('Cost sheet rejected', `Cost sheet for ${costSheet.style?.styleCode || 'this style'} has been rejected.`);
+      handleApiSuccess(
+        'Cost sheet rejected',
+        `Cost sheet for ${costSheet.style?.styleCode || 'this style'} has been rejected.`
+      );
       setRejectDialogOpen(false);
       setRejectionNotes('');
       // Refresh data
@@ -142,9 +175,7 @@ const CostSheetDetail = () => {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-red-500 mb-4">{error || 'Cost sheet not found'}</p>
-            <Button onClick={() => navigate('/cost-sheets')}>
-              Back to Cost Sheets
-            </Button>
+            <Button onClick={() => navigate('/cost-sheets')}>Back to Cost Sheets</Button>
           </CardContent>
         </Card>
       </div>
@@ -201,12 +232,9 @@ const CostSheetDetail = () => {
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-2xl font-bold">
-                  {costSheet.style?.styleCode || 'N/A'}
-                </h2>
+                <h2 className="text-2xl font-bold">{costSheet.style?.styleCode || 'N/A'}</h2>
                 <Badge variant="outline" className="text-sm">
-                  <GitBranch className="w-3 h-3 mr-1" />
-                  v{costSheet.version || 1}
+                  <GitBranch className="w-3 h-3 mr-1" />v{costSheet.version || 1}
                 </Badge>
                 <StatusBadge
                   status={isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Pending'}
@@ -221,14 +249,15 @@ const CostSheetDetail = () => {
               </div>
               <p className="text-gray-600 text-lg">{costSheet.style?.styleName}</p>
               {costSheet.widthCombinationDescription && (
-                <p className="text-sm text-blue-600 mt-1">
-                  Width: {costSheet.widthCombinationDescription}
-                </p>
+                <p className="text-sm text-blue-600 mt-1">Width: {costSheet.widthCombinationDescription}</p>
               )}
               <div className="mt-3 text-sm text-gray-500">
                 Created by: {costSheet.createdBy?.firstName} {costSheet.createdBy?.lastName}
                 {isApproved && costSheet.approvedBy && (
-                  <> | Approved by: {costSheet.approvedBy.firstName} {costSheet.approvedBy.lastName}</>
+                  <>
+                    {' '}
+                    | Approved by: {costSheet.approvedBy.firstName} {costSheet.approvedBy.lastName}
+                  </>
                 )}
               </div>
             </div>
@@ -238,10 +267,7 @@ const CostSheetDetail = () => {
               {/* Pending/Rejected - Can Approve/Reject */}
               {(isPending || isRejected) && (
                 <>
-                  <Button
-                    className="bg-green-600 hover:bg-green-700"
-                    onClick={() => setApproveDialogOpen(true)}
-                  >
+                  <Button className="bg-green-600 hover:bg-green-700" onClick={() => setApproveDialogOpen(true)}>
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Approve
                   </Button>
@@ -358,13 +384,17 @@ const CostSheetDetail = () => {
                       <td className="px-4 py-3 text-sm text-center">{fabric.fabricWidth}"</td>
                       <td className="px-4 py-3 text-sm text-center">{fabric.fabricAverage.toFixed(3)}</td>
                       <td className="px-4 py-3 text-sm text-right">{formatCurrency(fabric.fabricRate)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold">{formatCurrency(fabric.fabricTotal)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold">
+                        {formatCurrency(fabric.fabricTotal)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>
-                    <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-right">Fabric Total:</td>
+                    <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-right">
+                      Fabric Total:
+                    </td>
                     <td className="px-4 py-3 text-sm font-bold text-right">{formatCurrency(costSheet.fabricTotal)}</td>
                   </tr>
                 </tfoot>
@@ -407,7 +437,9 @@ const CostSheetDetail = () => {
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>
-                    <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">Trims Total:</td>
+                    <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">
+                      Trims Total:
+                    </td>
                     <td className="px-4 py-3 text-sm font-bold text-right">{formatCurrency(costSheet.trimsTotal)}</td>
                   </tr>
                 </tfoot>
@@ -479,14 +511,20 @@ const CostSheetDetail = () => {
                       <td className="px-4 py-3 text-sm font-medium">{embr.embroideryName}</td>
                       <td className="px-4 py-3 text-sm text-center">{embr.embroideryAverage}</td>
                       <td className="px-4 py-3 text-sm text-right">{formatCurrency(embr.embroideryRate)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold">{formatCurrency(embr.embroideryTotal)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold">
+                        {formatCurrency(embr.embroideryTotal)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>
-                    <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">Embroidery Total:</td>
-                    <td className="px-4 py-3 text-sm font-bold text-right">{formatCurrency(costSheet.embroideryTotal)}</td>
+                    <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">
+                      Embroidery Total:
+                    </td>
+                    <td className="px-4 py-3 text-sm font-bold text-right">
+                      {formatCurrency(costSheet.embroideryTotal)}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -520,14 +558,20 @@ const CostSheetDetail = () => {
                       <td className="px-4 py-3 text-sm font-medium">{acc.accessoryName}</td>
                       <td className="px-4 py-3 text-sm text-center">{acc.accessoryQuantity}</td>
                       <td className="px-4 py-3 text-sm text-right">{formatCurrency(acc.accessoryRate)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold">{formatCurrency(acc.accessoryTotal)}</td>
+                      <td className="px-4 py-3 text-sm text-right font-semibold">
+                        {formatCurrency(acc.accessoryTotal)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>
-                    <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">Accessories Total:</td>
-                    <td className="px-4 py-3 text-sm font-bold text-right">{formatCurrency(costSheet.accessoriesTotal)}</td>
+                    <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">
+                      Accessories Total:
+                    </td>
+                    <td className="px-4 py-3 text-sm font-bold text-right">
+                      {formatCurrency(costSheet.accessoriesTotal)}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -596,9 +640,7 @@ const CostSheetDetail = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-blue-700">
-                    {formatCurrency(costSheet.closedCost)}
-                  </span>
+                  <span className="text-3xl font-bold text-blue-700">{formatCurrency(costSheet.closedCost)}</span>
                   <span className="text-sm text-gray-500">per piece (excl. tax)</span>
                 </div>
                 {costSheet.closedCostNotes && (
@@ -606,11 +648,18 @@ const CostSheetDetail = () => {
                 )}
               </div>
               {costSheet.totalProductCost && costSheet.closedCost !== costSheet.totalProductCost && (
-                <div className={`px-4 py-2 rounded-lg ${costSheet.closedCost > costSheet.totalProductCost ? 'bg-green-100' : 'bg-amber-100'}`}>
+                <div
+                  className={`px-4 py-2 rounded-lg ${costSheet.closedCost > costSheet.totalProductCost ? 'bg-green-100' : 'bg-amber-100'}`}
+                >
                   <p className="text-xs text-gray-500">Variance from Calculated</p>
-                  <p className={`text-lg font-semibold ${costSheet.closedCost > costSheet.totalProductCost ? 'text-green-700' : 'text-amber-700'}`}>
+                  <p
+                    className={`text-lg font-semibold ${costSheet.closedCost > costSheet.totalProductCost ? 'text-green-700' : 'text-amber-700'}`}
+                  >
                     {costSheet.closedCost > costSheet.totalProductCost ? '+' : ''}
-                    {(((costSheet.closedCost - costSheet.totalProductCost) / costSheet.totalProductCost) * 100).toFixed(1)}%
+                    {(((costSheet.closedCost - costSheet.totalProductCost) / costSheet.totalProductCost) * 100).toFixed(
+                      1
+                    )}
+                    %
                   </p>
                 </div>
               )}
@@ -681,8 +730,7 @@ const CostSheetDetail = () => {
               Reject Cost Sheet
             </DialogTitle>
             <DialogDescription>
-              Reject the cost sheet for &quot;{costSheet.style?.styleCode}&quot;?
-              Please provide a reason for rejection.
+              Reject the cost sheet for &quot;{costSheet.style?.styleCode}&quot;? Please provide a reason for rejection.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -708,11 +756,7 @@ const CostSheetDetail = () => {
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmReject}
-              disabled={rejecting || !rejectionNotes.trim()}
-            >
+            <Button variant="destructive" onClick={confirmReject} disabled={rejecting || !rejectionNotes.trim()}>
               {rejecting ? 'Rejecting...' : 'Reject'}
             </Button>
           </DialogFooter>

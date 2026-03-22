@@ -119,9 +119,7 @@ export default function LabelList() {
       render: (label) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{label.labelName}</div>
-          {label.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{label.description}</div>
-          )}
+          {label.description && <div className="text-xs text-gray-500 line-clamp-1">{label.description}</div>}
         </div>
       ),
     },
@@ -159,11 +157,7 @@ export default function LabelList() {
     {
       key: 'labelType',
       header: 'Type',
-      render: (label) => (
-        <div className="text-sm text-gray-700">
-          {label.labelType || '-'}
-        </div>
-      ),
+      render: (label) => <div className="text-sm text-gray-700">{label.labelType || '-'}</div>,
     },
     {
       key: 'size',
@@ -174,14 +168,15 @@ export default function LabelList() {
             <div>
               <div className="flex flex-wrap gap-1">
                 {label.sizeVariants.slice(0, 3).map((variant) => {
-                  const totalStock = variant.material?.stockLevels?.reduce(
-                    (sum: number, level: { quantity: number }) => sum + Number(level.quantity),
-                    0
-                  ) || 0;
+                  const totalStock =
+                    variant.material?.stockLevels?.reduce(
+                      (sum: number, level: { quantity: number }) => sum + Number(level.quantity),
+                      0
+                    ) || 0;
                   return (
                     <Badge
                       key={variant.id}
-                      variant={totalStock > 0 ? "default" : "outline"}
+                      variant={totalStock > 0 ? 'default' : 'outline'}
                       className="text-xs"
                       title={`${variant.size}: ${totalStock} pcs in stock`}
                     >
@@ -195,9 +190,7 @@ export default function LabelList() {
                   </Badge>
                 )}
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {label.sizeVariants.length} size variants
-              </div>
+              <div className="text-xs text-gray-500 mt-1">{label.sizeVariants.length} size variants</div>
             </div>
           ) : label.size ? (
             <span>{label.size}</span>
@@ -210,11 +203,7 @@ export default function LabelList() {
     {
       key: 'color',
       header: 'Color',
-      render: (label) => (
-        <div className="text-sm text-gray-700">
-          {label.color || '-'}
-        </div>
-      ),
+      render: (label) => <div className="text-sm text-gray-700">{label.color || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -303,17 +292,9 @@ export default function LabelList() {
             <CardTitle>Label Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="LABEL" stockCount={stockCount} />
-              <ExportButton
-                module="label"
-                filters={{}}
-              />
-              <ImportButton
-                module="label"
-                onSuccess={fetchLabelItems}
-              />
-              <Button onClick={() => navigate('/materials/label/new')}>
-                + Add New Label
-              </Button>
+              <ExportButton module="label" filters={{}} />
+              <ImportButton module="label" onSuccess={fetchLabelItems} />
+              <Button onClick={() => navigate('/materials/label/new')}>+ Add New Label</Button>
             </div>
           </div>
         </CardHeader>

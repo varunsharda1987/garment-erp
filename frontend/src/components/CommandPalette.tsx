@@ -1,14 +1,58 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Building2, Package, UserCircle, Shirt, ClipboardList,
-  ListChecks, Calculator, Warehouse, BarChart3, ClipboardCheck, Wallet,
-  Factory, Sparkles, Ruler, FileSpreadsheet, Scissors, Box, Layers,
-  ShoppingCart, PackageOpen, CalendarClock, FileBarChart, Shuffle, PackageX,
-  ShieldAlert, Truck, Palette, Cog, Beaker, Droplets, CheckSquare, Send,
-  TestTube, PackagePlus, Scale, Wrench, Activity, FlaskConical, FolderTree,
-  Tag, BookOpen, Settings, PackageSearch, Lock, Puzzle, Calendar, Users,
-  Receipt, BookImage, FileText, UserCheck,
+  LayoutDashboard,
+  Building2,
+  Package,
+  UserCircle,
+  Shirt,
+  ClipboardList,
+  ListChecks,
+  Calculator,
+  Warehouse,
+  BarChart3,
+  ClipboardCheck,
+  Wallet,
+  Factory,
+  Sparkles,
+  Ruler,
+  FileSpreadsheet,
+  Scissors,
+  Box,
+  Layers,
+  ShoppingCart,
+  PackageOpen,
+  CalendarClock,
+  FileBarChart,
+  Shuffle,
+  PackageX,
+  ShieldAlert,
+  Truck,
+  Palette,
+  Cog,
+  Beaker,
+  Droplets,
+  CheckSquare,
+  Send,
+  TestTube,
+  PackagePlus,
+  Scale,
+  Wrench,
+  Activity,
+  FlaskConical,
+  FolderTree,
+  Tag,
+  BookOpen,
+  Settings,
+  PackageSearch,
+  Lock,
+  Puzzle,
+  Calendar,
+  Users,
+  Receipt,
+  BookImage,
+  FileText,
+  UserCheck,
 } from 'lucide-react';
 import {
   CommandDialog,
@@ -24,14 +68,58 @@ import { useUIPreferences } from '@/stores/ui-preferences.store';
 import { getAllFlatNavItems } from '@/config/navigation';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Building2, Package, UserCircle, Shirt, ClipboardList,
-  ListChecks, Calculator, Warehouse, BarChart3, ClipboardCheck, Wallet,
-  Factory, Sparkles, Ruler, FileSpreadsheet, Scissors, Box, Layers,
-  ShoppingCart, PackageOpen, CalendarClock, FileBarChart, Shuffle, PackageX,
-  ShieldAlert, Truck, Palette, Cog, Beaker, Droplets, CheckSquare, Send,
-  TestTube, PackagePlus, Scale, Wrench, Activity, FlaskConical, FolderTree,
-  Tag, BookOpen, Settings, PackageSearch, Lock, Puzzle, Calendar, Users,
-  Receipt, BookImage, FileText, UserCheck,
+  LayoutDashboard,
+  Building2,
+  Package,
+  UserCircle,
+  Shirt,
+  ClipboardList,
+  ListChecks,
+  Calculator,
+  Warehouse,
+  BarChart3,
+  ClipboardCheck,
+  Wallet,
+  Factory,
+  Sparkles,
+  Ruler,
+  FileSpreadsheet,
+  Scissors,
+  Box,
+  Layers,
+  ShoppingCart,
+  PackageOpen,
+  CalendarClock,
+  FileBarChart,
+  Shuffle,
+  PackageX,
+  ShieldAlert,
+  Truck,
+  Palette,
+  Cog,
+  Beaker,
+  Droplets,
+  CheckSquare,
+  Send,
+  TestTube,
+  PackagePlus,
+  Scale,
+  Wrench,
+  Activity,
+  FlaskConical,
+  FolderTree,
+  Tag,
+  BookOpen,
+  Settings,
+  PackageSearch,
+  Lock,
+  Puzzle,
+  Calendar,
+  Users,
+  Receipt,
+  BookImage,
+  FileText,
+  UserCheck,
 };
 
 export default function CommandPalette() {
@@ -53,9 +141,7 @@ export default function CommandPalette() {
 
   // Get all navigable items filtered by permission
   const allItems = useMemo(() => {
-    return getAllFlatNavItems().filter(
-      item => !item.permission || can(item.permission)
-    );
+    return getAllFlatNavItems().filter((item) => !item.permission || can(item.permission));
   }, [can]);
 
   // Group items by their group name
@@ -83,7 +169,7 @@ export default function CommandPalette() {
           <div key={group}>
             {groupIndex > 0 && <CommandSeparator />}
             <CommandGroup heading={group}>
-              {items.map(item => {
+              {items.map((item) => {
                 const Icon = ICON_MAP[item.iconName];
                 return (
                   <CommandItem

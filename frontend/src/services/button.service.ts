@@ -77,14 +77,8 @@ export const deleteButton = async (id: string): Promise<void> => {
 /**
  * Bulk import button items from Excel data
  */
-export const bulkImportButtons = async (
-  data: BulkImportRow[],
-  createStock?: boolean
-): Promise<BulkImportResponse> => {
-  const { data: response } = await api.post<BulkImportResponse>(
-    '/materials/button/bulk-import',
-    { data, createStock }
-  );
+export const bulkImportButtons = async (data: BulkImportRow[], createStock?: boolean): Promise<BulkImportResponse> => {
+  const { data: response } = await api.post<BulkImportResponse>('/materials/button/bulk-import', { data, createStock });
   return response;
 };
 

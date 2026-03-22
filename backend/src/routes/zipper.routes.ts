@@ -6,7 +6,7 @@ import {
   updateZipper,
   deleteZipper,
   bulkImportZipper,
-  downloadTemplate
+  downloadTemplate,
 } from '../controllers/zipper.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

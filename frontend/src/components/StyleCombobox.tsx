@@ -24,16 +24,24 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
   const loadStyles = useCallback(async (search: string) => {
     setIsLoading(true);
     try {
-      const response = await styleService.getAllStyles(1, 50, search || undefined, undefined, undefined, undefined, status);
+      const response = await styleService.getAllStyles(
+        1,
+        50,
+        search || undefined,
+        undefined,
+        undefined,
+        undefined,
+        status
+      );
       const styles = response.data;
 
       // Store full style objects for lookup
       const map = new Map<string, Style>();
-      styles.forEach(s => map.set(s.id, s));
+      styles.forEach((s) => map.set(s.id, s));
       setStylesMap(map);
 
       // Transform to combobox options
-      const opts: ComboboxOption[] = styles.map(s => ({
+      const opts: ComboboxOption[] = styles.map((s) => ({
         value: s.id,
         label: `${s.styleCode} - ${s.styleName} (${s.customerName || 'No customer'})`,
         searchText: `${s.styleCode} ${s.styleName} ${s.customerName || ''}`,
@@ -64,7 +72,7 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
       onSearchChange={loadStyles}
       isLoading={isLoading}
       disabled={disabled}
-      placeholder={placeholder || "Search by style code..."}
+      placeholder={placeholder || 'Search by style code...'}
       searchPlaceholder="Type style code..."
       emptyText="No styles found"
     />

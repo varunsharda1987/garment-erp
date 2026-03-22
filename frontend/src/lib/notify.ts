@@ -74,10 +74,7 @@ export const notify = {
    * Show a promise-based notification
    * Automatically shows loading, success, and error states
    */
-  promise: <T>(
-    promise: Promise<T>,
-    options: PromiseOptions<T>
-  ) => {
+  promise: <T>(promise: Promise<T>, options: PromiseOptions<T>) => {
     return toast.promise(promise, options);
   },
 

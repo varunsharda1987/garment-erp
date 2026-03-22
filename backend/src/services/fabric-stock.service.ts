@@ -89,12 +89,8 @@ class FabricStockService {
           stockType: 'PLANNED_STOCK',
           patternPartId: data.patternPartId || null,
           fabricFinishType: data.fabricFinishType || null,
-          weightedAvgCost: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : new Prisma.Decimal(0),
-          purchaseCost: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : new Prisma.Decimal(0),
+          weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
+          purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
           qualityGrade: data.qualityGrade || 'A',
           warehouseLocation: data.warehouseLocation || null,
           rollNumbers: data.rollNumbers || null,
@@ -113,12 +109,7 @@ class FabricStockService {
       });
 
       if (material) {
-        await this.updateMaterialStockLevel(
-          material.id,
-          'DEFAULT_WAREHOUSE',
-          data.quantity,
-          data.purchaseCost
-        );
+        await this.updateMaterialStockLevel(material.id, 'DEFAULT_WAREHOUSE', data.quantity, data.purchaseCost);
       }
 
       return fabricStock;
@@ -150,11 +141,8 @@ class FabricStockService {
         // Try to find a generic "Stock Entry" supplier, or use the first active supplier
         const stockEntrySupplier = await prisma.suppliers.findFirst({
           where: {
-            OR: [
-              { code: 'STOCK-ENTRY' },
-              { name: { contains: 'Stock Entry', mode: 'insensitive' } }
-            ]
-          }
+            OR: [{ code: 'STOCK-ENTRY' }, { name: { contains: 'Stock Entry', mode: 'insensitive' } }],
+          },
         });
 
         if (stockEntrySupplier) {
@@ -162,7 +150,7 @@ class FabricStockService {
         } else {
           // If no supplier found, get any active supplier as a fallback
           const anySupplier = await prisma.suppliers.findFirst({
-            where: { isActive: true }
+            where: { isActive: true },
           });
 
           if (!anySupplier) {
@@ -183,12 +171,8 @@ class FabricStockService {
           quantityPurchased: new Prisma.Decimal(data.quantity),
           unit: 'meters',
           width: new Prisma.Decimal(data.width),
-          ratePerUnit: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : new Prisma.Decimal(0),
-          totalCost: data.purchaseCost
-            ? new Prisma.Decimal(data.quantity * data.purchaseCost)
-            : new Prisma.Decimal(0),
+          ratePerUnit: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
+          totalCost: data.purchaseCost ? new Prisma.Decimal(data.quantity * data.purchaseCost) : new Prisma.Decimal(0),
           orderedForStyleId: null, // Generic, not style-specific
           isStockPurchase: true,
           processingRequired: false,
@@ -243,12 +227,8 @@ class FabricStockService {
           originOrderId: null,
           status: 'AVAILABLE',
           stockType: 'GENERIC',
-          weightedAvgCost: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : new Prisma.Decimal(0),
-          purchaseCost: data.purchaseCost
-            ? new Prisma.Decimal(data.purchaseCost)
-            : new Prisma.Decimal(0),
+          weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
+          purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
           qualityGrade: 'A',
           warehouseLocation: data.warehouseLocation || null,
           rollNumbers: data.rollNumbers || null,
@@ -337,7 +317,8 @@ class FabricStockService {
             if (requiredPerGarment > 0) break;
             for (const purpose of cadPriority) {
               const cadRow = cadRows.find(
-                (c: any) => (c.purposeEnum === purpose || c.purpose === purpose) &&
+                (c: any) =>
+                  (c.purposeEnum === purpose || c.purpose === purpose) &&
                   (Number(c.cadMeters) > 0 || Number(c.cadAverage) > 0)
               );
               if (cadRow) {
@@ -352,8 +333,7 @@ class FabricStockService {
             requiredPerGarment = Number(styleFabric.quantityNeeded);
           }
 
-          const canMakeGarments =
-            requiredPerGarment > 0 ? Math.floor(totalAvailable / requiredPerGarment) : 0;
+          const canMakeGarments = requiredPerGarment > 0 ? Math.floor(totalAvailable / requiredPerGarment) : 0;
 
           result.push({
             fabricId: styleFabric.fabric.id,
@@ -382,16 +362,12 @@ class FabricStockService {
     const fabricStocks = await this.getStockByStyle(styleId);
 
     // The bottleneck fabric determines how many garments can be made
-    const canMakeGarments = fabricStocks.length > 0
-      ? Math.min(...fabricStocks.map((f) => f.canMakeGarments))
-      : 0;
+    const canMakeGarments = fabricStocks.length > 0 ? Math.min(...fabricStocks.map((f) => f.canMakeGarments)) : 0;
 
     return {
       canMakeGarments,
       fabricStocks,
-      bottleneckFabric: fabricStocks.find(
-        (f) => f.canMakeGarments === canMakeGarments
-      ),
+      bottleneckFabric: fabricStocks.find((f) => f.canMakeGarments === canMakeGarments),
     };
   }
 
@@ -418,7 +394,7 @@ class FabricStockService {
         componentName: sf.style_components.componentName,
         cadMeters: sf.quantityNeeded ? Number(sf.quantityNeeded) : 0,
         stockAllocated: 0, // Will be calculated from allocations
-        stockConsumed: 0,  // Will be calculated from allocations
+        stockConsumed: 0, // Will be calculated from allocations
       }));
 
       return result;
@@ -626,17 +602,13 @@ class FabricStockService {
 
       if (existing) {
         const newQuantity = Number(existing.quantity) + quantityChange;
-        const newValue = valuationRate
-          ? newQuantity * valuationRate
-          : Number(existing.stockValue || 0);
+        const newValue = valuationRate ? newQuantity * valuationRate : Number(existing.stockValue || 0);
 
         await prisma.stock_levels.update({
           where: { id: existing.id },
           data: {
             quantity: new Prisma.Decimal(newQuantity),
-            valuationRate: valuationRate
-              ? new Prisma.Decimal(valuationRate)
-              : existing.valuationRate,
+            valuationRate: valuationRate ? new Prisma.Decimal(valuationRate) : existing.valuationRate,
             stockValue: new Prisma.Decimal(newValue),
             lastUpdated: new Date(),
           },
@@ -651,9 +623,7 @@ class FabricStockService {
             quantity: new Prisma.Decimal(quantityChange),
             unit: 'METER',
             valuationRate: valuationRate ? new Prisma.Decimal(valuationRate) : null,
-            stockValue: valuationRate
-              ? new Prisma.Decimal(quantityChange * valuationRate)
-              : null,
+            stockValue: valuationRate ? new Prisma.Decimal(quantityChange * valuationRate) : null,
             lastUpdated: new Date(),
           },
         });
@@ -667,10 +637,7 @@ class FabricStockService {
   /**
    * Bulk create fabric stock for a style
    */
-  async bulkCreateStyleStock(
-    entries: CreateStyleStockDTO[],
-    userId: string
-  ) {
+  async bulkCreateStyleStock(entries: CreateStyleStockDTO[], userId: string) {
     const results = {
       success: 0,
       failed: 0,
@@ -743,7 +710,9 @@ class FabricStockService {
       };
     } catch (error: unknown) {
       logError('Error getting greige stock summary:', error);
-      throw new Error(`Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get greige stock summary: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 }

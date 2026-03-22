@@ -12,7 +12,7 @@ export const OrderStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatusLabels: Record<OrderStatus, string> = {
   PENDING: 'Pending',
@@ -29,7 +29,7 @@ export const Priority = {
   URGENT: 'URGENT',
 } as const;
 
-export type Priority = typeof Priority[keyof typeof Priority];
+export type Priority = (typeof Priority)[keyof typeof Priority];
 
 export const PriorityLabels: Record<Priority, string> = {
   LOW: 'Low',

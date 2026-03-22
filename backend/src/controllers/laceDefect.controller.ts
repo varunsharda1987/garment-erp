@@ -35,17 +35,8 @@ export async function logDefect(req: Request, res: Response) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
 
-  const {
-    stockId,
-    laceId,
-    orderId,
-    styleId,
-    defectType,
-    defectQuantity,
-    defectDescription,
-    discoveredAt,
-    photos,
-  } = req.body;
+  const { stockId, laceId, orderId, styleId, defectType, defectQuantity, defectDescription, discoveredAt, photos } =
+    req.body;
 
   // Validation
   if (!stockId || !laceId || !defectType || defectQuantity === undefined || !discoveredAt) {
@@ -77,11 +68,13 @@ export async function logDefect(req: Request, res: Response) {
     discoveredById: userId,
   });
 
-  res.status(201).json(serialize({
-    success: true,
-    data: defect,
-    message: 'Defect logged successfully',
-  }));
+  res.status(201).json(
+    serialize({
+      success: true,
+      data: defect,
+      message: 'Defect logged successfully',
+    })
+  );
 }
 
 /**
@@ -103,11 +96,13 @@ export async function submitClaimController(req: Request, res: Response) {
     notes,
   });
 
-  res.json(serialize({
-    success: true,
-    data: defect,
-    message: 'Claim submitted successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: defect,
+      message: 'Claim submitted successfully',
+    })
+  );
 }
 
 /**
@@ -134,11 +129,13 @@ export async function updateClaimStatusController(req: Request, res: Response) {
     resolution,
   });
 
-  res.json(serialize({
-    success: true,
-    data: defect,
-    message: 'Claim status updated successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: defect,
+      message: 'Claim status updated successfully',
+    })
+  );
 }
 
 /**
@@ -159,11 +156,13 @@ export async function recordReplacementController(req: Request, res: Response) {
     replacementQuantity: parseFloat(replacementQuantity),
   });
 
-  res.json(serialize({
-    success: true,
-    data: defect,
-    message: 'Replacement recorded successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: defect,
+      message: 'Replacement recorded successfully',
+    })
+  );
 }
 
 /**
@@ -179,10 +178,12 @@ export async function getDefectByIdController(req: Request, res: Response) {
     throw new NotFoundError('Defect', id);
   }
 
-  res.json(serialize({
-    success: true,
-    data: defect,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: defect,
+    })
+  );
 }
 
 /**
@@ -190,18 +191,7 @@ export async function getDefectByIdController(req: Request, res: Response) {
  * Get defects with filters
  */
 export async function getDefectsController(req: Request, res: Response) {
-  const {
-    stockId,
-    laceId,
-    orderId,
-    styleId,
-    defectType,
-    claimStatus,
-    discoveredAt,
-    search,
-    page,
-    limit,
-  } = req.query;
+  const { stockId, laceId, orderId, styleId, defectType, claimStatus, discoveredAt, search, page, limit } = req.query;
 
   const result = await getDefects({
     stockId: stockId as string,
@@ -216,10 +206,12 @@ export async function getDefectsController(req: Request, res: Response) {
     limit: limit ? parseInt(limit as string) : undefined,
   });
 
-  res.json(serialize({
-    success: true,
-    ...result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      ...result,
+    })
+  );
 }
 
 /**
@@ -229,10 +221,12 @@ export async function getDefectsController(req: Request, res: Response) {
 export async function getPendingClaimsController(req: Request, res: Response) {
   const result = await getPendingClaims();
 
-  res.json(serialize({
-    success: true,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+    })
+  );
 }
 
 /**
@@ -242,10 +236,12 @@ export async function getPendingClaimsController(req: Request, res: Response) {
 export async function getDefectStatisticsController(req: Request, res: Response) {
   const result = await getDefectStatistics();
 
-  res.json(serialize({
-    success: true,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+    })
+  );
 }
 
 export default {

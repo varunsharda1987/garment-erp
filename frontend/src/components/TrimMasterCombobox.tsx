@@ -35,19 +35,22 @@ interface TrimMasterComboboxProps {
 }
 
 // Map materialType → service function + name/code field extractors
-const MASTER_CONFIG: Record<string, {
-  fetch: (params: any) => Promise<any>;
-  getName: (item: any) => string;
-  getCode: (item: any) => string;
-  getPrice: (item: any) => number | undefined;
-  getUnit: () => string;
-  idField: keyof TrimMasterSelection;
-}> = {
+const MASTER_CONFIG: Record<
+  string,
+  {
+    fetch: (params: any) => Promise<any>;
+    getName: (item: any) => string;
+    getCode: (item: any) => string;
+    getPrice: (item: any) => number | undefined;
+    getUnit: () => string;
+    idField: keyof TrimMasterSelection;
+  }
+> = {
   THREAD: {
     fetch: getAllThreads,
     getName: (item) => item.threadName || item.name || '',
     getCode: (item) => item.threadCode || item.code || '',
-    getPrice: (item) => item.pricePerCone ? Number(item.pricePerCone) : undefined,
+    getPrice: (item) => (item.pricePerCone ? Number(item.pricePerCone) : undefined),
     getUnit: () => 'LOT',
     idField: 'threadId',
   },
@@ -55,7 +58,7 @@ const MASTER_CONFIG: Record<string, {
     fetch: getAllButtons,
     getName: (item) => item.buttonName || item.name || '',
     getCode: (item) => item.buttonCode || item.code || '',
-    getPrice: (item) => item.pricePerPiece ? Number(item.pricePerPiece) : undefined,
+    getPrice: (item) => (item.pricePerPiece ? Number(item.pricePerPiece) : undefined),
     getUnit: () => 'PCS',
     idField: 'buttonId',
   },
@@ -63,7 +66,7 @@ const MASTER_CONFIG: Record<string, {
     fetch: getAllZippers,
     getName: (item) => item.zipperName || item.name || '',
     getCode: (item) => item.zipperCode || item.code || '',
-    getPrice: (item) => item.pricePerPiece ? Number(item.pricePerPiece) : undefined,
+    getPrice: (item) => (item.pricePerPiece ? Number(item.pricePerPiece) : undefined),
     getUnit: () => 'PCS',
     idField: 'zipperId',
   },
@@ -71,7 +74,7 @@ const MASTER_CONFIG: Record<string, {
     fetch: getAllElastics,
     getName: (item) => item.elasticName || item.name || '',
     getCode: (item) => item.elasticCode || item.code || '',
-    getPrice: (item) => item.pricePerMeter ? Number(item.pricePerMeter) : undefined,
+    getPrice: (item) => (item.pricePerMeter ? Number(item.pricePerMeter) : undefined),
     getUnit: () => 'MTR',
     idField: 'elasticId',
   },
@@ -79,7 +82,7 @@ const MASTER_CONFIG: Record<string, {
     fetch: getAllLabels,
     getName: (item) => item.labelName || item.name || '',
     getCode: (item) => item.labelCode || item.code || '',
-    getPrice: (item) => item.pricePerPiece ? Number(item.pricePerPiece) : undefined,
+    getPrice: (item) => (item.pricePerPiece ? Number(item.pricePerPiece) : undefined),
     getUnit: () => 'PCS',
     idField: 'labelId',
   },
@@ -87,7 +90,7 @@ const MASTER_CONFIG: Record<string, {
     fetch: getAllPackaging,
     getName: (item) => item.packagingName || item.name || '',
     getCode: (item) => item.packagingCode || item.code || '',
-    getPrice: (item) => item.pricePerPiece ? Number(item.pricePerPiece) : undefined,
+    getPrice: (item) => (item.pricePerPiece ? Number(item.pricePerPiece) : undefined),
     getUnit: () => 'PCS',
     idField: 'packagingId',
   },
@@ -109,33 +112,36 @@ export function TrimMasterCombobox({
 
   const config = MASTER_CONFIG[materialType];
 
-  const loadItems = useCallback(async (search: string) => {
-    if (!config) return;
-    try {
-      setIsLoading(true);
-      const params: any = { limit: 50, search: search || undefined };
-      // Label and Packaging support customer filtering
-      if ((materialType === 'LABEL' || materialType === 'PACKAGING') && customerId) {
-        params.customerId = customerId;
+  const loadItems = useCallback(
+    async (search: string) => {
+      if (!config) return;
+      try {
+        setIsLoading(true);
+        const params: any = { limit: 50, search: search || undefined };
+        // Label and Packaging support customer filtering
+        if ((materialType === 'LABEL' || materialType === 'PACKAGING') && customerId) {
+          params.customerId = customerId;
+        }
+        const response = await config.fetch(params);
+        const items = response.data || [];
+        setRawItems(items);
+
+        const comboboxOptions: ComboboxOption[] = items.map((item: any) => ({
+          value: item.id,
+          label: `${config.getCode(item)} - ${config.getName(item)}`,
+          searchText: `${config.getCode(item)} ${config.getName(item)}`,
+        }));
+
+        setOptions(comboboxOptions);
+        setInitialLoaded(true);
+      } catch (error) {
+        console.error(`Failed to load ${materialType} masters:`, error);
+      } finally {
+        setIsLoading(false);
       }
-      const response = await config.fetch(params);
-      const items = response.data || [];
-      setRawItems(items);
-
-      const comboboxOptions: ComboboxOption[] = items.map((item: any) => ({
-        value: item.id,
-        label: `${config.getCode(item)} - ${config.getName(item)}`,
-        searchText: `${config.getCode(item)} ${config.getName(item)}`,
-      }));
-
-      setOptions(comboboxOptions);
-      setInitialLoaded(true);
-    } catch (error) {
-      console.error(`Failed to load ${materialType} masters:`, error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [materialType, customerId, config]);
+    },
+    [materialType, customerId, config]
+  );
 
   useEffect(() => {
     if (config) {
@@ -181,7 +187,7 @@ export function TrimMasterCombobox({
       options={options}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={!initialLoaded ? 'Loading...' : (placeholder || `Select ${materialType.toLowerCase()}...`)}
+      placeholder={!initialLoaded ? 'Loading...' : placeholder || `Select ${materialType.toLowerCase()}...`}
       searchPlaceholder={`Search ${materialType.toLowerCase()}...`}
       emptyText={`No ${materialType.toLowerCase()} masters found. Create one first.`}
       disabled={disabled || !initialLoaded}

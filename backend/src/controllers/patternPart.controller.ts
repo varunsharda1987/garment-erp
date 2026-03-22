@@ -203,10 +203,7 @@ export class PatternPartController {
       const { componentId } = req.params;
       const validatedData = addComponentPatternPartSchema.parse(req.body);
 
-      const association = await patternPartService.addPatternPartToComponent(
-        componentId,
-        validatedData
-      );
+      const association = await patternPartService.addPatternPartToComponent(componentId, validatedData);
 
       res.status(201).json({
         success: true,

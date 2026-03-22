@@ -114,15 +114,13 @@ class PurchaseOrderService {
     }
 
     // Validate materials exist for material-based items (batch query to avoid N+1)
-    const materialIds = data.items
-      .filter(item => item.materialId)
-      .map(item => item.materialId!);
+    const materialIds = data.items.filter((item) => item.materialId).map((item) => item.materialId!);
     if (materialIds.length > 0) {
       const existingMaterials = await prisma.materials.findMany({
         where: { id: { in: materialIds } },
         select: { id: true },
       });
-      const existingMaterialIds = new Set(existingMaterials.map(m => m.id));
+      const existingMaterialIds = new Set(existingMaterials.map((m) => m.id));
       for (const materialId of materialIds) {
         if (!existingMaterialIds.has(materialId)) {
           throw new Error(`Material with ID ${materialId} not found`);
@@ -139,44 +137,46 @@ class PurchaseOrderService {
     let poTotalSgst = 0;
     let poTotalIgst = 0;
 
-    const itemsWithTotals = await Promise.all(data.items.map(async (item) => {
-      const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
-      subtotal += totalPrice;
+    const itemsWithTotals = await Promise.all(
+      data.items.map(async (item) => {
+        const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
+        subtotal += totalPrice;
 
-      // Calculate GST for this item
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        hsnSacCode: null, // Will be resolved from materialId
-        materialId: item.materialId || null,
-        isInterstate,
-      });
+        // Calculate GST for this item
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          hsnSacCode: null, // Will be resolved from materialId
+          materialId: item.materialId || null,
+          isInterstate,
+        });
 
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        id: randomUUID(),
-        materialId: item.materialId || null,
-        serviceType: (item.serviceType as ServiceType) || null,
-        serviceDescription: item.serviceDescription || null,
-        orderedQuantity: item.orderedQuantity,
-        receivedQuantity: 0,
-        unit: item.unit,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || null,
-      };
-    }));
+        return {
+          id: randomUUID(),
+          materialId: item.materialId || null,
+          serviceType: (item.serviceType as ServiceType) || null,
+          serviceDescription: item.serviceDescription || null,
+          orderedQuantity: item.orderedQuantity,
+          receivedQuantity: 0,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks: item.remarks || null,
+        };
+      })
+    );
 
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
@@ -362,15 +362,13 @@ class PurchaseOrderService {
       }
 
       // Validate materials exist for material-based items (batch query to avoid N+1)
-      const materialIds = data.items
-        .filter(item => item.materialId)
-        .map(item => item.materialId!);
+      const materialIds = data.items.filter((item) => item.materialId).map((item) => item.materialId!);
       if (materialIds.length > 0) {
         const existingMaterials = await prisma.materials.findMany({
           where: { id: { in: materialIds } },
           select: { id: true },
         });
-        const existingMaterialIds = new Set(existingMaterials.map(m => m.id));
+        const existingMaterialIds = new Set(existingMaterials.map((m) => m.id));
         for (const materialId of materialIds) {
           if (!existingMaterialIds.has(materialId)) {
             throw new Error(`Material with ID ${materialId} not found`);
@@ -386,9 +384,7 @@ class PurchaseOrderService {
         where: { id },
         data: {
           supplierId: data.supplierId,
-          expectedDeliveryDate: data.expectedDeliveryDate
-            ? new Date(data.expectedDeliveryDate)
-            : undefined,
+          expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : undefined,
           paymentTerms: data.paymentTerms,
           remarks: data.remarks,
         },
@@ -602,11 +598,7 @@ class PurchaseOrderService {
   /**
    * Update a purchase order item
    */
-  async updatePurchaseOrderItem(
-    poId: string,
-    itemId: string,
-    data: UpdatePurchaseOrderItemDTO
-  ) {
+  async updatePurchaseOrderItem(poId: string, itemId: string, data: UpdatePurchaseOrderItemDTO) {
     const editableStatuses: string[] = [
       PurchaseOrderStatus.DRAFT,
       PurchaseOrderStatus.PENDING_GREIGE,
@@ -622,7 +614,9 @@ class PurchaseOrderService {
     }
 
     if (!editableStatuses.includes(existingPO.status)) {
-      throw new Error('Can only update items on purchase orders in Draft, Pending Greige, or Ready for Processing status');
+      throw new Error(
+        'Can only update items on purchase orders in Draft, Pending Greige, or Ready for Processing status'
+      );
     }
 
     const existingItem = await prisma.purchase_order_items.findFirst({
@@ -733,7 +727,10 @@ class PurchaseOrderService {
     }
 
     // Allow sending from DRAFT or READY_FOR_PROCESSING status
-    if (existingPO.status !== PurchaseOrderStatus.DRAFT && existingPO.status !== PurchaseOrderStatus.READY_FOR_PROCESSING) {
+    if (
+      existingPO.status !== PurchaseOrderStatus.DRAFT &&
+      existingPO.status !== PurchaseOrderStatus.READY_FOR_PROCESSING
+    ) {
       throw new Error('Can only send purchase orders in DRAFT or READY_FOR_PROCESSING status');
     }
 
@@ -804,9 +801,7 @@ class PurchaseOrderService {
         where: { id },
         data: {
           status: PurchaseOrderStatus.CANCELLED,
-          remarks: reason
-            ? `${existingPO.remarks || ''}\n\nCancellation reason: ${reason}`.trim()
-            : existingPO.remarks,
+          remarks: reason ? `${existingPO.remarks || ''}\n\nCancellation reason: ${reason}`.trim() : existingPO.remarks,
         },
         include: this.getFullInclude(),
       });
@@ -819,7 +814,7 @@ class PurchaseOrderService {
       if (mrpLinks.length > 0) {
         await tx.material_requirements.updateMany({
           where: {
-            id: { in: mrpLinks.map(l => l.requirementId) },
+            id: { in: mrpLinks.map((l) => l.requirementId) },
             status: 'PO_GENERATED',
           },
           data: { status: 'PO_REQUIRED' },
@@ -834,7 +829,7 @@ class PurchaseOrderService {
       if (serviceLinks.length > 0) {
         await tx.work_order_service_requirements.updateMany({
           where: {
-            id: { in: serviceLinks.map(l => l.serviceRequirementId) },
+            id: { in: serviceLinks.map((l) => l.serviceRequirementId) },
             status: 'PO_GENERATED',
           },
           data: { status: 'PENDING', purchaseOrderId: null },
@@ -859,9 +854,7 @@ class PurchaseOrderService {
       return;
     }
 
-    const allFullyReceived = items.every(
-      (item) => Number(item.receivedQuantity) >= Number(item.orderedQuantity)
-    );
+    const allFullyReceived = items.every((item) => Number(item.receivedQuantity) >= Number(item.orderedQuantity));
     const anyPartiallyReceived = items.some((item) => Number(item.receivedQuantity) > 0);
 
     let newStatus: PurchaseOrderStatus;
@@ -1006,11 +999,7 @@ class PurchaseOrderService {
   async getReceivablePurchaseOrders(supplierId?: string) {
     const where: Prisma.purchase_ordersWhereInput = {
       status: {
-        in: [
-          PurchaseOrderStatus.SENT,
-          PurchaseOrderStatus.ACKNOWLEDGED,
-          PurchaseOrderStatus.PARTIALLY_RECEIVED,
-        ],
+        in: [PurchaseOrderStatus.SENT, PurchaseOrderStatus.ACKNOWLEDGED, PurchaseOrderStatus.PARTIALLY_RECEIVED],
       },
     };
 

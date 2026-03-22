@@ -68,11 +68,7 @@ export function useRowSelection<T extends Record<string, any>>(
   data: T[],
   options: UseRowSelectionOptions<T> = {}
 ): UseRowSelectionReturn {
-  const {
-    idKey = 'id' as keyof T,
-    initialSelection = [],
-    onSelectionChange,
-  } = options;
+  const { idKey = 'id' as keyof T, initialSelection = [], onSelectionChange } = options;
 
   const [selectedIds, setSelectedIds] = useState<(string | number)[]>(initialSelection);
 
@@ -82,10 +78,7 @@ export function useRowSelection<T extends Record<string, any>>(
   }, [data, idKey]);
 
   // Check if a specific row is selected
-  const isSelected = useCallback(
-    (id: string | number) => selectedIds.includes(id),
-    [selectedIds]
-  );
+  const isSelected = useCallback((id: string | number) => selectedIds.includes(id), [selectedIds]);
 
   // Check if all rows are selected
   const isAllSelected = useMemo(() => {
@@ -102,9 +95,7 @@ export function useRowSelection<T extends Record<string, any>>(
   const toggleRow = useCallback(
     (id: string | number) => {
       setSelectedIds((prev) => {
-        const newSelection = prev.includes(id)
-          ? prev.filter((selectedId) => selectedId !== id)
-          : [...prev, id];
+        const newSelection = prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id];
         onSelectionChange?.(newSelection);
         return newSelection;
       });

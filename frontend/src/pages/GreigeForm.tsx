@@ -56,7 +56,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
   useEffect(() => {
     if (genericGreigeName && formData.yarnCount && formData.construction && formData.greigeWidth) {
       const autoName = `${genericGreigeName} ${formData.yarnCount} / ${formData.construction} / ${formData.greigeWidth}"`;
-      setFormData(prev => ({ ...prev, greigeName: autoName }));
+      setFormData((prev) => ({ ...prev, greigeName: autoName }));
     }
   }, [genericGreigeName, formData.yarnCount, formData.construction, formData.greigeWidth]);
 
@@ -80,7 +80,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       });
       const data = await response.json();
 
-      setFormData(prev => ({ ...prev, greigeCode: data.code }));
+      setFormData((prev) => ({ ...prev, greigeCode: data.code }));
     } catch (error) {
       logError('Error generating greige code:', error);
       // Fallback to manual entry if auto-generation fails
@@ -122,12 +122,15 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         description: greige.description || '',
         notes: greige.notes || '',
         isActive: greige.isActive,
-        suppliers: greige.supplier?.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
-          supplierId: s.supplier.id,
-          isPreferred: s.isPreferred,
-          isActive: s.isActive,
-          notes: s.notes || '',
-        })) || [],
+        suppliers:
+          greige.supplier?.map(
+            (s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
+              supplierId: s.supplier.id,
+              isPreferred: s.isPreferred,
+              isActive: s.isActive,
+              notes: s.notes || '',
+            })
+          ) || [],
       });
     } catch (error) {
       logError('Error loading greige:', error);
@@ -166,34 +169,32 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      setFormData((prev) => ({ ...prev, [name]: checked }));
     } else if (type === 'number') {
-      setFormData(prev => ({ ...prev, [name]: value === '' ? undefined : parseFloat(value) }));
+      setFormData((prev) => ({ ...prev, [name]: value === '' ? undefined : parseFloat(value) }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
   const handleAddSupplier = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       suppliers: [...prev.suppliers, { supplierId: '', isPreferred: false, isActive: true, notes: '' }],
     }));
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       suppliers: prev.suppliers.filter((_, i) => i !== index),
     }));
   };
 
   const handleSupplierChange = (index: number, field: string, value: string | boolean) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      suppliers: prev.suppliers.map((s, i) =>
-        i === index ? { ...s, [field]: value } : s
-      ),
+      suppliers: prev.suppliers.map((s, i) => (i === index ? { ...s, [field]: value } : s)),
     }));
   };
 
@@ -307,7 +308,8 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 Format: Generic Name + Yarn Count / Construction / Width
                 {genericGreigeName && formData.yarnCount && formData.construction && formData.greigeWidth && (
                   <span className="block mt-1 text-green-600 font-medium">
-                    Preview: {genericGreigeName} {formData.yarnCount} / {formData.construction} / {formData.greigeWidth}"
+                    Preview: {genericGreigeName} {formData.yarnCount} / {formData.construction} / {formData.greigeWidth}
+                    "
                   </span>
                 )}
               </p>
@@ -357,9 +359,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Weave Type
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Weave Type</label>
               <select
                 name="weaveType"
                 value={formData.weaveType}
@@ -377,9 +377,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                GSM Range
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">GSM Range</label>
               <Input
                 type="text"
                 name="gsmRange"
@@ -411,9 +409,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Default Cutable Width (inches)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Default Cutable Width (inches)</label>
               <Input
                 type="number"
                 name="defaultCutableWidth"
@@ -501,7 +497,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                         required
                       >
                         <option value="">Select supplier...</option>
-                        {suppliers.map(s => (
+                        {suppliers.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.code} - {s.name}
                           </option>
@@ -544,9 +540,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Notes
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                       <Input
                         type="text"
                         value={supplier.notes}
@@ -566,9 +560,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
           <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea
                 name="description"
                 value={formData.description}
@@ -580,9 +572,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
               <textarea
                 name="notes"
                 value={formData.notes}
@@ -601,21 +591,14 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 onChange={handleChange}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label className="ml-2 block text-sm text-gray-900">
-                Active
-              </label>
+              <label className="ml-2 block text-sm text-gray-900">Active</label>
             </div>
           </div>
         </div>
 
         {/* Form Actions */}
         <div className="flex justify-end gap-4 pt-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/greige')}
-            disabled={saving}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/greige')} disabled={saving}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>

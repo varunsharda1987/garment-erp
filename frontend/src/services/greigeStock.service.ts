@@ -29,10 +29,9 @@ export const greigeStockService = {
    * Get greige stock summary for unified dashboard
    */
   async getSummary(): Promise<GreigeStockSummary> {
-    const response = await axios.get<ApiResponse<GreigeStockSummary>>(
-      `${BASE_URL}/summary`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<GreigeStockSummary>>(`${BASE_URL}/summary`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data;
   },
 };

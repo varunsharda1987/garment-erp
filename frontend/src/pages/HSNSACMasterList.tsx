@@ -5,21 +5,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,20 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import {
   getAllHSNSACMasters,
@@ -51,12 +26,7 @@ import {
   updateHSNSACMaster,
   deleteHSNSACMaster,
 } from '@/services/hsnSacMaster.service';
-import type {
-  HSNSACMaster,
-  HSNSACType,
-  CreateHSNSACRequest,
-  UpdateHSNSACRequest,
-} from '@/types/hsnSacMaster.types';
+import type { HSNSACMaster, HSNSACType, CreateHSNSACRequest, UpdateHSNSACRequest } from '@/types/hsnSacMaster.types';
 
 const GST_RATES = [0, 5, 12, 18, 28];
 
@@ -105,8 +75,7 @@ export default function HSNSACMasterList() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateHSNSACRequest }) =>
-      updateHSNSACMaster(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UpdateHSNSACRequest }) => updateHSNSACMaster(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hsn-sac-masters'] });
       toast.success('HSN/SAC code updated successfully');
@@ -214,7 +183,7 @@ export default function HSNSACMasterList() {
             <Select
               value={typeFilter || 'ALL'}
               onValueChange={(val) => {
-                setTypeFilter(val === 'ALL' ? '' : val as HSNSACType);
+                setTypeFilter(val === 'ALL' ? '' : (val as HSNSACType));
                 setPage(1);
               }}
             >
@@ -262,9 +231,7 @@ export default function HSNSACMasterList() {
                   <TableRow key={item.id}>
                     <TableCell className="font-mono font-medium">{item.code}</TableCell>
                     <TableCell>
-                      <Badge variant={item.type === 'HSN' ? 'default' : 'secondary'}>
-                        {item.type}
-                      </Badge>
+                      <Badge variant={item.type === 'HSN' ? 'default' : 'secondary'}>{item.type}</Badge>
                     </TableCell>
                     <TableCell className="max-w-[300px] truncate">{item.description}</TableCell>
                     <TableCell className="font-mono">{item.chapter}</TableCell>
@@ -278,11 +245,7 @@ export default function HSNSACMasterList() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(item)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
@@ -307,16 +270,10 @@ export default function HSNSACMasterList() {
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-muted-foreground">
                 Showing {(pagination.page - 1) * pagination.limit + 1}-
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                {pagination.total}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
               </p>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                   Previous
                 </Button>
                 <Button
@@ -337,9 +294,7 @@ export default function HSNSACMasterList() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>
-              {selectedItem ? 'Edit HSN/SAC Code' : 'Add HSN/SAC Code'}
-            </DialogTitle>
+            <DialogTitle>{selectedItem ? 'Edit HSN/SAC Code' : 'Add HSN/SAC Code'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -349,9 +304,7 @@ export default function HSNSACMasterList() {
                   id="code"
                   placeholder="e.g., 62114210"
                   value={formData.code}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, code: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, code: e.target.value }))}
                   required
                 />
               </div>
@@ -359,9 +312,7 @@ export default function HSNSACMasterList() {
                 <Label htmlFor="type">Type *</Label>
                 <Select
                   value={formData.type}
-                  onValueChange={(val) =>
-                    setFormData((prev) => ({ ...prev, type: val as HSNSACType }))
-                  }
+                  onValueChange={(val) => setFormData((prev) => ({ ...prev, type: val as HSNSACType }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -380,9 +331,7 @@ export default function HSNSACMasterList() {
                 id="description"
                 placeholder="e.g., Ladies Garments - Cotton"
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, description: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                 required
               />
             </div>
@@ -394,9 +343,7 @@ export default function HSNSACMasterList() {
                   id="chapter"
                   placeholder="e.g., 62"
                   value={formData.chapter}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, chapter: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, chapter: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
@@ -405,9 +352,7 @@ export default function HSNSACMasterList() {
                   id="section"
                   placeholder="e.g., Apparel"
                   value={formData.section}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, section: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, section: e.target.value }))}
                 />
               </div>
             </div>
@@ -442,9 +387,7 @@ export default function HSNSACMasterList() {
                   id="unit"
                   placeholder="e.g., PCS, MTR, KG"
                   value={formData.unit}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, unit: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, unit: e.target.value }))}
                 />
               </div>
             </div>
@@ -467,9 +410,8 @@ export default function HSNSACMasterList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete HSN/SAC Code</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{' '}
-              <strong>{itemToDelete?.code}</strong> ({itemToDelete?.description})?
-              This will deactivate the code.
+              Are you sure you want to delete <strong>{itemToDelete?.code}</strong> ({itemToDelete?.description})? This
+              will deactivate the code.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

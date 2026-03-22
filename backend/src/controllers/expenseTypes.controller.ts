@@ -63,7 +63,10 @@ export const getAllExpenseTypes = async (req: Request, res: Response): Promise<v
     prisma.expense_types.count({ where }),
   ]);
 
-  res.json({ data: expenseTypes, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } });
+  res.json({
+    data: expenseTypes,
+    pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+  });
 };
 
 export const getExpenseTypeById = async (req: Request, res: Response): Promise<void> => {

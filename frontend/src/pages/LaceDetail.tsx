@@ -18,7 +18,8 @@ export default function LaceDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -107,9 +108,7 @@ export default function LaceDetail() {
                   />
                 </div>
                 <p className="text-gray-600">Lace Code: {lace.laceCode}</p>
-                {lace.materialCode && (
-                  <p className="text-gray-500 text-sm">Material Code: {lace.materialCode}</p>
-                )}
+                {lace.materialCode && <p className="text-gray-500 text-sm">Material Code: {lace.materialCode}</p>}
               </div>
               {lace.image && (
                 <img
@@ -181,9 +180,7 @@ export default function LaceDetail() {
                   </div>
                 </div>
               )}
-              {!lace.width && !lace.color && (
-                <p className="text-gray-500 text-sm">No specifications available</p>
-              )}
+              {!lace.width && !lace.color && <p className="text-gray-500 text-sm">No specifications available</p>}
             </CardContent>
           </Card>
 
@@ -233,9 +230,7 @@ export default function LaceDetail() {
                           </td>
                           <td className="px-4 py-3 text-sm">
                             {ls.pricePerMeter ? (
-                              <span className="font-semibold text-gray-900">
-                                {formatCurrency(ls.pricePerMeter)}
-                              </span>
+                              <span className="font-semibold text-gray-900">{formatCurrency(ls.pricePerMeter)}</span>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
@@ -246,9 +241,7 @@ export default function LaceDetail() {
                               variant={ls.isActive ? 'success' : 'secondary'}
                             />
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {ls.notes || '-'}
-                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{ls.notes || '-'}</td>
                         </tr>
                       ))}
                     </tbody>

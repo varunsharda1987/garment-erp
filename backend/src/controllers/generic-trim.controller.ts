@@ -30,7 +30,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Hook & Eye',
     materialType: 'HOOK_EYE',
     defaultUnit: 'PAIR',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   snap_button: {
     model: 'snap_button_master',
@@ -40,7 +40,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Snap Button',
     materialType: 'SNAP_BUTTON',
     defaultUnit: 'PIECE',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   buckle: {
     model: 'buckle_master',
@@ -50,7 +50,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Buckle',
     materialType: 'BUCKLE',
     defaultUnit: 'PIECE',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   belt: {
     model: 'belt_master',
@@ -60,7 +60,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Belt',
     materialType: 'BELT',
     defaultUnit: 'PIECE',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   velcro: {
     model: 'velcro_master',
@@ -70,7 +70,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Velcro',
     materialType: 'VELCRO',
     defaultUnit: 'METER',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   drawstring: {
     model: 'drawstring_master',
@@ -80,7 +80,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Drawstring',
     materialType: 'DRAWSTRING',
     defaultUnit: 'METER',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   ribbon: {
     model: 'ribbon_master',
@@ -90,7 +90,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Ribbon',
     materialType: 'RIBBON',
     defaultUnit: 'METER',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   sequin: {
     model: 'sequin_master',
@@ -100,7 +100,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Sequin',
     materialType: 'SEQUIN',
     defaultUnit: 'METER',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   bead: {
     model: 'bead_master',
@@ -110,7 +110,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Bead',
     materialType: 'BEAD',
     defaultUnit: 'PACK',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   motif: {
     model: 'motif_master',
@@ -120,7 +120,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Motif',
     materialType: 'MOTIF',
     defaultUnit: 'PIECE',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   interlining: {
     model: 'interlining_master',
@@ -130,7 +130,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Interlining',
     materialType: 'INTERLINING',
     defaultUnit: 'METER',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   padding: {
     model: 'padding_master',
@@ -140,7 +140,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Padding',
     materialType: 'PADDING',
     defaultUnit: 'PAIR',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   // "Others" categories - for miscellaneous items in each category
   other_fastener: {
@@ -151,7 +151,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Other Fastener',
     materialType: 'OTHER_FASTENER',
     defaultUnit: 'PIECE',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   other_tape: {
     model: 'other_tape_master',
@@ -161,7 +161,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Other Tape/Thread',
     materialType: 'OTHER_TAPE',
     defaultUnit: 'METER',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   other_decorative: {
     model: 'other_decorative_master',
@@ -171,7 +171,7 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Other Decorative',
     materialType: 'OTHER_DECORATIVE',
     defaultUnit: 'PIECE',
-    categoryName: 'Accessories'
+    categoryName: 'Accessories',
   },
   other_functional: {
     model: 'other_functional_master',
@@ -181,8 +181,8 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     displayName: 'Other Functional',
     materialType: 'OTHER_FUNCTIONAL',
     defaultUnit: 'PIECE',
-    categoryName: 'Accessories'
-  }
+    categoryName: 'Accessories',
+  },
 };
 
 // Helper to get Prisma model dynamically
@@ -201,12 +201,7 @@ export const getAll = async (req: Request, res: Response) => {
     throw new ValidationError(`Invalid trim type: ${trimType}`);
   }
 
-  const {
-    page = 1,
-    limit = 10,
-    search = '',
-    isActive
-  } = req.query;
+  const { page = 1, limit = 10, search = '', isActive } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
@@ -225,7 +220,7 @@ export const getAll = async (req: Request, res: Response) => {
     where.OR = [
       { [config.nameField]: { contains: String(search), mode: 'insensitive' } },
       { [config.codeField]: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } }
+      { color: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -238,14 +233,14 @@ export const getAll = async (req: Request, res: Response) => {
           select: {
             id: true,
             code: true,
-            name: true
-          }
-        }
+            name: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
       skip: offset,
-      take: limitNum
-    })
+      take: limitNum,
+    }),
   ]);
 
   res.json({
@@ -254,8 +249,8 @@ export const getAll = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -282,10 +277,10 @@ export const getById = async (req: Request, res: Response) => {
           name: true,
           contactPerson: true,
           email: true,
-          phone: true
-        }
-      }
-    }
+          phone: true,
+        },
+      },
+    },
   });
 
   if (!item) {
@@ -340,22 +335,22 @@ export const create = async (req: Request, res: Response) => {
       [config.nameField]: finalName.trim(),
       ...otherData,
       createdById: userId,
-      isActive: true
+      isActive: true,
     },
     include: {
       supplier: {
         select: {
           id: true,
           code: true,
-          name: true
-        }
-      }
-    }
+          name: true,
+        },
+      },
+    },
   });
 
   res.status(201).json({
     data: item,
-    message: `${config.displayName} created successfully`
+    message: `${config.displayName} created successfully`,
   });
 };
 
@@ -389,15 +384,15 @@ export const update = async (req: Request, res: Response) => {
         select: {
           id: true,
           code: true,
-          name: true
-        }
-      }
-    }
+          name: true,
+        },
+      },
+    },
   });
 
   res.json({
     data: updated,
-    message: `${config.displayName} updated successfully`
+    message: `${config.displayName} updated successfully`,
   });
 };
 
@@ -423,7 +418,7 @@ export const remove = async (req: Request, res: Response) => {
   // Soft delete
   await model.update({
     where: { id },
-    data: { isActive: false }
+    data: { isActive: false },
   });
 
   res.json({ message: `${config.displayName} deleted successfully` });
@@ -438,7 +433,7 @@ export const getConfigs = async (_req: Request, res: Response) => {
     displayName: config.displayName,
     codePrefix: config.codePrefix,
     defaultUnit: config.defaultUnit,
-    materialType: config.materialType
+    materialType: config.materialType,
   }));
 
   res.json(configs);

@@ -39,11 +39,7 @@ export default function SelectTest() {
           </SelectTrigger>
           <SelectContent style={{ backgroundColor: '#ffffff', color: '#000000' }}>
             {testData.map((item) => (
-              <SelectItem
-                key={item.id}
-                value={item.id}
-                style={{ backgroundColor: '#ffffff', color: '#000000' }}
-              >
+              <SelectItem key={item.id} value={item.id} style={{ backgroundColor: '#ffffff', color: '#000000' }}>
                 {item.name} ({item.code})
               </SelectItem>
             ))}
@@ -69,11 +65,7 @@ export default function SelectTest() {
         <h2 className="text-lg font-semibold mb-4">Test 4: DIV Element Test (Should be visible)</h2>
         <div className="border rounded-md p-2">
           {testData.map((item) => (
-            <div
-              key={item.id}
-              className="px-3 py-2 cursor-pointer hover:bg-gray-100"
-              style={{ color: '#111827' }}
-            >
+            <div key={item.id} className="px-3 py-2 cursor-pointer hover:bg-gray-100" style={{ color: '#111827' }}>
               {item.name} ({item.code})
             </div>
           ))}

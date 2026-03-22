@@ -9,14 +9,7 @@ import { NotFoundError, ConflictError, UnauthorizedError } from '../errors';
  * POST /api/payment-terms
  */
 export const createPaymentTerm = async (req: Request, res: Response): Promise<void> => {
-  const {
-    termCode,
-    termName,
-    description,
-    daysCount,
-    paymentSchedule,
-    discountPercent,
-  } = req.body;
+  const { termCode, termName, description, daysCount, paymentSchedule, discountPercent } = req.body;
 
   const userId = req.user?.userId;
 
@@ -154,14 +147,7 @@ export const getPaymentTermById = async (req: Request, res: Response): Promise<v
  */
 export const updatePaymentTerm = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const {
-    termCode,
-    termName,
-    description,
-    daysCount,
-    paymentSchedule,
-    discountPercent,
-  } = req.body;
+  const { termCode, termName, description, daysCount, paymentSchedule, discountPercent } = req.body;
 
   const existingTerm = await prisma.payment_terms.findUnique({
     where: { id },

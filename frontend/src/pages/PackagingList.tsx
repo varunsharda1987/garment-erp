@@ -119,9 +119,7 @@ export default function PackagingList() {
       render: (packaging) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{packaging.packagingName}</div>
-          {packaging.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{packaging.description}</div>
-          )}
+          {packaging.description && <div className="text-xs text-gray-500 line-clamp-1">{packaging.description}</div>}
         </div>
       ),
     },
@@ -159,29 +157,17 @@ export default function PackagingList() {
     {
       key: 'packagingType',
       header: 'Type',
-      render: (packaging) => (
-        <div className="text-sm text-gray-700">
-          {packaging.packagingType || '-'}
-        </div>
-      ),
+      render: (packaging) => <div className="text-sm text-gray-700">{packaging.packagingType || '-'}</div>,
     },
     {
       key: 'size',
       header: 'Size',
-      render: (packaging) => (
-        <div className="text-sm text-gray-700">
-          {packaging.size || '-'}
-        </div>
-      ),
+      render: (packaging) => <div className="text-sm text-gray-700">{packaging.size || '-'}</div>,
     },
     {
       key: 'material',
       header: 'Material',
-      render: (packaging) => (
-        <div className="text-sm text-gray-700">
-          {packaging.material || '-'}
-        </div>
-      ),
+      render: (packaging) => <div className="text-sm text-gray-700">{packaging.material || '-'}</div>,
     },
     {
       key: 'pricePerPiece',
@@ -242,17 +228,9 @@ export default function PackagingList() {
             <CardTitle>Packaging Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="PACKAGING" stockCount={stockCount} />
-              <ExportButton
-                module="packaging"
-                filters={{}}
-              />
-              <ImportButton
-                module="packaging"
-                onSuccess={fetchPackagingItems}
-              />
-              <Button onClick={() => navigate('/materials/packaging/new')}>
-                + Add New Packaging
-              </Button>
+              <ExportButton module="packaging" filters={{}} />
+              <ImportButton module="packaging" onSuccess={fetchPackagingItems} />
+              <Button onClick={() => navigate('/materials/packaging/new')}>+ Add New Packaging</Button>
             </div>
           </div>
         </CardHeader>

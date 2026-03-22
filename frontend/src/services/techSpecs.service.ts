@@ -17,9 +17,7 @@ export const techSpecsService = {
    */
   getByStyleId: async (styleId: string): Promise<TechSpecs | null> => {
     try {
-      const response = await api.get<TechSpecsResponse>(
-        `/styles/${styleId}/tech-specs`
-      );
+      const response = await api.get<TechSpecsResponse>(`/styles/${styleId}/tech-specs`);
       return response.data.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -32,14 +30,8 @@ export const techSpecsService = {
   /**
    * Create or update tech specs for a style
    */
-  save: async (
-    styleId: string,
-    data: CreateUpdateTechSpecsDTO
-  ): Promise<TechSpecs> => {
-    const response = await api.post<TechSpecsResponse>(
-      `/styles/${styleId}/tech-specs`,
-      data
-    );
+  save: async (styleId: string, data: CreateUpdateTechSpecsDTO): Promise<TechSpecs> => {
+    const response = await api.post<TechSpecsResponse>(`/styles/${styleId}/tech-specs`, data);
     return response.data.data;
   },
 
@@ -47,9 +39,7 @@ export const techSpecsService = {
    * Get dropdown options for tech specs
    */
   getOptions: async (): Promise<TechSpecsOptionsResponse['data']> => {
-    const response = await api.get<TechSpecsOptionsResponse>(
-      '/styles/tech-specs/options'
-    );
+    const response = await api.get<TechSpecsOptionsResponse>('/styles/tech-specs/options');
     return response.data.data;
   },
 

@@ -85,9 +85,7 @@ export default function VersionManagement({
           <div className="flex items-center space-x-4">
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Version {currentVersion.version}
-                </h3>
+                <h3 className="text-lg font-semibold text-gray-900">Version {currentVersion.version}</h3>
                 {currentVersion.isApproved && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
                     <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -121,17 +119,11 @@ export default function VersionManagement({
             {/* Cost Variance Indicator */}
             {currentVersion.costVariancePercent !== null && (
               <div className="flex items-center space-x-2">
-                <div
-                  className={`text-2xl font-bold ${getVarianceColor(
-                    currentVersion.costVariancePercent
-                  )}`}
-                >
+                <div className={`text-2xl font-bold ${getVarianceColor(currentVersion.costVariancePercent)}`}>
                   {getVarianceIcon(currentVersion.costVariancePercent)}
                   {Math.abs(currentVersion.costVariancePercent).toFixed(2)}%
                 </div>
-                <div className="text-sm text-gray-600">
-                  vs previous version
-                </div>
+                <div className="text-sm text-gray-600">vs previous version</div>
               </div>
             )}
           </div>
@@ -139,9 +131,7 @@ export default function VersionManagement({
           <div className="flex items-center space-x-3">
             <div className="text-right">
               <div className="text-sm text-gray-600">Total Cost</div>
-              <div className="text-2xl font-bold text-gray-900">
-                {formatCurrency(currentVersion.totalCost)}
-              </div>
+              <div className="text-2xl font-bold text-gray-900">{formatCurrency(currentVersion.totalCost)}</div>
             </div>
             {onCreateNewVersion && !currentVersion.lockedForOrders && (
               <button
@@ -149,12 +139,7 @@ export default function VersionManagement({
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
                 <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 New Version
               </button>
@@ -180,9 +165,7 @@ export default function VersionManagement({
           >
             <div className="flex items-center space-x-2">
               <svg
-                className={`h-5 w-5 text-gray-500 transition-transform ${
-                  isHistoryExpanded ? 'rotate-90' : ''
-                }`}
+                className={`h-5 w-5 text-gray-500 transition-transform ${isHistoryExpanded ? 'rotate-90' : ''}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -193,9 +176,7 @@ export default function VersionManagement({
                 Version History ({sortedVersions.length} versions)
               </span>
             </div>
-            <span className="text-sm text-gray-600">
-              {isHistoryExpanded ? 'Hide' : 'Show'}
-            </span>
+            <span className="text-sm text-gray-600">{isHistoryExpanded ? 'Hide' : 'Show'}</span>
           </button>
 
           {/* Version History List */}
@@ -214,50 +195,34 @@ export default function VersionManagement({
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-gray-900">
-                            Version {version.version}
-                          </span>
+                          <span className="font-semibold text-gray-900">Version {version.version}</span>
                           {version.id === currentVersion.id && (
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-                              Current
-                            </span>
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Current</span>
                           )}
                           {version.isApproved && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                              Approved
-                            </span>
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Approved</span>
                           )}
                           {version.lockedForOrders && (
-                            <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
-                              Locked
-                            </span>
+                            <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">Locked</span>
                           )}
                         </div>
                         <div className="text-xs text-gray-600 mt-1">
                           {formatDate(version.versionDate)} by {version.createdBy.name}
                         </div>
                         {version.versionReason && (
-                          <div className="text-sm text-gray-700 mt-2 italic">
-                            {version.versionReason}
-                          </div>
+                          <div className="text-sm text-gray-700 mt-2 italic">{version.versionReason}</div>
                         )}
                       </div>
 
                       <div className="flex items-center space-x-4 ml-4">
                         {version.costVariancePercent !== null && (
-                          <div
-                            className={`text-sm font-semibold ${getVarianceColor(
-                              version.costVariancePercent
-                            )}`}
-                          >
+                          <div className={`text-sm font-semibold ${getVarianceColor(version.costVariancePercent)}`}>
                             {getVarianceIcon(version.costVariancePercent)}
                             {Math.abs(version.costVariancePercent).toFixed(2)}%
                           </div>
                         )}
                         <div className="text-right">
-                          <div className="text-sm font-semibold text-gray-900">
-                            {formatCurrency(version.totalCost)}
-                          </div>
+                          <div className="text-sm font-semibold text-gray-900">{formatCurrency(version.totalCost)}</div>
                         </div>
                         <div className="flex items-center space-x-2">
                           {version.id !== currentVersion.id && (
@@ -321,9 +286,7 @@ export default function VersionManagement({
         </div>
         <div className="text-center">
           <div className="text-sm text-gray-600">Approved</div>
-          <div className="text-2xl font-bold text-green-600">
-            {sortedVersions.filter((v) => v.isApproved).length}
-          </div>
+          <div className="text-2xl font-bold text-green-600">{sortedVersions.filter((v) => v.isApproved).length}</div>
         </div>
         <div className="text-center">
           <div className="text-sm text-gray-600">Locked</div>

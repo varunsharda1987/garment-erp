@@ -72,9 +72,7 @@ export default function SeasonSelector({
     const term = searchTerm.toLowerCase();
     return seasons.filter(
       (s) =>
-        s.code.toLowerCase().includes(term) ||
-        s.name.toLowerCase().includes(term) ||
-        s.year.toString().includes(term)
+        s.code.toLowerCase().includes(term) || s.name.toLowerCase().includes(term) || s.year.toString().includes(term)
     );
   }, [seasons, searchTerm]);
 
@@ -121,14 +119,8 @@ export default function SeasonSelector({
         </Label>
       )}
 
-      <Select
-        value={value || undefined}
-        onValueChange={handleValueChange}
-        disabled={disabled || loading}
-      >
-        <SelectTrigger
-          className={`w-full ${error ? 'border-red-500' : ''}`}
-        >
+      <Select value={value || undefined} onValueChange={handleValueChange} disabled={disabled || loading}>
+        <SelectTrigger className={`w-full ${error ? 'border-red-500' : ''}`}>
           <SelectValue placeholder={loading ? 'Loading...' : placeholder}>
             {selectedSeason ? (
               <span className="flex items-center gap-2">
@@ -161,9 +153,7 @@ export default function SeasonSelector({
             </div>
           )}
 
-          {loadError && (
-            <div className="p-4 text-center text-red-500">{loadError}</div>
-          )}
+          {loadError && <div className="p-4 text-center text-red-500">{loadError}</div>}
 
           {!loading && !loadError && filteredSeasons.length === 0 && (
             <div className="p-4 text-center text-gray-500">
@@ -188,9 +178,7 @@ export default function SeasonSelector({
                 <SelectItem key={season.id} value={season.id}>
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                      season.seasonType === 'SS'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-blue-100 text-blue-800'
+                      season.seasonType === 'SS' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
                     }`}
                   >
                     {season.code}
@@ -255,11 +243,7 @@ export function SeasonSelectorSimple({
         </Label>
       )}
 
-      <Select
-        value={value || undefined}
-        onValueChange={handleValueChange}
-        disabled={disabled || loading}
-      >
+      <Select value={value || undefined} onValueChange={handleValueChange} disabled={disabled || loading}>
         <SelectTrigger className={`w-full ${error ? 'border-red-500' : ''}`}>
           <SelectValue placeholder={loading ? 'Loading...' : placeholder} />
         </SelectTrigger>

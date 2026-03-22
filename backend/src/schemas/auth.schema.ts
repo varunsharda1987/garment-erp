@@ -33,12 +33,19 @@ export const registerSchema = z.object({
     .max(50, 'Last name must be less than 50 characters')
     .trim(),
 
-  phone: z
-    .string()
-    .optional(),
+  phone: z.string().optional(),
 
-  role: z
-    .enum(['ADMIN', 'PRODUCTION_MANAGER', 'SALES', 'INVENTORY', 'ACCOUNTS', 'QUALITY', 'PURCHASE', 'FACTORY_SUPERVISOR', 'MERCHANDISER']),
+  role: z.enum([
+    'ADMIN',
+    'PRODUCTION_MANAGER',
+    'SALES',
+    'INVENTORY',
+    'ACCOUNTS',
+    'QUALITY',
+    'PURCHASE',
+    'FACTORY_SUPERVISOR',
+    'MERCHANDISER',
+  ]),
 });
 
 /**
@@ -51,9 +58,7 @@ export const loginSchema = z.object({
     .email('Invalid email format')
     .transform((val) => val.toLowerCase().trim()),
 
-  password: z
-    .string()
-    .min(1, 'Password is required'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 // Type exports for TypeScript

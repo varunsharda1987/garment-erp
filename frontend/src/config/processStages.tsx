@@ -26,11 +26,7 @@ import {
   PackageOpen,
   FileBarChart,
 } from 'lucide-react';
-import type {
-  ProcessStage,
-  MasterDataItem,
-  ProcessCategoryInfo,
-} from '@/types/processGuide.types';
+import type { ProcessStage, MasterDataItem, ProcessCategoryInfo } from '@/types/processGuide.types';
 
 export const processCategoryInfo: ProcessCategoryInfo[] = [
   {
@@ -170,12 +166,7 @@ export const processStages: ProcessStage[] = [
       { from: 'FEEDBACK_PENDING', to: 'REJECTED' },
       { from: 'REJECTED', to: 'REVISION_NEEDED' },
     ],
-    databaseModels: [
-      'samples',
-      'sample_measurements',
-      'sample_colorways',
-      'sample_size_sets',
-    ],
+    databaseModels: ['samples', 'sample_measurements', 'sample_colorways', 'sample_size_sets'],
     keyFields: [
       'sampleType (FIT_SAMPLE | PP_SAMPLE | SIZE_SET_SAMPLE)',
       'version (v1, v2, v3...)',
@@ -368,19 +359,8 @@ export const processStages: ProcessStage[] = [
       { from: 'PENDING', to: 'IN_PRODUCTION' },
       { from: 'IN_PRODUCTION', to: 'COMPLETED' },
     ],
-    databaseModels: [
-      'work_orders',
-      'work_order_breakup',
-      'production_tracking',
-    ],
-    keyFields: [
-      'workOrderNumber',
-      'orderId',
-      'orderItemId',
-      'styleId',
-      'targetQuantity',
-      'status',
-    ],
+    databaseModels: ['work_orders', 'work_order_breakup', 'production_tracking'],
+    keyFields: ['workOrderNumber', 'orderId', 'orderItemId', 'styleId', 'targetQuantity', 'status'],
     tips: [
       'One work order per order item',
       'Inherits color × size breakup from order item',
@@ -435,12 +415,7 @@ export const processStages: ProcessStage[] = [
       'purchase_order_items',
       'goods_receiving_notes',
     ],
-    keyFields: [
-      'requisitionNumber (MRQ2512-0001)',
-      'workOrderId',
-      'status',
-      'requestedDate',
-    ],
+    keyFields: ['requisitionNumber (MRQ2512-0001)', 'workOrderId', 'status', 'requestedDate'],
     tips: [
       'System checks stock availability first',
       'If stock insufficient, auto-creates purchase order',
@@ -489,13 +464,7 @@ export const processStages: ProcessStage[] = [
       { from: 'QC_DONE', to: 'STOCK_UPDATED' },
     ],
     databaseModels: ['lab_dips', 'job_work_orders', 'fabric_stock'],
-    keyFields: [
-      'labDipNumber',
-      'sampleType (DYEING | PRINTING)',
-      'colorMatchRating',
-      'jobWorkStatus',
-      'qualityGrade',
-    ],
+    keyFields: ['labDipNumber', 'sampleType (DYEING | PRINTING)', 'colorMatchRating', 'jobWorkStatus', 'qualityGrade'],
     tips: [
       'Lab dip approval required before bulk production',
       'Track color match ratings and resubmissions',
@@ -540,12 +509,7 @@ export const processStages: ProcessStage[] = [
       { from: 'PENDING', to: 'IN_PROGRESS' },
       { from: 'IN_PROGRESS', to: 'COMPLETED' },
     ],
-    databaseModels: [
-      'cutting_batches',
-      'cutting_batch_skus',
-      'cutting_batch_defects',
-      'transfer_slips',
-    ],
+    databaseModels: ['cutting_batches', 'cutting_batch_skus', 'cutting_batch_defects', 'transfer_slips'],
     keyFields: [
       'batchNumber (CB-WO2024-001-BODY-001)',
       'fabricConsumed (actual meters)',
@@ -601,15 +565,7 @@ export const processStages: ProcessStage[] = [
       'stitching_output_skus',
       'stage_receipts',
     ],
-    keyFields: [
-      'producedQty',
-      'checkedQty',
-      'passedQty',
-      'rejectedQty',
-      'repairedQty',
-      'alterationQty',
-      'passRate',
-    ],
+    keyFields: ['producedQty', 'checkedQty', 'passedQty', 'rejectedQty', 'repairedQty', 'alterationQty', 'passRate'],
     tips: [
       'Record receipt of transfer slip from cutting',
       'Track daily production output per SKU',
@@ -649,21 +605,8 @@ export const processStages: ProcessStage[] = [
       { from: 'PENDING', to: 'IN_PROGRESS' },
       { from: 'IN_PROGRESS', to: 'COMPLETED' },
     ],
-    databaseModels: [
-      'finishing_issues',
-      'finishing_issue_skus',
-      'finishing_daily_outputs',
-      'finishing_output_skus',
-    ],
-    keyFields: [
-      'receivedQty',
-      'finishedQty',
-      'ironedQty',
-      'taggedQty',
-      'checkedQty',
-      'passedQty',
-      'packReadyQty',
-    ],
+    databaseModels: ['finishing_issues', 'finishing_issue_skus', 'finishing_daily_outputs', 'finishing_output_skus'],
+    keyFields: ['receivedQty', 'finishedQty', 'ironedQty', 'taggedQty', 'checkedQty', 'passedQty', 'packReadyQty'],
     tips: [
       'Track ironing, tagging, and final QC separately',
       'packReadyQty indicates garments ready for packing',
@@ -709,12 +652,7 @@ export const processStages: ProcessStage[] = [
       { from: 'COMPLETED', to: 'PASS' },
       { from: 'COMPLETED', to: 'FAIL' },
     ],
-    databaseModels: [
-      'fabric_physical_tests',
-      'garment_physical_tests',
-      'quality_inspections_mfg',
-      'testing_labs',
-    ],
+    databaseModels: ['fabric_physical_tests', 'garment_physical_tests', 'quality_inspections_mfg', 'testing_labs'],
     keyFields: [
       'testNumber (FPT-xxx or GPT-xxx)',
       'testType',
@@ -758,12 +696,7 @@ export const processStages: ProcessStage[] = [
       { from: 'PENDING', to: 'IN_PROGRESS' },
       { from: 'IN_PROGRESS', to: 'COMPLETED' },
     ],
-    databaseModels: [
-      'polybag_entries',
-      'polybag_skus',
-      'carton_packings',
-      'carton_skus',
-    ],
+    databaseModels: ['polybag_entries', 'polybag_skus', 'carton_packings', 'carton_skus'],
     keyFields: [
       'polybagNumber (PB-WO2024-001-001)',
       'cartonNumber (CTN-WO2024-001-001)',
@@ -902,8 +835,7 @@ export const masterDataItems: MasterDataItem[] = [
     path: '/inventory/warehouses',
     icon: <Warehouse className="h-4 w-4" />,
     phase: 'foundation',
-    description:
-      'Define warehouse locations for inventory management (Raw Material, Finished Goods, WIP)',
+    description: 'Define warehouse locations for inventory management (Raw Material, Finished Goods, WIP)',
     priority: 2,
   },
 
@@ -914,8 +846,7 @@ export const masterDataItems: MasterDataItem[] = [
     path: '/customers',
     icon: <Building2 className="h-4 w-4" />,
     phase: 'business',
-    description:
-      'Configure customers with brand categories, testing requirements, and accessory presets',
+    description: 'Configure customers with brand categories, testing requirements, and accessory presets',
     priority: 3,
   },
   {
@@ -935,8 +866,7 @@ export const masterDataItems: MasterDataItem[] = [
     path: '/product-categories',
     icon: <FolderTree className="h-4 w-4" />,
     phase: 'masters',
-    description:
-      'Define 3-level product hierarchy (Main Category → Sub-Category → Type)',
+    description: 'Define 3-level product hierarchy (Main Category → Sub-Category → Type)',
     priority: 5,
   },
   {

@@ -34,13 +34,14 @@ export class PatternPartService {
         sortOrder: patternPartData.sortOrder || 0,
         isActive: patternPartData.isActive !== undefined ? patternPartData.isActive : true,
         // Create group associations if provided
-        ...(componentGroupIds && componentGroupIds.length > 0 && {
-          patternPartGroups: {
-            create: componentGroupIds.map(groupId => ({
-              componentGroupId: groupId,
-            })),
-          },
-        }),
+        ...(componentGroupIds &&
+          componentGroupIds.length > 0 && {
+            patternPartGroups: {
+              create: componentGroupIds.map((groupId) => ({
+                componentGroupId: groupId,
+              })),
+            },
+          }),
       },
       include: {
         _count: {
@@ -117,7 +118,7 @@ export class PatternPartService {
     ]);
 
     // Transform to include componentGroups array
-    const data = rawData.map(item => this.transformPatternPartResponse(item));
+    const data = rawData.map((item) => this.transformPatternPartResponse(item));
 
     return {
       data,
@@ -179,10 +180,7 @@ export class PatternPartService {
   /**
    * Update pattern part
    */
-  async updatePatternPart(
-    id: string,
-    data: UpdatePatternPartInput
-  ): Promise<PatternPartResponse> {
+  async updatePatternPart(id: string, data: UpdatePatternPartInput): Promise<PatternPartResponse> {
     // Check if pattern part exists
     const existing = await prisma.pattern_part_master.findUnique({
       where: { id },
@@ -216,7 +214,7 @@ export class PatternPartService {
         // Create new associations
         if (componentGroupIds.length > 0) {
           await tx.pattern_part_groups.createMany({
-            data: componentGroupIds.map(groupId => ({
+            data: componentGroupIds.map((groupId) => ({
               patternPartId: id,
               componentGroupId: groupId,
             })),
@@ -471,10 +469,7 @@ export class PatternPartService {
   /**
    * Remove pattern part from component
    */
-  async removePatternPartFromComponent(
-    componentId: string,
-    patternPartId: string
-  ): Promise<void> {
+  async removePatternPartFromComponent(componentId: string, patternPartId: string): Promise<void> {
     const existing = await prisma.component_pattern_parts.findUnique({
       where: {
         componentId_patternPartId: {

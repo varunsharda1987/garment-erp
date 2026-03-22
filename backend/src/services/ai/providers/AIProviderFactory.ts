@@ -54,9 +54,7 @@ export class AIProviderFactory {
    */
   static getProvider(): IAIProvider {
     if (!this.instance) {
-      throw new Error(
-        'AI Provider not initialized. Call AIProviderFactory.initialize() at app startup.'
-      );
+      throw new Error('AI Provider not initialized. Call AIProviderFactory.initialize() at app startup.');
     }
     return this.instance;
   }
@@ -110,9 +108,7 @@ export class AIProviderFactory {
 
       case 'anthropic':
         if (!config.apiKey) {
-          throw new Error(
-            'Anthropic API key is required. Set AI_API_KEY environment variable.'
-          );
+          throw new Error('Anthropic API key is required. Set AI_API_KEY environment variable.');
         }
         return new AnthropicProvider(config.apiKey, config.model);
 
@@ -128,9 +124,7 @@ export class AIProviderFactory {
 
       case 'kimi':
         if (!config.apiKey) {
-          throw new Error(
-            'Kimi (Moonshot) API key is required. Set AI_API_KEY environment variable.'
-          );
+          throw new Error('Kimi (Moonshot) API key is required. Set AI_API_KEY environment variable.');
         }
         return new KimiProvider(config.apiKey, config.model);
 
@@ -161,7 +155,10 @@ export class AIProviderFactory {
       }
       return isAvailable;
     } catch (error: unknown) {
-      logError(`[AIProviderFactory] Provider validation error: ${error instanceof Error ? error.message : 'Unknown error'}`, error);
+      logError(
+        `[AIProviderFactory] Provider validation error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error
+      );
       return false;
     }
   }

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+coverage/
+*.min.js
+*.min.css
+backend/prisma/migrations/
+backend/logs/
+frontend/.next/
+*.lock
+package-lock.json

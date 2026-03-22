@@ -164,7 +164,10 @@ Predict cost:`,
    * Find similar styles using embeddings (semantic search)
    * Demonstrates embedding generation
    */
-  async findSimilarStyles(styleDescription: string, limit: number = 5): Promise<{
+  async findSimilarStyles(
+    styleDescription: string,
+    limit: number = 5
+  ): Promise<{
     similarStyles: Array<{
       id: string;
       styleCode: string;

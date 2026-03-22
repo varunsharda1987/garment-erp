@@ -454,15 +454,11 @@ class ProcessingMovementService {
         // Calculate days in transit
         const now = new Date();
         const daysInTransit = Math.floor(
-          (now.getTime() - new Date(movement.dispatchDate).getTime()) /
-            (1000 * 60 * 60 * 24)
+          (now.getTime() - new Date(movement.dispatchDate).getTime()) / (1000 * 60 * 60 * 24)
         );
 
         // Check if delayed
-        if (
-          movement.expectedDeliveryDate &&
-          now > new Date(movement.expectedDeliveryDate)
-        ) {
+        if (movement.expectedDeliveryDate && now > new Date(movement.expectedDeliveryDate)) {
           acc.delayedCount += 1;
         }
 

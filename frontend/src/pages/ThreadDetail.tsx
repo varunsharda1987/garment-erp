@@ -8,7 +8,20 @@ import { StatusBadge } from '@/components/StatusBadge';
 import type { Thread } from '@/types/thread.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, Edit, Package, Palette, DollarSign, Building2, FileText, Users, Star, Check, X, Ruler } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Package,
+  Palette,
+  DollarSign,
+  Building2,
+  FileText,
+  Users,
+  Star,
+  Check,
+  X,
+  Ruler,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function ThreadDetail() {
@@ -19,7 +32,8 @@ export default function ThreadDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -108,9 +122,7 @@ export default function ThreadDetail() {
                   />
                 </div>
                 <p className="text-gray-600">Thread Code: {thread.threadCode}</p>
-                {thread.materialCode && (
-                  <p className="text-gray-500 text-sm">Material Code: {thread.materialCode}</p>
-                )}
+                {thread.materialCode && <p className="text-gray-500 text-sm">Material Code: {thread.materialCode}</p>}
               </div>
               {thread.image && (
                 <img
@@ -207,9 +219,7 @@ export default function ThreadDetail() {
               {thread.pricePerCone ? (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Price per Cone</label>
-                  <p className="text-gray-900 text-2xl font-semibold">
-                    {formatCurrency(thread.pricePerCone)}
-                  </p>
+                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(thread.pricePerCone)}</p>
                 </div>
               ) : (
                 <p className="text-gray-500 text-sm">No pricing information available</p>
@@ -258,10 +268,18 @@ export default function ThreadDetail() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price/Cone</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Supplier
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Price/Cone
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Notes
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -297,9 +315,7 @@ export default function ThreadDetail() {
                               </Badge>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
-                            {s.notes || '-'}
-                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{s.notes || '-'}</td>
                         </tr>
                       ))}
                     </tbody>

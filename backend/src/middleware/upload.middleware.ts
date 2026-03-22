@@ -65,7 +65,7 @@ const importFileFilter = (req: Request, file: Express.Multer.File, cb: multer.Fi
   const mimetypes = [
     'text/csv',
     'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   ];
   const mimetype = mimetypes.includes(file.mimetype);
 

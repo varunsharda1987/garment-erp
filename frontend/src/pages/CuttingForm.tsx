@@ -5,25 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
-import type {
-  CreateCuttingBatchRequest,
-} from '@/types/cutting.types';
+import type { CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Scissors, ArrowLeft, Save, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
@@ -121,12 +106,12 @@ export default function CuttingForm() {
     if (formData.workOrderId) {
       fetchWorkOrderBreakup(formData.workOrderId);
       // Load fabric stock from the selected WO's fabricIds
-      const wo = availableWorkOrders.find(w => w.id === formData.workOrderId);
+      const wo = availableWorkOrders.find((w) => w.id === formData.workOrderId);
       if (wo?.fabricIds?.length) {
         // Fetch fabric stock for each fabricId, merge results
-        Promise.all(wo.fabricIds.map(fid => cuttingSummaryService.getAvailableFabricStock(fid)))
-          .then(results => setFabricStocks(results.flat()))
-          .catch(err => console.error('Failed to fetch fabric stock:', err));
+        Promise.all(wo.fabricIds.map((fid) => cuttingSummaryService.getAvailableFabricStock(fid)))
+          .then((results) => setFabricStocks(results.flat()))
+          .catch((err) => console.error('Failed to fetch fabric stock:', err));
       } else {
         setFabricStocks([]);
       }
@@ -173,19 +158,21 @@ export default function CuttingForm() {
       const response = await api.get<{
         data: {
           breakup: any[];
-        }
+        };
       }>(`/work-orders/${workOrderId}`);
 
       // Serializer maps: workOrderBreakup→breakup, colorOptions→colors, sizeOptions→sizes
       const breakup = response.data.data.breakup || [];
-      setWorkOrderBreakup(breakup.map((b: any) => ({
-        colorId: b.colorId,
-        colorName: b.colors?.colorName || 'No Color',
-        sizeId: b.sizeId,
-        sizeName: b.sizes?.sizeName || 'Unknown',
-        plannedQuantity: b.plannedQuantity,
-        completedQuantity: b.completedQuantity || 0,
-      })));
+      setWorkOrderBreakup(
+        breakup.map((b: any) => ({
+          colorId: b.colorId,
+          colorName: b.colors?.colorName || 'No Color',
+          sizeId: b.sizeId,
+          sizeName: b.sizes?.sizeName || 'Unknown',
+          plannedQuantity: b.plannedQuantity,
+          completedQuantity: b.completedQuantity || 0,
+        }))
+      );
     } catch (err) {
       console.error('Failed to fetch work order breakup:', err);
     }
@@ -213,15 +200,17 @@ export default function CuttingForm() {
 
       // Set SKU plans from existing outputs
       if (batch.skuOutputs) {
-        setSkuPlans(batch.skuOutputs.map((sku) => ({
-          colorId: sku.colorId,
-          colorName: sku.color?.colorName || 'No Color',
-          sizeId: sku.sizeId,
-          sizeName: sku.size?.sizeName || 'Unknown',
-          orderQty: sku.orderQty,
-          extraAllowed: sku.extraAllowed,
-          toCut: sku.toCut,
-        })));
+        setSkuPlans(
+          batch.skuOutputs.map((sku) => ({
+            colorId: sku.colorId,
+            colorName: sku.color?.colorName || 'No Color',
+            sizeId: sku.sizeId,
+            sizeName: sku.size?.sizeName || 'Unknown',
+            orderQty: sku.orderQty,
+            extraAllowed: sku.extraAllowed,
+            toCut: sku.toCut,
+          }))
+        );
       }
     } catch (err) {
       handleApiError(err, 'Failed to load cutting batch');
@@ -232,9 +221,7 @@ export default function CuttingForm() {
   };
 
   const updateSkuToCut = (index: number, value: number) => {
-    setSkuPlans(skuPlans.map((sku, i) =>
-      i === index ? { ...sku, toCut: value } : sku
-    ));
+    setSkuPlans(skuPlans.map((sku, i) => (i === index ? { ...sku, toCut: value } : sku)));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -261,7 +248,7 @@ export default function CuttingForm() {
       handleApiError(null, 'Please enter number of lays');
       return;
     }
-    if (skuPlans.filter(s => s.toCut > 0).length === 0) {
+    if (skuPlans.filter((s) => s.toCut > 0).length === 0) {
       handleApiError(null, 'Please enter quantities to cut');
       return;
     }
@@ -283,8 +270,8 @@ export default function CuttingForm() {
         cuttingOperatorId: formData.cuttingOperatorId || undefined,
         remarks: formData.remarks || undefined,
         skuOutputs: skuPlans
-          .filter(s => s.toCut > 0)
-          .map(s => ({
+          .filter((s) => s.toCut > 0)
+          .map((s) => ({
             colorId: s.colorId,
             sizeId: s.sizeId,
             plannedQty: s.toCut,
@@ -307,8 +294,8 @@ export default function CuttingForm() {
     }
   };
 
-  const selectedWO = availableWorkOrders.find(wo => wo.id === formData.workOrderId);
-  const selectedFabric = fabricStocks.find(fs => fs.id === formData.fabricStockId);
+  const selectedWO = availableWorkOrders.find((wo) => wo.id === formData.workOrderId);
+  const selectedFabric = fabricStocks.find((fs) => fs.id === formData.fabricStockId);
   const totalToCut = skuPlans.reduce((sum, s) => sum + s.toCut, 0);
 
   if (isLoading) {
@@ -376,7 +363,9 @@ export default function CuttingForm() {
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Style:</span>
-                        <div className="font-medium">{selectedWO.styleCode} - {selectedWO.styleName}</div>
+                        <div className="font-medium">
+                          {selectedWO.styleCode} - {selectedWO.styleName}
+                        </div>
                       </div>
                       <div>
                         <span className="text-gray-500">Order Qty:</span>
@@ -412,7 +401,7 @@ export default function CuttingForm() {
                     <Select
                       value={formData.fabricStockId}
                       onValueChange={(v) => {
-                        const fabric = fabricStocks.find(f => f.id === v);
+                        const fabric = fabricStocks.find((f) => f.id === v);
                         setFormData({
                           ...formData,
                           fabricStockId: v,
@@ -422,12 +411,13 @@ export default function CuttingForm() {
                       disabled={!formData.workOrderId}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={fabricStocks.length ? "Select fabric lot" : "No fabric available"} />
+                        <SelectValue placeholder={fabricStocks.length ? 'Select fabric lot' : 'No fabric available'} />
                       </SelectTrigger>
                       <SelectContent>
                         {fabricStocks.map((fs) => (
                           <SelectItem key={fs.id} value={fs.id}>
-                            {fs.rollNumbers || fs.fabricName || 'Stock'} - {fs.quantityAvailable}m available ({fs.cutableWidth}cm width)
+                            {fs.rollNumbers || fs.fabricName || 'Stock'} - {fs.quantityAvailable}m available (
+                            {fs.cutableWidth}cm width)
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -554,9 +544,7 @@ export default function CuttingForm() {
                     </TableBody>
                   </Table>
                 ) : (
-                  <p className="text-gray-500 text-center py-8">
-                    Select a production run to see the quantity breakup
-                  </p>
+                  <p className="text-gray-500 text-center py-8">Select a production run to see the quantity breakup</p>
                 )}
               </CardContent>
             </Card>

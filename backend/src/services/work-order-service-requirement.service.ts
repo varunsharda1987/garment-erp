@@ -116,7 +116,7 @@ function mapServiceTypeToPOCategory(serviceType: ServiceType): POCategory {
   const mapping: Record<ServiceType, POCategory> = {
     [ServiceType.EMBROIDERY]: POCategory.EMBROIDERY_SERVICE,
     [ServiceType.PRINTING]: POCategory.PROCESSING, // Printing handled at Order level as PROCESSING
-    [ServiceType.DYEING]: POCategory.PROCESSING,   // Dyeing handled at Order level as PROCESSING
+    [ServiceType.DYEING]: POCategory.PROCESSING, // Dyeing handled at Order level as PROCESSING
     [ServiceType.WASHING]: POCategory.WASHING_SERVICE,
     [ServiceType.FINISHING]: POCategory.FINISHING_SERVICE,
     [ServiceType.CUTTING]: POCategory.CUTTING_SERVICE,
@@ -239,9 +239,7 @@ function mapToResponse(requirement: any): ServiceRequirementResponse {
  * Calculate service requirements from work order's style processes
  * Analyzes style_processes and creates service requirement records
  */
-export async function calculateRequirementsFromWorkOrder(
-  input: CalculateServicesInput
-): Promise<{
+export async function calculateRequirementsFromWorkOrder(input: CalculateServicesInput): Promise<{
   requirements: ServiceRequirementResponse[];
   summary: {
     totalServices: number;
@@ -624,11 +622,7 @@ export async function suggestProcessorForService(
           serviceCount: data.count,
           lastServiceDate: data.lastDate,
         }))
-        .sort(
-          (a, b) =>
-            b.serviceCount - a.serviceCount ||
-            b.lastServiceDate!.getTime() - a.lastServiceDate!.getTime()
-        );
+        .sort((a, b) => b.serviceCount - a.serviceCount || b.lastServiceDate!.getTime() - a.lastServiceDate!.getTime());
 
       const mostUsed = sorted[0];
 
@@ -816,9 +810,7 @@ export async function autoAssignProcessors(
 
   // Filter by confidence level
   const confidenceLevels = minConfidence === 'high' ? ['high'] : ['high', 'medium'];
-  const autoAssignable = suggestions.filter(
-    (s) => s.suggestedProcessorId && confidenceLevels.includes(s.confidence)
-  );
+  const autoAssignable = suggestions.filter((s) => s.suggestedProcessorId && confidenceLevels.includes(s.confidence));
 
   if (autoAssignable.length === 0) {
     return { assigned: 0, skipped: suggestions.length };
@@ -1129,8 +1121,7 @@ export async function bulkGenerateServicePOs(
 }> {
   logInfo('Generating multiple service POs', { groupCount: groups.length });
 
-  const purchaseOrders: Array<{ id: string; poNumber: string; processorId: string; totalAmount: number }> =
-    [];
+  const purchaseOrders: Array<{ id: string; poNumber: string; processorId: string; totalAmount: number }> = [];
   const errors: Array<{ processorId: string; error: string }> = [];
   let totalAmount = 0;
 
@@ -1224,9 +1215,7 @@ export async function getServiceRequirements(
 /**
  * Get service requirements summary for a work order
  */
-export async function getServiceRequirementsSummary(
-  workOrderId: string
-): Promise<ServiceRequirementsSummary> {
+export async function getServiceRequirementsSummary(workOrderId: string): Promise<ServiceRequirementsSummary> {
   const requirements = await prisma.work_order_service_requirements.findMany({
     where: { workOrderId },
   });
@@ -1285,9 +1274,7 @@ export async function getServiceRequirementsSummary(
 /**
  * Get service requirements summary for an entire order (across all work orders)
  */
-export async function getOrderServiceRequirementsSummary(
-  orderId: string
-): Promise<OrderServiceRequirementsSummary> {
+export async function getOrderServiceRequirementsSummary(orderId: string): Promise<OrderServiceRequirementsSummary> {
   // Find all work orders for this order
   const workOrders = await prisma.work_orders.findMany({
     where: { orderId },
@@ -1364,7 +1351,10 @@ export async function getOrderServiceRequirementsSummary(
     summary.byServiceType[serviceType].count++;
     if (req.status === ServiceRequirementStatus.PENDING) {
       summary.byServiceType[serviceType].pending++;
-    } else if (req.status === ServiceRequirementStatus.PO_GENERATED || req.status === ServiceRequirementStatus.IN_PROGRESS) {
+    } else if (
+      req.status === ServiceRequirementStatus.PO_GENERATED ||
+      req.status === ServiceRequirementStatus.IN_PROGRESS
+    ) {
       summary.byServiceType[serviceType].poGenerated++;
     }
   }
@@ -1467,10 +1457,7 @@ export async function getAllServiceRequirements(
 
   // Processor filter (check both assigned and preferred)
   if (filters?.processorId) {
-    where.OR = [
-      { assignedProcessorId: filters.processorId },
-      { preferredProcessorId: filters.processorId },
-    ];
+    where.OR = [{ assignedProcessorId: filters.processorId }, { preferredProcessorId: filters.processorId }];
   }
 
   const sortBy = filters?.sortBy || 'createdAt';

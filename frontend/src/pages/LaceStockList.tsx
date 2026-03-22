@@ -26,16 +26,7 @@ import {
   AGING_BUCKET_COLORS,
 } from '../types/laceStock.types';
 import { notify } from '../lib/notify';
-import {
-  Search,
-  RefreshCw,
-  Eye,
-  ArrowRightLeft,
-  Package,
-  AlertTriangle,
-  Clock,
-  TrendingDown,
-} from 'lucide-react';
+import { Search, RefreshCw, Eye, ArrowRightLeft, Package, AlertTriangle, Clock, TrendingDown } from 'lucide-react';
 
 export default function LaceStockList() {
   const navigate = useNavigate();
@@ -145,9 +136,7 @@ export default function LaceStockList() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Lace Stock</h1>
-          <p className="text-gray-500 mt-1">
-            Manage lace inventory with FIFO tracking and cross-style allocation
-          </p>
+          <p className="text-gray-500 mt-1">Manage lace inventory with FIFO tracking and cross-style allocation</p>
         </div>
         <Button onClick={() => navigate('/lace-stock/aging-report')}>
           <Clock className="h-4 w-4 mr-2" />
@@ -161,9 +150,7 @@ export default function LaceStockList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-green-600">
-                  {summary.totalAvailable.toLocaleString()}m
-                </div>
+                <div className="text-2xl font-bold text-green-600">{summary.totalAvailable.toLocaleString()}m</div>
                 <div className="text-sm text-gray-500">Available Stock</div>
               </div>
               <Package className="h-8 w-8 text-green-200" />
@@ -175,9 +162,7 @@ export default function LaceStockList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {summary.totalReserved.toLocaleString()}m
-                </div>
+                <div className="text-2xl font-bold text-blue-600">{summary.totalReserved.toLocaleString()}m</div>
                 <div className="text-sm text-gray-500">Reserved Stock</div>
               </div>
               <ArrowRightLeft className="h-8 w-8 text-blue-200" />
@@ -189,9 +174,7 @@ export default function LaceStockList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(summary.totalValue)}
-                </div>
+                <div className="text-2xl font-bold">{formatCurrency(summary.totalValue)}</div>
                 <div className="text-sm text-gray-500">Total Value</div>
               </div>
               <TrendingDown className="h-8 w-8 text-gray-200" />
@@ -229,7 +212,7 @@ export default function LaceStockList() {
 
         <Select
           value={statusFilter || '__all__'}
-          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : value as LaceStockStatus)}
+          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : (value as LaceStockStatus))}
         >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Statuses" />
@@ -246,7 +229,7 @@ export default function LaceStockList() {
 
         <Select
           value={stockTypeFilter || '__all__'}
-          onValueChange={(value) => setStockTypeFilter(value === '__all__' ? '' : value as LaceStockType)}
+          onValueChange={(value) => setStockTypeFilter(value === '__all__' ? '' : (value as LaceStockType))}
         >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Types" />
@@ -263,7 +246,7 @@ export default function LaceStockList() {
 
         <Select
           value={qualityFilter || '__all__'}
-          onValueChange={(value) => setQualityFilter(value === '__all__' ? '' : value as LaceQualityGrade)}
+          onValueChange={(value) => setQualityFilter(value === '__all__' ? '' : (value as LaceQualityGrade))}
         >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="All Grades" />
@@ -288,9 +271,7 @@ export default function LaceStockList() {
           {loading ? (
             <div className="text-center py-12">Loading...</div>
           ) : stocks.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              No lace stock found.
-            </div>
+            <div className="text-center py-12 text-gray-500">No lace stock found.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -331,23 +312,15 @@ export default function LaceStockList() {
                     return (
                       <tr key={stock.id} className="hover:bg-gray-50">
                         <td className="px-4 py-4">
-                          <div className="font-medium">
-                            {stock.laceMaster?.laceName || 'Unknown Lace'}
-                          </div>
-                          <div className="text-xs text-gray-500 font-mono">
-                            {getDisplayName(stock)}
-                          </div>
+                          <div className="font-medium">{stock.laceMaster?.laceName || 'Unknown Lace'}</div>
+                          <div className="text-xs text-gray-500 font-mono">{getDisplayName(stock)}</div>
                           {stock.dyeLotNumber && (
-                            <div className="text-xs text-purple-600">
-                              Dye Lot: {stock.dyeLotNumber}
-                            </div>
+                            <div className="text-xs text-purple-600">Dye Lot: {stock.dyeLotNumber}</div>
                           )}
                         </td>
                         <td className="px-4 py-4">
                           {stock.originStyleCode ? (
-                            <span className="font-mono text-sm">
-                              {stock.originStyleCode}
-                            </span>
+                            <span className="font-mono text-sm">{stock.originStyleCode}</span>
                           ) : (
                             <span className="text-gray-400 text-sm">Generic</span>
                           )}
@@ -358,31 +331,21 @@ export default function LaceStockList() {
                           </span>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <span className="text-blue-600">
-                            {stock.quantityReserved.toLocaleString()}m
-                          </span>
+                          <span className="text-blue-600">{stock.quantityReserved.toLocaleString()}m</span>
                         </td>
-                        <td className="px-4 py-4 text-right">
-                          {formatCurrency(stock.weightedAvgCost)}
-                        </td>
+                        <td className="px-4 py-4 text-right">{formatCurrency(stock.weightedAvgCost)}</td>
                         <td className="px-4 py-4 text-center">
-                          <Badge
-                            className={`${LACE_STOCK_STATUS_COLORS[stock.status]} border`}
-                          >
+                          <Badge className={`${LACE_STOCK_STATUS_COLORS[stock.status]} border`}>
                             {LACE_STOCK_STATUS_LABELS[stock.status]}
                           </Badge>
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <Badge
-                            className={`${LACE_QUALITY_GRADE_COLORS[stock.qualityGrade]} border`}
-                          >
+                          <Badge className={`${LACE_QUALITY_GRADE_COLORS[stock.qualityGrade]} border`}>
                             {stock.qualityGrade}
                           </Badge>
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <Badge className={`${AGING_BUCKET_COLORS[agingBucket]} border`}>
-                            {stock.agingDays}d
-                          </Badge>
+                          <Badge className={`${AGING_BUCKET_COLORS[agingBucket]} border`}>{stock.agingDays}d</Badge>
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex justify-end gap-2">
@@ -423,9 +386,7 @@ export default function LaceStockList() {
             variant="outline"
             size="sm"
             disabled={pagination.page === 1}
-            onClick={() =>
-              setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
-            }
+            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
           >
             Previous
           </Button>
@@ -436,9 +397,7 @@ export default function LaceStockList() {
             variant="outline"
             size="sm"
             disabled={pagination.page === pagination.pages}
-            onClick={() =>
-              setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
-            }
+            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
           >
             Next
           </Button>

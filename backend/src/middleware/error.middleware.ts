@@ -31,10 +31,7 @@ const generateRequestId = (): string => {
 /**
  * Map Prisma error codes to user-friendly messages
  */
-const handlePrismaError = (
-  error: Prisma.PrismaClientKnownRequestError,
-  requestId: string
-): ErrorResponse => {
+const handlePrismaError = (error: Prisma.PrismaClientKnownRequestError, requestId: string): ErrorResponse => {
   switch (error.code) {
     case 'P2002': {
       // Unique constraint violation
@@ -106,12 +103,7 @@ const handleZodError = (error: ZodError, requestId: string): ErrorResponse => {
  * Global error handler middleware
  * Should be registered as the last middleware in the Express app
  */
-export const errorHandler = (
-  error: Error,
-  req: Request,
-  res: Response,
-  _next: NextFunction
-): void => {
+export const errorHandler = (error: Error, req: Request, res: Response, _next: NextFunction): void => {
   // Generate or use existing request ID
   const requestId = (req.headers['x-request-id'] as string) || generateRequestId();
 
@@ -155,8 +147,7 @@ export const errorHandler = (
   // Handle Prisma known request errors
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     const prismaResponse = handlePrismaError(error, requestId);
-    const statusCode = prismaResponse.error === 'NOT_FOUND' ? 404 :
-                       prismaResponse.error === 'CONFLICT' ? 409 : 400;
+    const statusCode = prismaResponse.error === 'NOT_FOUND' ? 404 : prismaResponse.error === 'CONFLICT' ? 409 : 400;
 
     if (statusCode >= 500) {
       logError(`[${requestId}] Prisma error: ${error.code}`, { ...errorContext, stack: error.stack });
@@ -188,9 +179,7 @@ export const errorHandler = (
   });
 
   // Don't expose internal error details in production
-  const message = process.env.NODE_ENV === 'development'
-    ? error.message
-    : 'An unexpected error occurred';
+  const message = process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred';
 
   res.status(500).json({
     error: 'INTERNAL_ERROR',
@@ -221,7 +210,9 @@ export const notFoundHandler = (req: Request, res: Response): void => {
  * @example router.get('/users', asyncHandler(async (req, res) => { ... }));
  */
 export const asyncHandler = (
-  fn: ((req: Request, res: Response, next: NextFunction) => Promise<any>) | ((req: Request, res: Response) => Promise<any>)
+  fn:
+    | ((req: Request, res: Response, next: NextFunction) => Promise<any>)
+    | ((req: Request, res: Response) => Promise<any>)
 ) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     Promise.resolve((fn as any)(req, res, next)).catch(next);

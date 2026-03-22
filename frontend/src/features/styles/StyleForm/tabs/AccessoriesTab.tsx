@@ -6,13 +6,7 @@
 import { useStyleForm } from '../StyleFormContext';
 import { Button } from '../../../../components/ui/button';
 import { Card } from '../../../../components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Badge } from '../../../../components/ui/badge';
 import { Plus, Trash2, AlertCircle, Save } from 'lucide-react';
 
@@ -24,20 +18,9 @@ interface AccessoriesTabProps {
   loading: boolean;
 }
 
-export function AccessoriesTab({
-  onPrevious,
-  onOpenPicker,
-  onSaveAsDraft,
-  onSubmit,
-  loading,
-}: AccessoriesTabProps) {
+export function AccessoriesTab({ onPrevious, onOpenPicker, onSaveAsDraft, onSubmit, loading }: AccessoriesTabProps) {
   const { state, dispatch, removeAccessory } = useStyleForm();
-  const {
-    customerAccessoryPresets,
-    selectedAccessoryPresetId,
-    accessories,
-    isEditMode,
-  } = state;
+  const { customerAccessoryPresets, selectedAccessoryPresetId, accessories, isEditMode } = state;
 
   return (
     <div className="space-y-6">
@@ -95,16 +78,11 @@ export function AccessoriesTab({
                     <span className="font-medium text-sm">{accessory.materialName}</span>
                   </div>
                   <p className="text-xs text-gray-600 mt-1">
-                    Qty: {accessory.quantityPerGarment} {accessory.unit} ·
-                    Category: {accessory.usageCategory.replace('_', ' ')}
+                    Qty: {accessory.quantityPerGarment} {accessory.unit} · Category:{' '}
+                    {accessory.usageCategory.replace('_', ' ')}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeAccessory(index)}
-                >
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeAccessory(index)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -128,12 +106,7 @@ export function AccessoriesTab({
             <Save className="h-4 w-4" />
             Save as Draft
           </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            disabled={loading}
-            className="flex items-center gap-2"
-          >
+          <Button type="button" onClick={onSubmit} disabled={loading} className="flex items-center gap-2">
             <Save className="h-4 w-4" />
             {loading ? 'Saving...' : isEditMode ? 'Update Style' : 'Create Style'}
           </Button>

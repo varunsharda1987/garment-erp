@@ -91,13 +91,7 @@ export default function VirtualizedTable<T>({
 
   // Error state
   if (error) {
-    return (
-      <EmptyState
-        title="Error loading data"
-        description={error}
-        className={className}
-      />
-    );
+    return <EmptyState title="Error loading data" description={error} className={className} />;
   }
 
   // Empty state
@@ -122,19 +116,13 @@ export default function VirtualizedTable<T>({
       <div className="border rounded-lg overflow-hidden">
         {/* Header */}
         <div
-          className={cn(
-            'flex bg-muted/50 border-b font-semibold text-sm',
-            headerClassName
-          )}
+          className={cn('flex bg-muted/50 border-b font-semibold text-sm', headerClassName)}
           style={{ height: rowHeight }}
         >
           {columns.map((column) => (
             <div
               key={column.key}
-              className={cn(
-                'flex items-center px-4 py-2 truncate',
-                column.headerClassName
-              )}
+              className={cn('flex items-center px-4 py-2 truncate', column.headerClassName)}
               style={{
                 width: column.width || `${100 / columns.length}%`,
                 flexShrink: 0,
@@ -184,10 +172,7 @@ export default function VirtualizedTable<T>({
                   {columns.map((column) => (
                     <div
                       key={`${key}-${column.key}`}
-                      className={cn(
-                        'flex items-center px-4 py-2 truncate text-sm',
-                        column.className
-                      )}
+                      className={cn('flex items-center px-4 py-2 truncate text-sm', column.className)}
                       style={{
                         width: column.width || `${100 / columns.length}%`,
                         flexShrink: 0,

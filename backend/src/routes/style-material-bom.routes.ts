@@ -6,7 +6,7 @@ import {
   getStyleBOM,
   addMaterialToBOM,
   updateBOMItem,
-  deleteBOMItem
+  deleteBOMItem,
 } from '../controllers/style-material-bom.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

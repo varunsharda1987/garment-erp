@@ -77,7 +77,7 @@ export default function FabricDetail() {
         if (authStorage) {
           try {
             const { state } = JSON.parse(authStorage);
-            return state?.token ? { 'Authorization': `Bearer ${state.token}` } : {};
+            return state?.token ? { Authorization: `Bearer ${state.token}` } : {};
           } catch {
             return {};
           }
@@ -137,10 +137,7 @@ export default function FabricDetail() {
 
     try {
       await fabricService.delete(id);
-      handleApiSuccess(
-        'Fabric deleted',
-        `${fabric.fabricName} has been successfully deleted.`
-      );
+      handleApiSuccess('Fabric deleted', `${fabric.fabricName} has been successfully deleted.`);
       navigate('/fabric');
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete fabric master');
@@ -154,12 +151,12 @@ export default function FabricDetail() {
   const getTotalStockValue = () => {
     return stockEntries.reduce((sum, stock) => {
       const cost = stock.weightedAvgCost || stock.purchaseCost || 0;
-      return sum + (stock.quantityAvailable * cost);
+      return sum + stock.quantityAvailable * cost;
     }, 0);
   };
 
   const getPreferredCAD = () => {
-    return widthCADs.find(cad => cad.isPreferred);
+    return widthCADs.find((cad) => cad.isPreferred);
   };
 
   if (loading) {
@@ -211,9 +208,13 @@ export default function FabricDetail() {
 
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">Home</Link>
+        <Link to="/" className="hover:text-blue-600">
+          Home
+        </Link>
         {' > '}
-        <Link to="/fabric" className="hover:text-blue-600">Fabric Master</Link>
+        <Link to="/fabric" className="hover:text-blue-600">
+          Fabric Master
+        </Link>
         {' > '}
         <span className="font-medium text-gray-900">{fabric.fabricCode}</span>
       </div>
@@ -470,7 +471,9 @@ export default function FabricDetail() {
                 {fabric.valueAdditionCost && (
                   <div>
                     <label className="text-sm font-medium text-gray-500">Value Addition Cost</label>
-                    <div className="text-base font-semibold text-gray-900">{formatCurrency(fabric.valueAdditionCost)}/meter</div>
+                    <div className="text-base font-semibold text-gray-900">
+                      {formatCurrency(fabric.valueAdditionCost)}/meter
+                    </div>
                   </div>
                 )}
               </div>
@@ -512,25 +515,13 @@ export default function FabricDetail() {
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">
                           {cad.availableWidth} {cad.widthUnit}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {cad.cadMeters?.toFixed(3) || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {cad.cadYards?.toFixed(3) || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {cad.cadWastagePercent}%
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {cad.markerEfficiency?.toFixed(2) || '-'}%
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {cad.supplierAvailability || '-'}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{cad.cadMeters?.toFixed(3) || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{cad.cadYards?.toFixed(3) || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{cad.cadWastagePercent}%</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{cad.markerEfficiency?.toFixed(2) || '-'}%</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{cad.supplierAvailability || '-'}</td>
                         <td className="px-4 py-3">
-                          {cad.isPreferred && (
-                            <StatusBadge status="Preferred" variant="success" />
-                          )}
+                          {cad.isPreferred && <StatusBadge status="Preferred" variant="success" />}
                         </td>
                       </tr>
                     ))}
@@ -583,8 +574,11 @@ export default function FabricDetail() {
                           <StatusBadge
                             status={stock.qualityGrade}
                             variant={
-                              stock.qualityGrade === 'A' ? 'success' :
-                              stock.qualityGrade === 'B' ? 'warning' : 'destructive'
+                              stock.qualityGrade === 'A'
+                                ? 'success'
+                                : stock.qualityGrade === 'B'
+                                  ? 'warning'
+                                  : 'destructive'
                             }
                           />
                         </td>
@@ -602,8 +596,11 @@ export default function FabricDetail() {
                           <StatusBadge
                             status={stock.status}
                             variant={
-                              stock.status === 'AVAILABLE' ? 'success' :
-                              stock.status === 'RESERVED' ? 'warning' : 'secondary'
+                              stock.status === 'AVAILABLE'
+                                ? 'success'
+                                : stock.status === 'RESERVED'
+                                  ? 'warning'
+                                  : 'secondary'
                             }
                           />
                         </td>
@@ -629,9 +626,7 @@ export default function FabricDetail() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-medium text-gray-900">{supplierRel.supplier.name}</div>
                       <div className="flex gap-2">
-                        {supplierRel.isPreferred && (
-                          <StatusBadge status="Preferred" variant="success" />
-                        )}
+                        {supplierRel.isPreferred && <StatusBadge status="Preferred" variant="success" />}
                         <StatusBadge
                           status={supplierRel.isActive ? 'Active' : 'Inactive'}
                           variant={supplierRel.isActive ? 'success' : 'secondary'}
@@ -666,11 +661,7 @@ export default function FabricDetail() {
         )}
 
         {/* Allocated Styles - Read Only */}
-        <AllocatedStylesCard
-          allocations={allocations}
-          editable={false}
-          isLoading={loadingAllocations}
-        />
+        <AllocatedStylesCard allocations={allocations} editable={false} isLoading={loadingAllocations} />
       </div>
 
       {/* Delete Confirmation Dialog */}

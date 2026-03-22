@@ -22,17 +22,8 @@ export const createCostCenterSchema = z.object({
     .trim(),
   departmentId: z.string().uuid('Invalid department ID format').optional().nullable(),
   locationId: z.string().uuid('Invalid location ID format').optional().nullable(),
-  budgetAmount: z
-    .number()
-    .nonnegative('Budget amount must be non-negative')
-    .optional()
-    .nullable(),
-  description: z
-    .string()
-    .max(500, 'Description must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  budgetAmount: z.number().nonnegative('Budget amount must be non-negative').optional().nullable(),
+  description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -61,17 +52,8 @@ export const updateCostCenterSchema = z.object({
     .optional(),
   departmentId: z.string().uuid('Invalid department ID format').optional().nullable(),
   locationId: z.string().uuid('Invalid location ID format').optional().nullable(),
-  budgetAmount: z
-    .number()
-    .nonnegative('Budget amount must be non-negative')
-    .optional()
-    .nullable(),
-  description: z
-    .string()
-    .max(500, 'Description must not exceed 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  budgetAmount: z.number().nonnegative('Budget amount must be non-negative').optional().nullable(),
+  description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

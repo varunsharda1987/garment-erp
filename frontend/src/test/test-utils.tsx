@@ -6,10 +6,7 @@ import { BrowserRouter } from 'react-router-dom';
 /**
  * Custom render function that wraps components with necessary providers
  */
-function customRender(
-  ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>
-) {
+function customRender(ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) {
   const Wrapper = ({ children }: { children: React.ReactNode }) => {
     return <BrowserRouter>{children}</BrowserRouter>;
   };
@@ -26,7 +23,10 @@ export { customRender as render };
 /**
  * Mock API responses for testing
  */
-export const mockApiResponse = <T,>(data: T, pagination?: { page?: number; limit?: number; total?: number; totalPages?: number }) => ({
+export const mockApiResponse = <T,>(
+  data: T,
+  pagination?: { page?: number; limit?: number; total?: number; totalPages?: number }
+) => ({
   data,
   pagination: pagination || {
     page: 1,
@@ -85,8 +85,7 @@ export const createMockSupplier = (overrides = {}) => ({
 /**
  * Wait for async operations
  */
-export const waitForAsync = () =>
-  new Promise(resolve => setTimeout(resolve, 0));
+export const waitForAsync = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /**
  * Mock toast notifications

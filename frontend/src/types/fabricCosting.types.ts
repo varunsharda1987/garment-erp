@@ -456,8 +456,8 @@ export interface CostingOption {
   approvedAt: string | null;
   isLowestCost: boolean;
   orderQuantityPcs: number | null;
-  cadMeters: number | null;  // Layer length (total fabric for marker)
-  cadAverage: number | null;  // Per-piece consumption (cadMeters / piecesPerMarker)
+  cadMeters: number | null; // Layer length (total fabric for marker)
+  cadAverage: number | null; // Per-piece consumption (cadMeters / piecesPerMarker)
   purpose: CostingPurpose | null; // Workflow mode
   isLocked: boolean; // Locked for PRODUCTION records
   createdAt: string;

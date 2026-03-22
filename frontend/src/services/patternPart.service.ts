@@ -42,9 +42,7 @@ export const getPatternPartByCode = async (code: string): Promise<PatternPart> =
 /**
  * Create new pattern part
  */
-export const createPatternPart = async (
-  patternPartData: PatternPartFormData
-): Promise<PatternPart> => {
+export const createPatternPart = async (patternPartData: PatternPartFormData): Promise<PatternPart> => {
   const { data } = await api.post<PatternPartResponse>('/pattern-parts', patternPartData);
   return data.data;
 };
@@ -52,14 +50,8 @@ export const createPatternPart = async (
 /**
  * Update pattern part
  */
-export const updatePatternPart = async (
-  id: string,
-  patternPartData: PatternPartFormData
-): Promise<PatternPart> => {
-  const { data } = await api.put<PatternPartResponse>(
-    `/pattern-parts/${id}`,
-    patternPartData
-  );
+export const updatePatternPart = async (id: string, patternPartData: PatternPartFormData): Promise<PatternPart> => {
+  const { data } = await api.put<PatternPartResponse>(`/pattern-parts/${id}`, patternPartData);
   return data.data;
 };
 
@@ -73,8 +65,6 @@ export const deletePatternPart = async (id: string): Promise<void> => {
 /**
  * Reorder pattern parts
  */
-export const reorderPatternParts = async (
-  reorderData: ReorderPatternPartsInput
-): Promise<void> => {
+export const reorderPatternParts = async (reorderData: ReorderPatternPartsInput): Promise<void> => {
   await api.post('/pattern-parts/reorder', reorderData);
 };

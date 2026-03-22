@@ -24,7 +24,7 @@ export const SupplierCategory = {
   OTHER_SERVICES: 'OTHER_SERVICES',
 } as const;
 
-export type SupplierCategory = typeof SupplierCategory[keyof typeof SupplierCategory];
+export type SupplierCategory = (typeof SupplierCategory)[keyof typeof SupplierCategory];
 
 export const SupplierCategoryLabels: Record<SupplierCategory, string> = {
   FABRIC_SUPPLIER: 'Fabric Supplier',

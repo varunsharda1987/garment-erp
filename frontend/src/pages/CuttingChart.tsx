@@ -8,36 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
-import type {
-  CuttingChartData,
-  CreateCuttingBatchRequest,
-} from '@/types/cutting.types';
+import type { CuttingChartData, CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getUploadUrl } from '@/config/api.config';
-import {
-  Scissors,
-  ArrowLeft,
-  Save,
-  Loader2,
-  FileText,
-  Image as ImageIcon,
-} from 'lucide-react';
+import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon } from 'lucide-react';
 
 interface AvailableWorkOrder {
   id: string;
@@ -76,9 +53,10 @@ export default function CuttingChart() {
 
   // Load available work orders
   useEffect(() => {
-    cuttingSummaryService.getAvailableWorkOrders()
+    cuttingSummaryService
+      .getAvailableWorkOrders()
       .then(setAvailableWorkOrders)
-      .catch(err => console.error('Failed to fetch work orders:', err));
+      .catch((err) => console.error('Failed to fetch work orders:', err));
   }, []);
 
   // Load chart data when WO or color changes
@@ -94,10 +72,7 @@ export default function CuttingChart() {
     try {
       setIsLoading(true);
       setImageError(false);
-      const data = await cuttingSummaryService.getChartData(
-        selectedWorkOrderId,
-        selectedColorId || undefined
-      );
+      const data = await cuttingSummaryService.getChartData(selectedWorkOrderId, selectedColorId || undefined);
       setChartData(data);
       setCuttingDate(data.cuttingDate);
     } catch (err) {
@@ -110,7 +85,7 @@ export default function CuttingChart() {
   // Calculate cut quantities with extra %
   const sizesWithCutQty = useMemo(() => {
     if (!chartData) return [];
-    return chartData.sizes.map(s => ({
+    return chartData.sizes.map((s) => ({
       ...s,
       cutQty: Math.ceil(s.orderQty * (1 + extraPercent / 100)),
     }));
@@ -121,9 +96,7 @@ export default function CuttingChart() {
   // Check if all fabrics have PRODUCTION CAD (width + average)
   const fabricsMissingCAD = useMemo(() => {
     if (!chartData?.fabrics) return [];
-    return chartData.fabrics.filter(
-      (f: any) => !f.productionAverage || !f.productionWidth
-    );
+    return chartData.fabrics.filter((f: any) => !f.productionAverage || !f.productionWidth);
   }, [chartData]);
   const hasProductionCAD = fabricsMissingCAD.length === 0;
 
@@ -155,8 +128,10 @@ export default function CuttingChart() {
       const primaryFabric = fabricsWithLots[0];
       const primaryLotId = selectedLots[getFabricKey(primaryFabric)];
       const primaryLot = primaryFabric.lots.find((l: any) => l.lotId === primaryLotId);
-      const primaryCadAvg = primaryFabric.productionAverage || primaryFabric.rawMatCalcAverage || primaryFabric.costingAverage || 0;
-      const primaryCadWidth = primaryFabric.productionWidth || primaryFabric.rawMatCalcWidth || primaryFabric.costingWidth || 0;
+      const primaryCadAvg =
+        primaryFabric.productionAverage || primaryFabric.rawMatCalcAverage || primaryFabric.costingAverage || 0;
+      const primaryCadWidth =
+        primaryFabric.productionWidth || primaryFabric.rawMatCalcWidth || primaryFabric.costingWidth || 0;
 
       const requestData: CreateCuttingBatchRequest = {
         workOrderId: chartData.workOrderId,
@@ -168,8 +143,8 @@ export default function CuttingChart() {
         layersPerLay: 0,
         numberOfLays: 0,
         skuOutputs: sizesWithCutQty
-          .filter(s => s.cutQty > 0)
-          .map(s => ({
+          .filter((s) => s.cutQty > 0)
+          .map((s) => ({
             colorId,
             sizeId: s.sizeId,
             plannedQty: s.cutQty,
@@ -208,7 +183,7 @@ export default function CuttingChart() {
     return `/api/documents/cutting-chart/${chartData.workOrderId}/pdf?${params}`;
   }, [chartData, selectedColorId, extraPercent]);
 
-  const selectedWO = availableWorkOrders.find(wo => wo.id === selectedWorkOrderId);
+  const selectedWO = availableWorkOrders.find((wo) => wo.id === selectedWorkOrderId);
 
   if (isLoading && !chartData) {
     return (
@@ -244,7 +219,8 @@ export default function CuttingChart() {
           )}
           {chartData && !hasProductionCAD && (
             <span className="text-xs text-red-600 max-w-[300px] text-right">
-              Production CAD missing for: {fabricsMissingCAD.map((f: any) => f.part || f.fabricName).join(', ')}. Complete PRODUCTION CAD planning first.
+              Production CAD missing for: {fabricsMissingCAD.map((f: any) => f.part || f.fabricName).join(', ')}.
+              Complete PRODUCTION CAD planning first.
             </span>
           )}
           {chartData && (
@@ -413,7 +389,7 @@ export default function CuttingChart() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-24">Size</TableHead>
-                        {sizesWithCutQty.map(s => (
+                        {sizesWithCutQty.map((s) => (
                           <TableHead key={s.sizeId} className="text-center min-w-[80px]">
                             {s.sizeName}
                           </TableHead>
@@ -424,7 +400,7 @@ export default function CuttingChart() {
                     <TableBody>
                       <TableRow>
                         <TableCell className="font-medium text-gray-500">Ratio</TableCell>
-                        {sizesWithCutQty.map(s => (
+                        {sizesWithCutQty.map((s) => (
                           <TableCell key={s.sizeId} className="text-center text-gray-600">
                             {s.ratio}%
                           </TableCell>
@@ -433,21 +409,25 @@ export default function CuttingChart() {
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-medium text-gray-500">Order Qty</TableCell>
-                        {sizesWithCutQty.map(s => (
+                        {sizesWithCutQty.map((s) => (
                           <TableCell key={s.sizeId} className="text-center">
                             {s.orderQty}
                           </TableCell>
                         ))}
-                        <TableCell className="text-center font-semibold">{chartData.totalOrderQty.toLocaleString()}</TableCell>
+                        <TableCell className="text-center font-semibold">
+                          {chartData.totalOrderQty.toLocaleString()}
+                        </TableCell>
                       </TableRow>
                       <TableRow className="bg-orange-50">
                         <TableCell className="font-semibold text-orange-700">Cut Qty</TableCell>
-                        {sizesWithCutQty.map(s => (
+                        {sizesWithCutQty.map((s) => (
                           <TableCell key={s.sizeId} className="text-center font-semibold text-orange-700">
                             {s.cutQty}
                           </TableCell>
                         ))}
-                        <TableCell className="text-center font-bold text-orange-700">{totalCutQty.toLocaleString()}</TableCell>
+                        <TableCell className="text-center font-bold text-orange-700">
+                          {totalCutQty.toLocaleString()}
+                        </TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -484,8 +464,11 @@ export default function CuttingChart() {
                         <TableCell className="text-right">{fd.fabricOrdered.toFixed(1)}</TableCell>
                         <TableCell className="text-right">{fd.fabricReceived.toFixed(1)}</TableCell>
                         <TableCell className="text-right">{fd.cutableQty.toFixed(1)}</TableCell>
-                        <TableCell className={`text-right font-medium ${fd.extraShortage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {fd.extraShortage >= 0 ? '+' : ''}{fd.extraShortage.toFixed(1)}
+                        <TableCell
+                          className={`text-right font-medium ${fd.extraShortage >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                        >
+                          {fd.extraShortage >= 0 ? '+' : ''}
+                          {fd.extraShortage.toFixed(1)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -520,9 +503,15 @@ export default function CuttingChart() {
                         <TableHead rowSpan={2}>Part</TableHead>
                         <TableHead rowSpan={2}>Fabric</TableHead>
                         <TableHead rowSpan={2}>Color</TableHead>
-                        <TableHead colSpan={2} className="text-center border-l">Costing</TableHead>
-                        <TableHead colSpan={2} className="text-center border-l">Raw Mat Calc</TableHead>
-                        <TableHead colSpan={2} className="text-center border-l">Production</TableHead>
+                        <TableHead colSpan={2} className="text-center border-l">
+                          Costing
+                        </TableHead>
+                        <TableHead colSpan={2} className="text-center border-l">
+                          Raw Mat Calc
+                        </TableHead>
+                        <TableHead colSpan={2} className="text-center border-l">
+                          Production
+                        </TableHead>
                       </TableRow>
                       <TableRow>
                         <TableHead className="text-center border-l">Width</TableHead>
@@ -541,12 +530,20 @@ export default function CuttingChart() {
                             {f.fabricName}
                           </TableCell>
                           <TableCell>{f.fabricColor || '-'}</TableCell>
-                          <TableCell className="text-center border-l">{f.costingWidth ? `${f.costingWidth}"` : '-'}</TableCell>
+                          <TableCell className="text-center border-l">
+                            {f.costingWidth ? `${f.costingWidth}"` : '-'}
+                          </TableCell>
                           <TableCell className="text-center">{f.costingAverage?.toFixed(2) || '-'}</TableCell>
-                          <TableCell className="text-center border-l">{f.rawMatCalcWidth ? `${f.rawMatCalcWidth}"` : '-'}</TableCell>
+                          <TableCell className="text-center border-l">
+                            {f.rawMatCalcWidth ? `${f.rawMatCalcWidth}"` : '-'}
+                          </TableCell>
                           <TableCell className="text-center">{f.rawMatCalcAverage?.toFixed(2) || '-'}</TableCell>
-                          <TableCell className="text-center border-l font-semibold">{f.productionWidth ? `${f.productionWidth}"` : '-'}</TableCell>
-                          <TableCell className="text-center font-semibold">{f.productionAverage?.toFixed(2) || '-'}</TableCell>
+                          <TableCell className="text-center border-l font-semibold">
+                            {f.productionWidth ? `${f.productionWidth}"` : '-'}
+                          </TableCell>
+                          <TableCell className="text-center font-semibold">
+                            {f.productionAverage?.toFixed(2) || '-'}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -557,71 +554,74 @@ export default function CuttingChart() {
           )}
 
           {/* Lot Details */}
-          {chartData.fabrics.some(f => f.lots.length > 0) && (
+          {chartData.fabrics.some((f) => f.lots.length > 0) && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Lot Details</CardTitle>
                 <p className="text-sm text-gray-500">Select fabric lots to use for this cutting batch</p>
               </CardHeader>
               <CardContent>
-                {chartData.fabrics.filter((f: any) => f.lots.length > 0).map((fabric: any, fIdx: number) => {
-                  const fabricKey = fabric.fabricId || fabric.part;
-                  return (
-                  <div key={fIdx} className={fIdx > 0 ? 'mt-6' : ''}>
-                    {chartData.fabrics.filter((f: any) => f.lots.length > 0).length > 1 && (
-                      <>
-                        <p className="text-sm font-semibold text-gray-700 mb-2">{fabric.part} — {fabric.fabricName}</p>
-                        <Separator className="mb-3" />
-                      </>
-                    )}
-                    <RadioGroup
-                      value={selectedLots[fabricKey] || ''}
-                      onValueChange={(lotId) =>
-                        setSelectedLots(prev => ({ ...prev, [fabricKey]: lotId }))
-                      }
-                    >
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-10"></TableHead>
-                            <TableHead>Lot #</TableHead>
-                            <TableHead>Roll Numbers</TableHead>
-                            <TableHead className="text-center">Prod Width</TableHead>
-                            <TableHead className="text-right">Available (m)</TableHead>
-                            <TableHead>Grade</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {fabric.lots.map((lot: any) => (
-                            <TableRow
-                              key={lot.lotId}
-                              className={`cursor-pointer ${selectedLots[fabricKey] === lot.lotId ? 'bg-orange-50' : ''}`}
-                              onClick={() => setSelectedLots(prev => ({ ...prev, [fabricKey]: lot.lotId }))}
-                            >
-                              <TableCell>
-                                <RadioGroupItem value={lot.lotId} />
-                              </TableCell>
-                              <TableCell className="font-medium">Lot {lot.lotNumber}</TableCell>
-                              <TableCell>{lot.rollNumbers || '-'}</TableCell>
-                              <TableCell className="text-center">{lot.actualWidth}"</TableCell>
-                              <TableCell className="text-right font-medium">{lot.quantityAvailable.toFixed(1)}</TableCell>
-                              <TableCell>
-                                <Badge variant={lot.qualityGrade === 'A' ? 'default' : 'secondary'}>
-                                  {lot.qualityGrade}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </RadioGroup>
-                  </div>
-                  );
-                })}
+                {chartData.fabrics
+                  .filter((f: any) => f.lots.length > 0)
+                  .map((fabric: any, fIdx: number) => {
+                    const fabricKey = fabric.fabricId || fabric.part;
+                    return (
+                      <div key={fIdx} className={fIdx > 0 ? 'mt-6' : ''}>
+                        {chartData.fabrics.filter((f: any) => f.lots.length > 0).length > 1 && (
+                          <>
+                            <p className="text-sm font-semibold text-gray-700 mb-2">
+                              {fabric.part} — {fabric.fabricName}
+                            </p>
+                            <Separator className="mb-3" />
+                          </>
+                        )}
+                        <RadioGroup
+                          value={selectedLots[fabricKey] || ''}
+                          onValueChange={(lotId) => setSelectedLots((prev) => ({ ...prev, [fabricKey]: lotId }))}
+                        >
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-10"></TableHead>
+                                <TableHead>Lot #</TableHead>
+                                <TableHead>Roll Numbers</TableHead>
+                                <TableHead className="text-center">Prod Width</TableHead>
+                                <TableHead className="text-right">Available (m)</TableHead>
+                                <TableHead>Grade</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {fabric.lots.map((lot: any) => (
+                                <TableRow
+                                  key={lot.lotId}
+                                  className={`cursor-pointer ${selectedLots[fabricKey] === lot.lotId ? 'bg-orange-50' : ''}`}
+                                  onClick={() => setSelectedLots((prev) => ({ ...prev, [fabricKey]: lot.lotId }))}
+                                >
+                                  <TableCell>
+                                    <RadioGroupItem value={lot.lotId} />
+                                  </TableCell>
+                                  <TableCell className="font-medium">Lot {lot.lotNumber}</TableCell>
+                                  <TableCell>{lot.rollNumbers || '-'}</TableCell>
+                                  <TableCell className="text-center">{lot.actualWidth}"</TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {lot.quantityAvailable.toFixed(1)}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={lot.qualityGrade === 'A' ? 'default' : 'secondary'}>
+                                      {lot.qualityGrade}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </RadioGroup>
+                      </div>
+                    );
+                  })}
               </CardContent>
             </Card>
           )}
-
 
           {/* Existing Batches */}
           {chartData.existingBatches.length > 0 && (
@@ -656,10 +656,7 @@ export default function CuttingChart() {
           <DialogHeader className="p-4 pb-2">
             <DialogTitle>Cutting Chart Preview</DialogTitle>
           </DialogHeader>
-          <iframe
-            src={pdfPreviewUrl}
-            className="w-full flex-1 border-0 rounded-b-lg"
-          />
+          <iframe src={pdfPreviewUrl} className="w-full flex-1 border-0 rounded-b-lg" />
         </DialogContent>
       </Dialog>
     </div>

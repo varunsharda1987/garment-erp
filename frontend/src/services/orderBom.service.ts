@@ -42,17 +42,12 @@ export async function createFromCostSheet(
  * Get Order BOM for an order
  * GET /api/orders/:orderId/bom
  */
-export async function getByOrderId(
-  orderId: string,
-  styleId?: string
-): Promise<OrderBOM | null> {
+export async function getByOrderId(orderId: string, styleId?: string): Promise<OrderBOM | null> {
   const params = new URLSearchParams();
   if (styleId) params.append('styleId', styleId);
 
   try {
-    const response = await api.get<OrderBOMResponse>(
-      `/orders/${orderId}/bom?${params.toString()}`
-    );
+    const response = await api.get<OrderBOMResponse>(`/orders/${orderId}/bom?${params.toString()}`);
     return response.data.data;
   } catch (error: unknown) {
     // Return null if not found (404)
@@ -78,10 +73,7 @@ export async function updateOrderBOM(
   const params = new URLSearchParams();
   if (styleId) params.append('styleId', styleId);
 
-  const response = await api.put<OrderBOMResponse>(
-    `/orders/${orderId}/bom?${params.toString()}`,
-    data
-  );
+  const response = await api.put<OrderBOMResponse>(`/orders/${orderId}/bom?${params.toString()}`, data);
   return response.data.data;
 }
 
@@ -89,16 +81,11 @@ export async function updateOrderBOM(
  * Approve Order BOM
  * PATCH /api/orders/:orderId/bom/approve
  */
-export async function approveOrderBOM(
-  orderId: string,
-  styleId?: string
-): Promise<OrderBOM> {
+export async function approveOrderBOM(orderId: string, styleId?: string): Promise<OrderBOM> {
   const params = new URLSearchParams();
   if (styleId) params.append('styleId', styleId);
 
-  const response = await api.patch<OrderBOMResponse>(
-    `/orders/${orderId}/bom/approve?${params.toString()}`
-  );
+  const response = await api.patch<OrderBOMResponse>(`/orders/${orderId}/bom/approve?${params.toString()}`);
   return response.data.data;
 }
 
@@ -116,7 +103,12 @@ export async function approveAndCalculateMRP(
   }
 ): Promise<{
   bom: OrderBOM;
-  mrp: { created: number; updated: number; requirements: unknown[]; skipped: Array<{ componentName: string; materialType: string; reason: string }> } | null;
+  mrp: {
+    created: number;
+    updated: number;
+    requirements: unknown[];
+    skipped: Array<{ componentName: string; materialType: string; reason: string }>;
+  } | null;
   mrpCalculated: boolean;
   mrpError: string | null;
   mrpWarning: string | null;
@@ -135,7 +127,12 @@ export async function approveAndCalculateMRP(
     success: boolean;
     data: {
       bom: OrderBOM;
-      mrp: { created: number; updated: number; requirements: unknown[]; skipped: Array<{ componentName: string; materialType: string; reason: string }> } | null;
+      mrp: {
+        created: number;
+        updated: number;
+        requirements: unknown[];
+        skipped: Array<{ componentName: string; materialType: string; reason: string }>;
+      } | null;
       mrpCalculated: boolean;
       mrpError: string | null;
       mrpWarning: string | null;
@@ -188,16 +185,11 @@ export async function calculateMRPStandalone(
  * Lock Order BOM for production
  * PATCH /api/orders/:orderId/bom/lock
  */
-export async function lockOrderBOM(
-  orderId: string,
-  styleId?: string
-): Promise<OrderBOM> {
+export async function lockOrderBOM(orderId: string, styleId?: string): Promise<OrderBOM> {
   const params = new URLSearchParams();
   if (styleId) params.append('styleId', styleId);
 
-  const response = await api.patch<OrderBOMResponse>(
-    `/orders/${orderId}/bom/lock?${params.toString()}`
-  );
+  const response = await api.patch<OrderBOMResponse>(`/orders/${orderId}/bom/lock?${params.toString()}`);
   return response.data.data;
 }
 
@@ -210,10 +202,7 @@ export async function copyFromPreviousOrder(
   sourceOrderId: string,
   data: CopyOrderBOMRequest
 ): Promise<OrderBOM> {
-  const response = await api.post<OrderBOMResponse>(
-    `/orders/${targetOrderId}/bom/copy/${sourceOrderId}`,
-    data
-  );
+  const response = await api.post<OrderBOMResponse>(`/orders/${targetOrderId}/bom/copy/${sourceOrderId}`, data);
   return response.data.data;
 }
 
@@ -221,10 +210,7 @@ export async function copyFromPreviousOrder(
  * Calculate material requirements from Order BOM
  * GET /api/orders/:orderId/bom/requirements
  */
-export async function calculateRequirements(
-  orderId: string,
-  styleId?: string
-): Promise<OrderBOMRequirementsSummary> {
+export async function calculateRequirements(orderId: string, styleId?: string): Promise<OrderBOMRequirementsSummary> {
   const params = new URLSearchParams();
   if (styleId) params.append('styleId', styleId);
 
@@ -238,10 +224,7 @@ export async function calculateRequirements(
  * Deactivate Order BOM
  * DELETE /api/orders/:orderId/bom
  */
-export async function deactivateOrderBOM(
-  orderId: string,
-  styleId?: string
-): Promise<void> {
+export async function deactivateOrderBOM(orderId: string, styleId?: string): Promise<void> {
   const params = new URLSearchParams();
   if (styleId) params.append('styleId', styleId);
 
@@ -285,10 +268,7 @@ export async function getById(id: string): Promise<OrderBOM> {
  * Change fabric width on BOM (creates new version with recalculated consumption)
  * POST /api/order-bom/:id/change-width
  */
-export async function changeWidth(
-  bomId: string,
-  data: ChangeWidthRequest
-): Promise<OrderBOM> {
+export async function changeWidth(bomId: string, data: ChangeWidthRequest): Promise<OrderBOM> {
   const response = await api.post<OrderBOMResponse>(`/order-bom/${bomId}/change-width`, data);
   return response.data.data;
 }

@@ -21,9 +21,7 @@ export const createCostSheet = async (data: CreateCostSheetInput): Promise<CostS
 /**
  * Get all cost sheets with filtering and pagination
  */
-export const getAllCostSheets = async (
-  filters?: CostSheetListFilters
-): Promise<CostSheetListResponse> => {
+export const getAllCostSheets = async (filters?: CostSheetListFilters): Promise<CostSheetListResponse> => {
   const params = new URLSearchParams();
 
   if (filters?.page) params.append('page', filters.page.toString());
@@ -54,9 +52,7 @@ export const getCostSheetByStyle = async (styleId: string): Promise<CostSheet> =
 /**
  * Get all cost sheet versions for a style
  */
-export const getCostSheetVersionsByStyle = async (
-  styleId: string
-): Promise<CostSheet[]> => {
+export const getCostSheetVersionsByStyle = async (styleId: string): Promise<CostSheet[]> => {
   const response = await api.get(`${BASE_URL}/style/${styleId}/versions`);
   // Backend returns data as { currentVersion, allVersions, totalVersions }
   // We need to return the allVersions array
@@ -80,9 +76,7 @@ export interface CostSheetsGroupedByWidthResponse {
 /**
  * Get all cost sheets for a style grouped by width combination
  */
-export const getCostSheetsGroupedByWidth = async (
-  styleId: string
-): Promise<CostSheetsGroupedByWidthResponse> => {
+export const getCostSheetsGroupedByWidth = async (styleId: string): Promise<CostSheetsGroupedByWidthResponse> => {
   const response = await api.get(`${BASE_URL}/style/${styleId}/grouped`);
   return response.data.data;
 };
@@ -101,10 +95,7 @@ export const createCostSheetVersion = async (
 /**
  * Update cost sheet (only if not approved)
  */
-export const updateCostSheet = async (
-  id: string,
-  data: UpdateCostSheetInput
-): Promise<CostSheet> => {
+export const updateCostSheet = async (id: string, data: UpdateCostSheetInput): Promise<CostSheet> => {
   const response = await api.put(`${BASE_URL}/${id}`, data);
   return response.data.data;
 };
@@ -112,10 +103,7 @@ export const updateCostSheet = async (
 /**
  * Approve cost sheet
  */
-export const approveCostSheet = async (
-  id: string,
-  approved: boolean
-): Promise<CostSheet> => {
+export const approveCostSheet = async (id: string, approved: boolean): Promise<CostSheet> => {
   const response = await api.patch(`${BASE_URL}/${id}/approve`, { approved });
   return response.data.data;
 };
@@ -123,10 +111,7 @@ export const approveCostSheet = async (
 /**
  * Reject cost sheet with notes
  */
-export const rejectCostSheet = async (
-  id: string,
-  rejectionNotes: string
-): Promise<CostSheet> => {
+export const rejectCostSheet = async (id: string, rejectionNotes: string): Promise<CostSheet> => {
   const response = await api.patch(`${BASE_URL}/${id}/reject`, { rejectionNotes });
   return response.data.data;
 };

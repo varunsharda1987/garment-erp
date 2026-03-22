@@ -141,20 +141,14 @@ export default function FabricCostingRow({
         {/* Fabric Name */}
         <td className="px-4 py-3">
           <div className="text-sm font-medium text-gray-900">{fabricName}</div>
-          {fabricId && (
-            <div className="text-xs text-gray-500">ID: {fabricId.slice(0, 8)}...</div>
-          )}
+          {fabricId && <div className="text-xs text-gray-500">ID: {fabricId.slice(0, 8)}...</div>}
         </td>
 
         {/* CAD Meters */}
-        <td className="px-4 py-3 text-sm text-gray-900 text-center">
-          {cadMeters.toFixed(2)}m
-        </td>
+        <td className="px-4 py-3 text-sm text-gray-900 text-center">{cadMeters.toFixed(2)}m</td>
 
         {/* Width */}
-        <td className="px-4 py-3 text-sm text-gray-900 text-center">
-          {width}"
-        </td>
+        <td className="px-4 py-3 text-sm text-gray-900 text-center">{width}"</td>
 
         {/* Sourcing Strategy */}
         <td className="px-4 py-3">
@@ -180,25 +174,31 @@ export default function FabricCostingRow({
             <div className="flex flex-col">
               <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
                 <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                  />
                 </svg>
                 Not Linked
               </span>
-              <span className="text-xs text-orange-600 mt-1">
-                Link fabric in Style Form
-              </span>
+              <span className="text-xs text-orange-600 mt-1">Link fabric in Style Form</span>
             </div>
           ) : !hasRequiredFields ? (
             <div className="flex flex-col">
               <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
                 <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
                 </svg>
                 Missing Data
               </span>
-              <span className="text-xs text-amber-600 mt-1">
-                {cadMeters <= 0 ? 'No CAD data' : 'No width data'}
-              </span>
+              <span className="text-xs text-amber-600 mt-1">{cadMeters <= 0 ? 'No CAD data' : 'No width data'}</span>
             </div>
           ) : (
             <button
@@ -209,19 +209,8 @@ export default function FabricCostingRow({
             >
               {isLoading ? (
                 <>
-                  <svg
-                    className="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-blue-700"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
+                  <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-blue-700" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path
                       className="opacity-75"
                       fill="currentColor"
@@ -233,7 +222,12 @@ export default function FabricCostingRow({
               ) : (
                 <>
                   <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                    />
                   </svg>
                   Choose Sourcing
                 </>
@@ -243,7 +237,9 @@ export default function FabricCostingRow({
         </td>
 
         {/* Cost */}
-        <td className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+        <td
+          className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+        >
           {isNotApplicable ? 'N/A' : formatCurrency(currentCost)}
         </td>
 
@@ -281,11 +277,7 @@ export default function FabricCostingRow({
               </svg>
             </button>
             {onRemove && (
-              <button
-                onClick={onRemove}
-                className="text-red-600 hover:text-red-800"
-                title="Remove fabric"
-              >
+              <button onClick={onRemove} className="text-red-600 hover:text-red-800" title="Remove fabric">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"

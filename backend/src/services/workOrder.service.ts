@@ -9,7 +9,7 @@ export interface CreateWorkOrderDTO {
   stockProductionOrderId?: string | null;
   stockProductionOrderItemId?: string | null;
   styleId: string;
-  warehouseId?: string | null;  // Made optional for auto-creation
+  warehouseId?: string | null; // Made optional for auto-creation
   plannedStartDate: Date;
   plannedEndDate: Date;
   totalQuantity: number;
@@ -17,7 +17,7 @@ export interface CreateWorkOrderDTO {
   remarks?: string;
   createdById: string;
   colorSizeBreakup: Array<{
-    colorId: string | null;  // Nullable for size-only orders
+    colorId: string | null; // Nullable for size-only orders
     sizeId: string;
     quantity: number;
   }>;
@@ -28,7 +28,7 @@ export interface SplitWorkOrderDTO {
   breakupToSplit: Array<{
     colorId: string | null;
     sizeId: string;
-    quantity: number;  // Quantity to move to new work order
+    quantity: number; // Quantity to move to new work order
   }>;
   remarks?: string;
 }
@@ -112,7 +112,7 @@ class WorkOrderService {
         stockProductionOrderId: data.stockProductionOrderId || null,
         stockProductionOrderItemId: data.stockProductionOrderItemId || null,
         styleId: data.styleId,
-        warehouseId: data.warehouseId || null,  // Handle nullable warehouseId
+        warehouseId: data.warehouseId || null, // Handle nullable warehouseId
         plannedStartDate: data.plannedStartDate,
         plannedEndDate: data.plannedEndDate,
         totalQuantity: data.totalQuantity,
@@ -122,9 +122,9 @@ class WorkOrderService {
         remarks: data.remarks,
         createdById: data.createdById,
         work_order_breakup: {
-          create: data.colorSizeBreakup.map(breakup => ({
+          create: data.colorSizeBreakup.map((breakup) => ({
             id: randomUUID(),
-            colorId: breakup.colorId || null,  // Handle nullable colorId
+            colorId: breakup.colorId || null, // Handle nullable colorId
             sizeId: breakup.sizeId,
             plannedQuantity: breakup.quantity,
             completedQuantity: 0,
@@ -512,11 +512,7 @@ class WorkOrderService {
   /**
    * Add production tracking update
    */
-  async addProductionTracking(
-    data: ProductionTrackingDTO,
-    isAdminOverride: boolean = false,
-    overrideReason?: string
-  ) {
+  async addProductionTracking(data: ProductionTrackingDTO, isAdminOverride: boolean = false, overrideReason?: string) {
     // Import validation service
     const { productionBlockingValidationService } = await import('./productionBlockingValidation.service');
 
@@ -528,9 +524,7 @@ class WorkOrderService {
     );
 
     if (validation.isBlocked) {
-      throw new Error(
-        `Stage transition blocked: ${validation.blockers.map(b => b.message).join('; ')}`
-      );
+      throw new Error(`Stage transition blocked: ${validation.blockers.map((b) => b.message).join('; ')}`);
     }
 
     // Log override if admin bypassed blocks
@@ -589,7 +583,10 @@ class WorkOrderService {
             status: OrderStatus.IN_PRODUCTION,
           },
         });
-      } else if (data.productionStage === ProductionStage.PACKING && data.quantityCompleted >= workOrder.totalQuantity) {
+      } else if (
+        data.productionStage === ProductionStage.PACKING &&
+        data.quantityCompleted >= workOrder.totalQuantity
+      ) {
         // Mark as completed when packing is done
         await prisma.work_orders.update({
           where: { id: data.workOrderId },
@@ -772,8 +769,8 @@ class WorkOrderService {
     }
 
     // Map order item breakup to work order breakup format
-    const colorSizeBreakup = orderItem.order_item_breakup.map(breakup => ({
-      colorId: breakup.colorId,  // Can be null for size-only orders
+    const colorSizeBreakup = orderItem.order_item_breakup.map((breakup) => ({
+      colorId: breakup.colorId, // Can be null for size-only orders
       sizeId: breakup.sizeId,
       quantity: breakup.quantity,
     }));
@@ -783,7 +780,7 @@ class WorkOrderService {
       orderId,
       orderItemId,
       styleId: orderItem.styleId,
-      warehouseId: null,  // Warehouse to be assigned later
+      warehouseId: null, // Warehouse to be assigned later
       plannedStartDate: orderData.plannedStartDate,
       plannedEndDate: orderData.plannedEndDate,
       totalQuantity: orderItem.totalQuantity,
@@ -821,7 +818,7 @@ class WorkOrderService {
     let totalSplitQty = 0;
     for (const splitItem of data.breakupToSplit) {
       const originalBreakup = originalWorkOrder.work_order_breakup.find(
-        b => b.colorId === splitItem.colorId && b.sizeId === splitItem.sizeId
+        (b) => b.colorId === splitItem.colorId && b.sizeId === splitItem.sizeId
       );
 
       if (!originalBreakup) {
@@ -870,8 +867,8 @@ class WorkOrderService {
           createdById: userId,
           work_order_breakup: {
             create: data.breakupToSplit
-              .filter(item => item.quantity > 0)
-              .map(item => ({
+              .filter((item) => item.quantity > 0)
+              .map((item) => ({
                 id: randomUUID(),
                 colorId: item.colorId,
                 sizeId: item.sizeId,
@@ -887,7 +884,7 @@ class WorkOrderService {
         if (splitItem.quantity <= 0) continue;
 
         const originalBreakup = originalWorkOrder.work_order_breakup.find(
-          b => b.colorId === splitItem.colorId && b.sizeId === splitItem.sizeId
+          (b) => b.colorId === splitItem.colorId && b.sizeId === splitItem.sizeId
         );
 
         if (originalBreakup) {

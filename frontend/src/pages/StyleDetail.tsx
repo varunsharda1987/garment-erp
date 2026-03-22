@@ -6,13 +6,7 @@ import { PRODUCTION_STAGE_LABELS } from '@/types/style.types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { logError } from '@/lib/logger';
 import { getUploadUrl } from '../config/api.config';
@@ -59,7 +53,10 @@ export default function StyleDetail() {
       setStyle(data);
     } catch (err: unknown) {
       logError('Error loading style:', err);
-      setError((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to load style details');
+      setError(
+        (err as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Failed to load style details'
+      );
     } finally {
       setLoading(false);
     }
@@ -84,7 +81,10 @@ export default function StyleDetail() {
       alert('Production stage updated successfully!');
     } catch (err: unknown) {
       logError('Error updating stage:', err);
-      alert((err as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update production stage');
+      alert(
+        (err as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Failed to update production stage'
+      );
     } finally {
       setUpdatingStage(false);
       setPendingStage(null);
@@ -127,17 +127,13 @@ export default function StyleDetail() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{style.styleCode}</h1>
-            {style.styleName && (
-              <p className="text-lg text-gray-600 mt-1">{style.styleName}</p>
-            )}
+            {style.styleName && <p className="text-lg text-gray-600 mt-1">{style.styleName}</p>}
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => navigate('/styles')}>
               Back to List
             </Button>
-            <Button onClick={() => navigate(`/styles/${style.id}/edit`)}>
-              Edit Style
-            </Button>
+            <Button onClick={() => navigate(`/styles/${style.id}/edit`)}>Edit Style</Button>
           </div>
         </div>
 
@@ -177,9 +173,7 @@ export default function StyleDetail() {
                     <p className="text-2xl font-bold text-blue-700">
                       {style.components?.length || style.numberOfComponents || 0}
                     </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      Garment parts in this style
-                    </p>
+                    <p className="text-xs text-blue-600 mt-1">Garment parts in this style</p>
                   </CardContent>
                 </Card>
 
@@ -188,11 +182,9 @@ export default function StyleDetail() {
                   <CardContent className="p-4">
                     <p className="text-sm font-medium text-purple-600">Bill of Materials</p>
                     <p className="text-lg font-bold text-purple-700">
-                      {style.styleMaterialBom?.filter(bom => bom.usageCategory === 'GARMENT_TRIM').length || 0} Trims
+                      {style.styleMaterialBom?.filter((bom) => bom.usageCategory === 'GARMENT_TRIM').length || 0} Trims
                     </p>
-                    <p className="text-xs text-purple-600 mt-1">
-                      {style.packaging?.length || 0} Packaging Items
-                    </p>
+                    <p className="text-xs text-purple-600 mt-1">{style.packaging?.length || 0} Packaging Items</p>
                   </CardContent>
                 </Card>
               </div>
@@ -221,7 +213,7 @@ export default function StyleDetail() {
                     )}
 
                     {/* Basic Info Grid */}
-                    <div className={style.imageUrl ? "lg:col-span-2" : "lg:col-span-3"}>
+                    <div className={style.imageUrl ? 'lg:col-span-2' : 'lg:col-span-3'}>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
                           <p className="text-sm font-medium text-gray-500">Style Code</p>
@@ -272,16 +264,10 @@ export default function StyleDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-3">
-                    <Button
-                      onClick={() => navigate(`/orders/new?styleId=${style.id}`)}
-                      size="lg"
-                    >
+                    <Button onClick={() => navigate(`/orders/new?styleId=${style.id}`)} size="lg">
                       Create Order from This Style
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate(`/styles/${style.id}/costing`)}
-                    >
+                    <Button variant="outline" onClick={() => navigate(`/styles/${style.id}/costing`)}>
                       {style.costing ? 'View Costing' : 'Add Costing'}
                     </Button>
                   </div>
@@ -318,7 +304,9 @@ export default function StyleDetail() {
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
                                       <div>
                                         <span className="font-medium text-gray-600">Generic Greige Name:</span>
-                                        <span className="ml-1">{fabric.genericGreigeName || fabric.fabric?.genericGreigeName || '-'}</span>
+                                        <span className="ml-1">
+                                          {fabric.genericGreigeName || fabric.fabric?.genericGreigeName || '-'}
+                                        </span>
                                       </div>
                                       <div>
                                         <span className="font-medium text-gray-600">Fabric Finish Type:</span>
@@ -357,37 +345,73 @@ export default function StyleDetail() {
                                       )}
                                     </div>
                                     {/* Embroidery Info */}
-                                    {fabric.hasEmbroidery && (fabric as { embroidery?: { embroideryCode?: string; designName?: string; stitchCount?: number; costPerMeter?: number } }).embroidery && (
-                                      <div className="mt-3 pt-3 border-t border-blue-200">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded">
-                                            Has Embroidery
-                                          </span>
-                                        </div>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                                          <div>
-                                            <span className="font-medium text-purple-600">Code:</span>
-                                            <span className="ml-1">{(fabric as { embroidery?: { embroideryCode?: string } }).embroidery?.embroideryCode}</span>
+                                    {fabric.hasEmbroidery &&
+                                      (
+                                        fabric as {
+                                          embroidery?: {
+                                            embroideryCode?: string;
+                                            designName?: string;
+                                            stitchCount?: number;
+                                            costPerMeter?: number;
+                                          };
+                                        }
+                                      ).embroidery && (
+                                        <div className="mt-3 pt-3 border-t border-blue-200">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded">
+                                              Has Embroidery
+                                            </span>
                                           </div>
-                                          <div>
-                                            <span className="font-medium text-purple-600">Design:</span>
-                                            <span className="ml-1">{(fabric as { embroidery?: { designName?: string } }).embroidery?.designName}</span>
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                            <div>
+                                              <span className="font-medium text-purple-600">Code:</span>
+                                              <span className="ml-1">
+                                                {
+                                                  (fabric as { embroidery?: { embroideryCode?: string } }).embroidery
+                                                    ?.embroideryCode
+                                                }
+                                              </span>
+                                            </div>
+                                            <div>
+                                              <span className="font-medium text-purple-600">Design:</span>
+                                              <span className="ml-1">
+                                                {
+                                                  (fabric as { embroidery?: { designName?: string } }).embroidery
+                                                    ?.designName
+                                                }
+                                              </span>
+                                            </div>
+                                            {(fabric as { embroidery?: { stitchCount?: number } }).embroidery
+                                              ?.stitchCount &&
+                                              (fabric as { embroidery?: { stitchCount?: number } }).embroidery!
+                                                .stitchCount! > 0 && (
+                                                <div>
+                                                  <span className="font-medium text-purple-600">Stitch Count:</span>
+                                                  <span className="ml-1">
+                                                    {(
+                                                      fabric as { embroidery?: { stitchCount?: number } }
+                                                    ).embroidery?.stitchCount?.toLocaleString()}
+                                                  </span>
+                                                </div>
+                                              )}
+                                            {(fabric as { embroidery?: { costPerMeter?: number } }).embroidery
+                                              ?.costPerMeter &&
+                                              (fabric as { embroidery?: { costPerMeter?: number } }).embroidery!
+                                                .costPerMeter! > 0 && (
+                                                <div>
+                                                  <span className="font-medium text-purple-600">Cost/m:</span>
+                                                  <span className="ml-1">
+                                                    ₹
+                                                    {
+                                                      (fabric as { embroidery?: { costPerMeter?: number } }).embroidery
+                                                        ?.costPerMeter
+                                                    }
+                                                  </span>
+                                                </div>
+                                              )}
                                           </div>
-                                          {(fabric as { embroidery?: { stitchCount?: number } }).embroidery?.stitchCount && (fabric as { embroidery?: { stitchCount?: number } }).embroidery!.stitchCount! > 0 && (
-                                            <div>
-                                              <span className="font-medium text-purple-600">Stitch Count:</span>
-                                              <span className="ml-1">{(fabric as { embroidery?: { stitchCount?: number } }).embroidery?.stitchCount?.toLocaleString()}</span>
-                                            </div>
-                                          )}
-                                          {(fabric as { embroidery?: { costPerMeter?: number } }).embroidery?.costPerMeter && (fabric as { embroidery?: { costPerMeter?: number } }).embroidery!.costPerMeter! > 0 && (
-                                            <div>
-                                              <span className="font-medium text-purple-600">Cost/m:</span>
-                                              <span className="ml-1">₹{(fabric as { embroidery?: { costPerMeter?: number } }).embroidery?.costPerMeter}</span>
-                                            </div>
-                                          )}
                                         </div>
-                                      </div>
-                                    )}
+                                      )}
                                   </div>
                                 ))}
                               </div>
@@ -400,7 +424,10 @@ export default function StyleDetail() {
                               <h4 className="font-medium mb-2 text-amber-700">Materials/Accessories:</h4>
                               <div className="space-y-2">
                                 {component.accessories.map((accessory) => (
-                                  <div key={accessory.id} className="bg-amber-50 p-3 rounded border border-amber-100 text-sm">
+                                  <div
+                                    key={accessory.id}
+                                    className="bg-amber-50 p-3 rounded border border-amber-100 text-sm"
+                                  >
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                       <div>
                                         <span className="font-medium text-gray-600">Material Name:</span>
@@ -412,7 +439,9 @@ export default function StyleDetail() {
                                       </div>
                                       <div>
                                         <span className="font-medium text-gray-600">Quantity Per Garment:</span>
-                                        <span className="ml-1">{accessory.quantityPerPiece} {accessory.unit}</span>
+                                        <span className="ml-1">
+                                          {accessory.quantityPerPiece} {accessory.unit}
+                                        </span>
                                       </div>
                                       {accessory.supplierName && (
                                         <div>
@@ -443,17 +472,20 @@ export default function StyleDetail() {
                 <CardContent className="pt-4">
                   {(() => {
                     // Filter trims from styleMaterialBom
-                    const garmentTrims = style.styleMaterialBom?.filter(
-                      (bom) => bom.usageCategory === 'GARMENT_TRIM'
-                    ) || [];
+                    const garmentTrims =
+                      style.styleMaterialBom?.filter((bom) => bom.usageCategory === 'GARMENT_TRIM') || [];
 
                     // Helper to get trim name and code from the appropriate master
-                    const getTrimDetails = (bom: typeof garmentTrims[0]) => {
+                    const getTrimDetails = (bom: (typeof garmentTrims)[0]) => {
                       if (bom.laceMaster) return { name: bom.laceMaster.laceName, code: bom.laceMaster.laceCode };
-                      if (bom.buttonMaster) return { name: bom.buttonMaster.buttonName, code: bom.buttonMaster.buttonCode };
-                      if (bom.threadMaster) return { name: bom.threadMaster.threadName, code: bom.threadMaster.threadCode };
-                      if (bom.zipperMaster) return { name: bom.zipperMaster.zipperName, code: bom.zipperMaster.zipperCode };
-                      if (bom.elasticMaster) return { name: bom.elasticMaster.elasticName, code: bom.elasticMaster.elasticCode };
+                      if (bom.buttonMaster)
+                        return { name: bom.buttonMaster.buttonName, code: bom.buttonMaster.buttonCode };
+                      if (bom.threadMaster)
+                        return { name: bom.threadMaster.threadName, code: bom.threadMaster.threadCode };
+                      if (bom.zipperMaster)
+                        return { name: bom.zipperMaster.zipperName, code: bom.zipperMaster.zipperCode };
+                      if (bom.elasticMaster)
+                        return { name: bom.elasticMaster.elasticName, code: bom.elasticMaster.elasticCode };
                       return { name: 'Unknown', code: '' };
                     };
 
@@ -476,9 +508,7 @@ export default function StyleDetail() {
                                         </span>
                                       )}
                                     </div>
-                                    {details.code && (
-                                      <p className="text-xs text-gray-400">{details.code}</p>
-                                    )}
+                                    {details.code && <p className="text-xs text-gray-400">{details.code}</p>}
                                   </div>
                                   <div>
                                     <p className="font-medium text-gray-500">Trim Type</p>
@@ -491,8 +521,7 @@ export default function StyleDetail() {
                                     <p className="text-base font-semibold">
                                       {isBulkItem
                                         ? `₹ ${trim.quantityPerGarment}`
-                                        : `${trim.quantityPerGarment} ${trim.unit}`
-                                      }
+                                        : `${trim.quantityPerGarment} ${trim.unit}`}
                                     </p>
                                   </div>
                                   {trim.componentName && (
@@ -521,14 +550,19 @@ export default function StyleDetail() {
                 <CardContent className="pt-4">
                   {(() => {
                     // Filter packaging from styleMaterialBom
-                    const packagingItems = style.styleMaterialBom?.filter(
-                      (bom) => bom.usageCategory === 'PACKAGING'
-                    ) || [];
+                    const packagingItems =
+                      style.styleMaterialBom?.filter((bom) => bom.usageCategory === 'PACKAGING') || [];
 
                     // Helper to get packaging name and code from the appropriate master
-                    const getPackagingDetails = (bom: typeof packagingItems[0]) => {
-                      if (bom.labelMaster) return { name: bom.labelMaster.labelName, code: bom.labelMaster.labelCode, type: 'Label' };
-                      if (bom.packagingMaster) return { name: bom.packagingMaster.packagingName, code: bom.packagingMaster.packagingCode, type: 'Packaging' };
+                    const getPackagingDetails = (bom: (typeof packagingItems)[0]) => {
+                      if (bom.labelMaster)
+                        return { name: bom.labelMaster.labelName, code: bom.labelMaster.labelCode, type: 'Label' };
+                      if (bom.packagingMaster)
+                        return {
+                          name: bom.packagingMaster.packagingName,
+                          code: bom.packagingMaster.packagingCode,
+                          type: 'Packaging',
+                        };
                       return { name: 'Unknown', code: '', type: bom.materialType };
                     };
 
@@ -543,9 +577,7 @@ export default function StyleDetail() {
                                   <div>
                                     <p className="font-medium text-gray-500">Item Name</p>
                                     <p className="text-base font-semibold">{details.name}</p>
-                                    {details.code && (
-                                      <p className="text-xs text-gray-400">{details.code}</p>
-                                    )}
+                                    {details.code && <p className="text-xs text-gray-400">{details.code}</p>}
                                   </div>
                                   <div>
                                     <p className="font-medium text-gray-500">Item Type</p>
@@ -553,7 +585,9 @@ export default function StyleDetail() {
                                   </div>
                                   <div>
                                     <p className="font-medium text-gray-500">Quantity Per Garment</p>
-                                    <p className="text-base font-semibold">{item.quantityPerGarment} {item.unit}</p>
+                                    <p className="text-base font-semibold">
+                                      {item.quantityPerGarment} {item.unit}
+                                    </p>
                                   </div>
                                   {item.componentName && (
                                     <div>
@@ -578,14 +612,11 @@ export default function StyleDetail() {
           {/* Tab 3: Fabric Stock */}
           <TabsContent value="fabric-stock">
             <div className="space-y-6">
-
               {/* Fabric Stock Table */}
               <Card>
                 <CardHeader>
                   <CardTitle>Fabric Stock by Component</CardTitle>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Available stock for each fabric used in this style
-                  </p>
+                  <p className="text-sm text-gray-500 mt-1">Available stock for each fabric used in this style</p>
                 </CardHeader>
                 <CardContent>
                   {fabricStockLoading ? (
@@ -615,13 +646,19 @@ export default function StyleDetail() {
                               </td>
                               <td className="p-3 text-right">{stock.requiredPerGarment}m</td>
                               <td className="p-3 text-right">
-                                <span className={stock.availableStock > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                                <span
+                                  className={
+                                    stock.availableStock > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'
+                                  }
+                                >
                                   {stock.availableStock}m
                                 </span>
                               </td>
                               <td className="p-3 text-right text-orange-600">{stock.reservedStock}m</td>
                               <td className="p-3 text-right">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${stock.canMakeGarments > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-medium ${stock.canMakeGarments > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                                >
                                   {stock.canMakeGarments.toLocaleString()}
                                 </span>
                               </td>
@@ -712,7 +749,9 @@ export default function StyleDetail() {
                               </div>
                               <div className="bg-orange-50 p-3 rounded border border-orange-200">
                                 <p className="text-xs text-orange-600">Trims Not Ordered</p>
-                                <p className="text-lg font-semibold text-orange-700">{tracking.piecesTrimsNotOrdered}</p>
+                                <p className="text-lg font-semibold text-orange-700">
+                                  {tracking.piecesTrimsNotOrdered}
+                                </p>
                               </div>
                             </div>
                           </div>

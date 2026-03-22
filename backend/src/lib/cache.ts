@@ -46,11 +46,7 @@ function getRedisConfig() {
  * Check if Redis caching is enabled
  */
 function isCacheEnabled(): boolean {
-  return (
-    process.env.REDIS_CACHE_ENABLED === 'true' ||
-    process.env.REDIS_ENABLED === 'true' ||
-    !!process.env.REDIS_HOST
-  );
+  return process.env.REDIS_CACHE_ENABLED === 'true' || process.env.REDIS_ENABLED === 'true' || !!process.env.REDIS_HOST;
 }
 
 /**
@@ -113,11 +109,7 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
 /**
  * Set value in cache with TTL
  */
-export async function setInCache<T>(
-  key: string,
-  value: T,
-  ttlSeconds: number = DEFAULT_TTL
-): Promise<boolean> {
+export async function setInCache<T>(key: string, value: T, ttlSeconds: number = DEFAULT_TTL): Promise<boolean> {
   if (!redis) return false;
 
   try {

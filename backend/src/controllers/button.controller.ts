@@ -34,7 +34,7 @@ export const createButton = async (req: Request, res: Response) => {
     supplierId,
     description,
     styleCodes = [], // Array of style codes to associate
-    suppliers = [] // Array of supplier relationships
+    suppliers = [], // Array of supplier relationships
   } = req.body;
 
   // Auto-generate button code
@@ -55,7 +55,7 @@ export const createButton = async (req: Request, res: Response) => {
 
   // Get Buttons category ID
   const buttonCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Buttons' }
+    where: { name: 'Buttons' },
   });
 
   if (!buttonCategory) {
@@ -67,10 +67,10 @@ export const createButton = async (req: Request, res: Response) => {
   if (styleCodes.length > 0) {
     validStyles = await prisma.styles.findMany({
       where: { styleCode: { in: styleCodes } },
-      select: { id: true, styleCode: true }
+      select: { id: true, styleCode: true },
     });
 
-    const foundCodes = validStyles.map(s => s.styleCode);
+    const foundCodes = validStyles.map((s) => s.styleCode);
     const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
     if (invalidCodes.length > 0) {
       throw new ValidationError('Invalid style codes', { invalidCodes });
@@ -118,12 +118,12 @@ export const createButton = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Create style associations if provided
@@ -132,8 +132,8 @@ export const createButton = async (req: Request, res: Response) => {
       data: validStyles.map((style, index) => ({
         buttonId: buttonRecord.id,
         styleId: style.id,
-        isPrimary: index === 0
-      }))
+        isPrimary: index === 0,
+      })),
     });
   }
 
@@ -148,16 +148,16 @@ export const createButton = async (req: Request, res: Response) => {
       categoryId: buttonCategory.id,
       unit: 'PIECE',
       isActive: true,
-    }
+    },
   });
 
   res.status(201).json({
     button: {
       ...buttonRecord,
-      styleCodes: validStyles.map(s => s.styleCode),
+      styleCodes: validStyles.map((s) => s.styleCode),
     },
     material: materialEntry,
-    message: 'Button created successfully'
+    message: 'Button created successfully',
   });
 };
 
@@ -171,7 +171,7 @@ export const getAllButtons = async (req: Request, res: Response) => {
     limit = 10,
     search = '',
     supplierId = '',
-    styleCode = '' // Filter by specific style
+    styleCode = '', // Filter by specific style
   } = req.query;
 
   const pageNum = Number(page);
@@ -190,7 +190,7 @@ export const getAllButtons = async (req: Request, res: Response) => {
     where.OR = [
       { buttonName: { contains: String(search), mode: 'insensitive' } },
       { buttonCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } }
+      { color: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -199,8 +199,8 @@ export const getAllButtons = async (req: Request, res: Response) => {
     where.buttonSuppliers = {
       some: {
         supplierId: String(supplierId),
-        isActive: true
-      }
+        isActive: true,
+      },
     };
   }
 
@@ -208,8 +208,8 @@ export const getAllButtons = async (req: Request, res: Response) => {
   if (styleCode) {
     where.button_style_associations = {
       some: {
-        style: { styleCode: String(styleCode) }
-      }
+        style: { styleCode: String(styleCode) },
+      },
     };
   }
 
@@ -221,7 +221,7 @@ export const getAllButtons = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       buttonSuppliers: {
         include: {
@@ -234,22 +234,22 @@ export const getAllButtons = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       button_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
-        }
-      }
+            select: { styleCode: true, styleName: true },
+          },
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -270,8 +270,8 @@ export const getAllButtons = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -286,7 +286,7 @@ export const getButtonById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       buttonSuppliers: {
         include: {
@@ -299,20 +299,20 @@ export const getButtonById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       button_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
+            select: { styleCode: true, styleName: true },
+          },
         },
-        orderBy: { isPrimary: 'desc' }
-      }
-    }
+        orderBy: { isPrimary: 'desc' },
+      },
+    },
   });
 
   if (!button) {
@@ -356,12 +356,12 @@ export const updateButton = async (req: Request, res: Response) => {
     description,
     isActive,
     styleCodes, // Array of style codes to associate (replaces existing)
-    suppliers // Array of supplier relationships (replaces existing)
+    suppliers, // Array of supplier relationships (replaces existing)
   } = req.body;
 
   // Check if button exists
   const existing = await prisma.button_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -374,10 +374,10 @@ export const updateButton = async (req: Request, res: Response) => {
     if (styleCodes.length > 0) {
       validStyles = await prisma.styles.findMany({
         where: { styleCode: { in: styleCodes } },
-        select: { id: true, styleCode: true }
+        select: { id: true, styleCode: true },
       });
 
-      const foundCodes = validStyles.map(s => s.styleCode);
+      const foundCodes = validStyles.map((s) => s.styleCode);
       const invalidCodes = styleCodes.filter((code: string) => !foundCodes.includes(code));
       if (invalidCodes.length > 0) {
         throw new ValidationError('Invalid style codes', { invalidCodes });
@@ -386,7 +386,7 @@ export const updateButton = async (req: Request, res: Response) => {
 
     // Delete existing associations and create new ones
     await prisma.button_style_associations.deleteMany({
-      where: { buttonId: id }
+      where: { buttonId: id },
     });
 
     if (validStyles.length > 0) {
@@ -394,8 +394,8 @@ export const updateButton = async (req: Request, res: Response) => {
         data: validStyles.map((style, index) => ({
           buttonId: id,
           styleId: style.id,
-          isPrimary: index === 0
-        }))
+          isPrimary: index === 0,
+        })),
       });
     }
   }
@@ -404,7 +404,7 @@ export const updateButton = async (req: Request, res: Response) => {
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     // Delete existing supplier relationships
     await prisma.button_suppliers.deleteMany({
-      where: { buttonId: id }
+      where: { buttonId: id },
     });
 
     // Create new supplier relationships
@@ -418,7 +418,7 @@ export const updateButton = async (req: Request, res: Response) => {
           notes: s.notes || null,
           pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
           pricePerGross: s.pricePerGross ? parseFloat(String(s.pricePerGross)) : null,
-        }))
+        })),
       });
     }
   }
@@ -464,7 +464,7 @@ export const updateButton = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       buttonSuppliers: {
         include: {
@@ -477,26 +477,26 @@ export const updateButton = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
+        orderBy: { isPreferred: 'desc' },
       },
       button_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true }
-          }
-        }
-      }
-    }
+            select: { styleCode: true, styleName: true },
+          },
+        },
+      },
+    },
   });
 
   // Update material name if buttonName changed
   if (finalButtonName) {
     await prisma.materials.updateMany({
       where: { buttonId: id },
-      data: { name: finalButtonName }
+      data: { name: finalButtonName },
     });
   }
 
@@ -514,7 +514,7 @@ export const updateButton = async (req: Request, res: Response) => {
 
   res.json({
     button: transformed,
-    message: 'Button updated successfully'
+    message: 'Button updated successfully',
   });
 };
 
@@ -527,7 +527,7 @@ export const deleteButton = async (req: Request, res: Response) => {
 
   // Check if button exists
   const existing = await prisma.button_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -537,8 +537,8 @@ export const deleteButton = async (req: Request, res: Response) => {
   // Check if used in any BOM
   const bomUsage = await prisma.order_bom_items.count({
     where: {
-      buttonId: id
-    }
+      buttonId: id,
+    },
   });
 
   if (bomUsage > 0) {
@@ -549,12 +549,12 @@ export const deleteButton = async (req: Request, res: Response) => {
 
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
-    where: { buttonId: id }
+    where: { buttonId: id },
   });
 
   // Delete button (cascade will delete button_suppliers)
   await prisma.button_master.delete({
-    where: { id }
+    where: { id },
   });
 
   res.json({ message: 'Button deleted successfully' });
@@ -573,7 +573,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
 
   // Get Buttons category
   const buttonCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Buttons' }
+    where: { name: 'Buttons' },
   });
 
   if (!buttonCategory) {
@@ -588,7 +588,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
   if (createStock) {
     defaultWarehouse = await prisma.warehouses.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -604,7 +604,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Button name is required'
+          error: 'Button name is required',
         });
         continue;
       }
@@ -625,7 +625,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
           pricePerGross: row.pricePerGross ? parseFloat(row.pricePerGross) : null,
           description: row.description || null,
           isActive: true,
-        }
+        },
       });
 
       // Create material
@@ -640,7 +640,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
           categoryId: buttonCategory.id,
           unit: 'PIECE',
           isActive: true,
-        }
+        },
       });
 
       // Create stock if requested
@@ -654,7 +654,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
             unit: 'PIECE',
             reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
             maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          }
+          },
         });
         stockCreated = true;
       }
@@ -665,29 +665,28 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
         buttonCode,
         materialCode: buttonCode,
         buttonName: row.buttonName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: any) {
       results.push({
         success: false,
         row: i + 1,
         buttonCode,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   const summary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -698,7 +697,12 @@ export const downloadTemplate = async (req: Request, res: Response) => {
   const template = {
     columns: [
       { field: 'buttonName', header: 'Button Name', required: true, description: 'Name of the button (Required)' },
-      { field: 'supplierCode', header: 'Supplier Code', required: false, description: "Supplier's reference code (Optional)" },
+      {
+        field: 'supplierCode',
+        header: 'Supplier Code',
+        required: false,
+        description: "Supplier's reference code (Optional)",
+      },
       { field: 'buyerCode', header: 'Buyer Code', required: false, description: "Buyer's reference code (Optional)" },
       { field: 'size', header: 'Size', required: false, description: 'Button size (Optional)' },
       { field: 'holes', header: 'Holes', required: false, description: 'Number of holes (Optional)' },
@@ -706,10 +710,25 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { field: 'material', header: 'Material', required: false, description: 'Material type (Optional)' },
       { field: 'shape', header: 'Shape', required: false, description: 'Button shape (Optional)' },
       { field: 'pricePerPiece', header: 'Price Per Piece', required: false, description: 'Price per piece (Optional)' },
-      { field: 'pricePerGross', header: 'Price Per Gross', required: false, description: 'Price per gross (144 pcs) (Optional)' },
+      {
+        field: 'pricePerGross',
+        header: 'Price Per Gross',
+        required: false,
+        description: 'Price per gross (144 pcs) (Optional)',
+      },
       { field: 'description', header: 'Description', required: false, description: 'Description (Optional)' },
-      { field: 'stockQuantity', header: 'Stock Quantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { field: 'locationCode', header: 'Location Code', required: false, description: 'Warehouse location code (Optional)' }
+      {
+        field: 'stockQuantity',
+        header: 'Stock Quantity',
+        required: false,
+        description: 'Initial stock quantity (Optional)',
+      },
+      {
+        field: 'locationCode',
+        header: 'Location Code',
+        required: false,
+        description: 'Warehouse location code (Optional)',
+      },
     ],
     exampleData: [
       {
@@ -722,12 +741,12 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         material: 'Metal',
         shape: 'Round',
         pricePerPiece: 0.25,
-        pricePerGross: 30.00,
+        pricePerGross: 30.0,
         description: 'Silver metal button 2-hole',
         stockQuantity: 1000,
-        locationCode: 'WH-01-A'
-      }
-    ]
+        locationCode: 'WH-01-A',
+      },
+    ],
   };
 
   res.json(template);

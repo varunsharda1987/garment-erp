@@ -16,9 +16,9 @@ export { PurchaseOrderStatus, POSource };
  * DTO for creating a purchase order item
  */
 export interface PurchaseOrderItemDTO {
-  materialId?: string;            // Required for material POs
-  serviceType?: string;           // Required for service/processing POs (ServiceType enum)
-  serviceDescription?: string;    // Optional description for service POs
+  materialId?: string; // Required for material POs
+  serviceType?: string; // Required for service/processing POs (ServiceType enum)
+  serviceDescription?: string; // Optional description for service POs
   orderedQuantity: number;
   unit: Unit;
   unitPrice: number;
@@ -63,7 +63,7 @@ export interface CreatePurchaseOrderDTO {
   expectedDeliveryDate: Date | string;
   paymentTerms?: string | null;
   remarks?: string | null;
-  poCategory?: string;            // POCategory enum value
+  poCategory?: string; // POCategory enum value
   items: PurchaseOrderItemDTO[];
 }
 
@@ -76,7 +76,7 @@ export interface UpdatePurchaseOrderDTO {
   expectedDeliveryDate?: Date | string;
   paymentTerms?: string | null;
   remarks?: string | null;
-  items?: PurchaseOrderItemDTO[];  // If provided, replaces all existing items
+  items?: PurchaseOrderItemDTO[]; // If provided, replaces all existing items
 }
 
 /**
@@ -256,10 +256,7 @@ export const PO_STATUS_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderSta
 /**
  * Check if a status transition is valid
  */
-export function isValidStatusTransition(
-  currentStatus: PurchaseOrderStatus,
-  newStatus: PurchaseOrderStatus
-): boolean {
+export function isValidStatusTransition(currentStatus: PurchaseOrderStatus, newStatus: PurchaseOrderStatus): boolean {
   return PO_STATUS_TRANSITIONS[currentStatus]?.includes(newStatus) ?? false;
 }
 

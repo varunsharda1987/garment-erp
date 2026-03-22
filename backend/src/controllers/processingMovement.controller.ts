@@ -64,9 +64,7 @@ export async function getAllMovements(req: Request, res: Response) {
  */
 export async function getMovementsByBatch(req: Request, res: Response) {
   const { batchId } = req.params;
-  const movements = await processingMovementService.getMovementsByBatch(
-    batchId
-  );
+  const movements = await processingMovementService.getMovementsByBatch(batchId);
   res.status(200).json({
     success: true,
     data: movements,
@@ -79,9 +77,7 @@ export async function getMovementsByBatch(req: Request, res: Response) {
  */
 export async function getMovementsByStage(req: Request, res: Response) {
   const { stageId } = req.params;
-  const movements = await processingMovementService.getMovementsByStage(
-    stageId
-  );
+  const movements = await processingMovementService.getMovementsByStage(stageId);
   res.status(200).json({
     success: true,
     data: movements,
@@ -106,10 +102,7 @@ export async function getInTransitMovements(req: Request, res: Response) {
  */
 export async function updateMovement(req: Request, res: Response) {
   const { id } = req.params;
-  const movement = await processingMovementService.updateMovement(
-    id,
-    req.body
-  );
+  const movement = await processingMovementService.updateMovement(id, req.body);
   res.status(200).json({
     success: true,
     message: 'Processing movement updated successfully',

@@ -6,7 +6,7 @@ import {
   updateMachinePart,
   deleteMachinePart,
   bulkImportMachineParts,
-  downloadTemplate
+  downloadTemplate,
 } from '../controllers/machine-part.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

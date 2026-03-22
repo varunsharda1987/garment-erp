@@ -116,15 +116,11 @@ class StyleTechSpecsService {
 
       // Convert numeric fields
       const processedData = {
-        overallLength: data.overallLength !== undefined && data.overallLength !== ''
-          ? parseFloat(String(data.overallLength))
-          : null,
-        topLength: data.topLength !== undefined && data.topLength !== ''
-          ? parseFloat(String(data.topLength))
-          : null,
-        bottomLength: data.bottomLength !== undefined && data.bottomLength !== ''
-          ? parseFloat(String(data.bottomLength))
-          : null,
+        overallLength:
+          data.overallLength !== undefined && data.overallLength !== '' ? parseFloat(String(data.overallLength)) : null,
+        topLength: data.topLength !== undefined && data.topLength !== '' ? parseFloat(String(data.topLength)) : null,
+        bottomLength:
+          data.bottomLength !== undefined && data.bottomLength !== '' ? parseFloat(String(data.bottomLength)) : null,
         lengthUnit: data.lengthUnit || 'inches',
         sleeveType: data.sleeveType || null,
         collarType: data.collarType || null,

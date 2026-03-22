@@ -50,42 +50,42 @@ export function getSupplierCategoriesForMaterial(materialType: string | null): S
 
   const mapping: Record<string, SupplierCategory[]> = {
     // Greige (raw fabric)
-    'GREIGE': [SupplierCategory.GREIGE_SUPPLIER],
-    'GREIGE_FABRIC': [SupplierCategory.GREIGE_SUPPLIER],
+    GREIGE: [SupplierCategory.GREIGE_SUPPLIER],
+    GREIGE_FABRIC: [SupplierCategory.GREIGE_SUPPLIER],
 
     // Fabric (finished)
-    'FABRIC': [SupplierCategory.FABRIC_SUPPLIER],
-    'FINISHED_FABRIC': [SupplierCategory.FABRIC_SUPPLIER],
+    FABRIC: [SupplierCategory.FABRIC_SUPPLIER],
+    FINISHED_FABRIC: [SupplierCategory.FABRIC_SUPPLIER],
 
     // Trims (all types)
-    'BUTTON': [SupplierCategory.TRIMS_SUPPLIER],
-    'ZIPPER': [SupplierCategory.TRIMS_SUPPLIER],
-    'ELASTIC': [SupplierCategory.TRIMS_SUPPLIER],
-    'HOOK_EYE': [SupplierCategory.TRIMS_SUPPLIER],
-    'SNAP_BUTTON': [SupplierCategory.TRIMS_SUPPLIER],
-    'BUCKLE': [SupplierCategory.TRIMS_SUPPLIER],
-    'BELT': [SupplierCategory.TRIMS_SUPPLIER],
-    'VELCRO': [SupplierCategory.TRIMS_SUPPLIER],
-    'DRAWSTRING': [SupplierCategory.TRIMS_SUPPLIER],
-    'RIBBON': [SupplierCategory.TRIMS_SUPPLIER],
-    'SEQUIN': [SupplierCategory.TRIMS_SUPPLIER],
-    'BEAD': [SupplierCategory.TRIMS_SUPPLIER],
-    'MOTIF': [SupplierCategory.TRIMS_SUPPLIER],
-    'INTERLINING': [SupplierCategory.TRIMS_SUPPLIER],
-    'PADDING': [SupplierCategory.TRIMS_SUPPLIER],
-    'OTHER_FASTENER': [SupplierCategory.TRIMS_SUPPLIER],
-    'TRIMS': [SupplierCategory.TRIMS_SUPPLIER],
-    'LABEL': [SupplierCategory.TRIMS_SUPPLIER],
-    'ACCESSORIES': [SupplierCategory.TRIMS_SUPPLIER],
+    BUTTON: [SupplierCategory.TRIMS_SUPPLIER],
+    ZIPPER: [SupplierCategory.TRIMS_SUPPLIER],
+    ELASTIC: [SupplierCategory.TRIMS_SUPPLIER],
+    HOOK_EYE: [SupplierCategory.TRIMS_SUPPLIER],
+    SNAP_BUTTON: [SupplierCategory.TRIMS_SUPPLIER],
+    BUCKLE: [SupplierCategory.TRIMS_SUPPLIER],
+    BELT: [SupplierCategory.TRIMS_SUPPLIER],
+    VELCRO: [SupplierCategory.TRIMS_SUPPLIER],
+    DRAWSTRING: [SupplierCategory.TRIMS_SUPPLIER],
+    RIBBON: [SupplierCategory.TRIMS_SUPPLIER],
+    SEQUIN: [SupplierCategory.TRIMS_SUPPLIER],
+    BEAD: [SupplierCategory.TRIMS_SUPPLIER],
+    MOTIF: [SupplierCategory.TRIMS_SUPPLIER],
+    INTERLINING: [SupplierCategory.TRIMS_SUPPLIER],
+    PADDING: [SupplierCategory.TRIMS_SUPPLIER],
+    OTHER_FASTENER: [SupplierCategory.TRIMS_SUPPLIER],
+    TRIMS: [SupplierCategory.TRIMS_SUPPLIER],
+    LABEL: [SupplierCategory.TRIMS_SUPPLIER],
+    ACCESSORIES: [SupplierCategory.TRIMS_SUPPLIER],
 
     // Thread
-    'THREAD': [SupplierCategory.THREAD_SUPPLIER],
+    THREAD: [SupplierCategory.THREAD_SUPPLIER],
 
     // Lace
-    'LACE': [SupplierCategory.LACE_SUPPLIER],
+    LACE: [SupplierCategory.LACE_SUPPLIER],
 
     // Packaging
-    'PACKAGING': [SupplierCategory.PACKAGING_SUPPLIER],
+    PACKAGING: [SupplierCategory.PACKAGING_SUPPLIER],
   };
 
   return mapping[materialType] || [];
@@ -193,9 +193,9 @@ export async function suggestVendorForMaterial(materialId: string): Promise<Vend
       code: true,
       name: true,
       materialType: true,
-      greigeId: true,  // For inferring effective materialType
-      fabricId: true,  // For inferring effective materialType
-      laceId: true,    // For inferring effective materialType
+      greigeId: true, // For inferring effective materialType
+      fabricId: true, // For inferring effective materialType
+      laceId: true, // For inferring effective materialType
       suppliers: {
         where: { isActive: true },
         include: {
@@ -374,9 +374,9 @@ export async function suggestVendorsForRequirements(
           code: true,
           name: true,
           materialType: true,
-          greigeId: true,  // For inferring effective materialType
-          fabricId: true,  // For inferring effective materialType
-          laceId: true,    // For inferring effective materialType
+          greigeId: true, // For inferring effective materialType
+          fabricId: true, // For inferring effective materialType
+          laceId: true, // For inferring effective materialType
         },
       },
     },
@@ -507,9 +507,7 @@ export async function autoAssignVendors(
 
   // Filter by confidence level
   const confidenceLevels = minConfidence === 'high' ? ['high'] : ['high', 'medium'];
-  const autoAssignable = suggestions.filter(
-    (s) => s.suggestedSupplierId && confidenceLevels.includes(s.confidence)
-  );
+  const autoAssignable = suggestions.filter((s) => s.suggestedSupplierId && confidenceLevels.includes(s.confidence));
 
   if (autoAssignable.length === 0) {
     return { assigned: 0, skipped: suggestions.length };
@@ -559,11 +557,7 @@ export async function getProcessorSuppliers(): Promise<any[]> {
     where: {
       isActive: true,
       supplierCategories: {
-        hasSome: [
-          SupplierCategory.DYEING_PRINTING,
-          SupplierCategory.WASHING,
-          SupplierCategory.FINISHING_CONTRACTOR,
-        ],
+        hasSome: [SupplierCategory.DYEING_PRINTING, SupplierCategory.WASHING, SupplierCategory.FINISHING_CONTRACTOR],
       },
     },
     select: {
@@ -745,10 +739,7 @@ export async function suggestProcessorsForProcessingRequirements(
 
   for (const req of requirements) {
     try {
-      const suggestion = await suggestProcessorForMaterial(
-        req.materialId,
-        req.processorId || null
-      );
+      const suggestion = await suggestProcessorForMaterial(req.materialId, req.processorId || null);
 
       results.push({
         requirementId: req.id,
@@ -840,9 +831,7 @@ export async function autoAssignProcessorsToProcessingRequirements(
   const suggestions = await suggestProcessorsForProcessingRequirements(requirementIds);
 
   const confidenceLevels = minConfidence === 'high' ? ['high'] : ['high', 'medium'];
-  const autoAssignable = suggestions.filter(
-    (s) => s.suggestedProcessorId && confidenceLevels.includes(s.confidence)
-  );
+  const autoAssignable = suggestions.filter((s) => s.suggestedProcessorId && confidenceLevels.includes(s.confidence));
 
   if (autoAssignable.length === 0) {
     return { assigned: 0, skipped: suggestions.length };

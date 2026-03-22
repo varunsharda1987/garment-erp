@@ -54,9 +54,7 @@ export default function TaxBreakdown({
 
   return (
     <div className={`border border-gray-200 rounded-lg bg-gray-50 p-4 ${className}`}>
-      <h3 className={`font-semibold text-gray-900 mb-3 ${size === 'lg' ? 'text-lg' : 'text-base'}`}>
-        Tax Breakdown
-      </h3>
+      <h3 className={`font-semibold text-gray-900 mb-3 ${size === 'lg' ? 'text-lg' : 'text-base'}`}>Tax Breakdown</h3>
 
       <div className={`space-y-2 ${getSizeClasses()}`}>
         {/* Subtotal */}
@@ -70,9 +68,7 @@ export default function TaxBreakdown({
           <span className="text-gray-600">Tax Type:</span>
           <span
             className={`px-2 py-0.5 rounded text-xs font-medium ${
-              isInterstate
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-green-100 text-green-800'
+              isInterstate ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
             }`}
           >
             {isInterstate ? 'Interstate (IGST)' : 'Intrastate (CGST + SGST)'}
@@ -82,23 +78,17 @@ export default function TaxBreakdown({
         {/* Tax Components */}
         {isInterstate ? (
           <div className="flex justify-between text-gray-700">
-            <span>
-              IGST {showRates && formatRate(igstRate)}:
-            </span>
+            <span>IGST {showRates && formatRate(igstRate)}:</span>
             <span className="font-medium">{formatCurrency(igst || 0)}</span>
           </div>
         ) : (
           <>
             <div className="flex justify-between text-gray-700">
-              <span>
-                CGST {showRates && formatRate(cgstRate)}:
-              </span>
+              <span>CGST {showRates && formatRate(cgstRate)}:</span>
               <span className="font-medium">{formatCurrency(cgst || 0)}</span>
             </div>
             <div className="flex justify-between text-gray-700">
-              <span>
-                SGST {showRates && formatRate(sgstRate)}:
-              </span>
+              <span>SGST {showRates && formatRate(sgstRate)}:</span>
               <span className="font-medium">{formatCurrency(sgst || 0)}</span>
             </div>
           </>
@@ -126,7 +116,8 @@ export default function TaxBreakdown({
             </>
           ) : (
             <>
-              <strong>Intrastate Transaction:</strong> CGST and SGST are applicable as the supply is within the same state.
+              <strong>Intrastate Transaction:</strong> CGST and SGST are applicable as the supply is within the same
+              state.
             </>
           )}
         </p>

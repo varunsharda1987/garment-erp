@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import stockMovementService, {
   CreateStockMovementDTO,
   StockTransferDTO,
-  StockAdjustmentDTO
+  StockAdjustmentDTO,
 } from '../services/stockMovement.service';
 import { MovementType, Unit } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -77,7 +77,19 @@ export const createStockIn = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { materialId, itemType, itemId, warehouseId, quantity, unit, rate, referenceType, referenceId, referenceNumber, remarks } = req.body;
+  const {
+    materialId,
+    itemType,
+    itemId,
+    warehouseId,
+    quantity,
+    unit,
+    rate,
+    referenceType,
+    referenceId,
+    referenceNumber,
+    remarks,
+  } = req.body;
 
   // Resolve materialId from polymorphic itemType/itemId if not provided directly
   let resolvedMaterialId = materialId;
@@ -134,7 +146,18 @@ export const createStockOut = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { materialId, itemType, itemId, warehouseId, quantity, unit, referenceType, referenceId, referenceNumber, remarks } = req.body;
+  const {
+    materialId,
+    itemType,
+    itemId,
+    warehouseId,
+    quantity,
+    unit,
+    referenceType,
+    referenceId,
+    referenceNumber,
+    remarks,
+  } = req.body;
 
   // Resolve materialId from polymorphic itemType/itemId if not provided directly
   let resolvedMaterialId = materialId;
@@ -266,10 +289,7 @@ export const getMaterialMovementHistory = async (req: Request, res: Response) =>
   const { materialId } = req.params;
   const { warehouseId } = req.query;
 
-  const history = await stockMovementService.getMaterialMovementHistory(
-    materialId,
-    warehouseId as string | undefined
-  );
+  const history = await stockMovementService.getMaterialMovementHistory(materialId, warehouseId as string | undefined);
 
   res.json({
     success: true,

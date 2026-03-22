@@ -52,16 +52,18 @@ class DocumentGeneratorService {
    */
   private async getCompanyBankDetails() {
     const bankAccount = await prisma.bank_accounts.findFirst({
-      where: { isPrimaryAccount: true, isActive: true }
+      where: { isPrimaryAccount: true, isActive: true },
     });
 
-    return bankAccount || {
-      bankName: 'ICICI Bank',
-      accountHolderName: COMPANY_CONFIG.name,
-      accountNumber: '532505000026',
-      ifscCode: 'ICIC0005325',
-      branchName: 'Mansarovar'
-    };
+    return (
+      bankAccount || {
+        bankName: 'ICICI Bank',
+        accountHolderName: COMPANY_CONFIG.name,
+        accountNumber: '532505000026',
+        ifscCode: 'ICIC0005325',
+        branchName: 'Mansarovar',
+      }
+    );
   }
 
   /**
@@ -74,8 +76,8 @@ class DocumentGeneratorService {
         customers: {
           include: {
             billingState: true,
-            shippingState: true
-          }
+            shippingState: true,
+          },
         },
         orders: {
           include: {
@@ -85,23 +87,23 @@ class DocumentGeneratorService {
                 order_item_breakup: {
                   include: {
                     size_options: true,
-                    color_options: true
-                  }
-                }
-              }
-            }
-          }
+                    color_options: true,
+                  },
+                },
+              },
+            },
+          },
         },
         placeOfSupply: true,
         invoice_items: {
           include: {
             style: {
-              select: { id: true, styleCode: true, styleName: true, hsnCode: true }
-            }
+              select: { id: true, styleCode: true, styleName: true, hsnCode: true },
+            },
           },
-          orderBy: { id: 'asc' as const }
-        }
-      }
+          orderBy: { id: 'asc' as const },
+        },
+      },
     });
   }
 
@@ -120,7 +122,7 @@ class DocumentGeneratorService {
       const doc = new PDFDocument({ margin: 30, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -147,23 +149,38 @@ class DocumentGeneratorService {
     let y = 30;
 
     // ── Header: Tax Invoice Title ──
-    doc.fontSize(16).font('Helvetica-Bold')
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
       .text('TAX INVOICE', marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 25;
 
     // ── Company Details ──
-    doc.fontSize(14).font('Helvetica-Bold')
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
       .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
-    doc.fontSize(9).font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc
+      .fontSize(9)
+      .font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+        align: 'center',
+        width: pageWidth - 60,
+      });
     y += 12;
 
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  MSME: ${COMPANY_CONFIG.msmeNumber || 'N/A'}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  MSME: ${COMPANY_CONFIG.msmeNumber || 'N/A'}`, marginLeft, y, {
+      align: 'center',
+      width: pageWidth - 60,
+    });
     y += 12;
 
-    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, {
+      align: 'center',
+      width: pageWidth - 60,
+    });
     y += 18;
 
     // ── Horizontal Line ──
@@ -249,8 +266,13 @@ class DocumentGeneratorService {
     }
 
     // ── Footer ──
-    doc.fontSize(8).fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, { align: 'center', width: pageWidth - 60 });
+    doc
+      .fontSize(8)
+      .fillColor('#999')
+      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, {
+        align: 'center',
+        width: pageWidth - 60,
+      });
   }
 
   /**
@@ -273,7 +295,7 @@ class DocumentGeneratorService {
       { label: 'HSN', width: 50 },
       { label: 'Qty', width: 35 },
       { label: 'Rate', width: 50 },
-      { label: 'Amount', width: 60 }
+      { label: 'Amount', width: 60 },
     ];
 
     // Adjust for GST columns based on interstate
@@ -289,7 +311,7 @@ class DocumentGeneratorService {
     const totalWidth = columns.reduce((sum, col) => sum + col.width, 0);
     const availableWidth = pageWidth - 60;
     const scale = totalWidth > availableWidth ? availableWidth / totalWidth : 1;
-    columns.forEach(col => col.width = col.width * scale);
+    columns.forEach((col) => (col.width = col.width * scale));
 
     // Draw header row
     doc.fontSize(8).font('Helvetica-Bold');
@@ -297,7 +319,7 @@ class DocumentGeneratorService {
 
     let xPos = marginLeft;
     doc.fillColor('#FFF');
-    columns.forEach(col => {
+    columns.forEach((col) => {
       doc.text(col.label, xPos + 2, y + 5, { width: col.width - 4, align: 'center' });
       xPos += col.width;
     });
@@ -335,7 +357,7 @@ class DocumentGeneratorService {
           item.hsnCode || item.style?.hsnCode || '-',
           qty.toString(),
           `₹${rate.toFixed(0)}`,
-          `₹${amount.toFixed(0)}`
+          `₹${amount.toFixed(0)}`,
         ];
 
         if (invoice.isInterstate) {
@@ -350,7 +372,7 @@ class DocumentGeneratorService {
           doc.text(text, xPos + 2, y + 4, {
             width: columns[colIdx].width - 4,
             align: colIdx < 3 ? 'left' : 'center',
-            ellipsis: true
+            ellipsis: true,
           });
           xPos += columns[colIdx].width;
         });
@@ -374,7 +396,9 @@ class DocumentGeneratorService {
         const amount = Number(item.totalPrice);
         totalQty += qty;
 
-        const gstRate = invoice.isInterstate ? Number(invoice.igstRate || 0) : Number(invoice.cgstRate || 0) + Number(invoice.sgstRate || 0);
+        const gstRate = invoice.isInterstate
+          ? Number(invoice.igstRate || 0)
+          : Number(invoice.cgstRate || 0) + Number(invoice.sgstRate || 0);
         const itemGst = amount * (gstRate / 100);
         const itemTotal = amount + itemGst;
 
@@ -385,14 +409,14 @@ class DocumentGeneratorService {
           style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS,
           qty.toString(),
           `₹${rate.toFixed(0)}`,
-          `₹${amount.toFixed(0)}`
+          `₹${amount.toFixed(0)}`,
         ];
 
         if (invoice.isInterstate) {
-          rowData.push(`₹${(amount * Number(invoice.igstRate || 0) / 100).toFixed(0)}`);
+          rowData.push(`₹${((amount * Number(invoice.igstRate || 0)) / 100).toFixed(0)}`);
         } else {
-          rowData.push(`₹${(amount * Number(invoice.cgstRate || 0) / 100).toFixed(0)}`);
-          rowData.push(`₹${(amount * Number(invoice.sgstRate || 0) / 100).toFixed(0)}`);
+          rowData.push(`₹${((amount * Number(invoice.cgstRate || 0)) / 100).toFixed(0)}`);
+          rowData.push(`₹${((amount * Number(invoice.sgstRate || 0)) / 100).toFixed(0)}`);
         }
         rowData.push(`₹${itemTotal.toFixed(0)}`);
 
@@ -400,7 +424,7 @@ class DocumentGeneratorService {
           doc.text(text, xPos + 2, y + 4, {
             width: columns[colIdx].width - 4,
             align: colIdx < 3 ? 'left' : 'center',
-            ellipsis: true
+            ellipsis: true,
           });
           xPos += columns[colIdx].width;
         });
@@ -421,11 +445,17 @@ class DocumentGeneratorService {
     doc.text(totalQty.toString(), xPos + 2, y + 5, { width: columns[4].width - 4, align: 'center' });
     xPos += columns[4].width + columns[5].width;
 
-    doc.text(`₹${Number(invoice.subtotal).toFixed(0)}`, xPos + 2, y + 5, { width: columns[6].width - 4, align: 'center' });
+    doc.text(`₹${Number(invoice.subtotal).toFixed(0)}`, xPos + 2, y + 5, {
+      width: columns[6].width - 4,
+      align: 'center',
+    });
 
     // Skip to total column
     xPos = marginLeft + columns.slice(0, -1).reduce((sum, col) => sum + col.width, 0);
-    doc.text(`₹${Number(invoice.totalAmount).toFixed(0)}`, xPos + 2, y + 5, { width: columns[columns.length - 1].width - 4, align: 'center' });
+    doc.text(`₹${Number(invoice.totalAmount).toFixed(0)}`, xPos + 2, y + 5, {
+      width: columns[columns.length - 1].width - 4,
+      align: 'center',
+    });
 
     y += 18;
     doc.fillColor('#000');
@@ -453,8 +483,11 @@ class DocumentGeneratorService {
     let y = startY;
 
     // Group items by HSN code
-    const hsnMap = new Map<string, { taxableValue: number; cgst: number; sgst: number; igst: number; totalTax: number }>();
-    items.forEach(item => {
+    const hsnMap = new Map<
+      string,
+      { taxableValue: number; cgst: number; sgst: number; igst: number; totalTax: number }
+    >();
+    items.forEach((item) => {
       const hsn = item.hsnCode || item.style?.hsnCode || 'N/A';
       const existing = hsnMap.get(hsn) || { taxableValue: 0, cgst: 0, sgst: 0, igst: 0, totalTax: 0 };
       existing.taxableValue += Number(item.totalPrice);
@@ -490,7 +523,7 @@ class DocumentGeneratorService {
     doc.fillColor('#000');
 
     let xPos = marginLeft;
-    hsnCols.forEach(col => {
+    hsnCols.forEach((col) => {
       doc.text(col.label, xPos + 2, y + 3, { width: col.width - 4, align: 'center' });
       xPos += col.width;
     });
@@ -539,36 +572,54 @@ class DocumentGeneratorService {
 
     // Subtotal
     doc.text('Subtotal:', labelX, y);
-    doc.text(`₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+    doc.text(`₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+      width: 70,
+      align: 'right',
+    });
     y += 14;
 
     // GST breakdown
     if (invoice.isInterstate) {
       const igstRate = Number(invoice.igstRate || 0);
       doc.text(`IGST @ ${igstRate}%:`, labelX, y);
-      doc.text(`₹${Number(invoice.igstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+      doc.text(`₹${Number(invoice.igstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+        width: 70,
+        align: 'right',
+      });
       y += 14;
     } else {
       const cgstRate = Number(invoice.cgstRate || 0);
       const sgstRate = Number(invoice.sgstRate || 0);
 
       doc.text(`CGST @ ${cgstRate}%:`, labelX, y);
-      doc.text(`₹${Number(invoice.cgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+      doc.text(`₹${Number(invoice.cgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+        width: 70,
+        align: 'right',
+      });
       y += 14;
 
       doc.text(`SGST @ ${sgstRate}%:`, labelX, y);
-      doc.text(`₹${Number(invoice.sgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+      doc.text(`₹${Number(invoice.sgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+        width: 70,
+        align: 'right',
+      });
       y += 14;
     }
 
     // Total line
-    doc.moveTo(labelX, y).lineTo(pageWidth - 30, y).stroke();
+    doc
+      .moveTo(labelX, y)
+      .lineTo(pageWidth - 30, y)
+      .stroke();
     y += 8;
 
     // Grand Total
     doc.fontSize(11).font('Helvetica-Bold');
     doc.text('Grand Total:', labelX, y);
-    doc.text(`₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+    doc.text(`₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+      width: 70,
+      align: 'right',
+    });
     y += 18;
 
     // Amount in words
@@ -592,7 +643,10 @@ class DocumentGeneratorService {
     let y = startY;
 
     // Separator line
-    doc.moveTo(marginLeft, y).lineTo(pageWidth - 30, y).stroke('#333F50');
+    doc
+      .moveTo(marginLeft, y)
+      .lineTo(pageWidth - 30, y)
+      .stroke('#333F50');
     y += 12;
 
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#333F50');
@@ -662,18 +716,18 @@ class DocumentGeneratorService {
       { key: 'G', width: 12 },
       { key: 'H', width: 10 },
       { key: 'I', width: 10 },
-      { key: 'J', width: 12 }
+      { key: 'J', width: 12 },
     ];
 
     // Styles
     const headerStyle: Partial<ExcelJS.Style> = {
       font: { bold: true, size: 16 },
-      alignment: { horizontal: 'center', vertical: 'middle' }
+      alignment: { horizontal: 'center', vertical: 'middle' },
     };
 
     const subHeaderStyle: Partial<ExcelJS.Style> = {
       font: { bold: true, size: 12 },
-      alignment: { horizontal: 'center' }
+      alignment: { horizontal: 'center' },
     };
 
     const tableHeaderStyle: Partial<ExcelJS.Style> = {
@@ -684,8 +738,8 @@ class DocumentGeneratorService {
         top: { style: 'thin' },
         left: { style: 'thin' },
         bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      }
+        right: { style: 'thin' },
+      },
     };
 
     let row = 1;
@@ -770,12 +824,13 @@ class DocumentGeneratorService {
       ws.getCell(row, 7).value = amount;
 
       if (invoice.isInterstate) {
-        ws.getCell(row, 8).value = amount * Number(invoice.igstRate || 0) / 100;
+        ws.getCell(row, 8).value = (amount * Number(invoice.igstRate || 0)) / 100;
         ws.getCell(row, 9).value = amount * (1 + Number(invoice.igstRate || 0) / 100);
       } else {
-        ws.getCell(row, 8).value = amount * Number(invoice.cgstRate || 0) / 100;
-        ws.getCell(row, 9).value = amount * Number(invoice.sgstRate || 0) / 100;
-        ws.getCell(row, 10).value = amount * (1 + Number(invoice.cgstRate || 0) / 100 + Number(invoice.sgstRate || 0) / 100);
+        ws.getCell(row, 8).value = (amount * Number(invoice.cgstRate || 0)) / 100;
+        ws.getCell(row, 9).value = (amount * Number(invoice.sgstRate || 0)) / 100;
+        ws.getCell(row, 10).value =
+          amount * (1 + Number(invoice.cgstRate || 0) / 100 + Number(invoice.sgstRate || 0) / 100);
       }
 
       // Add borders
@@ -784,7 +839,7 @@ class DocumentGeneratorService {
           top: { style: 'thin' },
           left: { style: 'thin' },
           bottom: { style: 'thin' },
-          right: { style: 'thin' }
+          right: { style: 'thin' },
         };
       }
       row++;
@@ -825,7 +880,8 @@ class DocumentGeneratorService {
     ws.getCell(`A${row}`).value = 'PAYMENT DETAILS:';
     ws.getCell(`A${row}`).font = { bold: true };
     row++;
-    ws.getCell(`A${row}`).value = `Bank: ${bankDetails.bankName} | Account: ${bankDetails.accountNumber} | IFSC: ${bankDetails.ifscCode}`;
+    ws.getCell(`A${row}`).value =
+      `Bank: ${bankDetails.bankName} | Account: ${bankDetails.accountNumber} | IFSC: ${bankDetails.ifscCode}`;
 
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
@@ -879,16 +935,16 @@ From ${COMPANY_CONFIG.name}
         customers: {
           include: {
             billingState: true,
-            shippingState: true
-          }
+            shippingState: true,
+          },
         },
         quotation_items: {
           include: {
-            styles: true
-          }
+            styles: true,
+          },
         },
-        placeOfSupply: true
-      }
+        placeOfSupply: true,
+      },
     });
   }
 
@@ -907,7 +963,7 @@ From ${COMPANY_CONFIG.name}
       const doc = new PDFDocument({ margin: 30, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -934,23 +990,38 @@ From ${COMPANY_CONFIG.name}
     let y = 30;
 
     // ── Header: Proforma Invoice Title ──
-    doc.fontSize(16).font('Helvetica-Bold')
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
       .text('PROFORMA INVOICE', marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 25;
 
     // ── Company Details ──
-    doc.fontSize(14).font('Helvetica-Bold')
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
       .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
-    doc.fontSize(9).font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc
+      .fontSize(9)
+      .font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+        align: 'center',
+        width: pageWidth - 60,
+      });
     y += 12;
 
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  MSME: ${COMPANY_CONFIG.msmeNumber || 'N/A'}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  MSME: ${COMPANY_CONFIG.msmeNumber || 'N/A'}`, marginLeft, y, {
+      align: 'center',
+      width: pageWidth - 60,
+    });
     y += 12;
 
-    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, {
+      align: 'center',
+      width: pageWidth - 60,
+    });
     y += 18;
 
     // ── Horizontal Line ──
@@ -1002,12 +1073,19 @@ From ${COMPANY_CONFIG.name}
 
     // ── Footer Note ──
     doc.fontSize(8).font('Helvetica-Oblique').fillColor('#666');
-    doc.text('This is a quotation and not a tax invoice. Prices are subject to change.', marginLeft, y, { width: pageWidth - 60 });
+    doc.text('This is a quotation and not a tax invoice. Prices are subject to change.', marginLeft, y, {
+      width: pageWidth - 60,
+    });
     y += 20;
 
     // ── Footer ──
-    doc.fontSize(8).fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, { align: 'center', width: pageWidth - 60 });
+    doc
+      .fontSize(8)
+      .fillColor('#999')
+      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, {
+        align: 'center',
+        width: pageWidth - 60,
+      });
   }
 
   /**
@@ -1031,7 +1109,7 @@ From ${COMPANY_CONFIG.name}
       { label: 'HSN', width: 60 },
       { label: 'Qty', width: 50 },
       { label: 'Rate', width: 70 },
-      { label: 'Amount', width: availableWidth - 435 }
+      { label: 'Amount', width: availableWidth - 435 },
     ];
 
     // Draw header row
@@ -1040,7 +1118,7 @@ From ${COMPANY_CONFIG.name}
 
     let xPos = marginLeft;
     doc.fillColor('#FFF');
-    columns.forEach(col => {
+    columns.forEach((col) => {
       doc.text(col.label, xPos + 3, y + 5, { width: col.width - 6, align: 'center' });
       xPos += col.width;
     });
@@ -1069,14 +1147,14 @@ From ${COMPANY_CONFIG.name}
         style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS,
         qty.toString(),
         `₹${rate.toLocaleString('en-IN')}`,
-        `₹${amount.toLocaleString('en-IN')}`
+        `₹${amount.toLocaleString('en-IN')}`,
       ];
 
       rowData.forEach((text, colIdx) => {
         doc.text(text, xPos + 3, y + 5, {
           width: columns[colIdx].width - 6,
           align: colIdx < 3 ? 'left' : 'center',
-          ellipsis: true
+          ellipsis: true,
         });
         xPos += columns[colIdx].width;
       });
@@ -1090,13 +1168,18 @@ From ${COMPANY_CONFIG.name}
     doc.fillColor('#FFF').font('Helvetica-Bold');
 
     xPos = marginLeft;
-    doc.text('TOTAL', xPos + 3, y + 5, { width: columns[0].width + columns[1].width + columns[2].width + columns[3].width - 6 });
+    doc.text('TOTAL', xPos + 3, y + 5, {
+      width: columns[0].width + columns[1].width + columns[2].width + columns[3].width - 6,
+    });
     xPos += columns[0].width + columns[1].width + columns[2].width + columns[3].width;
 
     doc.text(totalQty.toString(), xPos + 3, y + 5, { width: columns[4].width - 6, align: 'center' });
     xPos += columns[4].width + columns[5].width;
 
-    doc.text(`₹${Number(quotation.totalAmount).toLocaleString('en-IN')}`, xPos + 3, y + 5, { width: columns[6].width - 6, align: 'center' });
+    doc.text(`₹${Number(quotation.totalAmount).toLocaleString('en-IN')}`, xPos + 3, y + 5, {
+      width: columns[6].width - 6,
+      align: 'center',
+    });
 
     y += 18;
     doc.fillColor('#000');
@@ -1122,7 +1205,10 @@ From ${COMPANY_CONFIG.name}
 
     // Subtotal
     doc.text('Subtotal:', labelX, y);
-    doc.text(`₹${Number(quotation.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+    doc.text(`₹${Number(quotation.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+      width: 70,
+      align: 'right',
+    });
     y += 14;
 
     // Determine if interstate based on placeOfSupply
@@ -1131,33 +1217,48 @@ From ${COMPANY_CONFIG.name}
     // GST breakdown (estimated)
     if (isInterstate) {
       const igstAmount = Number(quotation.estimatedIGST || 0);
-      const igstRate = quotation.taxRate ? Number(quotation.taxRate) : (igstAmount > 0 ? 12 : 0);
+      const igstRate = quotation.taxRate ? Number(quotation.taxRate) : igstAmount > 0 ? 12 : 0;
       doc.text(`IGST @ ${igstRate}% (Est.):`, labelX, y);
-      doc.text(`₹${igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+      doc.text(`₹${igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+        width: 70,
+        align: 'right',
+      });
       y += 14;
     } else {
       const cgstAmount = Number(quotation.estimatedCGST || 0);
       const sgstAmount = Number(quotation.estimatedSGST || 0);
-      const rate = quotation.taxRate ? Number(quotation.taxRate) / 2 : (cgstAmount > 0 ? 6 : 0);
+      const rate = quotation.taxRate ? Number(quotation.taxRate) / 2 : cgstAmount > 0 ? 6 : 0;
 
       doc.text(`CGST @ ${rate}% (Est.):`, labelX, y);
-      doc.text(`₹${cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+      doc.text(`₹${cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+        width: 70,
+        align: 'right',
+      });
       y += 14;
 
       doc.text(`SGST @ ${rate}% (Est.):`, labelX, y);
-      doc.text(`₹${sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+      doc.text(`₹${sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+        width: 70,
+        align: 'right',
+      });
       y += 14;
     }
 
     // Total line
-    doc.moveTo(labelX, y).lineTo(pageWidth - 30, y).stroke();
+    doc
+      .moveTo(labelX, y)
+      .lineTo(pageWidth - 30, y)
+      .stroke();
     y += 8;
 
     // Grand Total
     const totalWithTax = Number(quotation.totalWithTax || quotation.totalAmount || 0);
     doc.fontSize(11).font('Helvetica-Bold');
     doc.text('Estimated Total:', labelX, y);
-    doc.text(`₹${totalWithTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, { width: 70, align: 'right' });
+    doc.text(`₹${totalWithTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
+      width: 70,
+      align: 'right',
+    });
     y += 18;
 
     // Amount in words
@@ -1182,8 +1283,8 @@ From ${COMPANY_CONFIG.name}
         customers: {
           include: {
             billingState: true,
-            shippingState: true
-          }
+            shippingState: true,
+          },
         },
         order_items: {
           include: {
@@ -1191,12 +1292,12 @@ From ${COMPANY_CONFIG.name}
             order_item_breakup: {
               include: {
                 size_options: true,
-                color_options: true
-              }
-            }
-          }
-        }
-      }
+                color_options: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 
@@ -1213,7 +1314,7 @@ From ${COMPANY_CONFIG.name}
       const doc = new PDFDocument({ margin: 30, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -1239,20 +1340,32 @@ From ${COMPANY_CONFIG.name}
     let y = 30;
 
     // ── Header: Order Form Title ──
-    doc.fontSize(16).font('Helvetica-Bold')
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
       .text('ORDER FORM', marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 25;
 
     // ── Company Details ──
-    doc.fontSize(14).font('Helvetica-Bold')
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
       .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
-    doc.fontSize(9).font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc
+      .fontSize(9)
+      .font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+        align: 'center',
+        width: pageWidth - 60,
+      });
     y += 12;
 
-    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, {
+      align: 'center',
+      width: pageWidth - 60,
+    });
     y += 18;
 
     // ── Horizontal Line ──
@@ -1267,7 +1380,10 @@ From ${COMPANY_CONFIG.name}
 
     doc.font('Helvetica');
     doc.text(`Status: ${order.status}`, marginLeft, y);
-    doc.text(`Delivery: ${this.formatDate(order.expectedDeliveryDate)}`, marginRight - 150, y, { width: 150, align: 'right' });
+    doc.text(`Delivery: ${this.formatDate(order.expectedDeliveryDate)}`, marginRight - 150, y, {
+      width: 150,
+      align: 'right',
+    });
     y += 18;
 
     // ── Horizontal Line ──
@@ -1301,7 +1417,10 @@ From ${COMPANY_CONFIG.name}
     const labelX = pageWidth - 200;
     const valueX = pageWidth - 80;
 
-    doc.moveTo(labelX - 20, y).lineTo(marginRight, y).stroke();
+    doc
+      .moveTo(labelX - 20, y)
+      .lineTo(marginRight, y)
+      .stroke();
     y += 10;
 
     doc.fontSize(10).font('Helvetica');
@@ -1324,8 +1443,13 @@ From ${COMPANY_CONFIG.name}
     }
 
     // ── Footer ──
-    doc.fontSize(8).fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, { align: 'center', width: pageWidth - 60 });
+    doc
+      .fontSize(8)
+      .fillColor('#999')
+      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, {
+        align: 'center',
+        width: pageWidth - 60,
+      });
   }
 
   /**
@@ -1352,8 +1476,15 @@ From ${COMPANY_CONFIG.name}
       doc.fontSize(10).font('Helvetica-Bold');
       doc.rect(marginLeft, y, availableWidth, 20).fillAndStroke('#E8E8E8', '#CCC');
       doc.fillColor('#000');
-      doc.text(`${idx + 1}. ${style?.styleCode || '-'} - ${style?.styleName || item.itemDescription || '-'}`, marginLeft + 5, y + 6);
-      doc.text(`Rate: ₹${Number(item.unitPrice).toLocaleString('en-IN')}`, pageWidth - marginRight - 120, y + 6, { width: 90, align: 'right' });
+      doc.text(
+        `${idx + 1}. ${style?.styleCode || '-'} - ${style?.styleName || item.itemDescription || '-'}`,
+        marginLeft + 5,
+        y + 6
+      );
+      doc.text(`Rate: ₹${Number(item.unitPrice).toLocaleString('en-IN')}`, pageWidth - marginRight - 120, y + 6, {
+        width: 90,
+        align: 'right',
+      });
       y += 20;
 
       // Size breakdown table
@@ -1361,7 +1492,7 @@ From ${COMPANY_CONFIG.name}
         // Group by color
         const colorGroups = new Map<string, { color: string; sizes: Map<string, number> }>();
 
-        breakup.forEach(b => {
+        breakup.forEach((b) => {
           const colorKey = b.colorId || 'default';
           const colorName = b.color_options?.colorName || 'Default';
           const sizeName = b.size_options?.sizeName || '-';
@@ -1375,7 +1506,7 @@ From ${COMPANY_CONFIG.name}
 
         // Get all unique sizes
         const allSizes = new Set<string>();
-        breakup.forEach(b => allSizes.add(b.size_options?.sizeName || '-'));
+        breakup.forEach((b) => allSizes.add(b.size_options?.sizeName || '-'));
         const sizeArray = Array.from(allSizes).sort((a, b) => {
           const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '3XL', '4XL', '5XL'];
           return sizeOrder.indexOf(a) - sizeOrder.indexOf(b);
@@ -1394,7 +1525,7 @@ From ${COMPANY_CONFIG.name}
         doc.text('Color', xPos + 3, y + 3, { width: colorColWidth - 6 });
         xPos += colorColWidth;
 
-        sizeArray.forEach(size => {
+        sizeArray.forEach((size) => {
           doc.text(size, xPos + 2, y + 3, { width: sizeColWidth - 4, align: 'center' });
           xPos += sizeColWidth;
         });
@@ -1411,7 +1542,7 @@ From ${COMPANY_CONFIG.name}
           xPos += colorColWidth;
 
           let rowTotal = 0;
-          sizeArray.forEach(size => {
+          sizeArray.forEach((size) => {
             const qty = group.sizes.get(size) || 0;
             rowTotal += qty;
             doc.text(qty > 0 ? qty.toString() : '-', xPos + 2, y + 3, { width: sizeColWidth - 4, align: 'center' });
@@ -1425,7 +1556,11 @@ From ${COMPANY_CONFIG.name}
       // Item total row
       doc.rect(marginLeft, y, availableWidth, 16).fillAndStroke('#333F50', '#000');
       doc.fillColor('#FFF').font('Helvetica-Bold').fontSize(9);
-      doc.text(`Style Total: ${item.totalQuantity} pcs  |  Amount: ₹${Number(item.totalPrice).toLocaleString('en-IN')}`, marginLeft + 5, y + 4);
+      doc.text(
+        `Style Total: ${item.totalQuantity} pcs  |  Amount: ₹${Number(item.totalPrice).toLocaleString('en-IN')}`,
+        marginLeft + 5,
+        y + 4
+      );
       y += 20;
       doc.fillColor('#000');
     });
@@ -1443,7 +1578,7 @@ From ${COMPANY_CONFIG.name}
   async generateCataloguePDF(filters: CatalogueFilters, options: CatalogueOptions): Promise<Buffer> {
     // Fetch styles based on filters
     const whereClause: Prisma.stylesWhereInput = {
-      isActive: true
+      isActive: true,
     };
 
     if (filters.styleIds && filters.styleIds.length > 0) {
@@ -1464,8 +1599,8 @@ From ${COMPANY_CONFIG.name}
       }
       if (filters.priceRange.max !== undefined) {
         whereClause.sellingPrice = {
-          ...whereClause.sellingPrice as object,
-          lte: filters.priceRange.max
+          ...(whereClause.sellingPrice as object),
+          lte: filters.priceRange.max,
         };
       }
     }
@@ -1481,15 +1616,12 @@ From ${COMPANY_CONFIG.name}
             style_fabrics: {
               include: {
                 fabric: true,
-              }
-            }
-          }
+              },
+            },
+          },
         },
       },
-      orderBy: [
-        { brandCategoryId: 'asc' },
-        { styleCode: 'asc' }
-      ]
+      orderBy: [{ brandCategoryId: 'asc' }, { styleCode: 'asc' }],
     });
 
     if (styles.length === 0) {
@@ -1500,7 +1632,7 @@ From ${COMPANY_CONFIG.name}
       const doc = new PDFDocument({ margin: 30, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -1535,10 +1667,10 @@ From ${COMPANY_CONFIG.name}
 
     // Dynamic layout based on columnsPerPage
     const columns = Math.min(Math.max(options.columnsPerPage || 2, 1), 4); // Clamp between 1-4
-    const rows = columns <= 2 ? 3 : (columns === 3 ? 3 : 4); // Adjust rows based on columns
+    const rows = columns <= 2 ? 3 : columns === 3 ? 3 : 4; // Adjust rows based on columns
     const stylesPerPage = columns * rows;
     const gap = 15;
-    const colWidth = (pageWidth - 60 - (gap * (columns - 1))) / columns;
+    const colWidth = (pageWidth - 60 - gap * (columns - 1)) / columns;
     const rowHeight = (pageHeight - 100) / rows;
 
     for (let i = 0; i < styles.length; i++) {
@@ -1560,43 +1692,52 @@ From ${COMPANY_CONFIG.name}
     const pages = doc.bufferedPageRange();
     for (let i = 1; i < pages.count; i++) {
       doc.switchToPage(i);
-      doc.fontSize(8).fillColor('#999')
-        .text(`Page ${i} of ${pages.count - 1}`, marginLeft, pageHeight - 25, { align: 'center', width: pageWidth - 60 });
+      doc
+        .fontSize(8)
+        .fillColor('#999')
+        .text(`Page ${i} of ${pages.count - 1}`, marginLeft, pageHeight - 25, {
+          align: 'center',
+          width: pageWidth - 60,
+        });
     }
   }
 
   /**
    * Draw catalogue index page (table of contents)
    */
-  private drawCatalogueIndex(
-    doc: PDFKit.PDFDocument,
-    styles: any[],
-    columnsPerPage: number
-  ) {
+  private drawCatalogueIndex(doc: PDFKit.PDFDocument, styles: any[], columnsPerPage: number) {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
     const marginLeft = 30;
     let y = 50;
 
     // Title
-    doc.fontSize(16).font('Helvetica-Bold').fillColor('#000')
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
+      .fillColor('#000')
       .text('INDEX', marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 30;
 
     // Calculate styles per page for page number calculation
     const columns = Math.min(Math.max(columnsPerPage, 1), 4);
-    const rows = columns <= 2 ? 3 : (columns === 3 ? 3 : 4);
+    const rows = columns <= 2 ? 3 : columns === 3 ? 3 : 4;
     const stylesPerPage = columns * rows;
 
     // Table header
-    doc.fontSize(10).font('Helvetica-Bold')
+    doc
+      .fontSize(10)
+      .font('Helvetica-Bold')
       .text('#', marginLeft, y, { width: 30 })
       .text('Style Code', marginLeft + 35, y, { width: 100 })
       .text('Style Name', marginLeft + 140, y, { width: 200 })
       .text('Page', marginLeft + 350, y, { width: 40 });
     y += 15;
 
-    doc.moveTo(marginLeft, y).lineTo(pageWidth - marginLeft, y).stroke();
+    doc
+      .moveTo(marginLeft, y)
+      .lineTo(pageWidth - marginLeft, y)
+      .stroke();
     y += 10;
 
     // List styles
@@ -1609,7 +1750,8 @@ From ${COMPANY_CONFIG.name}
 
       // Page number: +2 for cover and index page(s)
       const pageNum = Math.floor(index / stylesPerPage) + 2;
-      doc.fillColor('#000')
+      doc
+        .fillColor('#000')
         .text((index + 1).toString(), marginLeft, y, { width: 30 })
         .text(style.styleCode || '-', marginLeft + 35, y, { width: 100 })
         .text(style.styleName || '-', marginLeft + 140, y, { width: 200, ellipsis: true })
@@ -1631,23 +1773,31 @@ From ${COMPANY_CONFIG.name}
     doc.rect(0, 0, pageWidth, pageHeight).fill('#333F50');
 
     // Title
-    doc.fontSize(28).font('Helvetica-Bold').fillColor('#FFF')
+    doc
+      .fontSize(28)
+      .font('Helvetica-Bold')
+      .fillColor('#FFF')
       .text(title, 50, pageHeight / 3, { align: 'center', width: pageWidth - 100 });
 
     // Company name
-    doc.fontSize(18).font('Helvetica')
+    doc
+      .fontSize(18)
+      .font('Helvetica')
       .text(COMPANY_CONFIG.name, 50, pageHeight / 3 + 50, { align: 'center', width: pageWidth - 100 });
 
     // Style count
-    doc.fontSize(14)
-      .text(`${styleCount} Styles`, 50, pageHeight / 3 + 80, { align: 'center', width: pageWidth - 100 });
+    doc.fontSize(14).text(`${styleCount} Styles`, 50, pageHeight / 3 + 80, { align: 'center', width: pageWidth - 100 });
 
     // Contact
-    doc.fontSize(10)
-      .text(`${COMPANY_CONFIG.phone}  |  ${COMPANY_CONFIG.email}`, 50, pageHeight - 60, { align: 'center', width: pageWidth - 100 });
+    doc.fontSize(10).text(`${COMPANY_CONFIG.phone}  |  ${COMPANY_CONFIG.email}`, 50, pageHeight - 60, {
+      align: 'center',
+      width: pageWidth - 100,
+    });
 
-    doc.fontSize(8)
-      .text(`Generated: ${this.formatDate(new Date())}`, 50, pageHeight - 40, { align: 'center', width: pageWidth - 100 });
+    doc.fontSize(8).text(`Generated: ${this.formatDate(new Date())}`, 50, pageHeight - 40, {
+      align: 'center',
+      width: pageWidth - 100,
+    });
 
     doc.addPage();
   }
@@ -1682,7 +1832,7 @@ From ${COMPANY_CONFIG.name}
             height: imageHeight - 10,
             fit: [width - 10, imageHeight - 10],
             align: 'center',
-            valign: 'center'
+            valign: 'center',
           });
         }
       } catch (e) {
@@ -1692,7 +1842,10 @@ From ${COMPANY_CONFIG.name}
 
     // Style code overlay
     doc.rect(x, y + imageHeight - 25, width, 25).fill('rgba(0,0,0,0.7)');
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#FFF')
+    doc
+      .fontSize(11)
+      .font('Helvetica-Bold')
+      .fillColor('#FFF')
       .text(style.styleCode, x + 5, y + imageHeight - 20, { width: width - 10 });
 
     // Details section
@@ -1700,13 +1853,18 @@ From ${COMPANY_CONFIG.name}
     doc.fillColor('#000');
 
     // Style name
-    doc.fontSize(9).font('Helvetica-Bold')
+    doc
+      .fontSize(9)
+      .font('Helvetica-Bold')
       .text(style.styleName || '-', x + 5, detailY, { width: width - 10, ellipsis: true });
     detailY += 14;
 
     // Category
     const category = style.product_category?.name || style.brand_categories?.category || '-';
-    doc.fontSize(8).font('Helvetica').fillColor('#666')
+    doc
+      .fontSize(8)
+      .font('Helvetica')
+      .fillColor('#666')
       .text(category, x + 5, detailY, { width: width - 10 });
     detailY += 12;
 
@@ -1716,7 +1874,9 @@ From ${COMPANY_CONFIG.name}
       if (options.priceDisplay === 'b2b' || options.priceDisplay === 'both') {
         const b2bPrice = Number(style.costPrice || 0);
         if (b2bPrice > 0) {
-          doc.fontSize(9).font('Helvetica')
+          doc
+            .fontSize(9)
+            .font('Helvetica')
             .text(`B2B: ₹${b2bPrice.toLocaleString('en-IN')}`, x + 5, detailY);
           detailY += 12;
         }
@@ -1724,7 +1884,9 @@ From ${COMPANY_CONFIG.name}
       if (options.priceDisplay === 'b2r' || options.priceDisplay === 'both') {
         const b2rPrice = Number(style.sellingPrice || 0);
         if (b2rPrice > 0) {
-          doc.fontSize(9).font('Helvetica-Bold')
+          doc
+            .fontSize(9)
+            .font('Helvetica-Bold')
             .text(`MRP: ₹${b2rPrice.toLocaleString('en-IN')}`, x + 5, detailY);
           detailY += 12;
         }
@@ -1734,15 +1896,24 @@ From ${COMPANY_CONFIG.name}
     // Size range
     if (options.showSizeRange && style.size_options?.length > 0) {
       const sizes = style.size_options.map((s: any) => s.sizeName).join(', ');
-      doc.fontSize(7).font('Helvetica').fillColor('#888')
+      doc
+        .fontSize(7)
+        .font('Helvetica')
+        .fillColor('#888')
         .text(`Sizes: ${sizes}`, x + 5, detailY, { width: width - 10, ellipsis: true });
     }
 
     // Fabric details (accessed through style_components → style_fabrics)
     const allFabrics = style.style_components?.flatMap((c: any) => c.style_fabrics || []) || [];
     if (options.showFabricDetails && allFabrics.length > 0) {
-      const fabrics = allFabrics.slice(0, 2).map((f: any) => f.fabric?.fabricName || '-').join(', ');
-      doc.fontSize(7).font('Helvetica').fillColor('#888')
+      const fabrics = allFabrics
+        .slice(0, 2)
+        .map((f: any) => f.fabric?.fabricName || '-')
+        .join(', ');
+      doc
+        .fontSize(7)
+        .font('Helvetica')
+        .fillColor('#888')
         .text(`Fabric: ${fabrics}`, x + 5, y + height - 15, { width: width - 10, ellipsis: true });
     }
   }
@@ -1763,16 +1934,16 @@ From ${COMPANY_CONFIG.name}
         styleImages: { orderBy: { sortOrder: 'asc' } },
         techSpecs: true,
         style_material_bom: {
-          include: { materials: true }
+          include: { materials: true },
         },
         style_variants: true,
         style_components: {
-          include: { componentMaster: true }
+          include: { componentMaster: true },
         },
         brand_categories: true,
         style_categories: true,
         season_master: true,
-      }
+      },
     });
 
     if (!style) {
@@ -1788,245 +1959,279 @@ From ${COMPANY_CONFIG.name}
       doc.on('error', reject);
 
       try {
-      const pageWidth = doc.page.width;
-      const margin = 50;
-      const contentWidth = pageWidth - (margin * 2);
+        const pageWidth = doc.page.width;
+        const margin = 50;
+        const contentWidth = pageWidth - margin * 2;
 
-      // ─────────────────────────────────────────────────────────────────────────
-      // PAGE 1: COVER PAGE
-      // ─────────────────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
+        // PAGE 1: COVER PAGE
+        // ─────────────────────────────────────────────────────────────────────────
 
-      // Header
-      doc.fontSize(24).font('Helvetica-Bold').fillColor('#333')
-        .text('TECH PACK', margin, margin, { align: 'center' });
+        // Header
+        doc
+          .fontSize(24)
+          .font('Helvetica-Bold')
+          .fillColor('#333')
+          .text('TECH PACK', margin, margin, { align: 'center' });
 
-      doc.fontSize(12).font('Helvetica').fillColor('#666')
-        .text(COMPANY_CONFIG.name, margin, margin + 35, { align: 'center' });
+        doc
+          .fontSize(12)
+          .font('Helvetica')
+          .fillColor('#666')
+          .text(COMPANY_CONFIG.name, margin, margin + 35, { align: 'center' });
 
-      doc.moveDown(2);
+        doc.moveDown(2);
 
-      // Main image
-      const mainImage = style.styleImages?.find((img: any) => img.imageType === 'MAIN') || style.styleImages?.[0];
-      const imagePath = mainImage?.imageUrl
-        ? path.join(__dirname, '../../', mainImage.imageUrl)
-        : style.imageUrl
-          ? path.join(__dirname, '../../uploads/styles', path.basename(style.imageUrl))
-          : null;
+        // Main image
+        const mainImage = style.styleImages?.find((img: any) => img.imageType === 'MAIN') || style.styleImages?.[0];
+        const imagePath = mainImage?.imageUrl
+          ? path.join(__dirname, '../../', mainImage.imageUrl)
+          : style.imageUrl
+            ? path.join(__dirname, '../../uploads/styles', path.basename(style.imageUrl))
+            : null;
 
-      if (imagePath && fs.existsSync(imagePath)) {
-        try {
-          doc.image(imagePath, pageWidth / 2 - 150, 120, { width: 300, height: 300, fit: [300, 300] });
-          doc.moveDown(15);
-        } catch (err) {
-          doc.moveDown(2);
+        if (imagePath && fs.existsSync(imagePath)) {
+          try {
+            doc.image(imagePath, pageWidth / 2 - 150, 120, { width: 300, height: 300, fit: [300, 300] });
+            doc.moveDown(15);
+          } catch (err) {
+            doc.moveDown(2);
+          }
+        } else {
+          doc.moveDown(10);
         }
-      } else {
-        doc.moveDown(10);
-      }
 
-      // Style info table
-      let y = 450;
-      const labelWidth = 120;
+        // Style info table
+        let y = 450;
+        const labelWidth = 120;
 
-      const infoRows = [
-        ['Style Code:', style.styleCode || '-'],
-        ['Style Name:', style.styleName || '-'],
-        ['Customer:', style.customerName || '-'],
-        ['Brand:', style.brandName || '-'],
-        ['Season:', (style as any).season_master?.name || style.season || '-'],
-        ['Category:', (style as any).brand_categories?.category || '-'],
-        ['Created:', this.formatDate(style.createdAt)],
-      ];
-
-      doc.font('Helvetica');
-      infoRows.forEach(([label, value]) => {
-        doc.fontSize(11).fillColor('#666').text(label, margin, y, { width: labelWidth });
-        doc.fontSize(11).fillColor('#333').text(String(value), margin + labelWidth, y, { width: contentWidth - labelWidth });
-        y += 20;
-      });
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // PAGE 2: TECHNICAL SPECIFICATIONS
-      // ─────────────────────────────────────────────────────────────────────────
-
-      doc.addPage();
-      doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
-        .text('TECHNICAL SPECIFICATIONS', margin, margin);
-
-      y = margin + 40;
-
-      const specs = (style as any).techSpecs;
-      if (specs) {
-        const specRows = [
-          ['Overall Length:', specs.overallLength ? `${specs.overallLength} ${specs.lengthUnit || 'inches'}` : '-'],
-          ['Top Length:', specs.topLength ? `${specs.topLength} ${specs.lengthUnit || 'inches'}` : '-'],
-          ['Bottom Length:', specs.bottomLength ? `${specs.bottomLength} ${specs.lengthUnit || 'inches'}` : '-'],
-          ['Sleeve Type:', specs.sleeveType?.replace(/_/g, ' ') || '-'],
-          ['Collar Type:', specs.collarType?.replace(/_/g, ' ') || '-'],
-          ['Fit Type:', specs.fitType?.replace(/_/g, ' ') || '-'],
-          ['Closure Type:', specs.closureType?.replace(/_/g, ' ') || '-'],
+        const infoRows = [
+          ['Style Code:', style.styleCode || '-'],
+          ['Style Name:', style.styleName || '-'],
+          ['Customer:', style.customerName || '-'],
+          ['Brand:', style.brandName || '-'],
+          ['Season:', (style as any).season_master?.name || style.season || '-'],
+          ['Category:', (style as any).brand_categories?.category || '-'],
+          ['Created:', this.formatDate(style.createdAt)],
         ];
 
         doc.font('Helvetica');
-        specRows.forEach(([label, value]) => {
-          doc.fontSize(10).fillColor('#666').text(label, margin, y, { width: labelWidth });
-          doc.fontSize(10).fillColor('#333').text(String(value), margin + labelWidth, y, { width: contentWidth - labelWidth });
-          y += 18;
-        });
-
-        // Design notes
-        if (specs.designNotes) {
+        infoRows.forEach(([label, value]) => {
+          doc.fontSize(11).fillColor('#666').text(label, margin, y, { width: labelWidth });
+          doc
+            .fontSize(11)
+            .fillColor('#333')
+            .text(String(value), margin + labelWidth, y, { width: contentWidth - labelWidth });
           y += 20;
-          doc.fontSize(12).font('Helvetica-Bold').fillColor('#333')
-            .text('Design Notes:', margin, y);
-          y += 18;
-          doc.fontSize(10).font('Helvetica').fillColor('#444')
-            .text(specs.designNotes, margin, y, { width: contentWidth });
-          y = doc.y + 10;
-        }
-
-        // Construction notes
-        if (specs.constructionNotes) {
-          y += 10;
-          doc.fontSize(12).font('Helvetica-Bold').fillColor('#333')
-            .text('Construction Notes:', margin, y);
-          y += 18;
-          doc.fontSize(10).font('Helvetica').fillColor('#444')
-            .text(specs.constructionNotes, margin, y, { width: contentWidth });
-        }
-      } else {
-        doc.fontSize(10).font('Helvetica').fillColor('#888')
-          .text('No technical specifications available.', margin, y);
-      }
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // PAGE 3: BILL OF MATERIALS
-      // ─────────────────────────────────────────────────────────────────────────
-
-      doc.addPage();
-      doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
-        .text('BILL OF MATERIALS', margin, margin);
-
-      y = margin + 40;
-
-      const bomItems = (style as any).style_material_bom || [];
-      if (bomItems.length > 0) {
-        // Table header
-        doc.fontSize(9).font('Helvetica-Bold').fillColor('#666');
-        doc.text('Material', margin, y, { width: 200 });
-        doc.text('Type', margin + 200, y, { width: 80 });
-        doc.text('Qty', margin + 280, y, { width: 50 });
-        doc.text('Unit', margin + 330, y, { width: 50 });
-        y += 15;
-
-        // Draw header line
-        doc.strokeColor('#ddd').lineWidth(0.5)
-          .moveTo(margin, y).lineTo(pageWidth - margin, y).stroke();
-        y += 8;
-
-        // Table rows
-        doc.font('Helvetica').fontSize(9).fillColor('#333');
-        bomItems.forEach((item: any) => {
-          if (y > 750) {
-            doc.addPage();
-            y = margin;
-          }
-          const material = item.materials;
-          doc.text(material?.name || '-', margin, y, { width: 200 });
-          doc.text(item.materialType || '-', margin + 200, y, { width: 80 });
-          doc.text(String(item.quantityPerGarment || '-'), margin + 280, y, { width: 50 });
-          doc.text(item.unit || '-', margin + 330, y, { width: 50 });
-          y += 15;
         });
-      } else {
-        doc.fontSize(10).font('Helvetica').fillColor('#888')
-          .text('No BOM items available.', margin, y);
-      }
 
-      // ─────────────────────────────────────────────────────────────────────────
-      // PAGE 4: IMAGES GALLERY (if multiple images)
-      // ─────────────────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
+        // PAGE 2: TECHNICAL SPECIFICATIONS
+        // ─────────────────────────────────────────────────────────────────────────
 
-      const styleImages = (style as any).styleImages || [];
-      if (styleImages.length > 1) {
         doc.addPage();
-        doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
-          .text('STYLE IMAGES', margin, margin);
-
-        let imageX = margin;
-        let imageY = margin + 40;
-        const imageSize = 200;
-        const gap = 20;
-
-        styleImages.forEach((img: any, idx: number) => {
-          const imgPath = img.imageUrl ? path.join(__dirname, '../../', img.imageUrl) : null;
-
-          if (imgPath && fs.existsSync(imgPath)) {
-            try {
-              if (imageX + imageSize > pageWidth - margin) {
-                imageX = margin;
-                imageY += imageSize + gap + 20;
-              }
-
-              if (imageY + imageSize > 750) {
-                doc.addPage();
-                imageY = margin;
-                doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
-                  .text('STYLE IMAGES (continued)', margin, margin);
-                imageY = margin + 40;
-              }
-
-              doc.image(imgPath, imageX, imageY, { width: imageSize, height: imageSize, fit: [imageSize, imageSize] });
-
-              // Image type label
-              doc.fontSize(8).font('Helvetica').fillColor('#666')
-                .text((img.imageType || 'OTHER').replace(/_/g, ' '), imageX, imageY + imageSize + 5, { width: imageSize, align: 'center' });
-
-              imageX += imageSize + gap;
-            } catch (err) {
-              // Skip failed images
-            }
-          }
-        });
-      }
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // COLOR VARIANTS (if available)
-      // ─────────────────────────────────────────────────────────────────────────
-
-      const variants = (style as any).style_variants || [];
-      if (variants.length > 0) {
-        doc.addPage();
-        doc.fontSize(16).font('Helvetica-Bold').fillColor('#333')
-          .text('COLOR VARIANTS', margin, margin);
+        doc.fontSize(16).font('Helvetica-Bold').fillColor('#333').text('TECHNICAL SPECIFICATIONS', margin, margin);
 
         y = margin + 40;
-        doc.fontSize(10).font('Helvetica').fillColor('#333');
 
-        variants.forEach((variant: any, idx: number) => {
-          if (y > 750) {
-            doc.addPage();
-            y = margin;
+        const specs = (style as any).techSpecs;
+        if (specs) {
+          const specRows = [
+            ['Overall Length:', specs.overallLength ? `${specs.overallLength} ${specs.lengthUnit || 'inches'}` : '-'],
+            ['Top Length:', specs.topLength ? `${specs.topLength} ${specs.lengthUnit || 'inches'}` : '-'],
+            ['Bottom Length:', specs.bottomLength ? `${specs.bottomLength} ${specs.lengthUnit || 'inches'}` : '-'],
+            ['Sleeve Type:', specs.sleeveType?.replace(/_/g, ' ') || '-'],
+            ['Collar Type:', specs.collarType?.replace(/_/g, ' ') || '-'],
+            ['Fit Type:', specs.fitType?.replace(/_/g, ' ') || '-'],
+            ['Closure Type:', specs.closureType?.replace(/_/g, ' ') || '-'],
+          ];
+
+          doc.font('Helvetica');
+          specRows.forEach(([label, value]) => {
+            doc.fontSize(10).fillColor('#666').text(label, margin, y, { width: labelWidth });
+            doc
+              .fontSize(10)
+              .fillColor('#333')
+              .text(String(value), margin + labelWidth, y, { width: contentWidth - labelWidth });
+            y += 18;
+          });
+
+          // Design notes
+          if (specs.designNotes) {
+            y += 20;
+            doc.fontSize(12).font('Helvetica-Bold').fillColor('#333').text('Design Notes:', margin, y);
+            y += 18;
+            doc
+              .fontSize(10)
+              .font('Helvetica')
+              .fillColor('#444')
+              .text(specs.designNotes, margin, y, { width: contentWidth });
+            y = doc.y + 10;
           }
-          doc.text(`${idx + 1}. ${variant.variantCode || '-'} - ${variant.colorName || '-'}`, margin, y);
-          y += 18;
-        });
-      }
 
-      // Footer on all pages
-      const pages = doc.bufferedPageRange();
-      for (let i = 0; i < pages.count; i++) {
-        doc.switchToPage(i);
-        doc.fontSize(8).font('Helvetica').fillColor('#999')
-          .text(
-            `Generated on ${this.formatDate(new Date())} | Page ${i + 1} of ${pages.count}`,
-            margin,
-            doc.page.height - 30,
-            { align: 'center', width: contentWidth }
-          );
-      }
+          // Construction notes
+          if (specs.constructionNotes) {
+            y += 10;
+            doc.fontSize(12).font('Helvetica-Bold').fillColor('#333').text('Construction Notes:', margin, y);
+            y += 18;
+            doc
+              .fontSize(10)
+              .font('Helvetica')
+              .fillColor('#444')
+              .text(specs.constructionNotes, margin, y, { width: contentWidth });
+          }
+        } else {
+          doc
+            .fontSize(10)
+            .font('Helvetica')
+            .fillColor('#888')
+            .text('No technical specifications available.', margin, y);
+        }
 
-      doc.end();
+        // ─────────────────────────────────────────────────────────────────────────
+        // PAGE 3: BILL OF MATERIALS
+        // ─────────────────────────────────────────────────────────────────────────
+
+        doc.addPage();
+        doc.fontSize(16).font('Helvetica-Bold').fillColor('#333').text('BILL OF MATERIALS', margin, margin);
+
+        y = margin + 40;
+
+        const bomItems = (style as any).style_material_bom || [];
+        if (bomItems.length > 0) {
+          // Table header
+          doc.fontSize(9).font('Helvetica-Bold').fillColor('#666');
+          doc.text('Material', margin, y, { width: 200 });
+          doc.text('Type', margin + 200, y, { width: 80 });
+          doc.text('Qty', margin + 280, y, { width: 50 });
+          doc.text('Unit', margin + 330, y, { width: 50 });
+          y += 15;
+
+          // Draw header line
+          doc
+            .strokeColor('#ddd')
+            .lineWidth(0.5)
+            .moveTo(margin, y)
+            .lineTo(pageWidth - margin, y)
+            .stroke();
+          y += 8;
+
+          // Table rows
+          doc.font('Helvetica').fontSize(9).fillColor('#333');
+          bomItems.forEach((item: any) => {
+            if (y > 750) {
+              doc.addPage();
+              y = margin;
+            }
+            const material = item.materials;
+            doc.text(material?.name || '-', margin, y, { width: 200 });
+            doc.text(item.materialType || '-', margin + 200, y, { width: 80 });
+            doc.text(String(item.quantityPerGarment || '-'), margin + 280, y, { width: 50 });
+            doc.text(item.unit || '-', margin + 330, y, { width: 50 });
+            y += 15;
+          });
+        } else {
+          doc.fontSize(10).font('Helvetica').fillColor('#888').text('No BOM items available.', margin, y);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // PAGE 4: IMAGES GALLERY (if multiple images)
+        // ─────────────────────────────────────────────────────────────────────────
+
+        const styleImages = (style as any).styleImages || [];
+        if (styleImages.length > 1) {
+          doc.addPage();
+          doc.fontSize(16).font('Helvetica-Bold').fillColor('#333').text('STYLE IMAGES', margin, margin);
+
+          let imageX = margin;
+          let imageY = margin + 40;
+          const imageSize = 200;
+          const gap = 20;
+
+          styleImages.forEach((img: any, idx: number) => {
+            const imgPath = img.imageUrl ? path.join(__dirname, '../../', img.imageUrl) : null;
+
+            if (imgPath && fs.existsSync(imgPath)) {
+              try {
+                if (imageX + imageSize > pageWidth - margin) {
+                  imageX = margin;
+                  imageY += imageSize + gap + 20;
+                }
+
+                if (imageY + imageSize > 750) {
+                  doc.addPage();
+                  imageY = margin;
+                  doc
+                    .fontSize(16)
+                    .font('Helvetica-Bold')
+                    .fillColor('#333')
+                    .text('STYLE IMAGES (continued)', margin, margin);
+                  imageY = margin + 40;
+                }
+
+                doc.image(imgPath, imageX, imageY, {
+                  width: imageSize,
+                  height: imageSize,
+                  fit: [imageSize, imageSize],
+                });
+
+                // Image type label
+                doc
+                  .fontSize(8)
+                  .font('Helvetica')
+                  .fillColor('#666')
+                  .text((img.imageType || 'OTHER').replace(/_/g, ' '), imageX, imageY + imageSize + 5, {
+                    width: imageSize,
+                    align: 'center',
+                  });
+
+                imageX += imageSize + gap;
+              } catch (err) {
+                // Skip failed images
+              }
+            }
+          });
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // COLOR VARIANTS (if available)
+        // ─────────────────────────────────────────────────────────────────────────
+
+        const variants = (style as any).style_variants || [];
+        if (variants.length > 0) {
+          doc.addPage();
+          doc.fontSize(16).font('Helvetica-Bold').fillColor('#333').text('COLOR VARIANTS', margin, margin);
+
+          y = margin + 40;
+          doc.fontSize(10).font('Helvetica').fillColor('#333');
+
+          variants.forEach((variant: any, idx: number) => {
+            if (y > 750) {
+              doc.addPage();
+              y = margin;
+            }
+            doc.text(`${idx + 1}. ${variant.variantCode || '-'} - ${variant.colorName || '-'}`, margin, y);
+            y += 18;
+          });
+        }
+
+        // Footer on all pages
+        const pages = doc.bufferedPageRange();
+        for (let i = 0; i < pages.count; i++) {
+          doc.switchToPage(i);
+          doc
+            .fontSize(8)
+            .font('Helvetica')
+            .fillColor('#999')
+            .text(
+              `Generated on ${this.formatDate(new Date())} | Page ${i + 1} of ${pages.count}`,
+              margin,
+              doc.page.height - 30,
+              { align: 'center', width: contentWidth }
+            );
+        }
+
+        doc.end();
       } catch (err) {
         reject(err);
       }
@@ -2060,7 +2265,7 @@ From ${COMPANY_CONFIG.name}
         brand_categories: true,
         season_master: true,
       },
-      orderBy: { styleCode: 'asc' }
+      orderBy: { styleCode: 'asc' },
     });
 
     if (styles.length === 0) {
@@ -2076,146 +2281,179 @@ From ${COMPANY_CONFIG.name}
       doc.on('error', reject);
 
       try {
-      const pageWidth = doc.page.width;
-      const pageHeight = doc.page.height;
-      const margin = 40;
+        const pageWidth = doc.page.width;
+        const pageHeight = doc.page.height;
+        const margin = 40;
 
-      // ─────────────────────────────────────────────────────────────────────────
-      // HEADER
-      // ─────────────────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
+        // HEADER
+        // ─────────────────────────────────────────────────────────────────────────
 
-      doc.fontSize(18).font('Helvetica-Bold').fillColor('#333')
-        .text(options.title || 'LINE SHEET', margin, margin, { align: 'center' });
+        doc
+          .fontSize(18)
+          .font('Helvetica-Bold')
+          .fillColor('#333')
+          .text(options.title || 'LINE SHEET', margin, margin, { align: 'center' });
 
-      doc.fontSize(10).font('Helvetica').fillColor('#666')
-        .text(COMPANY_CONFIG.name, margin, margin + 25, { align: 'center' });
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .fillColor('#666')
+          .text(COMPANY_CONFIG.name, margin, margin + 25, { align: 'center' });
 
-      if (options.buyerCompany) {
-        doc.fontSize(9).fillColor('#888')
-          .text(`Prepared for: ${options.buyerCompany}`, margin, margin + 40, { align: 'center' });
-      }
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // STYLES GRID (3 per row)
-      // ─────────────────────────────────────────────────────────────────────────
-
-      const stylesPerRow = 3;
-      const cardWidth = (pageWidth - (margin * 2) - (20 * (stylesPerRow - 1))) / stylesPerRow;
-      const cardHeight = 180;
-      let x = margin;
-      let y = margin + 70;
-
-      styles.forEach((style, idx) => {
-        if (y + cardHeight > pageHeight - 50) {
-          doc.addPage();
-          y = margin;
+        if (options.buyerCompany) {
+          doc
+            .fontSize(9)
+            .fillColor('#888')
+            .text(`Prepared for: ${options.buyerCompany}`, margin, margin + 40, { align: 'center' });
         }
 
-        if (idx > 0 && idx % stylesPerRow === 0) {
-          x = margin;
-          y += cardHeight + 20;
-        }
+        // ─────────────────────────────────────────────────────────────────────────
+        // STYLES GRID (3 per row)
+        // ─────────────────────────────────────────────────────────────────────────
 
-        // Card border
-        doc.rect(x, y, cardWidth, cardHeight).stroke('#ddd');
+        const stylesPerRow = 3;
+        const cardWidth = (pageWidth - margin * 2 - 20 * (stylesPerRow - 1)) / stylesPerRow;
+        const cardHeight = 180;
+        let x = margin;
+        let y = margin + 70;
 
-        // Image placeholder
-        const imagePath = style.imageUrl ? path.join(__dirname, '../../uploads/styles', path.basename(style.imageUrl)) : null;
-        if (imagePath && fs.existsSync(imagePath)) {
-          try {
-            doc.image(imagePath, x + 5, y + 5, { width: 80, height: 80, fit: [80, 80] });
-          } catch (err) {
-            doc.rect(x + 5, y + 5, 80, 80).fill('#f5f5f5');
+        styles.forEach((style, idx) => {
+          if (y + cardHeight > pageHeight - 50) {
+            doc.addPage();
+            y = margin;
           }
-        } else {
-          doc.rect(x + 5, y + 5, 80, 80).fill('#f5f5f5');
-          doc.fontSize(8).fillColor('#999').text('No Image', x + 25, y + 40);
-        }
 
-        // Style info
-        const infoX = x + 95;
-        let infoY = y + 8;
+          if (idx > 0 && idx % stylesPerRow === 0) {
+            x = margin;
+            y += cardHeight + 20;
+          }
 
-        doc.fontSize(10).font('Helvetica-Bold').fillColor('#333')
-          .text(style.styleCode || '-', infoX, infoY, { width: cardWidth - 100 });
-        infoY += 14;
+          // Card border
+          doc.rect(x, y, cardWidth, cardHeight).stroke('#ddd');
 
-        doc.fontSize(8).font('Helvetica').fillColor('#666')
-          .text(style.styleName || '-', infoX, infoY, { width: cardWidth - 100, ellipsis: true });
-        infoY += 14;
+          // Image placeholder
+          const imagePath = style.imageUrl
+            ? path.join(__dirname, '../../uploads/styles', path.basename(style.imageUrl))
+            : null;
+          if (imagePath && fs.existsSync(imagePath)) {
+            try {
+              doc.image(imagePath, x + 5, y + 5, { width: 80, height: 80, fit: [80, 80] });
+            } catch (err) {
+              doc.rect(x + 5, y + 5, 80, 80).fill('#f5f5f5');
+            }
+          } else {
+            doc.rect(x + 5, y + 5, 80, 80).fill('#f5f5f5');
+            doc
+              .fontSize(8)
+              .fillColor('#999')
+              .text('No Image', x + 25, y + 40);
+          }
 
-        doc.fontSize(7).fillColor('#888')
-          .text(`Season: ${(style as any).season_master?.code || style.season || '-'}`, infoX, infoY);
-        infoY += 12;
+          // Style info
+          const infoX = x + 95;
+          let infoY = y + 8;
 
-        // Prices
-        if (options.showWholesalePrice && style.costPrice) {
-          doc.fontSize(9).font('Helvetica-Bold').fillColor('#2563eb')
-            .text(`Wholesale: ₹${Number(style.costPrice).toLocaleString('en-IN')}`, infoX, infoY);
+          doc
+            .fontSize(10)
+            .font('Helvetica-Bold')
+            .fillColor('#333')
+            .text(style.styleCode || '-', infoX, infoY, { width: cardWidth - 100 });
           infoY += 14;
-        }
-        if (options.showRetailPrice && style.sellingPrice) {
-          doc.fontSize(9).fillColor('#666')
-            .text(`MRP: ₹${Number(style.sellingPrice).toLocaleString('en-IN')}`, infoX, infoY);
+
+          doc
+            .fontSize(8)
+            .font('Helvetica')
+            .fillColor('#666')
+            .text(style.styleName || '-', infoX, infoY, { width: cardWidth - 100, ellipsis: true });
           infoY += 14;
+
+          doc
+            .fontSize(7)
+            .fillColor('#888')
+            .text(`Season: ${(style as any).season_master?.code || style.season || '-'}`, infoX, infoY);
+          infoY += 12;
+
+          // Prices
+          if (options.showWholesalePrice && style.costPrice) {
+            doc
+              .fontSize(9)
+              .font('Helvetica-Bold')
+              .fillColor('#2563eb')
+              .text(`Wholesale: ₹${Number(style.costPrice).toLocaleString('en-IN')}`, infoX, infoY);
+            infoY += 14;
+          }
+          if (options.showRetailPrice && style.sellingPrice) {
+            doc
+              .fontSize(9)
+              .fillColor('#666')
+              .text(`MRP: ₹${Number(style.sellingPrice).toLocaleString('en-IN')}`, infoX, infoY);
+            infoY += 14;
+          }
+
+          // Colors available
+          const variants = (style as any).style_variants || [];
+          if (variants.length > 0) {
+            const colors = variants
+              .map((v: any) => v.colorName)
+              .filter(Boolean)
+              .slice(0, 5)
+              .join(', ');
+            doc
+              .fontSize(7)
+              .font('Helvetica')
+              .fillColor('#888')
+              .text(`Colors: ${colors}${variants.length > 5 ? '...' : ''}`, x + 5, y + cardHeight - 20, {
+                width: cardWidth - 10,
+              });
+          }
+
+          // Sizes available
+          const sizes = (style as any).size_options || [];
+          if (sizes.length > 0) {
+            const sizeList = sizes.map((s: any) => s.sizeName).join(', ');
+            doc
+              .fontSize(7)
+              .fillColor('#888')
+              .text(`Sizes: ${sizeList}`, x + 5, y + cardHeight - 10, { width: cardWidth - 10, ellipsis: true });
+          }
+
+          x += cardWidth + 20;
+        });
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // FOOTER
+        // ─────────────────────────────────────────────────────────────────────────
+
+        const pages = doc.bufferedPageRange();
+        for (let i = 0; i < pages.count; i++) {
+          doc.switchToPage(i);
+
+          // Company contact
+          doc
+            .fontSize(8)
+            .font('Helvetica')
+            .fillColor('#666')
+            .text(`${COMPANY_CONFIG.phone} | ${COMPANY_CONFIG.email}`, margin, pageHeight - 30, { align: 'left' });
+
+          // Buyer info
+          if (options.buyerContact) {
+            doc.text(
+              `Contact: ${options.buyerContact}${options.buyerEmail ? ` | ${options.buyerEmail}` : ''}`,
+              pageWidth / 2 - 100,
+              pageHeight - 30,
+              { align: 'center', width: 200 }
+            );
+          }
+
+          // Page number
+          doc.text(`Page ${i + 1} of ${pages.count}`, pageWidth - margin - 80, pageHeight - 30, {
+            align: 'right',
+            width: 80,
+          });
         }
 
-        // Colors available
-        const variants = (style as any).style_variants || [];
-        if (variants.length > 0) {
-          const colors = variants.map((v: any) => v.colorName).filter(Boolean).slice(0, 5).join(', ');
-          doc.fontSize(7).font('Helvetica').fillColor('#888')
-            .text(`Colors: ${colors}${variants.length > 5 ? '...' : ''}`, x + 5, y + cardHeight - 20, { width: cardWidth - 10 });
-        }
-
-        // Sizes available
-        const sizes = (style as any).size_options || [];
-        if (sizes.length > 0) {
-          const sizeList = sizes.map((s: any) => s.sizeName).join(', ');
-          doc.fontSize(7).fillColor('#888')
-            .text(`Sizes: ${sizeList}`, x + 5, y + cardHeight - 10, { width: cardWidth - 10, ellipsis: true });
-        }
-
-        x += cardWidth + 20;
-      });
-
-      // ─────────────────────────────────────────────────────────────────────────
-      // FOOTER
-      // ─────────────────────────────────────────────────────────────────────────
-
-      const pages = doc.bufferedPageRange();
-      for (let i = 0; i < pages.count; i++) {
-        doc.switchToPage(i);
-
-        // Company contact
-        doc.fontSize(8).font('Helvetica').fillColor('#666')
-          .text(
-            `${COMPANY_CONFIG.phone} | ${COMPANY_CONFIG.email}`,
-            margin,
-            pageHeight - 30,
-            { align: 'left' }
-          );
-
-        // Buyer info
-        if (options.buyerContact) {
-          doc.text(
-            `Contact: ${options.buyerContact}${options.buyerEmail ? ` | ${options.buyerEmail}` : ''}`,
-            pageWidth / 2 - 100,
-            pageHeight - 30,
-            { align: 'center', width: 200 }
-          );
-        }
-
-        // Page number
-        doc.text(
-          `Page ${i + 1} of ${pages.count}`,
-          pageWidth - margin - 80,
-          pageHeight - 30,
-          { align: 'right', width: 80 }
-          );
-      }
-
-      doc.end();
+        doc.end();
       } catch (err) {
         reject(err);
       }
@@ -2242,7 +2480,7 @@ From ${COMPANY_CONFIG.name}
         brand_categories: true,
         season_master: true,
       },
-      orderBy: { styleCode: 'asc' }
+      orderBy: { styleCode: 'asc' },
     });
 
     const workbook = new ExcelJS.Workbook();
@@ -2279,7 +2517,7 @@ From ${COMPANY_CONFIG.name}
         top: { style: 'thin' },
         left: { style: 'thin' },
         bottom: { style: 'thin' },
-        right: { style: 'thin' }
+        right: { style: 'thin' },
       };
     });
 
@@ -2299,7 +2537,10 @@ From ${COMPANY_CONFIG.name}
     styles.forEach((style) => {
       const variants = (style as any).style_variants || [];
       const sizes = (style as any).size_options || [];
-      const colors = variants.map((v: any) => v.colorName).filter(Boolean).join(', ');
+      const colors = variants
+        .map((v: any) => v.colorName)
+        .filter(Boolean)
+        .join(', ');
       const sizeList = sizes.map((s: any) => s.sizeName).join(', ');
 
       let col = 1;
@@ -2323,7 +2564,7 @@ From ${COMPANY_CONFIG.name}
           top: { style: 'thin' },
           left: { style: 'thin' },
           bottom: { style: 'thin' },
-          right: { style: 'thin' }
+          right: { style: 'thin' },
         };
       }
 
@@ -2354,10 +2595,10 @@ From ${COMPANY_CONFIG.name}
         suppliers: true,
         purchase_order_items: {
           include: {
-            materials: true
-          }
-        }
-      }
+            materials: true,
+          },
+        },
+      },
     });
   }
 
@@ -2374,7 +2615,7 @@ From ${COMPANY_CONFIG.name}
       const doc = new PDFDocument({ margin: 30, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -2400,20 +2641,32 @@ From ${COMPANY_CONFIG.name}
     let y = 30;
 
     // ── Header: Purchase Order Title ──
-    doc.fontSize(16).font('Helvetica-Bold')
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
       .text('PURCHASE ORDER', marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 25;
 
     // ── Company Details (Buyer) ──
-    doc.fontSize(14).font('Helvetica-Bold')
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
       .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
-    doc.fontSize(9).font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc
+      .fontSize(9)
+      .font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+        align: 'center',
+        width: pageWidth - 60,
+      });
     y += 12;
 
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  Ph: ${COMPANY_CONFIG.phone}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  Ph: ${COMPANY_CONFIG.phone}`, marginLeft, y, {
+      align: 'center',
+      width: pageWidth - 60,
+    });
     y += 12;
 
     doc.text(`Email: ${COMPANY_CONFIG.email}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
@@ -2468,11 +2721,7 @@ From ${COMPANY_CONFIG.name}
     y += 12;
 
     // Contact details
-    const supplierContact = [
-      supplier?.contactPerson,
-      supplier?.phone,
-      supplier?.email
-    ].filter(Boolean).join(' | ');
+    const supplierContact = [supplier?.contactPerson, supplier?.phone, supplier?.email].filter(Boolean).join(' | ');
     if (supplierContact) {
       doc.text(supplierContact, marginLeft, y, { width: midPoint - marginLeft - 20 });
     }
@@ -2487,20 +2736,23 @@ From ${COMPANY_CONFIG.name}
 
     // ── Totals Section ──
     const valueWidth = 110;
-    const valueX  = marginRight - valueWidth;   // stays inside right margin
-    const labelX  = marginRight - 230;
+    const valueX = marginRight - valueWidth; // stays inside right margin
+    const labelX = marginRight - 230;
 
-    doc.moveTo(labelX - 10, y).lineTo(marginRight, y).stroke();
+    doc
+      .moveTo(labelX - 10, y)
+      .lineTo(marginRight, y)
+      .stroke();
     y += 8;
 
     const poItems = po.purchase_order_items || [];
-    const subtotal   = poItems.reduce((s, i) => s + Number(i.totalPrice  || 0), 0);
-    const totalTax   = poItems.reduce((s, i) => s + Number(i.taxAmount   || 0), 0);
-    const totalCgst  = poItems.reduce((s, i) => s + Number(i.cgstAmount  || 0), 0);
-    const totalSgst  = poItems.reduce((s, i) => s + Number(i.sgstAmount  || 0), 0);
-    const totalIgst  = poItems.reduce((s, i) => s + Number(i.igstAmount  || 0), 0);
+    const subtotal = poItems.reduce((s, i) => s + Number(i.totalPrice || 0), 0);
+    const totalTax = poItems.reduce((s, i) => s + Number(i.taxAmount || 0), 0);
+    const totalCgst = poItems.reduce((s, i) => s + Number(i.cgstAmount || 0), 0);
+    const totalSgst = poItems.reduce((s, i) => s + Number(i.sgstAmount || 0), 0);
+    const totalIgst = poItems.reduce((s, i) => s + Number(i.igstAmount || 0), 0);
     const grandTotal = subtotal + totalTax;
-    const isIgst     = totalIgst > 0;
+    const isIgst = totalIgst > 0;
 
     const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
@@ -2522,7 +2774,10 @@ From ${COMPANY_CONFIG.name}
       y += 14;
     }
 
-    doc.moveTo(labelX - 10, y).lineTo(marginRight, y).stroke();
+    doc
+      .moveTo(labelX - 10, y)
+      .lineTo(marginRight, y)
+      .stroke();
     y += 6;
 
     doc.fontSize(10).font('Helvetica-Bold');
@@ -2552,9 +2807,9 @@ From ${COMPANY_CONFIG.name}
       '2. Invoice must accompany delivery of goods.',
       '3. Goods are subject to quality inspection upon receipt.',
       '4. Delivery must be made as per the expected delivery date.',
-      '5. Any deviation from specifications must be communicated prior to delivery.'
+      '5. Any deviation from specifications must be communicated prior to delivery.',
     ];
-    poTerms.forEach(term => {
+    poTerms.forEach((term) => {
       doc.text(term, marginLeft, y, { width: pageWidth - 60 });
       y += 11;
     });
@@ -2573,8 +2828,13 @@ From ${COMPANY_CONFIG.name}
     y += 20;
 
     // ── Footer ──
-    doc.fontSize(8).fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, { align: 'center', width: pageWidth - 60 });
+    doc
+      .fontSize(8)
+      .fillColor('#999')
+      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, {
+        align: 'center',
+        width: pageWidth - 60,
+      });
   }
 
   /**
@@ -2594,15 +2854,15 @@ From ${COMPANY_CONFIG.name}
 
     // Column widths — total = 535px
     const col = {
-      sno:         22,   // -3
-      description: 162,  // code (bold) + name below; -3
-      qty:          45,  // -5
-      unit:         30,  // -5
-      hsn:          48,  // -2
-      gst:          28,  // -2
-      rate:         55,  // -5
-      tax:          70,  // +10 — wider for "₹6,263.58"
-      amount:       75,  // +15 — wider for "₹1,33,618.83"
+      sno: 22, // -3
+      description: 162, // code (bold) + name below; -3
+      qty: 45, // -5
+      unit: 30, // -5
+      hsn: 48, // -2
+      gst: 28, // -2
+      rate: 55, // -5
+      tax: 70, // +10 — wider for "₹6,263.58"
+      amount: 75, // +15 — wider for "₹1,33,618.83"
     };
     // 22+162+45+30+48+28+55+70+75 = 535 ✓
 
@@ -2612,15 +2872,23 @@ From ${COMPANY_CONFIG.name}
     doc.fillColor('#000');
 
     let xPos = marginLeft;
-    doc.text('S.No',   xPos + 2, y + 5, { width: col.sno - 4,         align: 'center' }); xPos += col.sno;
-    doc.text('Description', xPos + 2, y + 5, { width: col.description - 4 }); xPos += col.description;
-    doc.text('Qty',    xPos + 2, y + 5, { width: col.qty - 4,          align: 'right'  }); xPos += col.qty;
-    doc.text('Unit',   xPos + 2, y + 5, { width: col.unit - 4,         align: 'center' }); xPos += col.unit;
-    doc.text('HSN',    xPos + 2, y + 5, { width: col.hsn - 4,          align: 'center' }); xPos += col.hsn;
-    doc.text('GST%',   xPos + 2, y + 5, { width: col.gst - 4,          align: 'center' }); xPos += col.gst;
-    doc.text('Rate',   xPos + 2, y + 5, { width: col.rate - 4,         align: 'right'  }); xPos += col.rate;
-    doc.text('Tax',    xPos + 2, y + 5, { width: col.tax - 4,          align: 'right'  }); xPos += col.tax;
-    doc.text('Amount', xPos + 2, y + 5, { width: col.amount - 4,       align: 'right'  });
+    doc.text('S.No', xPos + 2, y + 5, { width: col.sno - 4, align: 'center' });
+    xPos += col.sno;
+    doc.text('Description', xPos + 2, y + 5, { width: col.description - 4 });
+    xPos += col.description;
+    doc.text('Qty', xPos + 2, y + 5, { width: col.qty - 4, align: 'right' });
+    xPos += col.qty;
+    doc.text('Unit', xPos + 2, y + 5, { width: col.unit - 4, align: 'center' });
+    xPos += col.unit;
+    doc.text('HSN', xPos + 2, y + 5, { width: col.hsn - 4, align: 'center' });
+    xPos += col.hsn;
+    doc.text('GST%', xPos + 2, y + 5, { width: col.gst - 4, align: 'center' });
+    xPos += col.gst;
+    doc.text('Rate', xPos + 2, y + 5, { width: col.rate - 4, align: 'right' });
+    xPos += col.rate;
+    doc.text('Tax', xPos + 2, y + 5, { width: col.tax - 4, align: 'right' });
+    xPos += col.tax;
+    doc.text('Amount', xPos + 2, y + 5, { width: col.amount - 4, align: 'right' });
     y += 18;
 
     // ── Table rows ──
@@ -2662,7 +2930,12 @@ From ${COMPANY_CONFIG.name}
 
       // Qty
       doc.fontSize(8).font('Helvetica');
-      doc.text(Number(item.orderedQuantity).toLocaleString('en-IN', { maximumFractionDigits: 3 }), xPos + 2, textY + 5, { width: col.qty - 4, align: 'right', lineBreak: false });
+      doc.text(
+        Number(item.orderedQuantity).toLocaleString('en-IN', { maximumFractionDigits: 3 }),
+        xPos + 2,
+        textY + 5,
+        { width: col.qty - 4, align: 'right', lineBreak: false }
+      );
       xPos += col.qty;
 
       // Unit
@@ -2678,15 +2951,28 @@ From ${COMPANY_CONFIG.name}
       xPos += col.gst;
 
       // Rate
-      doc.text(`₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, { width: col.rate - 4, align: 'right', lineBreak: false });
+      doc.text(
+        `₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+        xPos + 2,
+        textY + 5,
+        { width: col.rate - 4, align: 'right', lineBreak: false }
+      );
       xPos += col.rate;
 
       // Tax Amount
-      doc.text(`₹${taxAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, { width: col.tax - 4, align: 'right', lineBreak: false });
+      doc.text(`₹${taxAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, {
+        width: col.tax - 4,
+        align: 'right',
+        lineBreak: false,
+      });
       xPos += col.tax;
 
       // Taxable Amount (base line total, excl. tax)
-      doc.text(`₹${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, { width: col.amount - 4, align: 'right', lineBreak: false });
+      doc.text(`₹${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, {
+        width: col.amount - 4,
+        align: 'right',
+        lineBreak: false,
+      });
 
       y += rowHeight;
     });
@@ -2732,7 +3018,11 @@ From ${COMPANY_CONFIG.name}
         // Helper: draw label-value pair
         const drawField = (label: string, value: string, x: number, yy: number, labelW = 70) => {
           doc.font('Helvetica').fontSize(8).fillColor('#666').text(label, x, yy, { width: labelW });
-          doc.font('Helvetica-Bold').fontSize(9).fillColor('#000').text(value, x + labelW, yy, { width: 130 });
+          doc
+            .font('Helvetica-Bold')
+            .fontSize(9)
+            .fillColor('#000')
+            .text(value, x + labelW, yy, { width: 130 });
         };
 
         // Helper: section title
@@ -2752,13 +3042,15 @@ From ${COMPANY_CONFIG.name}
         // ═══════════════════════════════════════════
         // SECTION A: HEADER + IMAGE + ORDER DETAILS
         // ═══════════════════════════════════════════
-        doc.fontSize(14).font('Helvetica-Bold')
-          .text('CUTTING CHART', mL, y, { align: 'center', width: cW });
+        doc.fontSize(14).font('Helvetica-Bold').text('CUTTING CHART', mL, y, { align: 'center', width: cW });
         y += 18;
-        doc.fontSize(10).font('Helvetica-Bold')
-          .text(COMPANY_CONFIG.name, mL, y, { align: 'center', width: cW });
+        doc.fontSize(10).font('Helvetica-Bold').text(COMPANY_CONFIG.name, mL, y, { align: 'center', width: cW });
         y += 14;
-        doc.moveTo(mL, y).lineTo(pageWidth - 30, y).lineWidth(1).stroke('#333');
+        doc
+          .moveTo(mL, y)
+          .lineTo(pageWidth - 30, y)
+          .lineWidth(1)
+          .stroke('#333');
         y += 10;
 
         const headerY = y;
@@ -2775,11 +3067,19 @@ From ${COMPANY_CONFIG.name}
               doc.image(imgPath, mL + 5, headerY + 5, { width: imgW, height: imgH, fit: [imgW, imgH] });
               imageRendered = true;
             }
-          } catch (_) { /* ignore image errors */ }
+          } catch (_) {
+            /* ignore image errors */
+          }
         }
         if (!imageRendered) {
-          doc.rect(mL, headerY, imgW + 10, imgH + 10).fill('#F5F5F5').stroke('#DDD');
-          doc.fontSize(8).fillColor('#999').text('No Image', mL + 30, headerY + 55);
+          doc
+            .rect(mL, headerY, imgW + 10, imgH + 10)
+            .fill('#F5F5F5')
+            .stroke('#DDD');
+          doc
+            .fontSize(8)
+            .fillColor('#999')
+            .text('No Image', mL + 30, headerY + 55);
           doc.fillColor('#000');
         }
 
@@ -2799,14 +3099,26 @@ From ${COMPANY_CONFIG.name}
         dy += 16;
         drawField('Order Qty:', chartData.orderQty.toLocaleString(), detailX, dy);
         doc.font('Helvetica').fontSize(8).fillColor('#666').text('Cut Qty:', col2X, dy);
-        doc.font('Helvetica-Bold').fontSize(9).fillColor('#C2410C')
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(9)
+          .fillColor('#C2410C')
           .text(`${totalCutQty.toLocaleString()} (${extraPercent}% extra)`, col2X + 70, dy);
         doc.fillColor('#000');
-        drawField('Date:', new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }), col3X, dy);
+        drawField(
+          'Date:',
+          new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+          col3X,
+          dy
+        );
         dy += 16;
 
         y = Math.max(headerY + imgH + 15, dy + 10);
-        doc.moveTo(mL, y).lineTo(pageWidth - 30, y).lineWidth(0.5).stroke('#CCC');
+        doc
+          .moveTo(mL, y)
+          .lineTo(pageWidth - 30, y)
+          .lineWidth(0.5)
+          .stroke('#CCC');
         y += 10;
 
         // ═══════════════════════════════════════════
@@ -2997,7 +3309,10 @@ From ${COMPANY_CONFIG.name}
             // Sub-header per fabric
             if (fabricsWithLots.length > 1) {
               checkPage(30);
-              doc.fontSize(8).font('Helvetica-Bold').fillColor('#444')
+              doc
+                .fontSize(8)
+                .font('Helvetica-Bold')
+                .fillColor('#444')
                 .text(`${fabric.part} — ${fabric.fabricName}`, mL, y);
               doc.fillColor('#000');
               y += 14;
@@ -3052,7 +3367,10 @@ From ${COMPANY_CONFIG.name}
           chartData.existingBatches.forEach((batch: any) => {
             const label = `${batch.batchNumber}  [${batch.status}]  ${batch.totalCut} pcs`;
             const bw = doc.widthOfString(label) + 16;
-            if (bx + bw > pageWidth - 30) { bx = mL; y += 18; }
+            if (bx + bw > pageWidth - 30) {
+              bx = mL;
+              y += 18;
+            }
             doc.roundedRect(bx, y, bw, 16, 3).stroke('#CCC');
             doc.text(label, bx + 8, y + 4);
             bx += bw + 8;
@@ -3066,7 +3384,8 @@ From ${COMPANY_CONFIG.name}
         doc.fontSize(7).font('Helvetica').fillColor('#999');
         doc.text(
           `Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | ${COMPANY_CONFIG.name}`,
-          mL, pageHeight - 35,
+          mL,
+          pageHeight - 35,
           { align: 'center', width: cW }
         );
 
@@ -3114,7 +3433,7 @@ From ${COMPANY_CONFIG.name}
       const doc = new PDFDocument({ margin: 30, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -3135,20 +3454,32 @@ From ${COMPANY_CONFIG.name}
     let y = 30;
 
     // ── Header: Title ──
-    doc.fontSize(16).font('Helvetica-Bold')
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
       .text('TRANSFER SLIP', marginLeft, y, { align: 'center', width: availableWidth });
     y += 25;
 
     // ── Company Details ──
-    doc.fontSize(12).font('Helvetica-Bold')
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
       .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: availableWidth });
     y += 16;
 
-    doc.fontSize(8).font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: availableWidth });
+    doc
+      .fontSize(8)
+      .font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+        align: 'center',
+        width: availableWidth,
+      });
     y += 11;
 
-    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, { align: 'center', width: availableWidth });
+    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, {
+      align: 'center',
+      width: availableWidth,
+    });
     y += 16;
 
     // ── Horizontal Line ──
@@ -3191,7 +3522,9 @@ From ${COMPANY_CONFIG.name}
 
     if (slip.workOrder?.styles) {
       doc.font('Helvetica-Bold').text('Style:', marginLeft, y);
-      doc.font('Helvetica').text(`${slip.workOrder.styles.styleCode} - ${slip.workOrder.styles.styleName}`, marginLeft + 75, y);
+      doc
+        .font('Helvetica')
+        .text(`${slip.workOrder.styles.styleCode} - ${slip.workOrder.styles.styleName}`, marginLeft + 75, y);
       y += 12;
     }
 
@@ -3273,7 +3606,10 @@ From ${COMPANY_CONFIG.name}
     doc.fillColor('#FFF').font('Helvetica-Bold');
     xPos = marginLeft;
     doc.text('TOTAL', xPos + 3, y + 5, { width: availableWidth - colWidths.qty - 6, align: 'right' });
-    doc.text(totalQty.toString(), marginLeft + availableWidth - colWidths.qty + 3, y + 5, { width: colWidths.qty - 6, align: 'center' });
+    doc.text(totalQty.toString(), marginLeft + availableWidth - colWidths.qty + 3, y + 5, {
+      width: colWidths.qty - 6,
+      align: 'center',
+    });
     y += 18;
 
     y += 15;
@@ -3309,8 +3645,15 @@ From ${COMPANY_CONFIG.name}
     doc.text('Signature: ________________', midPoint + 10, y);
 
     // ── Footer ──
-    doc.fontSize(7).fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`, marginLeft, doc.page.height - 30, { align: 'center', width: availableWidth });
+    doc
+      .fontSize(7)
+      .fillColor('#999')
+      .text(
+        `Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`,
+        marginLeft,
+        doc.page.height - 30,
+        { align: 'center', width: availableWidth }
+      );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -3346,7 +3689,7 @@ From ${COMPANY_CONFIG.name}
       const doc = new PDFDocument({ margin: 30, size: 'A4' });
       const chunks: Buffer[] = [];
 
-      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -3367,23 +3710,35 @@ From ${COMPANY_CONFIG.name}
     let y = 30;
 
     // ── Header: Title ──
-    const typeLabel = challan.challanType === 'OUTWARD' ? 'OUTWARD'
-      : challan.challanType === 'INWARD' ? 'INWARD' : 'INTERNAL';
+    const typeLabel =
+      challan.challanType === 'OUTWARD' ? 'OUTWARD' : challan.challanType === 'INWARD' ? 'INWARD' : 'INTERNAL';
 
-    doc.fontSize(16).font('Helvetica-Bold')
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
       .text(`CHALLAN — ${typeLabel}`, marginLeft, y, { align: 'center', width: availableWidth });
     y += 25;
 
     // ── Company Details ──
-    doc.fontSize(12).font('Helvetica-Bold')
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
       .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: availableWidth });
     y += 16;
 
-    doc.fontSize(8).font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, { align: 'center', width: availableWidth });
+    doc
+      .fontSize(8)
+      .font('Helvetica')
+      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+        align: 'center',
+        width: availableWidth,
+      });
     y += 11;
 
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  Ph: ${COMPANY_CONFIG.phone}`, marginLeft, y, { align: 'center', width: availableWidth });
+    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  Ph: ${COMPANY_CONFIG.phone}`, marginLeft, y, {
+      align: 'center',
+      width: availableWidth,
+    });
     y += 16;
 
     // ── Horizontal Line ──
@@ -3457,7 +3812,15 @@ From ${COMPANY_CONFIG.name}
     y += 8;
 
     // ── Items Table ──
-    const colWidths = { sno: 30, type: 65, description: 170, qty: 60, unit: 50, rate: 65, amount: availableWidth - 440 };
+    const colWidths = {
+      sno: 30,
+      type: 65,
+      description: 170,
+      qty: 60,
+      unit: 50,
+      rate: 65,
+      amount: availableWidth - 440,
+    };
 
     // Table header
     doc.fontSize(8).font('Helvetica-Bold');
@@ -3506,9 +3869,15 @@ From ${COMPANY_CONFIG.name}
       xPos += colWidths.qty;
       doc.text(item.unit || 'PCS', xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
       xPos += colWidths.unit;
-      doc.text(rate > 0 ? `₹${rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, { width: colWidths.rate - 6, align: 'right' });
+      doc.text(rate > 0 ? `₹${rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, {
+        width: colWidths.rate - 6,
+        align: 'right',
+      });
       xPos += colWidths.rate;
-      doc.text(amt > 0 ? `₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, { width: colWidths.amount - 6, align: 'right' });
+      doc.text(amt > 0 ? `₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, {
+        width: colWidths.amount - 6,
+        align: 'right',
+      });
 
       y += rowHeight;
     });
@@ -3519,10 +3888,21 @@ From ${COMPANY_CONFIG.name}
     xPos = marginLeft;
     const qtyColStart = colWidths.sno + colWidths.type + colWidths.description;
     doc.text('TOTAL', marginLeft + 3, y + 5, { width: qtyColStart - 6, align: 'right' });
-    doc.text(Number(challan.totalQuantity).toString(), marginLeft + qtyColStart + 3, y + 5, { width: colWidths.qty - 6, align: 'center' });
-    doc.text(challan.unit, marginLeft + qtyColStart + colWidths.qty + 3, y + 5, { width: colWidths.unit - 6, align: 'center' });
+    doc.text(Number(challan.totalQuantity).toString(), marginLeft + qtyColStart + 3, y + 5, {
+      width: colWidths.qty - 6,
+      align: 'center',
+    });
+    doc.text(challan.unit, marginLeft + qtyColStart + colWidths.qty + 3, y + 5, {
+      width: colWidths.unit - 6,
+      align: 'center',
+    });
     if (totalAmount > 0) {
-      doc.text(`₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, marginLeft + availableWidth - colWidths.amount + 3, y + 5, { width: colWidths.amount - 6, align: 'right' });
+      doc.text(
+        `₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+        marginLeft + availableWidth - colWidths.amount + 3,
+        y + 5,
+        { width: colWidths.amount - 6, align: 'right' }
+      );
     }
     y += 18;
 
@@ -3559,8 +3939,15 @@ From ${COMPANY_CONFIG.name}
     doc.text('Signature: ________________', midPoint + 10, y);
 
     // ── Footer ──
-    doc.fontSize(7).fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`, marginLeft, doc.page.height - 30, { align: 'center', width: availableWidth });
+    doc
+      .fontSize(7)
+      .fillColor('#999')
+      .text(
+        `Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`,
+        marginLeft,
+        doc.page.height - 30,
+        { align: 'center', width: availableWidth }
+      );
   }
 }
 

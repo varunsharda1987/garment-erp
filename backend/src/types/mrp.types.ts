@@ -21,7 +21,7 @@ export const MaterialRequirementStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type MaterialRequirementStatus = typeof MaterialRequirementStatus[keyof typeof MaterialRequirementStatus];
+export type MaterialRequirementStatus = (typeof MaterialRequirementStatus)[keyof typeof MaterialRequirementStatus];
 
 export const RequirementSource = {
   SALES_ORDER: 'SALES_ORDER',
@@ -29,7 +29,7 @@ export const RequirementSource = {
   MANUAL: 'MANUAL',
 } as const;
 
-export type RequirementSource = typeof RequirementSource[keyof typeof RequirementSource];
+export type RequirementSource = (typeof RequirementSource)[keyof typeof RequirementSource];
 
 // ============================================
 // CALCULATION TYPES

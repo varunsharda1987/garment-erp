@@ -167,17 +167,20 @@ export default function FabricStockEntry() {
   };
 
   const selectedFabric = fabricList.find((f) => f.id === selectedFabricId);
-  const totalValue = formData.quantity && formData.purchaseCost
-    ? parseFloat(formData.quantity) * parseFloat(formData.purchaseCost)
-    : 0;
+  const totalValue =
+    formData.quantity && formData.purchaseCost ? parseFloat(formData.quantity) * parseFloat(formData.purchaseCost) : 0;
 
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">Home</Link>
+        <Link to="/" className="hover:text-blue-600">
+          Home
+        </Link>
         {' > '}
-        <Link to="/fabric" className="hover:text-blue-600">Finished Fabric</Link>
+        <Link to="/fabric" className="hover:text-blue-600">
+          Finished Fabric
+        </Link>
         {' > '}
         <span className="font-medium text-gray-900">Stock Entry</span>
       </div>
@@ -196,9 +199,7 @@ export default function FabricStockEntry() {
             <Package2 className="h-6 w-6 text-blue-600" />
             Finished Fabric Stock Entry
           </CardTitle>
-          <p className="text-sm text-gray-500 mt-2">
-            Add finished fabric stock to inventory
-          </p>
+          <p className="text-sm text-gray-500 mt-2">Add finished fabric stock to inventory</p>
         </CardHeader>
         <CardContent>
           {/* Success Alert */}
@@ -222,7 +223,9 @@ export default function FabricStockEntry() {
           <div className="space-y-6">
             {/* Fabric Selection */}
             <div>
-              <Label>Select Finished Fabric <span className="text-red-500">*</span></Label>
+              <Label>
+                Select Finished Fabric <span className="text-red-500">*</span>
+              </Label>
               <Combobox
                 options={fabricList.map((fabric) => ({
                   value: fabric.id,
@@ -341,7 +344,9 @@ export default function FabricStockEntry() {
             {/* Stock Entry Form */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label htmlFor="quantity">Quantity (meters) <span className="text-red-500">*</span></Label>
+                <Label htmlFor="quantity">
+                  Quantity (meters) <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="quantity"
                   type="number"
@@ -354,7 +359,9 @@ export default function FabricStockEntry() {
               </div>
 
               <div>
-                <Label htmlFor="width">Width (inches) <span className="text-red-500">*</span></Label>
+                <Label htmlFor="width">
+                  Width (inches) <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   id="width"
                   type="number"
@@ -392,7 +399,9 @@ export default function FabricStockEntry() {
               </div>
 
               <div>
-                <Label htmlFor="qualityGrade">Quality Grade <span className="text-red-500">*</span></Label>
+                <Label htmlFor="qualityGrade">
+                  Quality Grade <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   value={formData.qualityGrade}
                   onValueChange={(value: 'A' | 'B' | 'DEFECT') => handleFieldChange('qualityGrade', value)}
@@ -412,7 +421,9 @@ export default function FabricStockEntry() {
                 <Label htmlFor="stockType">Stock Type</Label>
                 <Select
                   value={formData.stockType}
-                  onValueChange={(value: 'GENERIC' | 'PLANNED_STOCK' | 'EXCESS' | 'RETURNED' | 'VARIANCE_UNUSED') => handleFieldChange('stockType', value)}
+                  onValueChange={(value: 'GENERIC' | 'PLANNED_STOCK' | 'EXCESS' | 'RETURNED' | 'VARIANCE_UNUSED') =>
+                    handleFieldChange('stockType', value)
+                  }
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue />
@@ -479,9 +490,7 @@ export default function FabricStockEntry() {
                 <CardContent className="pt-4">
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-gray-700">Total Stock Value:</span>
-                    <span className="text-2xl font-bold text-blue-600">
-                      {formatCurrency(totalValue)}
-                    </span>
+                    <span className="text-2xl font-bold text-blue-600">{formatCurrency(totalValue)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -489,17 +498,10 @@ export default function FabricStockEntry() {
 
             {/* Action Buttons */}
             <div className="flex gap-4 justify-end pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => navigate('/fabric')}
-                disabled={isSaving}
-              >
+              <Button variant="outline" onClick={() => navigate('/fabric')} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || !selectedFabricId || !formData.quantity}
-              >
+              <Button onClick={handleSave} disabled={isSaving || !selectedFabricId || !formData.quantity}>
                 {isSaving ? 'Saving...' : 'Save Stock Entry'}
               </Button>
             </div>

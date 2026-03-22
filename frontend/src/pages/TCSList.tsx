@@ -7,20 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,38 +19,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  getTCSEntries,
-  createTCS,
-  updateTCSStatus,
-  deleteTCS,
-} from '@/services/tcs.service';
+import { getTCSEntries, createTCS, updateTCSStatus, deleteTCS } from '@/services/tcs.service';
 import type { TCSEntry, CreateTCSRequest, TCSStatus } from '@/types/tcs.types';
-import {
-  TCS_STATUS_LABELS,
-  TCS_STATUS_COLORS,
-  TCS_SECTIONS,
-} from '@/types/tcs.types';
+import { TCS_STATUS_LABELS, TCS_STATUS_COLORS, TCS_SECTIONS } from '@/types/tcs.types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -141,10 +108,7 @@ export default function TCSList() {
   // ---------- Queries ----------
 
   const { data, isLoading } = useQuery({
-    queryKey: [
-      'tcs-entries',
-      { page, search, financialYear, quarter: quarterFilter, status: statusFilter },
-    ],
+    queryKey: ['tcs-entries', { page, search, financialYear, quarter: quarterFilter, status: statusFilter }],
     queryFn: () =>
       getTCSEntries({
         page,
@@ -171,8 +135,7 @@ export default function TCSList() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      updateTCSStatus(id, status),
+    mutationFn: ({ id, status }: { id: string; status: string }) => updateTCSStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tcs-entries'] });
       toast.success('TCS status updated');
@@ -296,9 +259,7 @@ export default function TCSList() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Entries
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Entries</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary.totalEntries}</div>
@@ -306,9 +267,7 @@ export default function TCSList() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Sale Amount
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Sale Amount</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatAmount(summary.totalSaleAmount)}</div>
@@ -316,14 +275,10 @@ export default function TCSList() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total TCS
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total TCS</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {formatAmount(summary.totalTCS)}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{formatAmount(summary.totalTCS)}</div>
           </CardContent>
         </Card>
       </div>
@@ -436,18 +391,12 @@ export default function TCSList() {
               ) : (
                 entries.map((entry) => (
                   <TableRow key={entry.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {formatDate(entry.collectionDate)}
-                    </TableCell>
-                    <TableCell className="font-medium max-w-[250px] truncate">
-                      {entry.customerName}
-                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(entry.collectionDate)}</TableCell>
+                    <TableCell className="font-medium max-w-[250px] truncate">{entry.customerName}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{entry.tcsSection}</Badge>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {Number(entry.tcsRate)}%
-                    </TableCell>
+                    <TableCell className="text-right font-mono">{Number(entry.tcsRate)}%</TableCell>
                     <TableCell className="text-right font-mono">
                       {Number(entry.saleAmount).toLocaleString('en-IN')}
                     </TableCell>
@@ -468,16 +417,12 @@ export default function TCSList() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {entry.status !== 'PENDING' && (
-                            <DropdownMenuItem
-                              onClick={() => handleStatusChange(entry, 'PENDING')}
-                            >
+                            <DropdownMenuItem onClick={() => handleStatusChange(entry, 'PENDING')}>
                               Pending
                             </DropdownMenuItem>
                           )}
                           {entry.status !== 'DEPOSITED' && (
-                            <DropdownMenuItem
-                              onClick={() => handleStatusChange(entry, 'DEPOSITED')}
-                            >
+                            <DropdownMenuItem onClick={() => handleStatusChange(entry, 'DEPOSITED')}>
                               Deposited
                             </DropdownMenuItem>
                           )}
@@ -544,9 +489,7 @@ export default function TCSList() {
                 id="customerName"
                 placeholder="Customer name"
                 value={formData.customerName}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, customerName: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, customerName: e.target.value }))}
                 required
               />
             </div>
@@ -554,10 +497,7 @@ export default function TCSList() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="tcsSection">TCS Section *</Label>
-                <Select
-                  value={formData.tcsSection}
-                  onValueChange={handleSectionChange}
-                >
+                <Select value={formData.tcsSection} onValueChange={handleSectionChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select section" />
                   </SelectTrigger>
@@ -595,9 +535,7 @@ export default function TCSList() {
                   min="0"
                   placeholder="0.00"
                   value={formData.saleAmount || ''}
-                  onChange={(e) =>
-                    handleSaleAmountChange(parseFloat(e.target.value) || 0)
-                  }
+                  onChange={(e) => handleSaleAmountChange(parseFloat(e.target.value) || 0)}
                   required
                 />
               </div>
@@ -627,21 +565,11 @@ export default function TCSList() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="financialYear">Financial Year</Label>
-                <Input
-                  id="financialYear"
-                  value={formData.financialYear}
-                  readOnly
-                  className="bg-muted"
-                />
+                <Input id="financialYear" value={formData.financialYear} readOnly className="bg-muted" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="quarter">Quarter</Label>
-                <Input
-                  id="quarter"
-                  value={`Q${formData.quarter}`}
-                  readOnly
-                  className="bg-muted"
-                />
+                <Input id="quarter" value={`Q${formData.quarter}`} readOnly className="bg-muted" />
               </div>
             </div>
 
@@ -651,9 +579,7 @@ export default function TCSList() {
                 id="remarks"
                 placeholder="Any additional notes..."
                 value={formData.remarks || ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, remarks: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, remarks: e.target.value }))}
                 rows={2}
               />
             </div>
@@ -676,10 +602,9 @@ export default function TCSList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete TCS Entry</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the TCS entry for{' '}
-              <strong>{entryToDelete?.customerName}</strong> (Section{' '}
-              {entryToDelete?.tcsSection}, {formatAmount(Number(entryToDelete?.tcsAmount ?? 0))})?
-              This action cannot be undone.
+              Are you sure you want to delete the TCS entry for <strong>{entryToDelete?.customerName}</strong> (Section{' '}
+              {entryToDelete?.tcsSection}, {formatAmount(Number(entryToDelete?.tcsAmount ?? 0))})? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

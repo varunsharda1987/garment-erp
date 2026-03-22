@@ -58,26 +58,24 @@ export function PatternPartMultiSelect({
 
   // Combine all parts with source indicator
   const allParts: (PatternPartOption & { source: 'cad' | 'master' })[] = [
-    ...cadPatternParts.map(p => ({ ...p, source: 'cad' as const })),
-    ...masterPatternParts.map(p => ({ ...p, source: 'master' as const })),
+    ...cadPatternParts.map((p) => ({ ...p, source: 'cad' as const })),
+    ...masterPatternParts.map((p) => ({ ...p, source: 'master' as const })),
   ];
 
   // Filter parts based on search
-  const filteredParts = allParts.filter(part =>
-    part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    part.code.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredParts = allParts.filter(
+    (part) =>
+      part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      part.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Get selected parts details
-  const selectedParts = allParts.filter(part => selectedIds.includes(part.id));
+  const selectedParts = allParts.filter((part) => selectedIds.includes(part.id));
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -88,14 +86,14 @@ export function PatternPartMultiSelect({
 
   const handleSelect = (partId: string) => {
     if (selectedIds.includes(partId)) {
-      onChange(selectedIds.filter(id => id !== partId));
+      onChange(selectedIds.filter((id) => id !== partId));
     } else {
       onChange([...selectedIds, partId]);
     }
   };
 
   const handleRemove = (partId: string) => {
-    onChange(selectedIds.filter(id => id !== partId));
+    onChange(selectedIds.filter((id) => id !== partId));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -168,10 +166,7 @@ export function PatternPartMultiSelect({
             {selectedIds.length > 0 && `${selectedIds.length} selected`}
           </span>
           <ChevronDown
-            className={cn(
-              'h-4 w-4 text-gray-400 transition-transform shrink-0',
-              isOpen && 'transform rotate-180'
-            )}
+            className={cn('h-4 w-4 text-gray-400 transition-transform shrink-0', isOpen && 'transform rotate-180')}
           />
         </div>
 
@@ -180,20 +175,16 @@ export function PatternPartMultiSelect({
           <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
             {filteredParts.length === 0 ? (
               <div className="px-3 py-4 text-sm text-gray-500 text-center">
-                {searchTerm
-                  ? 'No pattern parts found matching your search'
-                  : 'No pattern parts available'}
+                {searchTerm ? 'No pattern parts found matching your search' : 'No pattern parts available'}
               </div>
             ) : (
               <ul className="py-1">
                 {/* CAD parts section */}
-                {filteredParts.filter(p => p.source === 'cad').length > 0 && (
+                {filteredParts.filter((p) => p.source === 'cad').length > 0 && (
                   <>
-                    <li className="px-3 py-1 text-xs font-semibold text-blue-600 bg-blue-50">
-                      CAD-Defined Parts
-                    </li>
+                    <li className="px-3 py-1 text-xs font-semibold text-blue-600 bg-blue-50">CAD-Defined Parts</li>
                     {filteredParts
-                      .filter(p => p.source === 'cad')
+                      .filter((p) => p.source === 'cad')
                       .map((part) => {
                         const isSelected = selectedIds.includes(part.id);
                         const styles = getPartStyles(part);
@@ -216,9 +207,7 @@ export function PatternPartMultiSelect({
                                 </span>
                               )}
                             </div>
-                            {isSelected && (
-                              <Check className="h-4 w-4 text-blue-600" />
-                            )}
+                            {isSelected && <Check className="h-4 w-4 text-blue-600" />}
                           </li>
                         );
                       })}
@@ -226,13 +215,11 @@ export function PatternPartMultiSelect({
                 )}
 
                 {/* Master parts section */}
-                {filteredParts.filter(p => p.source === 'master').length > 0 && (
+                {filteredParts.filter((p) => p.source === 'master').length > 0 && (
                   <>
-                    <li className="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-50 border-t">
-                      Master Parts
-                    </li>
+                    <li className="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-50 border-t">Master Parts</li>
                     {filteredParts
-                      .filter(p => p.source === 'master')
+                      .filter((p) => p.source === 'master')
                       .map((part) => {
                         const isSelected = selectedIds.includes(part.id);
                         const styles = getPartStyles(part);
@@ -250,9 +237,7 @@ export function PatternPartMultiSelect({
                               <div className={cn('w-2 h-2 rounded-full', styles.indicator)} />
                               <span className="text-sm">{part.name}</span>
                             </div>
-                            {isSelected && (
-                              <Check className="h-4 w-4 text-gray-600" />
-                            )}
+                            {isSelected && <Check className="h-4 w-4 text-gray-600" />}
                           </li>
                         );
                       })}
@@ -273,15 +258,10 @@ export function PatternPartMultiSelect({
               <Badge
                 key={part.id}
                 variant="outline"
-                className={cn(
-                  'flex items-center gap-1 px-2 py-0.5 text-xs',
-                  styles.badge
-                )}
+                className={cn('flex items-center gap-1 px-2 py-0.5 text-xs', styles.badge)}
               >
                 <span>{part.name}</span>
-                {part.goesToEmbroidery && (
-                  <Sparkles className="h-3 w-3 text-purple-500" />
-                )}
+                {part.goesToEmbroidery && <Sparkles className="h-3 w-3 text-purple-500" />}
                 {!disabled && (
                   <button
                     type="button"

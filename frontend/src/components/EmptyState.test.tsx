@@ -11,23 +11,13 @@ describe('EmptyState', () => {
   });
 
   it('renders description when provided', () => {
-    render(
-      <EmptyState
-        title="No customers"
-        description="Get started by creating your first customer"
-      />
-    );
+    render(<EmptyState title="No customers" description="Get started by creating your first customer" />);
 
     expect(screen.getByText('Get started by creating your first customer')).toBeInTheDocument();
   });
 
   it('renders icon when provided', () => {
-    render(
-      <EmptyState
-        title="No data"
-        icon={<Package data-testid="package-icon" />}
-      />
-    );
+    render(<EmptyState title="No data" icon={<Package data-testid="package-icon" />} />);
 
     expect(screen.getByTestId('package-icon')).toBeInTheDocument();
   });
@@ -35,13 +25,7 @@ describe('EmptyState', () => {
   it('renders action button when provided', () => {
     const mockAction = vi.fn();
 
-    render(
-      <EmptyState
-        title="No data"
-        actionLabel="Create New"
-        onAction={mockAction}
-      />
-    );
+    render(<EmptyState title="No data" actionLabel="Create New" onAction={mockAction} />);
 
     const button = screen.getByRole('button', { name: /create new/i });
     expect(button).toBeInTheDocument();
@@ -50,13 +34,7 @@ describe('EmptyState', () => {
   it('calls onAction when action button is clicked', () => {
     const mockAction = vi.fn();
 
-    render(
-      <EmptyState
-        title="No data"
-        actionLabel="Create New"
-        onAction={mockAction}
-      />
-    );
+    render(<EmptyState title="No data" actionLabel="Create New" onAction={mockAction} />);
 
     const button = screen.getByRole('button', { name: /create new/i });
     fireEvent.click(button);
@@ -65,24 +43,14 @@ describe('EmptyState', () => {
   });
 
   it('does not render action button when onAction is not provided', () => {
-    render(
-      <EmptyState
-        title="No data"
-        actionLabel="Create New"
-      />
-    );
+    render(<EmptyState title="No data" actionLabel="Create New" />);
 
     const button = screen.queryByRole('button');
     expect(button).not.toBeInTheDocument();
   });
 
   it('applies custom className', () => {
-    const { container } = render(
-      <EmptyState
-        title="No data"
-        className="custom-class"
-      />
-    );
+    const { container } = render(<EmptyState title="No data" className="custom-class" />);
 
     const card = container.firstChild;
     expect(card).toHaveClass('custom-class');

@@ -7,14 +7,7 @@ export class AgencyController {
    * Get all agencies with pagination
    */
   async getAll(req: Request, res: Response) {
-    const {
-      page = '1',
-      limit = '20',
-      search,
-      isActive,
-      sortBy,
-      sortOrder,
-    } = req.query;
+    const { page = '1', limit = '20', search, isActive, sortBy, sortOrder } = req.query;
 
     const result = await agencyService.getAll({
       page: parseInt(page as string, 10),

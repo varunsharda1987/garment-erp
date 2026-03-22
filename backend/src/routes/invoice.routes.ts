@@ -46,7 +46,12 @@ router.post('/update-overdue', authorize(UserRole.ADMIN), asyncHandler(updateOve
  * @desc    Create new invoice
  * @access  Protected - Admin, Accountant
  */
-router.post('/', authorize(UserRole.ADMIN, UserRole.ACCOUNTS), validateBody(createInvoiceSchema), asyncHandler(createInvoice));
+router.post(
+  '/',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateBody(createInvoiceSchema),
+  asyncHandler(createInvoice)
+);
 
 /**
  * @route   GET /api/invoices
@@ -67,7 +72,13 @@ router.get('/:id', validateParams(invoiceIdParamSchema), asyncHandler(getInvoice
  * @desc    Update invoice
  * @access  Protected - Admin, Accountant
  */
-router.put('/:id', authorize(UserRole.ADMIN, UserRole.ACCOUNTS), validateParams(invoiceIdParamSchema), validateBody(updateInvoiceSchema), asyncHandler(updateInvoice));
+router.put(
+  '/:id',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateParams(invoiceIdParamSchema),
+  validateBody(updateInvoiceSchema),
+  asyncHandler(updateInvoice)
+);
 
 /**
  * @route   DELETE /api/invoices/:id
@@ -81,6 +92,12 @@ router.delete('/:id', authorize(UserRole.ADMIN), validateParams(invoiceIdParamSc
  * @desc    Record payment for invoice
  * @access  Protected - Admin, Accountant
  */
-router.post('/:id/payments', authorize(UserRole.ADMIN, UserRole.ACCOUNTS), validateParams(invoiceIdParamSchema), validateBody(recordPaymentSchema), asyncHandler(recordPayment));
+router.post(
+  '/:id/payments',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateParams(invoiceIdParamSchema),
+  validateBody(recordPaymentSchema),
+  asyncHandler(recordPayment)
+);
 
 export default router;

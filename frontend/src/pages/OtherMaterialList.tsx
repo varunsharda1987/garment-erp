@@ -119,20 +119,14 @@ export default function OtherMaterialList() {
       render: (material) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{material.materialName}</div>
-          {material.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{material.description}</div>
-          )}
+          {material.description && <div className="text-xs text-gray-500 line-clamp-1">{material.description}</div>}
         </div>
       ),
     },
     {
       key: 'category',
       header: 'Category',
-      render: (material) => (
-        <div className="text-sm text-gray-700">
-          {material.category || '-'}
-        </div>
-      ),
+      render: (material) => <div className="text-sm text-gray-700">{material.category || '-'}</div>,
     },
     {
       key: 'unit',
@@ -147,9 +141,7 @@ export default function OtherMaterialList() {
       key: 'specifications',
       header: 'Specifications',
       render: (material) => (
-        <div className="text-sm text-gray-700 max-w-xs truncate">
-          {material.specifications || '-'}
-        </div>
+        <div className="text-sm text-gray-700 max-w-xs truncate">{material.specifications || '-'}</div>
       ),
     },
     {
@@ -239,17 +231,9 @@ export default function OtherMaterialList() {
             <CardTitle>Other Materials Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="OTHER" stockCount={stockCount} />
-              <ExportButton
-                module="other-material"
-                filters={{}}
-              />
-              <ImportButton
-                module="other-material"
-                onSuccess={fetchMaterialItems}
-              />
-              <Button onClick={() => navigate('/materials/other/new')}>
-                + Add New Material
-              </Button>
+              <ExportButton module="other-material" filters={{}} />
+              <ImportButton module="other-material" onSuccess={fetchMaterialItems} />
+              <Button onClick={() => navigate('/materials/other/new')}>+ Add New Material</Button>
             </div>
           </div>
         </CardHeader>

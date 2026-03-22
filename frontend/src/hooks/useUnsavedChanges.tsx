@@ -81,8 +81,7 @@ export function useUnsavedChanges(options: UseUnsavedChangesOptions = {}) {
 
   // Handle React Router navigation blocking
   const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      isDirty && currentLocation.pathname !== nextLocation.pathname
+    ({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname
   );
 
   // Show dialog when navigation is blocked

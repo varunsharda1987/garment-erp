@@ -9,10 +9,26 @@ const SHORTFALL_TOLERANCE_PERCENT = 0.005;
 // Material type groupings for stage-aware stock validation
 const FABRIC_MATERIAL_TYPES = ['FABRIC', 'GREIGE', 'GREIGE_FABRIC', 'FINISHED_FABRIC'];
 const TRIM_MATERIAL_TYPES = [
-  'BUTTON', 'THREAD', 'ZIPPER', 'LACE', 'ELASTIC', 'LABEL',
-  'INTERLINING', 'PADDING', 'TRIMS', 'ACCESSORIES',
-  'HOOK_EYE', 'SNAP_BUTTON', 'BUCKLE', 'BELT', 'VELCRO',
-  'DRAWSTRING', 'RIBBON', 'SEQUIN', 'BEAD', 'MOTIF',
+  'BUTTON',
+  'THREAD',
+  'ZIPPER',
+  'LACE',
+  'ELASTIC',
+  'LABEL',
+  'INTERLINING',
+  'PADDING',
+  'TRIMS',
+  'ACCESSORIES',
+  'HOOK_EYE',
+  'SNAP_BUTTON',
+  'BUCKLE',
+  'BELT',
+  'VELCRO',
+  'DRAWSTRING',
+  'RIBBON',
+  'SEQUIN',
+  'BEAD',
+  'MOTIF',
 ];
 const FINISHING_MATERIAL_TYPES = ['PACKAGING', 'LABEL'];
 
@@ -60,7 +76,6 @@ interface OverrideLogData {
  * 5. Sequential Sample Dependencies (PP requires FIT, SIZE_SET requires PP)
  */
 class ProductionBlockingValidationService {
-
   /**
    * RULE 1: FIT Sample blocks IN_PRINTING and IN_DYING stages
    */
@@ -75,7 +90,7 @@ class ProductionBlockingValidationService {
     const fitSample = await prisma.samples.findFirst({
       where: {
         styleId,
-        sampleType: 'FIT_SAMPLE'
+        sampleType: 'FIT_SAMPLE',
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -92,11 +107,13 @@ class ProductionBlockingValidationService {
     if (!isApproved) {
       return {
         isBlocked: true,
-        blockers: [{
-          type: 'FIT_SAMPLE_NOT_APPROVED',
-          message: `FIT Sample (${fitSample.sampleNumber}) must be approved before ${targetStage}. Current status: ${fitSample.status}`,
-          severity: 'CRITICAL',
-        }],
+        blockers: [
+          {
+            type: 'FIT_SAMPLE_NOT_APPROVED',
+            message: `FIT Sample (${fitSample.sampleNumber}) must be approved before ${targetStage}. Current status: ${fitSample.status}`,
+            severity: 'CRITICAL',
+          },
+        ],
       };
     }
 
@@ -142,11 +159,13 @@ class ProductionBlockingValidationService {
     if (!isApproved) {
       return {
         isBlocked: true,
-        blockers: [{
-          type: 'SIZE_SET_SAMPLE_NOT_APPROVED',
-          message: `Size Set Sample (${sizeSetSample.sampleNumber}) must be approved before ${targetStage}. Current status: ${sizeSetSample.status}`,
-          severity: 'CRITICAL',
-        }],
+        blockers: [
+          {
+            type: 'SIZE_SET_SAMPLE_NOT_APPROVED',
+            message: `Size Set Sample (${sizeSetSample.sampleNumber}) must be approved before ${targetStage}. Current status: ${sizeSetSample.status}`,
+            severity: 'CRITICAL',
+          },
+        ],
       };
     }
 
@@ -203,11 +222,13 @@ class ProductionBlockingValidationService {
     if (!isPassed) {
       return {
         isBlocked: true,
-        blockers: [{
-          type: 'FPT_NOT_PASSED',
-          message: `Fabric Physical Test (${fpt.testNumber}) must pass before ${targetStage}. Current result: ${fpt.overallTestResult}`,
-          severity: 'CRITICAL',
-        }],
+        blockers: [
+          {
+            type: 'FPT_NOT_PASSED',
+            message: `Fabric Physical Test (${fpt.testNumber}) must pass before ${targetStage}. Current result: ${fpt.overallTestResult}`,
+            severity: 'CRITICAL',
+          },
+        ],
       };
     }
 
@@ -265,11 +286,13 @@ class ProductionBlockingValidationService {
     if (!isPassed) {
       return {
         isBlocked: true,
-        blockers: [{
-          type: 'GPT_NOT_PASSED',
-          message: `Garment Physical Test (${gpt.testNumber}) must pass before ${targetStage}. Current result: ${gpt.overallTestResult}`,
-          severity: 'CRITICAL',
-        }],
+        blockers: [
+          {
+            type: 'GPT_NOT_PASSED',
+            message: `Garment Physical Test (${gpt.testNumber}) must pass before ${targetStage}. Current result: ${gpt.overallTestResult}`,
+            severity: 'CRITICAL',
+          },
+        ],
       };
     }
 
@@ -375,11 +398,11 @@ class ProductionBlockingValidationService {
 
       if (shortfall > toleranceQty) {
         const materialName = isFabricType
-          ? (bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown Material')
-          : (bom.material?.name || bom.componentName || 'Unknown Material');
+          ? bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown Material'
+          : bom.material?.name || bom.componentName || 'Unknown Material';
         const materialCode = isFabricType
-          ? (bom.fabric_master?.fabricCode || bom.greige?.greigeCode || '')
-          : (bom.material?.code || '');
+          ? bom.fabric_master?.fabricCode || bom.greige?.greigeCode || ''
+          : bom.material?.code || '';
 
         blockers.push({
           type: 'MATERIAL_SHORTAGE',
@@ -400,10 +423,7 @@ class ProductionBlockingValidationService {
    * Ensures at least one fabric_width_cad row with purposeEnum=PRODUCTION
    * and non-null cadAverage exists for the style
    */
-  async validateProductionCADForStage(
-    styleId: string,
-    targetStage: ProductionStage
-  ): Promise<ValidationResult> {
+  async validateProductionCADForStage(styleId: string, targetStage: ProductionStage): Promise<ValidationResult> {
     if (targetStage !== 'IN_CUTTING') {
       return { isBlocked: false, blockers: [] };
     }
@@ -428,17 +448,17 @@ class ProductionBlockingValidationService {
         select: { styleCode: true, styleName: true },
       });
 
-      const styleLabel = style
-        ? `${style.styleCode} (${style.styleName})`
-        : styleId;
+      const styleLabel = style ? `${style.styleCode} (${style.styleName})` : styleId;
 
       return {
         isBlocked: true,
-        blockers: [{
-          type: 'PRODUCTION_CAD_MISSING',
-          message: `No PRODUCTION CAD planning found for style ${styleLabel}. Complete CAD planning with production averages before cutting.`,
-          severity: 'CRITICAL',
-        }],
+        blockers: [
+          {
+            type: 'PRODUCTION_CAD_MISSING',
+            message: `No PRODUCTION CAD planning found for style ${styleLabel}. Complete CAD planning with production averages before cutting.`,
+            severity: 'CRITICAL',
+          },
+        ],
       };
     }
 
@@ -644,11 +664,11 @@ class ProductionBlockingValidationService {
 
       if (shortfall > toleranceQty) {
         const materialName = isFabricType
-          ? (bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown')
-          : (bom.material?.name || bom.componentName || 'Unknown');
+          ? bom.fabric_master?.fabricName || bom.greige?.greigeName || bom.componentName || 'Unknown'
+          : bom.material?.name || bom.componentName || 'Unknown';
         const materialCode = isFabricType
-          ? (bom.fabric_master?.fabricCode || bom.greige?.greigeCode || '')
-          : (bom.material?.code || '');
+          ? bom.fabric_master?.fabricCode || bom.greige?.greigeCode || ''
+          : bom.material?.code || '';
         missingMaterials.push({
           materialName,
           materialCode,

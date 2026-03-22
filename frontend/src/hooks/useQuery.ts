@@ -5,16 +5,8 @@
  * Built on @tanstack/react-query for caching, deduplication, and auto-retry.
  */
 
-import {
-  useQuery as useReactQuery,
-  useMutation as useReactMutation,
-  useQueryClient,
-} from '@tanstack/react-query';
-import type {
-  UseQueryOptions,
-  UseQueryResult,
-  UseMutationResult,
-} from '@tanstack/react-query';
+import { useQuery as useReactQuery, useMutation as useReactMutation, useQueryClient } from '@tanstack/react-query';
+import type { UseQueryOptions, UseQueryResult, UseMutationResult } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
 import { notify } from '@/lib/notify';
 
@@ -82,9 +74,7 @@ export function useMutationWithNotify<TData, TVariables, TError = Error>(
       onSuccess?.(data);
     },
     onError: (error) => {
-      const message =
-        errorMessage ||
-        (error instanceof Error ? error.message : 'An error occurred');
+      const message = errorMessage || (error instanceof Error ? error.message : 'An error occurred');
       notify.error(message);
       onError?.(error);
     },
@@ -177,10 +167,7 @@ export function usePaginatedQuery<T>(
   }>,
   params: { page: number; limit: number },
   options?: Omit<
-    UseQueryOptions<
-      { data: T[]; total: number; page: number; limit: number; totalPages: number },
-      Error
-    >,
+    UseQueryOptions<{ data: T[]; total: number; page: number; limit: number; totalPages: number }, Error>,
     'queryKey' | 'queryFn'
   >
 ) {
@@ -195,10 +182,7 @@ export function usePaginatedQuery<T>(
 /**
  * Hook to prefetch data (useful for hover prefetching)
  */
-export function usePrefetch<T>(
-  queryKey: readonly unknown[],
-  fetchFn: () => Promise<T>
-): () => void {
+export function usePrefetch<T>(queryKey: readonly unknown[], fetchFn: () => Promise<T>): () => void {
   const queryClient = useQueryClient();
 
   return () => {

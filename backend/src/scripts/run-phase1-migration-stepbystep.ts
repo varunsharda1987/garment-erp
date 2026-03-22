@@ -125,9 +125,15 @@ async function runMigration() {
 
     // Step 8: Create indexes
     console.log('\nStep 8: Creating indexes...');
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "lace_master_laceCode_idx" ON "lace_master"("laceCode")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "button_master_buttonCode_idx" ON "button_master"("buttonCode")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "thread_master_threadCode_idx" ON "thread_master"("threadCode")`);
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "lace_master_laceCode_idx" ON "lace_master"("laceCode")`
+    );
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "button_master_buttonCode_idx" ON "button_master"("buttonCode")`
+    );
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS "thread_master_threadCode_idx" ON "thread_master"("threadCode")`
+    );
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "materials_laceId_idx" ON "materials"("laceId")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "materials_buttonId_idx" ON "materials"("buttonId")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "materials_threadId_idx" ON "materials"("threadId")`);
@@ -138,7 +144,7 @@ async function runMigration() {
 
     // Check if Trims category exists
     let trimsCategory = await prisma.material_categories.findFirst({
-      where: { name: 'Trims' }
+      where: { name: 'Trims' },
     });
 
     if (!trimsCategory) {
@@ -149,8 +155,8 @@ async function runMigration() {
           description: 'Trims and accessories',
           level: 1,
           sortOrder: 1,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
       console.log('  ✅ Created Trims category');
     } else {
@@ -168,8 +174,8 @@ async function runMigration() {
           parentCategoryId: trimsCategory.id,
           level: 2,
           sortOrder: 1,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
       console.log('  ✅ Created Lace category');
     } else {
@@ -187,8 +193,8 @@ async function runMigration() {
           parentCategoryId: trimsCategory.id,
           level: 2,
           sortOrder: 2,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
       console.log('  ✅ Created Buttons category');
     } else {
@@ -206,8 +212,8 @@ async function runMigration() {
           parentCategoryId: trimsCategory.id,
           level: 2,
           sortOrder: 3,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
       console.log('  ✅ Created Threads category');
     } else {
@@ -225,18 +231,17 @@ async function runMigration() {
     `;
 
     console.log('\nCreated tables:');
-    tables.forEach(t => console.log(`  ✅ ${t.tablename}`));
+    tables.forEach((t) => console.log(`  ✅ ${t.tablename}`));
 
     const categories = await prisma.material_categories.findMany({
       where: { name: { in: ['Trims', 'Lace', 'Buttons', 'Threads'] } },
-      select: { name: true, level: true }
+      select: { name: true, level: true },
     });
 
     console.log('\nMaterial categories:');
-    categories.forEach(c => console.log(`  ✅ ${c.name} (Level ${c.level})`));
+    categories.forEach((c) => console.log(`  ✅ ${c.name} (Level ${c.level})`));
 
     console.log('\n✅ Phase 1 migration completed successfully!');
-
   } catch (error) {
     console.error('\n❌ Migration failed:', error);
     throw error;

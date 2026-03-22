@@ -57,9 +57,7 @@ export async function getRunsByStyle(req: Request, res: Response) {
     fabrics: run.fabricCads.map((cad) => ({
       ...cad,
       costPerGarment:
-        cad.cadAverage && cad.totalCostPerMeter
-          ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter)
-          : null,
+        cad.cadAverage && cad.totalCostPerMeter ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter) : null,
     })),
   }));
 
@@ -137,9 +135,7 @@ export async function getRunById(req: Request, res: Response) {
     fabrics: run.fabricCads.map((cad) => ({
       ...cad,
       costPerGarment:
-        cad.cadAverage && cad.totalCostPerMeter
-          ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter)
-          : null,
+        cad.cadAverage && cad.totalCostPerMeter ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter) : null,
     })),
   };
 
@@ -213,9 +209,7 @@ export async function createRun(req: Request, res: Response) {
       return sum + avg * rate;
     }, 0);
 
-    const isComplete = cads.every(
-      (c) => c.totalCostPerMeter !== null && c.cadAverage !== null
-    );
+    const isComplete = cads.every((c) => c.totalCostPerMeter !== null && c.cadAverage !== null);
 
     // Update run with calculated totals
     const updatedRun = await tx.fabric_costing_run.update({
@@ -244,9 +238,7 @@ export async function createRun(req: Request, res: Response) {
     fabrics: run.fabricCads.map((cad) => ({
       ...cad,
       costPerGarment:
-        cad.cadAverage && cad.totalCostPerMeter
-          ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter)
-          : null,
+        cad.cadAverage && cad.totalCostPerMeter ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter) : null,
     })),
   };
 
@@ -320,9 +312,7 @@ export async function updateRunTotals(req: Request, res: Response) {
     return sum + avg * rate;
   }, 0);
 
-  const isComplete = run.fabricCads.every(
-    (c) => c.totalCostPerMeter !== null && c.cadAverage !== null
-  );
+  const isComplete = run.fabricCads.every((c) => c.totalCostPerMeter !== null && c.cadAverage !== null);
 
   const fabricCount = run.fabricCads.length;
 
@@ -350,9 +340,7 @@ export async function updateRunTotals(req: Request, res: Response) {
     fabrics: updatedRun.fabricCads.map((cad) => ({
       ...cad,
       costPerGarment:
-        cad.cadAverage && cad.totalCostPerMeter
-          ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter)
-          : null,
+        cad.cadAverage && cad.totalCostPerMeter ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter) : null,
     })),
   };
 

@@ -93,13 +93,13 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     });
 
     // Allow if EITHER path is satisfied
-    const canCreateCostSheet = hasCostingCadApproved ||
-      (hasRawMaterialCadApproved && hasFabricCostingComplete);
+    const canCreateCostSheet = hasCostingCadApproved || (hasRawMaterialCadApproved && hasFabricCostingComplete);
 
     if (!canCreateCostSheet && style.cadStatus !== 'APPROVED') {
       res.status(400).json({
         error: 'CAD not approved',
-        message: 'Either CAD for Costing must be approved, OR CAD for Raw Material must be approved with fabric costing complete',
+        message:
+          'Either CAD for Costing must be approved, OR CAD for Raw Material must be approved with fabric costing complete',
         currentStatus: style.cadStatus,
         details: {
           costingCadApproved: !!hasCostingCadApproved,
@@ -183,7 +183,9 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         sourcingStrategy: cadRow.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
         processorId: cadRow.processorId || undefined,
         greigeCost: cadRow.greigeCostPerMeter ? parseFloat(cadRow.greigeCostPerMeter.toString()) : undefined,
-        processingCost: cadRow.processingPricePerMeter ? parseFloat(cadRow.processingPricePerMeter.toString()) : undefined,
+        processingCost: cadRow.processingPricePerMeter
+          ? parseFloat(cadRow.processingPricePerMeter.toString())
+          : undefined,
       });
     }
 
@@ -238,7 +240,8 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         totalFabricCost += fabricCost;
 
         fabricDetails.push({
-          fabricName: cadRow.fabric?.fabricName || cadRow.greige?.greigeName || cadRow.componentName || 'Unknown Fabric',
+          fabricName:
+            cadRow.fabric?.fabricName || cadRow.greige?.greigeName || cadRow.componentName || 'Unknown Fabric',
           fabricWidth: fabricWidth,
           fabricAverage: fabricAverage,
           fabricRate: fabricRate,
@@ -247,7 +250,9 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
           sourcingStrategy: cadRow.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
           processorId: cadRow.processorId || undefined,
           greigeCost: cadRow.greigeCostPerMeter ? parseFloat(cadRow.greigeCostPerMeter.toString()) : undefined,
-          processingCost: cadRow.processingPricePerMeter ? parseFloat(cadRow.processingPricePerMeter.toString()) : undefined,
+          processingCost: cadRow.processingPricePerMeter
+            ? parseFloat(cadRow.processingPricePerMeter.toString())
+            : undefined,
         });
       }
     }
@@ -267,9 +272,7 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
 
           const fabricWidth = parseFloat(styleFabric.cutableWidth?.toString() || '0');
           const fabricRate = parseFloat(
-            styleFabric.unitPrice?.toString() ||
-            styleFabric.fabricCostPerMeter?.toString() ||
-            '0'
+            styleFabric.unitPrice?.toString() || styleFabric.fabricCostPerMeter?.toString() || '0'
           );
 
           const fabricCost = fabricAverage * fabricRate;
@@ -410,7 +413,8 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     });
 
     // Calculate total from all sources
-    const grandTotal = totalFabricCost + totalTrimsCost + totalEmbroideryMaterialCost + totalAccessoriesCost + totalProcessingCost;
+    const grandTotal =
+      totalFabricCost + totalTrimsCost + totalEmbroideryMaterialCost + totalAccessoriesCost + totalProcessingCost;
 
     // Return preview data WITHOUT creating in database
     // The frontend will use this to pre-fill the form, then user submits to actually create
@@ -460,13 +464,7 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
           processingCost: totalProcessingCost,
           total: grandTotal,
         },
-        needsUserInput: [
-          'Cutting Cost',
-          'Stitching Cost',
-          'Finishing Cost',
-          'Button Attachment Cost',
-          'Handwork Cost',
-        ],
+        needsUserInput: ['Cutting Cost', 'Stitching Cost', 'Finishing Cost', 'Button Attachment Cost', 'Handwork Cost'],
       },
     });
   } catch (error) {

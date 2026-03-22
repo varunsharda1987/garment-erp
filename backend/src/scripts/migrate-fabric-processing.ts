@@ -58,7 +58,8 @@ async function migrateFabricProcessing() {
         data: {
           warehouseCode: 'JOB-WORK-001',
           warehouseName: 'Job Work - Processing Materials',
-          warehouseType: 'JOB_WORK', createdById: 'system',
+          warehouseType: 'JOB_WORK',
+          createdById: 'system',
           isVirtual: true,
           isActive: true,
           address: 'Virtual Warehouse for Job Work Tracking',
@@ -77,10 +78,7 @@ async function migrateFabricProcessing() {
               OR: [
                 { batchNumber: oldRecord.batchNumber },
                 {
-                  AND: [
-                    { greigeId: oldRecord.greigeId },
-                    { createdAt: oldRecord.createdAt },
-                  ],
+                  AND: [{ greigeId: oldRecord.greigeId }, { createdAt: oldRecord.createdAt }],
                 },
               ],
             },
@@ -94,7 +92,7 @@ async function migrateFabricProcessing() {
         }
 
         // Generate batch number if not present
-        const batchNumber = oldRecord.batchNumber || await generateMigrationBatchNumber();
+        const batchNumber = oldRecord.batchNumber || (await generateMigrationBatchNumber());
 
         // Map processingStatus to BatchStatus
         let batchStatus: string;
@@ -141,15 +139,9 @@ async function migrateFabricProcessing() {
               greigeId: oldRecord.greigeId,
               totalQuantitySent: oldRecord.greigeQuantitySent,
               totalQuantityReceived: oldRecord.actualQuantityReceived || 0,
-              quantityInProcess:
-                oldRecord.processingStatus === 'COMPLETED'
-                  ? 0
-                  : oldRecord.greigeQuantitySent,
+              quantityInProcess: oldRecord.processingStatus === 'COMPLETED' ? 0 : oldRecord.greigeQuantitySent,
               quantityInTransit: 0,
-              quantityRejected:
-                oldRecord.processingStatus === 'REJECTED'
-                  ? oldRecord.greigeQuantitySent
-                  : 0,
+              quantityRejected: oldRecord.processingStatus === 'REJECTED' ? oldRecord.greigeQuantitySent : 0,
               overallStatus: batchStatus,
               totalCostIncurred: oldRecord.totalFinishedCost ?? undefined,
               createdById: oldRecord.createdById,
@@ -167,10 +159,7 @@ async function migrateFabricProcessing() {
               processingType: oldRecord.processingType,
               quantitySent: oldRecord.greigeQuantitySent,
               quantityReceived: oldRecord.actualQuantityReceived || 0,
-              quantityInProcess:
-                oldRecord.processingStatus === 'COMPLETED'
-                  ? 0
-                  : oldRecord.greigeQuantitySent,
+              quantityInProcess: oldRecord.processingStatus === 'COMPLETED' ? 0 : oldRecord.greigeQuantitySent,
               processSpecifications: oldRecord.processSpecifications,
               expectedOutputSpecs: {
                 widthMin: oldRecord.expectedFinishedWidthMin?.toString() ?? '0',
@@ -183,8 +172,7 @@ async function migrateFabricProcessing() {
                       width: oldRecord.actualFinishedWidth.toString(),
                       shrinkagePercent: oldRecord.actualShrinkagePercent.toString(),
                       widthVariance: oldRecord.widthVarianceInches?.toString(),
-                      shrinkageVariance:
-                        oldRecord.shrinkageVariancePercent?.toString(),
+                      shrinkageVariance: oldRecord.shrinkageVariancePercent?.toString(),
                       millAvgShrinkage: oldRecord.millAvgShrinkage?.toString(),
                     }
                   : undefined,
@@ -199,10 +187,7 @@ async function migrateFabricProcessing() {
           });
 
           // If completed, create delivery record
-          if (
-            oldRecord.processingStatus === 'COMPLETED' ||
-            oldRecord.processingStatus === 'PARTIAL_COMPLETED'
-          ) {
+          if (oldRecord.processingStatus === 'COMPLETED' || oldRecord.processingStatus === 'PARTIAL_COMPLETED') {
             const deliveryNumber = await generateDeliveryNumber(tx);
 
             await tx.processing_delivery.create({
@@ -229,11 +214,8 @@ async function migrateFabricProcessing() {
         logInfo(`Migrated record ${oldRecord.id} → batch ${batch.batchNumber}`);
         stats.migrated++;
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error';
-        logError(
-          `Failed to migrate record ${oldRecord.id}: ${errorMessage}`
-        );
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logError(`Failed to migrate record ${oldRecord.id}: ${errorMessage}`);
         stats.errors++;
         stats.errorDetails.push({ id: oldRecord.id, error: errorMessage });
       }

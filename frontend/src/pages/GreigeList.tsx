@@ -85,10 +85,7 @@ export default function GreigeList() {
 
     try {
       await greigeService.delete(greigeToDelete.id);
-      handleApiSuccess(
-        'Greige deleted',
-        `${greigeToDelete.name} has been successfully deleted.`
-      );
+      handleApiSuccess('Greige deleted', `${greigeToDelete.name} has been successfully deleted.`);
       fetchGreigeMasters();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete greige master');
@@ -171,11 +168,7 @@ export default function GreigeList() {
     {
       key: 'genericGreigeName',
       header: 'Generic Greige Name',
-      render: (greige) => (
-        <div className="text-sm text-gray-900">
-          {greige.genericGreigeName || '-'}
-        </div>
-      ),
+      render: (greige) => <div className="text-sm text-gray-900">{greige.genericGreigeName || '-'}</div>,
     },
     {
       key: 'greigeName',
@@ -183,33 +176,25 @@ export default function GreigeList() {
       render: (greige) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{greige.greigeName}</div>
-          {greige.weaveType && (
-            <div className="text-xs text-gray-500">{greige.weaveType}</div>
-          )}
+          {greige.weaveType && <div className="text-xs text-gray-500">{greige.weaveType}</div>}
         </div>
       ),
     },
     {
       key: 'composition',
       header: 'Composition',
-      render: (greige) => (
-        <div className="text-sm text-gray-900">{greige.composition}</div>
-      ),
+      render: (greige) => <div className="text-sm text-gray-900">{greige.composition}</div>,
     },
     {
       key: 'greigeWidth',
       header: 'Width (")',
-      render: (greige) => (
-        <div className="text-sm text-gray-900">{Number(greige.greigeWidth)}"</div>
-      ),
+      render: (greige) => <div className="text-sm text-gray-900">{Number(greige.greigeWidth)}"</div>,
     },
     {
       key: 'shrinkage',
       header: 'Shrinkage (%)',
       render: (greige) => (
-        <div className="text-sm text-gray-900">
-          {Number(greige.averageShrinkagePercent).toFixed(1)}%
-        </div>
+        <div className="text-sm text-gray-900">{Number(greige.averageShrinkagePercent).toFixed(1)}%</div>
       ),
     },
     {
@@ -347,9 +332,10 @@ export default function GreigeList() {
           emptyState={{
             icon: <Layers className="h-16 w-16" />,
             title: 'No greige masters found',
-            description: searchTerm || filterActive !== 'true'
-              ? 'Try adjusting your search or filter criteria'
-              : 'Create your first greige master to get started',
+            description:
+              searchTerm || filterActive !== 'true'
+                ? 'Try adjusting your search or filter criteria'
+                : 'Create your first greige master to get started',
             actionLabel: !searchTerm && filterActive === 'true' ? 'Create First Greige' : undefined,
             onAction: !searchTerm && filterActive === 'true' ? () => navigate('/greige/new') : undefined,
           }}

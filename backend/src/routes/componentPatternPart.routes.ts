@@ -15,9 +15,15 @@ router.get('/', asyncHandler(patternPartController.getPatternPartsByComponent.bi
 router.post('/', asyncHandler(patternPartController.addPatternPartToComponent.bind(patternPartController)));
 
 // Update component-pattern part association
-router.put('/:patternPartId', asyncHandler(patternPartController.updateComponentPatternPart.bind(patternPartController)));
+router.put(
+  '/:patternPartId',
+  asyncHandler(patternPartController.updateComponentPatternPart.bind(patternPartController))
+);
 
 // Remove pattern part from component
-router.delete('/:patternPartId', asyncHandler(patternPartController.removePatternPartFromComponent.bind(patternPartController)));
+router.delete(
+  '/:patternPartId',
+  asyncHandler(patternPartController.removePatternPartFromComponent.bind(patternPartController))
+);
 
 export default router;

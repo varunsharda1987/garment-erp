@@ -73,14 +73,8 @@ export const deleteThread = async (id: string): Promise<void> => {
 /**
  * Bulk import thread items from Excel data
  */
-export const bulkImportThreads = async (
-  data: BulkImportRow[],
-  createStock?: boolean
-): Promise<BulkImportResponse> => {
-  const { data: response } = await api.post<BulkImportResponse>(
-    '/materials/thread/bulk-import',
-    { data, createStock }
-  );
+export const bulkImportThreads = async (data: BulkImportRow[], createStock?: boolean): Promise<BulkImportResponse> => {
+  const { data: response } = await api.post<BulkImportResponse>('/materials/thread/bulk-import', { data, createStock });
   return response;
 };
 

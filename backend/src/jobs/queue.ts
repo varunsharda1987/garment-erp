@@ -22,22 +22,11 @@ const getRedisConnection = (): ConnectionOptions => ({
 
 // Check if Redis is configured
 const isRedisConfigured = (): boolean => {
-  return (
-    process.env.REDIS_ENABLED === 'true' ||
-    !!process.env.REDIS_HOST ||
-    process.env.NODE_ENV === 'production'
-  );
+  return process.env.REDIS_ENABLED === 'true' || !!process.env.REDIS_HOST || process.env.NODE_ENV === 'production';
 };
 
 // Job types
-export type JobType =
-  | 'import'
-  | 'export'
-  | 'bulk-update'
-  | 'report'
-  | 'email'
-  | 'cleanup'
-  | 'notification';
+export type JobType = 'import' | 'export' | 'bulk-update' | 'report' | 'email' | 'cleanup' | 'notification';
 
 // Job data interfaces
 export interface ImportJobData {
@@ -200,10 +189,7 @@ export async function initializeJobQueue(): Promise<boolean> {
 /**
  * Register a job handler
  */
-export function registerJobHandler(
-  type: JobType,
-  handler: (data: JobData) => Promise<JobResult>
-): void {
+export function registerJobHandler(type: JobType, handler: (data: JobData) => Promise<JobResult>): void {
   jobHandlers.set(type, handler);
   logDebug(`Registered handler for job type: ${type}`);
 }

@@ -75,10 +75,7 @@ export const getMaterialSuppliers = async (req: Request, res: Response) => {
 // POST /api/materials/:id/suppliers
 export const addMaterialSupplier = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const mapping = await materialMasterService.addSupplier(
-    parseInt(id),
-    req.body
-  );
+  const mapping = await materialMasterService.addSupplier(parseInt(id), req.body);
 
   res.status(201).json(mapping);
 };

@@ -5,21 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { deliveryNoteService } from '@/services/dispatch.service';
@@ -170,9 +157,7 @@ export default function DispatchPODForm() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Record Proof of Delivery</h1>
-            <p className="text-gray-500">
-              DN# {deliveryNote.deliveryNumber}
-            </p>
+            <p className="text-gray-500">DN# {deliveryNote.deliveryNumber}</p>
           </div>
         </div>
       </div>
@@ -198,14 +183,14 @@ export default function DispatchPODForm() {
               </div>
               <div>
                 <Label className="text-gray-500">Customer</Label>
-                <p className="font-medium">{deliveryNote.customer?.billingName || deliveryNote.customer?.name || '-'}</p>
+                <p className="font-medium">
+                  {deliveryNote.customer?.billingName || deliveryNote.customer?.name || '-'}
+                </p>
               </div>
               <div>
                 <Label className="text-gray-500">Dispatch Date</Label>
                 <p className="font-medium">
-                  {deliveryNote.deliveryDate
-                    ? format(new Date(deliveryNote.deliveryDate), 'dd MMM yyyy')
-                    : '-'}
+                  {deliveryNote.deliveryDate ? format(new Date(deliveryNote.deliveryDate), 'dd MMM yyyy') : '-'}
                 </p>
               </div>
             </div>
@@ -401,9 +386,7 @@ export default function DispatchPODForm() {
                   onChange={(e) => setCustomerGrnNumber(e.target.value)}
                   placeholder="Enter customer's GRN number"
                 />
-                <p className="text-xs text-gray-500">
-                  The GRN number issued by the customer upon receiving goods
-                </p>
+                <p className="text-xs text-gray-500">The GRN number issued by the customer upon receiving goods</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="customerGrnDate">Customer GRN Date</Label>
@@ -413,9 +396,7 @@ export default function DispatchPODForm() {
                   value={customerGrnDate}
                   onChange={(e) => setCustomerGrnDate(e.target.value)}
                 />
-                <p className="text-xs text-gray-500">
-                  The date when customer issued the GRN
-                </p>
+                <p className="text-xs text-gray-500">The date when customer issued the GRN</p>
               </div>
             </div>
           </CardContent>
@@ -438,11 +419,7 @@ export default function DispatchPODForm() {
 
         {/* Actions */}
         <div className="flex justify-end gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/manufacturing/dispatch')}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/manufacturing/dispatch')}>
             Cancel
           </Button>
           <Button type="submit" disabled={isSaving}>

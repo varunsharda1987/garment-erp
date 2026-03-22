@@ -30,7 +30,7 @@ export const createElastic = async (req: Request, res: Response) => {
     pricePerMeter,
     supplierId,
     description,
-    suppliers = [] // Array of supplier relationships
+    suppliers = [], // Array of supplier relationships
   } = req.body;
 
   // Auto-generate elastic code
@@ -51,7 +51,7 @@ export const createElastic = async (req: Request, res: Response) => {
 
   // Get Elastic category ID
   const elasticCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Elastic' }
+    where: { name: 'Elastic' },
   });
 
   if (!elasticCategory) {
@@ -97,12 +97,12 @@ export const createElastic = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Create corresponding material entry
@@ -116,13 +116,13 @@ export const createElastic = async (req: Request, res: Response) => {
       categoryId: elasticCategory.id,
       unit: 'METER',
       isActive: true,
-    }
+    },
   });
 
   res.status(201).json({
     elastic: elasticRecord,
     material,
-    message: 'Elastic created successfully'
+    message: 'Elastic created successfully',
   });
 };
 
@@ -131,12 +131,7 @@ export const createElastic = async (req: Request, res: Response) => {
  * Includes suppliers
  */
 export const getAllElastic = async (req: Request, res: Response) => {
-  const {
-    page = 1,
-    limit = 10,
-    search = '',
-    supplierId = ''
-  } = req.query;
+  const { page = 1, limit = 10, search = '', supplierId = '' } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
@@ -153,7 +148,7 @@ export const getAllElastic = async (req: Request, res: Response) => {
     where.OR = [
       { elasticName: { contains: String(search), mode: 'insensitive' } },
       { elasticCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } }
+      { color: { contains: String(search), mode: 'insensitive' } },
     ];
   }
 
@@ -162,8 +157,8 @@ export const getAllElastic = async (req: Request, res: Response) => {
     where.elasticSuppliers = {
       some: {
         supplierId: String(supplierId),
-        isActive: true
-      }
+        isActive: true,
+      },
     };
   }
 
@@ -175,7 +170,7 @@ export const getAllElastic = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       elasticSuppliers: {
         include: {
@@ -188,15 +183,15 @@ export const getAllElastic = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
+        orderBy: { isPreferred: 'desc' },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -214,8 +209,8 @@ export const getAllElastic = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages: Math.ceil(total / limitNum)
-    }
+      totalPages: Math.ceil(total / limitNum),
+    },
   });
 };
 
@@ -230,7 +225,7 @@ export const getElasticById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       elasticSuppliers: {
         include: {
@@ -243,12 +238,12 @@ export const getElasticById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   if (!elastic) {
@@ -287,12 +282,12 @@ export const updateElastic = async (req: Request, res: Response) => {
     supplierId,
     description,
     isActive,
-    suppliers // Array of supplier relationships (replaces existing)
+    suppliers, // Array of supplier relationships (replaces existing)
   } = req.body;
 
   // Check if elastic exists
   const existing = await prisma.elastic_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -303,7 +298,7 @@ export const updateElastic = async (req: Request, res: Response) => {
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     // Delete existing supplier relationships
     await prisma.elastic_suppliers.deleteMany({
-      where: { elasticId: id }
+      where: { elasticId: id },
     });
 
     // Create new supplier relationships
@@ -316,7 +311,7 @@ export const updateElastic = async (req: Request, res: Response) => {
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
           pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
-        }))
+        })),
       });
     }
   }
@@ -340,7 +335,7 @@ export const updateElastic = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       elasticSuppliers: {
         include: {
@@ -353,19 +348,19 @@ export const updateElastic = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Also update material name if elasticName changed
   if (elasticName) {
     await prisma.materials.updateMany({
       where: { elasticId: id },
-      data: { name: elasticName }
+      data: { name: elasticName },
     });
   }
 
@@ -380,7 +375,7 @@ export const updateElastic = async (req: Request, res: Response) => {
 
   res.json({
     elastic: transformed,
-    message: 'Elastic updated successfully'
+    message: 'Elastic updated successfully',
   });
 };
 
@@ -393,7 +388,7 @@ export const deleteElastic = async (req: Request, res: Response) => {
 
   // Check if elastic exists
   const existing = await prisma.elastic_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -403,22 +398,24 @@ export const deleteElastic = async (req: Request, res: Response) => {
   // Check if used in BOM
   const bomUsage = await prisma.order_bom_items.count({
     where: {
-      elasticId: id
-    }
+      elasticId: id,
+    },
   });
 
   if (bomUsage > 0) {
-    throw new BusinessError(`Cannot delete elastic. This elastic is used in ${bomUsage} BOM(s). Please remove from BOMs first.`);
+    throw new BusinessError(
+      `Cannot delete elastic. This elastic is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
+    );
   }
 
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
-    where: { elasticId: id }
+    where: { elasticId: id },
   });
 
   // Delete elastic (cascade will delete elastic_suppliers)
   await prisma.elastic_master.delete({
-    where: { id }
+    where: { id },
   });
 
   res.json({ message: 'Elastic deleted successfully' });
@@ -437,7 +434,7 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
 
   // Get Elastic category
   const elasticCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Elastic' }
+    where: { name: 'Elastic' },
   });
 
   if (!elasticCategory) {
@@ -452,7 +449,7 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
   if (createStock) {
     defaultWarehouse = await prisma.warehouses.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -468,7 +465,7 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Elastic name is required'
+          error: 'Elastic name is required',
         });
         continue;
       }
@@ -488,7 +485,7 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
           pricePerMeter: row.pricePerMeter ? parseFloat(row.pricePerMeter) : null,
           description: row.description || null,
           isActive: true,
-        }
+        },
       });
 
       // Create material
@@ -503,7 +500,7 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
           categoryId: elasticCategory.id,
           unit: 'METER',
           isActive: true,
-        }
+        },
       });
 
       // Create stock if requested
@@ -517,7 +514,7 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
             unit: 'METER',
             reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
             maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          }
+          },
         });
         stockCreated = true;
       }
@@ -528,29 +525,28 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
         elasticCode,
         materialCode: elasticCode,
         elasticName: row.elasticName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: any) {
       results.push({
         success: false,
         row: i + 1,
         elasticCode,
-        error: error.message
+        error: error.message,
       });
     }
   }
 
   const summary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -570,7 +566,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { name: 'composition', required: false, description: 'Material composition (Optional)' },
       { name: 'pricePerMeter', required: false, description: 'Price per meter (Optional)' },
       { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' }
+      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
     ],
     exampleData: [
       {
@@ -582,11 +578,11 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         elasticType: 'Knitted',
         color: 'White',
         composition: '80% Polyester 20% Rubber',
-        pricePerMeter: 8.50,
+        pricePerMeter: 8.5,
         stockQuantity: 200,
-        locationCode: 'WH-01'
-      }
-    ]
+        locationCode: 'WH-01',
+      },
+    ],
   };
 
   res.json(template);

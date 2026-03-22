@@ -64,9 +64,7 @@ class StockMovementService {
           quantity: data.quantity,
           unit: data.unit,
           rate: data.rate,
-          value: data.rate
-            ? new Decimal(data.quantity.toString()).mul(data.rate.toString())
-            : null,
+          value: data.rate ? new Decimal(data.quantity.toString()).mul(data.rate.toString()) : null,
           referenceType: data.referenceType,
           referenceId: data.referenceId,
           referenceNumber: data.referenceNumber,
@@ -110,13 +108,7 @@ class StockMovementService {
       }
 
       // Update stock level (using service to handle weighted average)
-      await stockLevelService.increaseStock(
-        data.materialId,
-        data.warehouseId,
-        data.quantity,
-        data.unit,
-        data.rate
-      );
+      await stockLevelService.increaseStock(data.materialId, data.warehouseId, data.quantity, data.unit, data.rate);
 
       return movement;
     });
@@ -128,10 +120,7 @@ class StockMovementService {
   async createStockOut(data: CreateStockMovementDTO) {
     return await prisma.$transaction(async (tx) => {
       // Check if sufficient stock available
-      const stockLevel = await stockLevelService.getStockLevel(
-        data.materialId,
-        data.warehouseId
-      );
+      const stockLevel = await stockLevelService.getStockLevel(data.materialId, data.warehouseId);
 
       if (!stockLevel) {
         throw new Error('Material not available in this warehouse');
@@ -141,9 +130,7 @@ class StockMovementService {
       const requiredQty = new Decimal(data.quantity.toString());
 
       if (availableQty.lt(requiredQty)) {
-        throw new Error(
-          `Insufficient stock. Available: ${availableQty}, Required: ${requiredQty}`
-        );
+        throw new Error(`Insufficient stock. Available: ${availableQty}, Required: ${requiredQty}`);
       }
 
       // Create stock movement record
@@ -190,15 +177,11 @@ class StockMovementService {
             quantity: data.quantity,
             unit: data.unit,
             rate: stockLevel.valuationRate,
-            value: new Decimal(data.quantity.toString()).mul(
-              stockLevel.valuationRate.toString()
-            ),
+            value: new Decimal(data.quantity.toString()).mul(stockLevel.valuationRate.toString()),
             balanceQuantity: availableQty.sub(requiredQty),
             balanceValue: stockLevel.stockValue
               ? new Decimal(stockLevel.stockValue.toString()).sub(
-                  new Decimal(data.quantity.toString()).mul(
-                    stockLevel.valuationRate.toString()
-                  )
+                  new Decimal(data.quantity.toString()).mul(stockLevel.valuationRate.toString())
                 )
               : new Decimal(0),
             referenceType: data.referenceType,
@@ -209,11 +192,7 @@ class StockMovementService {
       }
 
       // Update stock level (decrease)
-      await stockLevelService.decreaseStock(
-        data.materialId,
-        data.warehouseId,
-        data.quantity
-      );
+      await stockLevelService.decreaseStock(data.materialId, data.warehouseId, data.quantity);
 
       return movement;
     });
@@ -225,10 +204,7 @@ class StockMovementService {
   async createStockTransfer(data: StockTransferDTO) {
     return await prisma.$transaction(async (tx) => {
       // Check source warehouse stock
-      const sourceStock = await stockLevelService.getStockLevel(
-        data.materialId,
-        data.fromWarehouseId
-      );
+      const sourceStock = await stockLevelService.getStockLevel(data.materialId, data.fromWarehouseId);
 
       if (!sourceStock) {
         throw new Error('Material not available in source warehouse');
@@ -238,9 +214,7 @@ class StockMovementService {
       const transferQty = new Decimal(data.quantity.toString());
 
       if (availableQty.lt(transferQty)) {
-        throw new Error(
-          `Insufficient stock in source warehouse. Available: ${availableQty}, Required: ${transferQty}`
-        );
+        throw new Error(`Insufficient stock in source warehouse. Available: ${availableQty}, Required: ${transferQty}`);
       }
 
       const valuationRate = sourceStock.valuationRate;
@@ -254,9 +228,7 @@ class StockMovementService {
           quantity: data.quantity,
           unit: data.unit,
           rate: valuationRate || undefined,
-          value: valuationRate
-            ? new Decimal(data.quantity.toString()).mul(valuationRate.toString())
-            : null,
+          value: valuationRate ? new Decimal(data.quantity.toString()).mul(valuationRate.toString()) : null,
           toLocation: data.toWarehouseId,
           referenceType: 'TRANSFER',
           remarks: data.remarks,
@@ -273,9 +245,7 @@ class StockMovementService {
           quantity: data.quantity,
           unit: data.unit,
           rate: valuationRate || undefined,
-          value: valuationRate
-            ? new Decimal(data.quantity.toString()).mul(valuationRate.toString())
-            : null,
+          value: valuationRate ? new Decimal(data.quantity.toString()).mul(valuationRate.toString()) : null,
           fromLocation: data.fromWarehouseId,
           referenceType: 'TRANSFER',
           referenceId: transferOut.id,
@@ -285,11 +255,7 @@ class StockMovementService {
       });
 
       // Update source warehouse stock (decrease)
-      await stockLevelService.decreaseStock(
-        data.materialId,
-        data.fromWarehouseId,
-        data.quantity
-      );
+      await stockLevelService.decreaseStock(data.materialId, data.fromWarehouseId, data.quantity);
 
       // Update destination warehouse stock (increase)
       await stockLevelService.increaseStock(
@@ -338,12 +304,7 @@ class StockMovementService {
         });
 
         // Increase stock
-        await stockLevelService.increaseStock(
-          data.materialId,
-          data.warehouseId,
-          absoluteQty,
-          data.unit
-        );
+        await stockLevelService.increaseStock(data.materialId, data.warehouseId, absoluteQty, data.unit);
       } else {
         // Adjustment OUT
         movement = await tx.stock_movements.create({
@@ -364,11 +325,7 @@ class StockMovementService {
         });
 
         // Decrease stock
-        await stockLevelService.decreaseStock(
-          data.materialId,
-          data.warehouseId,
-          absoluteQty
-        );
+        await stockLevelService.decreaseStock(data.materialId, data.warehouseId, absoluteQty);
       }
 
       return movement;
@@ -523,12 +480,9 @@ class StockMovementService {
       totalMovements: movements.length,
       stockIn: movements.filter((m) => m.movementType === 'STOCK_IN').length,
       stockOut: movements.filter((m) => m.movementType === 'STOCK_OUT').length,
-      transfers: movements.filter(
-        (m) => m.movementType === 'TRANSFER_IN' || m.movementType === 'TRANSFER_OUT'
-      ).length,
-      adjustments: movements.filter(
-        (m) => m.movementType === 'ADJUSTMENT_IN' || m.movementType === 'ADJUSTMENT_OUT'
-      ).length,
+      transfers: movements.filter((m) => m.movementType === 'TRANSFER_IN' || m.movementType === 'TRANSFER_OUT').length,
+      adjustments: movements.filter((m) => m.movementType === 'ADJUSTMENT_IN' || m.movementType === 'ADJUSTMENT_OUT')
+        .length,
       totalValue: movements.reduce((sum, m) => {
         return sum + (m.value ? parseFloat(m.value.toString()) : 0);
       }, 0),
@@ -587,9 +541,7 @@ class StockMovementService {
           quantity: data.quantity,
           unit: data.unit,
           rate: valuationRate || undefined,
-          value: valuationRate
-            ? new Decimal(data.quantity.toString()).mul(valuationRate.toString())
-            : null,
+          value: valuationRate ? new Decimal(data.quantity.toString()).mul(valuationRate.toString()) : null,
           toLocation: data.jobWorkWarehouseId,
           referenceType: 'PROCESSING_BATCH',
           referenceId: data.batchId,
@@ -608,9 +560,7 @@ class StockMovementService {
           quantity: data.quantity,
           unit: data.unit,
           rate: valuationRate || undefined,
-          value: valuationRate
-            ? new Decimal(data.quantity.toString()).mul(valuationRate.toString())
-            : null,
+          value: valuationRate ? new Decimal(data.quantity.toString()).mul(valuationRate.toString()) : null,
           fromLocation: data.fromWarehouseId,
           referenceType: 'PROCESSING_BATCH',
           referenceId: data.batchId,
@@ -621,11 +571,7 @@ class StockMovementService {
       });
 
       // Update stock levels
-      await stockLevelService.decreaseStock(
-        data.materialId,
-        data.fromWarehouseId,
-        data.quantity
-      );
+      await stockLevelService.decreaseStock(data.materialId, data.fromWarehouseId, data.quantity);
 
       await stockLevelService.increaseStock(
         data.materialId,
@@ -673,9 +619,7 @@ class StockMovementService {
           quantity: data.quantity,
           unit: data.unit,
           rate: valuationRate || undefined,
-          value: valuationRate
-            ? new Decimal(data.quantity.toString()).mul(valuationRate.toString())
-            : null,
+          value: valuationRate ? new Decimal(data.quantity.toString()).mul(valuationRate.toString()) : null,
           toLocation: data.toWarehouseId,
           referenceType: 'PROCESSING_DELIVERY',
           referenceId: data.deliveryId,
@@ -694,9 +638,7 @@ class StockMovementService {
           quantity: data.quantity,
           unit: data.unit,
           rate: valuationRate || undefined,
-          value: valuationRate
-            ? new Decimal(data.quantity.toString()).mul(valuationRate.toString())
-            : null,
+          value: valuationRate ? new Decimal(data.quantity.toString()).mul(valuationRate.toString()) : null,
           fromLocation: data.jobWorkWarehouseId,
           referenceType: 'PROCESSING_DELIVERY',
           referenceId: data.deliveryId,
@@ -707,11 +649,7 @@ class StockMovementService {
       });
 
       // Update stock levels
-      await stockLevelService.decreaseStock(
-        data.materialId,
-        data.jobWorkWarehouseId,
-        data.quantity
-      );
+      await stockLevelService.decreaseStock(data.materialId, data.jobWorkWarehouseId, data.quantity);
 
       await stockLevelService.increaseStock(
         data.materialId,

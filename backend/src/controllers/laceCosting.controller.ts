@@ -17,14 +17,7 @@ import { ValidationError } from '../errors';
  * Calculate lace cost with all sourcing options
  */
 export async function calculateSingleLaceCost(req: Request, res: Response) {
-  const {
-    laceId,
-    quantityPerGarment,
-    orderQuantity,
-    wastagePercent,
-    styleId,
-    costSheetId,
-  } = req.body;
+  const { laceId, quantityPerGarment, orderQuantity, wastagePercent, styleId, costSheetId } = req.body;
 
   // Validation
   if (!laceId || quantityPerGarment === undefined) {
@@ -40,10 +33,12 @@ export async function calculateSingleLaceCost(req: Request, res: Response) {
     costSheetId,
   });
 
-  res.json(serialize({
-    success: true,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+    })
+  );
 }
 
 /**
@@ -67,19 +62,19 @@ export async function calculateBatchLaceCosts(req: Request, res: Response) {
       : orderQuantity
         ? parseInt(orderQuantity)
         : undefined,
-    wastagePercent: item.wastagePercent
-      ? parseFloat(item.wastagePercent)
-      : undefined,
+    wastagePercent: item.wastagePercent ? parseFloat(item.wastagePercent) : undefined,
     styleId: item.styleId || styleId,
     costSheetId: item.costSheetId || costSheetId,
   }));
 
   const result = await calculateBatchLaceCost(items);
 
-  res.json(serialize({
-    success: true,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+    })
+  );
 }
 
 /**
@@ -96,10 +91,12 @@ export async function validateLaceCostingForPO(req: Request, res: Response) {
 
   const validation = await validateGreigeProcessingForPO(costingItemId);
 
-  res.json(serialize({
-    success: true,
-    data: validation,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: validation,
+    })
+  );
 }
 
 export default {

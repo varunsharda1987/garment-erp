@@ -60,16 +60,7 @@ export class HSNSACMasterService {
    * Get all HSN/SAC codes with pagination, search, and filters
    */
   async getAll(params: HSNSACQueryParams) {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      type,
-      chapter,
-      isActive,
-      sortBy = 'code',
-      sortOrder = 'asc',
-    } = params;
+    const { page = 1, limit = 20, search, type, chapter, isActive, sortBy = 'code', sortOrder = 'asc' } = params;
 
     const skip = (page - 1) * limit;
 
@@ -234,7 +225,7 @@ export class HSNSACMasterService {
    * Bulk create HSN/SAC codes (for seeding)
    */
   async bulkCreate(data: HSNSACCreateInput[]) {
-    const records = data.map(item => ({
+    const records = data.map((item) => ({
       code: item.code.trim(),
       type: item.type,
       description: item.description,

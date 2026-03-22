@@ -173,11 +173,7 @@ export async function logSoftDelete(
 /**
  * Log a restore operation
  */
-export async function logRestore(
-  req: Request,
-  entityType: AuditEntityType | string,
-  entityId: string
-): Promise<void> {
+export async function logRestore(req: Request, entityType: AuditEntityType | string, entityId: string): Promise<void> {
   const { userId, ipAddress } = getAuditContext(req);
   await createAuditLog({
     userId,
@@ -272,9 +268,11 @@ export async function getAuditLogsByUser(
 /**
  * Get recent audit logs
  */
-export async function getRecentAuditLogs(
-  options?: { limit?: number; entityType?: string; action?: string }
-): Promise<unknown[]> {
+export async function getRecentAuditLogs(options?: {
+  limit?: number;
+  entityType?: string;
+  action?: string;
+}): Promise<unknown[]> {
   return prisma.audit_logs.findMany({
     where: {
       ...(options?.entityType && { entityType: options.entityType }),

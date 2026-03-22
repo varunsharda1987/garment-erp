@@ -3,19 +3,16 @@ import prisma from '../config/database';
 async function checkCustomer() {
   const customers = await prisma.customers.findMany({
     where: {
-      OR: [
-        { name: { contains: 'Kaaya', mode: 'insensitive' } },
-        { name: { contains: 'Kasya', mode: 'insensitive' } }
-      ]
+      OR: [{ name: { contains: 'Kaaya', mode: 'insensitive' } }, { name: { contains: 'Kasya', mode: 'insensitive' } }],
     },
     include: {
-      brand_categories: true
-    }
+      brand_categories: true,
+    },
   });
 
   console.log('\n📋 Customers matching search:\n');
 
-  customers.forEach(c => {
+  customers.forEach((c) => {
     console.log('════════════════════════════════════════');
     console.log('Name:', c.name);
     console.log('Code:', c.code);
@@ -25,7 +22,7 @@ async function checkCustomer() {
 
     if (c.brand_categories.length > 0) {
       console.log('\nBrand-Category Mappings:');
-      c.brand_categories.forEach(bc => {
+      c.brand_categories.forEach((bc) => {
         console.log(`  • ${bc.brandName} → ${bc.category}`);
       });
     } else {

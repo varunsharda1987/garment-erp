@@ -8,26 +8,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { Check, ChevronsUpDown, X, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { colorService } from '@/services/colorService';
 import type { ColorSearchResult } from '@/types/color.types';
 import { COLOR_FAMILIES } from '@/types/color.types';
@@ -157,10 +140,7 @@ export default function ColorPicker({
     <div className={cn('space-y-2', className)}>
       {/* Family Filter (optional) */}
       {showFamilyFilter && (
-        <Select
-          value={familyFilter || 'all'}
-          onValueChange={(val) => setFamilyFilter(val === 'all' ? '' : val)}
-        >
+        <Select value={familyFilter || 'all'} onValueChange={(val) => setFamilyFilter(val === 'all' ? '' : val)}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="All Families" />
           </SelectTrigger>
@@ -194,9 +174,7 @@ export default function ColorPicker({
                 <ColorSwatch hexCode={selectedColor.hexCode} />
                 <span className="truncate">{selectedColor.colorName}</span>
                 {selectedColor.colorFamily && (
-                  <span className="text-xs text-muted-foreground">
-                    ({selectedColor.colorFamily})
-                  </span>
+                  <span className="text-xs text-muted-foreground">({selectedColor.colorFamily})</span>
                 )}
               </div>
             ) : (
@@ -218,16 +196,10 @@ export default function ColorPicker({
         </PopoverTrigger>
         <PopoverContent className="w-[300px] p-0" align="start">
           <Command shouldFilter={false}>
-            <CommandInput
-              placeholder="Search colors..."
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-            />
+            <CommandInput placeholder="Search colors..." value={searchQuery} onValueChange={setSearchQuery} />
             <CommandList>
               {isLoading ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  Loading colors...
-                </div>
+                <div className="py-6 text-center text-sm text-muted-foreground">Loading colors...</div>
               ) : colors.length === 0 ? (
                 <CommandEmpty>
                   {debouncedSearch
@@ -257,10 +229,7 @@ export default function ColorPicker({
                         </div>
                       </div>
                       <Check
-                        className={cn(
-                          'h-4 w-4 flex-shrink-0',
-                          value === color.id ? 'opacity-100' : 'opacity-0'
-                        )}
+                        className={cn('h-4 w-4 flex-shrink-0', value === color.id ? 'opacity-100' : 'opacity-0')}
                       />
                     </CommandItem>
                   ))}
@@ -272,9 +241,7 @@ export default function ColorPicker({
       </Popover>
 
       {/* Error message */}
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   );
 }
@@ -285,7 +252,7 @@ export default function ColorPicker({
 export function ColorDisplay({
   colorId,
   showCode = false,
-  className
+  className,
 }: {
   colorId: string | null;
   showCode?: boolean;
@@ -295,15 +262,18 @@ export function ColorDisplay({
 
   useEffect(() => {
     if (colorId) {
-      colorService.getById(colorId).then((c) => {
-        setColor({
-          id: c.id,
-          colorCode: c.colorCode,
-          colorName: c.colorName,
-          hexCode: c.hexCode,
-          colorFamily: c.colorFamily,
-        });
-      }).catch(() => setColor(null));
+      colorService
+        .getById(colorId)
+        .then((c) => {
+          setColor({
+            id: c.id,
+            colorCode: c.colorCode,
+            colorName: c.colorName,
+            hexCode: c.hexCode,
+            colorFamily: c.colorFamily,
+          });
+        })
+        .catch(() => setColor(null));
     } else {
       setColor(null);
     }
@@ -317,9 +287,7 @@ export function ColorDisplay({
     <div className={cn('flex items-center gap-2', className)}>
       <ColorSwatch hexCode={color.hexCode} />
       <span>{color.colorName}</span>
-      {showCode && (
-        <span className="text-xs text-muted-foreground">({color.colorCode})</span>
-      )}
+      {showCode && <span className="text-xs text-muted-foreground">({color.colorCode})</span>}
     </div>
   );
 }

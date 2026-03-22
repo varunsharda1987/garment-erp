@@ -45,13 +45,10 @@ export function generateSKU(styleCode: string, sizeName: string): string {
  * //   { size: "L", sku: "ABC123L" }
  * // ]
  */
-export function generateSKUMatrix(
-  styleCode: string,
-  sizes: string[]
-): Array<{ size: string; sku: string }> {
-  return sizes.map(size => ({
+export function generateSKUMatrix(styleCode: string, sizes: string[]): Array<{ size: string; sku: string }> {
+  return sizes.map((size) => ({
     size,
-    sku: generateSKU(styleCode, size)
+    sku: generateSKU(styleCode, size),
   }));
 }
 
@@ -76,7 +73,7 @@ export function validateSKUFormat(sku: string): boolean {
 export async function checkSKUExists(sku: string): Promise<boolean> {
   try {
     const existing = await prisma.style_variants.findUnique({
-      where: { sku }
+      where: { sku },
     });
     return !!existing;
   } catch (error) {
@@ -95,9 +92,9 @@ export async function checkMultipleSKUsExist(skus: string[]): Promise<string[]> 
   try {
     const existing = await prisma.style_variants.findMany({
       where: { sku: { in: skus } },
-      select: { sku: true }
+      select: { sku: true },
     });
-    return existing.map(e => e.sku);
+    return existing.map((e) => e.sku);
   } catch (error) {
     console.error('Error checking multiple SKUs:', error);
     throw error;
@@ -108,15 +105,15 @@ export async function checkMultipleSKUsExist(skus: string[]): Promise<string[]> 
  * Default size order mapping for sorting
  */
 export const SIZE_ORDER: Record<string, number> = {
-  'XS': 0,
-  'S': 1,
-  'M': 2,
-  'L': 3,
-  'XL': 4,
-  'XXL': 5,
-  'XXXL': 6,
-  '2XL': 5,  // Alias for XXL
-  '3XL': 6,  // Alias for XXXL
+  XS: 0,
+  S: 1,
+  M: 2,
+  L: 3,
+  XL: 4,
+  XXL: 5,
+  XXXL: 6,
+  '2XL': 5, // Alias for XXL
+  '3XL': 6, // Alias for XXXL
 };
 
 /**

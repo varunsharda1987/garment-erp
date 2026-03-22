@@ -8,13 +8,7 @@ import { useState } from 'react';
 import { ThumbsUp, ThumbsDown, MessageSquare, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { sendFeedback } from '../services/conversation.service';
 import { logError } from '../lib/logger';
 import { cn } from '../lib/utils';
@@ -97,10 +91,7 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
           size="sm"
           onClick={() => handleRating('HELPFUL')}
           disabled={submitting}
-          className={cn(
-            'h-7 px-2',
-            rating === 'HELPFUL' && 'bg-green-100 text-green-700 hover:bg-green-100'
-          )}
+          className={cn('h-7 px-2', rating === 'HELPFUL' && 'bg-green-100 text-green-700 hover:bg-green-100')}
         >
           <ThumbsUp className="h-3.5 w-3.5" />
         </Button>
@@ -109,10 +100,7 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
           size="sm"
           onClick={() => handleRating('NOT_HELPFUL')}
           disabled={submitting}
-          className={cn(
-            'h-7 px-2',
-            rating === 'NOT_HELPFUL' && 'bg-red-100 text-red-700 hover:bg-red-100'
-          )}
+          className={cn('h-7 px-2', rating === 'NOT_HELPFUL' && 'bg-red-100 text-red-700 hover:bg-red-100')}
         >
           <ThumbsDown className="h-3.5 w-3.5" />
         </Button>
@@ -123,12 +111,7 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
         <div className="bg-gray-50 rounded-lg p-3 space-y-3 border">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Tell us more</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowDetails(false)}
-              className="h-6 w-6 p-0"
-            >
+            <Button variant="ghost" size="sm" onClick={() => setShowDetails(false)} className="h-6 w-6 p-0">
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -155,19 +138,10 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
           />
 
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDetails(false)}
-              disabled={submitting}
-            >
+            <Button variant="outline" size="sm" onClick={() => setShowDetails(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button
-              size="sm"
-              onClick={handleSubmitDetails}
-              disabled={submitting}
-            >
+            <Button size="sm" onClick={handleSubmitDetails} disabled={submitting}>
               {submitting ? 'Submitting...' : 'Submit Feedback'}
             </Button>
           </div>

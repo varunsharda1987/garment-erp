@@ -3,14 +3,7 @@ import React, { useState } from 'react';
 import type { ImportPreviewProps, ImportResult } from '../types/import.types';
 import { logError } from '../lib/logger';
 
-const ImportPreview: React.FC<ImportPreviewProps> = ({
-  module,
-  result,
-  file,
-  isOpen,
-  onClose,
-  onConfirm,
-}) => {
+const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isOpen, onClose, onConfirm }) => {
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
@@ -59,10 +52,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
 
       {/* Modal */}
       <div className="flex items-center justify-center min-h-screen p-4">
@@ -72,18 +62,9 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
             <h2 className="text-2xl font-bold text-gray-900">
               Import Preview - {module.charAt(0).toUpperCase() + module.slice(1)}
             </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-              disabled={isImporting}
-            >
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600" disabled={isImporting}>
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -127,9 +108,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
                           clipRule="evenodd"
                         />
                       </svg>
-                      <span className="font-medium">
-                        Successfully imported {importResult.validRows} records!
-                      </span>
+                      <span className="font-medium">Successfully imported {importResult.validRows} records!</span>
                     </>
                   ) : (
                     <>
@@ -150,25 +129,15 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
             {/* Validation Errors */}
             {hasErrors && result.errors && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-semibold text-red-900 mb-3">
-                  Validation Errors ({result.errors.length})
-                </h3>
+                <h3 className="text-lg font-semibold text-red-900 mb-3">Validation Errors ({result.errors.length})</h3>
                 <div className="max-h-64 overflow-y-auto">
                   <table className="min-w-full divide-y divide-red-200">
                     <thead className="bg-red-100">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">
-                          Row
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">
-                          Field
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">
-                          Error
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">
-                          Value
-                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">Row</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">Field</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">Error</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">Value</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-red-200">
@@ -205,10 +174,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
                       <tr>
                         {result.data[0] &&
                           Object.keys(result.data[0]).map((key) => (
-                            <th
-                              key={key}
-                              className="px-3 py-2 text-left text-xs font-medium text-gray-700"
-                            >
+                            <th key={key} className="px-3 py-2 text-left text-xs font-medium text-gray-700">
                               {key}
                             </th>
                           ))}
@@ -218,10 +184,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
                       {result.data.slice(0, 10).map((row, index) => (
                         <tr key={index}>
                           {Object.values(row).map((value: string | number | boolean | null, cellIndex) => (
-                            <td
-                              key={cellIndex}
-                              className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap"
-                            >
+                            <td key={cellIndex} className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
                               {value !== null && value !== undefined ? String(value) : '-'}
                             </td>
                           ))}
@@ -244,9 +207,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="font-medium">
-                    No valid rows found. Please fix the errors and try again.
-                  </span>
+                  <span className="font-medium">No valid rows found. Please fix the errors and try again.</span>
                 </div>
               </div>
             )}

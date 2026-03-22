@@ -14,7 +14,6 @@ const authToken = generateTestToken('test-user-id', 'ADMIN');
 const authHeader = { Authorization: `Bearer ${authToken}` };
 
 describe('GST API Integration Tests', () => {
-
   // ============================================
   // HSN/SAC Master API
   // ============================================
@@ -22,17 +21,14 @@ describe('GST API Integration Tests', () => {
     let createdId: string;
 
     it('POST / should create an HSN code', async () => {
-      const response = await request(app)
-        .post('/api/hsn-sac-masters')
-        .set(authHeader)
-        .send({
-          code: '99TEST001',
-          type: 'HSN',
-          description: 'Test HSN Code for integration test',
-          defaultGstRate: 12,
-          chapter: '99',
-          unit: 'PCS',
-        });
+      const response = await request(app).post('/api/hsn-sac-masters').set(authHeader).send({
+        code: '99TEST001',
+        type: 'HSN',
+        description: 'Test HSN Code for integration test',
+        defaultGstRate: 12,
+        chapter: '99',
+        unit: 'PCS',
+      });
 
       // Accept 201 (created) or 500 (if duplicate/DB constraint)
       if (response.status === 201) {
@@ -67,18 +63,13 @@ describe('GST API Integration Tests', () => {
     });
 
     it('GET /:id should return 404 for invalid ID', async () => {
-      await request(app)
-        .get('/api/hsn-sac-masters/non-existent-id')
-        .set(authHeader)
-        .expect(404);
+      await request(app).get('/api/hsn-sac-masters/non-existent-id').set(authHeader).expect(404);
     });
 
     // Cleanup
     afterAll(async () => {
       if (createdId) {
-        await request(app)
-          .delete(`/api/hsn-sac-masters/${createdId}`)
-          .set(authHeader);
+        await request(app).delete(`/api/hsn-sac-masters/${createdId}`).set(authHeader);
       }
     });
   });
@@ -99,11 +90,7 @@ describe('GST API Integration Tests', () => {
     });
 
     it('GET / should filter by taxType', async () => {
-      const response = await request(app)
-        .get('/api/tax-masters')
-        .set(authHeader)
-        .query({ taxType: 'GST' })
-        .expect(200);
+      const response = await request(app).get('/api/tax-masters').set(authHeader).query({ taxType: 'GST' }).expect(200);
 
       expect(response.body).toHaveProperty('data');
     });
@@ -150,10 +137,7 @@ describe('GST API Integration Tests', () => {
     });
 
     it('GET /gstr1 should validate date range', async () => {
-      const response = await request(app)
-        .get('/api/gst-reports/gstr1')
-        .set(authHeader)
-        .query({}); // No dates
+      const response = await request(app).get('/api/gst-reports/gstr1').set(authHeader).query({}); // No dates
 
       // Should return 400 or handle gracefully
       expect([200, 400, 500]).toContain(response.status);
@@ -187,10 +171,7 @@ describe('GST API Integration Tests', () => {
     });
 
     it('GET /:id should return 404 for non-existent', async () => {
-      await request(app)
-        .get('/api/credit-notes/non-existent-id')
-        .set(authHeader)
-        .expect(404);
+      await request(app).get('/api/credit-notes/non-existent-id').set(authHeader).expect(404);
     });
   });
 
@@ -210,10 +191,7 @@ describe('GST API Integration Tests', () => {
     });
 
     it('GET /:id should return 404 for non-existent', async () => {
-      await request(app)
-        .get('/api/debit-notes/non-existent-id')
-        .set(authHeader)
-        .expect(404);
+      await request(app).get('/api/debit-notes/non-existent-id').set(authHeader).expect(404);
     });
   });
 
@@ -224,21 +202,18 @@ describe('GST API Integration Tests', () => {
     let createdTdsId: string;
 
     it('POST / should create a TDS entry', async () => {
-      const response = await request(app)
-        .post('/api/tds')
-        .set(authHeader)
-        .send({
-          deductorName: 'Test Deductor Pvt Ltd',
-          deducteeName: 'Test Company',
-          tdsSection: '194C',
-          tdsRate: 1,
-          grossAmount: 100000,
-          tdsAmount: 1000,
-          netAmount: 99000,
-          deductionDate: '2026-01-15',
-          financialYear: '2025-26',
-          quarter: 4,
-        });
+      const response = await request(app).post('/api/tds').set(authHeader).send({
+        deductorName: 'Test Deductor Pvt Ltd',
+        deducteeName: 'Test Company',
+        tdsSection: '194C',
+        tdsRate: 1,
+        grossAmount: 100000,
+        tdsAmount: 1000,
+        netAmount: 99000,
+        deductionDate: '2026-01-15',
+        financialYear: '2025-26',
+        quarter: 4,
+      });
 
       if (response.status === 201) {
         expect(response.body).toHaveProperty('id');
@@ -249,11 +224,7 @@ describe('GST API Integration Tests', () => {
     });
 
     it('GET / should return paginated list', async () => {
-      const response = await request(app)
-        .get('/api/tds')
-        .set(authHeader)
-        .query({ page: 1, limit: 10 })
-        .expect(200);
+      const response = await request(app).get('/api/tds').set(authHeader).query({ page: 1, limit: 10 }).expect(200);
 
       expect(response.body).toHaveProperty('data');
       expect(response.body).toHaveProperty('pagination');
@@ -272,10 +243,7 @@ describe('GST API Integration Tests', () => {
     });
 
     it('GET /summary should return 400 without financialYear', async () => {
-      await request(app)
-        .get('/api/tds/summary')
-        .set(authHeader)
-        .expect(400);
+      await request(app).get('/api/tds/summary').set(authHeader).expect(400);
     });
 
     it('PUT /:id/status should update status', async () => {
@@ -294,9 +262,7 @@ describe('GST API Integration Tests', () => {
     // Cleanup
     afterAll(async () => {
       if (createdTdsId) {
-        await request(app)
-          .delete(`/api/tds/${createdTdsId}`)
-          .set(authHeader);
+        await request(app).delete(`/api/tds/${createdTdsId}`).set(authHeader);
       }
     });
   });
@@ -308,19 +274,16 @@ describe('GST API Integration Tests', () => {
     let createdTcsId: string;
 
     it('POST / should create a TCS entry', async () => {
-      const response = await request(app)
-        .post('/api/tcs')
-        .set(authHeader)
-        .send({
-          customerName: 'Test Customer Ltd',
-          tcsSection: '206C(1H)',
-          tcsRate: 0.1,
-          saleAmount: 5000000,
-          tcsAmount: 5000,
-          collectionDate: '2026-01-20',
-          financialYear: '2025-26',
-          quarter: 4,
-        });
+      const response = await request(app).post('/api/tcs').set(authHeader).send({
+        customerName: 'Test Customer Ltd',
+        tcsSection: '206C(1H)',
+        tcsRate: 0.1,
+        saleAmount: 5000000,
+        tcsAmount: 5000,
+        collectionDate: '2026-01-20',
+        financialYear: '2025-26',
+        quarter: 4,
+      });
 
       if (response.status === 201) {
         expect(response.body).toHaveProperty('id');
@@ -330,11 +293,7 @@ describe('GST API Integration Tests', () => {
     });
 
     it('GET / should return paginated list', async () => {
-      const response = await request(app)
-        .get('/api/tcs')
-        .set(authHeader)
-        .query({ page: 1, limit: 10 })
-        .expect(200);
+      const response = await request(app).get('/api/tcs').set(authHeader).query({ page: 1, limit: 10 }).expect(200);
 
       expect(response.body).toHaveProperty('data');
       expect(response.body).toHaveProperty('pagination');
@@ -367,9 +326,7 @@ describe('GST API Integration Tests', () => {
     // Cleanup
     afterAll(async () => {
       if (createdTcsId) {
-        await request(app)
-          .delete(`/api/tcs/${createdTcsId}`)
-          .set(authHeader);
+        await request(app).delete(`/api/tcs/${createdTcsId}`).set(authHeader);
       }
     });
   });
@@ -389,12 +346,9 @@ describe('GST API Integration Tests', () => {
       { method: 'get', path: '/api/tcs' },
     ];
 
-    it.each(protectedEndpoints)(
-      '$method $path should return 401 without auth',
-      async ({ method, path }) => {
-        const response = await (request(app) as any)[method](path);
-        expect(response.status).toBe(401);
-      }
-    );
+    it.each(protectedEndpoints)('$method $path should return 401 without auth', async ({ method, path }) => {
+      const response = await (request(app) as any)[method](path);
+      expect(response.status).toBe(401);
+    });
   });
 });

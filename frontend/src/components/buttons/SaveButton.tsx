@@ -33,11 +33,7 @@ export function SaveButton({
   ...props
 }: SaveButtonProps) {
   return (
-    <Button
-      variant={variant}
-      disabled={disabled || loading}
-      {...props}
-    >
+    <Button variant={variant} disabled={disabled || loading} {...props}>
       {loading ? (
         <>
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />

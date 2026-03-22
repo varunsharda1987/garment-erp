@@ -10,15 +10,9 @@ import { z } from 'zod';
  * Used for creating/updating quotation line items
  */
 const quotationItemSchema = z.object({
-  styleId: z
-    .string()
-    .uuid('Invalid style ID format'),
+  styleId: z.string().uuid('Invalid style ID format'),
 
-  description: z
-    .string()
-    .max(500, 'Description must be less than 500 characters')
-    .trim()
-    .optional(),
+  description: z.string().max(500, 'Description must be less than 500 characters').trim().optional(),
 
   totalQuantity: z
     .number()
@@ -39,11 +33,7 @@ const quotationItemSchema = z.object({
     .optional()
     .or(z.string().transform((val) => (val ? parseInt(val, 10) : undefined))),
 
-  remarks: z
-    .string()
-    .max(500, 'Remarks must be less than 500 characters')
-    .trim()
-    .optional(),
+  remarks: z.string().max(500, 'Remarks must be less than 500 characters').trim().optional(),
 });
 
 /**
@@ -51,9 +41,7 @@ const quotationItemSchema = z.object({
  * POST /api/quotations
  */
 export const createQuotationSchema = z.object({
-  customerId: z
-    .string()
-    .uuid('Invalid customer ID format'),
+  customerId: z.string().uuid('Invalid customer ID format'),
 
   quotationDate: z
     .string()
@@ -66,21 +54,11 @@ export const createQuotationSchema = z.object({
     .datetime('Invalid date format')
     .transform((val) => new Date(val)),
 
-  remarks: z
-    .string()
-    .max(1000, 'Remarks must be less than 1000 characters')
-    .trim()
-    .optional(),
+  remarks: z.string().max(1000, 'Remarks must be less than 1000 characters').trim().optional(),
 
-  termsAndConditions: z
-    .string()
-    .max(5000, 'Terms and conditions must be less than 5000 characters')
-    .trim()
-    .optional(),
+  termsAndConditions: z.string().max(5000, 'Terms and conditions must be less than 5000 characters').trim().optional(),
 
-  items: z
-    .array(quotationItemSchema)
-    .min(1, 'Quotation must have at least one item'),
+  items: z.array(quotationItemSchema).min(1, 'Quotation must have at least one item'),
 });
 
 /**
@@ -100,26 +78,13 @@ export const updateQuotationSchema = z.object({
     .optional()
     .transform((val) => (val ? new Date(val) : undefined)),
 
-  remarks: z
-    .string()
-    .max(1000, 'Remarks must be less than 1000 characters')
-    .trim()
-    .optional(),
+  remarks: z.string().max(1000, 'Remarks must be less than 1000 characters').trim().optional(),
 
-  termsAndConditions: z
-    .string()
-    .max(5000, 'Terms and conditions must be less than 5000 characters')
-    .trim()
-    .optional(),
+  termsAndConditions: z.string().max(5000, 'Terms and conditions must be less than 5000 characters').trim().optional(),
 
-  items: z
-    .array(quotationItemSchema)
-    .min(1, 'Quotation must have at least one item')
-    .optional(),
+  items: z.array(quotationItemSchema).min(1, 'Quotation must have at least one item').optional(),
 
-  status: z
-    .enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'])
-    .optional(),
+  status: z.enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED']).optional(),
 });
 
 /**
@@ -127,8 +92,7 @@ export const updateQuotationSchema = z.object({
  * PUT /api/quotations/:id/status
  */
 export const updateQuotationStatusSchema = z.object({
-  status: z
-    .enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED']),
+  status: z.enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED']),
 });
 
 /**
@@ -136,53 +100,23 @@ export const updateQuotationStatusSchema = z.object({
  * GET /api/quotations
  */
 export const quotationQuerySchema = z.object({
-  page: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .optional()
-    .default(1),
+  page: z.coerce.number().int().min(1).optional().default(1),
 
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(1000)
-    .optional()
-    .default(10),
+  limit: z.coerce.number().int().min(1).max(1000).optional().default(10),
 
-  search: z
-    .string()
-    .optional(),
+  search: z.string().optional(),
 
-  status: z
-    .enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'])
-    .optional(),
+  status: z.enum(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED']).optional(),
 
-  customerId: z
-    .string()
-    .uuid('Invalid customer ID format')
-    .optional(),
+  customerId: z.string().uuid('Invalid customer ID format').optional(),
 
-  fromDate: z
-    .string()
-    .datetime('Invalid date format')
-    .optional(),
+  fromDate: z.string().datetime('Invalid date format').optional(),
 
-  toDate: z
-    .string()
-    .datetime('Invalid date format')
-    .optional(),
+  toDate: z.string().datetime('Invalid date format').optional(),
 
-  sortBy: z
-    .string()
-    .optional()
-    .default('createdAt'),
+  sortBy: z.string().optional().default('createdAt'),
 
-  sortOrder: z
-    .enum(['asc', 'desc'])
-    .optional()
-    .default('desc'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
 /**
@@ -190,9 +124,7 @@ export const quotationQuerySchema = z.object({
  * For validating :id route parameters
  */
 export const quotationIdParamSchema = z.object({
-  id: z
-    .string()
-    .uuid('Invalid quotation ID format'),
+  id: z.string().uuid('Invalid quotation ID format'),
 });
 
 // Type exports for TypeScript

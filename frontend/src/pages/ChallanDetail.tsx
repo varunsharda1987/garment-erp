@@ -5,29 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { challanService } from '@/services/challan.service';
 import type { Challan } from '@/types/challan.types';
-import {
-  ChallanTypeLabels,
-  ChallanTypeColors,
-  ChallanStatusLabels,
-  ChallanStatusColors,
-} from '@/types/challan.types';
+import { ChallanTypeLabels, ChallanTypeColors, ChallanStatusLabels, ChallanStatusColors } from '@/types/challan.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Send, PackageCheck, X, ArrowRight, Loader2, Printer } from 'lucide-react';
@@ -40,7 +22,9 @@ export default function ChallanDetail() {
   const [challan, setChallan] = useState<Challan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
-  const [receiveItems, setReceiveItems] = useState<{ challanItemId: string; receivedQty: number; damagedQty: number }[]>([]);
+  const [receiveItems, setReceiveItems] = useState<
+    { challanItemId: string; receivedQty: number; damagedQty: number }[]
+  >([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -139,12 +123,8 @@ export default function ChallanDetail() {
           <div>
             <h1 className="text-2xl font-bold">{challan.challanNumber}</h1>
             <div className="flex items-center gap-2 mt-1">
-              <Badge className={ChallanTypeColors[challan.challanType]}>
-                {ChallanTypeLabels[challan.challanType]}
-              </Badge>
-              <Badge className={ChallanStatusColors[challan.status]}>
-                {ChallanStatusLabels[challan.status]}
-              </Badge>
+              <Badge className={ChallanTypeColors[challan.challanType]}>{ChallanTypeLabels[challan.challanType]}</Badge>
+              <Badge className={ChallanStatusColors[challan.status]}>{ChallanStatusLabels[challan.status]}</Badge>
             </div>
           </div>
         </div>
@@ -169,7 +149,12 @@ export default function ChallanDetail() {
           )}
           <Button
             variant="outline"
-            onClick={() => window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/documents/challans/${challan.id}/pdf`, '_blank')}
+            onClick={() =>
+              window.open(
+                `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/documents/challans/${challan.id}/pdf`,
+                '_blank'
+              )
+            }
           >
             <Printer className="h-4 w-4 mr-2" />
             Print
@@ -228,31 +213,52 @@ export default function ChallanDetail() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {challan.order && (
-              <div><span className="text-muted-foreground">Order:</span> {challan.order.orderNumber}</div>
+              <div>
+                <span className="text-muted-foreground">Order:</span> {challan.order.orderNumber}
+              </div>
             )}
             {challan.productionRun && (
-              <div><span className="text-muted-foreground">Production Run:</span> {challan.productionRun.workOrderNumber}</div>
+              <div>
+                <span className="text-muted-foreground">Production Run:</span> {challan.productionRun.workOrderNumber}
+              </div>
             )}
             {challan.purchaseOrder && (
-              <div><span className="text-muted-foreground">PO:</span> {challan.purchaseOrder.poNumber}</div>
+              <div>
+                <span className="text-muted-foreground">PO:</span> {challan.purchaseOrder.poNumber}
+              </div>
             )}
             {challan.vehicleNumber && (
-              <div><span className="text-muted-foreground">Vehicle:</span> {challan.vehicleNumber}</div>
+              <div>
+                <span className="text-muted-foreground">Vehicle:</span> {challan.vehicleNumber}
+              </div>
             )}
             {challan.driverName && (
-              <div><span className="text-muted-foreground">Driver:</span> {challan.driverName} {challan.driverPhone && `(${challan.driverPhone})`}</div>
+              <div>
+                <span className="text-muted-foreground">Driver:</span> {challan.driverName}{' '}
+                {challan.driverPhone && `(${challan.driverPhone})`}
+              </div>
             )}
             {challan.lrNumber && (
-              <div><span className="text-muted-foreground">LR No:</span> {challan.lrNumber}</div>
+              <div>
+                <span className="text-muted-foreground">LR No:</span> {challan.lrNumber}
+              </div>
             )}
             {challan.issuedBy && (
-              <div><span className="text-muted-foreground">Issued By:</span> {challan.issuedBy.firstName} {challan.issuedBy.lastName}</div>
+              <div>
+                <span className="text-muted-foreground">Issued By:</span> {challan.issuedBy.firstName}{' '}
+                {challan.issuedBy.lastName}
+              </div>
             )}
             {challan.receivedBy && (
-              <div><span className="text-muted-foreground">Received By:</span> {challan.receivedBy.firstName} {challan.receivedBy.lastName}</div>
+              <div>
+                <span className="text-muted-foreground">Received By:</span> {challan.receivedBy.firstName}{' '}
+                {challan.receivedBy.lastName}
+              </div>
             )}
             {challan.remarks && (
-              <div><span className="text-muted-foreground">Remarks:</span> {challan.remarks}</div>
+              <div>
+                <span className="text-muted-foreground">Remarks:</span> {challan.remarks}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -288,9 +294,11 @@ export default function ChallanDetail() {
                     {item.receivedQty != null ? Number(item.receivedQty).toLocaleString() : '—'}
                   </TableCell>
                   <TableCell className="text-right">
-                    {item.damagedQty != null && Number(item.damagedQty) > 0
-                      ? <span className="text-red-500">{Number(item.damagedQty).toLocaleString()}</span>
-                      : '—'}
+                    {item.damagedQty != null && Number(item.damagedQty) > 0 ? (
+                      <span className="text-red-500">{Number(item.damagedQty).toLocaleString()}</span>
+                    ) : (
+                      '—'
+                    )}
                   </TableCell>
                   <TableCell>{item.unit}</TableCell>
                   <TableCell className="text-right">
@@ -313,9 +321,7 @@ export default function ChallanDetail() {
             {challan.items.map((item, index) => (
               <div key={item.id} className="grid grid-cols-12 gap-2 items-center border-b pb-2">
                 <div className="col-span-5 text-sm">{item.description}</div>
-                <div className="col-span-2 text-sm text-right text-muted-foreground">
-                  Sent: {Number(item.quantity)}
-                </div>
+                <div className="col-span-2 text-sm text-right text-muted-foreground">Sent: {Number(item.quantity)}</div>
                 <div className="col-span-2">
                   <Label className="text-xs">Received</Label>
                   <Input

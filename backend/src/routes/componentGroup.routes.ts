@@ -18,10 +18,16 @@ router.post('/reorder', asyncHandler(componentGroupController.reorderComponentGr
 router.get('/', asyncHandler(componentGroupController.getComponentGroups.bind(componentGroupController)));
 
 // Get component group by code
-router.get('/code/:code', asyncHandler(componentGroupController.getComponentGroupByCode.bind(componentGroupController)));
+router.get(
+  '/code/:code',
+  asyncHandler(componentGroupController.getComponentGroupByCode.bind(componentGroupController))
+);
 
 // Get components in a specific group
-router.get('/:id/components', asyncHandler(componentGroupController.getComponentsByGroup.bind(componentGroupController)));
+router.get(
+  '/:id/components',
+  asyncHandler(componentGroupController.getComponentsByGroup.bind(componentGroupController))
+);
 
 // Get component group by ID
 router.get('/:id', asyncHandler(componentGroupController.getComponentGroupById.bind(componentGroupController)));

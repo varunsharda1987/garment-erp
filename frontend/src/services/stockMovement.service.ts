@@ -9,7 +9,7 @@ import type {
   MovementSummary,
   StockTransaction,
   StockMovementFilters,
-  ApiResponse
+  ApiResponse,
 } from '../types/inventory.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -51,10 +51,7 @@ export const stockMovementService = {
    * Get stock movement by ID
    */
   async getById(id: string): Promise<StockMovement> {
-    const response = await axios.get<ApiResponse<StockMovement>>(
-      `${BASE_URL}/${id}`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<StockMovement>>(`${BASE_URL}/${id}`, { headers: getAuthHeader() });
     if (!response.data.data) throw new Error('Stock movement not found');
     return response.data.data;
   },
@@ -83,11 +80,7 @@ export const stockMovementService = {
   /**
    * Get movement summary for warehouse
    */
-  async getMovementSummary(
-    warehouseId: string,
-    startDate: string,
-    endDate: string
-  ): Promise<MovementSummary> {
+  async getMovementSummary(warehouseId: string, startDate: string, endDate: string): Promise<MovementSummary> {
     const response = await axios.get<ApiResponse<MovementSummary>>(
       `${BASE_URL}/summary/${warehouseId}?startDate=${startDate}&endDate=${endDate}`,
       { headers: getAuthHeader() }
@@ -119,11 +112,9 @@ export const stockMovementService = {
    * Create stock IN (receipt)
    */
   async createStockIn(data: CreateStockInDTO): Promise<StockMovement> {
-    const response = await axios.post<ApiResponse<StockMovement>>(
-      `${BASE_URL}/stock-in`,
-      data,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.post<ApiResponse<StockMovement>>(`${BASE_URL}/stock-in`, data, {
+      headers: getAuthHeader(),
+    });
     if (!response.data.data) throw new Error('Failed to create stock in');
     return response.data.data;
   },
@@ -132,11 +123,9 @@ export const stockMovementService = {
    * Create stock OUT (issue)
    */
   async createStockOut(data: CreateStockOutDTO): Promise<StockMovement> {
-    const response = await axios.post<ApiResponse<StockMovement>>(
-      `${BASE_URL}/stock-out`,
-      data,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.post<ApiResponse<StockMovement>>(`${BASE_URL}/stock-out`, data, {
+      headers: getAuthHeader(),
+    });
     if (!response.data.data) throw new Error('Failed to create stock out');
     return response.data.data;
   },
@@ -144,7 +133,9 @@ export const stockMovementService = {
   /**
    * Create stock transfer
    */
-  async createTransfer(data: CreateStockTransferDTO): Promise<{ transferOut: StockMovement; transferIn: StockMovement }> {
+  async createTransfer(
+    data: CreateStockTransferDTO
+  ): Promise<{ transferOut: StockMovement; transferIn: StockMovement }> {
     const response = await axios.post<ApiResponse<{ transferOut: StockMovement; transferIn: StockMovement }>>(
       `${BASE_URL}/transfer`,
       data,
@@ -158,14 +149,12 @@ export const stockMovementService = {
    * Create stock adjustment
    */
   async createAdjustment(data: CreateStockAdjustmentDTO): Promise<StockMovement> {
-    const response = await axios.post<ApiResponse<StockMovement>>(
-      `${BASE_URL}/adjustment`,
-      data,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.post<ApiResponse<StockMovement>>(`${BASE_URL}/adjustment`, data, {
+      headers: getAuthHeader(),
+    });
     if (!response.data.data) throw new Error('Failed to create stock adjustment');
     return response.data.data;
-  }
+  },
 };
 
 export default stockMovementService;

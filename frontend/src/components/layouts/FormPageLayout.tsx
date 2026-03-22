@@ -27,9 +27,8 @@ import type { FormPageHeaderProps } from './FormPageHeader';
 import { FormPageFooter } from './FormPageFooter';
 import type { FormPageFooterProps } from './FormPageFooter';
 
-export interface FormPageLayoutProps extends
-  Omit<FormPageHeaderProps, 'className'>,
-  Omit<FormPageFooterProps, 'className' | 'position'> {
+export interface FormPageLayoutProps
+  extends Omit<FormPageHeaderProps, 'className'>, Omit<FormPageFooterProps, 'className' | 'position'> {
   /** Form content */
   children: ReactNode;
   /** Whether the form is loading (initial load) */
@@ -105,9 +104,7 @@ export function FormPageLayout({
         <Card>
           <CardContent className="py-12">
             <LoadingSpinner />
-            {loadingMessage && (
-              <p className="text-center text-muted-foreground mt-4">{loadingMessage}</p>
-            )}
+            {loadingMessage && <p className="text-center text-muted-foreground mt-4">{loadingMessage}</p>}
           </CardContent>
         </Card>
       </div>
@@ -116,11 +113,11 @@ export function FormPageLayout({
 
   const content = useCard ? (
     <Card>
-      <CardContent className="pt-6">
-        {children}
-      </CardContent>
+      <CardContent className="pt-6">{children}</CardContent>
     </Card>
-  ) : children;
+  ) : (
+    children
+  );
 
   const hasFooterActions = onSave || onCancel || (showDelete && onDelete);
 

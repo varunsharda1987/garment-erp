@@ -20,7 +20,7 @@ export const getSummary = async (req: Request, res: Response) => {
     elasticTotal,
     elasticActive,
     labelsTotal,
-    labelsActive
+    labelsActive,
   ] = await Promise.all([
     prisma.button_master.count(),
     prisma.button_master.count({ where: { isActive: true } }),
@@ -33,7 +33,7 @@ export const getSummary = async (req: Request, res: Response) => {
     prisma.elastic_master.count(),
     prisma.elastic_master.count({ where: { isActive: true } }),
     prisma.label_master.count(),
-    prisma.label_master.count({ where: { isActive: true } })
+    prisma.label_master.count({ where: { isActive: true } }),
   ]);
 
   const summary = {
@@ -42,14 +42,14 @@ export const getSummary = async (req: Request, res: Response) => {
     laces: { count: lacesTotal, active: lacesActive },
     threads: { count: threadsTotal, active: threadsActive },
     elastic: { count: elasticTotal, active: elasticActive },
-    labels: { count: labelsTotal, active: labelsActive }
+    labels: { count: labelsTotal, active: labelsActive },
   };
 
   const total = buttonsTotal + zippersTotal + lacesTotal + threadsTotal + elasticTotal + labelsTotal;
 
   res.json({
     data: summary,
-    total
+    total,
   });
 };
 
@@ -62,7 +62,7 @@ export const searchAllTrims = async (req: Request, res: Response) => {
     page = 1,
     limit = 20,
     search = '',
-    type = '' // BUTTON, ZIPPER, LACE, THREAD, ELASTIC, LABEL or empty for all
+    type = '', // BUTTON, ZIPPER, LACE, THREAD, ELASTIC, LABEL or empty for all
   } = req.query;
 
   const pageNum = Number(page);
@@ -72,21 +72,61 @@ export const searchAllTrims = async (req: Request, res: Response) => {
 
   // Define trim type configurations
   const trimConfigs = [
-    { type: 'BUTTON', table: 'button_master', codeField: 'buttonCode', nameField: 'buttonName', priceField: 'pricePerPiece', unit: 'PIECE' },
-    { type: 'ZIPPER', table: 'zipper_master', codeField: 'zipperCode', nameField: 'zipperName', priceField: 'pricePerPiece', unit: 'PIECE' },
-    { type: 'LACE', table: 'lace_master', codeField: 'laceCode', nameField: 'laceName', priceField: null, unit: 'METER' },
-    { type: 'THREAD', table: 'thread_master', codeField: 'threadCode', nameField: 'threadName', priceField: 'pricePerCone', unit: 'CONE' },
-    { type: 'ELASTIC', table: 'elastic_master', codeField: 'elasticCode', nameField: 'elasticName', priceField: 'pricePerMeter', unit: 'METER' },
-    { type: 'LABEL', table: 'label_master', codeField: 'labelCode', nameField: 'labelName', priceField: 'pricePerPiece', unit: 'PIECE' }
+    {
+      type: 'BUTTON',
+      table: 'button_master',
+      codeField: 'buttonCode',
+      nameField: 'buttonName',
+      priceField: 'pricePerPiece',
+      unit: 'PIECE',
+    },
+    {
+      type: 'ZIPPER',
+      table: 'zipper_master',
+      codeField: 'zipperCode',
+      nameField: 'zipperName',
+      priceField: 'pricePerPiece',
+      unit: 'PIECE',
+    },
+    {
+      type: 'LACE',
+      table: 'lace_master',
+      codeField: 'laceCode',
+      nameField: 'laceName',
+      priceField: null,
+      unit: 'METER',
+    },
+    {
+      type: 'THREAD',
+      table: 'thread_master',
+      codeField: 'threadCode',
+      nameField: 'threadName',
+      priceField: 'pricePerCone',
+      unit: 'CONE',
+    },
+    {
+      type: 'ELASTIC',
+      table: 'elastic_master',
+      codeField: 'elasticCode',
+      nameField: 'elasticName',
+      priceField: 'pricePerMeter',
+      unit: 'METER',
+    },
+    {
+      type: 'LABEL',
+      table: 'label_master',
+      codeField: 'labelCode',
+      nameField: 'labelName',
+      priceField: 'pricePerPiece',
+      unit: 'PIECE',
+    },
   ];
 
   // Filter by type if specified
-  const activeConfigs = typeFilter
-    ? trimConfigs.filter(c => c.type === typeFilter)
-    : trimConfigs;
+  const activeConfigs = typeFilter ? trimConfigs.filter((c) => c.type === typeFilter) : trimConfigs;
 
   if (typeFilter && activeConfigs.length === 0) {
-    throw new ValidationError(`Invalid trim type. Valid types: ${trimConfigs.map(c => c.type).join(', ')}`);
+    throw new ValidationError(`Invalid trim type. Valid types: ${trimConfigs.map((c) => c.type).join(', ')}`);
   }
 
   // Fetch data from all relevant tables
@@ -96,13 +136,15 @@ export const searchAllTrims = async (req: Request, res: Response) => {
     let items: any[] = [];
 
     // Build search condition
-    const searchCondition = searchStr ? {
-      OR: [
-        { [config.codeField]: { contains: searchStr, mode: 'insensitive' as const } },
-        { [config.nameField]: { contains: searchStr, mode: 'insensitive' as const } },
-        { color: { contains: searchStr, mode: 'insensitive' as const } }
-      ]
-    } : {};
+    const searchCondition = searchStr
+      ? {
+          OR: [
+            { [config.codeField]: { contains: searchStr, mode: 'insensitive' as const } },
+            { [config.nameField]: { contains: searchStr, mode: 'insensitive' as const } },
+            { color: { contains: searchStr, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
 
     switch (config.type) {
       case 'BUTTON':
@@ -115,8 +157,8 @@ export const searchAllTrims = async (req: Request, res: Response) => {
             color: true,
             pricePerPiece: true,
             isActive: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         });
         break;
       case 'ZIPPER':
@@ -129,8 +171,8 @@ export const searchAllTrims = async (req: Request, res: Response) => {
             color: true,
             pricePerPiece: true,
             isActive: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         });
         break;
       case 'LACE':
@@ -142,8 +184,8 @@ export const searchAllTrims = async (req: Request, res: Response) => {
             laceName: true,
             color: true,
             isActive: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         });
         break;
       case 'THREAD':
@@ -156,8 +198,8 @@ export const searchAllTrims = async (req: Request, res: Response) => {
             color: true,
             pricePerCone: true,
             isActive: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         });
         break;
       case 'ELASTIC':
@@ -170,8 +212,8 @@ export const searchAllTrims = async (req: Request, res: Response) => {
             color: true,
             pricePerMeter: true,
             isActive: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         });
         break;
       case 'LABEL':
@@ -184,14 +226,14 @@ export const searchAllTrims = async (req: Request, res: Response) => {
             color: true,
             pricePerPiece: true,
             isActive: true,
-            createdAt: true
-          }
+            createdAt: true,
+          },
         });
         break;
     }
 
     // Transform to unified format
-    const transformed = items.map(item => ({
+    const transformed = items.map((item) => ({
       id: item.id,
       code: item[config.codeField],
       name: item[config.nameField],
@@ -200,7 +242,7 @@ export const searchAllTrims = async (req: Request, res: Response) => {
       price: config.priceField ? item[config.priceField] : null,
       unit: config.unit,
       isActive: item.isActive,
-      createdAt: item.createdAt
+      createdAt: item.createdAt,
     }));
 
     allResults.push(...transformed);
@@ -221,8 +263,8 @@ export const searchAllTrims = async (req: Request, res: Response) => {
       page: pageNum,
       limit: limitNum,
       total,
-      totalPages
-    }
+      totalPages,
+    },
   });
 };
 
@@ -240,48 +282,102 @@ export const getRecentTrims = async (req: Request, res: Response) => {
       where: { isActive: true },
       select: { id: true, buttonCode: true, buttonName: true, color: true, pricePerPiece: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
-      take: limitNum
+      take: limitNum,
     }),
     prisma.zipper_master.findMany({
       where: { isActive: true },
       select: { id: true, zipperCode: true, zipperName: true, color: true, pricePerPiece: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
-      take: limitNum
+      take: limitNum,
     }),
     prisma.lace_master.findMany({
       where: { isActive: true },
       select: { id: true, laceCode: true, laceName: true, color: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
-      take: limitNum
+      take: limitNum,
     }),
     prisma.thread_master.findMany({
       where: { isActive: true },
       select: { id: true, threadCode: true, threadName: true, color: true, pricePerCone: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
-      take: limitNum
+      take: limitNum,
     }),
     prisma.elastic_master.findMany({
       where: { isActive: true },
       select: { id: true, elasticCode: true, elasticName: true, color: true, pricePerMeter: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
-      take: limitNum
+      take: limitNum,
     }),
     prisma.label_master.findMany({
       where: { isActive: true },
       select: { id: true, labelCode: true, labelName: true, color: true, pricePerPiece: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
-      take: limitNum
-    })
+      take: limitNum,
+    }),
   ]);
 
   // Transform to unified format
   const allItems = [
-    ...buttons.map(b => ({ id: b.id, code: b.buttonCode, name: b.buttonName, type: 'BUTTON', color: b.color, price: b.pricePerPiece, unit: 'PIECE', createdAt: b.createdAt })),
-    ...zippers.map(z => ({ id: z.id, code: z.zipperCode, name: z.zipperName, type: 'ZIPPER', color: z.color, price: z.pricePerPiece, unit: 'PIECE', createdAt: z.createdAt })),
-    ...laces.map(l => ({ id: l.id, code: l.laceCode, name: l.laceName, type: 'LACE', color: l.color, price: null, unit: 'METER', createdAt: l.createdAt })),
-    ...threads.map(t => ({ id: t.id, code: t.threadCode, name: t.threadName, type: 'THREAD', color: t.color, price: t.pricePerCone, unit: 'CONE', createdAt: t.createdAt })),
-    ...elastic.map(e => ({ id: e.id, code: e.elasticCode, name: e.elasticName, type: 'ELASTIC', color: e.color, price: e.pricePerMeter, unit: 'METER', createdAt: e.createdAt })),
-    ...labels.map(l => ({ id: l.id, code: l.labelCode, name: l.labelName, type: 'LABEL', color: l.color, price: l.pricePerPiece, unit: 'PIECE', createdAt: l.createdAt }))
+    ...buttons.map((b) => ({
+      id: b.id,
+      code: b.buttonCode,
+      name: b.buttonName,
+      type: 'BUTTON',
+      color: b.color,
+      price: b.pricePerPiece,
+      unit: 'PIECE',
+      createdAt: b.createdAt,
+    })),
+    ...zippers.map((z) => ({
+      id: z.id,
+      code: z.zipperCode,
+      name: z.zipperName,
+      type: 'ZIPPER',
+      color: z.color,
+      price: z.pricePerPiece,
+      unit: 'PIECE',
+      createdAt: z.createdAt,
+    })),
+    ...laces.map((l) => ({
+      id: l.id,
+      code: l.laceCode,
+      name: l.laceName,
+      type: 'LACE',
+      color: l.color,
+      price: null,
+      unit: 'METER',
+      createdAt: l.createdAt,
+    })),
+    ...threads.map((t) => ({
+      id: t.id,
+      code: t.threadCode,
+      name: t.threadName,
+      type: 'THREAD',
+      color: t.color,
+      price: t.pricePerCone,
+      unit: 'CONE',
+      createdAt: t.createdAt,
+    })),
+    ...elastic.map((e) => ({
+      id: e.id,
+      code: e.elasticCode,
+      name: e.elasticName,
+      type: 'ELASTIC',
+      color: e.color,
+      price: e.pricePerMeter,
+      unit: 'METER',
+      createdAt: e.createdAt,
+    })),
+    ...labels.map((l) => ({
+      id: l.id,
+      code: l.labelCode,
+      name: l.labelName,
+      type: 'LABEL',
+      color: l.color,
+      price: l.pricePerPiece,
+      unit: 'PIECE',
+      createdAt: l.createdAt,
+    })),
   ];
 
   // Sort by createdAt descending and limit
@@ -290,6 +386,6 @@ export const getRecentTrims = async (req: Request, res: Response) => {
 
   res.json({
     data: recent,
-    count: recent.length
+    count: recent.length,
   });
 };

@@ -12,28 +12,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -72,11 +53,7 @@ import type {
   UpdateCADRowRequest,
   CADSpreadsheetRowExtended,
 } from '@/types/cad-planning.types';
-import {
-  CAD_PURPOSE_LABELS,
-  PRINT_DIRECTION_LABELS,
-  ALL_PARTS_CODE,
-} from '@/types/cad-planning.types';
+import { CAD_PURPOSE_LABELS, PRINT_DIRECTION_LABELS, ALL_PARTS_CODE } from '@/types/cad-planning.types';
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
 
 /**
@@ -218,13 +195,7 @@ function SizeBreakdownPopup({
               {/* Apply All Section */}
               <div className="flex items-center gap-2 pb-3 border-b">
                 <Label className="text-sm font-medium whitespace-nowrap">Apply to all:</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleIncrementAll}
-                  className="px-4"
-                >
+                <Button type="button" size="sm" variant="secondary" onClick={handleIncrementAll} className="px-4">
                   + Add 1 to all
                 </Button>
                 <Button
@@ -406,13 +377,13 @@ export function CADSpreadsheetTable({
   // Count existing CAD rows per fabric ID for "Added (N)" badge
   const fabricCadCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    rows.forEach(row => {
+    rows.forEach((row) => {
       // Count the primary styleFabricId
       counts.set(row.styleFabricId, (counts.get(row.styleFabricId) || 0) + 1);
 
       // For combined rows, also count all fabric IDs in combinedFabricIds
       if (row.isCombinedCutting && row.combinedFabricIds && Array.isArray(row.combinedFabricIds)) {
-        row.combinedFabricIds.forEach(fabricId => {
+        row.combinedFabricIds.forEach((fabricId) => {
           // Don't double-count the primary styleFabricId
           if (fabricId !== row.styleFabricId) {
             counts.set(fabricId, (counts.get(fabricId) || 0) + 1);
@@ -428,7 +399,7 @@ export function CADSpreadsheetTable({
   const canCombineSelected = useMemo(() => {
     if (selectedStyleFabrics.length < 2) return { canCombine: false, reason: '' };
 
-    const selectedFabrics = styleFabrics.filter(sf => selectedStyleFabrics.includes(sf.id));
+    const selectedFabrics = styleFabrics.filter((sf) => selectedStyleFabrics.includes(sf.id));
     if (selectedFabrics.length < 2) return { canCombine: false, reason: '' };
 
     const first = selectedFabrics[0];
@@ -486,15 +457,11 @@ export function CADSpreadsheetTable({
       }
 
       // Find first row with size breakdowns
-      const rowWithBreakdowns = componentRows.find(
-        (r) => r.sizeBreakdowns && r.sizeBreakdowns.length > 0
-      );
+      const rowWithBreakdowns = componentRows.find((r) => r.sizeBreakdowns && r.sizeBreakdowns.length > 0);
 
       // Find rows that need size breakdowns
       const rowsNeedingSync = componentRows.filter(
-        (r) =>
-          r.id !== rowWithBreakdowns?.id &&
-          (!r.sizeBreakdowns || r.sizeBreakdowns.length === 0)
+        (r) => r.id !== rowWithBreakdowns?.id && (!r.sizeBreakdowns || r.sizeBreakdowns.length === 0)
       );
 
       if (rowWithBreakdowns && rowsNeedingSync.length > 0) {
@@ -518,9 +485,9 @@ export function CADSpreadsheetTable({
 
     // Group rows by purpose
     const groups: Record<string, CADSpreadsheetRow[]> = {};
-    purposeOrder.forEach(p => groups[p || 'null'] = []);
+    purposeOrder.forEach((p) => (groups[p || 'null'] = []));
 
-    rows.forEach(row => {
+    rows.forEach((row) => {
       const key = row.purpose || 'COSTING'; // Default to COSTING if null
       if (key in groups) {
         groups[key].push(row);
@@ -529,11 +496,11 @@ export function CADSpreadsheetTable({
 
     // Return array of { purpose, rows } with non-empty groups only
     return purposeOrder
-      .map(purpose => ({
+      .map((purpose) => ({
         purpose,
-        rows: groups[purpose || 'null']
+        rows: groups[purpose || 'null'],
       }))
-      .filter(group => group.rows.length > 0);
+      .filter((group) => group.rows.length > 0);
   }, [rows]);
 
   // Get available widths for a greige (1 inch increments)
@@ -543,7 +510,7 @@ export function CADSpreadsheetTable({
     if (!greige) return [];
 
     const min = greige.expectedFinishedWidthMin || 36;
-    const max = greige.expectedFinishedWidthMax || (greige.greigeWidth || 60);
+    const max = greige.expectedFinishedWidthMax || greige.greigeWidth || 60;
     const widths: number[] = [];
     for (let w = min; w <= max; w += 1) {
       widths.push(w);
@@ -570,8 +537,8 @@ export function CADSpreadsheetTable({
   const getUsedPartIds = (
     styleFabricId: string,
     currentRowId: string,
-    currentWidth: number | null,  // Width of the row being edited
-    currentGreigeId: string | null  // Greige of the row being edited
+    currentWidth: number | null, // Width of the row being edited
+    currentGreigeId: string | null // Greige of the row being edited
   ): Set<string> => {
     const usedParts = new Set<string>();
     rows.forEach((row) => {
@@ -600,12 +567,12 @@ export function CADSpreadsheetTable({
     styleFabricId: string,
     currentRowId: string,
     currentPartCode: string | null,
-    currentWidth: number | null,  // Width of the row being edited
-    currentGreigeId: string | null  // Greige of the row being edited
+    currentWidth: number | null, // Width of the row being edited
+    currentGreigeId: string | null // Greige of the row being edited
   ): boolean => {
     const currWidth = currentWidth != null ? Number(currentWidth) : null;
-    return rows.some(
-      (row) => {
+    return (
+      rows.some((row) => {
         const rowWidth = row.cutableWidth != null ? Number(row.cutableWidth) : null;
         const rowGreigeId = row.greigeId || null;
         return (
@@ -613,11 +580,15 @@ export function CADSpreadsheetTable({
           row.id !== currentRowId &&
           row.partCode === ALL_PARTS_CODE &&
           // Only consider "All Parts" as used if at SAME width AND SAME greige
-          currWidth !== null && rowWidth !== null && currWidth === rowWidth &&
-          currentGreigeId !== null && rowGreigeId !== null && currentGreigeId === rowGreigeId
+          currWidth !== null &&
+          rowWidth !== null &&
+          currWidth === rowWidth &&
+          currentGreigeId !== null &&
+          rowGreigeId !== null &&
+          currentGreigeId === rowGreigeId
         );
-      }
-    ) && currentPartCode !== ALL_PARTS_CODE;
+      }) && currentPartCode !== ALL_PARTS_CODE
+    );
   };
 
   // Get available parts with exclusion logic
@@ -627,20 +598,27 @@ export function CADSpreadsheetTable({
     currentRowId: string,
     currentPartId: string | null,
     currentPartCode: string | null,
-    currentWidth: number | null,  // Width of the row being edited
-    currentGreigeId: string | null  // Greige of the row being edited
+    currentWidth: number | null, // Width of the row being edited
+    currentGreigeId: string | null // Greige of the row being edited
   ) => {
     const allParts = getPatternParts(componentId);
     const usedPartIds = getUsedPartIds(styleFabricId, currentRowId, currentWidth, currentGreigeId);
-    const allPartsAlreadyUsed = isAllPartsUsed(styleFabricId, currentRowId, currentPartCode, currentWidth, currentGreigeId);
+    const allPartsAlreadyUsed = isAllPartsUsed(
+      styleFabricId,
+      currentRowId,
+      currentPartCode,
+      currentWidth,
+      currentGreigeId
+    );
 
     return {
       parts: allParts.map((part) => ({
         ...part,
         // Mark as used if: already used in another row AND not the current selection
         // Also mark "All Parts" as used if already selected in another row
-        isUsed: (usedPartIds.has(part.id) && part.id !== currentPartId) ||
-                (part.code === ALL_PARTS_CODE && allPartsAlreadyUsed),
+        isUsed:
+          (usedPartIds.has(part.id) && part.id !== currentPartId) ||
+          (part.code === ALL_PARTS_CODE && allPartsAlreadyUsed),
       })),
       allPartsAvailable: !allPartsAlreadyUsed,
     };
@@ -659,7 +637,7 @@ export function CADSpreadsheetTable({
 
       // Auto-populate width from stock when greige is selected
       if (field === 'greigeId' && value) {
-        const row = rows.find(r => r.id === rowId);
+        const row = rows.find((r) => r.id === rowId);
         // Only auto-populate if width is not already set and stock widths exist
         if (row && row.stockWidths && row.stockWidths.length > 0 && !row.cutableWidth) {
           // Auto-select the first stock width
@@ -683,7 +661,7 @@ export function CADSpreadsheetTable({
     }
 
     // Get current row data
-    const currentRow = rows.find(r => r.id === rowId);
+    const currentRow = rows.find((r) => r.id === rowId);
     if (!currentRow) {
       notify.error('Row not found');
       return;
@@ -691,18 +669,25 @@ export function CADSpreadsheetTable({
 
     // Get the values that will be saved (pending changes override current values)
     const finalPartId = changes.partId !== undefined ? changes.partId : currentRow.partId;
-    const finalWidth = changes.cutableWidth !== undefined ? Number(changes.cutableWidth) : (currentRow.cutableWidth ? Number(currentRow.cutableWidth) : null);
+    const finalWidth =
+      changes.cutableWidth !== undefined
+        ? Number(changes.cutableWidth)
+        : currentRow.cutableWidth
+          ? Number(currentRow.cutableWidth)
+          : null;
 
     // Get pattern parts for this component to look up part code/name
     const componentPatternParts = getPatternParts(currentRow.componentId);
-    const finalPartCode = finalPartId ? (componentPatternParts.find(p => p.id === finalPartId)?.code || currentRow.partCode) : currentRow.partCode;
+    const finalPartCode = finalPartId
+      ? componentPatternParts.find((p) => p.id === finalPartId)?.code || currentRow.partCode
+      : currentRow.partCode;
 
     // Check for duplicate Part + Width + Purpose combination in same styleFabric
     // Different purposes (e.g., RAW_MATERIAL_CALCULATION vs COSTING) can have same width
     if (finalWidth !== null) {
       const finalPurpose = changes.purpose !== undefined ? changes.purpose : currentRow.purpose;
 
-      const isDuplicate = rows.some(row => {
+      const isDuplicate = rows.some((row) => {
         if (row.id === rowId) return false; // Skip current row
         if (row.styleFabricId !== currentRow.styleFabricId) return false; // Different fabric
 
@@ -723,7 +708,10 @@ export function CADSpreadsheetTable({
       });
 
       if (isDuplicate) {
-        const partName = finalPartCode === ALL_PARTS_CODE ? 'All Parts' : (componentPatternParts.find(p => p.id === finalPartId)?.name || 'this part');
+        const partName =
+          finalPartCode === ALL_PARTS_CODE
+            ? 'All Parts'
+            : componentPatternParts.find((p) => p.id === finalPartId)?.name || 'this part';
         const errorMsg = `${partName} at ${finalWidth}" width with the same purpose already exists. Use a different width or purpose.`;
         console.error('CAD duplicate validation:', errorMsg);
         notify.error(errorMsg, {
@@ -787,8 +775,6 @@ export function CADSpreadsheetTable({
     }
   };
 
-
-
   // Load available stock for PRODUCTION purpose when style fabrics are selected
   const loadProductionStock = async () => {
     if (selectedStyleFabrics.length === 0) return;
@@ -796,7 +782,7 @@ export function CADSpreadsheetTable({
     setLoadingProductionStock(true);
     try {
       // Get the first selected fabric to determine embroidery status
-      const firstFabric = styleFabrics.find(sf => selectedStyleFabrics.includes(sf.id));
+      const firstFabric = styleFabrics.find((sf) => selectedStyleFabrics.includes(sf.id));
       const embroideryFilter = firstFabric?.hasEmbroidery ? undefined : null;
 
       const stock = await fabricStockService.getStockForStyle(styleId, {
@@ -901,8 +887,8 @@ export function CADSpreadsheetTable({
       );
 
       // Get component names for display
-      const selectedFabrics = styleFabrics.filter(sf => selectedStyleFabrics.includes(sf.id));
-      const componentNames = selectedFabrics.map(sf => sf.componentName).join(', ');
+      const selectedFabrics = styleFabrics.filter((sf) => selectedStyleFabrics.includes(sf.id));
+      const componentNames = selectedFabrics.map((sf) => sf.componentName).join(', ');
       notify.success(`Combined ${selectedPurpose} CAD row created for: ${componentNames}`);
 
       // Reset state
@@ -924,11 +910,11 @@ export function CADSpreadsheetTable({
     handleFieldChange(rowId, 'piecesPerMarker', totalPieces);
 
     // Propagate to sibling rows (same componentId)
-    const currentRow = rows.find(r => r.id === rowId);
+    const currentRow = rows.find((r) => r.id === rowId);
     if (currentRow) {
       rows
-        .filter(r => r.id !== rowId && r.componentId === currentRow.componentId)
-        .forEach(sibling => {
+        .filter((r) => r.id !== rowId && r.componentId === currentRow.componentId)
+        .forEach((sibling) => {
           handleFieldChange(sibling.id, 'sizeBreakdowns', breakdowns);
           handleFieldChange(sibling.id, 'piecesPerMarker', totalPieces);
         });
@@ -944,14 +930,14 @@ export function CADSpreadsheetTable({
     setLoadingStock(true);
     try {
       // Get the current CAD row to check embroidery status
-      const currentRow = rows.find(r => r.id === rowId);
+      const currentRow = rows.find((r) => r.id === rowId);
 
       // Filter stock based on embroidery status:
       // - If CAD row is for embroidery (isEmbroidery=true), show only embroidered stock
       // - If CAD row is for plain fabric (isEmbroidery=false), show only plain stock
       const embroideryFilter = currentRow?.isEmbroidery
-        ? undefined  // Show embroidered stock (any embroideryId)
-        : null;      // Show only plain stock (embroideryId=null)
+        ? undefined // Show embroidered stock (any embroideryId)
+        : null; // Show only plain stock (embroideryId=null)
 
       const stock = await fabricStockService.getStockForStyle(styleId, {
         status: 'AVAILABLE',
@@ -970,19 +956,20 @@ export function CADSpreadsheetTable({
   const handleSelectStock = async (stockId: string) => {
     if (!selectedRowForStock) return;
 
-    const selectedStock = availableStock.find(s => s.id === stockId);
+    const selectedStock = availableStock.find((s) => s.id === stockId);
     if (!selectedStock) return;
 
     // Check if there's a RAW_MATERIAL_CALCULATION CAD for variance comparison
-    const currentRow = rows.find(r => r.id === selectedRowForStock);
+    const currentRow = rows.find((r) => r.id === selectedRowForStock);
     if (!currentRow) return;
 
     // Find RAW_MATERIAL_CALCULATION CAD for the same style fabric (if exists)
     const rawMatCAD = rows.find(
-      r => r.purpose === 'RAW_MATERIAL_CALCULATION' &&
-      r.styleFabricId === currentRow.styleFabricId &&
-      r.partId === currentRow.partId &&
-      (r as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED'
+      (r) =>
+        r.purpose === 'RAW_MATERIAL_CALCULATION' &&
+        r.styleFabricId === currentRow.styleFabricId &&
+        r.partId === currentRow.partId &&
+        (r as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED'
     );
 
     const sourceWidth = rawMatCAD?.cutableWidth;
@@ -991,7 +978,7 @@ export function CADSpreadsheetTable({
     // Calculate variance if RAW_MATERIAL_CALCULATION CAD exists
     if (sourceWidth && Math.abs(actualWidth - sourceWidth) > 0.1) {
       const variance = actualWidth - sourceWidth;
-      const variancePercent = ((variance / sourceWidth) * 100);
+      const variancePercent = (variance / sourceWidth) * 100;
 
       // Show warning if variance is significant (> 5% or > 2 inches)
       if (Math.abs(variancePercent) > 5 || Math.abs(variance) > 2) {
@@ -1043,13 +1030,13 @@ export function CADSpreadsheetTable({
 
   // Handle approve CAD
   const handleApproveCAD = async (rowId: string) => {
-    const row = rows.find(r => r.id === rowId);
+    const row = rows.find((r) => r.id === rowId);
     if (!row) return;
 
     setApprovingRow(rowId);
     try {
       await cadPlanningService.approveCADPurpose(styleId, rowId, {
-        purpose: row.purpose || 'COSTING'
+        purpose: row.purpose || 'COSTING',
       });
       notify.success('CAD approved successfully');
       // Trigger parent refresh
@@ -1063,7 +1050,7 @@ export function CADSpreadsheetTable({
 
   // Handle reject CAD
   const handleRejectCAD = async (rowId: string) => {
-    const row = rows.find(r => r.id === rowId);
+    const row = rows.find((r) => r.id === rowId);
     if (!row) return;
 
     const rejectionReason = prompt('Enter rejection reason:');
@@ -1073,7 +1060,7 @@ export function CADSpreadsheetTable({
     try {
       await cadPlanningService.rejectCADPurpose(styleId, rowId, {
         purpose: row.purpose || 'COSTING',
-        rejectionNotes: rejectionReason
+        rejectionNotes: rejectionReason,
       });
       notify.success('CAD rejected');
       window.location.reload();
@@ -1091,7 +1078,7 @@ export function CADSpreadsheetTable({
     setCreatingVersion(rowId);
     try {
       const result = await cadPlanningService.createPlanningVersion(styleId, rowId, {
-        versionReason: versionReason || undefined
+        versionReason: versionReason || undefined,
       });
       notify.success(result.message || 'New version created successfully');
       window.location.reload();
@@ -1104,7 +1091,7 @@ export function CADSpreadsheetTable({
 
   // Handle copy CAD - Opens confirmation dialog
   const handleCopyCAD = (rowId: string, targetPurpose: string) => {
-    const row = rows.find(r => r.id === rowId);
+    const row = rows.find((r) => r.id === rowId);
     if (!row) return;
 
     // Open confirmation dialog
@@ -1155,18 +1142,18 @@ export function CADSpreadsheetTable({
   // Calculate totals - only count pieces from "All Parts" rows (main row per component)
   const totals = useMemo(() => {
     // Look for rows with "All Parts" pattern part (code === ALL_PARTS_CODE)
-    const allPartsRows = rows.filter(row => row.partCode === ALL_PARTS_CODE);
+    const allPartsRows = rows.filter((row) => row.partCode === ALL_PARTS_CODE);
 
     let totalPieces = 0;
     if (allPartsRows.length > 0) {
       // Count from ALL_PARTS rows only
-      allPartsRows.forEach(row => {
+      allPartsRows.forEach((row) => {
         totalPieces += row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
       });
     } else {
       // Fallback: first row per component if no ALL_PARTS rows exist
       const seenComponents = new Set<string>();
-      rows.forEach(row => {
+      rows.forEach((row) => {
         if (!seenComponents.has(row.componentId)) {
           seenComponents.add(row.componentId);
           totalPieces += row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
@@ -1193,18 +1180,12 @@ export function CADSpreadsheetTable({
         <div className="flex items-center gap-2">
           <TableIcon className="h-4 w-4 text-muted-foreground" />
           <h3 className="font-semibold text-sm">CAD Spreadsheet</h3>
-          <Badge variant="outline" className="text-xs">{rows.length} rows</Badge>
+          <Badge variant="outline" className="text-xs">
+            {rows.length} rows
+          </Badge>
         </div>
-        <Button
-          size="sm"
-          onClick={handleAddRowClick}
-          disabled={disabled || styleFabrics.length === 0 || addingRow}
-        >
-          {addingRow ? (
-            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4 mr-1" />
-          )}
+        <Button size="sm" onClick={handleAddRowClick} disabled={disabled || styleFabrics.length === 0 || addingRow}>
+          {addingRow ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
           Add Row
         </Button>
       </div>
@@ -1259,10 +1240,9 @@ export function CADSpreadsheetTable({
               groupedRows.map((group, groupIndex) => (
                 <React.Fragment key={group.purpose || 'null'}>
                   {/* Section header for each purpose group */}
-                  <TableRow className={cn(
-                    "bg-slate-200 hover:bg-slate-200",
-                    groupIndex > 0 && "border-t-2 border-gray-400"
-                  )}>
+                  <TableRow
+                    className={cn('bg-slate-200 hover:bg-slate-200', groupIndex > 0 && 'border-t-2 border-gray-400')}
+                  >
                     <TableCell colSpan={15} className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">
@@ -1277,632 +1257,717 @@ export function CADSpreadsheetTable({
 
                   {/* Render all rows in this purpose group */}
                   {group.rows.map((row) => {
-                const isEditing = editingRow === row.id;
-                const isSaving = savingRow === row.id;
-                const isDeleting = deletingRow === row.id;
-                // Lock rows that are APPROVED when style is approved (prevents editing historical data)
-                const isRowLocked = isStyleApproved && row.approvalStatus === 'APPROVED';
-                const availableWidths = row.availableWidths.length > 0
-                  ? row.availableWidths
-                  : getAvailableWidths(getDisplayValue(row, 'greigeId', null));
-                const currentPartId = getDisplayValue(row, 'partId', null);
-                const currentPartCode = row.partCode; // Use partCode from row data
-                const currentWidth = getDisplayValue(row, 'cutableWidth', null);
-                const currentGreigeId = getDisplayValue(row, 'greigeId', null);
-                const { parts: availableParts } = getAvailablePatternParts(
-                  row.componentId,
-                  row.styleFabricId,
-                  row.id,
-                  currentPartId,
-                  currentPartCode,
-                  currentWidth,  // Pass current width to allow same part at different widths
-                  currentGreigeId  // Pass current greige to allow same part at different greiges
-                );
-                const totalPcs = row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
+                    const isEditing = editingRow === row.id;
+                    const isSaving = savingRow === row.id;
+                    const isDeleting = deletingRow === row.id;
+                    // Lock rows that are APPROVED when style is approved (prevents editing historical data)
+                    const isRowLocked = isStyleApproved && row.approvalStatus === 'APPROVED';
+                    const availableWidths =
+                      row.availableWidths.length > 0
+                        ? row.availableWidths
+                        : getAvailableWidths(getDisplayValue(row, 'greigeId', null));
+                    const currentPartId = getDisplayValue(row, 'partId', null);
+                    const currentPartCode = row.partCode; // Use partCode from row data
+                    const currentWidth = getDisplayValue(row, 'cutableWidth', null);
+                    const currentGreigeId = getDisplayValue(row, 'greigeId', null);
+                    const { parts: availableParts } = getAvailablePatternParts(
+                      row.componentId,
+                      row.styleFabricId,
+                      row.id,
+                      currentPartId,
+                      currentPartCode,
+                      currentWidth, // Pass current width to allow same part at different widths
+                      currentGreigeId // Pass current greige to allow same part at different greiges
+                    );
+                    const totalPcs = row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
 
-                return (
-                  <TableRow
-                    key={row.id}
-                    className={cn(
-                      'hover:bg-muted/30',
-                      isEditing && 'bg-primary/5',
-                      isRowLocked && 'opacity-75 bg-gray-50'
-                    )}
-                    title={isRowLocked ? 'This row is locked (approved CAD)' : undefined}
-                  >
-                    {/* Purpose - Editable */}
-                    <TableCell className={cn("px-1 py-1.5", getFieldClass('editable', isEditing))}>
-                      {isEditing ? (
-                        <Select
-                          value={getDisplayValue(row, 'purpose', 'PRODUCTION') || 'PRODUCTION'}
-                          onValueChange={(v) => handleFieldChange(row.id, 'purpose', v as CADPurpose)}
-                          disabled={isSaving}
-                        >
-                          <SelectTrigger className="h-7 text-xs w-20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(CAD_PURPOSE_LABELS).map(([value, label]) => (
-                              <SelectItem key={value} value={value}>
-                                {label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="flex flex-col gap-0.5">
-                          <Badge
-                            variant={row.purpose === 'PRODUCTION' ? 'default' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'secondary' : 'outline'}
-                            className={cn(
-                              'text-[10px] px-1.5',
-                              row.purpose === 'PRODUCTION' && 'bg-green-600 hover:bg-green-700',
-                              row.purpose === 'RAW_MATERIAL_CALCULATION' && 'bg-blue-600 hover:bg-blue-700 text-white',
-                              row.purpose === 'COSTING' && 'bg-orange-600 hover:bg-orange-700 text-white'
-                            )}
-                          >
-                            {CAD_PURPOSE_LABELS[row.purpose as CADPurpose] || 'Prod'}
-                          </Badge>
-                          {/* Show "Copied from" indicator if this row was copied */}
-                          {row.copiedFromId && row.copiedFrom && (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-purple-50 text-purple-700 border-purple-300">
-                              ← {CAD_PURPOSE_LABELS[row.copiedFrom.purpose]}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-
-                    {/* Version / Lock / Orders Indicator */}
-                    <TableCell className="px-1 py-1.5">
-                      <div className="flex items-center gap-1">
-                        {/* Locked indicator for approved rows in approved style */}
-                        {isRowLocked && (
-                          <span title="Locked - approved CAD cannot be modified">
-                            <Lock className="h-3 w-3 text-amber-500" />
-                          </span>
+                    return (
+                      <TableRow
+                        key={row.id}
+                        className={cn(
+                          'hover:bg-muted/30',
+                          isEditing && 'bg-primary/5',
+                          isRowLocked && 'opacity-75 bg-gray-50'
                         )}
-                        {/* Version indicator */}
-                        {(row as CADSpreadsheetRowExtended).version && (
-                          <Badge variant="outline" className="text-[10px] px-1.5" title="Version">
-                            <GitBranch className="h-2.5 w-2.5 mr-0.5" />
-                            v{(row as CADSpreadsheetRowExtended).version}
-                          </Badge>
-                        )}
-                        {/* Lock for PRODUCTION CAD (separate from style-level lock) */}
-                        {!isRowLocked && row.purpose === 'PRODUCTION' && (row as CADSpreadsheetRowExtended).isLocked && (
-                          <span title={(row as CADSpreadsheetRowExtended).lockedReason || 'Locked'}>
-                            <Lock className="h-3 w-3 text-muted-foreground" />
-                          </span>
-                        )}
-                        {/* Order count for PRODUCTION CAD */}
-                        {row.purpose === 'PRODUCTION' && row.orderCount !== undefined && row.orderCount > 0 && (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] px-1.5 bg-blue-100 text-blue-700 border-blue-200"
-                            title={`Used in ${row.orderCount} order${row.orderCount > 1 ? 's' : ''}`}
-                          >
-                            {row.orderCount} order{row.orderCount > 1 ? 's' : ''}
-                          </Badge>
-                        )}
-                        {/* Stock Lot for PRODUCTION CAD */}
-                        {row.purpose === 'PRODUCTION' && row.stockLotNumber && (
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] px-1 bg-gray-50 border-gray-200"
-                            title={`Stock Lot: ${row.stockLotNumber}`}
-                          >
-                            {row.stockLotNumber}
-                          </Badge>
-                        )}
-                        {!((row.purpose === 'COSTING' && (row as CADSpreadsheetRowExtended).version) ||
-                           (row.purpose === 'PRODUCTION' && ((row as CADSpreadsheetRowExtended).isLocked || row.orderCount && row.orderCount > 0 || row.stockLotNumber))) && (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    {/* Component - Pre-populated */}
-                    <TableCell className={cn("px-1 py-1.5 font-medium text-xs whitespace-nowrap", FIELD_STYLES.prepopulated.cell)}>
-                      {row.isCombinedCutting ? (
-                        <div className="flex items-center gap-1" title={`Combined: ${row.combinedComponents || row.componentName}`}>
-                          <span className="text-purple-600">📎</span>
-                          <span className="text-purple-700">{row.combinedComponents || row.componentName}</span>
-                        </div>
-                      ) : (
-                        row.componentName
-                      )}
-                    </TableCell>
-
-                    {/* Part - Editable */}
-                    <TableCell className={cn("px-1 py-1.5 max-w-[80px]", getFieldClass('editable', isEditing))}>
-                      {isEditing ? (
-                        <Select
-                          value={getDisplayValue(row, 'partId', '') || ''}
-                          onValueChange={(v) => handleFieldChange(row.id, 'partId', v)}
-                          disabled={isSaving}
-                        >
-                          <SelectTrigger className="h-7 text-xs w-20">
-                            <SelectValue placeholder="Part" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[300px]">
-                            {/* Sort parts: ALL_PARTS first, then others by name */}
-                            {[...availableParts]
-                              .sort((a, b) => {
-                                if (a.code === ALL_PARTS_CODE) return -1;
-                                if (b.code === ALL_PARTS_CODE) return 1;
-                                return a.name.localeCompare(b.name);
-                              })
-                              .map((part, index, arr) => (
-                                <React.Fragment key={part.id}>
-                                  {/* Add separator after ALL_PARTS if there are more parts */}
-                                  {index === 1 && arr[0]?.code === ALL_PARTS_CODE && (
-                                    <div className="border-t my-1" />
-                                  )}
-                                  <SelectItem
-                                    value={part.id}
-                                    disabled={part.isUsed}
-                                    className={cn(
-                                      part.isUsed && 'text-muted-foreground',
-                                      part.code === ALL_PARTS_CODE && 'font-medium text-primary'
-                                    )}
-                                  >
-                                    {part.name}{part.isUsed ? ' (Used)' : ''}
-                                  </SelectItem>
-                                </React.Fragment>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-xs truncate block max-w-[70px]" title={row.partName || ''}>
-                          {row.partName || '-'}
-                        </span>
-                      )}
-                    </TableCell>
-
-                    {/* Fabric Finish - Pre-populated */}
-                    <TableCell className={cn("px-2 py-1.5", FIELD_STYLES.prepopulated.cell)}>
-                      <Badge
-                        variant={row.fabricFinishType === 'PRINTED' ? 'default' : 'secondary'}
-                        className="text-[10px] px-1.5"
+                        title={isRowLocked ? 'This row is locked (approved CAD)' : undefined}
                       >
-                        {row.fabricFinishType || '-'}
-                      </Badge>
-                    </TableCell>
-
-                    {/* Embroidery - Editable */}
-                    <TableCell className={cn("px-2 py-1.5 text-center", getFieldClass('editable', isEditing))}>
-                      {isEditing ? (
-                        <Switch
-                          checked={getDisplayValue(row, 'isEmbroidery', false)}
-                          onCheckedChange={(v) => handleFieldChange(row.id, 'isEmbroidery', v)}
-                          disabled={isSaving}
-                          className="scale-75"
-                        />
-                      ) : (
-                        <Badge
-                          variant={row.isEmbroidery ? 'destructive' : 'outline'}
-                          className="text-[10px] px-1"
-                        >
-                          {row.isEmbroidery ? 'Y' : 'N'}
-                        </Badge>
-                      )}
-                    </TableCell>
-
-                    {/* Generic Greige - always show genericGreigeName regardless of fabric type */}
-                    <TableCell className={cn("px-2 py-1.5 text-xs whitespace-nowrap max-w-[100px] truncate", FIELD_STYLES.prepopulated.cell)}
-                      title={row.genericGreigeName || ''}>
-                      {row.genericGreigeName || '-'}
-                    </TableCell>
-
-                    {/* Greige Name / Fabric Name - Editable or Static */}
-                    <TableCell className={cn("px-2 py-1.5", row.readyFabricId ? FIELD_STYLES.prepopulated.cell : getFieldClass('editable', isEditing))}>
-                      {row.readyFabricId ? (
-                        // Ready Fabric mode: show fabric name as static label
-                        <span className="text-xs whitespace-nowrap text-green-700">
-                          {row.readyFabricCode && <span className="font-mono text-gray-500 mr-1">{row.readyFabricCode}</span>}
-                          {row.readyFabricName || '-'}
-                        </span>
-                      ) : isEditing ? (
-                        <Select
-                          value={getDisplayValue(row, 'greigeId', '') || ''}
-                          onValueChange={(v) => handleFieldChange(row.id, 'greigeId', v)}
-                          disabled={isSaving}
-                        >
-                          <SelectTrigger className="h-7 text-xs w-36">
-                            <SelectValue placeholder="Select Greige" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableGreiges
-                              .filter((g) => !row.genericGreigeName || g.genericGreigeName === row.genericGreigeName)
-                              .map((g) => (
-                                <SelectItem key={g.id} value={g.id}>
-                                  {g.greigeName}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-xs whitespace-nowrap">
-                          {row.greigeName || '-'}
-                        </span>
-                      )}
-                    </TableCell>
-
-                    {/* Cutable Width - Editable */}
-                    <TableCell className={cn("px-2 py-1.5", getFieldClass('editable', isEditing))}>
-                      {isEditing ? (
-                        (() => {
-                          // For embroidered fabrics (isEmbroidery = true), allow manual width entry
-                          const isEmbroidered = row.isEmbroidery;
-                          const isReadyFabric = !!row.readyFabricId;
-                          const selectedGreige = availableGreiges.find(g => g.id === currentGreigeId);
-                          const maxGreigeWidth = selectedGreige?.greigeWidth || null;
-
-                          if (isReadyFabric) {
-                            // Ready-fabric mode: manual width entry (no greige width range)
-                            return (
-                              <Input
-                                type="number"
-                                value={getDisplayValue(row, 'cutableWidth', 0) || ''}
-                                onChange={(e) => handleFieldChange(row.id, 'cutableWidth', e.target.value ? parseFloat(e.target.value) : null)}
-                                disabled={isSaving}
-                                className="h-7 text-xs w-20"
-                                step="0.5"
-                                min="0"
-                                placeholder='Width"'
-                              />
-                            );
-                          }
-
-                          if (isEmbroidered) {
-                            // Manual entry mode for embroidered fabrics
-                            return (
-                              <div className="flex flex-col gap-0.5">
-                                <Input
-                                  type="number"
-                                  value={getDisplayValue(row, 'cutableWidth', 0) || ''}
-                                  onChange={(e) => handleFieldChange(row.id, 'cutableWidth', e.target.value ? parseFloat(e.target.value) : null)}
-                                  disabled={isSaving}
-                                  className="h-7 text-xs w-20"
-                                  step="0.1"
-                                  min="0"
-                                  max={maxGreigeWidth || undefined}
-                                  placeholder={maxGreigeWidth ? `Max: ${maxGreigeWidth}"` : 'Width'}
-                                  title={
-                                    maxGreigeWidth
-                                      ? `Manual entry allowed - Max width: ${maxGreigeWidth}"`
-                                      : 'Enter width manually (embroidered fabric)'
-                                  }
-                                />
-                                {maxGreigeWidth && (
-                                  <span className="text-[9px] text-blue-600 flex items-center gap-0.5">
-                                    <Pencil className="h-2 w-2" />
-                                    Manual (≤ {maxGreigeWidth}")
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          }
-
-                          // Dropdown selection for plain fabrics
-                          return (
+                        {/* Purpose - Editable */}
+                        <TableCell className={cn('px-1 py-1.5', getFieldClass('editable', isEditing))}>
+                          {isEditing ? (
                             <Select
-                              value={getDisplayValue(row, 'cutableWidth', 0)?.toString() || ''}
-                              onValueChange={(v) => handleFieldChange(row.id, 'cutableWidth', parseInt(v))}
-                              disabled={isSaving || (availableWidths.length === 0 && (!row.stockWidths || row.stockWidths.length === 0))}
+                              value={getDisplayValue(row, 'purpose', 'PRODUCTION') || 'PRODUCTION'}
+                              onValueChange={(v) => handleFieldChange(row.id, 'purpose', v as CADPurpose)}
+                              disabled={isSaving}
                             >
                               <SelectTrigger className="h-7 text-xs w-20">
-                                <SelectValue placeholder="Width" />
+                                <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {/* Stock widths first with indicator */}
-                                {row.stockWidths && row.stockWidths.length > 0 && (
-                                  <>
-                                    <div className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-50 flex items-center gap-1">
-                                      <Package className="h-3 w-3" />
-                                      From Stock
-                                    </div>
-                                    {row.stockWidths.map((w) => (
-                                      <SelectItem key={`stock-${w}`} value={w.toString()}>
-                                        <span className="text-green-700 font-medium">{w}" (Stock)</span>
-                                      </SelectItem>
-                                    ))}
-                                    <div className="border-t my-1" />
-                                  </>
+                                {Object.entries(CAD_PURPOSE_LABELS).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="flex flex-col gap-0.5">
+                              <Badge
+                                variant={
+                                  row.purpose === 'PRODUCTION'
+                                    ? 'default'
+                                    : row.purpose === 'RAW_MATERIAL_CALCULATION'
+                                      ? 'secondary'
+                                      : 'outline'
+                                }
+                                className={cn(
+                                  'text-[10px] px-1.5',
+                                  row.purpose === 'PRODUCTION' && 'bg-green-600 hover:bg-green-700',
+                                  row.purpose === 'RAW_MATERIAL_CALCULATION' &&
+                                    'bg-blue-600 hover:bg-blue-700 text-white',
+                                  row.purpose === 'COSTING' && 'bg-orange-600 hover:bg-orange-700 text-white'
                                 )}
-                                {/* All available widths from greige (excluding stock widths) */}
-                                {availableWidths
-                                  .filter(w => !row.stockWidths?.includes(w))
-                                  .map((w) => (
-                                    <SelectItem key={w} value={w.toString()}>
-                                      {w}"
+                              >
+                                {CAD_PURPOSE_LABELS[row.purpose as CADPurpose] || 'Prod'}
+                              </Badge>
+                              {/* Show "Copied from" indicator if this row was copied */}
+                              {row.copiedFromId && row.copiedFrom && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1 py-0 bg-purple-50 text-purple-700 border-purple-300"
+                                >
+                                  ← {CAD_PURPOSE_LABELS[row.copiedFrom.purpose]}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+
+                        {/* Version / Lock / Orders Indicator */}
+                        <TableCell className="px-1 py-1.5">
+                          <div className="flex items-center gap-1">
+                            {/* Locked indicator for approved rows in approved style */}
+                            {isRowLocked && (
+                              <span title="Locked - approved CAD cannot be modified">
+                                <Lock className="h-3 w-3 text-amber-500" />
+                              </span>
+                            )}
+                            {/* Version indicator */}
+                            {(row as CADSpreadsheetRowExtended).version && (
+                              <Badge variant="outline" className="text-[10px] px-1.5" title="Version">
+                                <GitBranch className="h-2.5 w-2.5 mr-0.5" />v
+                                {(row as CADSpreadsheetRowExtended).version}
+                              </Badge>
+                            )}
+                            {/* Lock for PRODUCTION CAD (separate from style-level lock) */}
+                            {!isRowLocked &&
+                              row.purpose === 'PRODUCTION' &&
+                              (row as CADSpreadsheetRowExtended).isLocked && (
+                                <span title={(row as CADSpreadsheetRowExtended).lockedReason || 'Locked'}>
+                                  <Lock className="h-3 w-3 text-muted-foreground" />
+                                </span>
+                              )}
+                            {/* Order count for PRODUCTION CAD */}
+                            {row.purpose === 'PRODUCTION' && row.orderCount !== undefined && row.orderCount > 0 && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] px-1.5 bg-blue-100 text-blue-700 border-blue-200"
+                                title={`Used in ${row.orderCount} order${row.orderCount > 1 ? 's' : ''}`}
+                              >
+                                {row.orderCount} order{row.orderCount > 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                            {/* Stock Lot for PRODUCTION CAD */}
+                            {row.purpose === 'PRODUCTION' && row.stockLotNumber && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] px-1 bg-gray-50 border-gray-200"
+                                title={`Stock Lot: ${row.stockLotNumber}`}
+                              >
+                                {row.stockLotNumber}
+                              </Badge>
+                            )}
+                            {!(
+                              (row.purpose === 'COSTING' && (row as CADSpreadsheetRowExtended).version) ||
+                              (row.purpose === 'PRODUCTION' &&
+                                ((row as CADSpreadsheetRowExtended).isLocked ||
+                                  (row.orderCount && row.orderCount > 0) ||
+                                  row.stockLotNumber))
+                            ) && <span className="text-xs text-muted-foreground">-</span>}
+                          </div>
+                        </TableCell>
+
+                        {/* Component - Pre-populated */}
+                        <TableCell
+                          className={cn(
+                            'px-1 py-1.5 font-medium text-xs whitespace-nowrap',
+                            FIELD_STYLES.prepopulated.cell
+                          )}
+                        >
+                          {row.isCombinedCutting ? (
+                            <div
+                              className="flex items-center gap-1"
+                              title={`Combined: ${row.combinedComponents || row.componentName}`}
+                            >
+                              <span className="text-purple-600">📎</span>
+                              <span className="text-purple-700">{row.combinedComponents || row.componentName}</span>
+                            </div>
+                          ) : (
+                            row.componentName
+                          )}
+                        </TableCell>
+
+                        {/* Part - Editable */}
+                        <TableCell className={cn('px-1 py-1.5 max-w-[80px]', getFieldClass('editable', isEditing))}>
+                          {isEditing ? (
+                            <Select
+                              value={getDisplayValue(row, 'partId', '') || ''}
+                              onValueChange={(v) => handleFieldChange(row.id, 'partId', v)}
+                              disabled={isSaving}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-20">
+                                <SelectValue placeholder="Part" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                {/* Sort parts: ALL_PARTS first, then others by name */}
+                                {[...availableParts]
+                                  .sort((a, b) => {
+                                    if (a.code === ALL_PARTS_CODE) return -1;
+                                    if (b.code === ALL_PARTS_CODE) return 1;
+                                    return a.name.localeCompare(b.name);
+                                  })
+                                  .map((part, index, arr) => (
+                                    <React.Fragment key={part.id}>
+                                      {/* Add separator after ALL_PARTS if there are more parts */}
+                                      {index === 1 && arr[0]?.code === ALL_PARTS_CODE && (
+                                        <div className="border-t my-1" />
+                                      )}
+                                      <SelectItem
+                                        value={part.id}
+                                        disabled={part.isUsed}
+                                        className={cn(
+                                          part.isUsed && 'text-muted-foreground',
+                                          part.code === ALL_PARTS_CODE && 'font-medium text-primary'
+                                        )}
+                                      >
+                                        {part.name}
+                                        {part.isUsed ? ' (Used)' : ''}
+                                      </SelectItem>
+                                    </React.Fragment>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-xs truncate block max-w-[70px]" title={row.partName || ''}>
+                              {row.partName || '-'}
+                            </span>
+                          )}
+                        </TableCell>
+
+                        {/* Fabric Finish - Pre-populated */}
+                        <TableCell className={cn('px-2 py-1.5', FIELD_STYLES.prepopulated.cell)}>
+                          <Badge
+                            variant={row.fabricFinishType === 'PRINTED' ? 'default' : 'secondary'}
+                            className="text-[10px] px-1.5"
+                          >
+                            {row.fabricFinishType || '-'}
+                          </Badge>
+                        </TableCell>
+
+                        {/* Embroidery - Editable */}
+                        <TableCell className={cn('px-2 py-1.5 text-center', getFieldClass('editable', isEditing))}>
+                          {isEditing ? (
+                            <Switch
+                              checked={getDisplayValue(row, 'isEmbroidery', false)}
+                              onCheckedChange={(v) => handleFieldChange(row.id, 'isEmbroidery', v)}
+                              disabled={isSaving}
+                              className="scale-75"
+                            />
+                          ) : (
+                            <Badge variant={row.isEmbroidery ? 'destructive' : 'outline'} className="text-[10px] px-1">
+                              {row.isEmbroidery ? 'Y' : 'N'}
+                            </Badge>
+                          )}
+                        </TableCell>
+
+                        {/* Generic Greige - always show genericGreigeName regardless of fabric type */}
+                        <TableCell
+                          className={cn(
+                            'px-2 py-1.5 text-xs whitespace-nowrap max-w-[100px] truncate',
+                            FIELD_STYLES.prepopulated.cell
+                          )}
+                          title={row.genericGreigeName || ''}
+                        >
+                          {row.genericGreigeName || '-'}
+                        </TableCell>
+
+                        {/* Greige Name / Fabric Name - Editable or Static */}
+                        <TableCell
+                          className={cn(
+                            'px-2 py-1.5',
+                            row.readyFabricId ? FIELD_STYLES.prepopulated.cell : getFieldClass('editable', isEditing)
+                          )}
+                        >
+                          {row.readyFabricId ? (
+                            // Ready Fabric mode: show fabric name as static label
+                            <span className="text-xs whitespace-nowrap text-green-700">
+                              {row.readyFabricCode && (
+                                <span className="font-mono text-gray-500 mr-1">{row.readyFabricCode}</span>
+                              )}
+                              {row.readyFabricName || '-'}
+                            </span>
+                          ) : isEditing ? (
+                            <Select
+                              value={getDisplayValue(row, 'greigeId', '') || ''}
+                              onValueChange={(v) => handleFieldChange(row.id, 'greigeId', v)}
+                              disabled={isSaving}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-36">
+                                <SelectValue placeholder="Select Greige" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableGreiges
+                                  .filter(
+                                    (g) => !row.genericGreigeName || g.genericGreigeName === row.genericGreigeName
+                                  )
+                                  .map((g) => (
+                                    <SelectItem key={g.id} value={g.id}>
+                                      {g.greigeName}
                                     </SelectItem>
                                   ))}
                               </SelectContent>
                             </Select>
-                          );
-                        })()
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium">
-                            {row.cutableWidth ? `${row.cutableWidth}"` : '-'}
-                          </span>
-                          {/* Stock width indicator - show if width matches stock */}
-                          {row.stockWidths?.includes(row.cutableWidth!) && (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1 py-0 h-4 bg-green-50 border-green-200 text-green-700"
-                              title="Width matches available stock"
-                            >
-                              <Package className="h-2 w-2 mr-0.5" />
-                              Stock
-                            </Badge>
+                          ) : (
+                            <span className="text-xs whitespace-nowrap">{row.greigeName || '-'}</span>
                           )}
-                          {/* Stock info badge for PRODUCTION CAD linked to stock */}
-                          {row.purpose === 'PRODUCTION' && (row as CADSpreadsheetRowExtended).fabricStockDetails && (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1 py-0 h-4 bg-blue-50 border-blue-200"
-                              title={`Stock: ${(row as CADSpreadsheetRowExtended).fabricStockDetails?.rollNumbers || 'N/A'} - Grade ${(row as CADSpreadsheetRowExtended).fabricStockDetails?.qualityGrade}`}
-                            >
-                              📦 {(row as CADSpreadsheetRowExtended).fabricStockDetails?.qualityGrade}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
+                        </TableCell>
 
-                    {/* Print Direction - Editable */}
-                    <TableCell className={cn("px-2 py-1.5", getFieldClass('editable', isEditing))}>
-                      {isEditing ? (
-                        <Select
-                          value={getDisplayValue(row, 'printDirection', 'TWO_WAY') || 'TWO_WAY'}
-                          onValueChange={(v) => handleFieldChange(row.id, 'printDirection', v as PrintDirection)}
-                          disabled={isSaving}
+                        {/* Cutable Width - Editable */}
+                        <TableCell className={cn('px-2 py-1.5', getFieldClass('editable', isEditing))}>
+                          {isEditing ? (
+                            (() => {
+                              // For embroidered fabrics (isEmbroidery = true), allow manual width entry
+                              const isEmbroidered = row.isEmbroidery;
+                              const isReadyFabric = !!row.readyFabricId;
+                              const selectedGreige = availableGreiges.find((g) => g.id === currentGreigeId);
+                              const maxGreigeWidth = selectedGreige?.greigeWidth || null;
+
+                              if (isReadyFabric) {
+                                // Ready-fabric mode: manual width entry (no greige width range)
+                                return (
+                                  <Input
+                                    type="number"
+                                    value={getDisplayValue(row, 'cutableWidth', 0) || ''}
+                                    onChange={(e) =>
+                                      handleFieldChange(
+                                        row.id,
+                                        'cutableWidth',
+                                        e.target.value ? parseFloat(e.target.value) : null
+                                      )
+                                    }
+                                    disabled={isSaving}
+                                    className="h-7 text-xs w-20"
+                                    step="0.5"
+                                    min="0"
+                                    placeholder='Width"'
+                                  />
+                                );
+                              }
+
+                              if (isEmbroidered) {
+                                // Manual entry mode for embroidered fabrics
+                                return (
+                                  <div className="flex flex-col gap-0.5">
+                                    <Input
+                                      type="number"
+                                      value={getDisplayValue(row, 'cutableWidth', 0) || ''}
+                                      onChange={(e) =>
+                                        handleFieldChange(
+                                          row.id,
+                                          'cutableWidth',
+                                          e.target.value ? parseFloat(e.target.value) : null
+                                        )
+                                      }
+                                      disabled={isSaving}
+                                      className="h-7 text-xs w-20"
+                                      step="0.1"
+                                      min="0"
+                                      max={maxGreigeWidth || undefined}
+                                      placeholder={maxGreigeWidth ? `Max: ${maxGreigeWidth}"` : 'Width'}
+                                      title={
+                                        maxGreigeWidth
+                                          ? `Manual entry allowed - Max width: ${maxGreigeWidth}"`
+                                          : 'Enter width manually (embroidered fabric)'
+                                      }
+                                    />
+                                    {maxGreigeWidth && (
+                                      <span className="text-[9px] text-blue-600 flex items-center gap-0.5">
+                                        <Pencil className="h-2 w-2" />
+                                        Manual (≤ {maxGreigeWidth}")
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              // Dropdown selection for plain fabrics
+                              return (
+                                <Select
+                                  value={getDisplayValue(row, 'cutableWidth', 0)?.toString() || ''}
+                                  onValueChange={(v) => handleFieldChange(row.id, 'cutableWidth', parseInt(v))}
+                                  disabled={
+                                    isSaving ||
+                                    (availableWidths.length === 0 && (!row.stockWidths || row.stockWidths.length === 0))
+                                  }
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-20">
+                                    <SelectValue placeholder="Width" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {/* Stock widths first with indicator */}
+                                    {row.stockWidths && row.stockWidths.length > 0 && (
+                                      <>
+                                        <div className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-50 flex items-center gap-1">
+                                          <Package className="h-3 w-3" />
+                                          From Stock
+                                        </div>
+                                        {row.stockWidths.map((w) => (
+                                          <SelectItem key={`stock-${w}`} value={w.toString()}>
+                                            <span className="text-green-700 font-medium">{w}" (Stock)</span>
+                                          </SelectItem>
+                                        ))}
+                                        <div className="border-t my-1" />
+                                      </>
+                                    )}
+                                    {/* All available widths from greige (excluding stock widths) */}
+                                    {availableWidths
+                                      .filter((w) => !row.stockWidths?.includes(w))
+                                      .map((w) => (
+                                        <SelectItem key={w} value={w.toString()}>
+                                          {w}"
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              );
+                            })()
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs font-medium">
+                                {row.cutableWidth ? `${row.cutableWidth}"` : '-'}
+                              </span>
+                              {/* Stock width indicator - show if width matches stock */}
+                              {row.stockWidths?.includes(row.cutableWidth!) && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1 py-0 h-4 bg-green-50 border-green-200 text-green-700"
+                                  title="Width matches available stock"
+                                >
+                                  <Package className="h-2 w-2 mr-0.5" />
+                                  Stock
+                                </Badge>
+                              )}
+                              {/* Stock info badge for PRODUCTION CAD linked to stock */}
+                              {row.purpose === 'PRODUCTION' &&
+                                (row as CADSpreadsheetRowExtended).fabricStockDetails && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1 py-0 h-4 bg-blue-50 border-blue-200"
+                                    title={`Stock: ${(row as CADSpreadsheetRowExtended).fabricStockDetails?.rollNumbers || 'N/A'} - Grade ${(row as CADSpreadsheetRowExtended).fabricStockDetails?.qualityGrade}`}
+                                  >
+                                    📦 {(row as CADSpreadsheetRowExtended).fabricStockDetails?.qualityGrade}
+                                  </Badge>
+                                )}
+                            </div>
+                          )}
+                        </TableCell>
+
+                        {/* Print Direction - Editable */}
+                        <TableCell className={cn('px-2 py-1.5', getFieldClass('editable', isEditing))}>
+                          {isEditing ? (
+                            <Select
+                              value={getDisplayValue(row, 'printDirection', 'TWO_WAY') || 'TWO_WAY'}
+                              onValueChange={(v) => handleFieldChange(row.id, 'printDirection', v as PrintDirection)}
+                              disabled={isSaving}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-16">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(PRINT_DIRECTION_LABELS).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-xs">{row.printDirection === 'ONE_WAY' ? '1-Way' : '2-Way'}</span>
+                          )}
+                        </TableCell>
+
+                        {/* Size Breakup - Editable */}
+                        <TableCell className={cn('px-2 py-1.5 text-center', getFieldClass('editable', isEditing))}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-1.5 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSizeBreakdownOpen(row.id);
+                            }}
+                            disabled={isSaving}
+                          >
+                            <Calculator className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+
+                        {/* No. of Pcs - Calculated */}
+                        <TableCell
+                          className={cn('px-2 py-1.5 text-right text-xs font-medium', FIELD_STYLES.calculated.cell)}
                         >
-                          <SelectTrigger className="h-7 text-xs w-16">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(PRINT_DIRECTION_LABELS).map(([value, label]) => (
-                              <SelectItem key={value} value={value}>
-                                {label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-xs">
-                          {row.printDirection === 'ONE_WAY' ? '1-Way' : '2-Way'}
-                        </span>
-                      )}
-                    </TableCell>
+                          {totalPcs || '-'}
+                        </TableCell>
 
-                    {/* Size Breakup - Editable */}
-                    <TableCell className={cn("px-2 py-1.5 text-center", getFieldClass('editable', isEditing))}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-1.5 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSizeBreakdownOpen(row.id);
-                        }}
-                        disabled={isSaving}
-                      >
-                        <Calculator className="h-3 w-3" />
-                      </Button>
-                    </TableCell>
-
-                    {/* No. of Pcs - Calculated */}
-                    <TableCell className={cn("px-2 py-1.5 text-right text-xs font-medium", FIELD_STYLES.calculated.cell)}>
-                      {totalPcs || '-'}
-                    </TableCell>
-
-                    {/* Layer(M) - Editable */}
-                    <TableCell className={cn("px-2 py-1.5 text-right", getFieldClass('editable', isEditing))}>
-                      {isEditing ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          value={getDisplayValue(row, 'layerLengthMeters', '') ?? ''}
-                          onChange={(e) => handleFieldChange(row.id, 'layerLengthMeters', e.target.value ? parseFloat(e.target.value) : null)}
-                          className="h-7 w-20 text-xs text-right"
-                          placeholder="0.00"
-                          disabled={isSaving}
-                        />
-                      ) : (
-                        <span className="text-xs">{row.layerLengthMeters?.toFixed(2) || '-'}</span>
-                      )}
-                    </TableCell>
-
-                    {/* CAD Average - Calculated */}
-                    <TableCell className={cn("px-2 py-1.5 text-right text-xs font-medium", FIELD_STYLES.calculated.cell)}>
-                      {row.cadAverage?.toFixed(2) || '-'}
-                    </TableCell>
-
-                    {/* Actions */}
-                    <TableCell className="px-2 py-1.5">
-                      <div className="flex items-center gap-0.5">
-                        {isEditing ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSaveRow(row.id);
-                              }}
+                        {/* Layer(M) - Editable */}
+                        <TableCell className={cn('px-2 py-1.5 text-right', getFieldClass('editable', isEditing))}>
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              value={getDisplayValue(row, 'layerLengthMeters', '') ?? ''}
+                              onChange={(e) =>
+                                handleFieldChange(
+                                  row.id,
+                                  'layerLengthMeters',
+                                  e.target.value ? parseFloat(e.target.value) : null
+                                )
+                              }
+                              className="h-7 w-20 text-xs text-right"
+                              placeholder="0.00"
                               disabled={isSaving}
-                              title="Save"
-                            >
-                              {isSaving ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Save className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingRow(null);
-                                setPendingChanges((prev) => {
-                                  const { [row.id]: _, ...rest } = prev;
-                                  return rest;
-                                });
-                              }}
-                              disabled={isSaving}
-                              title="Cancel"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            {/* CAD Purpose Action Buttons */}
-                            {/* Approve button - show only for PENDING status */}
-                            {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleApproveCAD(row.id);
-                                }}
-                                disabled={disabled || approvingRow === row.id}
-                                title="Approve"
-                              >
-                                {approvingRow === row.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Check className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
-                            )}
-                            {/* Reject button - show only for PENDING status with actual data (not blank rows) */}
-                            {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (row.cadAverage || row.greigeId) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRejectCAD(row.id);
-                                }}
-                                disabled={disabled || rejectingRow === row.id}
-                                title="Reject"
-                              >
-                                {rejectingRow === row.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <XCircle className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
-                            )}
-                            {/* Create Version button - show only for APPROVED CAD */}
-                            {(row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCreateVersion(row.id);
-                                }}
-                                disabled={disabled || creatingVersion === row.id}
-                                title="Create New Version"
-                              >
-                                {creatingVersion === row.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <GitBranch className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
-                            )}
-                            {/* Copy button - copy to next purpose (visible for all non-PRODUCTION rows) */}
-                            {/* Workflow: COSTING → RAW_MATERIAL_CALCULATION → PRODUCTION */}
-                            {row.purpose !== 'PRODUCTION' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const targetPurpose = row.purpose === 'COSTING' ? 'RAW_MATERIAL_CALCULATION' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'PRODUCTION' : null;
-                                  if (targetPurpose) handleCopyCAD(row.id, targetPurpose);
-                                }}
-                                disabled={disabled || copyingRow === row.id}
-                                title={row.purpose === 'COSTING' ? 'Copy to Raw Mat' : row.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Copy to Production' : 'Cannot copy'}
-                              >
-                                {copyingRow === row.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
-                            )}
+                            />
+                          ) : (
+                            <span className="text-xs">{row.layerLengthMeters?.toFixed(2) || '-'}</span>
+                          )}
+                        </TableCell>
 
-                            {/* Link to Stock button - show only for PRODUCTION CAD that is PENDING */}
-                            {row.purpose === 'PRODUCTION' && (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenStockSelection(row.id);
-                                }}
-                                disabled={disabled}
-                                title="Link to Fabric Stock"
-                              >
-                                <TableIcon className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
+                        {/* CAD Average - Calculated */}
+                        <TableCell
+                          className={cn('px-2 py-1.5 text-right text-xs font-medium', FIELD_STYLES.calculated.cell)}
+                        >
+                          {row.cadAverage?.toFixed(2) || '-'}
+                        </TableCell>
 
-                            {/* Standard Edit/Delete buttons */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingRow(row.id);
-                              }}
-                              disabled={disabled || isRowLocked || (row as CADSpreadsheetRowExtended).isLocked}
-                              title={isRowLocked ? 'Locked (approved CAD)' : (row as CADSpreadsheetRowExtended).isLocked ? 'Locked' : 'Edit'}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteRow(row.id);
-                              }}
-                              disabled={disabled || isDeleting || isRowLocked || (row as CADSpreadsheetRowExtended).isLocked}
-                              title={isRowLocked ? 'Locked (approved CAD)' : (row as CADSpreadsheetRowExtended).isLocked ? 'Locked' : 'Delete'}
-                            >
-                              {isDeleting ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                        {/* Actions */}
+                        <TableCell className="px-2 py-1.5">
+                          <div className="flex items-center gap-0.5">
+                            {isEditing ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSaveRow(row.id);
+                                  }}
+                                  disabled={isSaving}
+                                  title="Save"
+                                >
+                                  {isSaving ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Save className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingRow(null);
+                                    setPendingChanges((prev) => {
+                                      const { [row.id]: _, ...rest } = prev;
+                                      return rest;
+                                    });
+                                  }}
+                                  disabled={isSaving}
+                                  title="Cancel"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                {/* CAD Purpose Action Buttons */}
+                                {/* Approve button - show only for PENDING status */}
+                                {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleApproveCAD(row.id);
+                                    }}
+                                    disabled={disabled || approvingRow === row.id}
+                                    title="Approve"
+                                  >
+                                    {approvingRow === row.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Check className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                                {/* Reject button - show only for PENDING status with actual data (not blank rows) */}
+                                {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' &&
+                                  (row.cadAverage || row.greigeId) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRejectCAD(row.id);
+                                      }}
+                                      disabled={disabled || rejectingRow === row.id}
+                                      title="Reject"
+                                    >
+                                      {rejectingRow === row.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <XCircle className="h-3.5 w-3.5" />
+                                      )}
+                                    </Button>
+                                  )}
+                                {/* Create Version button - show only for APPROVED CAD */}
+                                {(row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCreateVersion(row.id);
+                                    }}
+                                    disabled={disabled || creatingVersion === row.id}
+                                    title="Create New Version"
+                                  >
+                                    {creatingVersion === row.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <GitBranch className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                                {/* Copy button - copy to next purpose (visible for all non-PRODUCTION rows) */}
+                                {/* Workflow: COSTING → RAW_MATERIAL_CALCULATION → PRODUCTION */}
+                                {row.purpose !== 'PRODUCTION' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const targetPurpose =
+                                        row.purpose === 'COSTING'
+                                          ? 'RAW_MATERIAL_CALCULATION'
+                                          : row.purpose === 'RAW_MATERIAL_CALCULATION'
+                                            ? 'PRODUCTION'
+                                            : null;
+                                      if (targetPurpose) handleCopyCAD(row.id, targetPurpose);
+                                    }}
+                                    disabled={disabled || copyingRow === row.id}
+                                    title={
+                                      row.purpose === 'COSTING'
+                                        ? 'Copy to Raw Mat'
+                                        : row.purpose === 'RAW_MATERIAL_CALCULATION'
+                                          ? 'Copy to Production'
+                                          : 'Cannot copy'
+                                    }
+                                  >
+                                    {copyingRow === row.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Copy className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+
+                                {/* Link to Stock button - show only for PRODUCTION CAD that is PENDING */}
+                                {row.purpose === 'PRODUCTION' &&
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenStockSelection(row.id);
+                                      }}
+                                      disabled={disabled}
+                                      title="Link to Fabric Stock"
+                                    >
+                                      <TableIcon className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+
+                                {/* Standard Edit/Delete buttons */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingRow(row.id);
+                                  }}
+                                  disabled={disabled || isRowLocked || (row as CADSpreadsheetRowExtended).isLocked}
+                                  title={
+                                    isRowLocked
+                                      ? 'Locked (approved CAD)'
+                                      : (row as CADSpreadsheetRowExtended).isLocked
+                                        ? 'Locked'
+                                        : 'Edit'
+                                  }
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteRow(row.id);
+                                  }}
+                                  disabled={
+                                    disabled || isDeleting || isRowLocked || (row as CADSpreadsheetRowExtended).isLocked
+                                  }
+                                  title={
+                                    isRowLocked
+                                      ? 'Locked (approved CAD)'
+                                      : (row as CADSpreadsheetRowExtended).isLocked
+                                        ? 'Locked'
+                                        : 'Delete'
+                                  }
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </React.Fragment>
               ))
             )}
@@ -1926,9 +1991,7 @@ export function CADSpreadsheetTable({
           isOpen={true}
           onClose={() => setSizeBreakdownOpen(null)}
           sizeOptions={sizeOptions}
-          currentBreakdowns={
-            rows.find((r) => r.id === sizeBreakdownOpen)?.sizeBreakdowns || []
-          }
+          currentBreakdowns={rows.find((r) => r.id === sizeBreakdownOpen)?.sizeBreakdowns || []}
           onSave={(breakdowns) => handleSizeBreakdownSave(sizeBreakdownOpen, breakdowns)}
         />
       )}
@@ -2010,9 +2073,7 @@ export function CADSpreadsheetTable({
             </div>
 
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-muted-foreground">
-                Select component-fabric pairs to add CAD entries:
-              </p>
+              <p className="text-sm text-muted-foreground">Select component-fabric pairs to add CAD entries:</p>
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="select-all"
@@ -2020,7 +2081,7 @@ export function CADSpreadsheetTable({
                   onCheckedChange={(checked) => {
                     setSelectAllStyleFabrics(!!checked);
                     if (checked) {
-                      setSelectedStyleFabrics(styleFabrics.map(sf => sf.id));
+                      setSelectedStyleFabrics(styleFabrics.map((sf) => sf.id));
                     } else {
                       setSelectedStyleFabrics([]);
                     }
@@ -2045,7 +2106,7 @@ export function CADSpreadsheetTable({
                       if (checked) {
                         setSelectedStyleFabrics([...selectedStyleFabrics, sf.id]);
                       } else {
-                        setSelectedStyleFabrics(selectedStyleFabrics.filter(id => id !== sf.id));
+                        setSelectedStyleFabrics(selectedStyleFabrics.filter((id) => id !== sf.id));
                         setSelectAllStyleFabrics(false);
                       }
                     }}
@@ -2056,12 +2117,18 @@ export function CADSpreadsheetTable({
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium truncate">{sf.componentName}</span>
                         {fabricCadCounts.has(sf.id) && (
-                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200 px-1.5 py-0 flex-shrink-0">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs bg-blue-100 text-blue-700 border-blue-200 px-1.5 py-0 flex-shrink-0"
+                          >
                             Added ({fabricCadCounts.get(sf.id)})
                           </Badge>
                         )}
                         {sf.hasEmbroidery && (
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs px-1.5 py-0 flex-shrink-0">
+                          <Badge
+                            variant="outline"
+                            className="bg-purple-50 text-purple-700 border-purple-200 text-xs px-1.5 py-0 flex-shrink-0"
+                          >
                             <Sparkles className="h-3 w-3 mr-1" />
                             Embroidery
                           </Badge>
@@ -2084,31 +2151,38 @@ export function CADSpreadsheetTable({
               <div className="mt-4 space-y-2">
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-700">
-                    {selectedStyleFabrics.length} component-fabric pair{selectedStyleFabrics.length > 1 ? 's' : ''} selected
+                    {selectedStyleFabrics.length} component-fabric pair{selectedStyleFabrics.length > 1 ? 's' : ''}{' '}
+                    selected
                   </p>
                 </div>
 
                 {/* Combined cutting eligibility info */}
                 {selectedStyleFabrics.length >= 2 && onAddCombinedRow && (
-                  <div className={cn(
-                    "p-3 border rounded-lg",
-                    canCombineSelected.canCombine
-                      ? "bg-green-50 border-green-200"
-                      : "bg-yellow-50 border-yellow-200"
-                  )}>
-                    <p className={cn(
-                      "text-sm flex items-start gap-2 min-w-0",
-                      canCombineSelected.canCombine ? "text-green-700" : "text-yellow-700"
-                    )}>
+                  <div
+                    className={cn(
+                      'p-3 border rounded-lg',
+                      canCombineSelected.canCombine ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        'text-sm flex items-start gap-2 min-w-0',
+                        canCombineSelected.canCombine ? 'text-green-700' : 'text-yellow-700'
+                      )}
+                    >
                       {canCombineSelected.canCombine ? (
                         <>
                           <Check className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                          <span className="break-words min-w-0 flex-1 whitespace-normal">Can be combined ({canCombineSelected.reason})</span>
+                          <span className="break-words min-w-0 flex-1 whitespace-normal">
+                            Can be combined ({canCombineSelected.reason})
+                          </span>
                         </>
                       ) : (
                         <>
                           <XCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                          <span className="break-words min-w-0 flex-1 whitespace-normal">{canCombineSelected.reason}</span>
+                          <span className="break-words min-w-0 flex-1 whitespace-normal">
+                            {canCombineSelected.reason}
+                          </span>
                         </>
                       )}
                     </p>
@@ -2119,9 +2193,7 @@ export function CADSpreadsheetTable({
                 {selectedPurpose === 'PRODUCTION' && (
                   <div className="p-3 border rounded-lg bg-amber-50 border-amber-200">
                     <div className="flex items-center justify-between mb-2">
-                      <Label className="text-sm font-medium text-amber-800">
-                        Select Available Stock (Required)
-                      </Label>
+                      <Label className="text-sm font-medium text-amber-800">Select Available Stock (Required)</Label>
                       <Button
                         size="sm"
                         variant="outline"
@@ -2129,11 +2201,7 @@ export function CADSpreadsheetTable({
                         disabled={loadingProductionStock}
                         className="h-7 text-xs"
                       >
-                        {loadingProductionStock ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          'Refresh Stock'
-                        )}
+                        {loadingProductionStock ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Refresh Stock'}
                       </Button>
                     </div>
                     {loadingProductionStock ? (
@@ -2143,18 +2211,13 @@ export function CADSpreadsheetTable({
                       </div>
                     ) : productionStockOptions.length === 0 ? (
                       <div className="text-center py-4">
-                        <p className="text-sm text-amber-700">
-                          No available stock found for the selected fabrics.
-                        </p>
+                        <p className="text-sm text-amber-700">No available stock found for the selected fabrics.</p>
                         <p className="text-xs text-amber-600 mt-1">
                           Please ensure fabric has been GRN'd and is in AVAILABLE status.
                         </p>
                       </div>
                     ) : (
-                      <Select
-                        value={selectedStockForProduction || ''}
-                        onValueChange={setSelectedStockForProduction}
-                      >
+                      <Select value={selectedStockForProduction || ''} onValueChange={setSelectedStockForProduction}>
                         <SelectTrigger className="w-full bg-white">
                           <SelectValue placeholder="Select stock..." />
                         </SelectTrigger>
@@ -2165,9 +2228,7 @@ export function CADSpreadsheetTable({
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{stock.fabricCode}</span>
                                   <span className="text-muted-foreground">•</span>
-                                  <span className="text-green-600 font-semibold">
-                                    {stock.cutableWidth}" width
-                                  </span>
+                                  <span className="text-green-600 font-semibold">{stock.cutableWidth}" width</span>
                                   <span className="text-muted-foreground">•</span>
                                   <span>{stock.quantityAvailable.toFixed(1)}m available</span>
                                   {stock.embroideryId && (
@@ -2212,10 +2273,7 @@ export function CADSpreadsheetTable({
               <Button
                 variant="secondary"
                 onClick={handleCombineRows}
-                disabled={
-                  addingRow ||
-                  (selectedPurpose === 'PRODUCTION' && !selectedStockForProduction)
-                }
+                disabled={addingRow || (selectedPurpose === 'PRODUCTION' && !selectedStockForProduction)}
                 className="bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
               >
                 {addingRow ? (
@@ -2268,9 +2326,7 @@ export function CADSpreadsheetTable({
             <DialogTitle className="flex items-center gap-2">
               Select Fabric Stock
               {(() => {
-                const currentRow = selectedRowForStock
-                  ? rows.find(r => r.id === selectedRowForStock)
-                  : null;
+                const currentRow = selectedRowForStock ? rows.find((r) => r.id === selectedRowForStock) : null;
                 return currentRow?.isEmbroidery ? (
                   <Badge variant="secondary" className="bg-purple-100 text-purple-700">
                     ✨ Embroidered
@@ -2293,9 +2349,7 @@ export function CADSpreadsheetTable({
             ) : availableStock.length === 0 ? (
               <div className="text-center py-8">
                 {(() => {
-                  const currentRow = selectedRowForStock
-                    ? rows.find(r => r.id === selectedRowForStock)
-                    : null;
+                  const currentRow = selectedRowForStock ? rows.find((r) => r.id === selectedRowForStock) : null;
                   const isEmbroideryRow = currentRow?.isEmbroidery;
                   return (
                     <>
@@ -2341,12 +2395,8 @@ export function CADSpreadsheetTable({
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground">{stock.fabricName}</p>
-                            {stock.colorName && (
-                              <p className="text-xs text-muted-foreground">{stock.colorName}</p>
-                            )}
-                            {stock.embroideryName && (
-                              <p className="text-xs text-purple-600">{stock.embroideryName}</p>
-                            )}
+                            {stock.colorName && <p className="text-xs text-muted-foreground">{stock.colorName}</p>}
+                            {stock.embroideryName && <p className="text-xs text-purple-600">{stock.embroideryName}</p>}
                           </div>
                         </TableCell>
                         <TableCell>{stock.greigeName}</TableCell>
@@ -2361,22 +2411,17 @@ export function CADSpreadsheetTable({
                               stock.qualityGrade === 'A'
                                 ? 'default'
                                 : stock.qualityGrade === 'B'
-                                ? 'secondary'
-                                : 'destructive'
+                                  ? 'secondary'
+                                  : 'destructive'
                             }
                           >
                             {stock.qualityGrade}
                           </Badge>
                         </TableCell>
                         <TableCell>{stock.rollNumbers || '-'}</TableCell>
+                        <TableCell>{new Date(stock.receivedDate).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          {new Date(stock.receivedDate).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSelectStock(stock.id)}
-                          >
+                          <Button size="sm" onClick={() => handleSelectStock(stock.id)}>
                             Select
                           </Button>
                         </TableCell>
@@ -2405,9 +2450,7 @@ export function CADSpreadsheetTable({
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-700">Raw Mat CAD Width:</span>
-                    <span className="text-lg font-semibold text-gray-900">
-                      {pendingStockSelection.planningWidth}"
-                    </span>
+                    <span className="text-lg font-semibold text-gray-900">{pendingStockSelection.planningWidth}"</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium text-gray-700">Actual Stock Width:</span>
@@ -2418,11 +2461,14 @@ export function CADSpreadsheetTable({
                   <div className="border-t border-orange-200 pt-2 mt-2">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-700">Variance:</span>
-                      <span className={`text-lg font-bold ${
-                        (pendingStockSelection.variance || 0) < 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
+                      <span
+                        className={`text-lg font-bold ${
+                          (pendingStockSelection.variance || 0) < 0 ? 'text-red-600' : 'text-green-600'
+                        }`}
+                      >
                         {(pendingStockSelection.variance || 0) > 0 ? '+' : ''}
-                        {pendingStockSelection.variance?.toFixed(2)}" ({(pendingStockSelection.variancePercent || 0) > 0 ? '+' : ''}
+                        {pendingStockSelection.variance?.toFixed(2)}" (
+                        {(pendingStockSelection.variancePercent || 0) > 0 ? '+' : ''}
                         {pendingStockSelection.variancePercent?.toFixed(1)}%)
                       </span>
                     </div>
@@ -2441,9 +2487,7 @@ export function CADSpreadsheetTable({
                         Narrower width may require more fabric for the same order quantity
                       </span>
                     ) : (
-                      <span className="text-green-600 font-medium">
-                        Wider width may reduce fabric requirements
-                      </span>
+                      <span className="text-green-600 font-medium">Wider width may reduce fabric requirements</span>
                     )}
                   </li>
                   <li>CAD average will be recalculated based on actual width</li>
@@ -2453,7 +2497,8 @@ export function CADSpreadsheetTable({
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
-                  <strong>Stock Details:</strong> {pendingStockSelection.stock.fabricCode} - Roll {pendingStockSelection.stock.rollNumbers || 'N/A'}
+                  <strong>Stock Details:</strong> {pendingStockSelection.stock.fabricCode} - Roll{' '}
+                  {pendingStockSelection.stock.rollNumbers || 'N/A'}
                 </p>
               </div>
             </div>

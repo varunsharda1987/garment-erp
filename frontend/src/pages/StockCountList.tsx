@@ -43,7 +43,7 @@ export default function StockCountList() {
       setError(null);
       const data = await stockCountService.getAll({
         status: statusFilter || undefined,
-        countType: typeFilter || undefined
+        countType: typeFilter || undefined,
       });
       setCounts(data);
     } catch (err: unknown) {
@@ -56,23 +56,35 @@ export default function StockCountList() {
 
   const getStatusVariant = (status: CountStatus) => {
     switch (status) {
-      case 'DRAFT': return 'secondary' as const;
-      case 'IN_PROGRESS': return 'info' as const;
-      case 'COUNTED': return 'info' as const;
-      case 'VERIFIED': return 'warning' as const;
-      case 'APPROVED': return 'success' as const;
-      case 'CANCELLED': return 'destructive' as const;
-      default: return 'secondary' as const;
+      case 'DRAFT':
+        return 'secondary' as const;
+      case 'IN_PROGRESS':
+        return 'info' as const;
+      case 'COUNTED':
+        return 'info' as const;
+      case 'VERIFIED':
+        return 'warning' as const;
+      case 'APPROVED':
+        return 'success' as const;
+      case 'CANCELLED':
+        return 'destructive' as const;
+      default:
+        return 'secondary' as const;
     }
   };
 
   const getTypeVariant = (type: CountType) => {
     switch (type) {
-      case 'FULL': return 'info' as const;
-      case 'PARTIAL': return 'warning' as const;
-      case 'CYCLE': return 'secondary' as const;
-      case 'SPOT_CHECK': return 'secondary' as const;
-      default: return 'secondary' as const;
+      case 'FULL':
+        return 'info' as const;
+      case 'PARTIAL':
+        return 'warning' as const;
+      case 'CYCLE':
+        return 'secondary' as const;
+      case 'SPOT_CHECK':
+        return 'secondary' as const;
+      default:
+        return 'secondary' as const;
     }
   };
 
@@ -86,35 +98,22 @@ export default function StockCountList() {
     {
       key: 'countNumber',
       header: 'Count Number',
-      render: (count) => (
-        <div className="font-medium text-gray-900">{count.countNumber}</div>
-      ),
+      render: (count) => <div className="font-medium text-gray-900">{count.countNumber}</div>,
     },
     {
       key: 'warehouse',
       header: 'Warehouse',
-      render: (count) => (
-        <div className="text-sm text-gray-900">{count.warehouses?.warehouseName}</div>
-      ),
+      render: (count) => <div className="text-sm text-gray-900">{count.warehouses?.warehouseName}</div>,
     },
     {
       key: 'countType',
       header: 'Type',
-      render: (count) => (
-        <StatusBadge
-          status={count.countType}
-          variant={getTypeVariant(count.countType)}
-        />
-      ),
+      render: (count) => <StatusBadge status={count.countType} variant={getTypeVariant(count.countType)} />,
     },
     {
       key: 'countDate',
       header: 'Count Date',
-      render: (count) => (
-        <div className="text-sm text-gray-900">
-          {new Date(count.countDate).toLocaleDateString()}
-        </div>
-      ),
+      render: (count) => <div className="text-sm text-gray-900">{new Date(count.countDate).toLocaleDateString()}</div>,
     },
     {
       key: 'progress',
@@ -131,26 +130,17 @@ export default function StockCountList() {
     {
       key: 'varianceItems',
       header: 'Variance Items',
-      render: (count) => (
+      render: (count) =>
         count.varianceItems > 0 ? (
-          <StatusBadge
-            status={count.varianceItems.toString()}
-            variant="warning"
-          />
+          <StatusBadge status={count.varianceItems.toString()} variant="warning" />
         ) : (
           <span className="text-sm text-gray-500">-</span>
-        )
-      ),
+        ),
     },
     {
       key: 'status',
       header: 'Status',
-      render: (count) => (
-        <StatusBadge
-          status={count.status}
-          variant={getStatusVariant(count.status)}
-        />
-      ),
+      render: (count) => <StatusBadge status={count.status} variant={getStatusVariant(count.status)} />,
     },
     {
       key: 'actions',
@@ -233,9 +223,10 @@ export default function StockCountList() {
           emptyState={{
             icon: <ClipboardList className="h-16 w-16" />,
             title: 'No stock counts found',
-            description: statusFilter || typeFilter
-              ? 'Try adjusting your filter criteria'
-              : 'Create your first stock count to get started',
+            description:
+              statusFilter || typeFilter
+                ? 'Try adjusting your filter criteria'
+                : 'Create your first stock count to get started',
             actionLabel: !statusFilter && !typeFilter ? 'Create First Stock Count' : undefined,
             onAction: !statusFilter && !typeFilter ? () => navigate('/inventory/stock-counts/new') : undefined,
           }}

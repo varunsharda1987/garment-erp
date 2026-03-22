@@ -17,14 +17,7 @@ import {
 import { getInvoiceById, recordPayment, deleteInvoice } from '@/services/invoice.service';
 import type { Invoice, InvoiceItem, PaymentMethod } from '@/types/invoice.types';
 import { InvoiceStatusLabels, PaymentMethodLabels } from '@/types/invoice.types';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -74,10 +67,7 @@ export default function InvoiceDetail() {
 
     const amount = parseFloat(paymentAmount);
     if (amount <= 0 || amount > invoice.balanceAmount) {
-      handleApiError(
-        new Error(`Payment amount must be between 0 and ${invoice.balanceAmount}`),
-        'Invalid Amount'
-      );
+      handleApiError(new Error(`Payment amount must be between 0 and ${invoice.balanceAmount}`), 'Invalid Amount');
       return;
     }
 
@@ -279,7 +269,9 @@ export default function InvoiceDetail() {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Due Date</p>
-                <p className={`text-sm font-medium ${new Date(invoice.dueDate) < new Date() && invoice.status !== 'PAID' ? 'text-red-600' : 'text-gray-900'}`}>
+                <p
+                  className={`text-sm font-medium ${new Date(invoice.dueDate) < new Date() && invoice.status !== 'PAID' ? 'text-red-600' : 'text-gray-900'}`}
+                >
                   {formatDate(invoice.dueDate)}
                 </p>
               </div>
@@ -367,21 +359,15 @@ export default function InvoiceDetail() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {item.hsnCode || '-'}
-                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
                       <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
                       <TableCell className="text-right text-xs">
                         {item.gstRate ? `${Number(item.gstRate)}%` : '-'}
                       </TableCell>
-                      <TableCell className="text-right text-xs">
-                        {taxAmt > 0 ? formatCurrency(taxAmt) : '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(lineWithTax)}
-                      </TableCell>
+                      <TableCell className="text-right text-xs">{taxAmt > 0 ? formatCurrency(taxAmt) : '-'}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(lineWithTax)}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -447,9 +433,7 @@ export default function InvoiceDetail() {
                   <div className="flex-1">
                     <div className="flex items-center gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {formatCurrency(payment.amount)}
-                        </p>
+                        <p className="text-sm font-medium text-gray-900">{formatCurrency(payment.amount)}</p>
                         <p className="text-xs text-gray-500">{formatDate(payment.paymentDate)}</p>
                       </div>
                       <div>
@@ -459,9 +443,7 @@ export default function InvoiceDetail() {
                     {payment.referenceNumber && (
                       <p className="text-xs text-gray-600 mt-1">Ref: {payment.referenceNumber}</p>
                     )}
-                    {payment.remarks && (
-                      <p className="text-xs text-gray-600 mt-1">{payment.remarks}</p>
-                    )}
+                    {payment.remarks && <p className="text-xs text-gray-600 mt-1">{payment.remarks}</p>}
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500">
@@ -482,7 +464,8 @@ export default function InvoiceDetail() {
             <DialogHeader>
               <DialogTitle>Record Payment</DialogTitle>
               <DialogDescription>
-                Record a payment for invoice {invoice.invoiceNumber}. Balance due: {formatCurrency(invoice.balanceAmount)}
+                Record a payment for invoice {invoice.invoiceNumber}. Balance due:{' '}
+                {formatCurrency(invoice.balanceAmount)}
               </DialogDescription>
             </DialogHeader>
 

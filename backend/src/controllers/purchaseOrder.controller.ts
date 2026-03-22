@@ -23,19 +23,8 @@ import { NotFoundError, ValidationError, ConflictError, BusinessError } from '..
  * @access Private
  */
 export const getAllPurchaseOrders = async (req: Request, res: Response) => {
-  const {
-    status,
-    source,
-    poCategories,
-    supplierId,
-    search,
-    startDate,
-    endDate,
-    page,
-    limit,
-    sortBy,
-    sortOrder,
-  } = req.query;
+  const { status, source, poCategories, supplierId, search, startDate, endDate, page, limit, sortBy, sortOrder } =
+    req.query;
 
   const filters: PurchaseOrderFilters = {
     status: status as PurchaseOrderStatus | undefined,
@@ -67,9 +56,7 @@ export const getAllPurchaseOrders = async (req: Request, res: Response) => {
 export const getReceivablePurchaseOrders = async (req: Request, res: Response) => {
   const { supplierId } = req.query;
 
-  const purchaseOrders = await purchaseOrderService.getReceivablePurchaseOrders(
-    supplierId as string | undefined
-  );
+  const purchaseOrders = await purchaseOrderService.getReceivablePurchaseOrders(supplierId as string | undefined);
 
   res.json({
     success: true,

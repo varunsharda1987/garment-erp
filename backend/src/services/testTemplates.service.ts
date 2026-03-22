@@ -1,20 +1,13 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
-import {
-  CreateTestTemplateInput,
-  UpdateTestTemplateInput,
-  TestTemplateQueryOptions,
-} from '../types/testing.types';
+import { CreateTestTemplateInput, UpdateTestTemplateInput, TestTemplateQueryOptions } from '../types/testing.types';
 import { AppError, NotFoundError, ConflictError, InternalError } from '../errors';
 
 class TestTemplatesService {
   /**
    * Create a new test template
    */
-  async createTemplate(
-    data: CreateTestTemplateInput,
-    userId: string
-  ): Promise<any> {
+  async createTemplate(data: CreateTestTemplateInput, userId: string): Promise<any> {
     try {
       // Check if template code already exists
       const existingTemplate = await prisma.test_templates.findFirst({
@@ -44,7 +37,7 @@ class TestTemplatesService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -62,13 +55,7 @@ class TestTemplatesService {
    * Get all templates with pagination and filters
    */
   async getAllTemplates(options: TestTemplateQueryOptions): Promise<any> {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      templateType,
-      isActive,
-    } = options;
+    const { page = 1, limit = 20, search, templateType, isActive } = options;
 
     const skip = (page - 1) * limit;
 
@@ -118,7 +105,7 @@ class TestTemplatesService {
       ]);
 
       return {
-        data: templates.map(template => this.formatTemplateResponse(template)),
+        data: templates.map((template) => this.formatTemplateResponse(template)),
         pagination: {
           page,
           limit,
@@ -145,7 +132,7 @@ class TestTemplatesService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },
@@ -172,10 +159,7 @@ class TestTemplatesService {
   /**
    * Update template
    */
-  async updateTemplate(
-    id: string,
-    data: UpdateTestTemplateInput
-  ): Promise<any> {
+  async updateTemplate(id: string, data: UpdateTestTemplateInput): Promise<any> {
     try {
       // Check if template exists
       const existingTemplate = await prisma.test_templates.findUnique({
@@ -216,7 +200,7 @@ class TestTemplatesService {
             select: {
               id: true,
               firstName: true,
-                lastName: true,
+              lastName: true,
               email: true,
             },
           },

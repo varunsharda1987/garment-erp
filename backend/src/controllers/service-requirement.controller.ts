@@ -103,23 +103,23 @@ const UpdateServiceExecutionSchema = z.object({
  * POST /api/work-orders/:workOrderId/calculate-services
  */
 export const calculateServices = async (req: Request, res: Response) => {
-    const { workOrderId } = req.params;
-    const validatedData = CalculateServicesSchema.parse(req.body);
+  const { workOrderId } = req.params;
+  const validatedData = CalculateServicesSchema.parse(req.body);
 
-    if (!workOrderId) {
-      throw new ValidationError('Work order ID is required');
-    }
+  if (!workOrderId) {
+    throw new ValidationError('Work order ID is required');
+  }
 
-    const result = await calculateRequirementsFromWorkOrder({
-      workOrderId,
-      userId: validatedData.userId,
-    });
+  const result = await calculateRequirementsFromWorkOrder({
+    workOrderId,
+    userId: validatedData.userId,
+  });
 
-    res.json({
-      success: true,
-      data: result,
-      message: `${result.requirements.length} service requirement(s) calculated`,
-    });
+  res.json({
+    success: true,
+    data: result,
+    message: `${result.requirements.length} service requirement(s) calculated`,
+  });
   // end calculateServices
 };
 
@@ -128,27 +128,27 @@ export const calculateServices = async (req: Request, res: Response) => {
  * GET /api/work-orders/:workOrderId/service-requirements
  */
 export const getServiceRequirementsForWorkOrder = async (req: Request, res: Response) => {
-    const { workOrderId } = req.params;
-    const { status, serviceType } = req.query;
+  const { workOrderId } = req.params;
+  const { status, serviceType } = req.query;
 
-    if (!workOrderId) {
-      throw new ValidationError('Work order ID is required');
-    }
+  if (!workOrderId) {
+    throw new ValidationError('Work order ID is required');
+  }
 
-    const filters: any = {};
-    if (status) {
-      filters.status = status as ServiceRequirementStatus;
-    }
-    if (serviceType) {
-      filters.serviceType = serviceType as ServiceType;
-    }
+  const filters: any = {};
+  if (status) {
+    filters.status = status as ServiceRequirementStatus;
+  }
+  if (serviceType) {
+    filters.serviceType = serviceType as ServiceType;
+  }
 
-    const result = await getServiceRequirements(workOrderId, filters);
+  const result = await getServiceRequirements(workOrderId, filters);
 
-    res.json({
-      success: true,
-      data: result,
-    });
+  res.json({
+    success: true,
+    data: result,
+  });
   // end getServiceRequirementsForWorkOrder
 };
 
@@ -157,18 +157,18 @@ export const getServiceRequirementsForWorkOrder = async (req: Request, res: Resp
  * GET /api/work-orders/:workOrderId/service-requirements/summary
  */
 export const getServiceRequirementsSummaryController = async (req: Request, res: Response) => {
-    const { workOrderId } = req.params;
+  const { workOrderId } = req.params;
 
-    if (!workOrderId) {
-      throw new ValidationError('Work order ID is required');
-    }
+  if (!workOrderId) {
+    throw new ValidationError('Work order ID is required');
+  }
 
-    const summary = await getServiceRequirementsSummary(workOrderId);
+  const summary = await getServiceRequirementsSummary(workOrderId);
 
-    res.json({
-      success: true,
-      data: summary,
-    });
+  res.json({
+    success: true,
+    data: summary,
+  });
   // end getServiceRequirementsSummaryController
 };
 
@@ -177,17 +177,14 @@ export const getServiceRequirementsSummaryController = async (req: Request, res:
  * POST /api/service-requirements/suggest-processor
  */
 export const suggestProcessor = async (req: Request, res: Response) => {
-    const validatedData = SuggestProcessorSchema.parse(req.body);
+  const validatedData = SuggestProcessorSchema.parse(req.body);
 
-    const suggestion = await suggestProcessorForService(
-      validatedData.serviceType,
-      validatedData.styleId
-    );
+  const suggestion = await suggestProcessorForService(validatedData.serviceType, validatedData.styleId);
 
-    res.json({
-      success: true,
-      data: suggestion,
-    });
+  res.json({
+    success: true,
+    data: suggestion,
+  });
   // end suggestProcessor
 };
 
@@ -196,27 +193,27 @@ export const suggestProcessor = async (req: Request, res: Response) => {
  * POST /api/service-requirements/suggest-processors-bulk
  */
 export const suggestProcessorsBulk = async (req: Request, res: Response) => {
-    const validatedData = SuggestProcessorsForRequirementsSchema.parse(req.body);
+  const validatedData = SuggestProcessorsForRequirementsSchema.parse(req.body);
 
-    const suggestions = await suggestProcessorsForRequirements(validatedData.requirementIds);
+  const suggestions = await suggestProcessorsForRequirements(validatedData.requirementIds);
 
-    // Summary statistics
-    const stats = {
-      total: suggestions.length,
-      highConfidence: suggestions.filter((s) => s.confidence === 'high').length,
-      mediumConfidence: suggestions.filter((s) => s.confidence === 'medium').length,
-      lowConfidence: suggestions.filter((s) => s.confidence === 'low').length,
-      withSuggestion: suggestions.filter((s) => s.suggestedProcessorId !== null).length,
-      needsManual: suggestions.filter((s) => s.suggestedProcessorId === null).length,
-    };
+  // Summary statistics
+  const stats = {
+    total: suggestions.length,
+    highConfidence: suggestions.filter((s) => s.confidence === 'high').length,
+    mediumConfidence: suggestions.filter((s) => s.confidence === 'medium').length,
+    lowConfidence: suggestions.filter((s) => s.confidence === 'low').length,
+    withSuggestion: suggestions.filter((s) => s.suggestedProcessorId !== null).length,
+    needsManual: suggestions.filter((s) => s.suggestedProcessorId === null).length,
+  };
 
-    res.json({
-      success: true,
-      data: {
-        suggestions,
-        stats,
-      },
-    });
+  res.json({
+    success: true,
+    data: {
+      suggestions,
+      stats,
+    },
+  });
   // end suggestProcessorsBulk
 };
 
@@ -225,18 +222,18 @@ export const suggestProcessorsBulk = async (req: Request, res: Response) => {
  * POST /api/service-requirements/bulk-assign-processors
  */
 export const bulkAssign = async (req: Request, res: Response) => {
-    const validatedData = BulkAssignProcessorsSchema.parse(req.body);
+  const validatedData = BulkAssignProcessorsSchema.parse(req.body);
 
-    const updatedCount = await bulkAssignProcessors(validatedData.assignments);
+  const updatedCount = await bulkAssignProcessors(validatedData.assignments);
 
-    res.json({
-      success: true,
-      data: {
-        updatedCount,
-        requested: validatedData.assignments.length,
-      },
-      message: `${updatedCount} service requirement(s) assigned to processors`,
-    });
+  res.json({
+    success: true,
+    data: {
+      updatedCount,
+      requested: validatedData.assignments.length,
+    },
+    message: `${updatedCount} service requirement(s) assigned to processors`,
+  });
   // end bulkAssign
 };
 
@@ -245,18 +242,15 @@ export const bulkAssign = async (req: Request, res: Response) => {
  * POST /api/service-requirements/auto-assign-processors
  */
 export const autoAssign = async (req: Request, res: Response) => {
-    const validatedData = AutoAssignProcessorsSchema.parse(req.body);
+  const validatedData = AutoAssignProcessorsSchema.parse(req.body);
 
-    const result = await autoAssignProcessors(
-      validatedData.requirementIds,
-      validatedData.minConfidence
-    );
+  const result = await autoAssignProcessors(validatedData.requirementIds, validatedData.minConfidence);
 
-    res.json({
-      success: true,
-      data: result,
-      message: `${result.assigned} service requirement(s) auto-assigned (${result.skipped} skipped due to low confidence)`,
-    });
+  res.json({
+    success: true,
+    data: result,
+    message: `${result.assigned} service requirement(s) auto-assigned (${result.skipped} skipped due to low confidence)`,
+  });
   // end autoAssign
 };
 
@@ -265,24 +259,24 @@ export const autoAssign = async (req: Request, res: Response) => {
  * POST /api/service-requirements/group-by-processor
  */
 export const groupByProcessor = async (req: Request, res: Response) => {
-    const validatedData = GroupByProcessorSchema.parse(req.body);
+  const validatedData = GroupByProcessorSchema.parse(req.body);
 
-    const result = await groupRequirementsByProcessor(validatedData.requirementIds);
+  const result = await groupRequirementsByProcessor(validatedData.requirementIds);
 
-    // Convert Map to object for JSON serialization
-    const groupsObject: Record<string, any> = {};
-    result.groups.forEach((requirements, processorId) => {
-      groupsObject[processorId] = requirements;
-    });
+  // Convert Map to object for JSON serialization
+  const groupsObject: Record<string, any> = {};
+  result.groups.forEach((requirements, processorId) => {
+    groupsObject[processorId] = requirements;
+  });
 
-    res.json({
-      success: true,
-      data: {
-        groups: groupsObject,
-        unassigned: result.unassigned,
-        summary: result.summary,
-      },
-    });
+  res.json({
+    success: true,
+    data: {
+      groups: groupsObject,
+      unassigned: result.unassigned,
+      summary: result.summary,
+    },
+  });
   // end groupByProcessor
 };
 
@@ -291,27 +285,27 @@ export const groupByProcessor = async (req: Request, res: Response) => {
  * POST /api/service-requirements/generate-po
  */
 export const generatePO = async (req: Request, res: Response) => {
-    const validatedData = GenerateServicePOSchema.parse(req.body);
+  const validatedData = GenerateServicePOSchema.parse(req.body);
 
-    // Get user ID from request (should be added by auth middleware)
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      throw new ValidationError('User ID not found in request');
-    }
+  // Get user ID from request (should be added by auth middleware)
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User ID not found in request');
+  }
 
-    const result = await generateServicePO({
-      processorId: validatedData.processorId,
-      requirementIds: validatedData.requirementIds,
-      expectedDeliveryDate: new Date(validatedData.expectedDeliveryDate),
-      remarks: validatedData.remarks,
-      userId,
-    });
+  const result = await generateServicePO({
+    processorId: validatedData.processorId,
+    requirementIds: validatedData.requirementIds,
+    expectedDeliveryDate: new Date(validatedData.expectedDeliveryDate),
+    remarks: validatedData.remarks,
+    userId,
+  });
 
-    res.json({
-      success: true,
-      data: result,
-      message: `Service PO ${result.purchaseOrder.poNumber} created with ${result.linkedRequirements} requirement(s)`,
-    });
+  res.json({
+    success: true,
+    data: result,
+    message: `Service PO ${result.purchaseOrder.poNumber} created with ${result.linkedRequirements} requirement(s)`,
+  });
   // end generatePO
 };
 
@@ -320,23 +314,23 @@ export const generatePO = async (req: Request, res: Response) => {
  * POST /api/service-requirements/generate-pos-bulk
  */
 export const bulkGeneratePOs = async (req: Request, res: Response) => {
-    const validatedData = BulkGenerateServicePOsSchema.parse(req.body);
+  const validatedData = BulkGenerateServicePOsSchema.parse(req.body);
 
-    // Get user ID from request (should be added by auth middleware)
-    const userId = (req as any).user?.userId;
-    if (!userId) {
-      throw new ValidationError('User ID not found in request');
-    }
+  // Get user ID from request (should be added by auth middleware)
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User ID not found in request');
+  }
 
-    const result = await bulkGenerateServicePOs(validatedData.groups, userId);
+  const result = await bulkGenerateServicePOs(validatedData.groups, userId);
 
-    res.json({
-      success: true,
-      data: result,
-      message: `${result.totalPOs} service PO(s) generated${
-        result.errors.length > 0 ? ` (${result.errors.length} error(s))` : ''
-      }`,
-    });
+  res.json({
+    success: true,
+    data: result,
+    message: `${result.totalPOs} service PO(s) generated${
+      result.errors.length > 0 ? ` (${result.errors.length} error(s))` : ''
+    }`,
+  });
   // end bulkGeneratePOs
 };
 
@@ -345,20 +339,20 @@ export const bulkGeneratePOs = async (req: Request, res: Response) => {
  * PATCH /api/service-requirements/:id/execution
  */
 export const updateExecution = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const validatedData = UpdateServiceExecutionSchema.parse(req.body);
+  const { id } = req.params;
+  const validatedData = UpdateServiceExecutionSchema.parse(req.body);
 
-    if (!id) {
-      throw new ValidationError('Service requirement ID is required');
-    }
+  if (!id) {
+    throw new ValidationError('Service requirement ID is required');
+  }
 
-    const result = await updateServiceExecution(id, validatedData);
+  const result = await updateServiceExecution(id, validatedData);
 
-    res.json({
-      success: true,
-      data: result,
-      message: 'Service execution updated',
-    });
+  res.json({
+    success: true,
+    data: result,
+    message: 'Service execution updated',
+  });
   // end updateExecution
 };
 
@@ -367,18 +361,18 @@ export const updateExecution = async (req: Request, res: Response) => {
  * Get service requirements summary for an order (across all work orders)
  */
 export const getOrderServiceSummary = async (req: Request, res: Response) => {
-    const { orderId } = req.params;
+  const { orderId } = req.params;
 
-    if (!orderId) {
-      throw new ValidationError('Order ID is required');
-    }
+  if (!orderId) {
+    throw new ValidationError('Order ID is required');
+  }
 
-    const summary = await getOrderServiceRequirementsSummary(orderId);
+  const summary = await getOrderServiceRequirementsSummary(orderId);
 
-    res.json({
-      success: true,
-      data: summary,
-    });
+  res.json({
+    success: true,
+    data: summary,
+  });
   // end getOrderServiceSummary
 };
 
@@ -391,52 +385,52 @@ export const getOrderServiceSummary = async (req: Request, res: Response) => {
  * List all service requirements across all work orders with pagination
  */
 export const listAll = async (req: Request, res: Response) => {
-    const filters = {
-      orderId: req.query.orderId as string | undefined,
-      workOrderId: req.query.workOrderId as string | undefined,
-      status: undefined as ServiceRequirementStatus | ServiceRequirementStatus[] | undefined,
-      serviceType: undefined as ServiceType | ServiceType[] | undefined,
-      processorId: req.query.processorId as string | undefined,
-      source: req.query.source as RequirementSource | undefined,
-      search: req.query.search as string | undefined,
-      page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 20,
-      sortBy: (req.query.sortBy as string) || 'createdAt',
-      sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
-    };
+  const filters = {
+    orderId: req.query.orderId as string | undefined,
+    workOrderId: req.query.workOrderId as string | undefined,
+    status: undefined as ServiceRequirementStatus | ServiceRequirementStatus[] | undefined,
+    serviceType: undefined as ServiceType | ServiceType[] | undefined,
+    processorId: req.query.processorId as string | undefined,
+    source: req.query.source as RequirementSource | undefined,
+    search: req.query.search as string | undefined,
+    page: parseInt(req.query.page as string) || 1,
+    limit: parseInt(req.query.limit as string) || 20,
+    sortBy: (req.query.sortBy as string) || 'createdAt',
+    sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
+  };
 
-    // Handle status (single or comma-separated)
-    if (req.query.status) {
-      const statusStr = req.query.status as string;
-      if (statusStr.includes(',')) {
-        filters.status = statusStr.split(',') as ServiceRequirementStatus[];
-      } else {
-        filters.status = statusStr as ServiceRequirementStatus;
-      }
+  // Handle status (single or comma-separated)
+  if (req.query.status) {
+    const statusStr = req.query.status as string;
+    if (statusStr.includes(',')) {
+      filters.status = statusStr.split(',') as ServiceRequirementStatus[];
+    } else {
+      filters.status = statusStr as ServiceRequirementStatus;
     }
+  }
 
-    // Handle serviceType (single or comma-separated)
-    if (req.query.serviceType) {
-      const typeStr = req.query.serviceType as string;
-      if (typeStr.includes(',')) {
-        filters.serviceType = typeStr.split(',') as ServiceType[];
-      } else {
-        filters.serviceType = typeStr as ServiceType;
-      }
+  // Handle serviceType (single or comma-separated)
+  if (req.query.serviceType) {
+    const typeStr = req.query.serviceType as string;
+    if (typeStr.includes(',')) {
+      filters.serviceType = typeStr.split(',') as ServiceType[];
+    } else {
+      filters.serviceType = typeStr as ServiceType;
     }
+  }
 
-    const { data, total } = await getAllServiceRequirements(filters);
+  const { data, total } = await getAllServiceRequirements(filters);
 
-    res.json({
-      success: true,
-      data,
-      pagination: {
-        page: filters.page,
-        limit: filters.limit,
-        total,
-        totalPages: Math.ceil(total / filters.limit),
-      },
-    });
+  res.json({
+    success: true,
+    data,
+    pagination: {
+      page: filters.page,
+      limit: filters.limit,
+      total,
+      totalPages: Math.ceil(total / filters.limit),
+    },
+  });
   // end listAll
 };
 
@@ -449,12 +443,11 @@ export const listAll = async (req: Request, res: Response) => {
  * Get dashboard statistics for service requirements
  */
 export const dashboardStats = async (_req: Request, res: Response) => {
-    const stats = await getDashboardStats();
+  const stats = await getDashboardStats();
 
-    res.json({
-      success: true,
-      data: stats,
-    });
+  res.json({
+    success: true,
+    data: stats,
+  });
   // end dashboardStats
 };
-

@@ -89,10 +89,7 @@ export default function GreigeDetail() {
 
     try {
       await greigeService.delete(id);
-      handleApiSuccess(
-        'Greige deleted',
-        `${greige.greigeName} has been successfully deleted.`
-      );
+      handleApiSuccess('Greige deleted', `${greige.greigeName} has been successfully deleted.`);
       navigate('/greige');
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete greige master');
@@ -150,9 +147,13 @@ export default function GreigeDetail() {
 
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">Home</Link>
+        <Link to="/" className="hover:text-blue-600">
+          Home
+        </Link>
         {' > '}
-        <Link to="/greige" className="hover:text-blue-600">Greige Master</Link>
+        <Link to="/greige" className="hover:text-blue-600">
+          Greige Master
+        </Link>
         {' > '}
         <span className="font-medium text-gray-900">{greige.greigeCode}</span>
       </div>
@@ -234,31 +235,23 @@ export default function GreigeDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div>
                 <label className="text-sm font-medium text-gray-500">Greige Width</label>
-                <div className="text-base font-semibold text-gray-900">
-                  {Number(greige.greigeWidth)}"
-                </div>
+                <div className="text-base font-semibold text-gray-900">{Number(greige.greigeWidth)}"</div>
               </div>
               {greige.expectedFinishedWidthMin && (
                 <div>
                   <label className="text-sm font-medium text-gray-500">Min Finished Width</label>
-                  <div className="text-base text-gray-900">
-                    {Number(greige.expectedFinishedWidthMin)}"
-                  </div>
+                  <div className="text-base text-gray-900">{Number(greige.expectedFinishedWidthMin)}"</div>
                 </div>
               )}
               {greige.expectedFinishedWidthMax && (
                 <div>
                   <label className="text-sm font-medium text-gray-500">Max Finished Width</label>
-                  <div className="text-base text-gray-900">
-                    {Number(greige.expectedFinishedWidthMax)}"
-                  </div>
+                  <div className="text-base text-gray-900">{Number(greige.expectedFinishedWidthMax)}"</div>
                 </div>
               )}
               <div>
                 <label className="text-sm font-medium text-gray-500">Avg Shrinkage</label>
-                <div className="text-base text-gray-900">
-                  {Number(greige.averageShrinkagePercent).toFixed(1)}%
-                </div>
+                <div className="text-base text-gray-900">{Number(greige.averageShrinkagePercent).toFixed(1)}%</div>
               </div>
             </div>
           </CardContent>
@@ -283,27 +276,13 @@ export default function GreigeDetail() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Fabric Code
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Fabric Name
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Color
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Finish Type
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Width
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                        Actions
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fabric Code</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fabric Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Finish Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Width</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -315,15 +294,9 @@ export default function GreigeDetail() {
                           </Link>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">{fabric.fabricName}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {fabric.colorName || 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {fabric.finishType || 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {Number(fabric.actualWidth)}"
-                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{fabric.colorName || 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{fabric.finishType || 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{Number(fabric.actualWidth)}"</td>
                         <td className="px-4 py-3 text-sm">
                           <StatusBadge
                             status={fabric.isActive ? 'Active' : 'Inactive'}
@@ -345,9 +318,7 @@ export default function GreigeDetail() {
             ) : (
               <div className="text-center py-8">
                 <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <div className="text-sm text-gray-500">
-                  No finished fabrics created from this greige yet
-                </div>
+                <div className="text-sm text-gray-500">No finished fabrics created from this greige yet</div>
                 <Link to={`/fabric/new?greigeId=${id}`}>
                   <Button variant="outline" size="sm" className="mt-3">
                     Create First Finished Fabric
@@ -391,41 +362,23 @@ export default function GreigeDetail() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Greige Code
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Greige Name
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Composition
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                        Total Stock
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Unit
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Greige Code</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Greige Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Composition</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Stock</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {stockEntries.map((stock) => (
                       <tr key={stock.greigeId} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                          {stock.greigeCode}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {stock.greigeName}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {stock.composition}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{stock.greigeCode}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{stock.greigeName}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{stock.composition}</td>
                         <td className="px-4 py-3 text-sm text-gray-900 text-right font-semibold">
                           {stock.totalStock.toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {stock.unit}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{stock.unit}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -454,15 +407,11 @@ export default function GreigeDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-sm font-medium text-gray-500">Created At</label>
-                <div className="text-base text-gray-900">
-                  {new Date(greige.createdAt).toLocaleString()}
-                </div>
+                <div className="text-base text-gray-900">{new Date(greige.createdAt).toLocaleString()}</div>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                <div className="text-base text-gray-900">
-                  {new Date(greige.updatedAt).toLocaleString()}
-                </div>
+                <div className="text-base text-gray-900">{new Date(greige.updatedAt).toLocaleString()}</div>
               </div>
               {greige.createdBy && (
                 <div>
@@ -484,9 +433,7 @@ export default function GreigeDetail() {
         onOpenChange={setDeleteDialogOpen}
         title="Delete Greige Master"
         description={`Are you sure you want to delete "${greige.greigeName}"? This action cannot be undone. ${
-          finishedFabrics.length > 0
-            ? `This will also affect ${finishedFabrics.length} finished fabric(s).`
-            : ''
+          finishedFabrics.length > 0 ? `This will also affect ${finishedFabrics.length} finished fabric(s).` : ''
         }`}
         confirmText="Delete"
         cancelText="Cancel"

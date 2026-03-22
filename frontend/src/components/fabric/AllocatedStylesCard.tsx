@@ -8,19 +8,8 @@ import { Shirt, Layers, Puzzle, Trash2, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,17 +62,13 @@ export default function AllocatedStylesCard({
             <Shirt className="h-5 w-5" />
             Allocated Styles
           </CardTitle>
-          <CardDescription>
-            This fabric is not allocated to any styles yet.
-          </CardDescription>
+          <CardDescription>This fabric is not allocated to any styles yet.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
             <Shirt className="h-10 w-10 mx-auto text-gray-300 mb-2" />
             <p className="text-sm text-muted-foreground">
-              {editable
-                ? 'Click "Allocate to Style" to assign this fabric to a style.'
-                : 'No style allocations found.'}
+              {editable ? 'Click "Allocate to Style" to assign this fabric to a style.' : 'No style allocations found.'}
             </p>
           </div>
         </CardContent>
@@ -92,17 +77,20 @@ export default function AllocatedStylesCard({
   }
 
   // Group allocations by style
-  const groupedByStyle = allocations.reduce((acc, allocation) => {
-    const styleId = allocation.component?.style?.id || 'unknown';
-    if (!acc[styleId]) {
-      acc[styleId] = {
-        style: allocation.component?.style,
-        allocations: [],
-      };
-    }
-    acc[styleId].allocations.push(allocation);
-    return acc;
-  }, {} as Record<string, { style: FabricStyleAllocation['component']['style']; allocations: FabricStyleAllocation[] }>);
+  const groupedByStyle = allocations.reduce(
+    (acc, allocation) => {
+      const styleId = allocation.component?.style?.id || 'unknown';
+      if (!acc[styleId]) {
+        acc[styleId] = {
+          style: allocation.component?.style,
+          allocations: [],
+        };
+      }
+      acc[styleId].allocations.push(allocation);
+      return acc;
+    },
+    {} as Record<string, { style: FabricStyleAllocation['component']['style']; allocations: FabricStyleAllocation[] }>
+  );
 
   const styleGroups = Object.values(groupedByStyle);
 
@@ -116,9 +104,7 @@ export default function AllocatedStylesCard({
             {allocations.length} allocation{allocations.length !== 1 ? 's' : ''}
           </Badge>
         </CardTitle>
-        <CardDescription>
-          Styles and components using this fabric
-        </CardDescription>
+        <CardDescription>Styles and components using this fabric</CardDescription>
       </CardHeader>
       <CardContent>
         <Accordion type="multiple" className="w-full">
@@ -131,12 +117,12 @@ export default function AllocatedStylesCard({
                     <div className="font-medium">
                       {group.style?.styleCode || 'Unknown Style'}
                       {!group.style?.isActive && (
-                        <Badge variant="outline" className="ml-2 text-xs">Inactive</Badge>
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          Inactive
+                        </Badge>
                       )}
                     </div>
-                    <div className="text-sm text-muted-foreground font-normal">
-                      {group.style?.styleName || ''}
-                    </div>
+                    <div className="text-sm text-muted-foreground font-normal">{group.style?.styleName || ''}</div>
                   </div>
                   <Badge variant="outline" className="ml-auto mr-2">
                     {group.allocations.length} component{group.allocations.length !== 1 ? 's' : ''}
@@ -183,9 +169,7 @@ export default function AllocatedStylesCard({
 
                             {/* Notes */}
                             {allocation.notes && (
-                              <p className="text-xs text-muted-foreground mt-2 italic">
-                                Note: {allocation.notes}
-                              </p>
+                              <p className="text-xs text-muted-foreground mt-2 italic">Note: {allocation.notes}</p>
                             )}
                           </div>
                         </div>
@@ -193,12 +177,7 @@ export default function AllocatedStylesCard({
                         {/* Actions */}
                         <div className="flex items-center gap-1">
                           {group.style?.id && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              asChild
-                              className="h-7 px-2"
-                            >
+                            <Button variant="ghost" size="sm" asChild className="h-7 px-2">
                               <Link to={`/styles/${group.style.id}`}>
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </Link>

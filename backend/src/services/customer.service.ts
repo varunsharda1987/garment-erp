@@ -4,7 +4,15 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { CustomerType, CustomerCategory, BusinessType, MarketType, MaterialType, customers, customer_accessories_presets } from '@prisma/client';
+import {
+  CustomerType,
+  CustomerCategory,
+  BusinessType,
+  MarketType,
+  MaterialType,
+  customers,
+  customer_accessories_presets,
+} from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
@@ -307,7 +315,8 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    * Update customer with brand categories and GST numbers
    */
   async updateWithRelations(id: string, data: UpdateCustomerDTO): Promise<customers> {
-    const { brandCategories, gstNumbers, creditLimit, creditDays, agentCommissionPercent, code, ...customerData } = data;
+    const { brandCategories, gstNumbers, creditLimit, creditDays, agentCommissionPercent, code, ...customerData } =
+      data;
 
     // Check if code is being changed and if it already exists (only among active customers)
     if (code) {
@@ -354,7 +363,9 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         ...(code && { code }),
         ...(creditLimit !== undefined && { creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null }),
         ...(creditDays !== undefined && { creditDays: creditDays ? parseInt(String(creditDays)) : null }),
-        ...(agentCommissionPercent !== undefined && { agentCommissionPercent: agentCommissionPercent != null ? parseFloat(String(agentCommissionPercent)) : null }),
+        ...(agentCommissionPercent !== undefined && {
+          agentCommissionPercent: agentCommissionPercent != null ? parseFloat(String(agentCommissionPercent)) : null,
+        }),
       },
     });
 
@@ -440,12 +451,16 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       orderBy: [{ isDefault: 'desc' }, { presetName: 'asc' }],
     });
 
-    console.log('[getAccessoryPresets] Packaging items with material:',
-      result.flatMap(p => p.items).filter(i => i.materialType === 'PACKAGING').map(i => ({
-        id: i.id,
-        materialId: i.materialId,
-        material: i.material
-      }))
+    console.log(
+      '[getAccessoryPresets] Packaging items with material:',
+      result
+        .flatMap((p) => p.items)
+        .filter((i) => i.materialType === 'PACKAGING')
+        .map((i) => ({
+          id: i.id,
+          materialId: i.materialId,
+          material: i.material,
+        }))
     );
     return result;
   }
@@ -477,12 +492,12 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
           create: data.items.map((item, index) => ({
             materialType: item.materialType as MaterialType,
             // For PACKAGING type
-            materialId: item.materialType === 'LABEL' ? null : (item.materialId || null),
-            quantity: item.materialType === 'LABEL' ? null : (item.quantity || 1),
+            materialId: item.materialType === 'LABEL' ? null : item.materialId || null,
+            quantity: item.materialType === 'LABEL' ? null : item.quantity || 1,
             usageCategory: item.usageCategory,
             // For LABEL type
-            labelId: item.materialType === 'LABEL' ? (item.labelId || null) : null,
-            componentName: item.materialType === 'LABEL' ? (item.componentName || null) : null,
+            labelId: item.materialType === 'LABEL' ? item.labelId || null : null,
+            componentName: item.materialType === 'LABEL' ? item.componentName || null : null,
             extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
             sortOrder: item.sortOrder ?? index,
           })),
@@ -537,12 +552,12 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         create: data.items.map((item, index) => ({
           materialType: item.materialType as MaterialType,
           // For PACKAGING type
-          materialId: item.materialType === 'LABEL' ? null : (item.materialId || null),
-          quantity: item.materialType === 'LABEL' ? null : (item.quantity || 1),
+          materialId: item.materialType === 'LABEL' ? null : item.materialId || null,
+          quantity: item.materialType === 'LABEL' ? null : item.quantity || 1,
           usageCategory: item.usageCategory,
           // For LABEL type
-          labelId: item.materialType === 'LABEL' ? (item.labelId || null) : null,
-          componentName: item.materialType === 'LABEL' ? (item.componentName || null) : null,
+          labelId: item.materialType === 'LABEL' ? item.labelId || null : null,
+          componentName: item.materialType === 'LABEL' ? item.componentName || null : null,
           extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
           sortOrder: item.sortOrder ?? index,
         })),
@@ -769,9 +784,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
     // Validate deactivation
     const validation = await this.validateDeactivation(id);
     if (!validation.canDeactivate) {
-      const message = validation.blockers
-        .map((b) => `${b.count} ${b.type}`)
-        .join(', ');
+      const message = validation.blockers.map((b) => `${b.count} ${b.type}`).join(', ');
       throw new ValidationError(`Cannot deactivate customer. Active dependencies: ${message}`);
     }
 
@@ -819,16 +832,14 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
     });
 
     // Create a map of existing categories by brandName+category for quick lookup
-    const existingMap = new Map<string, typeof existingBrandCategories[0]>();
+    const existingMap = new Map<string, (typeof existingBrandCategories)[0]>();
     for (const existing of existingBrandCategories) {
       const key = `${existing.brandName}|${existing.category}`;
       existingMap.set(key, existing);
     }
 
     // Create a set of new category keys
-    const newCategoryKeys = new Set(
-      newBrandCategoryData.map((bc) => `${bc.brandName}|${bc.category}`)
-    );
+    const newCategoryKeys = new Set(newBrandCategoryData.map((bc) => `${bc.brandName}|${bc.category}`));
 
     // Find categories to delete (not in new list and not referenced)
     const toDelete: string[] = [];
@@ -836,10 +847,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       const key = `${existing.brandName}|${existing.category}`;
       if (!newCategoryKeys.has(key)) {
         // Check if it's referenced
-        const isReferenced =
-          existing._count.labels > 0 ||
-          existing._count.packaging > 0 ||
-          existing._count.styles > 0;
+        const isReferenced = existing._count.labels > 0 || existing._count.packaging > 0 || existing._count.styles > 0;
 
         if (!isReferenced) {
           toDelete.push(existing.id);
@@ -945,9 +953,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
 
         // Verify stateId matches stateCode
         if (state.stateCode !== gst.stateCode) {
-          throw new ValidationError(
-            `State ID ${stateId} does not match state code ${gst.stateCode}`
-          );
+          throw new ValidationError(`State ID ${stateId} does not match state code ${gst.stateCode}`);
         }
       }
 

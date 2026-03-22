@@ -4,35 +4,17 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Ruler,
-  Shirt,
-  Save,
-  FileText,
-  Download,
-  Loader2,
-} from 'lucide-react';
+import { Ruler, Shirt, Save, FileText, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { techSpecsService } from '@/services/techSpecs.service';
-import type {
-  SleeveType,
-  CollarType,
-  FitType,
-  ClosureType,
-} from '@/types/techSpecs.types';
+import type { SleeveType, CollarType, FitType, ClosureType } from '@/types/techSpecs.types';
 
 interface TechSpecsFormProps {
   styleId: string;
@@ -48,11 +30,7 @@ import {
   CLOSURE_TYPE_LABELS as closureLabels,
 } from '@/types/techSpecs.types';
 
-export function TechSpecsForm({
-  styleId,
-  styleCode,
-  editable = true,
-}: TechSpecsFormProps) {
+export function TechSpecsForm({ styleId, styleCode, editable = true }: TechSpecsFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -189,35 +167,16 @@ export function TechSpecsForm({
             <Ruler className="h-5 w-5" />
             Technical Specifications
           </CardTitle>
-          <CardDescription>
-            Basic measurements and style details for production
-          </CardDescription>
+          <CardDescription>Basic measurements and style details for production</CardDescription>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGeneratePDF}
-            disabled={generating}
-          >
-            {generating ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-1" />
-            )}
+          <Button variant="outline" size="sm" onClick={handleGeneratePDF} disabled={generating}>
+            {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
             Tech Pack PDF
           </Button>
           {editable && (
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saving || !hasChanges}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-1" />
-              )}
+            <Button size="sm" onClick={handleSave} disabled={saving || !hasChanges}>
+              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
               Save
             </Button>
           )}

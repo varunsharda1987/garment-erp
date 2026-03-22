@@ -4,13 +4,7 @@ import { Plus, Search, Filter, FileText, CheckCircle, XCircle, Clock, AlertCircl
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { fabricPhysicalTestsService } from '@/services/testing.service';
 import type { FabricPhysicalTest, TestResult } from '@/types/testing.types';
@@ -168,9 +162,7 @@ export default function FabricPhysicalTests() {
                       </Badge>
                     )}
                     {test.adminOverride && (
-                      <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
-                        Admin Override
-                      </Badge>
+                      <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">Admin Override</Badge>
                     )}
                   </div>
 
@@ -185,9 +177,7 @@ export default function FabricPhysicalTests() {
                     </div>
                     <div>
                       <span className="text-gray-500">Result Received:</span>
-                      <p className="font-medium text-gray-900">
-                        {formatDate(test.testResultReceivedDate)}
-                      </p>
+                      <p className="font-medium text-gray-900">{formatDate(test.testResultReceivedDate)}</p>
                     </div>
                     <div>
                       <span className="text-gray-500">Sample Qty:</span>
@@ -205,16 +195,10 @@ export default function FabricPhysicalTests() {
                           <span className="text-gray-500">GSM:</span>
                           <span className="font-semibold">
                             {test.testedGSM || 'N/A'}
-                            {test.expectedGSM && (
-                              <span className="text-gray-500 ml-1">
-                                (exp: {test.expectedGSM})
-                              </span>
-                            )}
+                            {test.expectedGSM && <span className="text-gray-500 ml-1">(exp: {test.expectedGSM})</span>}
                           </span>
                           {test.gsmTestResult && (
-                            <span className="ml-1">
-                              {test.gsmTestResult === 'PASS' ? '✓' : '✗'}
-                            </span>
+                            <span className="ml-1">{test.gsmTestResult === 'PASS' ? '✓' : '✗'}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -223,20 +207,14 @@ export default function FabricPhysicalTests() {
                             {test.testedConstruction || test.expectedConstruction || 'N/A'}
                           </span>
                           {test.constructionTestResult && (
-                            <span className="ml-1">
-                              {test.constructionTestResult === 'PASS' ? '✓' : '✗'}
-                            </span>
+                            <span className="ml-1">{test.constructionTestResult === 'PASS' ? '✓' : '✗'}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-gray-500">Count:</span>
-                          <span className="font-semibold">
-                            {test.testedCount || test.expectedCount || 'N/A'}
-                          </span>
+                          <span className="font-semibold">{test.testedCount || test.expectedCount || 'N/A'}</span>
                           {test.countTestResult && (
-                            <span className="ml-1">
-                              {test.countTestResult === 'PASS' ? '✓' : '✗'}
-                            </span>
+                            <span className="ml-1">{test.countTestResult === 'PASS' ? '✓' : '✗'}</span>
                           )}
                         </div>
                       </div>
@@ -258,11 +236,7 @@ export default function FabricPhysicalTests() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-6">
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
+          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
             Previous
           </Button>
           <span className="py-2 px-4 text-sm text-gray-700">

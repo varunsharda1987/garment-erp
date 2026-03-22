@@ -2,15 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { productionStatusService } from '@/services/productionStatus.service';
 import { orderProductionStatusService } from '@/services/orderProductionStatus.service';
-import type {
-  ProductionStatusItem,
-  ProductionStatusSummary,
-  StatusFilter,
-} from '@/types/productionStatus.types';
-import type {
-  OrderStatusItem,
-  OrderStatusSummary,
-} from '@/types/orderProductionStatus.types';
+import type { ProductionStatusItem, ProductionStatusSummary, StatusFilter } from '@/types/productionStatus.types';
+import type { OrderStatusItem, OrderStatusSummary } from '@/types/orderProductionStatus.types';
 import type { ProductionStage } from '@/types/style.types';
 import StatusSummaryCards from '@/components/status/StatusSummaryCards';
 import StatusFilterBar from '@/components/status/StatusFilterBar';
@@ -57,7 +50,9 @@ export default function ProductionStatus() {
     status: 'all',
   });
 
-  const [sortBy, setSortBy] = useState<'orderDate' | 'deliveryDate' | 'status' | 'progress' | 'orderValue'>('orderDate');
+  const [sortBy, setSortBy] = useState<'orderDate' | 'deliveryDate' | 'status' | 'progress' | 'orderValue'>(
+    'orderDate'
+  );
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
@@ -264,8 +259,8 @@ export default function ProductionStatus() {
       {!loading && (
         <div className="flex items-center justify-between text-sm text-gray-600">
           <div>
-            Showing {items.length === 0 ? 0 : (page - 1) * pageSize + 1} to{' '}
-            {Math.min(page * pageSize, total)} of {total} {viewMode === 'order' ? 'orders' : 'styles'}
+            Showing {items.length === 0 ? 0 : (page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of{' '}
+            {total} {viewMode === 'order' ? 'orders' : 'styles'}
           </div>
           <div>
             Page {page} of {totalPages}
@@ -287,9 +282,7 @@ export default function ProductionStatus() {
           <p className="text-gray-600 text-lg">
             No {viewMode === 'order' ? 'orders' : 'styles'} found matching your filters.
           </p>
-          <p className="text-gray-500 text-sm mt-2">
-            Try adjusting your search or filter criteria.
-          </p>
+          <p className="text-gray-500 text-sm mt-2">Try adjusting your search or filter criteria.</p>
         </div>
       )}
 

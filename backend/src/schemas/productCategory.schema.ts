@@ -23,18 +23,9 @@ export const createProductCategorySchema = z.object({
     .max(100, 'Category name must be less than 100 characters')
     .trim(),
 
-  description: z
-    .string()
-    .max(500, 'Description must be less than 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  description: z.string().max(500, 'Description must be less than 500 characters').trim().optional().nullable(),
 
-  parentId: z
-    .string()
-    .uuid('Invalid parent category ID format')
-    .optional()
-    .nullable(),
+  parentId: z.string().uuid('Invalid parent category ID format').optional().nullable(),
 
   level: z
     .number()
@@ -71,18 +62,9 @@ export const updateProductCategorySchema = z.object({
     .trim()
     .optional(),
 
-  description: z
-    .string()
-    .max(500, 'Description must be less than 500 characters')
-    .trim()
-    .optional()
-    .nullable(),
+  description: z.string().max(500, 'Description must be less than 500 characters').trim().optional().nullable(),
 
-  parentId: z
-    .string()
-    .uuid('Invalid parent category ID format')
-    .optional()
-    .nullable(),
+  parentId: z.string().uuid('Invalid parent category ID format').optional().nullable(),
 
   level: z
     .number()
@@ -91,11 +73,7 @@ export const updateProductCategorySchema = z.object({
     .max(5, 'Level must be at most 5')
     .optional(),
 
-  sortOrder: z
-    .number()
-    .int('Sort order must be an integer')
-    .min(0, 'Sort order must be non-negative')
-    .optional(),
+  sortOrder: z.number().int('Sort order must be an integer').min(0, 'Sort order must be non-negative').optional(),
 
   isActive: z.boolean().optional(),
 });

@@ -57,10 +57,7 @@ class StageValidationService {
    * @param targetStage - Target production stage (e.g., 'IN_CUTTING', 'IN_PRINTING')
    * @returns Validation result with blockers
    */
-  async checkStageTransition(
-    workOrderId: string,
-    targetStage: string
-  ): Promise<StageTransitionValidation> {
+  async checkStageTransition(workOrderId: string, targetStage: string): Promise<StageTransitionValidation> {
     try {
       const response = await api.get('/stage-validation/check', {
         params: { workOrderId, targetStage },
@@ -78,10 +75,7 @@ class StageValidationService {
    * @param sampleType - Sample type (PP_SAMPLE, SIZE_SET_SAMPLE, etc.)
    * @returns Validation result
    */
-  async checkSampleCreation(
-    styleId: string,
-    sampleType: string
-  ): Promise<SampleCreationValidation> {
+  async checkSampleCreation(styleId: string, sampleType: string): Promise<SampleCreationValidation> {
     try {
       const response = await api.get('/stage-validation/check-sample-creation', {
         params: { styleId, sampleType },

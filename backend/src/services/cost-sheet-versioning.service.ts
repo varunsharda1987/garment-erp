@@ -167,10 +167,7 @@ export async function createCostSheetVersion(
 /**
  * Lock cost sheet version for an order (prevents editing)
  */
-export async function lockCostSheetForOrder(
-  costSheetId: string,
-  orderId: string
-): Promise<void> {
+export async function lockCostSheetForOrder(costSheetId: string, orderId: string): Promise<void> {
   await prisma.style_costing.update({
     where: { id: costSheetId },
     data: { lockedForOrders: true },
@@ -285,7 +282,7 @@ export async function compareCostSheetVersions(
   const totalCost1 = Number(v1.totalProductCost);
   const totalCost2 = Number(v2.totalProductCost);
   const costDifference = totalCost2 - totalCost1;
-  const percentageChange = ((costDifference / totalCost1) * 100);
+  const percentageChange = (costDifference / totalCost1) * 100;
 
   const calculateChange = (val1: any, val2: any) => {
     const num1 = val1 ? Number(val1) : 0;

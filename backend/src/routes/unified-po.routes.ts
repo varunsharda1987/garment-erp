@@ -76,11 +76,7 @@ router.post(
  * PATCH /api/purchase-orders/:id/send
  * Send PO to supplier (DRAFT/READY_FOR_PROCESSING -> SENT)
  */
-router.patch(
-  '/:id/send',
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
-  asyncHandler(sendPOController)
-);
+router.patch('/:id/send', authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'), asyncHandler(sendPOController));
 
 /**
  * PATCH /api/purchase-orders/:id/acknowledge
@@ -96,11 +92,7 @@ router.patch(
  * PATCH /api/purchase-orders/:id/cancel
  * Cancel PO with reason
  */
-router.patch(
-  '/:id/cancel',
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
-  asyncHandler(cancelPOController)
-);
+router.patch('/:id/cancel', authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'), asyncHandler(cancelPOController));
 
 // ============================================
 // Category Mappings

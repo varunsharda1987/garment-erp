@@ -65,7 +65,7 @@ export interface Packaging {
   packagingName: string;
   supplierCode?: string | null;
   buyerCode?: string | null;
-  customerId?: string | null;  // Link to customer - makes packaging customer-specific
+  customerId?: string | null; // Link to customer - makes packaging customer-specific
   brandCategoryId?: string | null; // Link to specific brand within customer
   packagingType?: string | null;
   size?: string | null;
@@ -110,7 +110,7 @@ export interface PackagingFormData {
   packagingName: string;
   supplierCode?: string;
   buyerCode?: string;
-  customerId?: string;  // Link to customer
+  customerId?: string; // Link to customer
   brandCategoryId?: string; // Link to specific brand within customer
   packagingType?: string;
   size?: string;
@@ -132,7 +132,7 @@ export interface CreatePackagingRequest {
   packagingName: string;
   supplierCode?: string;
   buyerCode?: string;
-  customerId?: string;  // Link to customer
+  customerId?: string; // Link to customer
   brandCategoryId?: string; // Link to specific brand within customer
   packagingType?: string;
   size?: string;

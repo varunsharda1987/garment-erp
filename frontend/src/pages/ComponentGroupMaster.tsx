@@ -17,14 +17,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
 import { notify } from '../lib/notify';
@@ -155,10 +148,7 @@ export default function ComponentGroupMaster() {
 
   // Handle reorder (move up/down)
   const handleMove = async (index: number, direction: 'up' | 'down') => {
-    if (
-      (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === componentGroups.length - 1)
-    ) {
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === componentGroups.length - 1)) {
       return;
     }
 
@@ -189,9 +179,7 @@ export default function ComponentGroupMaster() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Component Group Master</h1>
-          <p className="text-gray-600 mt-1">
-            Manage component groups for organizing garment components
-          </p>
+          <p className="text-gray-600 mt-1">Manage component groups for organizing garment components</p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
@@ -271,13 +259,9 @@ export default function ComponentGroupMaster() {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{group.name}</TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    {group.description || '-'}
-                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">{group.description || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">
-                      {group._count?.components || 0}
-                    </Badge>
+                    <Badge variant="secondary">{group._count?.components || 0}</Badge>
                   </TableCell>
                   <TableCell>
                     {group.isActive ? (
@@ -290,12 +274,7 @@ export default function ComponentGroupMaster() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(group)}
-                        title="Edit"
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(group)} title="Edit">
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
@@ -320,9 +299,7 @@ export default function ComponentGroupMaster() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>
-              {editingGroup ? 'Edit Component Group' : 'Create Component Group'}
-            </DialogTitle>
+            <DialogTitle>{editingGroup ? 'Edit Component Group' : 'Create Component Group'}</DialogTitle>
             <DialogDescription>
               {editingGroup
                 ? 'Update the component group details below.'
@@ -340,17 +317,13 @@ export default function ComponentGroupMaster() {
                 <Input
                   id="code"
                   value={formData.code}
-                  onChange={(e) =>
-                    setFormData({ ...formData, code: e.target.value.toUpperCase() })
-                  }
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                   placeholder="e.g., TOP, BOTTOM, OUTER"
                   required
                   className="font-mono"
                   disabled={!!editingGroup} // Don't allow code change on edit
                 />
-                <p className="text-xs text-gray-500">
-                  Unique identifier (will be auto-converted to uppercase)
-                </p>
+                <p className="text-xs text-gray-500">Unique identifier (will be auto-converted to uppercase)</p>
               </div>
 
               {/* Name */}
@@ -386,9 +359,7 @@ export default function ComponentGroupMaster() {
                   id="sortOrder"
                   type="number"
                   value={formData.sortOrder}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
                   min="0"
                 />
                 <p className="text-xs text-gray-500">Lower numbers appear first</p>
@@ -398,9 +369,7 @@ export default function ComponentGroupMaster() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="isActive">Active Status</Label>
-                  <p className="text-xs text-gray-500">
-                    Inactive groups won't appear in dropdowns
-                  </p>
+                  <p className="text-xs text-gray-500">Inactive groups won't appear in dropdowns</p>
                 </div>
                 <Switch
                   id="isActive"

@@ -21,12 +21,7 @@ interface IconProps extends SVGProps<SVGSVGElement> {
  * Sewing Machine Icon
  * Use for: Production processes, sewing operations
  */
-export const SewingMachineIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const SewingMachineIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -51,12 +46,7 @@ export const SewingMachineIcon: FC<IconProps> = ({
  * Fabric Roll Icon
  * Use for: Fabric inventory, fabric masters, greige fabric
  */
-export const FabricRollIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const FabricRollIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -81,12 +71,7 @@ export const FabricRollIcon: FC<IconProps> = ({
  * Measuring Tape Icon
  * Use for: Measurements, size charts, CAD operations
  */
-export const MeasuringTapeIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const MeasuringTapeIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -109,12 +94,7 @@ export const MeasuringTapeIcon: FC<IconProps> = ({
  * Thread Spool Icon
  * Use for: Thread inventory (better than Cable icon)
  */
-export const ThreadSpoolIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const ThreadSpoolIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -139,12 +119,7 @@ export const ThreadSpoolIcon: FC<IconProps> = ({
  * Pattern/Template Icon
  * Use for: Pattern making, templates, style templates
  */
-export const PatternIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const PatternIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -168,12 +143,7 @@ export const PatternIcon: FC<IconProps> = ({
  * Hanger Icon
  * Use for: Finished goods, garment storage, style display
  */
-export const HangerIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const HangerIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -198,12 +168,7 @@ export const HangerIcon: FC<IconProps> = ({
  * Needle Icon
  * Use for: Sewing, stitching operations, embroidery
  */
-export const NeedleIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const NeedleIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -227,12 +192,7 @@ export const NeedleIcon: FC<IconProps> = ({
  * Iron Icon
  * Use for: Pressing, finishing operations
  */
-export const IronIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const IronIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -256,12 +216,7 @@ export const IronIcon: FC<IconProps> = ({
  * Size Chart Icon
  * Use for: Size specifications, grading, size management
  */
-export const SizeChartIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const SizeChartIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -285,12 +240,7 @@ export const SizeChartIcon: FC<IconProps> = ({
  * Label/Tag Icon
  * Use for: Price tags, care labels, brand labels
  */
-export const LabelIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const LabelIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -313,12 +263,7 @@ export const LabelIcon: FC<IconProps> = ({
  * Zipper Icon
  * Use for: Zipper inventory, zipper details
  */
-export const ZipperIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const ZipperIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -342,12 +287,7 @@ export const ZipperIcon: FC<IconProps> = ({
  * Button Icon
  * Use for: Button inventory, button details
  */
-export const ButtonIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const ButtonIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -371,12 +311,7 @@ export const ButtonIcon: FC<IconProps> = ({
  * Elastic Icon
  * Use for: Elastic inventory, elastic details
  */
-export const ElasticIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const ElasticIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -399,12 +334,7 @@ export const ElasticIcon: FC<IconProps> = ({
  * Lace Icon
  * Use for: Lace inventory, lace details
  */
-export const LaceIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const LaceIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -427,12 +357,7 @@ export const LaceIcon: FC<IconProps> = ({
  * Packaging Icon
  * Use for: Packaging materials, packaging details
  */
-export const PackagingIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const PackagingIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -456,12 +381,7 @@ export const PackagingIcon: FC<IconProps> = ({
  * Mannequin Icon
  * Use for: Display, fitting, style presentation
  */
-export const MannequinIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const MannequinIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -486,12 +406,7 @@ export const MannequinIcon: FC<IconProps> = ({
  * Collar Icon
  * Use for: Collar types, style details
  */
-export const CollarIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const CollarIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -515,12 +430,7 @@ export const CollarIcon: FC<IconProps> = ({
  * Sleeve Icon
  * Use for: Sleeve types, style details
  */
-export const SleeveIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const SleeveIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -543,12 +453,7 @@ export const SleeveIcon: FC<IconProps> = ({
  * Pocket Icon
  * Use for: Pocket types, style details
  */
-export const PocketIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const PocketIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -571,12 +476,7 @@ export const PocketIcon: FC<IconProps> = ({
  * Cuff Icon
  * Use for: Cuff types, sleeve details
  */
-export const CuffIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const CuffIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -599,12 +499,7 @@ export const CuffIcon: FC<IconProps> = ({
  * Embroidery Icon
  * Use for: Embroidery details, decorations
  */
-export const EmbroideryIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const EmbroideryIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -627,12 +522,7 @@ export const EmbroideryIcon: FC<IconProps> = ({
  * Print Icon (Screen Printing)
  * Use for: Printing details, screen print
  */
-export const ScreenPrintIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const ScreenPrintIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -656,12 +546,7 @@ export const ScreenPrintIcon: FC<IconProps> = ({
  * Cutting Table Icon
  * Use for: Cutting operations, production floor
  */
-export const CuttingTableIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const CuttingTableIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -685,12 +570,7 @@ export const CuttingTableIcon: FC<IconProps> = ({
  * Quality Badge Icon
  * Use for: Quality assurance, certification
  */
-export const QualityBadgeIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const QualityBadgeIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -713,12 +593,7 @@ export const QualityBadgeIcon: FC<IconProps> = ({
  * Washing Instructions Icon
  * Use for: Care labels, washing instructions
  */
-export const WashingIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const WashingIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -742,12 +617,7 @@ export const WashingIcon: FC<IconProps> = ({
  * Color Swatch Icon
  * Use for: Color management, color selection
  */
-export const ColorSwatchIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const ColorSwatchIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -770,12 +640,7 @@ export const ColorSwatchIcon: FC<IconProps> = ({
  * Barcode Icon
  * Use for: Product codes, tracking, inventory
  */
-export const BarcodeIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const BarcodeIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -798,12 +663,7 @@ export const BarcodeIcon: FC<IconProps> = ({
  * Sample Icon
  * Use for: Sample management, sample approvals
  */
-export const SampleIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const SampleIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -827,12 +687,7 @@ export const SampleIcon: FC<IconProps> = ({
  * Batch Icon
  * Use for: Batch processing, batch management
  */
-export const BatchIcon: FC<IconProps> = ({
-  size = 24,
-  color = 'currentColor',
-  className = '',
-  ...props
-}) => (
+export const BatchIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', className = '', ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}

@@ -14,7 +14,7 @@ interface CustomerComboboxProps {
 export function CustomerCombobox({
   value,
   onValueChange,
-  placeholder = "Select customer...",
+  placeholder = 'Select customer...',
   className,
   disabled = false,
 }: CustomerComboboxProps) {
@@ -33,7 +33,7 @@ export function CustomerCombobox({
       // Server-side search with reasonable limit
       const response = await customerService.getAllCustomers({
         limit: 50,
-        search: search || undefined
+        search: search || undefined,
       });
 
       const customerOptions: ComboboxOption[] = (response.data || []).map((customer: any) => ({
@@ -57,7 +57,7 @@ export function CustomerCombobox({
       options={customers}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? "Loading customers..." : placeholder}
+      placeholder={!initialLoaded ? 'Loading customers...' : placeholder}
       searchPlaceholder="Search by code, name, brand..."
       emptyText="No customers found."
       disabled={disabled || !initialLoaded}

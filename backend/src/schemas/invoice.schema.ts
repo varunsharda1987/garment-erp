@@ -10,13 +10,9 @@ import { z } from 'zod';
  * POST /api/invoices
  */
 export const createInvoiceSchema = z.object({
-  orderId: z
-    .string()
-    .uuid('Invalid order ID format'),
+  orderId: z.string().uuid('Invalid order ID format'),
 
-  customerId: z
-    .string()
-    .uuid('Invalid customer ID format'),
+  customerId: z.string().uuid('Invalid customer ID format'),
 
   invoiceDate: z
     .string()
@@ -44,11 +40,7 @@ export const createInvoiceSchema = z.object({
     .positive('Total amount must be positive')
     .or(z.string().transform((val) => parseFloat(val))),
 
-  remarks: z
-    .string()
-    .max(500, 'Remarks must be less than 500 characters')
-    .trim()
-    .optional(),
+  remarks: z.string().max(500, 'Remarks must be less than 500 characters').trim().optional(),
 });
 
 /**
@@ -86,11 +78,7 @@ export const updateInvoiceSchema = z.object({
     .or(z.string().transform((val) => parseFloat(val)))
     .optional(),
 
-  remarks: z
-    .string()
-    .max(500, 'Remarks must be less than 500 characters')
-    .trim()
-    .optional(),
+  remarks: z.string().max(500, 'Remarks must be less than 500 characters').trim().optional(),
 });
 
 /**
@@ -109,22 +97,13 @@ export const recordPaymentSchema = z.object({
     .optional()
     .transform((val) => (val ? new Date(val) : undefined)),
 
-  paymentMethod: z
-    .enum(['CASH', 'CHEQUE', 'BANK_TRANSFER', 'UPI'], {
-      message: 'Invalid payment method',
-    }),
+  paymentMethod: z.enum(['CASH', 'CHEQUE', 'BANK_TRANSFER', 'UPI'], {
+    message: 'Invalid payment method',
+  }),
 
-  referenceNumber: z
-    .string()
-    .max(100, 'Reference number must be less than 100 characters')
-    .trim()
-    .optional(),
+  referenceNumber: z.string().max(100, 'Reference number must be less than 100 characters').trim().optional(),
 
-  remarks: z
-    .string()
-    .max(500, 'Remarks must be less than 500 characters')
-    .trim()
-    .optional(),
+  remarks: z.string().max(500, 'Remarks must be less than 500 characters').trim().optional(),
 });
 
 /**
@@ -136,43 +115,21 @@ export const invoiceQuerySchema = z.object({
 
   limit: z.coerce.number().int().min(1).max(1000).optional().default(10),
 
-  search: z
-    .string()
-    .optional(),
+  search: z.string().optional(),
 
-  status: z
-    .enum(['PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE'])
-    .optional(),
+  status: z.enum(['PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE']).optional(),
 
-  customerId: z
-    .string()
-    .uuid('Invalid customer ID format')
-    .optional(),
+  customerId: z.string().uuid('Invalid customer ID format').optional(),
 
-  orderId: z
-    .string()
-    .uuid('Invalid order ID format')
-    .optional(),
+  orderId: z.string().uuid('Invalid order ID format').optional(),
 
-  fromDate: z
-    .string()
-    .datetime('Invalid from date format')
-    .optional(),
+  fromDate: z.string().datetime('Invalid from date format').optional(),
 
-  toDate: z
-    .string()
-    .datetime('Invalid to date format')
-    .optional(),
+  toDate: z.string().datetime('Invalid to date format').optional(),
 
-  sortBy: z
-    .string()
-    .optional()
-    .default('createdAt'),
+  sortBy: z.string().optional().default('createdAt'),
 
-  sortOrder: z
-    .enum(['asc', 'desc'])
-    .optional()
-    .default('desc'),
+  sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
 /**
@@ -180,9 +137,7 @@ export const invoiceQuerySchema = z.object({
  * For validating :id route parameters
  */
 export const invoiceIdParamSchema = z.object({
-  id: z
-    .string()
-    .uuid('Invalid invoice ID format'),
+  id: z.string().uuid('Invalid invoice ID format'),
 });
 
 // Type exports for TypeScript

@@ -15,9 +15,7 @@ import type {
  * Get complete permission matrix
  */
 export const getPermissionMatrix = async (): Promise<PermissionMatrixResponse> => {
-  const { data } = await api.get<{ data: PermissionMatrixResponse }>(
-    '/permissions/matrix'
-  );
+  const { data } = await api.get<{ data: PermissionMatrixResponse }>('/permissions/matrix');
   return data.data;
 };
 
@@ -27,23 +25,15 @@ export const getPermissionMatrix = async (): Promise<PermissionMatrixResponse> =
 export const togglePermission = async (
   input: PermissionToggleInput
 ): Promise<{ success: boolean; message: string }> => {
-  const { data } = await api.patch<{ success: boolean; message: string }>(
-    '/permissions/toggle',
-    input
-  );
+  const { data } = await api.patch<{ success: boolean; message: string }>('/permissions/toggle', input);
   return data;
 };
 
 /**
  * Bulk update permissions
  */
-export const bulkUpdatePermissions = async (
-  updates: PermissionToggleInput[]
-): Promise<BulkUpdateResult> => {
-  const { data } = await api.post<{ data: BulkUpdateResult }>(
-    '/permissions/bulk-update',
-    { updates }
-  );
+export const bulkUpdatePermissions = async (updates: PermissionToggleInput[]): Promise<BulkUpdateResult> => {
+  const { data } = await api.post<{ data: BulkUpdateResult }>('/permissions/bulk-update', { updates });
   return data.data;
 };
 
@@ -54,9 +44,7 @@ export const resetToDefaults = async (): Promise<{
   success: boolean;
   reset: number;
 }> => {
-  const { data } = await api.post<{ data: { success: boolean; reset: number } }>(
-    '/permissions/reset-defaults'
-  );
+  const { data } = await api.post<{ data: { success: boolean; reset: number } }>('/permissions/reset-defaults');
   return data.data;
 };
 
@@ -69,10 +57,7 @@ export const getAuditLog = async (options?: {
   role?: string;
   permissionKey?: string;
 }): Promise<AuditLogResponse> => {
-  const { data } = await api.get<{ data: AuditLogResponse }>(
-    '/permissions/audit-log',
-    { params: options }
-  );
+  const { data } = await api.get<{ data: AuditLogResponse }>('/permissions/audit-log', { params: options });
   return data.data;
 };
 

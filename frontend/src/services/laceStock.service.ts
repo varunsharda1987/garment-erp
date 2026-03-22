@@ -30,9 +30,7 @@ interface ApiResponse<T> {
 /**
  * Get all lace stock with pagination and filters
  */
-export const getAllLaceStock = async (
-  filters?: LaceStockListFilters
-): Promise<LaceStockListResponse> => {
+export const getAllLaceStock = async (filters?: LaceStockListFilters): Promise<LaceStockListResponse> => {
   const { data } = await api.get<LaceStockListResponse>(BASE_URL, {
     params: filters,
   });
@@ -50,9 +48,7 @@ export const getLaceStockById = async (id: string): Promise<LaceStock> => {
 /**
  * Create new lace stock entry
  */
-export const createLaceStock = async (
-  input: CreateLaceStockInput
-): Promise<LaceStock> => {
+export const createLaceStock = async (input: CreateLaceStockInput): Promise<LaceStock> => {
   const { data } = await api.post<ApiResponse<LaceStock>>(BASE_URL, input);
   return data.data;
 };
@@ -60,118 +56,72 @@ export const createLaceStock = async (
 /**
  * Update lace stock entry
  */
-export const updateLaceStock = async (
-  id: string,
-  input: Partial<CreateLaceStockInput>
-): Promise<LaceStock> => {
-  const { data } = await api.put<ApiResponse<LaceStock>>(
-    `${BASE_URL}/${id}`,
-    input
-  );
+export const updateLaceStock = async (id: string, input: Partial<CreateLaceStockInput>): Promise<LaceStock> => {
+  const { data } = await api.put<ApiResponse<LaceStock>>(`${BASE_URL}/${id}`, input);
   return data.data;
 };
 
 /**
  * Get available stock for a specific lace
  */
-export const getAvailableStockForLace = async (
-  laceId: string
-): Promise<LaceStock[]> => {
-  const { data } = await api.get<ApiResponse<LaceStock[]>>(
-    `${BASE_URL}/available/${laceId}`
-  );
+export const getAvailableStockForLace = async (laceId: string): Promise<LaceStock[]> => {
+  const { data } = await api.get<ApiResponse<LaceStock[]>>(`${BASE_URL}/available/${laceId}`);
   return data.data;
 };
 
 /**
  * Allocate stock to an order/style
  */
-export const allocateStock = async (
-  stockId: string,
-  input: AllocateStockInput
-): Promise<LaceStockAllocation> => {
-  const { data } = await api.post<ApiResponse<LaceStockAllocation>>(
-    `${BASE_URL}/${stockId}/allocate`,
-    input
-  );
+export const allocateStock = async (stockId: string, input: AllocateStockInput): Promise<LaceStockAllocation> => {
+  const { data } = await api.post<ApiResponse<LaceStockAllocation>>(`${BASE_URL}/${stockId}/allocate`, input);
   return data.data;
 };
 
 /**
  * Transfer stock to another style
  */
-export const transferStock = async (
-  stockId: string,
-  input: TransferStockInput
-): Promise<LaceStockAllocation> => {
-  const { data } = await api.post<ApiResponse<LaceStockAllocation>>(
-    `${BASE_URL}/${stockId}/transfer`,
-    input
-  );
+export const transferStock = async (stockId: string, input: TransferStockInput): Promise<LaceStockAllocation> => {
+  const { data } = await api.post<ApiResponse<LaceStockAllocation>>(`${BASE_URL}/${stockId}/transfer`, input);
   return data.data;
 };
 
 /**
  * Record consumption of stock
  */
-export const consumeStock = async (
-  stockId: string,
-  input: ConsumeStockInput
-): Promise<LaceStock> => {
-  const { data } = await api.post<ApiResponse<LaceStock>>(
-    `${BASE_URL}/${stockId}/consume`,
-    input
-  );
+export const consumeStock = async (stockId: string, input: ConsumeStockInput): Promise<LaceStock> => {
+  const { data } = await api.post<ApiResponse<LaceStock>>(`${BASE_URL}/${stockId}/consume`, input);
   return data.data;
 };
 
 /**
  * Return stock to available
  */
-export const returnStock = async (
-  stockId: string,
-  input: ReturnStockInput
-): Promise<LaceStock> => {
-  const { data } = await api.post<ApiResponse<LaceStock>>(
-    `${BASE_URL}/${stockId}/return`,
-    input
-  );
+export const returnStock = async (stockId: string, input: ReturnStockInput): Promise<LaceStock> => {
+  const { data } = await api.post<ApiResponse<LaceStock>>(`${BASE_URL}/${stockId}/return`, input);
   return data.data;
 };
 
 /**
  * Get stock allocations
  */
-export const getStockAllocations = async (
-  stockId: string
-): Promise<LaceStockAllocation[]> => {
-  const { data } = await api.get<ApiResponse<LaceStockAllocation[]>>(
-    `${BASE_URL}/${stockId}/allocations`
-  );
+export const getStockAllocations = async (stockId: string): Promise<LaceStockAllocation[]> => {
+  const { data } = await api.get<ApiResponse<LaceStockAllocation[]>>(`${BASE_URL}/${stockId}/allocations`);
   return data.data;
 };
 
 /**
  * Get stock transaction history
  */
-export const getStockTransactions = async (
-  stockId: string
-): Promise<LaceStockTransaction[]> => {
-  const { data } = await api.get<ApiResponse<LaceStockTransaction[]>>(
-    `${BASE_URL}/${stockId}/transactions`
-  );
+export const getStockTransactions = async (stockId: string): Promise<LaceStockTransaction[]> => {
+  const { data } = await api.get<ApiResponse<LaceStockTransaction[]>>(`${BASE_URL}/${stockId}/transactions`);
   return data.data;
 };
 
 /**
  * Get allocations for an order
  */
-export const getOrderAllocations = async (
-  orderId: string
-): Promise<LaceStockAllocation[]> => {
-  const { data } = await api.get<ApiResponse<LaceStockAllocation[]>>(
-    `${BASE_URL}/order/${orderId}/allocations`
-  );
+export const getOrderAllocations = async (orderId: string): Promise<LaceStockAllocation[]> => {
+  const { data } = await api.get<ApiResponse<LaceStockAllocation[]>>(`${BASE_URL}/order/${orderId}/allocations`);
   return data.data;
 };
 
@@ -183,10 +133,7 @@ export const getAgingReport = async (params?: {
   maxDays?: number;
   laceId?: string;
 }): Promise<LaceStockAgingItem[]> => {
-  const { data } = await api.get<ApiResponse<LaceStockAgingItem[]>>(
-    `${BASE_URL}/reports/aging`,
-    { params }
-  );
+  const { data } = await api.get<ApiResponse<LaceStockAgingItem[]>>(`${BASE_URL}/reports/aging`, { params });
   return data.data;
 };
 
@@ -194,9 +141,7 @@ export const getAgingReport = async (params?: {
  * Get utilization report
  */
 export const getUtilizationReport = async (): Promise<LaceStockUtilizationReport> => {
-  const { data } = await api.get<ApiResponse<LaceStockUtilizationReport>>(
-    `${BASE_URL}/reports/utilization`
-  );
+  const { data } = await api.get<ApiResponse<LaceStockUtilizationReport>>(`${BASE_URL}/reports/utilization`);
   return data.data;
 };
 
@@ -210,10 +155,7 @@ export const adjustStock = async (
     reason: string;
   }
 ): Promise<LaceStock> => {
-  const { data } = await api.post<ApiResponse<LaceStock>>(
-    `${BASE_URL}/${stockId}/adjust`,
-    input
-  );
+  const { data } = await api.post<ApiResponse<LaceStock>>(`${BASE_URL}/${stockId}/adjust`, input);
   return data.data;
 };
 
@@ -228,10 +170,7 @@ export const downgradeQuality = async (
     reason: string;
   }
 ): Promise<LaceStock> => {
-  const { data } = await api.post<ApiResponse<LaceStock>>(
-    `${BASE_URL}/${stockId}/downgrade`,
-    input
-  );
+  const { data } = await api.post<ApiResponse<LaceStock>>(`${BASE_URL}/${stockId}/downgrade`, input);
   return data.data;
 };
 
@@ -245,10 +184,7 @@ export const markForReturn = async (
     restockingFee?: number;
   }
 ): Promise<LaceStock> => {
-  const { data } = await api.post<ApiResponse<LaceStock>>(
-    `${BASE_URL}/${stockId}/mark-for-return`,
-    input
-  );
+  const { data } = await api.post<ApiResponse<LaceStock>>(`${BASE_URL}/${stockId}/mark-for-return`, input);
   return data.data;
 };
 
@@ -256,9 +192,7 @@ export const markForReturn = async (
  * Confirm return completed
  */
 export const confirmReturn = async (stockId: string): Promise<LaceStock> => {
-  const { data } = await api.post<ApiResponse<LaceStock>>(
-    `${BASE_URL}/${stockId}/confirm-return`
-  );
+  const { data } = await api.post<ApiResponse<LaceStock>>(`${BASE_URL}/${stockId}/confirm-return`);
   return data.data;
 };
 

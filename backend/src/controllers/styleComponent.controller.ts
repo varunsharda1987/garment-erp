@@ -247,14 +247,7 @@ export const deleteFabric = async (req: Request, res: Response): Promise<void> =
 export const createAccessory = async (req: Request, res: Response): Promise<void> => {
   try {
     const { componentId } = req.params;
-    const {
-      accessoryName,
-      accessoryType,
-      quantityPerPiece,
-      unit,
-      supplierName,
-      unitPrice,
-    } = req.body;
+    const { accessoryName, accessoryType, quantityPerPiece, unit, supplierName, unitPrice } = req.body;
 
     if (!accessoryName || !accessoryType || !quantityPerPiece || !unit) {
       res.status(400).json({
@@ -296,14 +289,7 @@ export const createAccessory = async (req: Request, res: Response): Promise<void
 export const updateAccessory = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const {
-      accessoryName,
-      accessoryType,
-      quantityPerPiece,
-      unit,
-      supplierName,
-      unitPrice,
-    } = req.body;
+    const { accessoryName, accessoryType, quantityPerPiece, unit, supplierName, unitPrice } = req.body;
 
     const accessory = await prisma.style_accessories.update({
       where: { id },
@@ -361,16 +347,8 @@ export const deleteAccessory = async (req: Request, res: Response): Promise<void
 export const createProcess = async (req: Request, res: Response): Promise<void> => {
   try {
     const { styleId } = req.params;
-    const {
-      processName,
-      processType,
-      isRequired,
-      sortOrder,
-      supplierId,
-      estimatedCost,
-      estimatedDays,
-      notes,
-    } = req.body;
+    const { processName, processType, isRequired, sortOrder, supplierId, estimatedCost, estimatedDays, notes } =
+      req.body;
 
     if (!processName) {
       res.status(400).json({
@@ -414,16 +392,8 @@ export const createProcess = async (req: Request, res: Response): Promise<void> 
 export const updateProcess = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const {
-      processName,
-      processType,
-      isRequired,
-      sortOrder,
-      supplierId,
-      estimatedCost,
-      estimatedDays,
-      notes,
-    } = req.body;
+    const { processName, processType, isRequired, sortOrder, supplierId, estimatedCost, estimatedDays, notes } =
+      req.body;
 
     const process = await prisma.style_processes.update({
       where: { id },

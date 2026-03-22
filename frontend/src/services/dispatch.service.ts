@@ -185,9 +185,7 @@ export const dispatchSummaryService = {
       packedDate: string;
     }>
   > => {
-    const url = orderId
-      ? `${BASE_URL}/available-cartons?orderId=${orderId}`
-      : `${BASE_URL}/available-cartons`;
+    const url = orderId ? `${BASE_URL}/available-cartons?orderId=${orderId}` : `${BASE_URL}/available-cartons`;
     const response = await api.get<{ data: Array<any> }>(url);
     return response.data.data;
   },

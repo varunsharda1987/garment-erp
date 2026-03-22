@@ -120,11 +120,11 @@ class ProductionStatusService {
       });
 
       // Process each style to build production status
-      let statusItems = styles.map(style => this.buildProductionStatusItem(style));
+      let statusItems = styles.map((style) => this.buildProductionStatusItem(style));
 
       // Apply status filter
       if (status && status !== 'all') {
-        statusItems = statusItems.filter(item => {
+        statusItems = statusItems.filter((item) => {
           switch (status) {
             case 'running':
               return !item.isDelayed && item.overallProgress < 100 && item.overallProgress > 0;
@@ -142,12 +142,12 @@ class ProductionStatusService {
 
       // Apply stage filter
       if (stage) {
-        statusItems = statusItems.filter(item => item.currentStage === stage);
+        statusItems = statusItems.filter((item) => item.currentStage === stage);
       }
 
       // Apply date filters
       if (orderDateFrom || orderDateTo) {
-        statusItems = statusItems.filter(item => {
+        statusItems = statusItems.filter((item) => {
           if (!item.orders.earliestOrderDate) return false;
           const orderDate = new Date(item.orders.earliestOrderDate);
           if (orderDateFrom && orderDate < new Date(orderDateFrom)) return false;
@@ -157,7 +157,7 @@ class ProductionStatusService {
       }
 
       if (deliveryDateFrom || deliveryDateTo) {
-        statusItems = statusItems.filter(item => {
+        statusItems = statusItems.filter((item) => {
           if (!item.orders.latestDeliveryDate) return false;
           const deliveryDate = new Date(item.orders.latestDeliveryDate);
           if (deliveryDateFrom && deliveryDate < new Date(deliveryDateFrom)) return false;
@@ -293,9 +293,10 @@ class ProductionStatusService {
     });
 
     // Calculate progress
-    const overallProgress = workOrderData.totalPlannedQuantity > 0
-      ? Math.round((workOrderData.totalCompletedQuantity / workOrderData.totalPlannedQuantity) * 100)
-      : 0;
+    const overallProgress =
+      workOrderData.totalPlannedQuantity > 0
+        ? Math.round((workOrderData.totalCompletedQuantity / workOrderData.totalPlannedQuantity) * 100)
+        : 0;
 
     // Calculate days to delivery
     let daysToDelivery: number | null = null;
@@ -325,13 +326,16 @@ class ProductionStatusService {
     };
 
     // Costing
-    const costing = style.style_costing ? {
-      totalCostPerPiece: Number(style.costPrice || 0),
-      sellingPricePerPiece: Number(style.sellingPrice || 0),
-      profitMargin: style.sellingPrice && style.costPrice
-        ? ((Number(style.sellingPrice) - Number(style.costPrice)) / Number(style.sellingPrice) * 100)
-        : null,
-    } : null;
+    const costing = style.style_costing
+      ? {
+          totalCostPerPiece: Number(style.costPrice || 0),
+          sellingPricePerPiece: Number(style.sellingPrice || 0),
+          profitMargin:
+            style.sellingPrice && style.costPrice
+              ? ((Number(style.sellingPrice) - Number(style.costPrice)) / Number(style.sellingPrice)) * 100
+              : null,
+        }
+      : null;
 
     // Stage breakdown (simplified)
     const stageStr = currentStage as string;
@@ -454,7 +458,7 @@ class ProductionStatusService {
   private buildSuggestedActions(style: any, blockers: BlockerInfo[]): ActionInfo[] {
     const actions: ActionInfo[] = [];
 
-    blockers.forEach(blocker => {
+    blockers.forEach((blocker) => {
       switch (blocker.type) {
         case 'CAD_NOT_APPROVED':
           actions.push({
@@ -495,14 +499,15 @@ class ProductionStatusService {
    */
   private buildSampleStatus(samples: any[]): any {
     const findSample = (type: string) => {
-      const sample = samples.find(s => s.sampleType === type);
+      const sample = samples.find((s) => s.sampleType === type);
       if (!sample) {
         return { exists: false, status: null, daysPending: null, sampleId: null };
       }
 
-      const daysPending = sample.status !== 'APPROVED' && sample.status !== 'APPROVED_WITH_COMMENTS'
-        ? Math.floor((new Date().getTime() - new Date(sample.requestDate).getTime()) / (1000 * 60 * 60 * 24))
-        : null;
+      const daysPending =
+        sample.status !== 'APPROVED' && sample.status !== 'APPROVED_WITH_COMMENTS'
+          ? Math.floor((new Date().getTime() - new Date(sample.requestDate).getTime()) / (1000 * 60 * 60 * 24))
+          : null;
 
       return {
         exists: true,
@@ -526,10 +531,10 @@ class ProductionStatusService {
   private calculateSummary(items: any[]): any {
     return {
       total: items.length,
-      running: items.filter(i => !i.isDelayed && i.overallProgress < 100 && i.overallProgress > 0).length,
-      completed: items.filter(i => i.overallProgress === 100).length,
-      delayed: items.filter(i => i.isDelayed).length,
-      needsAttention: items.filter(i => i.blockers.length > 0).length,
+      running: items.filter((i) => !i.isDelayed && i.overallProgress < 100 && i.overallProgress > 0).length,
+      completed: items.filter((i) => i.overallProgress === 100).length,
+      delayed: items.filter((i) => i.isDelayed).length,
+      needsAttention: items.filter((i) => i.blockers.length > 0).length,
       totalOrderValue: items.reduce((sum, i) => sum + (i.orders.totalValue || 0), 0),
       totalPieces: items.reduce((sum, i) => sum + (i.orders.totalQuantity || 0), 0),
     };

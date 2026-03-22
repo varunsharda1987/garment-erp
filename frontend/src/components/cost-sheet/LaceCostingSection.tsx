@@ -50,11 +50,11 @@ export default function LaceCostingSection({
   const handleAddLace = () => {
     if (!selectedLaceId) return;
 
-    const lace = availableLaces.find(l => l.id === selectedLaceId);
+    const lace = availableLaces.find((l) => l.id === selectedLaceId);
     if (!lace) return;
 
     // Check if lace already exists in the list
-    if (laceDetails.some(l => l.laceId === selectedLaceId)) {
+    if (laceDetails.some((l) => l.laceId === selectedLaceId)) {
       alert('This lace is already added to the cost sheet.');
       return;
     }
@@ -128,9 +128,7 @@ export default function LaceCostingSection({
   };
 
   // Calculate section totals
-  const laceTotal = laceDetails
-    .filter(l => !l.isNotApplicable)
-    .reduce((sum, l) => sum + (l.totalCost || 0), 0);
+  const laceTotal = laceDetails.filter((l) => !l.isNotApplicable).reduce((sum, l) => sum + (l.totalCost || 0), 0);
 
   return (
     <div className="border rounded-lg p-4 bg-white">
@@ -143,16 +141,12 @@ export default function LaceCostingSection({
           </span>
         </h3>
         <div className="flex items-center gap-2">
-          <Select
-            value={selectedLaceId}
-            onValueChange={setSelectedLaceId}
-            disabled={disabled || isLoadingLaces}
-          >
+          <Select value={selectedLaceId} onValueChange={setSelectedLaceId} disabled={disabled || isLoadingLaces}>
             <SelectTrigger className="w-[250px]">
-              <SelectValue placeholder={isLoadingLaces ? "Loading..." : "Select lace to add..."} />
+              <SelectValue placeholder={isLoadingLaces ? 'Loading...' : 'Select lace to add...'} />
             </SelectTrigger>
             <SelectContent>
-              {availableLaces.map(lace => (
+              {availableLaces.map((lace) => (
                 <SelectItem key={lace.id} value={lace.id}>
                   {lace.laceName} {lace.color ? `(${lace.color})` : ''}
                 </SelectItem>
@@ -243,9 +237,7 @@ export default function LaceCostingSection({
                 <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
                   Total Lace Cost:
                 </td>
-                <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
-                  ₹{laceTotal.toFixed(2)}
-                </td>
+                <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">₹{laceTotal.toFixed(2)}</td>
                 <td colSpan={2}></td>
               </tr>
             </tfoot>
@@ -256,8 +248,8 @@ export default function LaceCostingSection({
       {/* Helper Text */}
       <div className="mt-3 text-xs text-gray-500">
         <p>
-          <strong>Sourcing Strategies:</strong> Stock Reuse (use existing inventory),
-          Ready Lace (purchase finished lace), or Greige + Dyeing (buy raw lace and process).
+          <strong>Sourcing Strategies:</strong> Stock Reuse (use existing inventory), Ready Lace (purchase finished
+          lace), or Greige + Dyeing (buy raw lace and process).
         </p>
       </div>
     </div>

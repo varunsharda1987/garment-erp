@@ -14,23 +14,23 @@ import { Gender } from '@prisma/client';
  */
 export interface StyleImportCSVRow {
   // Required Fields
-  styleCode: string;           // Unique style identifier (includes colorway, e.g., COS009, COS009B)
-  customerName: string;        // Customer/Buyer name - must exist in customers master
-  brandName: string;           // Brand name - will lookup/create in brand_categories
-  size: string;                // Size for this variant (S, M, L, XL, 4Y, etc.)
+  styleCode: string; // Unique style identifier (includes colorway, e.g., COS009, COS009B)
+  customerName: string; // Customer/Buyer name - must exist in customers master
+  brandName: string; // Brand name - will lookup/create in brand_categories
+  size: string; // Size for this variant (S, M, L, XL, 4Y, etc.)
 
   // Optional Style Information
-  styleName?: string;          // Display name (defaults to styleCode if not provided)
-  season?: string;             // Season identifier (e.g., "Summer 2025")
-  gender?: string;             // MEN, WOMEN, KIDS, UNISEX (defaults to UNISEX)
+  styleName?: string; // Display name (defaults to styleCode if not provided)
+  season?: string; // Season identifier (e.g., "Summer 2025")
+  gender?: string; // MEN, WOMEN, KIDS, UNISEX (defaults to UNISEX)
 
   // Optional Category Information (Buyer-specific, 3-level hierarchy)
-  buyerCategory?: string;      // Buyer's category (e.g., "Ethnic Wear")
-  buyerSubCategory?: string;   // Buyer's sub-category (e.g., "Kurta Sets")
-  buyerSubSubCategory?: string;// Buyer's sub-sub-category (e.g., "Full Sleeve")
+  buyerCategory?: string; // Buyer's category (e.g., "Ethnic Wear")
+  buyerSubCategory?: string; // Buyer's sub-category (e.g., "Kurta Sets")
+  buyerSubSubCategory?: string; // Buyer's sub-sub-category (e.g., "Full Sleeve")
 
   // Optional Internal Category
-  internalCategory?: string;   // Internal category name (global, flat structure)
+  internalCategory?: string; // Internal category name (global, flat structure)
 
   // Legacy fields (kept for backwards compatibility)
   status?: string;
@@ -41,8 +41,8 @@ export interface StyleImportCSVRow {
   itemDescription?: string;
   bulletPoints?: string;
   projectGroup?: string;
-  customer?: string;           // Alias for customerName
-  brand?: string;              // Alias for brandName
+  customer?: string; // Alias for customerName
+  brand?: string; // Alias for brandName
   componentName?: string;
   greigeName?: string;
   fabricDescription?: string;
@@ -99,8 +99,8 @@ export interface StyleImportRow {
   internalCategoryId?: string;
 
   // Auto-generated fields
-  sku?: string;           // Generated: {styleCode}{size}
-  barcode?: string;       // Same as SKU
+  sku?: string; // Generated: {styleCode}{size}
+  barcode?: string; // Same as SKU
 
   // Legacy fields (kept for backwards compatibility)
   projectGroup?: string;
@@ -151,8 +151,8 @@ export interface StyleCategoryLookupResult {
 export interface StyleImportRequest {
   importBatchId: string;
   rows: StyleImportCSVRow[];
-  overwriteExisting?: boolean;  // If true, update existing styles
-  skipDuplicates?: boolean;     // If true, skip rows with duplicate style codes
+  overwriteExisting?: boolean; // If true, update existing styles
+  skipDuplicates?: boolean; // If true, skip rows with duplicate style codes
 }
 
 export interface StyleImportResponse {
@@ -199,7 +199,7 @@ export interface FabricToCreate {
   fabricDescription: string;
   styleReference: string;
   componentType: string;
-  greigeId?: string;  // If greige is specified/found
+  greigeId?: string; // If greige is specified/found
   actualWidth?: number;
   cadData?: FabricCADData;
 }
@@ -207,7 +207,7 @@ export interface FabricToCreate {
 export interface FabricCADData {
   availableWidth: number;
   cadMeters?: number;
-  actualCad?: number;  // Last production average
+  actualCad?: number; // Last production average
   cadVariancePercent?: number;
   cadWastagePercent?: number;
 }
@@ -218,7 +218,7 @@ export interface FabricCADData {
 
 export interface StyleToCreate {
   styleCode: string;
-  styleName: string;  // from itemDescription
+  styleName: string; // from itemDescription
   customerName?: string; // from customer
   projectGroup?: string;
   brandName?: string;
@@ -231,7 +231,7 @@ export interface StyleToCreate {
 
 export interface ComponentToCreate {
   componentName: string;
-  componentType: string;  // Derived from componentName
+  componentType: string; // Derived from componentName
   componentOrder: number;
   description?: string;
 }

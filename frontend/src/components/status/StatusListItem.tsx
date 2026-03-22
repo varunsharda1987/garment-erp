@@ -77,22 +77,16 @@ export default function StatusListItem({ item }: StatusListItemProps) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-2xl font-bold text-gray-900">{item.styleCode}</h3>
-                {item.internalCode && (
-                  <span className="text-sm text-gray-500">• {item.internalCode}</span>
-                )}
+                {item.internalCode && <span className="text-sm text-gray-500">• {item.internalCode}</span>}
                 {item.brandName && (
                   <span className="text-base font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                     {item.brandName}
                   </span>
                 )}
               </div>
-              {item.customerName && (
-                <p className="text-base text-gray-700 font-medium mt-1">{item.customerName}</p>
-              )}
+              {item.customerName && <p className="text-base text-gray-700 font-medium mt-1">{item.customerName}</p>}
               <p className="text-lg font-medium text-gray-800 mt-1">{item.styleName}</p>
-              {item.season && (
-                <p className="text-sm text-gray-500 mt-0.5">{item.season}</p>
-              )}
+              {item.season && <p className="text-sm text-gray-500 mt-0.5">{item.season}</p>}
             </div>
 
             {/* Status Badge */}
@@ -106,9 +100,7 @@ export default function StatusListItem({ item }: StatusListItemProps) {
                 </div>
               )}
               {item.daysToDelivery !== null && item.daysToDelivery > 0 && !item.isDelayed && (
-                <span className="text-sm text-gray-500 font-medium">
-                  Due in {item.daysToDelivery} days
-                </span>
+                <span className="text-sm text-gray-500 font-medium">Due in {item.daysToDelivery} days</span>
               )}
             </div>
           </div>
@@ -117,24 +109,18 @@ export default function StatusListItem({ item }: StatusListItemProps) {
           <div className="flex items-center gap-8 text-base border-y border-gray-200 py-3">
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-gray-500" />
-              <span className="font-semibold text-gray-800">
-                {item.orders.totalQuantity.toLocaleString()} pcs
-              </span>
+              <span className="font-semibold text-gray-800">{item.orders.totalQuantity.toLocaleString()} pcs</span>
               {item.orders.orderCount > 1 && (
                 <span className="text-gray-500 text-sm">({item.orders.orderCount} orders)</span>
               )}
             </div>
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-gray-500" />
-              <span className="font-semibold text-gray-800">
-                {formatCurrency(item.orders.totalValue)}
-              </span>
+              <span className="font-semibold text-gray-800">{formatCurrency(item.orders.totalValue)}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-gray-500" />
-              <span className="text-gray-700 font-medium">
-                Due: {formatDate(item.orders.latestDeliveryDate)}
-              </span>
+              <span className="text-gray-700 font-medium">Due: {formatDate(item.orders.latestDeliveryDate)}</span>
             </div>
           </div>
 
@@ -155,16 +141,19 @@ export default function StatusListItem({ item }: StatusListItemProps) {
             {/* CAD Status */}
             <div className="bg-gray-50 rounded-lg p-3">
               <div className="text-xs text-gray-500 mb-1">CAD Status</div>
-              <div className={`text-sm font-semibold ${
-                item.cadStatus === 'APPROVED' ? 'text-green-700' :
-                item.cadStatus === 'IN_PROGRESS' ? 'text-blue-700' : 'text-amber-700'
-              }`}>
+              <div
+                className={`text-sm font-semibold ${
+                  item.cadStatus === 'APPROVED'
+                    ? 'text-green-700'
+                    : item.cadStatus === 'IN_PROGRESS'
+                      ? 'text-blue-700'
+                      : 'text-amber-700'
+                }`}
+              >
                 {item.cadStatus}
               </div>
               {item.approvedCadDate && (
-                <div className="text-xs text-gray-500 mt-1">
-                  Approved: {formatDate(item.approvedCadDate)}
-                </div>
+                <div className="text-xs text-gray-500 mt-1">Approved: {formatDate(item.approvedCadDate)}</div>
               )}
             </div>
 
@@ -178,13 +167,15 @@ export default function StatusListItem({ item }: StatusListItemProps) {
                       ? `₹${item.costing.totalCostPerPiece.toFixed(2)}/pc`
                       : 'N/A'}
                   </div>
-                  <div className={`text-xs mt-1 ${
-                    item.costing.profitMargin !== null && item.costing.profitMargin >= 15
-                      ? 'text-green-600'
-                      : item.costing.profitMargin !== null && item.costing.profitMargin >= 10
-                      ? 'text-amber-600'
-                      : 'text-red-600'
-                  }`}>
+                  <div
+                    className={`text-xs mt-1 ${
+                      item.costing.profitMargin !== null && item.costing.profitMargin >= 15
+                        ? 'text-green-600'
+                        : item.costing.profitMargin !== null && item.costing.profitMargin >= 10
+                          ? 'text-amber-600'
+                          : 'text-red-600'
+                    }`}
+                  >
                     Margin: {item.costing.profitMargin !== null ? `${item.costing.profitMargin.toFixed(1)}%` : 'N/A'}
                   </div>
                 </>
@@ -197,7 +188,8 @@ export default function StatusListItem({ item }: StatusListItemProps) {
             <div className="bg-gray-50 rounded-lg p-3">
               <div className="text-xs text-gray-500 mb-1">Work Orders</div>
               <div className="text-sm font-semibold text-gray-800">
-                {item.workOrders.totalCompletedQuantity.toLocaleString()} / {item.workOrders.totalPlannedQuantity.toLocaleString()}
+                {item.workOrders.totalCompletedQuantity.toLocaleString()} /{' '}
+                {item.workOrders.totalPlannedQuantity.toLocaleString()}
               </div>
               <div className="text-xs text-gray-600 mt-1">
                 {item.workOrders.workOrderCount} order{item.workOrders.workOrderCount !== 1 ? 's' : ''}

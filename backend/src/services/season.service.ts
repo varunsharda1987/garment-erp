@@ -71,10 +71,7 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
   }
 
   protected buildSearchFilter(search: string): SearchFilter {
-    return [
-      { code: { contains: search, mode: 'insensitive' } },
-      { name: { contains: search, mode: 'insensitive' } },
-    ];
+    return [{ code: { contains: search, mode: 'insensitive' } }, { name: { contains: search, mode: 'insensitive' } }];
   }
 
   protected getDefaultIncludes(): IncludeConfig {
@@ -214,9 +211,7 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
       const total = await prisma.season_master.count({ where });
 
       // Build orderBy - default to sortOrder descending (newest first)
-      const orderBy: OrderByClause = sortBy
-        ? { [sortBy]: sortOrder || 'asc' }
-        : { sortOrder: 'desc' };
+      const orderBy: OrderByClause = sortBy ? { [sortBy]: sortOrder || 'asc' } : { sortOrder: 'desc' };
 
       // Fetch seasons
       const seasons = await prisma.season_master.findMany({

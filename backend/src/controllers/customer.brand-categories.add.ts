@@ -20,12 +20,7 @@ export const getCustomerBrandCategories = async (req: Request, res: Response): P
 
     const brandCategories = await prisma.brand_categories.findMany({
       where: whereClause,
-      orderBy: [
-        { brandName: 'asc' },
-        { category: 'asc' },
-        { subCategory: 'asc' },
-        { subSubCategory: 'asc' },
-      ],
+      orderBy: [{ brandName: 'asc' }, { category: 'asc' }, { subCategory: 'asc' }, { subSubCategory: 'asc' }],
     });
 
     res.status(200).json({

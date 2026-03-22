@@ -35,9 +35,7 @@ export const getSupplierById = async (id: string): Promise<Supplier> => {
 /**
  * Create new supplier
  */
-export const createSupplier = async (
-  supplierData: CreateSupplierRequest
-): Promise<Supplier> => {
+export const createSupplier = async (supplierData: CreateSupplierRequest): Promise<Supplier> => {
   const { data } = await apiClient.post<SupplierResponse>('/suppliers', supplierData);
   return data.data;
 };
@@ -45,10 +43,7 @@ export const createSupplier = async (
 /**
  * Update supplier
  */
-export const updateSupplier = async (
-  id: string,
-  supplierData: UpdateSupplierRequest
-): Promise<Supplier> => {
+export const updateSupplier = async (id: string, supplierData: UpdateSupplierRequest): Promise<Supplier> => {
   const { data } = await apiClient.put<SupplierResponse>(`/suppliers/${id}`, supplierData);
   return data.data;
 };

@@ -65,26 +65,20 @@ class ErrorBoundary extends Component<Props, State> {
                 </div>
                 <div>
                   <CardTitle>Something went wrong</CardTitle>
-                  <CardDescription>
-                    An unexpected error occurred in the application
-                  </CardDescription>
+                  <CardDescription>An unexpected error occurred in the application</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {this.state.error && (
                 <div className="bg-muted p-4 rounded-lg">
-                  <p className="text-sm font-mono text-destructive">
-                    {this.state.error.toString()}
-                  </p>
+                  <p className="text-sm font-mono text-destructive">{this.state.error.toString()}</p>
                 </div>
               )}
 
               {import.meta.env.DEV && this.state.errorInfo && (
                 <details className="bg-muted p-4 rounded-lg">
-                  <summary className="text-sm font-medium cursor-pointer">
-                    Error Details (Development Only)
-                  </summary>
+                  <summary className="text-sm font-medium cursor-pointer">Error Details (Development Only)</summary>
                   <pre className="mt-2 text-xs font-mono overflow-auto max-h-64">
                     {this.state.errorInfo.componentStack}
                   </pre>
@@ -95,9 +89,7 @@ class ErrorBoundary extends Component<Props, State> {
                 <Button onClick={this.handleReset} variant="outline">
                   Try Again
                 </Button>
-                <Button onClick={this.handleReload}>
-                  Reload Page
-                </Button>
+                <Button onClick={this.handleReload}>Reload Page</Button>
               </div>
             </CardContent>
           </Card>

@@ -254,8 +254,7 @@ describe('GSTService', () => {
 
     it('should try 4-digit chapter before 2-digit', async () => {
       (mockPrisma.hsn_sac_masters.findUnique as jest.Mock).mockResolvedValue(null);
-      (mockPrisma.hsn_sac_masters.findFirst as jest.Mock)
-        .mockResolvedValueOnce({ defaultGstRate: 18 }); // 4-digit hit
+      (mockPrisma.hsn_sac_masters.findFirst as jest.Mock).mockResolvedValueOnce({ defaultGstRate: 18 }); // 4-digit hit
 
       const rate = await gstService.getGSTRate({ hsnSacCode: '96064100' });
       expect(rate).toBe(18);
@@ -309,9 +308,12 @@ describe('GSTService', () => {
           lineTotal: 10000,
           hsnCode: '62114210',
           gstRate: 12,
-          cgstRate: 6, cgstAmount: 600,
-          sgstRate: 6, sgstAmount: 600,
-          igstRate: 0, igstAmount: 0,
+          cgstRate: 6,
+          cgstAmount: 600,
+          sgstRate: 6,
+          sgstAmount: 600,
+          igstRate: 0,
+          igstAmount: 0,
           taxAmount: 1200,
         },
       ]);
@@ -327,18 +329,26 @@ describe('GSTService', () => {
       const result = gstService.calculateTotals([
         {
           lineTotal: 5000,
-          hsnCode: null, gstRate: 12,
-          cgstRate: 6, cgstAmount: 300,
-          sgstRate: 6, sgstAmount: 300,
-          igstRate: 0, igstAmount: 0,
+          hsnCode: null,
+          gstRate: 12,
+          cgstRate: 6,
+          cgstAmount: 300,
+          sgstRate: 6,
+          sgstAmount: 300,
+          igstRate: 0,
+          igstAmount: 0,
           taxAmount: 600,
         },
         {
           lineTotal: 3000,
-          hsnCode: null, gstRate: 18,
-          cgstRate: 9, cgstAmount: 270,
-          sgstRate: 9, sgstAmount: 270,
-          igstRate: 0, igstAmount: 0,
+          hsnCode: null,
+          gstRate: 18,
+          cgstRate: 9,
+          cgstAmount: 270,
+          sgstRate: 9,
+          sgstAmount: 270,
+          igstRate: 0,
+          igstAmount: 0,
           taxAmount: 540,
         },
       ]);
@@ -363,18 +373,26 @@ describe('GSTService', () => {
       const result = gstService.calculateTotals([
         {
           lineTotal: 5000,
-          hsnCode: null, gstRate: 12,
-          cgstRate: 6, cgstAmount: 300,
-          sgstRate: 6, sgstAmount: 300,
-          igstRate: 0, igstAmount: 0,
+          hsnCode: null,
+          gstRate: 12,
+          cgstRate: 6,
+          cgstAmount: 300,
+          sgstRate: 6,
+          sgstAmount: 300,
+          igstRate: 0,
+          igstAmount: 0,
           taxAmount: 600,
         },
         {
           lineTotal: 5000,
-          hsnCode: null, gstRate: 12,
-          cgstRate: 0, cgstAmount: 0,
-          sgstRate: 0, sgstAmount: 0,
-          igstRate: 12, igstAmount: 600,
+          hsnCode: null,
+          gstRate: 12,
+          cgstRate: 0,
+          cgstAmount: 0,
+          sgstRate: 0,
+          sgstAmount: 0,
+          igstRate: 12,
+          igstAmount: 600,
           taxAmount: 600,
         },
       ]);
@@ -397,8 +415,7 @@ describe('GSTService', () => {
     });
 
     it('should detect intrastate from primary GST (same state)', async () => {
-      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock)
-        .mockResolvedValueOnce({ stateCode: '29' }); // Primary GST
+      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock).mockResolvedValueOnce({ stateCode: '29' }); // Primary GST
 
       const result = await gstService.isInterstatePO('supplier-1');
 
@@ -407,8 +424,7 @@ describe('GSTService', () => {
     });
 
     it('should detect interstate from primary GST (different state)', async () => {
-      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock)
-        .mockResolvedValueOnce({ stateCode: '27' }); // Primary GST - Maharashtra
+      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock).mockResolvedValueOnce({ stateCode: '27' }); // Primary GST - Maharashtra
 
       const result = await gstService.isInterstatePO('supplier-1');
 
@@ -428,8 +444,7 @@ describe('GSTService', () => {
     });
 
     it('should fall back to billing state when no GST numbers', async () => {
-      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock)
-        .mockResolvedValue(null);
+      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock).mockResolvedValue(null);
       (mockPrisma.suppliers.findUnique as jest.Mock).mockResolvedValue({
         billingStateId: 'state-1',
         billing_state: { stateCode: '29' },
@@ -449,8 +464,7 @@ describe('GSTService', () => {
     });
 
     it('should handle error gracefully', async () => {
-      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock)
-        .mockRejectedValue(new Error('DB error'));
+      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock).mockRejectedValue(new Error('DB error'));
 
       const result = await gstService.isInterstatePO('supplier-1');
 
@@ -519,13 +533,10 @@ describe('GSTService', () => {
       ['PROCESSING', '998829'],
     ];
 
-    it.each(sacMappings)(
-      'should map %s to SAC code %s',
-      async (serviceType, expectedSac) => {
-        const result = await gstService.getSACCodeForService(serviceType);
-        expect(result.sacCode).toBe(expectedSac);
-      }
-    );
+    it.each(sacMappings)('should map %s to SAC code %s', async (serviceType, expectedSac) => {
+      const result = await gstService.getSACCodeForService(serviceType);
+      expect(result.sacCode).toBe(expectedSac);
+    });
 
     it('should return fallback SAC for unknown service type', async () => {
       const result = await gstService.getSACCodeForService('UNKNOWN_SERVICE');
@@ -669,21 +680,21 @@ describe('GSTService', () => {
     });
 
     it('should throw for negative amount', async () => {
-      await expect(
-        gstService.calculateGST(-100, 12, 'state-1', 'state-1')
-      ).rejects.toThrow('Amount cannot be negative');
+      await expect(gstService.calculateGST(-100, 12, 'state-1', 'state-1')).rejects.toThrow(
+        'Amount cannot be negative'
+      );
     });
 
     it('should throw for invalid tax rate', async () => {
-      await expect(
-        gstService.calculateGST(1000, 101, 'state-1', 'state-1')
-      ).rejects.toThrow('Tax rate must be between 0 and 100');
+      await expect(gstService.calculateGST(1000, 101, 'state-1', 'state-1')).rejects.toThrow(
+        'Tax rate must be between 0 and 100'
+      );
     });
 
     it('should throw for missing state IDs', async () => {
-      await expect(
-        gstService.calculateGST(1000, 12, '', 'state-1')
-      ).rejects.toThrow('Supplier and customer state IDs are required');
+      await expect(gstService.calculateGST(1000, 12, '', 'state-1')).rejects.toThrow(
+        'Supplier and customer state IDs are required'
+      );
     });
   });
 });

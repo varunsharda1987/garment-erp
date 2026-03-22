@@ -3,7 +3,7 @@ import prisma from '../config/database';
 interface TCSCreateInput {
   invoiceId?: string;
   customerName: string;
-  tcsSection: string;  // "206C(1H)"
+  tcsSection: string; // "206C(1H)"
   tcsRate: number;
   saleAmount: number;
   tcsAmount: number;
@@ -36,7 +36,16 @@ class TCSService {
   }
 
   async getAll(params: TCSQueryParams) {
-    const { page = 1, limit = 20, search, financialYear, quarter, status, sortBy = 'collectionDate', sortOrder = 'desc' } = params;
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      financialYear,
+      quarter,
+      status,
+      sortBy = 'collectionDate',
+      sortOrder = 'desc',
+    } = params;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -90,15 +99,15 @@ class TCSService {
       orderBy: { quarter: 'asc' },
     });
 
-    const quarterSummary = [1, 2, 3, 4].map(q => {
-      const qEntries = entries.filter(e => e.quarter === q);
+    const quarterSummary = [1, 2, 3, 4].map((q) => {
+      const qEntries = entries.filter((e) => e.quarter === q);
       return {
         quarter: q,
         count: qEntries.length,
         totalSaleAmount: qEntries.reduce((s, e) => s + Number(e.saleAmount), 0),
         totalTCS: qEntries.reduce((s, e) => s + Number(e.tcsAmount), 0),
-        pending: qEntries.filter(e => e.status === 'PENDING').length,
-        deposited: qEntries.filter(e => e.status === 'DEPOSITED').length,
+        pending: qEntries.filter((e) => e.status === 'PENDING').length,
+        deposited: qEntries.filter((e) => e.status === 'DEPOSITED').length,
       };
     });
 

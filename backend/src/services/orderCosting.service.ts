@@ -145,27 +145,18 @@ class OrderCostingServiceClass {
       const baseCosting = Array.isArray(style.style_costing) ? style.style_costing[0] : style.style_costing;
 
       // Calculate fabric costs based on selected CAD
-      const { fabricTotal, cadMeters, cadWidth } = this.calculateFabricCostsWithCad(
-        style,
-        selectedCad
-      );
+      const { fabricTotal, cadMeters, cadWidth } = this.calculateFabricCostsWithCad(style, selectedCad);
 
       // Get other costs from base costing or calculate from style
-      const trimsTotal = baseCosting
-        ? Number(baseCosting.trimsTotal || 0)
-        : this.calculateTrimsCost(style);
+      const trimsTotal = baseCosting ? Number(baseCosting.trimsTotal || 0) : this.calculateTrimsCost(style);
 
       const embroideryTotal = baseCosting
         ? Number(baseCosting.embroideryTotal || 0)
         : this.calculateEmbroideryCost(style, selectedCad);
 
-      const accessoriesTotal = baseCosting
-        ? Number(baseCosting.accessoriesTotal || 0)
-        : 0;
+      const accessoriesTotal = baseCosting ? Number(baseCosting.accessoriesTotal || 0) : 0;
 
-      const cmtTotal = baseCosting
-        ? Number(baseCosting.cmtTotal || 0)
-        : 0;
+      const cmtTotal = baseCosting ? Number(baseCosting.cmtTotal || 0) : 0;
 
       const processingTotal = baseCosting
         ? Number(baseCosting.totalProcessingCost || 0)
@@ -180,7 +171,8 @@ class OrderCostingServiceClass {
         : 0;
 
       // Calculate total cost per piece
-      const subtotal = fabricTotal + trimsTotal + embroideryTotal + accessoriesTotal + cmtTotal + processingTotal + overheadsTotal;
+      const subtotal =
+        fabricTotal + trimsTotal + embroideryTotal + accessoriesTotal + cmtTotal + processingTotal + overheadsTotal;
 
       // Apply value loss and markup from base costing
       const valueLossPercent = baseCosting ? Number(baseCosting.valueLossPercent || 2) : 2;
@@ -218,12 +210,8 @@ class OrderCostingServiceClass {
           processingTotal: new Prisma.Decimal(processingTotal),
           overheadsTotal: new Prisma.Decimal(overheadsTotal),
           totalCostPerPiece: new Prisma.Decimal(totalCostPerPiece),
-          sellingPricePerPiece: sellingPricePerPiece !== null
-            ? new Prisma.Decimal(sellingPricePerPiece)
-            : null,
-          profitMargin: profitMargin !== null
-            ? new Prisma.Decimal(profitMargin)
-            : null,
+          sellingPricePerPiece: sellingPricePerPiece !== null ? new Prisma.Decimal(sellingPricePerPiece) : null,
+          profitMargin: profitMargin !== null ? new Prisma.Decimal(profitMargin) : null,
           baseCostingId: baseCosting?.id || null,
           recalculatedAt: new Date(),
         },
@@ -239,12 +227,8 @@ class OrderCostingServiceClass {
           processingTotal: new Prisma.Decimal(processingTotal),
           overheadsTotal: new Prisma.Decimal(overheadsTotal),
           totalCostPerPiece: new Prisma.Decimal(totalCostPerPiece),
-          sellingPricePerPiece: sellingPricePerPiece !== null
-            ? new Prisma.Decimal(sellingPricePerPiece)
-            : null,
-          profitMargin: profitMargin !== null
-            ? new Prisma.Decimal(profitMargin)
-            : null,
+          sellingPricePerPiece: sellingPricePerPiece !== null ? new Prisma.Decimal(sellingPricePerPiece) : null,
+          profitMargin: profitMargin !== null ? new Prisma.Decimal(profitMargin) : null,
           baseCostingId: baseCosting?.id || null,
           recalculatedAt: new Date(),
         },
@@ -342,8 +326,10 @@ class OrderCostingServiceClass {
       for (const component of style.style_components || []) {
         for (const styleFabric of component.style_fabrics || []) {
           // If this fabric matches the selected CAD's fabric
-          if (styleFabric.fabric?.widthCADs?.some((c: any) => c.id === selectedCad.id) ||
-              styleFabric.fabricCADId === selectedCad.id) {
+          if (
+            styleFabric.fabric?.widthCADs?.some((c: any) => c.id === selectedCad.id) ||
+            styleFabric.fabricCADId === selectedCad.id
+          ) {
             const fabricRate = parseFloat(styleFabric.unitPrice?.toString() || '0');
             const fabricCost = (cadMeters || 0) * fabricRate;
             fabricTotal += fabricCost;
@@ -461,7 +447,9 @@ class OrderCostingServiceClass {
       throw new NotFoundError('Order Item', orderItemId);
     }
 
-    const base = Array.isArray(orderItem.styles?.style_costing) ? orderItem.styles.style_costing[0] : orderItem.styles?.style_costing;
+    const base = Array.isArray(orderItem.styles?.style_costing)
+      ? orderItem.styles.style_costing[0]
+      : orderItem.styles?.style_costing;
     const orderSpecific = orderItem.order_item_costing;
 
     let difference = null;
@@ -477,31 +465,37 @@ class OrderCostingServiceClass {
     }
 
     return {
-      base: base ? {
-        id: base.id,
-        totalCostPerPiece: Number(base.totalCostPerPiece),
-        fabricTotal: Number(base.fabricTotal),
-        trimsTotal: Number(base.trimsTotal),
-        cmtTotal: Number(base.cmtTotal),
-        embroideryTotal: Number(base.embroideryTotal),
-        accessoriesTotal: Number(base.accessoriesTotal),
-        sellingPricePerPiece: base.sellingPricePerPiece ? Number(base.sellingPricePerPiece) : null,
-        profitMargin: base.profitMargin ? Number(base.profitMargin) : null,
-      } : null,
-      orderSpecific: orderSpecific ? {
-        id: orderSpecific.id,
-        totalCostPerPiece: Number(orderSpecific.totalCostPerPiece),
-        fabricTotal: Number(orderSpecific.fabricTotal),
-        trimsTotal: Number(orderSpecific.trimsTotal),
-        cmtTotal: Number(orderSpecific.cmtTotal),
-        embroideryTotal: Number(orderSpecific.embroideryTotal),
-        accessoriesTotal: Number(orderSpecific.accessoriesTotal),
-        cadMeters: orderSpecific.cadMeters ? Number(orderSpecific.cadMeters) : null,
-        cadWidth: orderSpecific.cadWidth ? Number(orderSpecific.cadWidth) : null,
-        sellingPricePerPiece: orderSpecific.sellingPricePerPiece ? Number(orderSpecific.sellingPricePerPiece) : null,
-        profitMargin: orderSpecific.profitMargin ? Number(orderSpecific.profitMargin) : null,
-        recalculatedAt: orderSpecific.recalculatedAt,
-      } : null,
+      base: base
+        ? {
+            id: base.id,
+            totalCostPerPiece: Number(base.totalCostPerPiece),
+            fabricTotal: Number(base.fabricTotal),
+            trimsTotal: Number(base.trimsTotal),
+            cmtTotal: Number(base.cmtTotal),
+            embroideryTotal: Number(base.embroideryTotal),
+            accessoriesTotal: Number(base.accessoriesTotal),
+            sellingPricePerPiece: base.sellingPricePerPiece ? Number(base.sellingPricePerPiece) : null,
+            profitMargin: base.profitMargin ? Number(base.profitMargin) : null,
+          }
+        : null,
+      orderSpecific: orderSpecific
+        ? {
+            id: orderSpecific.id,
+            totalCostPerPiece: Number(orderSpecific.totalCostPerPiece),
+            fabricTotal: Number(orderSpecific.fabricTotal),
+            trimsTotal: Number(orderSpecific.trimsTotal),
+            cmtTotal: Number(orderSpecific.cmtTotal),
+            embroideryTotal: Number(orderSpecific.embroideryTotal),
+            accessoriesTotal: Number(orderSpecific.accessoriesTotal),
+            cadMeters: orderSpecific.cadMeters ? Number(orderSpecific.cadMeters) : null,
+            cadWidth: orderSpecific.cadWidth ? Number(orderSpecific.cadWidth) : null,
+            sellingPricePerPiece: orderSpecific.sellingPricePerPiece
+              ? Number(orderSpecific.sellingPricePerPiece)
+              : null,
+            profitMargin: orderSpecific.profitMargin ? Number(orderSpecific.profitMargin) : null,
+            recalculatedAt: orderSpecific.recalculatedAt,
+          }
+        : null,
       difference,
       percentDifference,
     };

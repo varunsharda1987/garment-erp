@@ -158,10 +158,7 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
     ];
     if (whereClause.OR) {
       // Search OR already exists — combine with AND
-      whereClause.AND = [
-        { OR: whereClause.OR },
-        { OR: supplierOrTypeConditions },
-      ];
+      whereClause.AND = [{ OR: whereClause.OR }, { OR: supplierOrTypeConditions }];
       delete whereClause.OR;
     } else {
       whereClause.OR = supplierOrTypeConditions;
@@ -282,25 +279,30 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
   const totalPages = Math.ceil(total / limit);
 
   // Transform materials - extract customer and costPerUnit from linked master tables
-  const transformedMaterials = materials.map(material => {
+  const transformedMaterials = materials.map((material) => {
     // Get customer from whichever master table has data (only label and packaging have customer)
-    const customer =
-      material.label_master?.customer ||
-      material.packaging_master?.customer ||
-      null;
+    const customer = material.label_master?.customer || material.packaging_master?.customer || null;
 
     // Compute costPerUnit from whichever master table has price data
-    const costPerUnit =
-      material.fabric_master?.costPerMeter ? Number(material.fabric_master.costPerMeter) :
-      material.greige_master?.costPerMeter ? Number(material.greige_master.costPerMeter) :
-      material.lace_master?.pricePerMeter ? Number(material.lace_master.pricePerMeter) :
-      material.button_master?.pricePerPiece ? Number(material.button_master.pricePerPiece) :
-      material.thread_master?.pricePerCone ? Number(material.thread_master.pricePerCone) :
-      material.zipper_master?.pricePerPiece ? Number(material.zipper_master.pricePerPiece) :
-      material.elastic_master?.pricePerMeter ? Number(material.elastic_master.pricePerMeter) :
-      material.label_master?.pricePerPiece ? Number(material.label_master.pricePerPiece) :
-      material.packaging_master?.pricePerPiece ? Number(material.packaging_master.pricePerPiece) :
-      null;
+    const costPerUnit = material.fabric_master?.costPerMeter
+      ? Number(material.fabric_master.costPerMeter)
+      : material.greige_master?.costPerMeter
+        ? Number(material.greige_master.costPerMeter)
+        : material.lace_master?.pricePerMeter
+          ? Number(material.lace_master.pricePerMeter)
+          : material.button_master?.pricePerPiece
+            ? Number(material.button_master.pricePerPiece)
+            : material.thread_master?.pricePerCone
+              ? Number(material.thread_master.pricePerCone)
+              : material.zipper_master?.pricePerPiece
+                ? Number(material.zipper_master.pricePerPiece)
+                : material.elastic_master?.pricePerMeter
+                  ? Number(material.elastic_master.pricePerMeter)
+                  : material.label_master?.pricePerPiece
+                    ? Number(material.label_master.pricePerPiece)
+                    : material.packaging_master?.pricePerPiece
+                      ? Number(material.packaging_master.pricePerPiece)
+                      : null;
 
     return {
       ...material,
@@ -481,7 +483,7 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
     specifications,
     unit,
     reorderLevel: reorderLevel ? parseInt(reorderLevel) : null,
-    hsnCode: hsnCode !== undefined ? (hsnCode || null) : undefined,
+    hsnCode: hsnCode !== undefined ? hsnCode || null : undefined,
     gstRate: gstRate !== undefined ? (gstRate ? parseFloat(gstRate) : null) : undefined,
     image: image || null,
     categoryData: categoryData || null,
@@ -585,11 +587,7 @@ export const getAllCategories = async (req: Request, res: Response): Promise<voi
 
   const categories = await prisma.material_categories.findMany({
     where,
-    orderBy: [
-      { level: 'asc' },
-      { sortOrder: 'asc' },
-      { name: 'asc' },
-    ],
+    orderBy: [{ level: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
     include: {
       _count: {
         select: { materials: true },

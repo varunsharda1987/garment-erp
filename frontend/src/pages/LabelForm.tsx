@@ -46,9 +46,16 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   // Label types grouped by category
   const LABEL_TYPES_BY_CATEGORY: Record<string, string[]> = {
     SEWN_IN: [
-      'Main Label', 'Washcare Label', 'Size Label', 'Main Cum Size Label',
-      'Brand Label', 'Loop Tag', 'Traceability Label', 'Barcode Label',
-      'Country of Origin', 'Composition Label'
+      'Main Label',
+      'Washcare Label',
+      'Size Label',
+      'Main Cum Size Label',
+      'Brand Label',
+      'Loop Tag',
+      'Traceability Label',
+      'Barcode Label',
+      'Country of Origin',
+      'Composition Label',
     ],
     HANGTAG: ['Hangtag', 'Brand Hangtag', 'Product Hangtag', 'Disclaimer Tag', 'Liva Tag', 'Eco-Vera Tag'],
     PRICE_TAG: ['Price Tag'],
@@ -60,11 +67,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   // Get label types for current category
   const currentCategoryLabelTypes = LABEL_TYPES_BY_CATEGORY[labelCategory] || [];
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-  } = useForm<LabelFormData>();
+  const { register, handleSubmit, setValue } = useForm<LabelFormData>();
 
   const isNewLabel = mode === 'create' || !id;
 
@@ -102,10 +105,14 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   // Load brands when customer changes
   useEffect(() => {
     if (selectedCustomerId) {
-      const customer = customers.find(c => c.id === selectedCustomerId);
+      const customer = customers.find((c) => c.id === selectedCustomerId);
       if (customer) {
         // Extract brands from brandCategories
-        if (customer.brandCategories && Array.isArray(customer.brandCategories) && customer.brandCategories.length > 0) {
+        if (
+          customer.brandCategories &&
+          Array.isArray(customer.brandCategories) &&
+          customer.brandCategories.length > 0
+        ) {
           setAvailableBrands(customer.brandCategories);
         } else {
           setAvailableBrands([]);
@@ -153,14 +160,16 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
           // Set suppliers from junction table
           if (label.labelSuppliers && label.labelSuppliers.length > 0) {
-            setSuppliers(label.labelSuppliers.map(s => ({
-              supplierId: s.supplierId,
-              isPreferred: s.isPreferred,
-              isActive: s.isActive,
-              notes: s.notes || '',
-              pricePerPiece: s.pricePerPiece?.toString() || '',
-              pricePerHundred: s.pricePerHundred?.toString() || '',
-            })));
+            setSuppliers(
+              label.labelSuppliers.map((s) => ({
+                supplierId: s.supplierId,
+                isPreferred: s.isPreferred,
+                isActive: s.isActive,
+                notes: s.notes || '',
+                pricePerPiece: s.pricePerPiece?.toString() || '',
+                pricePerHundred: s.pricePerHundred?.toString() || '',
+              }))
+            );
           }
 
           // Set size category from size variants (if they exist)
@@ -201,24 +210,25 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
   // Supplier management functions
   const handleAddSupplier = () => {
-    setSuppliers(prev => [...prev, {
-      supplierId: '',
-      isPreferred: prev.length === 0, // First supplier is preferred by default
-      isActive: true,
-      notes: '',
-      pricePerPiece: '',
-      pricePerHundred: '',
-    }]);
+    setSuppliers((prev) => [
+      ...prev,
+      {
+        supplierId: '',
+        isPreferred: prev.length === 0, // First supplier is preferred by default
+        isActive: true,
+        notes: '',
+        pricePerPiece: '',
+        pricePerHundred: '',
+      },
+    ]);
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setSuppliers(prev => prev.filter((_, i) => i !== index));
+    setSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: keyof LabelSupplierInput, value: string | boolean) => {
-    setSuppliers(prev => prev.map((s, i) =>
-      i === index ? { ...s, [field]: value } : s
-    ));
+    setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const onSubmit = async (data: LabelFormData) => {
@@ -227,7 +237,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
       setError(null);
 
       // Validate suppliers have valid supplier IDs
-      const validSuppliers = suppliers.filter(s => s.supplierId);
+      const validSuppliers = suppliers.filter((s) => s.supplierId);
 
       // Determine the final label type value
       const finalLabelType = labelTypeValue === 'OTHER' ? data.labelType : labelTypeValue;
@@ -247,10 +257,16 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
       if (isNewLabel) {
         await createLabel(payload);
-        handleApiSuccess(`${getLabelCategoryTerm(labelCategory)} created`, `${getLabelCategoryTerm(labelCategory)} item has been successfully created.`);
+        handleApiSuccess(
+          `${getLabelCategoryTerm(labelCategory)} created`,
+          `${getLabelCategoryTerm(labelCategory)} item has been successfully created.`
+        );
       } else if (id) {
         await updateLabel(id, payload);
-        handleApiSuccess(`${getLabelCategoryTerm(labelCategory)} updated`, `${getLabelCategoryTerm(labelCategory)} item has been successfully updated.`);
+        handleApiSuccess(
+          `${getLabelCategoryTerm(labelCategory)} updated`,
+          `${getLabelCategoryTerm(labelCategory)} item has been successfully updated.`
+        );
       }
 
       navigate('/materials/label');
@@ -286,15 +302,13 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* LABEL INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">{getLabelCategoryTerm(labelCategory)} Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                {getLabelCategoryTerm(labelCategory)} Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Label Code - Auto-generated */}
                 <div className="md:col-span-2">
@@ -322,9 +336,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                         placeholder="Will be auto-generated (e.g., LBL-000001)"
                         className="bg-gray-50 cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Code will be automatically assigned upon creation
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
                     </>
                   )}
                 </div>
@@ -347,7 +359,9 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
                 {/* Label Category */}
                 <div>
-                  <Label htmlFor="labelCategory">Label Category <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="labelCategory">
+                    Label Category <span className="text-red-500">*</span>
+                  </Label>
                   <Select
                     value={labelCategory}
                     onValueChange={(value) => {
@@ -377,16 +391,15 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                 {/* Customer */}
                 <div>
                   <Label htmlFor="customerId">Customer (Optional)</Label>
-                  <Select
-                    value={selectedCustomerId || '_none_'}
-                    onValueChange={handleCustomerChange}
-                  >
+                  <Select value={selectedCustomerId || '_none_'} onValueChange={handleCustomerChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select customer..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_none_">No Customer (Generic {getLabelCategoryTerm(labelCategory)})</SelectItem>
-                      {customers.map(c => (
+                      <SelectItem value="_none_">
+                        No Customer (Generic {getLabelCategoryTerm(labelCategory)})
+                      </SelectItem>
+                      {customers.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name} ({c.code})
                         </SelectItem>
@@ -394,7 +407,8 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Link this {getLabelCategoryTerm(labelCategory).toLowerCase()} to a specific customer for customer-specific pricing/design
+                    Link this {getLabelCategoryTerm(labelCategory).toLowerCase()} to a specific customer for
+                    customer-specific pricing/design
                   </p>
                 </div>
 
@@ -408,11 +422,13 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                       disabled={!availableBrands.length}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={availableBrands.length > 0 ? "Select brand..." : "No brands available"} />
+                        <SelectValue
+                          placeholder={availableBrands.length > 0 ? 'Select brand...' : 'No brands available'}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="_none_">No Brand (Customer-Generic)</SelectItem>
-                        {availableBrands.map(brand => (
+                        {availableBrands.map((brand) => (
                           <SelectItem key={brand.id} value={brand.id}>
                             {brand.brandName} {brand.category && `- ${brand.category}`}
                           </SelectItem>
@@ -425,9 +441,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                       </p>
                     )}
                     {availableBrands.length > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Link to a specific brand within this customer
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Link to a specific brand within this customer</p>
                     )}
                   </div>
                 )}
@@ -443,11 +457,15 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={`Select ${getLabelCategoryTerm(labelCategory).toLowerCase()} type...`} />
+                      <SelectValue
+                        placeholder={`Select ${getLabelCategoryTerm(labelCategory).toLowerCase()} type...`}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {currentCategoryLabelTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
                       ))}
                       <SelectItem value="OTHER">Other (Custom)</SelectItem>
                     </SelectContent>
@@ -465,11 +483,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                 {/* Size */}
                 <div>
                   <Label htmlFor="size">Size (Physical Dimensions)</Label>
-                  <Input
-                    id="size"
-                    {...register('size')}
-                    placeholder="e.g., 2x3 inches, 50mm x 75mm"
-                  />
+                  <Input id="size" {...register('size')} placeholder="e.g., 2x3 inches, 50mm x 75mm" />
                   <p className="text-xs text-gray-500 mt-1">
                     Physical dimensions of the {getLabelCategoryTerm(labelCategory).toLowerCase()}
                   </p>
@@ -500,7 +514,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_none_">No Size Variants</SelectItem>
-                      {sizeCategories.map(cat => (
+                      {sizeCategories.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id}>
                           {cat.name} ({cat.sizes.length} sizes: {cat.sizes.join(', ')})
                         </SelectItem>
@@ -514,7 +528,8 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                         <div className="text-sm text-amber-900">
                           <div className="font-medium">Size variants already exist</div>
                           <div className="text-xs text-amber-800 mt-1">
-                            This {getLabelCategoryTerm(labelCategory).toLowerCase()} already has size variants. The size category is shown for reference only and cannot be changed.
+                            This {getLabelCategoryTerm(labelCategory).toLowerCase()} already has size variants. The size
+                            category is shown for reference only and cannot be changed.
                           </div>
                         </div>
                       </div>
@@ -533,9 +548,8 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                         <label htmlFor="generateSizeVariants" className="text-sm text-blue-900 cursor-pointer">
                           <div className="font-medium">Auto-generate size variants</div>
                           <div className="text-xs text-blue-700 mt-1">
-                            Create separate inventory entries for each size: {
-                              sizeCategories.find(c => c.id === sizeCategoryId)?.sizes.join(', ')
-                            }
+                            Create separate inventory entries for each size:{' '}
+                            {sizeCategories.find((c) => c.id === sizeCategoryId)?.sizes.join(', ')}
                           </div>
                           <div className="text-xs text-blue-700 mt-1">
                             This allows independent stock tracking for each size
@@ -559,9 +573,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     {...register('fabricContent')}
                     placeholder="e.g., 100% Cotton, 60% Polyester 40% Cotton"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    The fabric composition to be printed on the label
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">The fabric composition to be printed on the label</p>
                 </div>
 
                 {/* Washcare Instructions */}
@@ -573,9 +585,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     rows={2}
                     placeholder="e.g., Machine wash cold, tumble dry low, do not bleach, iron on low heat"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Care instructions for washing, drying, ironing, etc.
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Care instructions for washing, drying, ironing, etc.</p>
                 </div>
 
                 {/* Print Method */}
@@ -591,21 +601,13 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                 {/* Material */}
                 <div>
                   <Label htmlFor="material">Material</Label>
-                  <Input
-                    id="material"
-                    {...register('material')}
-                    placeholder="e.g., Polyester, Satin, Cotton"
-                  />
+                  <Input id="material" {...register('material')} placeholder="e.g., Polyester, Satin, Cotton" />
                 </div>
 
                 {/* Color */}
                 <div>
                   <Label htmlFor="color">Color</Label>
-                  <Input
-                    id="color"
-                    {...register('color')}
-                    placeholder="e.g., White, Black, Multi-color"
-                  />
+                  <Input id="color" {...register('color')} placeholder="e.g., White, Black, Multi-color" />
                 </div>
 
                 {/* Default Price Per Piece (for backward compatibility) */}
@@ -644,12 +646,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddSupplier}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
                 </Button>
@@ -667,7 +664,9 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
-                          <Label>Supplier <span className="text-red-500">*</span></Label>
+                          <Label>
+                            Supplier <span className="text-red-500">*</span>
+                          </Label>
                           <Select
                             value={supplier.supplierId || undefined}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
@@ -676,7 +675,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                               <SelectValue placeholder="Select supplier..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableSuppliers.map(s => (
+                              {availableSuppliers.map((s) => (
                                 <SelectItem key={s.id} value={s.id}>
                                   {s.code} - {s.name}
                                 </SelectItem>
@@ -792,16 +791,15 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
             {/* ACTION BUTTONS */}
             <div className="flex gap-4 justify-end pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/materials/label')}
-                disabled={isLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/materials/label')} disabled={isLoading}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : isNewLabel ? `Create ${getLabelCategoryTerm(labelCategory)}` : `Update ${getLabelCategoryTerm(labelCategory)}`}
+                {isLoading
+                  ? 'Saving...'
+                  : isNewLabel
+                    ? `Create ${getLabelCategoryTerm(labelCategory)}`
+                    : `Update ${getLabelCategoryTerm(labelCategory)}`}
               </Button>
             </div>
           </form>

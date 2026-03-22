@@ -5,15 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  FileText,
-  DollarSign,
-  AlertTriangle,
-  TrendingUp,
-  Clock,
-  Receipt,
-  BarChart3,
-} from 'lucide-react';
+import { FileText, DollarSign, AlertTriangle, TrendingUp, Clock, Receipt, BarChart3 } from 'lucide-react';
 import { DashboardLayout, DashboardSection } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
@@ -138,12 +130,12 @@ export default function AccountsDashboard() {
       setRecentInvoices(
         invoices.slice(0, 5).map((inv: Record<string, unknown>) => ({
           id: inv.id as string,
-          invoiceNumber: inv.invoiceNumber as string || 'N/A',
+          invoiceNumber: (inv.invoiceNumber as string) || 'N/A',
           customerName: (inv.customer as { name?: string })?.name || 'N/A',
-          totalAmount: inv.totalAmount as number || 0,
-          balanceAmount: inv.balanceAmount as number || 0,
+          totalAmount: (inv.totalAmount as number) || 0,
+          balanceAmount: (inv.balanceAmount as number) || 0,
           status: inv.status as string,
-          dueDate: inv.dueDate as string || '',
+          dueDate: (inv.dueDate as string) || '',
         }))
       );
 
@@ -168,11 +160,7 @@ export default function AccountsDashboard() {
       OVERDUE: 'bg-red-100 text-red-800',
       CANCELLED: 'bg-gray-100 text-gray-800',
     };
-    return (
-      <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>
-        {status.replace('_', ' ')}
-      </Badge>
-    );
+    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>{status.replace('_', ' ')}</Badge>;
   };
 
   return (

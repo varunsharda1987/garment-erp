@@ -134,10 +134,7 @@ export const autoAssign = async (req: Request, res: Response) => {
   try {
     const validatedData = AutoAssignVendorsSchema.parse(req.body);
 
-    const result = await autoAssignVendors(
-      validatedData.requirementIds,
-      validatedData.minConfidence
-    );
+    const result = await autoAssignVendors(validatedData.requirementIds, validatedData.minConfidence);
 
     res.json({
       success: true,
@@ -163,7 +160,7 @@ export const getSuppliersByType = async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        filteredSuppliers: suppliers,  // Use 'filteredSuppliers' to avoid serializer transforming 'suppliers' → 'supplier'
+        filteredSuppliers: suppliers, // Use 'filteredSuppliers' to avoid serializer transforming 'suppliers' → 'supplier'
         materialType: materialType || null,
         supplierCategories: categories,
         count: suppliers.length,

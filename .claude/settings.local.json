@@ -325,7 +325,9 @@
       "Bash(do echo:*)",
       "Read(//c/Users/NEW/garment-erp/backend/src/controllers/**)",
       "Read(//c/Users/NEW/garment-erp/backend/src/routes/**)",
-      "Bash(node -e \"console.log\\(require\\(''zod/package.json''\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\(''zod/package.json''\\).version\\)\")",
+      "Bash(npx husky:*)",
+      "Bash(npx prettier:*)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",

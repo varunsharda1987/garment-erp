@@ -58,10 +58,7 @@ export const deleteMachinePart = async (id: string): Promise<void> => {
 /**
  * Bulk import machine parts from Excel
  */
-export const bulkImportMachineParts = async (data: {
-  data: any[];
-  createStock?: boolean;
-}): Promise<any> => {
+export const bulkImportMachineParts = async (data: { data: any[]; createStock?: boolean }): Promise<any> => {
   const response = await api.post('/materials/machine-part/bulk-import', data);
   return response.data;
 };

@@ -7,7 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
@@ -45,7 +52,8 @@ export default function CustomerList() {
   const limit = 10;
 
   // Check if current user can create/edit customers
-  const canCreateEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'SALES' || currentUser?.role === 'MERCHANDISER';
+  const canCreateEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'SALES' || currentUser?.role === 'MERCHANDISER';
 
   // Fetch customers
   const fetchCustomers = async () => {
@@ -142,9 +150,7 @@ export default function CustomerList() {
     {
       key: 'code',
       header: 'Code',
-      render: (customer) => (
-        <div className="text-sm font-medium text-gray-900">{customer.code}</div>
-      ),
+      render: (customer) => <div className="text-sm font-medium text-gray-900">{customer.code}</div>,
     },
     {
       key: 'name',
@@ -152,9 +158,7 @@ export default function CustomerList() {
       render: (customer) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-          {customer.gstNumber && (
-            <div className="text-xs text-gray-500">GST: {customer.gstNumber}</div>
-          )}
+          {customer.gstNumber && <div className="text-xs text-gray-500">GST: {customer.gstNumber}</div>}
         </div>
       ),
     },
@@ -164,10 +168,17 @@ export default function CustomerList() {
       render: (customer) => (
         <div className="text-sm text-gray-700">
           {customer.brandNames
-            ? customer.brandNames.split('\n').filter(b => b.trim()).slice(0, 2).join(', ')
+            ? customer.brandNames
+                .split('\n')
+                .filter((b) => b.trim())
+                .slice(0, 2)
+                .join(', ')
             : '-'}
-          {customer.brandNames && customer.brandNames.split('\n').filter(b => b.trim()).length > 2 && (
-            <span className="text-xs text-gray-500"> +{customer.brandNames.split('\n').filter(b => b.trim()).length - 2} more</span>
+          {customer.brandNames && customer.brandNames.split('\n').filter((b) => b.trim()).length > 2 && (
+            <span className="text-xs text-gray-500">
+              {' '}
+              +{customer.brandNames.split('\n').filter((b) => b.trim()).length - 2} more
+            </span>
           )}
         </div>
       ),
@@ -178,10 +189,17 @@ export default function CustomerList() {
       render: (customer) => (
         <div className="text-sm text-gray-700">
           {customer.categories
-            ? customer.categories.split('\n').filter(c => c.trim()).slice(0, 2).join(', ')
+            ? customer.categories
+                .split('\n')
+                .filter((c) => c.trim())
+                .slice(0, 2)
+                .join(', ')
             : '-'}
-          {customer.categories && customer.categories.split('\n').filter(c => c.trim()).length > 2 && (
-            <span className="text-xs text-gray-500"> +{customer.categories.split('\n').filter(c => c.trim()).length - 2} more</span>
+          {customer.categories && customer.categories.split('\n').filter((c) => c.trim()).length > 2 && (
+            <span className="text-xs text-gray-500">
+              {' '}
+              +{customer.categories.split('\n').filter((c) => c.trim()).length - 2} more
+            </span>
           )}
         </div>
       ),
@@ -189,46 +207,34 @@ export default function CustomerList() {
     {
       key: 'category',
       header: 'Customer Category',
-      render: (customer) => (
-        <StatusBadge
-          status={customer.category}
-          variant={getCategoryVariant(customer.category)}
-        />
-      ),
+      render: (customer) => <StatusBadge status={customer.category} variant={getCategoryVariant(customer.category)} />,
     },
     {
       key: 'contact',
       header: 'Contact',
       render: (customer) => (
         <div>
-          {customer.contactPerson && (
-            <div className="text-sm text-gray-900">{customer.contactPerson}</div>
-          )}
-          {customer.email && (
-            <div className="text-xs text-gray-500">{customer.email}</div>
-          )}
+          {customer.contactPerson && <div className="text-sm text-gray-900">{customer.contactPerson}</div>}
+          {customer.email && <div className="text-xs text-gray-500">{customer.email}</div>}
         </div>
       ),
     },
     {
       key: 'phone',
       header: 'Phone',
-      render: (customer) => (
-        <div className="text-sm text-gray-900">{customer.phone || '-'}</div>
-      ),
+      render: (customer) => <div className="text-sm text-gray-900">{customer.phone || '-'}</div>,
     },
     {
       key: 'stats',
       header: 'Stats',
-      render: (customer) => (
+      render: (customer) =>
         customer._count && (
           <div className="text-xs text-gray-500">
             <div>Orders: {customer._count.orders}</div>
             <div>Quotations: {customer._count.quotations}</div>
             <div>Invoices: {customer._count.invoices}</div>
           </div>
-        )
-      ),
+        ),
     },
     {
       key: 'actions',
@@ -286,24 +292,14 @@ export default function CustomerList() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="text-2xl">Customer Management</CardTitle>
-              <CardDescription>
-                Manage customers, buyers, and suppliers
-              </CardDescription>
+              <CardDescription>Manage customers, buyers, and suppliers</CardDescription>
             </div>
             <div className="flex gap-2">
-              <ExportButton
-                module="customers"
-                filters={{ category: categoryFilter || undefined }}
-              />
+              <ExportButton module="customers" filters={{ category: categoryFilter || undefined }} />
               {canCreateEdit && (
                 <>
-                  <ImportButton
-                    module="customers"
-                    onSuccess={fetchCustomers}
-                  />
-                  <Button onClick={() => navigate('/customers/new')}>
-                    + Add Customer
-                  </Button>
+                  <ImportButton module="customers" onSuccess={fetchCustomers} />
+                  <Button onClick={() => navigate('/customers/new')}>+ Add Customer</Button>
                 </>
               )}
             </div>
@@ -319,7 +315,10 @@ export default function CustomerList() {
                 onChange={handleSearch}
               />
             </div>
-            <Select value={categoryFilter || "ALL"} onValueChange={(value) => setCategoryFilter(value === "ALL" ? "" : value)}>
+            <Select
+              value={categoryFilter || 'ALL'}
+              onValueChange={(value) => setCategoryFilter(value === 'ALL' ? '' : value)}
+            >
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filter by Category" />
               </SelectTrigger>
@@ -342,9 +341,10 @@ export default function CustomerList() {
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No customers found',
-              description: searchQuery || categoryFilter
-                ? 'Try adjusting your search or filter criteria'
-                : 'Get started by creating your first customer',
+              description:
+                searchQuery || categoryFilter
+                  ? 'Try adjusting your search or filter criteria'
+                  : 'Get started by creating your first customer',
               actionLabel: canCreateEdit && !searchQuery && !categoryFilter ? 'Create First Customer' : undefined,
               onAction: canCreateEdit && !searchQuery && !categoryFilter ? () => navigate('/customers/new') : undefined,
             }}

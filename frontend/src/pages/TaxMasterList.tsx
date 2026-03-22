@@ -5,19 +5,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,33 +17,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import {
-  getAllTaxMasters,
-  createTaxMaster,
-  updateTaxMaster,
-  deleteTaxMaster,
-} from '@/services/taxMaster.service';
-import type {
-  TaxMaster,
-  TaxType,
-  CreateTaxMasterRequest,
-  UpdateTaxMasterRequest,
-} from '@/types/taxMaster.types';
+import { getAllTaxMasters, createTaxMaster, updateTaxMaster, deleteTaxMaster } from '@/services/taxMaster.service';
+import type { TaxMaster, TaxType, CreateTaxMasterRequest, UpdateTaxMasterRequest } from '@/types/taxMaster.types';
 
 const TAX_TYPES: TaxType[] = ['GST', 'IGST', 'CGST', 'SGST', 'CESS', 'CUSTOM', 'TDS', 'TCS'];
 
@@ -103,8 +70,7 @@ export default function TaxMasterList() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateTaxMasterRequest }) =>
-      updateTaxMaster(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UpdateTaxMasterRequest }) => updateTaxMaster(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tax-masters'] });
       toast.success('Tax master updated successfully');
@@ -221,7 +187,7 @@ export default function TaxMasterList() {
             <Select
               value={typeFilter}
               onValueChange={(val) => {
-                setTypeFilter(val === 'ALL' ? '' : val as TaxType);
+                setTypeFilter(val === 'ALL' ? '' : (val as TaxType));
                 setPage(1);
               }}
             >
@@ -231,7 +197,9 @@ export default function TaxMasterList() {
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
                 {TAX_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -286,11 +254,7 @@ export default function TaxMasterList() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(item)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
@@ -315,16 +279,10 @@ export default function TaxMasterList() {
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-muted-foreground">
                 Showing {(pagination.page - 1) * pagination.limit + 1}-
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                {pagination.total}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
               </p>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
                   Previous
                 </Button>
                 <Button
@@ -345,9 +303,7 @@ export default function TaxMasterList() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>
-              {selectedItem ? 'Edit Tax Rate' : 'Add Tax Rate'}
-            </DialogTitle>
+            <DialogTitle>{selectedItem ? 'Edit Tax Rate' : 'Add Tax Rate'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -357,9 +313,7 @@ export default function TaxMasterList() {
                   id="taxCode"
                   placeholder="e.g., GST_12"
                   value={formData.taxCode}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, taxCode: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, taxCode: e.target.value }))}
                   required
                 />
               </div>
@@ -367,16 +321,16 @@ export default function TaxMasterList() {
                 <Label htmlFor="taxType">Tax Type *</Label>
                 <Select
                   value={formData.taxType}
-                  onValueChange={(val) =>
-                    setFormData((prev) => ({ ...prev, taxType: val as TaxType }))
-                  }
+                  onValueChange={(val) => setFormData((prev) => ({ ...prev, taxType: val as TaxType }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {TAX_TYPES.map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -389,9 +343,7 @@ export default function TaxMasterList() {
                 id="taxName"
                 placeholder="e.g., GST 12%"
                 value={formData.taxName}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, taxName: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, taxName: e.target.value }))}
                 required
               />
             </div>
@@ -421,9 +373,7 @@ export default function TaxMasterList() {
                   id="hsnSacCode"
                   placeholder="e.g., 62114210"
                   value={formData.hsnSacCode}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, hsnSacCode: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, hsnSacCode: e.target.value }))}
                 />
               </div>
             </div>
@@ -434,9 +384,7 @@ export default function TaxMasterList() {
                 id="description"
                 placeholder="Optional description"
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, description: e.target.value }))
-                }
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               />
             </div>
 
@@ -447,9 +395,7 @@ export default function TaxMasterList() {
                   id="applicableFrom"
                   type="date"
                   value={formData.applicableFrom}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, applicableFrom: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, applicableFrom: e.target.value }))}
                   required
                 />
               </div>
@@ -459,9 +405,7 @@ export default function TaxMasterList() {
                   id="applicableTo"
                   type="date"
                   value={formData.applicableTo}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, applicableTo: e.target.value }))
-                  }
+                  onChange={(e) => setFormData((prev) => ({ ...prev, applicableTo: e.target.value }))}
                 />
               </div>
             </div>
@@ -484,9 +428,8 @@ export default function TaxMasterList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Tax Rate</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete{' '}
-              <strong>{itemToDelete?.taxCode}</strong> ({itemToDelete?.taxName})?
-              This will deactivate the tax rate.
+              Are you sure you want to delete <strong>{itemToDelete?.taxCode}</strong> ({itemToDelete?.taxName})? This
+              will deactivate the tax rate.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

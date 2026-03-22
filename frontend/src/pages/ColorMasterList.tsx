@@ -3,13 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { colorService } from '@/services/colorService';
 import type { ColorMaster } from '@/types/color.types';
 import { COLOR_FAMILIES } from '@/types/color.types';
@@ -103,11 +97,7 @@ export default function ColorMasterList() {
       );
     }
     return (
-      <div
-        className="h-6 w-6 rounded border border-gray-200"
-        style={{ backgroundColor: hexCode }}
-        title={hexCode}
-      />
+      <div className="h-6 w-6 rounded border border-gray-200" style={{ backgroundColor: hexCode }} title={hexCode} />
     );
   };
 
@@ -130,9 +120,7 @@ export default function ColorMasterList() {
           <ColorSwatch hexCode={item.hexCode} />
           <div>
             <div className="text-sm font-medium text-gray-900">{item.colorName}</div>
-            {item.hexCode && (
-              <div className="text-xs text-gray-500 font-mono">{item.hexCode}</div>
-            )}
+            {item.hexCode && <div className="text-xs text-gray-500 font-mono">{item.hexCode}</div>}
           </div>
         </div>
       ),
@@ -140,28 +128,18 @@ export default function ColorMasterList() {
     {
       key: 'colorFamily',
       header: 'Family',
-      render: (item) => (
-        <Badge variant="secondary">
-          {item.colorFamily || 'Uncategorized'}
-        </Badge>
-      ),
+      render: (item) => <Badge variant="secondary">{item.colorFamily || 'Uncategorized'}</Badge>,
     },
     {
       key: 'description',
       header: 'Description',
-      render: (item) => (
-        <div className="text-sm text-gray-500 max-w-[200px] truncate">
-          {item.description || '-'}
-        </div>
-      ),
+      render: (item) => <div className="text-sm text-gray-500 max-w-[200px] truncate">{item.description || '-'}</div>,
     },
     {
       key: 'isActive',
       header: 'Status',
       render: (item) => (
-        <Badge variant={item.isActive ? 'default' : 'secondary'}>
-          {item.isActive ? 'Active' : 'Inactive'}
-        </Badge>
+        <Badge variant={item.isActive ? 'default' : 'secondary'}>{item.isActive ? 'Active' : 'Inactive'}</Badge>
       ),
     },
     {
@@ -251,18 +229,12 @@ export default function ColorMasterList() {
           </div>
 
           {/* Error */}
-          {error && (
-            <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">
-              {error}
-            </div>
-          )}
+          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
 
           {/* Stats */}
           <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
             <span>Total: {totalItems} colors</span>
-            {familyFilter !== 'all' && (
-              <span>• Filtered by: {familyFilter}</span>
-            )}
+            {familyFilter !== 'all' && <span>• Filtered by: {familyFilter}</span>}
           </div>
 
           {/* Data Table */}

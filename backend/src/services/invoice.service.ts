@@ -85,9 +85,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
   }
 
   protected buildSearchFilter(search: string): SearchFilter {
-    return [
-      { invoiceNumber: { contains: search, mode: 'insensitive' as const } },
-    ];
+    return [{ invoiceNumber: { contains: search, mode: 'insensitive' as const } }];
   }
 
   protected getDefaultIncludes(): IncludeConfig {
@@ -404,15 +402,10 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       } else {
         // ===== Header-level GST calculation (backward compatible) =====
         const taxRate = data.taxRate || 12;
-        const gstCalc = await gstService.calculateGST(
-          data.subtotal,
-          taxRate,
-          COMPANY_STATE_ID,
-          placeOfSupplyId
-        );
+        const gstCalc = await gstService.calculateGST(data.subtotal, taxRate, COMPANY_STATE_ID, placeOfSupplyId);
 
         const taxAmount = data.taxAmount !== undefined ? data.taxAmount : gstCalc.totalTax;
-        const totalAmount = data.totalAmount !== undefined ? data.totalAmount : (data.subtotal + taxAmount);
+        const totalAmount = data.totalAmount !== undefined ? data.totalAmount : data.subtotal + taxAmount;
         const balanceAmount = totalAmount;
 
         const invoice = await this.model.create({
@@ -576,11 +569,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         updateData.balanceAmount = data.totalAmount - paidAmount;
 
         // Recalculate status
-        updateData.status = this.calculateInvoiceStatus(
-          data.totalAmount,
-          paidAmount,
-          data.dueDate || existing.dueDate
-        );
+        updateData.status = this.calculateInvoiceStatus(data.totalAmount, paidAmount, data.dueDate || existing.dueDate);
       }
 
       const invoice = await this.model.update({
@@ -631,9 +620,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       // Validate payment amount
       const currentBalance = parseFloat(invoice.balanceAmount.toString());
       if (data.amount > currentBalance) {
-        throw new ValidationError(
-          `Payment amount (${data.amount}) exceeds balance (${currentBalance})`
-        );
+        throw new ValidationError(`Payment amount (${data.amount}) exceeds balance (${currentBalance})`);
       }
 
       if (data.amount <= 0) {
@@ -668,11 +655,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       const newBalanceAmount = parseFloat(invoice.totalAmount.toString()) - newPaidAmount;
 
       // Update invoice status
-      const newStatus = this.calculateInvoiceStatus(
-        invoice.totalAmount,
-        newPaidAmount,
-        invoice.dueDate
-      );
+      const newStatus = this.calculateInvoiceStatus(invoice.totalAmount, newPaidAmount, invoice.dueDate);
 
       await this.model.update({
         where: { id: data.invoiceId },

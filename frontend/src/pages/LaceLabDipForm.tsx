@@ -16,11 +16,7 @@ import { laceLabDipService } from '../services/laceLabDip.service';
 import { getGreigeLace } from '../services/lace.service';
 import { getAllSuppliers } from '../services/supplier.service';
 import type { LaceLabDip, LabDipStatus, CreateLabDipInput, UpdateLabDipStatusInput } from '../types/laceLabDip.types';
-import {
-  LAB_DIP_STATUS_COLORS,
-  LAB_DIP_STATUS_LABELS,
-  LAB_DIP_STATUS_TRANSITIONS,
-} from '../types/laceLabDip.types';
+import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS, LAB_DIP_STATUS_TRANSITIONS } from '../types/laceLabDip.types';
 import type { Lace } from '../types/lace.types';
 import type { Supplier } from '../types/supplier.types';
 import { notify } from '../lib/notify';
@@ -203,9 +199,7 @@ export default function LaceLabDipForm() {
   };
 
   // Get available next statuses
-  const availableTransitions = labDip
-    ? LAB_DIP_STATUS_TRANSITIONS[labDip.status]
-    : [];
+  const availableTransitions = labDip ? LAB_DIP_STATUS_TRANSITIONS[labDip.status] : [];
 
   if (loading && isEditMode && !labDip) {
     return (
@@ -225,14 +219,8 @@ export default function LaceLabDipForm() {
           Back
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">
-            {isEditMode ? 'Lab Dip Details' : 'New Lab Dip Request'}
-          </h1>
-          {labDip && (
-            <p className="text-gray-500">
-              {labDip.labDipNumber}
-            </p>
-          )}
+          <h1 className="text-3xl font-bold">{isEditMode ? 'Lab Dip Details' : 'New Lab Dip Request'}</h1>
+          {labDip && <p className="text-gray-500">{labDip.labDipNumber}</p>}
         </div>
       </div>
 
@@ -367,12 +355,10 @@ export default function LaceLabDipForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Greige Lace */}
               <div>
-                <Label>Greige Lace <span className="text-red-500">*</span></Label>
-                <Select
-                  value={greigeLaceId}
-                  onValueChange={setGreigeLaceId}
-                  disabled={isEditMode}
-                >
+                <Label>
+                  Greige Lace <span className="text-red-500">*</span>
+                </Label>
+                <Select value={greigeLaceId} onValueChange={setGreigeLaceId} disabled={isEditMode}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select greige lace..." />
                   </SelectTrigger>
@@ -388,12 +374,10 @@ export default function LaceLabDipForm() {
 
               {/* Processor */}
               <div>
-                <Label>Processor <span className="text-red-500">*</span></Label>
-                <Select
-                  value={processorId}
-                  onValueChange={setProcessorId}
-                  disabled={isEditMode}
-                >
+                <Label>
+                  Processor <span className="text-red-500">*</span>
+                </Label>
+                <Select value={processorId} onValueChange={setProcessorId} disabled={isEditMode}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select processor..." />
                   </SelectTrigger>
@@ -409,7 +393,9 @@ export default function LaceLabDipForm() {
 
               {/* Target Color */}
               <div>
-                <Label>Target Color <span className="text-red-500">*</span></Label>
+                <Label>
+                  Target Color <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   value={targetColor}
                   onChange={(e) => setTargetColor(e.target.value)}
@@ -456,11 +442,7 @@ export default function LaceLabDipForm() {
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-6 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/lace-lab-dips')}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/lace-lab-dips')}>
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>

@@ -142,7 +142,11 @@ class ConversationService {
   /**
    * Update conversation (title, status)
    */
-  async updateConversation(conversationId: string, userId: string, data: { title?: string; status?: ConversationStatus }) {
+  async updateConversation(
+    conversationId: string,
+    userId: string,
+    data: { title?: string; status?: ConversationStatus }
+  ) {
     try {
       // Verify ownership
       const existing = await prisma.ai_conversations.findFirst({
@@ -408,10 +412,13 @@ class ConversationService {
       return {
         totalConversations,
         totalMessages,
-        feedbackStats: feedbackStats.reduce((acc, item) => {
-          acc[item.rating] = item._count;
-          return acc;
-        }, {} as Record<string, number>),
+        feedbackStats: feedbackStats.reduce(
+          (acc, item) => {
+            acc[item.rating] = item._count;
+            return acc;
+          },
+          {} as Record<string, number>
+        ),
       };
     } catch (error) {
       logError('[ConversationService] Failed to get user stats:', error);

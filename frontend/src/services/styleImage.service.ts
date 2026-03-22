@@ -40,30 +40,19 @@ export const styleImageService = {
       formData.append('caption', caption);
     }
 
-    const response = await api.post<StyleImageResponse>(
-      `/styles/${styleId}/images`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
+    const response = await api.post<StyleImageResponse>(`/styles/${styleId}/images`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data.data;
   },
 
   /**
    * Update an image's metadata
    */
-  updateImage: async (
-    styleId: string,
-    imageId: string,
-    data: UpdateStyleImageDTO
-  ): Promise<StyleImage> => {
-    const response = await api.patch<StyleImageResponse>(
-      `/styles/${styleId}/images/${imageId}`,
-      data
-    );
+  updateImage: async (styleId: string, imageId: string, data: UpdateStyleImageDTO): Promise<StyleImage> => {
+    const response = await api.patch<StyleImageResponse>(`/styles/${styleId}/images/${imageId}`, data);
     return response.data.data;
   },
 
@@ -78,10 +67,7 @@ export const styleImageService = {
    * Reorder images
    */
   reorderImages: async (styleId: string, imageIds: string[]): Promise<StyleImage[]> => {
-    const response = await api.post<StyleImagesResponse>(
-      `/styles/${styleId}/images/reorder`,
-      { imageIds }
-    );
+    const response = await api.post<StyleImagesResponse>(`/styles/${styleId}/images/reorder`, { imageIds });
     return response.data.data;
   },
 

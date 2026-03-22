@@ -15,7 +15,7 @@ export const CADStatus = {
   APPROVED: 'APPROVED',
 } as const;
 
-export type CADStatus = typeof CADStatus[keyof typeof CADStatus];
+export type CADStatus = (typeof CADStatus)[keyof typeof CADStatus];
 
 // Print Direction enum for CAD planning
 export const PrintDirection = {
@@ -23,7 +23,7 @@ export const PrintDirection = {
   TWO_WAY: 'TWO_WAY',
 } as const;
 
-export type PrintDirection = typeof PrintDirection[keyof typeof PrintDirection];
+export type PrintDirection = (typeof PrintDirection)[keyof typeof PrintDirection];
 
 export const PRINT_DIRECTION_LABELS: Record<PrintDirection, string> = {
   [PrintDirection.ONE_WAY]: 'One-Way',
@@ -42,7 +42,7 @@ export const CADPurpose = {
   COSTING: 'COSTING',
 } as const;
 
-export type CADPurpose = typeof CADPurpose[keyof typeof CADPurpose];
+export type CADPurpose = (typeof CADPurpose)[keyof typeof CADPurpose];
 
 export const CAD_PURPOSE_LABELS: Record<CADPurpose, string> = {
   [CADPurpose.PRODUCTION]: 'Production',
@@ -65,7 +65,7 @@ export const CADApprovalStatus = {
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
 } as const;
-export type CADApprovalStatus = typeof CADApprovalStatus[keyof typeof CADApprovalStatus];
+export type CADApprovalStatus = (typeof CADApprovalStatus)[keyof typeof CADApprovalStatus];
 
 /**
  * CAD Approval Status Labels
@@ -242,8 +242,8 @@ export interface CADSpreadsheetRow {
   greigeName: string | null;
   cutableWidth: number | null;
   availableWidths: number[];
-  stockWidths?: number[];      // Available widths from stock
-  hasStockMatch?: boolean;     // Does stock exist for this fabric?
+  stockWidths?: number[]; // Available widths from stock
+  hasStockMatch?: boolean; // Does stock exist for this fabric?
   printDirection: PrintDirection;
   sizeBreakdowns: CADSizeBreakdown[];
   piecesPerMarker: number | null;
@@ -366,8 +366,8 @@ export interface CADTableData {
   style: CADStyleSummary;
   components: CADComponentOption[];
   availableGreiges: CADGreigeOption[];
-  sizeOptions?: CADSizeOption[];  // Backend may send as 'sizes' due to serializer
-  sizes?: CADSizeOption[];        // Serialized name from backend
+  sizeOptions?: CADSizeOption[]; // Backend may send as 'sizes' due to serializer
+  sizes?: CADSizeOption[]; // Serialized name from backend
   cadRows: CADSpreadsheetRow[];
   stockSummary?: FabricStockSummaryItem[];
 }
@@ -660,11 +660,11 @@ export interface CadAverageFormData {
 
 // Common fabric widths (in inches)
 export const COMMON_FABRIC_WIDTHS = [
-  36,  // 36 inches
-  44,  // 44 inches
-  54,  // 54 inches
-  58,  // 58 inches
-  60,  // 60 inches
-  72,  // 72 inches
+  36, // 36 inches
+  44, // 44 inches
+  54, // 54 inches
+  58, // 58 inches
+  60, // 60 inches
+  72, // 72 inches
   108, // 108 inches (extra wide)
 ];

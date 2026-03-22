@@ -29,7 +29,10 @@ const brandCategorySchema = z.object({
 const gstNumberSchema = z.object({
   stateId: z.string().uuid('Invalid state ID format').optional(),
   stateName: z.string().min(1, 'State name is required'),
-  stateCode: z.string().min(2, 'State code must be at least 2 characters').max(3, 'State code must be at most 3 characters'),
+  stateCode: z
+    .string()
+    .min(2, 'State code must be at least 2 characters')
+    .max(3, 'State code must be at most 3 characters'),
   gstNumber: z.string().regex(gstNumberRegex, 'Invalid GST number format'),
   billingAddress: z.string().optional(),
   billingCityId: z.string().uuid('Invalid city ID format').optional(),
@@ -63,28 +66,18 @@ export const createCustomerSchema = z.object({
     .or(z.literal('')),
 
   type: z
-    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType
+    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER']) // Matches Prisma CustomerType
     .optional(),
 
   category: z
-    .enum(['DOMESTIC', 'EXPORT', 'LOCAL'])  // Matches Prisma CustomerCategory
+    .enum(['DOMESTIC', 'EXPORT', 'LOCAL']) // Matches Prisma CustomerCategory
     .optional(),
 
-  businessType: z
-    .enum(['B2B', 'B2C'])
-    .optional()
-    .default('B2B'),
+  businessType: z.enum(['B2B', 'B2C']).optional().default('B2B'),
 
-  market: z
-    .enum(['INTERNATIONAL', 'DOMESTIC'])
-    .optional()
-    .default('DOMESTIC'),
+  market: z.enum(['INTERNATIONAL', 'DOMESTIC']).optional().default('DOMESTIC'),
 
-  contactPerson: z
-    .string()
-    .max(100, 'Contact person name must be less than 100 characters')
-    .trim()
-    .optional(),
+  contactPerson: z.string().max(100, 'Contact person name must be less than 100 characters').trim().optional(),
 
   email: z
     .string()
@@ -93,25 +86,13 @@ export const createCustomerSchema = z.object({
     .optional()
     .or(z.literal('')),
 
-  phone: z
-    .string()
-    .max(20, 'Phone number must be less than 20 characters')
-    .trim()
-    .optional(),
+  phone: z.string().max(20, 'Phone number must be less than 20 characters').trim().optional(),
 
-  billingAddress: z
-    .string()
-    .optional(),
+  billingAddress: z.string().optional(),
 
-  shippingAddress: z
-    .string()
-    .optional(),
+  shippingAddress: z.string().optional(),
 
-  gstNumber: z
-    .string()
-    .regex(gstNumberRegex, 'Invalid GST number format')
-    .optional()
-    .or(z.literal('')),
+  gstNumber: z.string().regex(gstNumberRegex, 'Invalid GST number format').optional().or(z.literal('')),
 
   creditLimit: z
     .number()
@@ -127,70 +108,32 @@ export const createCustomerSchema = z.object({
     .optional()
     .or(z.string().transform((val) => (val ? parseInt(val) : undefined))),
 
-  brandNames: z
-    .union([z.string(), z.array(z.string())])
-    .optional(),
+  brandNames: z.union([z.string(), z.array(z.string())]).optional(),
 
-  categories: z
-    .union([z.string(), z.array(z.string())])
-    .optional(),
+  categories: z.union([z.string(), z.array(z.string())]).optional(),
 
-  brandCategories: z
-    .array(brandCategorySchema)
-    .optional(),
+  brandCategories: z.array(brandCategorySchema).optional(),
 
-  gstNumbers: z
-    .array(gstNumberSchema)
-    .optional(),
+  gstNumbers: z.array(gstNumberSchema).optional(),
 
   // Testing Requirements (FPT/GPT)
-  requiresFPT: z
-    .boolean()
-    .optional()
-    .default(false),
+  requiresFPT: z.boolean().optional().default(false),
 
-  requiresGPT: z
-    .boolean()
-    .optional()
-    .default(false),
+  requiresGPT: z.boolean().optional().default(false),
 
-  fptBlocksProduction: z
-    .boolean()
-    .optional()
-    .default(false),
+  fptBlocksProduction: z.boolean().optional().default(false),
 
-  gptBlocksShipment: z
-    .boolean()
-    .optional()
-    .default(true),
+  gptBlocksShipment: z.boolean().optional().default(true),
 
-  fptTemplateId: z
-    .string()
-    .uuid('Invalid FPT template ID format')
-    .optional()
-    .nullable(),
+  fptTemplateId: z.string().uuid('Invalid FPT template ID format').optional().nullable(),
 
-  gptTemplateId: z
-    .string()
-    .uuid('Invalid GPT template ID format')
-    .optional()
-    .nullable(),
+  gptTemplateId: z.string().uuid('Invalid GPT template ID format').optional().nullable(),
 
-  buyerApprovesFPT: z
-    .boolean()
-    .optional()
-    .default(false),
+  buyerApprovesFPT: z.boolean().optional().default(false),
 
-  buyerApprovesGPT: z
-    .boolean()
-    .optional()
-    .default(false),
+  buyerApprovesGPT: z.boolean().optional().default(false),
 
-  defaultTestingLabId: z
-    .string()
-    .uuid('Invalid testing lab ID format')
-    .optional()
-    .nullable(),
+  defaultTestingLabId: z.string().uuid('Invalid testing lab ID format').optional().nullable(),
 });
 
 /**
@@ -221,26 +164,18 @@ export const updateCustomerSchema = z.object({
     .or(z.literal('')),
 
   type: z
-    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType
+    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER']) // Matches Prisma CustomerType
     .optional(),
 
   category: z
-    .enum(['DOMESTIC', 'EXPORT', 'LOCAL'])  // Matches Prisma CustomerCategory
+    .enum(['DOMESTIC', 'EXPORT', 'LOCAL']) // Matches Prisma CustomerCategory
     .optional(),
 
-  businessType: z
-    .enum(['B2B', 'B2C'])
-    .optional(),
+  businessType: z.enum(['B2B', 'B2C']).optional(),
 
-  market: z
-    .enum(['INTERNATIONAL', 'DOMESTIC'])
-    .optional(),
+  market: z.enum(['INTERNATIONAL', 'DOMESTIC']).optional(),
 
-  contactPerson: z
-    .string()
-    .max(100, 'Contact person name must be less than 100 characters')
-    .trim()
-    .optional(),
+  contactPerson: z.string().max(100, 'Contact person name must be less than 100 characters').trim().optional(),
 
   email: z
     .string()
@@ -249,25 +184,13 @@ export const updateCustomerSchema = z.object({
     .optional()
     .or(z.literal('')),
 
-  phone: z
-    .string()
-    .max(20, 'Phone number must be less than 20 characters')
-    .trim()
-    .optional(),
+  phone: z.string().max(20, 'Phone number must be less than 20 characters').trim().optional(),
 
-  billingAddress: z
-    .string()
-    .optional(),
+  billingAddress: z.string().optional(),
 
-  shippingAddress: z
-    .string()
-    .optional(),
+  shippingAddress: z.string().optional(),
 
-  gstNumber: z
-    .string()
-    .regex(gstNumberRegex, 'Invalid GST number format')
-    .optional()
-    .or(z.literal('')),
+  gstNumber: z.string().regex(gstNumberRegex, 'Invalid GST number format').optional().or(z.literal('')),
 
   creditLimit: z
     .number()
@@ -283,64 +206,32 @@ export const updateCustomerSchema = z.object({
     .optional()
     .or(z.string().transform((val) => (val ? parseInt(val) : undefined))),
 
-  brandNames: z
-    .union([z.string(), z.array(z.string())])
-    .optional(),
+  brandNames: z.union([z.string(), z.array(z.string())]).optional(),
 
-  categories: z
-    .union([z.string(), z.array(z.string())])
-    .optional(),
+  categories: z.union([z.string(), z.array(z.string())]).optional(),
 
-  brandCategories: z
-    .array(brandCategorySchema)
-    .optional(),
+  brandCategories: z.array(brandCategorySchema).optional(),
 
-  gstNumbers: z
-    .array(gstNumberSchema)
-    .optional(),
+  gstNumbers: z.array(gstNumberSchema).optional(),
 
   // Testing Requirements (FPT/GPT)
-  requiresFPT: z
-    .boolean()
-    .optional(),
+  requiresFPT: z.boolean().optional(),
 
-  requiresGPT: z
-    .boolean()
-    .optional(),
+  requiresGPT: z.boolean().optional(),
 
-  fptBlocksProduction: z
-    .boolean()
-    .optional(),
+  fptBlocksProduction: z.boolean().optional(),
 
-  gptBlocksShipment: z
-    .boolean()
-    .optional(),
+  gptBlocksShipment: z.boolean().optional(),
 
-  fptTemplateId: z
-    .string()
-    .uuid('Invalid FPT template ID format')
-    .optional()
-    .nullable(),
+  fptTemplateId: z.string().uuid('Invalid FPT template ID format').optional().nullable(),
 
-  gptTemplateId: z
-    .string()
-    .uuid('Invalid GPT template ID format')
-    .optional()
-    .nullable(),
+  gptTemplateId: z.string().uuid('Invalid GPT template ID format').optional().nullable(),
 
-  buyerApprovesFPT: z
-    .boolean()
-    .optional(),
+  buyerApprovesFPT: z.boolean().optional(),
 
-  buyerApprovesGPT: z
-    .boolean()
-    .optional(),
+  buyerApprovesGPT: z.boolean().optional(),
 
-  defaultTestingLabId: z
-    .string()
-    .uuid('Invalid testing lab ID format')
-    .optional()
-    .nullable(),
+  defaultTestingLabId: z.string().uuid('Invalid testing lab ID format').optional().nullable(),
 });
 
 /**
@@ -352,16 +243,14 @@ export const customerQuerySchema = z.object({
 
   limit: z.coerce.number().int().min(1).max(1000).optional().default(10),
 
-  search: z
-    .string()
-    .optional(),
+  search: z.string().optional(),
 
   type: z
-    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER'])  // Matches Prisma CustomerType
+    .enum(['BUYER', 'AGENT', 'DISTRIBUTOR', 'RETAILER', 'WHOLESALER']) // Matches Prisma CustomerType
     .optional(),
 
   category: z
-    .enum(['DOMESTIC', 'EXPORT', 'LOCAL'])  // Matches Prisma CustomerCategory
+    .enum(['DOMESTIC', 'EXPORT', 'LOCAL']) // Matches Prisma CustomerCategory
     .optional(),
 
   isActive: z
@@ -376,9 +265,7 @@ export const customerQuerySchema = z.object({
  * For validating :id route parameters
  */
 export const customerIdParamSchema = z.object({
-  id: z
-    .string()
-    .uuid('Invalid customer ID format'),
+  id: z.string().uuid('Invalid customer ID format'),
 });
 
 // Type exports for TypeScript

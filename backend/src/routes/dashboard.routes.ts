@@ -1,9 +1,6 @@
 // Dashboard routes
 import { Router } from 'express';
-import {
-  getDashboardSummary,
-  getStylesByStage,
-} from '../controllers/dashboard.controller';
+import { getDashboardSummary, getStylesByStage } from '../controllers/dashboard.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 

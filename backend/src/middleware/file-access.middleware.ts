@@ -26,11 +26,7 @@ const FILE_ACCESS_MODE = (process.env.FILE_ACCESS_MODE as FileAccessMode) || 'pu
  * - 'authenticated': Requires valid JWT token
  * - 'signed': Requires valid signed URL
  */
-export function fileAccessMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function fileAccessMiddleware(req: Request, res: Response, next: NextFunction): void {
   // Always allow OPTIONS requests (CORS preflight)
   if (req.method === 'OPTIONS') {
     next();
@@ -61,11 +57,7 @@ export function fileAccessMiddleware(
 /**
  * Verify access using JWT token
  */
-function verifyAuthenticatedAccess(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+function verifyAuthenticatedAccess(req: Request, res: Response, next: NextFunction): void {
   // Check for token in Authorization header or query param
   const authHeader = req.headers.authorization;
   const queryToken = req.query.token as string;
@@ -96,11 +88,7 @@ function verifyAuthenticatedAccess(
 /**
  * Verify access using signed URL
  */
-function verifySignedAccess(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+function verifySignedAccess(req: Request, res: Response, next: NextFunction): void {
   const { expires, signature } = req.query as { expires?: string; signature?: string };
 
   // No signature params - deny access

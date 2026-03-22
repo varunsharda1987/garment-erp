@@ -58,10 +58,7 @@ export const challanService = {
   },
 
   // Get challan stats
-  async getChallanStats(filters?: {
-    orderId?: string;
-    productionRunId?: string;
-  }): Promise<ChallanStats> {
+  async getChallanStats(filters?: { orderId?: string; productionRunId?: string }): Promise<ChallanStats> {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {

@@ -5,19 +5,13 @@
 
 import { GRNStatus, PurchaseOrderStatus, Prisma, MovementType } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import {
-  CreateGRNDTO,
-  GRNFilters,
-  PendingPOItem,
-  ProcessingReceiveData,
-  ProcessingQCData,
-} from '../types/grn.types';
+import { CreateGRNDTO, GRNFilters, PendingPOItem, ProcessingReceiveData, ProcessingQCData } from '../types/grn.types';
 import { createChallan } from './challan.service';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
 import { costSheetPOGenerationService } from './costSheetPOGeneration.service';
 import greigeStockService from './greige-stock.service';
-import prisma from '../config/database';  // Use singleton to avoid connection pool leak
+import prisma from '../config/database'; // Use singleton to avoid connection pool leak
 import { logInfo, logError } from '../utils/logger';
 
 class GRNService {
@@ -126,8 +120,7 @@ class GRNService {
               id: randomUUID(),
               poItemId: item.poItemId,
               materialId: item.materialId,
-              orderedQuantity: po.purchase_order_items.find((pi) => pi.id === item.poItemId)
-                ?.orderedQuantity || 0,
+              orderedQuantity: po.purchase_order_items.find((pi) => pi.id === item.poItemId)?.orderedQuantity || 0,
               receivedQuantity: item.receivedQuantity,
               acceptedQuantity: item.acceptedQuantity,
               rejectedQuantity: item.rejectedQuantity,
@@ -174,7 +167,8 @@ class GRNService {
         } else if (jobWorkOrder.status !== 'AT_MILL' && jobWorkOrder.status !== 'SENT_TO_MILL') {
           throw new Error(`Cannot receive. Job status is ${jobWorkOrder.status}, expected AT_MILL`);
         } else {
-          const { qtyReceivedMeters, receivedWidthInches, thanCount, foldLengthCm, receivedChallan } = data.processingData;
+          const { qtyReceivedMeters, receivedWidthInches, thanCount, foldLengthCm, receivedChallan } =
+            data.processingData;
 
           // Calculate actual meters from than measurement
           let calculatedActualMeters: number | null = null;
@@ -188,9 +182,7 @@ class GRNService {
 
           // Calculate shrinkage and width variance
           const sentMeters = Number(jobWorkOrder.qtySentMeters);
-          const actualShrinkage = sentMeters > 0
-            ? ((sentMeters - actualMeters) / sentMeters) * 100
-            : 0;
+          const actualShrinkage = sentMeters > 0 ? ((sentMeters - actualMeters) / sentMeters) * 100 : 0;
           const widthVariance = receivedWidthInches - Number(jobWorkOrder.sentWidthInches);
 
           // Update fabric_master actual width if finished fabric exists
@@ -219,13 +211,15 @@ class GRNService {
               issuedById: userId,
               unit: 'METERS',
               remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
-              items: [{
-                itemType: 'FABRIC',
-                fabricId: jobWorkOrder.finishedFabricId || jobWorkOrder.fabricId,
-                description: `Processed fabric received via GRN - ${jobWorkOrder.style?.styleCode || ''}`,
-                quantity: actualMeters,
-                unit: 'METERS',
-              }],
+              items: [
+                {
+                  itemType: 'FABRIC',
+                  fabricId: jobWorkOrder.finishedFabricId || jobWorkOrder.fabricId,
+                  description: `Processed fabric received via GRN - ${jobWorkOrder.style?.styleCode || ''}`,
+                  quantity: actualMeters,
+                  unit: 'METERS',
+                },
+              ],
             });
             inwardChallanId = challan.id;
           } catch (challanError) {
@@ -261,9 +255,11 @@ class GRNService {
         }
       } catch (processingError) {
         // If it's a user-facing error (conflict/validation), re-throw
-        if (processingError instanceof Error &&
-            (processingError.message.includes('already been received') ||
-             processingError.message.includes('Cannot receive'))) {
+        if (
+          processingError instanceof Error &&
+          (processingError.message.includes('already been received') ||
+            processingError.message.includes('Cannot receive'))
+        ) {
           throw processingError;
         }
         logError('Failed to process PROCESSING PO receive via GRN', processingError);
@@ -438,18 +434,18 @@ class GRNService {
     }
 
     return po.purchase_order_items
-    .filter((item) => item.materialId !== null)
-    .map((item) => ({
-      poItemId: item.id,
-      materialId: item.materialId as string,
-      materialCode: item.materials?.code || '',
-      materialName: item.materials?.name || '',
-      unit: item.unit,
-      orderedQuantity: Number(item.orderedQuantity),
-      totalReceivedQuantity: Number(item.receivedQuantity),
-      pendingQuantity: Number(item.orderedQuantity) - Number(item.receivedQuantity),
-      unitPrice: Number(item.unitPrice),
-    }));
+      .filter((item) => item.materialId !== null)
+      .map((item) => ({
+        poItemId: item.id,
+        materialId: item.materialId as string,
+        materialCode: item.materials?.code || '',
+        materialName: item.materials?.name || '',
+        unit: item.unit,
+        orderedQuantity: Number(item.orderedQuantity),
+        totalReceivedQuantity: Number(item.receivedQuantity),
+        pendingQuantity: Number(item.orderedQuantity) - Number(item.receivedQuantity),
+        unitPrice: Number(item.unitPrice),
+      }));
   }
 
   /**
@@ -544,14 +540,16 @@ class GRNService {
           const goodQty = qtyReceived - defectMetersNum;
           const receivedWidth = Number(jobWorkOrder.receivedWidthInches || jobWorkOrder.sentWidthInches);
           const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
-          const processingRate = Number(processingQC?.actualRate || jobWorkOrder.actualRate || jobWorkOrder.agreedRatePerMeter);
+          const processingRate = Number(
+            processingQC?.actualRate || jobWorkOrder.actualRate || jobWorkOrder.agreedRatePerMeter
+          );
           const sourceCost = jobWorkOrder.greigeStockLot?.purchaseCost
             ? Number(jobWorkOrder.greigeStockLot.purchaseCost)
-            : (jobWorkOrder.fabricStockLot?.purchaseCost
+            : jobWorkOrder.fabricStockLot?.purchaseCost
               ? Number(jobWorkOrder.fabricStockLot.purchaseCost)
-              : 0);
+              : 0;
           const totalCostPerMeter = processingRate + sourceCost;
-          const qualityGrade = (processingQC?.qualityGrade || jobWorkOrder.qualityGrade || 'A');
+          const qualityGrade = processingQC?.qualityGrade || jobWorkOrder.qualityGrade || 'A';
           const processType = jobWorkOrder.processType;
           const fabricFinishType = processType === 'PRINTING' ? 'PRINTED' : 'DYED';
 
@@ -642,7 +640,7 @@ class GRNService {
           });
         }
 
-        return approved;  // Skip normal stock_movements/stock_levels
+        return approved; // Skip normal stock_movements/stock_levels
       }
 
       // Create stock movements and update stock levels for accepted items
@@ -650,9 +648,7 @@ class GRNService {
         const acceptedQty = Number(item.acceptedQuantity);
         if (acceptedQty > 0) {
           // Get unit price from PO item for stock valuation
-          const unitPrice = item.purchase_order_items
-            ? Number(item.purchase_order_items.unitPrice)
-            : 0;
+          const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
           const totalValue = acceptedQty * unitPrice;
 
@@ -749,25 +745,28 @@ class GRNService {
             });
 
             if (!material?.greigeId || !material.greige_master) {
-              logInfo(`GRN item ${item.id}: material ${item.materialId} has no greige link, skipping greige_stock creation`);
+              logInfo(
+                `GRN item ${item.id}: material ${item.materialId} has no greige link, skipping greige_stock creation`
+              );
               continue;
             }
 
             const greige = material.greige_master;
-            const unitPrice = item.purchase_order_items
-              ? Number(item.purchase_order_items.unitPrice)
-              : 0;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
-            await greigeStockService.createGreigeStock({
-              greigeId: greige.id,
-              quantity: acceptedQty,
-              width: Number(greige.greigeWidth || 44),
-              purchaseCost: unitPrice,
-              supplierId: grn.supplierId,
-              receivedDate: grn.receivingDate,
-              warehouseLocation: grn.warehouseId || undefined,
-              qualityGrade: 'A',
-            }, userId);
+            await greigeStockService.createGreigeStock(
+              {
+                greigeId: greige.id,
+                quantity: acceptedQty,
+                width: Number(greige.greigeWidth || 44),
+                purchaseCost: unitPrice,
+                supplierId: grn.supplierId,
+                receivedDate: grn.receivingDate,
+                warehouseLocation: grn.warehouseId || undefined,
+                qualityGrade: 'A',
+              },
+              userId
+            );
 
             logInfo(`Auto-created greige_stock from GRN ${grn.grnNumber}: ${acceptedQty}m of ${greige.greigeCode}`, {
               grnId: id,
@@ -799,18 +798,16 @@ class GRNService {
             });
 
             if (!material?.fabricId || !material.fabric_master) {
-              logInfo(`GRN item ${item.id}: material ${item.materialId} has no fabric link, skipping fabric_stock creation`);
+              logInfo(
+                `GRN item ${item.id}: material ${item.materialId} has no fabric link, skipping fabric_stock creation`
+              );
               continue;
             }
 
             const fabric = material.fabric_master;
-            const unitPrice = item.purchase_order_items
-              ? Number(item.purchase_order_items.unitPrice)
-              : 0;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
             const actualWidth = Number(fabric.actualWidth || 0);
-            const cutableWidth = Number(
-              fabric.cutableWidth || (actualWidth > 2 ? actualWidth - 2 : actualWidth)
-            );
+            const cutableWidth = Number(fabric.cutableWidth || (actualWidth > 2 ? actualWidth - 2 : actualWidth));
 
             await prisma.fabric_stock.create({
               data: {
@@ -831,11 +828,14 @@ class GRNService {
               },
             });
 
-            logInfo(`Auto-created fabric_stock from FABRIC GRN ${grn.grnNumber}: ${acceptedQty}m of fabricId=${fabric.id}`, {
-              grnId: id,
-              fabricId: fabric.id,
-              quantity: acceptedQty,
-            });
+            logInfo(
+              `Auto-created fabric_stock from FABRIC GRN ${grn.grnNumber}: ${acceptedQty}m of fabricId=${fabric.id}`,
+              {
+                grnId: id,
+                fabricId: fabric.id,
+                quantity: acceptedQty,
+              }
+            );
           } catch (fabricErr) {
             // Non-critical: log but don't fail GRN approval
             logError(`Failed to auto-create fabric_stock for GRN item ${item.id}`, fabricErr);
@@ -878,9 +878,7 @@ class GRNService {
         data: {
           status: GRNStatus.REJECTED,
           approvedById: userId,
-          remarks: reason
-            ? `${grn.remarks || ''}\n\nRejection reason: ${reason}`.trim()
-            : grn.remarks,
+          remarks: reason ? `${grn.remarks || ''}\n\nRejection reason: ${reason}`.trim() : grn.remarks,
         },
         include: this.getFullInclude(),
       });

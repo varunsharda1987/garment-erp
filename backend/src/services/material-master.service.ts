@@ -183,10 +183,7 @@ export async function getSuppliers(materialId: number) {
   });
 }
 
-export async function addSupplier(
-  materialId: number,
-  data: MaterialSupplierMappingDto
-) {
+export async function addSupplier(materialId: number, data: MaterialSupplierMappingDto) {
   // If setting as primary, unset other primaries
   if (data.isPrimary) {
     await prisma.material_supplier_mapping.updateMany({
@@ -288,16 +285,11 @@ function getMaterialTypePrefix(materialType: MaterialType): string {
 }
 
 // Helper: Validate material type-specific specifications
-function validateSpecifications(
-  materialType: MaterialType,
-  specifications: any
-) {
+function validateSpecifications(materialType: MaterialType, specifications: any) {
   if (!specifications) return;
 
   // Type-specific validation rules
-  const validationRules: Partial<
-    Record<MaterialType, (specs: any) => void>
-  > = {
+  const validationRules: Partial<Record<MaterialType, (specs: any) => void>> = {
     LACE: (specs) => {
       if (specs.width && (specs.width <= 0 || specs.width > 1000)) {
         throw new Error('Lace width must be between 0 and 1000mm');

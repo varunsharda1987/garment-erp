@@ -148,7 +148,6 @@ async function migrateCustomerCodes() {
       console.log(`${category}: ${count} customers`);
     }
     console.log('=====================================\n');
-
   } catch (error) {
     logError('Migration failed:', error);
     throw error;

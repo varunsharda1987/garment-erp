@@ -10,13 +10,7 @@ import { Card } from '../../../../components/ui/card';
 import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { Textarea } from '../../../../components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../../../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { Badge } from '../../../../components/ui/badge';
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
@@ -31,12 +25,7 @@ interface BasicInfoTabProps {
   generateSKUs: () => void;
 }
 
-export function BasicInfoTab({
-  onNext,
-  onImageUpload,
-  onDeleteImage,
-  generateSKUs,
-}: BasicInfoTabProps) {
+export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKUs }: BasicInfoTabProps) {
   const { state, dispatch, toggleAdditionalDetails, setBasicInfo } = useStyleForm();
 
   const {
@@ -119,7 +108,7 @@ export function BasicInfoTab({
               disabled={!availableBrands.length}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={availableBrands.length > 0 ? "Select brand..." : "No brands available"} />
+                <SelectValue placeholder={availableBrands.length > 0 ? 'Select brand...' : 'No brands available'} />
               </SelectTrigger>
               <SelectContent>
                 {availableBrands.map((brand) => (
@@ -138,7 +127,7 @@ export function BasicInfoTab({
             <Select
               value={brandCategoryId}
               onValueChange={(value) => {
-                const selectedBrandCategory = availableCategories.find(bc => bc.id === value);
+                const selectedBrandCategory = availableCategories.find((bc) => bc.id === value);
                 setBasicInfo({
                   brandCategoryId: value,
                   category: selectedBrandCategory?.category || '',
@@ -147,7 +136,9 @@ export function BasicInfoTab({
               disabled={!availableCategories.length}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={availableCategories.length > 0 ? "Select category..." : "Select brand first"} />
+                <SelectValue
+                  placeholder={availableCategories.length > 0 ? 'Select category...' : 'Select brand first'}
+                />
               </SelectTrigger>
               <SelectContent>
                 {availableCategories.map((bc) => (
@@ -191,14 +182,17 @@ export function BasicInfoTab({
           <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <Label className="text-base font-semibold mb-3 block">Component Selection</Label>
             <p className="text-xs text-gray-600 mb-3">
-              Select component category and specific component for each part of the garment.
-              Manage components in <a href="/component-masters" className="text-blue-600 hover:underline">Component Masters</a>.
+              Select component category and specific component for each part of the garment. Manage components in{' '}
+              <a href="/component-masters" className="text-blue-600 hover:underline">
+                Component Masters
+              </a>
+              .
             </p>
             <div className="grid grid-cols-1 gap-4">
               {Array.from({ length: numberOfComponents }, (_, index) => {
                 const currentComponent = selectedComponents[index] || { category: '', componentId: '' };
                 const filteredComponents = currentComponent.category
-                  ? componentMasters.filter(c => c.componentCategory === currentComponent.category)
+                  ? componentMasters.filter((c) => c.componentCategory === currentComponent.category)
                   : componentMasters;
 
                 return (
@@ -210,7 +204,7 @@ export function BasicInfoTab({
                         onValueChange={(value) => {
                           dispatch({
                             type: 'UPDATE_SELECTED_COMPONENT',
-                            payload: { index, component: { category: value, componentId: '' } }
+                            payload: { index, component: { category: value, componentId: '' } },
                           });
                         }}
                       >
@@ -235,14 +229,16 @@ export function BasicInfoTab({
                             type: 'UPDATE_SELECTED_COMPONENT',
                             payload: {
                               index,
-                              component: { category: currentComponent.category, componentId: value }
-                            }
+                              component: { category: currentComponent.category, componentId: value },
+                            },
                           });
                         }}
                         disabled={!currentComponent.category}
                       >
                         <SelectTrigger className="mt-1">
-                          <SelectValue placeholder={currentComponent.category ? "Select component..." : "Select category first"} />
+                          <SelectValue
+                            placeholder={currentComponent.category ? 'Select component...' : 'Select category first'}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {filteredComponents.map((component) => (
@@ -284,7 +280,8 @@ export function BasicInfoTab({
                         alt="Style preview"
                         className="max-w-md max-h-64 object-contain"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+';
+                          (e.target as HTMLImageElement).src =
+                            'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+';
                         }}
                       />
                     </div>
@@ -317,19 +314,13 @@ export function BasicInfoTab({
                     disabled={uploadingImage || !styleId}
                     className="flex-1"
                   />
-                  {uploadingImage && (
-                    <span className="text-sm text-gray-500">Uploading...</span>
-                  )}
+                  {uploadingImage && <span className="text-sm text-gray-500">Uploading...</span>}
                 </div>
 
                 {!styleId && (
-                  <p className="text-xs text-amber-600">
-                    Note: Image upload is available after creating the style
-                  </p>
+                  <p className="text-xs text-amber-600">Note: Image upload is available after creating the style</p>
                 )}
-                <p className="text-xs text-gray-500">
-                  Supported formats: JPG, PNG (Max size: 5MB)
-                </p>
+                <p className="text-xs text-gray-500">Supported formats: JPG, PNG (Max size: 5MB)</p>
               </div>
             </div>
 
@@ -417,9 +408,7 @@ export function BasicInfoTab({
                   />
                 </div>
                 <div className="flex items-end">
-                  <p className="text-xs text-gray-500">
-                    Accounting SKU will be mapped to each size variant below
-                  </p>
+                  <p className="text-xs text-gray-500">Accounting SKU will be mapped to each size variant below</p>
                 </div>
               </div>
             </div>
@@ -442,7 +431,7 @@ export function BasicInfoTab({
                         onCheckedChange={(checked) => {
                           dispatch({
                             type: 'UPDATE_SKU_VARIANT',
-                            payload: { index, variant: { ...variant, isActive: !!checked } }
+                            payload: { index, variant: { ...variant, isActive: !!checked } },
                           });
                         }}
                       />
@@ -457,7 +446,7 @@ export function BasicInfoTab({
                         onChange={(e) => {
                           dispatch({
                             type: 'UPDATE_SKU_VARIANT',
-                            payload: { index, variant: { ...variant, sku: e.target.value } }
+                            payload: { index, variant: { ...variant, sku: e.target.value } },
                           });
                         }}
                         disabled={!variant.isActive}
@@ -470,7 +459,7 @@ export function BasicInfoTab({
                         onChange={(e) => {
                           dispatch({
                             type: 'UPDATE_SKU_VARIANT',
-                            payload: { index, variant: { ...variant, accountingSKU: e.target.value } }
+                            payload: { index, variant: { ...variant, accountingSKU: e.target.value } },
                           });
                         }}
                         disabled={!variant.isActive}
@@ -483,7 +472,7 @@ export function BasicInfoTab({
                         onChange={(e) => {
                           dispatch({
                             type: 'UPDATE_SKU_VARIANT',
-                            payload: { index, variant: { ...variant, barcode: e.target.value } }
+                            payload: { index, variant: { ...variant, barcode: e.target.value } },
                           });
                         }}
                         disabled={!variant.isActive}

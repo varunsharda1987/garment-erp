@@ -9,10 +9,7 @@
  */
 
 import { PrismaClient, ThreadPly, ThreadMaterial, ThreadPackagingType, ThreadQuantityInput } from '@prisma/client';
-import {
-  processThreadQuantityInput,
-  calculateReorderQuantity,
-} from './thread-conversion.service';
+import { processThreadQuantityInput, calculateReorderQuantity } from './thread-conversion.service';
 
 const prisma = new PrismaClient();
 
@@ -97,9 +94,7 @@ export interface ThreadShortage {
 /**
  * Create a new thread requirement for an order
  */
-export async function createThreadRequirement(
-  data: CreateThreadRequirementDto
-): Promise<OrderThreadRequirement> {
+export async function createThreadRequirement(data: CreateThreadRequirementDto): Promise<OrderThreadRequirement> {
   // Fetch thread details
   const thread = await prisma.thread_master.findUnique({
     where: { id: data.threadId },
@@ -119,9 +114,7 @@ export async function createThreadRequirement(
 
   // Validate color
   if (!thread.colorId || !thread.colorMaster) {
-    throw new Error(
-      `Thread ${thread.threadCode} is missing color. Please update the thread master.`
-    );
+    throw new Error(`Thread ${thread.threadCode} is missing color. Please update the thread master.`);
   }
 
   // Calculate conversions
@@ -235,9 +228,7 @@ export async function updateThreadRequirement(
     }
 
     if (!newThread.ply || !newThread.materialComposition || !newThread.colorId) {
-      throw new Error(
-        `Thread ${newThread.threadCode} is missing required fields (ply, materialComposition, colorId)`
-      );
+      throw new Error(`Thread ${newThread.threadCode} is missing required fields (ply, materialComposition, colorId)`);
     }
 
     // Fetch color_master separately since thread_master doesn't have the relation
@@ -266,8 +257,10 @@ export async function updateThreadRequirement(
 
   if (quantityChanged) {
     const inputType = data.inputType || existing.inputType;
-    const unitsOrdered = data.unitsOrdered !== undefined ? data.unitsOrdered : parseFloat(existing.unitsOrdered?.toString() || '0');
-    const boxesOrdered = data.boxesOrdered !== undefined ? data.boxesOrdered : parseFloat(existing.boxesOrdered?.toString() || '0');
+    const unitsOrdered =
+      data.unitsOrdered !== undefined ? data.unitsOrdered : parseFloat(existing.unitsOrdered?.toString() || '0');
+    const boxesOrdered =
+      data.boxesOrdered !== undefined ? data.boxesOrdered : parseFloat(existing.boxesOrdered?.toString() || '0');
     const packagingType = data.packagingType || existing.packagingType;
 
     conversion = await processThreadQuantityInput(
@@ -300,7 +293,7 @@ export async function updateThreadRequirement(
         totalMeters: conversion.totalMeters,
       }),
       ...(data.unitPrice !== undefined && { unitPrice: data.unitPrice }),
-      ...(quantityChanged || data.unitPrice !== undefined) && { totalCost },
+      ...((quantityChanged || data.unitPrice !== undefined) && { totalCost }),
       ...(data.notes !== undefined && { notes: data.notes }),
     },
     include: {
@@ -352,10 +345,7 @@ export async function checkShortages(orderId: string): Promise<ThreadShortage[]>
         where: { materialId },
       });
 
-      availableUnits = stockLevels.reduce(
-        (sum, stock) => sum + parseFloat(stock.quantity.toString()),
-        0
-      );
+      availableUnits = stockLevels.reduce((sum, stock) => sum + parseFloat(stock.quantity.toString()), 0);
     }
 
     const requiredUnits = parseFloat(req.totalUnits.toString());
@@ -363,8 +353,10 @@ export async function checkShortages(orderId: string): Promise<ThreadShortage[]>
 
     if (shortageUnits > 0) {
       // Calculate shortage in all units
-      const shortageBoxes = shortageUnits / parseFloat(req.totalUnits.toString()) * parseFloat(req.totalBoxes.toString());
-      const shortageMeters = shortageUnits / parseFloat(req.totalUnits.toString()) * parseFloat(req.totalMeters.toString());
+      const shortageBoxes =
+        (shortageUnits / parseFloat(req.totalUnits.toString())) * parseFloat(req.totalBoxes.toString());
+      const shortageMeters =
+        (shortageUnits / parseFloat(req.totalUnits.toString())) * parseFloat(req.totalMeters.toString());
 
       // Calculate suggested reorder
       const suggestedBoxes = await calculateReorderQuantity(
@@ -389,8 +381,8 @@ export async function checkShortages(orderId: string): Promise<ThreadShortage[]>
         },
         available: {
           units: availableUnits,
-          boxes: availableUnits / parseFloat(req.totalUnits.toString()) * parseFloat(req.totalBoxes.toString()),
-          meters: availableUnits / parseFloat(req.totalUnits.toString()) * parseFloat(req.totalMeters.toString()),
+          boxes: (availableUnits / parseFloat(req.totalUnits.toString())) * parseFloat(req.totalBoxes.toString()),
+          meters: (availableUnits / parseFloat(req.totalUnits.toString())) * parseFloat(req.totalMeters.toString()),
         },
         shortage: {
           units: shortageUnits,
@@ -415,10 +407,7 @@ export async function checkShortages(orderId: string): Promise<ThreadShortage[]>
  * Pattern: THR-{StyleCode}-{Ply}-{Material}-{ColorCode}
  * Example: THR-NK201-3PLY-POLY-RED
  */
-export async function generateStyleSpecificSKU(
-  threadId: string,
-  orderId: string
-): Promise<string> {
+export async function generateStyleSpecificSKU(threadId: string, orderId: string): Promise<string> {
   const thread = await prisma.thread_master.findUnique({
     where: { id: threadId },
     include: { colorMaster: true },

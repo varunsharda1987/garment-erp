@@ -105,9 +105,9 @@ export function getDefaultLayerMargin(layerLengthMeters: number): number {
   if (layerLengthMeters <= 0) return 0.02;
   if (layerLengthMeters <= 1) return 0.02; // 2 cm
   if (layerLengthMeters <= 5) return 0.05; // 5 cm
-  if (layerLengthMeters <= 10) return 0.10; // 10 cm
-  if (layerLengthMeters <= 20) return 0.20; // 20 cm
-  return 0.30; // 30 cm
+  if (layerLengthMeters <= 10) return 0.1; // 10 cm
+  if (layerLengthMeters <= 20) return 0.2; // 20 cm
+  return 0.3; // 30 cm
 }
 
 /**
@@ -159,7 +159,7 @@ export function validateCutableWidth(
     if (greigeWidth && cutableWidth > greigeWidth) {
       return {
         valid: false,
-        message: `Width cannot exceed greige width (${greigeWidth}")`
+        message: `Width cannot exceed greige width (${greigeWidth}")`,
       };
     }
     return { valid: true };
@@ -169,14 +169,14 @@ export function validateCutableWidth(
   if (minWidth !== null && cutableWidth < minWidth) {
     return {
       valid: false,
-      message: `Width must be at least ${minWidth}" (min finished width from greige)`
+      message: `Width must be at least ${minWidth}" (min finished width from greige)`,
     };
   }
 
   if (maxWidth !== null && cutableWidth > maxWidth) {
     return {
       valid: false,
-      message: `Width cannot exceed ${maxWidth}" (max finished width from greige)`
+      message: `Width cannot exceed ${maxWidth}" (max finished width from greige)`,
     };
   }
 
@@ -189,10 +189,7 @@ export function validateCutableWidth(
  * @param operation - The operation being attempted ('update' or 'delete')
  * @throws Error if CAD is locked from modifications
  */
-export async function validateCADModification(
-  cadId: string,
-  operation: 'update' | 'delete'
-): Promise<void> {
+export async function validateCADModification(cadId: string, operation: 'update' | 'delete'): Promise<void> {
   const cad = await prisma.fabric_width_cad.findUnique({
     where: { id: cadId },
     select: {
@@ -213,8 +210,8 @@ export async function validateCADModification(
   if (cad.approvalStatus === 'APPROVED') {
     throw new Error(
       `Cannot ${operation} CAD entry: This CAD has been approved and is locked. ` +
-      `Approved by: ${cad.approvedBy} on ${cad.approvedAt?.toLocaleString()}. ` +
-      `To make changes, first reject the approval, make your changes, then resubmit for approval.`
+        `Approved by: ${cad.approvedBy} on ${cad.approvedAt?.toLocaleString()}. ` +
+        `To make changes, first reject the approval, make your changes, then resubmit for approval.`
     );
   }
 
@@ -222,7 +219,7 @@ export async function validateCADModification(
   if (cad.purpose === 'PRODUCTION' && cad.isLocked) {
     throw new Error(
       `Cannot ${operation} CAD entry: This is a locked PRODUCTION CAD. ` +
-      `Production CADs cannot be modified after locking to maintain data integrity.`
+        `Production CADs cannot be modified after locking to maintain data integrity.`
     );
   }
 }

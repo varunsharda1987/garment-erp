@@ -77,30 +77,19 @@ export const greigeService = {
 
   // Get single greige master by ID
   async getById(id: string): Promise<GreigeMaster> {
-    const response = await axios.get<GreigeMaster>(
-      `${API_BASE_URL}${API_PREFIX}/greige/${id}`,
-      getAuthHeaders()
-    );
+    const response = await axios.get<GreigeMaster>(`${API_BASE_URL}${API_PREFIX}/greige/${id}`, getAuthHeaders());
     return response.data;
   },
 
   // Create new greige master
   async create(data: GreigeMasterFormData): Promise<GreigeMaster> {
-    const response = await axios.post<GreigeMaster>(
-      `${API_BASE_URL}${API_PREFIX}/greige`,
-      data,
-      getAuthHeaders()
-    );
+    const response = await axios.post<GreigeMaster>(`${API_BASE_URL}${API_PREFIX}/greige`, data, getAuthHeaders());
     return response.data;
   },
 
   // Update greige master
   async update(id: string, data: Partial<GreigeMasterFormData>): Promise<GreigeMaster> {
-    const response = await axios.put<GreigeMaster>(
-      `${API_BASE_URL}${API_PREFIX}/greige/${id}`,
-      data,
-      getAuthHeaders()
-    );
+    const response = await axios.put<GreigeMaster>(`${API_BASE_URL}${API_PREFIX}/greige/${id}`, data, getAuthHeaders());
     return response.data;
   },
 
@@ -156,10 +145,7 @@ export const fabricService = {
 
   // Get single fabric master by ID
   async getById(id: string): Promise<FabricMaster> {
-    const response = await axios.get<FabricMaster>(
-      `${API_BASE_URL}${API_PREFIX}/fabric/${id}`,
-      getAuthHeaders()
-    );
+    const response = await axios.get<FabricMaster>(`${API_BASE_URL}${API_PREFIX}/fabric/${id}`, getAuthHeaders());
     return response.data;
   },
 
@@ -174,21 +160,13 @@ export const fabricService = {
 
   // Create new fabric master
   async create(data: FabricMasterFormData): Promise<FabricMaster> {
-    const response = await axios.post<FabricMaster>(
-      `${API_BASE_URL}${API_PREFIX}/fabric`,
-      data,
-      getAuthHeaders()
-    );
+    const response = await axios.post<FabricMaster>(`${API_BASE_URL}${API_PREFIX}/fabric`, data, getAuthHeaders());
     return response.data;
   },
 
   // Update fabric master
   async update(id: string, data: Partial<FabricMasterFormData>): Promise<FabricMaster> {
-    const response = await axios.put<FabricMaster>(
-      `${API_BASE_URL}${API_PREFIX}/fabric/${id}`,
-      data,
-      getAuthHeaders()
-    );
+    const response = await axios.put<FabricMaster>(`${API_BASE_URL}${API_PREFIX}/fabric/${id}`, data, getAuthHeaders());
     return response.data;
   },
 
@@ -279,7 +257,10 @@ export const fabricService = {
   },
 
   // Get CAD pattern parts for a style component (CAD-defined parts first, then component master parts)
-  async getCADPatternPartsForComponent(styleId: string, componentId: string): Promise<{
+  async getCADPatternPartsForComponent(
+    styleId: string,
+    componentId: string
+  ): Promise<{
     cadPatternParts: PatternPartForAllocation[];
     masterPatternParts: PatternPartForAllocation[];
   }> {
@@ -292,10 +273,7 @@ export const fabricService = {
         cadPatternParts: PatternPartForAllocation[];
         masterPatternParts: PatternPartForAllocation[];
       };
-    }>(
-      `${API_BASE_URL}/styles/${styleId}/components/${componentId}/cad-pattern-parts`,
-      getAuthHeaders()
-    );
+    }>(`${API_BASE_URL}/styles/${styleId}/components/${componentId}/cad-pattern-parts`, getAuthHeaders());
     return {
       cadPatternParts: response.data.data?.cadPatternParts || [],
       masterPatternParts: response.data.data?.masterPatternParts || [],
@@ -319,30 +297,19 @@ export const cadService = {
 
   // Get single CAD entry by ID
   async getById(id: string): Promise<FabricWidthCAD> {
-    const response = await axios.get<FabricWidthCAD>(
-      `${API_BASE_URL}${API_PREFIX}/cad/${id}`,
-      getAuthHeaders()
-    );
+    const response = await axios.get<FabricWidthCAD>(`${API_BASE_URL}${API_PREFIX}/cad/${id}`, getAuthHeaders());
     return response.data;
   },
 
   // Create new CAD entry
   async create(data: FabricWidthCADFormData): Promise<FabricWidthCAD> {
-    const response = await axios.post<FabricWidthCAD>(
-      `${API_BASE_URL}${API_PREFIX}/cad`,
-      data,
-      getAuthHeaders()
-    );
+    const response = await axios.post<FabricWidthCAD>(`${API_BASE_URL}${API_PREFIX}/cad`, data, getAuthHeaders());
     return response.data;
   },
 
   // Update CAD entry
   async update(id: string, data: Partial<FabricWidthCADFormData>): Promise<FabricWidthCAD> {
-    const response = await axios.put<FabricWidthCAD>(
-      `${API_BASE_URL}${API_PREFIX}/cad/${id}`,
-      data,
-      getAuthHeaders()
-    );
+    const response = await axios.put<FabricWidthCAD>(`${API_BASE_URL}${API_PREFIX}/cad/${id}`, data, getAuthHeaders());
     return response.data;
   },
 
@@ -376,10 +343,7 @@ export const cadService = {
 
   // Get CAD statistics
   async getStatistics(): Promise<CADStatistics> {
-    const response = await axios.get<CADStatistics>(
-      `${API_BASE_URL}${API_PREFIX}/cad/statistics`,
-      getAuthHeaders()
-    );
+    const response = await axios.get<CADStatistics>(`${API_BASE_URL}${API_PREFIX}/cad/statistics`, getAuthHeaders());
     return response.data;
   },
 };

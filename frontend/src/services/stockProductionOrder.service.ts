@@ -19,10 +19,7 @@ export async function getSPOById(id: string): Promise<StockProductionOrder> {
   return response.data;
 }
 
-export async function searchSPOs(params: {
-  search?: string;
-  limit?: number;
-}): Promise<StockProductionOrder[]> {
+export async function searchSPOs(params: { search?: string; limit?: number }): Promise<StockProductionOrder[]> {
   const response = await api.get(`${BASE_URL}/search`, { params });
   return response.data;
 }

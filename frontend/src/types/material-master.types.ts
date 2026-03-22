@@ -35,7 +35,7 @@ export const MaterialType = {
   OTHER_MATERIAL: 'OTHER_MATERIAL',
 } as const;
 
-export type MaterialType = typeof MaterialType[keyof typeof MaterialType];
+export type MaterialType = (typeof MaterialType)[keyof typeof MaterialType];
 
 export interface MaterialMaster {
   id: number;
@@ -300,29 +300,23 @@ export const MaterialTypeCategories = {
     MaterialType.ELASTIC,
     MaterialType.LABEL,
   ],
-  'Fasteners': [
+  Fasteners: [
     MaterialType.HOOK_EYE,
     MaterialType.SNAP_BUTTON,
     MaterialType.BUCKLE,
     MaterialType.BELT,
     MaterialType.VELCRO,
   ],
-  'Decorative': [
+  Decorative: [
     MaterialType.DRAWSTRING,
     MaterialType.RIBBON,
     MaterialType.SEQUIN,
     MaterialType.BEAD,
     MaterialType.MOTIF,
   ],
-  'Structural': [
-    MaterialType.INTERLINING,
-    MaterialType.PADDING,
-  ],
-  'Fabric': [
-    MaterialType.FABRIC,
-    MaterialType.GREIGE,
-  ],
-  'Other': [
+  Structural: [MaterialType.INTERLINING, MaterialType.PADDING],
+  Fabric: [MaterialType.FABRIC, MaterialType.GREIGE],
+  Other: [
     MaterialType.PACKAGING,
     MaterialType.MACHINE_PART,
     MaterialType.OTHER_FASTENER,

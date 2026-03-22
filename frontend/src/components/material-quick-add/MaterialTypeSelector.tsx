@@ -15,11 +15,7 @@ interface MaterialTypeSelectorProps {
   onSelectType: (type: string) => void;
 }
 
-export const MaterialTypeSelector: React.FC<MaterialTypeSelectorProps> = ({
-  domain,
-  selectedType,
-  onSelectType,
-}) => {
+export const MaterialTypeSelector: React.FC<MaterialTypeSelectorProps> = ({ domain, selectedType, onSelectType }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const allConfigs = getMaterialConfigs(domain);
@@ -31,9 +27,7 @@ export const MaterialTypeSelector: React.FC<MaterialTypeSelectorProps> = ({
 
     const query = searchQuery.toLowerCase();
     return allConfigs.filter(
-      (config) =>
-        config.label.toLowerCase().includes(query) ||
-        config.categoryLabel.toLowerCase().includes(query)
+      (config) => config.label.toLowerCase().includes(query) || config.categoryLabel.toLowerCase().includes(query)
     );
   }, [searchQuery, allConfigs]);
 
@@ -52,9 +46,7 @@ export const MaterialTypeSelector: React.FC<MaterialTypeSelectorProps> = ({
   }, [filteredConfigs]);
 
   // Filter categories that have configs
-  const visibleCategories = categories.filter(
-    (cat) => configsByCategory[cat.category]?.length > 0
-  );
+  const visibleCategories = categories.filter((cat) => configsByCategory[cat.category]?.length > 0);
 
   return (
     <div className="space-y-4">
@@ -73,9 +65,7 @@ export const MaterialTypeSelector: React.FC<MaterialTypeSelectorProps> = ({
       {/* Category Sections */}
       <div className="space-y-6 max-h-[60vh] overflow-y-auto">
         {visibleCategories.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            No material types found matching "{searchQuery}"
-          </div>
+          <div className="text-center text-gray-500 py-8">No material types found matching "{searchQuery}"</div>
         ) : (
           visibleCategories.map((category) => (
             <CategorySection
@@ -103,12 +93,7 @@ interface CategorySectionProps {
   onSelectType: (type: string) => void;
 }
 
-const CategorySection: React.FC<CategorySectionProps> = ({
-  category,
-  configs,
-  selectedType,
-  onSelectType,
-}) => {
+const CategorySection: React.FC<CategorySectionProps> = ({ category, configs, selectedType, onSelectType }) => {
   return (
     <div className="space-y-3">
       {/* Category Header */}
@@ -141,11 +126,7 @@ interface MaterialTypeCardProps {
   onSelect: () => void;
 }
 
-const MaterialTypeCard: React.FC<MaterialTypeCardProps> = ({
-  config,
-  isSelected,
-  onSelect,
-}) => {
+const MaterialTypeCard: React.FC<MaterialTypeCardProps> = ({ config, isSelected, onSelect }) => {
   return (
     <button
       type="button"
@@ -165,9 +146,7 @@ const MaterialTypeCard: React.FC<MaterialTypeCardProps> = ({
       <div className="text-3xl">{config.icon}</div>
 
       {/* Label */}
-      <div className="text-sm font-medium text-gray-900 text-center">
-        {config.label}
-      </div>
+      <div className="text-sm font-medium text-gray-900 text-center">{config.label}</div>
     </button>
   );
 };

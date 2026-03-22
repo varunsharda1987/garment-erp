@@ -11,15 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { laceLabDipService } from '../services/laceLabDip.service';
-import type {
-  LaceLabDip,
-  LabDipStatus,
-  LabDipListFilters,
-} from '../types/laceLabDip.types';
-import {
-  LAB_DIP_STATUS_COLORS,
-  LAB_DIP_STATUS_LABELS,
-} from '../types/laceLabDip.types';
+import type { LaceLabDip, LabDipStatus, LabDipListFilters } from '../types/laceLabDip.types';
+import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS } from '../types/laceLabDip.types';
 import { notify } from '../lib/notify';
 import { Plus, Search, Eye, Trash2, RefreshCw, ArrowRight } from 'lucide-react';
 
@@ -129,9 +122,7 @@ export default function LaceLabDipList() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Lace Lab Dips</h1>
-          <p className="text-gray-500 mt-1">
-            Manage lab dip approval workflow for greige lace processing
-          </p>
+          <p className="text-gray-500 mt-1">Manage lab dip approval workflow for greige lace processing</p>
         </div>
         <Button onClick={() => navigate('/lace-lab-dips/new')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -144,17 +135,11 @@ export default function LaceLabDipList() {
         {Object.entries(LAB_DIP_STATUS_LABELS).map(([status, label]) => (
           <Card
             key={status}
-            className={`cursor-pointer transition-all ${
-              statusFilter === status ? 'ring-2 ring-blue-500' : ''
-            }`}
-            onClick={() =>
-              setStatusFilter(statusFilter === status ? '' : (status as LabDipStatus))
-            }
+            className={`cursor-pointer transition-all ${statusFilter === status ? 'ring-2 ring-blue-500' : ''}`}
+            onClick={() => setStatusFilter(statusFilter === status ? '' : (status as LabDipStatus))}
           >
             <CardContent className="p-4">
-              <div className="text-2xl font-bold">
-                {statusCounts[status as LabDipStatus]}
-              </div>
+              <div className="text-2xl font-bold">{statusCounts[status as LabDipStatus]}</div>
               <div className="text-sm text-gray-500">{label}</div>
             </CardContent>
           </Card>
@@ -174,7 +159,7 @@ export default function LaceLabDipList() {
         </div>
         <Select
           value={statusFilter || '__all__'}
-          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : value as LabDipStatus)}
+          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : (value as LabDipStatus))}
         >
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="All Statuses" />
@@ -200,9 +185,7 @@ export default function LaceLabDipList() {
           {loading ? (
             <div className="text-center py-12">Loading...</div>
           ) : filteredLabDips.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              No lab dip requests found.
-            </div>
+            <div className="text-center py-12 text-gray-500">No lab dip requests found.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -235,47 +218,31 @@ export default function LaceLabDipList() {
                   {filteredLabDips.map((labDip) => (
                     <tr key={labDip.id} className="hover:bg-gray-50">
                       <td className="px-4 py-4">
-                        <span className="font-mono font-medium">
-                          {labDip.labDipNumber}
-                        </span>
+                        <span className="font-mono font-medium">{labDip.labDipNumber}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="font-medium">
-                          {labDip.greigeLace?.laceName || '-'}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {labDip.greigeLace?.laceCode || ''}
-                        </div>
+                        <div className="font-medium">{labDip.greigeLace?.laceName || '-'}</div>
+                        <div className="text-xs text-gray-500">{labDip.greigeLace?.laceCode || ''}</div>
                       </td>
                       <td className="px-4 py-4">
                         <span className="font-medium">{labDip.targetColor}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="font-medium">
-                          {labDip.processor?.name || '-'}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {labDip.processor?.code || ''}
-                        </div>
+                        <div className="font-medium">{labDip.processor?.name || '-'}</div>
+                        <div className="text-xs text-gray-500">{labDip.processor?.code || ''}</div>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <Badge
-                          className={`${LAB_DIP_STATUS_COLORS[labDip.status]} border`}
-                        >
+                        <Badge className={`${LAB_DIP_STATUS_COLORS[labDip.status]} border`}>
                           {LAB_DIP_STATUS_LABELS[labDip.status]}
                         </Badge>
                       </td>
-                      <td className="px-4 py-4">
-                        {formatDate(labDip.requestDate)}
-                      </td>
+                      <td className="px-4 py-4">{formatDate(labDip.requestDate)}</td>
                       <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              navigate(`/lace-lab-dips/${labDip.id}`)
-                            }
+                            onClick={() => navigate(`/lace-lab-dips/${labDip.id}`)}
                             title="View Details"
                           >
                             <Eye className="h-4 w-4" />
@@ -283,9 +250,7 @@ export default function LaceLabDipList() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              navigate(`/lace-lab-dips/${labDip.id}/workflow`)
-                            }
+                            onClick={() => navigate(`/lace-lab-dips/${labDip.id}/workflow`)}
                             title="Update Status"
                           >
                             <ArrowRight className="h-4 w-4" />
@@ -319,9 +284,7 @@ export default function LaceLabDipList() {
             variant="outline"
             size="sm"
             disabled={pagination.page === 1}
-            onClick={() =>
-              setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
-            }
+            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
           >
             Previous
           </Button>
@@ -332,9 +295,7 @@ export default function LaceLabDipList() {
             variant="outline"
             size="sm"
             disabled={pagination.page === pagination.pages}
-            onClick={() =>
-              setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
-            }
+            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
           >
             Next
           </Button>

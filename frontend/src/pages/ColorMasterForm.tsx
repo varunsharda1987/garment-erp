@@ -126,11 +126,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
 
       navigate('/colors');
     } catch (err: unknown) {
-      const errorMessage = handleApiError(
-        err,
-        `Failed to ${isNewColor ? 'create' : 'update'} color`,
-        false
-      );
+      const errorMessage = handleApiError(err, `Failed to ${isNewColor ? 'create' : 'update'} color`, false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -164,11 +160,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
 
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-700 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-700 p-4 rounded-md">{error}</div>}
 
             {/* Color Code (auto-generated, display only) */}
             {!isNewColor && (
@@ -195,9 +187,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                   {...register('colorName', { required: 'Color name is required' })}
                   placeholder="e.g., Navy Blue"
                 />
-                {errors.colorName && (
-                  <span className="text-sm text-red-500">{errors.colorName.message}</span>
-                )}
+                {errors.colorName && <span className="text-sm text-red-500">{errors.colorName.message}</span>}
               </div>
 
               {/* Hex Code with Preview */}
@@ -208,12 +198,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                     className="h-10 w-10 rounded border-2 border-gray-200 flex-shrink-0"
                     style={{ backgroundColor: previewColor }}
                   />
-                  <Input
-                    id="hexCode"
-                    {...register('hexCode')}
-                    placeholder="#000080"
-                    className="font-mono"
-                  />
+                  <Input id="hexCode" {...register('hexCode')} placeholder="#000080" className="font-mono" />
                   <input
                     type="color"
                     value={previewColor}
@@ -225,9 +210,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                     title="Pick a color"
                   />
                 </div>
-                <span className="text-xs text-gray-500">
-                  Enter hex code manually or use the color picker
-                </span>
+                <span className="text-xs text-gray-500">Enter hex code manually or use the color picker</span>
               </div>
             </div>
 
@@ -250,9 +233,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                   ))}
                 </SelectContent>
               </Select>
-              <span className="text-xs text-gray-500">
-                Group colors by family for easier filtering
-              </span>
+              <span className="text-xs text-gray-500">Group colors by family for easier filtering</span>
             </div>
 
             {/* Description */}
@@ -269,17 +250,11 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
             {/* Active Status (edit mode only) */}
             {!isNewColor && (
               <div className="flex items-center space-x-3 py-2">
-                <Switch
-                  id="isActive"
-                  checked={isActive}
-                  onCheckedChange={setIsActive}
-                />
+                <Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} />
                 <Label htmlFor="isActive" className="cursor-pointer">
                   Active
                 </Label>
-                <span className="text-xs text-gray-500">
-                  Inactive colors won't appear in dropdowns
-                </span>
+                <span className="text-xs text-gray-500">Inactive colors won't appear in dropdowns</span>
               </div>
             )}
 
@@ -288,11 +263,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? 'Saving...' : isNewColor ? 'Create Color' : 'Update Color'}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/colors')}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/colors')}>
                 Cancel
               </Button>
             </div>

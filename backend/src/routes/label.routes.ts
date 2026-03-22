@@ -6,7 +6,7 @@ import {
   updateLabel,
   deleteLabel,
   bulkImportLabel,
-  downloadTemplate
+  downloadTemplate,
 } from '../controllers/label.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';

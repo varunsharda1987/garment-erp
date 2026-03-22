@@ -39,12 +39,7 @@ export interface UsePrintReturn {
 }
 
 export function usePrint(options: UsePrintOptions = {}): UsePrintReturn {
-  const {
-    title: initialTitle,
-    onBeforePrint,
-    onAfterPrint,
-    delay = 100,
-  } = options;
+  const { title: initialTitle, onBeforePrint, onAfterPrint, delay = 100 } = options;
 
   const [isPrinting, setIsPrinting] = useState(false);
   const [title, setTitle] = useState(initialTitle);

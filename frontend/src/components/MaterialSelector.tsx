@@ -6,13 +6,7 @@ import { MaterialTypeLabels } from '../constants/style-material-bom.constants';
 import { searchMaterials, formatPrice, parsePrice } from '../services/style-material-bom.service';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 
@@ -33,7 +27,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
   label = 'Select Material',
   required = false,
   disabled = false,
-  className
+  className,
 }) => {
   const [selectedType, setSelectedType] = useState<MaterialType | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,11 +50,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
     try {
       setIsLoading(true);
       setError(null);
-      const response = await searchMaterials(
-        selectedType as MaterialType,
-        searchQuery || undefined,
-        20
-      );
+      const response = await searchMaterials(selectedType as MaterialType, searchQuery || undefined, 20);
       setMaterials(response.materials);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load materials';
@@ -125,20 +115,12 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
               <Badge variant="outline">{value.materialCode}</Badge>
               <span className="font-medium">{value.materialName}</span>
             </div>
-            <div className="text-sm text-gray-600 mt-1">
-              {getSpecificationsSummary(value)}
-            </div>
+            <div className="text-sm text-gray-600 mt-1">{getSpecificationsSummary(value)}</div>
             <div className="text-sm font-semibold text-blue-600 mt-1">
               {formatPrice(parsePrice(value.pricePerUnit))} per {value.unit}
             </div>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleClear}
-            disabled={disabled}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={handleClear} disabled={disabled}>
             Change
           </Button>
         </div>
@@ -150,11 +132,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
           {/* Material Type Selector */}
           <div>
             <Label>Material Type</Label>
-            <Select
-              value={selectedType}
-              onValueChange={handleTypeChange}
-              disabled={disabled}
-            >
+            <Select value={selectedType} onValueChange={handleTypeChange} disabled={disabled}>
               <SelectTrigger>
                 <SelectValue placeholder="Select material type..." />
               </SelectTrigger>
@@ -175,7 +153,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
               <Select
                 value=""
                 onValueChange={(code) => {
-                  const selected = materials.find(m => m.materialCode === code);
+                  const selected = materials.find((m) => m.materialCode === code);
                   if (selected) handleMaterialSelect(selected);
                 }}
                 disabled={disabled || !selectedType}
@@ -214,11 +192,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
           )}
 
           {/* Error Display */}
-          {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">
-              {error}
-            </div>
-          )}
+          {error && <div className="text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">{error}</div>}
         </div>
       )}
     </div>

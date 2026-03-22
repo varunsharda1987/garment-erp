@@ -36,9 +36,7 @@ export interface RateResolutionResult {
  * Resolve rate for a PO based on category and context.
  * Returns the best rate and its source, following the hierarchy per category.
  */
-export async function resolveRate(
-  context: RateResolutionContext
-): Promise<RateResolutionResult> {
+export async function resolveRate(context: RateResolutionContext): Promise<RateResolutionResult> {
   const { poCategory } = context;
 
   switch (poCategory) {
@@ -84,9 +82,9 @@ async function resolveFabricRate(ctx: RateResolutionContext): Promise<RateResolu
     });
 
     const costSheetRate =
-      (costingItem?.readyFabricCost && Number(costingItem.readyFabricCost) > 0)
+      costingItem?.readyFabricCost && Number(costingItem.readyFabricCost) > 0
         ? Number(costingItem.readyFabricCost)
-        : (costingItem?.costPerMeter && Number(costingItem.costPerMeter) > 0)
+        : costingItem?.costPerMeter && Number(costingItem.costPerMeter) > 0
           ? Number(costingItem.costPerMeter)
           : null;
 
@@ -279,9 +277,7 @@ async function resolveLaceRate(ctx: RateResolutionContext): Promise<RateResoluti
       select: { readyLaceCost: true, greigeCost: true },
     });
 
-    const cost = ctx.poCategory === 'GREIGE_LACE'
-      ? costingItem?.greigeCost
-      : costingItem?.readyLaceCost;
+    const cost = ctx.poCategory === 'GREIGE_LACE' ? costingItem?.greigeCost : costingItem?.readyLaceCost;
 
     if (cost && Number(cost) > 0) {
       return {
@@ -328,9 +324,7 @@ async function resolveServiceRate(ctx: RateResolutionContext): Promise<RateResol
   }
 
   // Get last price for style (informational)
-  const lastPrice = ctx.styleId
-    ? await getLastPriceForStyle(ctx.styleId, ctx.poCategory)
-    : null;
+  const lastPrice = ctx.styleId ? await getLastPriceForStyle(ctx.styleId, ctx.poCategory) : null;
 
   return { rate, source, lastPriceForStyle: lastPrice };
 }

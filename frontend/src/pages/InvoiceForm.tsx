@@ -47,7 +47,7 @@ export default function InvoiceForm() {
   const [items, setItems] = useState<InvoiceLineItem[]>([]);
 
   // Computed totals (derived from items)
-  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
   useEffect(() => {
     fetchCustomers();
@@ -123,35 +123,36 @@ export default function InvoiceForm() {
   };
 
   // Auto-populate items from order
-  const handleOrderChange = useCallback(async (newOrderId: string) => {
-    setOrderId(newOrderId);
+  const handleOrderChange = useCallback(
+    async (newOrderId: string) => {
+      setOrderId(newOrderId);
 
-    if (!newOrderId) {
-      setItems([]);
-      return;
-    }
-
-    // Don't auto-populate in edit mode
-    if (isEditMode) return;
-
-    try {
-      const order = await getOrderById(newOrderId);
-      if (order.orderItems && order.orderItems.length > 0) {
-        const newItems: InvoiceLineItem[] = order.orderItems.map((oi) => ({
-          _key: nextKey(),
-          styleId: oi.styleId,
-          description: oi.style
-            ? `${oi.style.styleCode} - ${oi.style.styleName}`
-            : oi.itemDescription || 'Item',
-          quantity: oi.totalQuantity,
-          unitPrice: Number(oi.unitPrice),
-        }));
-        setItems(newItems);
+      if (!newOrderId) {
+        setItems([]);
+        return;
       }
-    } catch (err) {
-      handleApiError(err, 'Failed to load order items', false);
-    }
-  }, [isEditMode]);
+
+      // Don't auto-populate in edit mode
+      if (isEditMode) return;
+
+      try {
+        const order = await getOrderById(newOrderId);
+        if (order.orderItems && order.orderItems.length > 0) {
+          const newItems: InvoiceLineItem[] = order.orderItems.map((oi) => ({
+            _key: nextKey(),
+            styleId: oi.styleId,
+            description: oi.style ? `${oi.style.styleCode} - ${oi.style.styleName}` : oi.itemDescription || 'Item',
+            quantity: oi.totalQuantity,
+            unitPrice: Number(oi.unitPrice),
+          }));
+          setItems(newItems);
+        }
+      } catch (err) {
+        handleApiError(err, 'Failed to load order items', false);
+      }
+    },
+    [isEditMode]
+  );
 
   // Item management
   const addItem = () => {
@@ -171,11 +172,7 @@ export default function InvoiceForm() {
   };
 
   const updateItem = (key: string, field: keyof InvoiceItemInput, value: string | number) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item._key === key ? { ...item, [field]: value } : item
-      )
-    );
+    setItems((prev) => prev.map((item) => (item._key === key ? { ...item, [field]: value } : item)));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -235,11 +232,7 @@ export default function InvoiceForm() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/invoices')}
-        >
+        <Button variant="ghost" size="icon" onClick={() => navigate('/invoices')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-3">
@@ -247,9 +240,7 @@ export default function InvoiceForm() {
             <FileText className="h-6 w-6 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isEditMode ? 'Edit Invoice' : 'Create Invoice'}
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Invoice' : 'Create Invoice'}</h1>
             <p className="text-sm text-gray-500">
               {isEditMode ? 'Update invoice details' : 'Generate a new invoice for an order'}
             </p>
@@ -270,11 +261,7 @@ export default function InvoiceForm() {
                 <Label htmlFor="customerId">
                   Customer <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={customerId}
-                  onValueChange={setCustomerId}
-                  disabled={isEditMode}
-                >
+                <Select value={customerId} onValueChange={setCustomerId} disabled={isEditMode}>
                   <SelectTrigger id="customerId">
                     <SelectValue placeholder="Select customer" />
                   </SelectTrigger>
@@ -298,7 +285,7 @@ export default function InvoiceForm() {
                   disabled={isEditMode || !customerId || isLoadingOrders}
                 >
                   <SelectTrigger id="orderId">
-                    <SelectValue placeholder={isLoadingOrders ? "Loading orders..." : "Select order"} />
+                    <SelectValue placeholder={isLoadingOrders ? 'Loading orders...' : 'Select order'} />
                   </SelectTrigger>
                   <SelectContent>
                     {orders?.map((order) => (
@@ -330,13 +317,7 @@ export default function InvoiceForm() {
                 <Label htmlFor="dueDate">
                   Due Date <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  required
-                />
+                <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
               </div>
             </div>
 
@@ -420,9 +401,7 @@ export default function InvoiceForm() {
                             className="h-8 text-right"
                           />
                         </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(lineTotal)}
-                        </TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(lineTotal)}</TableCell>
                         <TableCell>
                           <Button
                             type="button"
@@ -468,16 +447,17 @@ export default function InvoiceForm() {
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/invoices')}
-            disabled={isLoading}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/invoices')} disabled={isLoading}>
             Cancel
           </Button>
           <Button type="submit" disabled={isLoading || items.length === 0}>
-            {isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Invoice' : 'Create Invoice')}
+            {isLoading
+              ? isEditMode
+                ? 'Updating...'
+                : 'Creating...'
+              : isEditMode
+                ? 'Update Invoice'
+                : 'Create Invoice'}
           </Button>
         </div>
       </form>

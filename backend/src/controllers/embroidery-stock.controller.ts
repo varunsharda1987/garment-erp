@@ -34,7 +34,9 @@ export const sendOut = async (req: Request, res: Response): Promise<void> => {
 
   // Validation
   if (!sourceFabricStockId || !embroideryId || !supplierId || !quantitySent || !sentWidth || !sendDate || !agreedRate) {
-    throw new ValidationError('sourceFabricStockId, embroideryId, supplierId, quantitySent, sentWidth, sendDate, and agreedRate are required');
+    throw new ValidationError(
+      'sourceFabricStockId, embroideryId, supplierId, quantitySent, sentWidth, sendDate, and agreedRate are required'
+    );
   }
 
   const sendOutRecord = await embroideryStockService.sendOut({

@@ -34,9 +34,7 @@ export default function SizeCategoryList() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(
-    null
-  );
+  const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchSizeCategories();
@@ -72,10 +70,7 @@ export default function SizeCategoryList() {
 
     try {
       await deleteSizeCategory(categoryToDelete.id);
-      handleApiSuccess(
-        'Size category deleted',
-        `${categoryToDelete.name} has been successfully deleted.`
-      );
+      handleApiSuccess('Size category deleted', `${categoryToDelete.name} has been successfully deleted.`);
       fetchSizeCategories();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete size category');
@@ -91,9 +86,7 @@ export default function SizeCategoryList() {
       render: (category) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{category.name}</div>
-          {category.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{category.description}</div>
-          )}
+          {category.description && <div className="text-xs text-gray-500 line-clamp-1">{category.description}</div>}
         </div>
       ),
     },
@@ -125,9 +118,7 @@ export default function SizeCategoryList() {
       key: 'sizeCount',
       header: 'Total Sizes',
       render: (category) => (
-        <div className="text-sm text-gray-700">
-          {Array.isArray(category.sizes) ? category.sizes.length : 0}
-        </div>
+        <div className="text-sm text-gray-700">{Array.isArray(category.sizes) ? category.sizes.length : 0}</div>
       ),
     },
     {
@@ -178,9 +169,7 @@ export default function SizeCategoryList() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Size Categories</CardTitle>
-            <Button onClick={() => navigate('/masters/size-categories/new')}>
-              + Add Size Category
-            </Button>
+            <Button onClick={() => navigate('/masters/size-categories/new')}>+ Add Size Category</Button>
           </div>
         </CardHeader>
         <CardContent>

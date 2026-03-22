@@ -145,9 +145,14 @@ export const logDebug = (message: string, data?: unknown) => logger.debug(messag
 export const logInfo = (message: string, data?: unknown) => logger.info(message, data);
 export const logWarn = (message: string, data?: unknown) => logger.warn(message, data);
 export const logError = (message: string, error?: Error | unknown) => logger.error(message, error);
-export const logApiError = (endpoint: string, error: unknown, context?: Record<string, unknown>) => logger.apiError(endpoint, error, context);
-export const logApiRequest = (method: string, endpoint: string, data?: unknown) => logger.apiRequest(method, endpoint, data);
-export const logApiResponse = (method: string, endpoint: string, status: number, data?: unknown) => logger.apiResponse(method, endpoint, status, data);
-export const logComponent = (componentName: string, event: string, data?: unknown) => logger.component(componentName, event, data);
-export const logValidation = (formName: string, errors: Record<string, string | string[]>) => logger.validation(formName, errors);
+export const logApiError = (endpoint: string, error: unknown, context?: Record<string, unknown>) =>
+  logger.apiError(endpoint, error, context);
+export const logApiRequest = (method: string, endpoint: string, data?: unknown) =>
+  logger.apiRequest(method, endpoint, data);
+export const logApiResponse = (method: string, endpoint: string, status: number, data?: unknown) =>
+  logger.apiResponse(method, endpoint, status, data);
+export const logComponent = (componentName: string, event: string, data?: unknown) =>
+  logger.component(componentName, event, data);
+export const logValidation = (formName: string, errors: Record<string, string | string[]>) =>
+  logger.validation(formName, errors);
 export const logUserAction = (action: string, data?: unknown) => logger.userAction(action, data);

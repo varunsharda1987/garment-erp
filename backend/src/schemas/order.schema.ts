@@ -7,13 +7,7 @@
 import { z } from 'zod';
 
 // Order status enum - matches Prisma OrderStatus
-export const OrderStatus = z.enum([
-  'PENDING',
-  'IN_PRODUCTION',
-  'COMPLETED',
-  'DISPATCHED',
-  'CANCELLED',
-]);
+export const OrderStatus = z.enum(['PENDING', 'IN_PRODUCTION', 'COMPLETED', 'DISPATCHED', 'CANCELLED']);
 
 // Order line item schema
 const orderLineItemSchema = z.object({

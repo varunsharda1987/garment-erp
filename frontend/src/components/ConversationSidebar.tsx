@@ -8,12 +8,7 @@ import { useState, useEffect } from 'react';
 import { MessageSquare, Plus, Search, Trash2, Archive, MoreVertical, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import {
   type Conversation,
   getConversations,
@@ -153,9 +148,7 @@ export function ConversationSidebar({
                 onClick={() => onSelectConversation(conversation)}
                 className={cn(
                   'group flex items-center gap-3 px-3 py-3 mx-2 rounded-lg cursor-pointer transition-colors',
-                  activeConversationId === conversation.id
-                    ? 'bg-blue-100 border border-blue-200'
-                    : 'hover:bg-gray-100'
+                  activeConversationId === conversation.id ? 'bg-blue-100 border border-blue-200' : 'hover:bg-gray-100'
                 )}
               >
                 <MessageSquare
@@ -177,9 +170,7 @@ export function ConversationSidebar({
                   <div className="flex items-center gap-1 text-xs text-gray-500">
                     <Clock className="h-3 w-3" />
                     <span>{formatDate(conversation.lastMessageAt)}</span>
-                    {conversation._count && (
-                      <span className="ml-2">{conversation._count.messages} msgs</span>
-                    )}
+                    {conversation._count && <span className="ml-2">{conversation._count.messages} msgs</span>}
                   </div>
                 </div>
 

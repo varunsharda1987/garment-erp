@@ -102,14 +102,8 @@ export const sampleService = {
   /**
    * Add or update measurements for a sample
    */
-  updateMeasurements: async (
-    sampleId: string,
-    measurements: SampleMeasurementInput[]
-  ): Promise<Sample> => {
-    const response = await api.put<SampleResponse>(
-      `${BASE_URL}/${sampleId}/measurements`,
-      { measurements }
-    );
+  updateMeasurements: async (sampleId: string, measurements: SampleMeasurementInput[]): Promise<Sample> => {
+    const response = await api.put<SampleResponse>(`${BASE_URL}/${sampleId}/measurements`, { measurements });
     return response.data.data;
   },
 
@@ -120,10 +114,7 @@ export const sampleService = {
     sampleId: string,
     measurements: Array<{ id: string; actualValue: number }>
   ): Promise<Sample> => {
-    const response = await api.patch<SampleResponse>(
-      `${BASE_URL}/${sampleId}/measurements/actual`,
-      { measurements }
-    );
+    const response = await api.patch<SampleResponse>(`${BASE_URL}/${sampleId}/measurements/actual`, { measurements });
     return response.data.data;
   },
 
@@ -134,29 +125,18 @@ export const sampleService = {
   /**
    * Add or update colorways for a PP sample
    */
-  updateColorways: async (
-    sampleId: string,
-    colorways: SampleColorwayInput[]
-  ): Promise<Sample> => {
-    const response = await api.put<SampleResponse>(
-      `${BASE_URL}/${sampleId}/colorways`,
-      { colorways }
-    );
+  updateColorways: async (sampleId: string, colorways: SampleColorwayInput[]): Promise<Sample> => {
+    const response = await api.put<SampleResponse>(`${BASE_URL}/${sampleId}/colorways`, { colorways });
     return response.data.data;
   },
 
   /**
    * Update colorway status (approve/reject individual colorway)
    */
-  updateColorwayStatus: async (
-    sampleId: string,
-    colorwayId: string,
-    status: string
-  ): Promise<Sample> => {
-    const response = await api.patch<SampleResponse>(
-      `${BASE_URL}/${sampleId}/colorways/${colorwayId}/status`,
-      { status }
-    );
+  updateColorwayStatus: async (sampleId: string, colorwayId: string, status: string): Promise<Sample> => {
+    const response = await api.patch<SampleResponse>(`${BASE_URL}/${sampleId}/colorways/${colorwayId}/status`, {
+      status,
+    });
     return response.data.data;
   },
 
@@ -167,29 +147,18 @@ export const sampleService = {
   /**
    * Add or update size sets for a Size Set sample
    */
-  updateSizeSets: async (
-    sampleId: string,
-    sizeSets: SampleSizeSetInput[]
-  ): Promise<Sample> => {
-    const response = await api.put<SampleResponse>(
-      `${BASE_URL}/${sampleId}/size-sets`,
-      { sizeSets }
-    );
+  updateSizeSets: async (sampleId: string, sizeSets: SampleSizeSetInput[]): Promise<Sample> => {
+    const response = await api.put<SampleResponse>(`${BASE_URL}/${sampleId}/size-sets`, { sizeSets });
     return response.data.data;
   },
 
   /**
    * Update size set item status (approve/reject individual size/color)
    */
-  updateSizeSetStatus: async (
-    sampleId: string,
-    sizeSetId: string,
-    status: string
-  ): Promise<Sample> => {
-    const response = await api.patch<SampleResponse>(
-      `${BASE_URL}/${sampleId}/size-sets/${sizeSetId}/status`,
-      { status }
-    );
+  updateSizeSetStatus: async (sampleId: string, sizeSetId: string, status: string): Promise<Sample> => {
+    const response = await api.patch<SampleResponse>(`${BASE_URL}/${sampleId}/size-sets/${sizeSetId}/status`, {
+      status,
+    });
     return response.data.data;
   },
 
@@ -215,10 +184,7 @@ export const sampleService = {
   /**
    * Record buyer receipt
    */
-  recordReceipt: async (
-    id: string,
-    data: { receivedDate: string; remarks?: string }
-  ): Promise<Sample> => {
+  recordReceipt: async (id: string, data: { receivedDate: string; remarks?: string }): Promise<Sample> => {
     const response = await api.post<SampleResponse>(`${BASE_URL}/${id}/receive`, data);
     return response.data.data;
   },
@@ -294,29 +260,29 @@ export const sampleService = {
   /**
    * Check if Size Set sample is approved for a style (gate for Work Order creation)
    */
-  checkSampleApprovalGate: async (styleId: string): Promise<{
+  checkSampleApprovalGate: async (
+    styleId: string
+  ): Promise<{
     fitApproved: boolean;
     ppApproved: boolean;
     sizeSetApproved: boolean;
     canCreateWorkOrder: boolean;
   }> => {
-    const response = await api.get<{ data: {
-      fitApproved: boolean;
-      ppApproved: boolean;
-      sizeSetApproved: boolean;
-      canCreateWorkOrder: boolean;
-    } }>(`${BASE_URL}/approval-gate/${styleId}`);
+    const response = await api.get<{
+      data: {
+        fitApproved: boolean;
+        ppApproved: boolean;
+        sizeSetApproved: boolean;
+        canCreateWorkOrder: boolean;
+      };
+    }>(`${BASE_URL}/approval-gate/${styleId}`);
     return response.data.data;
   },
 
   /**
    * Search samples (for picker/dropdown)
    */
-  searchSamples: async (
-    search: string,
-    sampleType?: string,
-    limit: number = 20
-  ): Promise<Sample[]> => {
+  searchSamples: async (search: string, sampleType?: string, limit: number = 20): Promise<Sample[]> => {
     let url = `${BASE_URL}/search?search=${encodeURIComponent(search)}&limit=${limit}`;
     if (sampleType) {
       url += `&sampleType=${sampleType}`;

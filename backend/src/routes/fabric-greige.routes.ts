@@ -95,10 +95,18 @@ router.get('/fabric/:id/style-allocations', authenticateToken, asyncHandler(fabr
 router.post('/fabric/:id/allocate-to-style', authenticateToken, asyncHandler(fabricController.allocateToStyle));
 
 // Remove style allocation
-router.delete('/fabric/:id/style-allocations/:styleFabricId', authenticateToken, asyncHandler(fabricController.removeStyleAllocation));
+router.delete(
+  '/fabric/:id/style-allocations/:styleFabricId',
+  authenticateToken,
+  asyncHandler(fabricController.removeStyleAllocation)
+);
 
 // Update pattern parts for an existing allocation (edit mode)
-router.put('/fabric/:id/allocations/:allocationId/pattern-parts', authenticateToken, asyncHandler(fabricController.updateAllocationPatternParts));
+router.put(
+  '/fabric/:id/allocations/:allocationId/pattern-parts',
+  authenticateToken,
+  asyncHandler(fabricController.updateAllocationPatternParts)
+);
 
 // ============================================
 // FABRIC WIDTH CAD ROUTES

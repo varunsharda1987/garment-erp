@@ -43,9 +43,7 @@ export interface UpdateLaceItemInput extends Partial<Omit<CreateLaceItemInput, '
 /**
  * Add a lace item to a cost sheet
  */
-export async function addLaceItemToCostSheet(
-  input: CreateLaceItemInput
-): Promise<any> {
+export async function addLaceItemToCostSheet(input: CreateLaceItemInput): Promise<any> {
   // Verify cost sheet exists
   const costSheet = await prisma.style_costing.findUnique({
     where: { id: input.costingId },
@@ -125,10 +123,7 @@ export async function addLaceItemToCostSheet(
 /**
  * Update a lace item in a cost sheet
  */
-export async function updateLaceItem(
-  itemId: string,
-  input: UpdateLaceItemInput
-): Promise<any> {
+export async function updateLaceItem(itemId: string, input: UpdateLaceItemInput): Promise<any> {
   // Get existing item
   const existing = await prisma.style_costing_lace_items.findUnique({
     where: { id: itemId },
@@ -146,15 +141,10 @@ export async function updateLaceItem(
   }
 
   // Calculate new values
-  const quantityPerGarment = input.quantityPerGarment !== undefined
-    ? input.quantityPerGarment
-    : Number(existing.quantityPerGarment);
-  const wastagePercent = input.wastagePercent !== undefined
-    ? input.wastagePercent
-    : Number(existing.wastagePercent);
-  const costPerMeter = input.costPerMeter !== undefined
-    ? input.costPerMeter
-    : Number(existing.costPerMeter);
+  const quantityPerGarment =
+    input.quantityPerGarment !== undefined ? input.quantityPerGarment : Number(existing.quantityPerGarment);
+  const wastagePercent = input.wastagePercent !== undefined ? input.wastagePercent : Number(existing.wastagePercent);
+  const costPerMeter = input.costPerMeter !== undefined ? input.costPerMeter : Number(existing.costPerMeter);
 
   const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
   const totalCost = effectiveQuantity * costPerMeter;
@@ -170,8 +160,10 @@ export async function updateLaceItem(
   if (input.wastagePercent !== undefined) updateData.wastagePercent = new Decimal(input.wastagePercent);
   if (input.sourcingStrategy !== undefined) updateData.sourcingStrategy = input.sourcingStrategy;
   if (input.greigeCost !== undefined) updateData.greigeCost = input.greigeCost ? new Decimal(input.greigeCost) : null;
-  if (input.processingCost !== undefined) updateData.processingCost = input.processingCost ? new Decimal(input.processingCost) : null;
-  if (input.readyLaceCost !== undefined) updateData.readyLaceCost = input.readyLaceCost ? new Decimal(input.readyLaceCost) : null;
+  if (input.processingCost !== undefined)
+    updateData.processingCost = input.processingCost ? new Decimal(input.processingCost) : null;
+  if (input.readyLaceCost !== undefined)
+    updateData.readyLaceCost = input.readyLaceCost ? new Decimal(input.readyLaceCost) : null;
   if (input.stockCost !== undefined) updateData.stockCost = input.stockCost ? new Decimal(input.stockCost) : null;
   if (input.costPerMeter !== undefined) updateData.costPerMeter = new Decimal(input.costPerMeter);
   if (input.greigeLaceId !== undefined) updateData.greigeLaceId = input.greigeLaceId || null;
@@ -466,10 +458,7 @@ export async function bulkAddLaceItems(
 /**
  * Copy lace items from one cost sheet to another
  */
-export async function copyLaceItems(
-  sourceCostingId: string,
-  targetCostingId: string
-): Promise<any[]> {
+export async function copyLaceItems(sourceCostingId: string, targetCostingId: string): Promise<any[]> {
   // Get source items
   const sourceItems = await prisma.style_costing_lace_items.findMany({
     where: { costingId: sourceCostingId },

@@ -31,10 +31,12 @@ export async function calculateSingleFabricCost(req: Request, res: Response) {
     styleId,
   });
 
-  res.json(serialize({
-    success: true,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+    })
+  );
 }
 
 /**
@@ -70,28 +72,24 @@ export async function calculateBatchFabricCost(req: Request, res: Response) {
 
   // Calculate totals
   const successfulResults = results.filter((r: any) => !r.error);
-  const totalRecommendedCost = successfulResults.reduce(
-    (sum: number, r: any) => sum + (r.recommendedCost || 0),
-    0
-  );
-  const totalSavings = successfulResults.reduce(
-    (sum: number, r: any) => sum + (r.savings || 0),
-    0
-  );
+  const totalRecommendedCost = successfulResults.reduce((sum: number, r: any) => sum + (r.recommendedCost || 0), 0);
+  const totalSavings = successfulResults.reduce((sum: number, r: any) => sum + (r.savings || 0), 0);
 
-  res.json(serialize({
-    success: true,
-    data: {
-      fabrics: results,
-      summary: {
-        totalFabrics: fabrics.length,
-        successfulCalculations: successfulResults.length,
-        failedCalculations: results.length - successfulResults.length,
-        totalRecommendedCost,
-        totalSavings,
+  res.json(
+    serialize({
+      success: true,
+      data: {
+        fabrics: results,
+        summary: {
+          totalFabrics: fabrics.length,
+          successfulCalculations: successfulResults.length,
+          failedCalculations: results.length - successfulResults.length,
+          totalRecommendedCost,
+          totalSavings,
+        },
       },
-    },
-  }));
+    })
+  );
 }
 
 /**
@@ -117,10 +115,12 @@ export async function getProcessors(req: Request, res: Response) {
     },
   });
 
-  res.json(serialize({
-    success: true,
-    data: processors,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: processors,
+    })
+  );
 }
 
 /**
@@ -252,20 +252,14 @@ export async function getStyleFabrics(req: Request, res: Response) {
                   AND: [
                     // Include rows with either stored cadAverage OR cadMeters (we can calculate from cadMeters)
                     {
-                      OR: [
-                        { cadAverage: { not: null } },
-                        { cadMeters: { not: null } },
-                      ],
+                      OR: [{ cadAverage: { not: null } }, { cadMeters: { not: null } }],
                     },
                     // Filter by purpose if provided
                     // COSTING mode also shows legacy records with null purpose (backward compatibility)
                     ...(purpose
                       ? [
                           {
-                            OR: [
-                              { purpose: purpose as string },
-                              ...(purpose === 'COSTING' ? [{ purpose: null }] : []),
-                            ],
+                            OR: [{ purpose: purpose as string }, ...(purpose === 'COSTING' ? [{ purpose: null }] : [])],
                           },
                         ]
                       : []),
@@ -341,7 +335,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
       const baseFabricData = {
         styleFabricId: styleFabric.id,
         fabricId: styleFabric.fabricId,
-        fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || styleFabric.genericGreigeName || 'Unknown',
+        fabricName:
+          styleFabric.fabric?.fabricName || styleFabric.fabricName || styleFabric.genericGreigeName || 'Unknown',
         genericGreigeName: styleFabric.genericGreigeName || styleFabric.fabric?.genericGreigeName,
         componentId: component.id,
         componentName: component.componentName,
@@ -386,7 +381,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
           } else if (cadRow.cadMeters) {
             // Calculate from layer length and size breakdowns (same logic as CAD Planning)
             const layerLength = Number(cadRow.cadMeters);
-            const layerMargin = cadRow.layerMarginMeters ? Number(cadRow.layerMarginMeters) : (layerLength * 0.03); // Default 3% margin
+            const layerMargin = cadRow.layerMarginMeters ? Number(cadRow.layerMarginMeters) : layerLength * 0.03; // Default 3% margin
             const sizeBreakdowns = cadRow.sizeBreakdowns || [];
             const totalPieces = sizeBreakdowns.reduce((sum: number, sb: any) => sum + (sb.quantity || 0), 0);
             if (totalPieces > 0) {
@@ -421,9 +416,9 @@ export async function getStyleFabrics(req: Request, res: Response) {
             // Use saved shrinkagePercent, fallback to greige master's averageShrinkagePercent
             shrinkagePercent: cadRow.shrinkagePercent
               ? Number(cadRow.shrinkagePercent)
-              : (greige?.averageShrinkagePercent
-                  ? Number(greige.averageShrinkagePercent)
-                  : null),
+              : greige?.averageShrinkagePercent
+                ? Number(greige.averageShrinkagePercent)
+                : null,
             shrinkageCostPerMeter: cadRow.shrinkageCostPerMeter ? Number(cadRow.shrinkageCostPerMeter) : null,
             screenCostPerMeter: cadRow.screenCostPerMeter ? Number(cadRow.screenCostPerMeter) : null,
             screenType: cadRow.screenType || null,
@@ -500,15 +495,17 @@ export async function getStyleFabrics(req: Request, res: Response) {
     }
   }
 
-  res.json(serialize({
-    success: true,
-    data: {
-      styleId: style.id,
-      styleCode: style.styleCode,
-      styleName: style.styleName,
-      fabrics: fabricsForCosting,
-    },
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: {
+        styleId: style.id,
+        styleCode: style.styleCode,
+        styleName: style.styleName,
+        fabrics: fabricsForCosting,
+      },
+    })
+  );
 }
 
 /**
@@ -557,8 +554,8 @@ export async function lookupProcessorRate(req: Request, res: Response) {
     });
 
     // Check if greige exists but with different printingType
-    const greigeMatch = availableRates.find(rc => rc.greigeId === greigeId);
-    const printTypeMatch = availableRates.find(rc => rc.printingType === printingType);
+    const greigeMatch = availableRates.find((rc) => rc.greigeId === greigeId);
+    const printTypeMatch = availableRates.find((rc) => rc.printingType === printingType);
 
     // Get the requested greige name for error message
     const requestedGreige = await prisma.greige_master.findUnique({
@@ -572,7 +569,9 @@ export async function lookupProcessorRate(req: Request, res: Response) {
     } else if (!greigeMatch && printTypeMatch) {
       errorDetail = `No rate card for greige "${requestedGreige?.greigeName || greigeId}". `;
       if (availableRates.length > 0) {
-        const availableGreiges = [...new Set(availableRates.map(rc => rc.greige?.greigeName))].filter(Boolean).slice(0, 3);
+        const availableGreiges = [...new Set(availableRates.map((rc) => rc.greige?.greigeName))]
+          .filter(Boolean)
+          .slice(0, 3);
         errorDetail += `Available greiges: ${availableGreiges.join(', ')}`;
       }
     } else if (!greigeMatch && !printTypeMatch) {
@@ -582,10 +581,12 @@ export async function lookupProcessorRate(req: Request, res: Response) {
     throw new NotFoundError(`Rate for the given criteria. ${errorDetail}`);
   }
 
-  res.json(serialize({
-    success: true,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+    })
+  );
 }
 
 /**
@@ -688,9 +689,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
         });
 
         if (!sourceRecord) {
-          throw new Error(
-            `Source CAD record ${costing.cloneFromCadId} not found for cloning.`
-          );
+          throw new Error(`Source CAD record ${costing.cloneFromCadId} not found for cloning.`);
         }
 
         // Create new record with cloned CAD data + new cost values
@@ -789,14 +788,16 @@ export async function saveFabricCosting(req: Request, res: Response) {
     })
   );
 
-  res.json(serialize({
-    success: true,
-    data: {
-      message: 'Fabric costing updated successfully',
-      updatedCount: updates.length,
-      isRepeatOrder: isRepeatOrder, // Include repeat order status for frontend
-    },
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: {
+        message: 'Fabric costing updated successfully',
+        updatedCount: updates.length,
+        isRepeatOrder: isRepeatOrder, // Include repeat order status for frontend
+      },
+    })
+  );
 }
 
 /**
@@ -816,10 +817,7 @@ export async function getCostingOptions(req: Request, res: Response) {
   if (processorId) where.processorId = processorId as string;
   if (status === 'APPROVED') where.approvalStatus = 'APPROVED';
   if (status === 'PENDING') {
-    where.OR = [
-      { approvalStatus: null },
-      { approvalStatus: { not: 'APPROVED' } },
-    ];
+    where.OR = [{ approvalStatus: null }, { approvalStatus: { not: 'APPROVED' } }];
   }
 
   // Filter by workflow purpose
@@ -828,9 +826,7 @@ export async function getCostingOptions(req: Request, res: Response) {
   }
 
   // If customerId filter, we need to join through brand_categories
-  const styleFilter: any = customerId
-    ? { brand_categories: { customerId: customerId as string } }
-    : {};
+  const styleFilter: any = customerId ? { brand_categories: { customerId: customerId as string } } : {};
 
   const options = await prisma.fabric_width_cad.findMany({
     where: {
@@ -855,24 +851,23 @@ export async function getCostingOptions(req: Request, res: Response) {
         },
       },
     },
-    orderBy: [
-      { costingStyleId: 'asc' },
-      { componentName: 'asc' },
-      { totalCostPerMeter: 'asc' },
-    ],
+    orderBy: [{ costingStyleId: 'asc' }, { componentName: 'asc' }, { totalCostPerMeter: 'asc' }],
   });
 
   // Group by style, then by component
-  const groupedByStyle: Record<string, {
-    style: {
-      id: string;
-      styleCode: string;
-      styleName: string;
-      customerName: string | null;
-      customerId: string | null;
-    };
-    components: Record<string, any[]>;
-  }> = {};
+  const groupedByStyle: Record<
+    string,
+    {
+      style: {
+        id: string;
+        styleCode: string;
+        styleName: string;
+        customerName: string | null;
+        customerId: string | null;
+      };
+      components: Record<string, any[]>;
+    }
+  > = {};
 
   for (const option of options) {
     const styleIdKey = option.costingStyleId!;
@@ -963,10 +958,7 @@ export async function getCostingOptions(req: Request, res: Response) {
   // Apply status filter if provided
   if (status === 'APPROVED') purposeCountsWhere.approvalStatus = 'APPROVED';
   if (status === 'PENDING') {
-    purposeCountsWhere.OR = [
-      { approvalStatus: null },
-      { approvalStatus: { not: 'APPROVED' } },
-    ];
+    purposeCountsWhere.OR = [{ approvalStatus: null }, { approvalStatus: { not: 'APPROVED' } }];
   }
   // Note: customerId filter requires relation join which groupBy doesn't support directly
   // For accurate counts with customerId, we'd need to filter the options array instead
@@ -981,23 +973,25 @@ export async function getCostingOptions(req: Request, res: Response) {
   // Mode names: COSTING (was PLANNING), RAW_MATERIAL_CALCULATION (was COSTING), PRODUCTION (unchanged)
   const purposeCountsFormatted = {
     all: purposeCounts.reduce((sum, c) => sum + c._count.id, 0),
-    costing: purposeCounts.find(c => c.purpose === 'COSTING')?._count.id || 0,
-    rawMaterialCalculation: purposeCounts.find(c => c.purpose === 'RAW_MATERIAL_CALCULATION')?._count.id || 0,
-    production: purposeCounts.find(c => c.purpose === 'PRODUCTION')?._count.id || 0,
+    costing: purposeCounts.find((c) => c.purpose === 'COSTING')?._count.id || 0,
+    rawMaterialCalculation: purposeCounts.find((c) => c.purpose === 'RAW_MATERIAL_CALCULATION')?._count.id || 0,
+    production: purposeCounts.find((c) => c.purpose === 'PRODUCTION')?._count.id || 0,
   };
 
-  res.json(serialize({
-    success: true,
-    data: paginatedData,
-    pagination: {
-      page: pageNum,
-      limit: limitNum,
-      totalStyles: styleIds.length,
-      totalPages: Math.ceil(styleIds.length / limitNum),
-      totalOptions: options.length,
-    },
-    purposeCounts: purposeCountsFormatted,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: paginatedData,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        totalStyles: styleIds.length,
+        totalPages: Math.ceil(styleIds.length / limitNum),
+        totalOptions: options.length,
+      },
+      purposeCounts: purposeCountsFormatted,
+    })
+  );
 }
 
 /**
@@ -1035,11 +1029,11 @@ export async function approveCostingOption(req: Request, res: Response) {
       where: {
         costingStyleId: option.costingStyleId,
         componentName: option.componentName,
-        fabricId: option.fabricId,              // Same base fabric
-        greigeId: option.greigeId,              // Same greige
-        styleFabricId: option.styleFabricId,    // Same style fabric assignment (key for embroidery differentiation)
-        patternPartId: option.patternPartId,    // Same pattern part
-        purpose: option.purpose,                // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+        fabricId: option.fabricId, // Same base fabric
+        greigeId: option.greigeId, // Same greige
+        styleFabricId: option.styleFabricId, // Same style fabric assignment (key for embroidery differentiation)
+        patternPartId: option.patternPartId, // Same pattern part
+        purpose: option.purpose, // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
         id: { not: optionId },
         // Only mark as alternate if they have costing data
         totalCostPerMeter: { not: null },
@@ -1056,11 +1050,11 @@ export async function approveCostingOption(req: Request, res: Response) {
       where: {
         costingStyleId: option.costingStyleId,
         componentName: option.componentName,
-        fabricId: option.fabricId,              // Same base fabric
-        greigeId: option.greigeId,              // Same greige
-        styleFabricId: option.styleFabricId,    // Same style fabric assignment (key for embroidery differentiation)
-        patternPartId: option.patternPartId,    // Same pattern part
-        purpose: option.purpose,                // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+        fabricId: option.fabricId, // Same base fabric
+        greigeId: option.greigeId, // Same greige
+        styleFabricId: option.styleFabricId, // Same style fabric assignment (key for embroidery differentiation)
+        patternPartId: option.patternPartId, // Same pattern part
+        purpose: option.purpose, // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
         id: { not: optionId },
         totalCostPerMeter: null,
       },
@@ -1088,11 +1082,13 @@ export async function approveCostingOption(req: Request, res: Response) {
     return updated;
   });
 
-  res.json(serialize({
-    success: true,
-    data: result,
-    message: 'Costing option approved successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+      message: 'Costing option approved successfully',
+    })
+  );
 }
 
 /**
@@ -1159,10 +1155,12 @@ export async function deleteCostingOption(req: Request, res: Response) {
     where: { id: optionId },
   });
 
-  res.json(serialize({
-    success: true,
-    message: 'Costing option deleted successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: 'Costing option deleted successfully',
+    })
+  );
 }
 
 /**
@@ -1209,9 +1207,7 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
     // If styleFabric has embroidery, append " - Embroidered" to differentiate
     const baseComponentName = option.componentName || 'Unknown';
     const hasEmbroidery = option.styleFabric?.hasEmbroidery || false;
-    const componentKey = hasEmbroidery
-      ? `${baseComponentName} - Embroidered`
-      : baseComponentName;
+    const componentKey = hasEmbroidery ? `${baseComponentName} - Embroidered` : baseComponentName;
 
     if (!groupedByComponent[componentKey]) {
       groupedByComponent[componentKey] = [];
@@ -1222,7 +1218,7 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
 
     groupedByComponent[componentKey].push({
       id: option.id,
-      purpose: option.purpose,  // Include purpose in response for mode-aware filtering
+      purpose: option.purpose, // Include purpose in response for mode-aware filtering
       fabricId: option.fabricId,
       styleFabricId: option.styleFabricId,
       hasEmbroidery: option.styleFabric?.hasEmbroidery || false,
@@ -1254,7 +1250,7 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
       isLowestCost,
       orderQuantityPcs: option.orderQuantityPcs,
       cadMeters: option.cadMeters,
-      cadAverage: option.cadAverage,  // Per-piece consumption (cadMeters / piecesPerMarker)
+      cadAverage: option.cadAverage, // Per-piece consumption (cadMeters / piecesPerMarker)
       createdAt: option.createdAt,
       updatedAt: option.updatedAt,
     });
@@ -1262,22 +1258,24 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
 
   // Count stats
   const totalOptions = options.length;
-  const approvedCount = options.filter(o => o.approvalStatus === 'APPROVED').length;
+  const approvedCount = options.filter((o) => o.approvalStatus === 'APPROVED').length;
   const componentCount = Object.keys(groupedByComponent).length;
-  const allComponentsApproved = Object.values(groupedByComponent).every(
-    opts => opts.some(o => o.approvalStatus === 'APPROVED')
+  const allComponentsApproved = Object.values(groupedByComponent).every((opts) =>
+    opts.some((o) => o.approvalStatus === 'APPROVED')
   );
 
-  res.json(serialize({
-    success: true,
-    data: groupedByComponent,
-    summary: {
-      totalOptions,
-      approvedCount,
-      componentCount,
-      allComponentsApproved,
-    },
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: groupedByComponent,
+      summary: {
+        totalOptions,
+        approvedCount,
+        componentCount,
+        allComponentsApproved,
+      },
+    })
+  );
 }
 
 /**
@@ -1321,7 +1319,7 @@ export async function promoteCostingOption(req: Request, res: Response) {
 
   const currentPurpose = option.purpose || 'COSTING';
   const isValid = validPaths.some(
-    p => (p.from === currentPurpose || (p.from === null && !option.purpose)) && p.to === targetPurpose
+    (p) => (p.from === currentPurpose || (p.from === null && !option.purpose)) && p.to === targetPurpose
   );
 
   if (!isValid) {
@@ -1348,11 +1346,13 @@ export async function promoteCostingOption(req: Request, res: Response) {
     },
   });
 
-  res.json(serialize({
-    success: true,
-    data: promoted,
-    message: `Costing option promoted to ${targetPurpose} successfully`,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: promoted,
+      message: `Costing option promoted to ${targetPurpose} successfully`,
+    })
+  );
 }
 
 /**
@@ -1383,8 +1383,10 @@ export async function getStylesCostingStatus(req: Request, res: Response) {
     });
 
     const hasCosting = costings.length > 0;
-    const hasApproved = costings.some(c => c.approvalStatus === 'APPROVED' || c.approvalStatus === 'ALTERNATE_APPROVED');
-    const hasProduction = costings.some(c => c.purpose === 'PRODUCTION' && c.isLocked);
+    const hasApproved = costings.some(
+      (c) => c.approvalStatus === 'APPROVED' || c.approvalStatus === 'ALTERNATE_APPROVED'
+    );
+    const hasProduction = costings.some((c) => c.purpose === 'PRODUCTION' && c.isLocked);
     const hasPending = hasCosting && !hasApproved;
 
     return {
@@ -1402,15 +1404,20 @@ export async function getStylesCostingStatus(req: Request, res: Response) {
   const results = await Promise.all(statusPromises);
 
   // Convert to object keyed by styleId
-  const statusMap = results.reduce((acc, item) => {
-    acc[item.styleId] = item.status;
-    return acc;
-  }, {} as Record<string, any>);
+  const statusMap = results.reduce(
+    (acc, item) => {
+      acc[item.styleId] = item.status;
+      return acc;
+    },
+    {} as Record<string, any>
+  );
 
-  res.json(serialize({
-    success: true,
-    data: statusMap,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: statusMap,
+    })
+  );
 }
 
 /**
@@ -1458,15 +1465,17 @@ export async function checkCADCostingStatus(req: Request, res: Response) {
     }
   }
 
-  res.json(serialize({
-    success: true,
-    data: {
-      newCount: newRows.length,
-      existingCount: existingRows.length,
-      newRows,
-      existingRows,
-    },
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: {
+        newCount: newRows.length,
+        existingCount: existingRows.length,
+        newRows,
+        existingRows,
+      },
+    })
+  );
 }
 
 /**
@@ -1491,7 +1500,7 @@ export async function pushFromCAD(req: Request, res: Response) {
         include: {
           fabricProcurements: {
             where: {
-              status: { in: ['RECEIVED', 'COMPLETED'] } // Use received/completed procurements
+              status: { in: ['RECEIVED', 'COMPLETED'] }, // Use received/completed procurements
             },
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -1530,9 +1539,7 @@ export async function pushFromCAD(req: Request, res: Response) {
     const transportCostPerMeter = 0;
 
     // Calculate initial total (greige + transport, no processing yet)
-    const totalCostPerMeter = greigeCostPerMeter !== null
-      ? greigeCostPerMeter + transportCostPerMeter
-      : null;
+    const totalCostPerMeter = greigeCostPerMeter !== null ? greigeCostPerMeter + transportCostPerMeter : null;
 
     // Update CAD row with costing fields
     const updated = await prisma.fabric_width_cad.update({
@@ -1560,15 +1567,17 @@ export async function pushFromCAD(req: Request, res: Response) {
     });
   }
 
-  res.json(serialize({
-    success: true,
-    data: {
-      created: createdRows.length,
-      skipped: skippedRows.length,
-      createdRows,
-      skippedRows,
-    },
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: {
+        created: createdRows.length,
+        skipped: skippedRows.length,
+        createdRows,
+        skippedRows,
+      },
+    })
+  );
 }
 
 /**
@@ -1593,10 +1602,7 @@ export async function validateStyleCADData(req: Request, res: Response) {
       },
     },
     // Only include records with actual CAD data
-    OR: [
-      { cadMeters: { not: null } },
-      { cadAverage: { not: null } },
-    ],
+    OR: [{ cadMeters: { not: null } }, { cadAverage: { not: null } }],
   };
 
   // Filter by purpose if provided
@@ -1618,17 +1624,19 @@ export async function validateStyleCADData(req: Request, res: Response) {
 
   const hasCADData = cadRecords.length > 0;
 
-  res.json(serialize({
-    success: true,
-    data: {
-      hasCADData,
-      recordCount: cadRecords.length,
-      records: cadRecords,
-      message: hasCADData
-        ? `Found ${cadRecords.length} CAD record(s) for this style`
-        : 'No CAD data found. Please create CAD data in CAD Planning module first.',
-    },
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: {
+        hasCADData,
+        recordCount: cadRecords.length,
+        records: cadRecords,
+        message: hasCADData
+          ? `Found ${cadRecords.length} CAD record(s) for this style`
+          : 'No CAD data found. Please create CAD data in CAD Planning module first.',
+      },
+    })
+  );
 }
 
 export default {

@@ -93,7 +93,6 @@ export default function GenericTrimList() {
     }
   };
 
-
   // Get the value from item using dynamic field name
   const getFieldValue = (item: GenericTrimItem, field: string): any => {
     return (item as any)[field];
@@ -105,11 +104,7 @@ export default function GenericTrimList() {
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-gray-500">Invalid trim type specified.</p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => navigate('/trim-masters')}
-            >
+            <Button variant="outline" className="mt-4" onClick={() => navigate('/trim-masters')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Trim Masters
             </Button>
@@ -136,9 +131,7 @@ export default function GenericTrimList() {
       render: (item) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{getFieldValue(item, config.nameField)}</div>
-          {item.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>
-          )}
+          {item.description && <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>}
         </div>
       ),
     },
@@ -163,18 +156,14 @@ export default function GenericTrimList() {
   });
 
   // Add price column if available
-  const priceField = config.fields.find(f => f.name.includes('price'));
+  const priceField = config.fields.find((f) => f.name.includes('price'));
   if (priceField) {
     columns.push({
       key: priceField.name,
       header: priceField.label,
       render: (item) => {
         const price = getFieldValue(item, priceField.name);
-        return (
-          <div className="text-sm font-medium text-gray-900">
-            {price ? formatCurrency(price) : '-'}
-          </div>
-        );
+        return <div className="text-sm font-medium text-gray-900">{price ? formatCurrency(price) : '-'}</div>;
       },
     });
   }
@@ -183,11 +172,7 @@ export default function GenericTrimList() {
   columns.push({
     key: 'supplier',
     header: 'Supplier',
-    render: (item) => (
-      <div className="text-sm text-gray-700">
-        {item.supplier?.name || '-'}
-      </div>
-    ),
+    render: (item) => <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>,
   });
 
   // Add status column
@@ -203,11 +188,7 @@ export default function GenericTrimList() {
     header: 'Actions',
     render: (item) => (
       <div className="flex space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/materials/${trimType}/${item.id}/edit`)}
-        >
+        <Button variant="outline" size="sm" onClick={() => navigate(`/materials/${trimType}/${item.id}/edit`)}>
           Edit
         </Button>
         <Button
@@ -226,11 +207,7 @@ export default function GenericTrimList() {
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/trim-masters')}
-          >
+          <Button variant="ghost" size="sm" onClick={() => navigate('/trim-masters')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
@@ -241,9 +218,7 @@ export default function GenericTrimList() {
             </p>
           </div>
         </div>
-        <Button onClick={() => navigate(`/materials/${trimType}/new`)}>
-          Add New {config.label}
-        </Button>
+        <Button onClick={() => navigate(`/materials/${trimType}/new`)}>Add New {config.label}</Button>
       </div>
 
       {/* Search */}

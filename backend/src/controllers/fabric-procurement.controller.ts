@@ -94,9 +94,7 @@ export const getProcurements = async (req: Request, res: Response) => {
   const where: Prisma.fabric_procurementWhereInput = {};
 
   if (search) {
-    where.OR = [
-      { purchaseOrderNumber: { contains: search as string, mode: 'insensitive' } },
-    ];
+    where.OR = [{ purchaseOrderNumber: { contains: search as string, mode: 'insensitive' } }];
   }
 
   if (procurementType) {
@@ -216,16 +214,13 @@ export const createProcurement = async (req: Request, res: Response) => {
   }
 
   // Generate PO number if not provided
-  const purchaseOrderNumber = validatedData.purchaseOrderNumber ||
-    `PO-${Date.now()}-${validatedData.procurementType}`;
+  const purchaseOrderNumber = validatedData.purchaseOrderNumber || `PO-${Date.now()}-${validatedData.procurementType}`;
 
   const procurement = await prisma.fabric_procurement.create({
     data: {
       ...validatedData,
       purchaseOrderNumber,
-      expectedDelivery: validatedData.expectedDelivery
-        ? new Date(validatedData.expectedDelivery)
-        : undefined,
+      expectedDelivery: validatedData.expectedDelivery ? new Date(validatedData.expectedDelivery) : undefined,
       createdById: userId,
     },
     include: {
@@ -264,9 +259,7 @@ export const updateProcurement = async (req: Request, res: Response) => {
     where: { id },
     data: {
       ...validatedData,
-      receivedDate: validatedData.receivedDate
-        ? new Date(validatedData.receivedDate)
-        : undefined,
+      receivedDate: validatedData.receivedDate ? new Date(validatedData.receivedDate) : undefined,
     },
     include: {
       greigeMaster: true,

@@ -5,21 +5,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,12 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { AgencyFormDialog } from '@/components/AgencyFormDialog';
-import {
-  getAllAgencies,
-  createAgency,
-  updateAgency,
-  deleteAgency,
-} from '@/services/agency.service';
+import { getAllAgencies, createAgency, updateAgency, deleteAgency } from '@/services/agency.service';
 import type { Agency, CreateAgencyRequest, UpdateAgencyRequest } from '@/types/agency.types';
 
 export default function AgencyList() {
@@ -69,8 +51,7 @@ export default function AgencyList() {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateAgencyRequest }) =>
-      updateAgency(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UpdateAgencyRequest }) => updateAgency(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['agencies'] });
       toast.success('Agency updated successfully');
@@ -128,9 +109,7 @@ export default function AgencyList() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Agencies</h1>
-          <p className="text-muted-foreground">
-            Manage agencies that contain sales agents
-          </p>
+          <p className="text-muted-foreground">Manage agencies that contain sales agents</p>
         </div>
         <Button
           onClick={() => {
@@ -148,9 +127,7 @@ export default function AgencyList() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Agency List</CardTitle>
-              <CardDescription>
-                {pagination?.total || 0} agencies total
-              </CardDescription>
+              <CardDescription>{pagination?.total || 0} agencies total</CardDescription>
             </div>
             <div className="relative w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -204,16 +181,12 @@ export default function AgencyList() {
                 <TableBody>
                   {agencies.map((agency) => (
                     <TableRow key={agency.id}>
-                      <TableCell className="font-mono text-sm">
-                        {agency.code}
-                      </TableCell>
+                      <TableCell className="font-mono text-sm">{agency.code}</TableCell>
                       <TableCell className="font-medium">{agency.name}</TableCell>
                       <TableCell>{agency.phone || '-'}</TableCell>
                       <TableCell>{agency.email || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
-                          {agency._count?.agents || 0}
-                        </Badge>
+                        <Badge variant="secondary">{agency._count?.agents || 0}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant={agency.isActive ? 'default' : 'secondary'}>
@@ -222,18 +195,10 @@ export default function AgencyList() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(agency)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(agency)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(agency)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(agency)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -289,8 +254,7 @@ export default function AgencyList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Agency</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete agency "{agencyToDelete?.name}"? This
-              action cannot be undone.
+              Are you sure you want to delete agency "{agencyToDelete?.name}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

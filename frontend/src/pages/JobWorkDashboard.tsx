@@ -25,19 +25,11 @@ export default function JobWorkDashboard() {
   return (
     <div className="container mx-auto py-6">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">
-          Job Work Dashboard
-        </h2>
-        <p className="text-gray-600">
-          Overview of materials at processors
-        </p>
+        <h2 className="text-3xl font-bold text-gray-800 mb-2">Job Work Dashboard</h2>
+        <p className="text-gray-600">Overview of materials at processors</p>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-6">
@@ -78,9 +70,7 @@ export default function JobWorkDashboard() {
           </div>
         </div>
         <div className="p-6">
-          <div className="text-center text-gray-500 py-8">
-            No active processing batches
-          </div>
+          <div className="text-center text-gray-500 py-8">No active processing batches</div>
         </div>
       </div>
     </div>

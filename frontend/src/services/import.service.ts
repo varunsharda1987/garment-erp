@@ -22,9 +22,7 @@ class ImportService {
       logApiError('Import preview error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to preview import'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to preview import'
       );
     }
   }
@@ -46,10 +44,7 @@ class ImportService {
           invalidRows: number;
           importedRows: number;
         };
-      }>(
-        `/import/${module}/execute`,
-        formData
-      );
+      }>(`/import/${module}/execute`, formData);
 
       // Transform backend response to ImportResult format
       return {
@@ -63,9 +58,7 @@ class ImportService {
       logApiError('Import execute error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to execute import'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to execute import'
       );
     }
   }
@@ -75,13 +68,10 @@ class ImportService {
    */
   async downloadTemplate(module: string, format: ImportFormat = 'excel'): Promise<void> {
     try {
-      const response = await api.get(
-        `/import/${module}/template`,
-        {
-          params: { format },
-          responseType: 'blob',
-        }
-      );
+      const response = await api.get(`/import/${module}/template`, {
+        params: { format },
+        responseType: 'blob',
+      });
 
       // Extract filename or generate one
       const contentDisposition = response.headers['content-disposition'];
@@ -99,9 +89,10 @@ class ImportService {
 
       // Create blob and download
       // Use explicit MIME type based on format to ensure correct file type
-      const mimeType = format === 'csv'
-        ? 'text/csv;charset=utf-8;'
-        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const mimeType =
+        format === 'csv'
+          ? 'text/csv;charset=utf-8;'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
       const blob = new Blob([response.data], {
         type: mimeType,
@@ -115,14 +106,11 @@ class ImportService {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
     } catch (error: unknown) {
       logApiError('Download template error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
       throw new Error(
-        axiosError.response?.data?.message ||
-        axiosError.response?.data?.error ||
-        'Failed to download template'
+        axiosError.response?.data?.message || axiosError.response?.data?.error || 'Failed to download template'
       );
     }
   }

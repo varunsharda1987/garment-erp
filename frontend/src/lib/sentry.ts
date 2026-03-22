@@ -117,10 +117,7 @@ export function captureException(error: Error, context?: Record<string, unknown>
  * @param message Message to capture
  * @param level Severity level
  */
-export function captureMessage(
-  message: string,
-  level: Sentry.SeverityLevel = 'info'
-): void {
+export function captureMessage(message: string, level: Sentry.SeverityLevel = 'info'): void {
   Sentry.captureMessage(message, level);
 }
 
@@ -129,11 +126,7 @@ export function captureMessage(
  *
  * @param user User information
  */
-export function setUserContext(user: {
-  id: string;
-  email?: string;
-  username?: string;
-}): void {
+export function setUserContext(user: { id: string; email?: string; username?: string }): void {
   Sentry.setUser(user);
 }
 
@@ -151,11 +144,7 @@ export function clearUserContext(): void {
  * @param category Category
  * @param data Additional data
  */
-export function addBreadcrumb(
-  message: string,
-  category: string = 'custom',
-  data?: Record<string, unknown>
-): void {
+export function addBreadcrumb(message: string, category: string = 'custom', data?: Record<string, unknown>): void {
   Sentry.addBreadcrumb({
     message,
     category,

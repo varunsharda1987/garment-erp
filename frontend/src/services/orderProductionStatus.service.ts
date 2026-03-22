@@ -20,9 +20,7 @@ const ORDER_ITEMS_URL = '/order-items';
 /**
  * Get order-level production status list with filters
  */
-export const getOrderStatusList = async (
-  options: OrderStatusQueryOptions = {}
-): Promise<OrderStatusListResponse> => {
+export const getOrderStatusList = async (options: OrderStatusQueryOptions = {}): Promise<OrderStatusListResponse> => {
   const params = new URLSearchParams();
 
   if (options.page) params.append('page', options.page.toString());
@@ -53,37 +51,23 @@ export const getOrderStatusList = async (
  * Get order production status summary
  */
 export const getOrderStatusSummary = async (): Promise<OrderStatusSummary> => {
-  const response = await api.get<{ success: boolean; data: OrderStatusSummary }>(
-    `${BASE_URL}/by-order/summary`
-  );
+  const response = await api.get<{ success: boolean; data: OrderStatusSummary }>(`${BASE_URL}/by-order/summary`);
   return response.data.data;
 };
 
 /**
  * Select CAD width for an order item
  */
-export const selectCadForOrder = async (
-  orderItemId: string,
-  data: SelectCadRequest
-): Promise<any> => {
-  const response = await api.patch(
-    `${ORDER_ITEMS_URL}/${orderItemId}/select-cad`,
-    data
-  );
+export const selectCadForOrder = async (orderItemId: string, data: SelectCadRequest): Promise<any> => {
+  const response = await api.patch(`${ORDER_ITEMS_URL}/${orderItemId}/select-cad`, data);
   return response.data;
 };
 
 /**
  * Update inheritance settings for an order item
  */
-export const updateInheritance = async (
-  orderItemId: string,
-  data: UpdateInheritanceRequest
-): Promise<any> => {
-  const response = await api.patch(
-    `${ORDER_ITEMS_URL}/${orderItemId}/inheritance`,
-    data
-  );
+export const updateInheritance = async (orderItemId: string, data: UpdateInheritanceRequest): Promise<any> => {
+  const response = await api.patch(`${ORDER_ITEMS_URL}/${orderItemId}/inheritance`, data);
   return response.data;
 };
 
@@ -112,9 +96,7 @@ export const recalculateOrderCosting = async (
 /**
  * Get costing comparison between style base and order-specific
  */
-export const getCostingComparison = async (
-  orderItemId: string
-): Promise<CostingComparisonResponse> => {
+export const getCostingComparison = async (orderItemId: string): Promise<CostingComparisonResponse> => {
   const response = await api.get<{ success: boolean; data: CostingComparisonResponse }>(
     `${ORDER_ITEMS_URL}/${orderItemId}/costing-comparison`
   );

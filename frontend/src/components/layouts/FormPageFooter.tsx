@@ -72,20 +72,13 @@ export function FormPageFooter({
     between: 'justify-between',
   }[position];
 
-  const stickyClass = sticky
-    ? 'sticky bottom-0 bg-background border-t py-4 px-6 -mx-6 -mb-6 mt-6'
-    : 'mt-6';
+  const stickyClass = sticky ? 'sticky bottom-0 bg-background border-t py-4 px-6 -mx-6 -mb-6 mt-6' : 'mt-6';
 
   return (
     <div className={`flex items-center gap-3 ${justifyClass} ${stickyClass} ${className}`}>
       {/* Delete button on the left when position is 'between' */}
       {position === 'between' && showDelete && onDelete && (
-        <Button
-          type="button"
-          variant="destructive"
-          onClick={onDelete}
-          disabled={isDisabled}
-        >
+        <Button type="button" variant="destructive" onClick={onDelete} disabled={isDisabled}>
           {deleting ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -104,12 +97,7 @@ export function FormPageFooter({
       <div className="flex items-center gap-3">
         {/* Delete button (when not 'between') */}
         {position !== 'between' && showDelete && onDelete && (
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onDelete}
-            disabled={isDisabled}
-          >
+          <Button type="button" variant="destructive" onClick={onDelete} disabled={isDisabled}>
             {deleting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -126,23 +114,14 @@ export function FormPageFooter({
 
         {/* Cancel button */}
         {onCancel && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isDisabled}
-          >
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isDisabled}>
             {cancelText}
           </Button>
         )}
 
         {/* Save button */}
         {onSave && (
-          <Button
-            type="button"
-            onClick={onSave}
-            disabled={saveDisabled || isDisabled}
-          >
+          <Button type="button" onClick={onSave} disabled={saveDisabled || isDisabled}>
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

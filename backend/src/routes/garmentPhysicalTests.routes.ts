@@ -33,7 +33,11 @@ router.get('/:id', asyncHandler(getGarmentPhysicalTestById));
 router.put('/:id', validateBody(updateGarmentPhysicalTestSchema), asyncHandler(updateGarmentPhysicalTest));
 router.post('/retest', validateBody(retestGarmentSchema), asyncHandler(createRetestGarmentPhysicalTest));
 router.post('/:id/approve', validateBody(approveGarmentTestSchema), asyncHandler(approveGarmentPhysicalTest));
-router.post('/:id/buyer-approve', validateBody(buyerApproveGarmentTestSchema), asyncHandler(buyerApproveGarmentPhysicalTest));
+router.post(
+  '/:id/buyer-approve',
+  validateBody(buyerApproveGarmentTestSchema),
+  asyncHandler(buyerApproveGarmentPhysicalTest)
+);
 router.delete('/:id', asyncHandler(deleteGarmentPhysicalTest));
 
 export default router;

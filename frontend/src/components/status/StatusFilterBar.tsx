@@ -1,12 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search } from 'lucide-react';
 import { ProductionStage } from '@/types/style.types';
 import type { StatusFilter } from '@/types/productionStatus.types';
@@ -68,9 +62,7 @@ export default function StatusFilterBar({
           </Label>
           <Select
             value={filters.status || 'all'}
-            onValueChange={(value) =>
-              setFilters({ ...filters, status: value as StatusFilter })
-            }
+            onValueChange={(value) => setFilters({ ...filters, status: value as StatusFilter })}
           >
             <SelectTrigger id="status">
               <SelectValue placeholder="All Status" />
@@ -132,10 +124,7 @@ export default function StatusFilterBar({
             onValueChange={(value) =>
               setFilters({
                 ...filters,
-                cadStatus:
-                  value === 'all'
-                    ? undefined
-                    : (value as 'PENDING' | 'IN_PROGRESS' | 'APPROVED'),
+                cadStatus: value === 'all' ? undefined : (value as 'PENDING' | 'IN_PROGRESS' | 'APPROVED'),
               })
             }
           >

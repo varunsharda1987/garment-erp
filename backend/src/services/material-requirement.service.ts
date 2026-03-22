@@ -39,7 +39,9 @@ export interface StyleRequirement {
  */
 async function getAvailableStock(materialId: string): Promise<number> {
   if (!materialId) {
-    logWarn('[MRP] getAvailableStock called with empty materialId — BOM item has no linked material record. Stock will be reported as 0, but this indicates incomplete BOM data that should be fixed at the source.');
+    logWarn(
+      '[MRP] getAvailableStock called with empty materialId — BOM item has no linked material record. Stock will be reported as 0, but this indicates incomplete BOM data that should be fixed at the source.'
+    );
     return 0;
   }
 
@@ -133,7 +135,9 @@ export async function calculateMaterialRequirement(
     }
 
     if (!materialId) {
-      logWarn(`[MRP] BOM item '${bom.componentName || bom.id}' for style '${style.styleCode}' has no linked material record. This item will have 0 available stock. Fix the BOM data to link a material master.`);
+      logWarn(
+        `[MRP] BOM item '${bom.componentName || bom.id}' for style '${style.styleCode}' has no linked material record. This item will have 0 available stock. Fix the BOM data to link a material master.`
+      );
     }
 
     // Query actual stock from stock_levels table
@@ -160,9 +164,7 @@ export async function calculateMaterialRequirement(
  * Get all styles that use a specific material
  * Searches style_material_bom for material references
  */
-export async function getStylesUsingMaterial(
-  materialCode: string
-): Promise<StyleRequirement[]> {
+export async function getStylesUsingMaterial(materialCode: string): Promise<StyleRequirement[]> {
   // First, try to find the material by code
   const material = await prisma.materials.findFirst({
     where: { code: { equals: materialCode, mode: 'insensitive' } },
@@ -214,10 +216,7 @@ export async function calculateBulkRequirements(
   const allRequirements: Map<string, MaterialRequirement> = new Map();
 
   for (const order of orders) {
-    const styleRequirements = await calculateMaterialRequirement(
-      order.styleId,
-      order.quantity
-    );
+    const styleRequirements = await calculateMaterialRequirement(order.styleId, order.quantity);
 
     // Aggregate by material code
     for (const req of styleRequirements) {

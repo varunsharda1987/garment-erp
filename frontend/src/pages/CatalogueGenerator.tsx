@@ -18,21 +18,8 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,7 +141,15 @@ export default function CatalogueGenerator() {
         setIsLoadingStyles(true);
       }
 
-      const response = await styleService.getAllStyles(page, PAGE_SIZE, undefined, undefined, undefined, undefined, 'ACTIVE');
+      const response = await styleService.getAllStyles(
+        page,
+        PAGE_SIZE,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'ACTIVE'
+      );
       const newStyles = (response.data || []).map((style: any) => ({
         id: style.id as string,
         styleCode: style.styleCode as string,
@@ -170,7 +165,7 @@ export default function CatalogueGenerator() {
       })) as CatalogueStyle[];
 
       if (append) {
-        setStyles(prev => [...prev, ...newStyles]);
+        setStyles((prev) => [...prev, ...newStyles]);
       } else {
         setStyles(newStyles);
       }
@@ -219,28 +214,25 @@ export default function CatalogueGenerator() {
   // Extract unique brand categories from loaded styles
   const uniqueBrandCategories = useMemo(() => {
     const categories = new Map<string, { id: string; category: string }>();
-    styles.forEach(style => {
+    styles.forEach((style) => {
       if (style.brandCategories?.id && style.brandCategories?.category) {
         categories.set(style.brandCategories.id, {
           id: style.brandCategories.id,
-          category: style.brandCategories.category
+          category: style.brandCategories.category,
         });
       }
     });
-    return Array.from(categories.values()).sort((a, b) =>
-      a.category.localeCompare(b.category)
-    );
+    return Array.from(categories.values()).sort((a, b) => a.category.localeCompare(b.category));
   }, [styles]);
 
   // Filter styles based on search and filters
   const filteredStyles = useMemo(() => {
-    return styles.filter(style => {
+    return styles.filter((style) => {
       // Search filter
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         const matchesSearch =
-          style.styleCode?.toLowerCase().includes(search) ||
-          style.styleName?.toLowerCase().includes(search);
+          style.styleCode?.toLowerCase().includes(search) || style.styleName?.toLowerCase().includes(search);
         if (!matchesSearch) return false;
       }
 
@@ -262,7 +254,7 @@ export default function CatalogueGenerator() {
       // Size availability filter
       if (selectedSizes.length > 0) {
         const sizeRange = (style.sizeRange || '').toUpperCase();
-        if (!selectedSizes.some(size => sizeRange.includes(size.toUpperCase()))) {
+        if (!selectedSizes.some((size) => sizeRange.includes(size.toUpperCase()))) {
           return false;
         }
       }
@@ -296,7 +288,7 @@ export default function CatalogueGenerator() {
 
   // Toggle style selection
   const toggleStyleSelection = (styleId: string) => {
-    setSelectedStyleIds(prev => {
+    setSelectedStyleIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(styleId)) {
         newSet.delete(styleId);
@@ -309,7 +301,7 @@ export default function CatalogueGenerator() {
 
   // Select all visible styles
   const selectAllVisible = () => {
-    const allVisibleIds = new Set(filteredStyles.map(s => s.id));
+    const allVisibleIds = new Set(filteredStyles.map((s) => s.id));
     setSelectedStyleIds(allVisibleIds);
   };
 
@@ -331,11 +323,7 @@ export default function CatalogueGenerator() {
 
   // Toggle size selection
   const toggleSize = (size: string) => {
-    setSelectedSizes(prev =>
-      prev.includes(size)
-        ? prev.filter(s => s !== size)
-        : [...prev, size]
-    );
+    setSelectedSizes((prev) => (prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]));
   };
 
   // Parse bulk style codes
@@ -343,8 +331,8 @@ export default function CatalogueGenerator() {
     // Split by comma, newline, tab, or multiple spaces
     return input
       .split(/[,\n\t]+/)
-      .map(code => code.trim())
-      .filter(code => code.length > 0);
+      .map((code) => code.trim())
+      .filter((code) => code.length > 0);
   };
 
   // Handle bulk paste
@@ -356,9 +344,7 @@ export default function CatalogueGenerator() {
     }
 
     // Find matching styles by styleCode (case-insensitive)
-    const matchingStyles = styles.filter(s =>
-      codes.some(code => s.styleCode.toLowerCase() === code.toLowerCase())
-    );
+    const matchingStyles = styles.filter((s) => codes.some((code) => s.styleCode.toLowerCase() === code.toLowerCase()));
 
     if (matchingStyles.length === 0) {
       setBulkParseError(`No styles found matching: ${codes.slice(0, 5).join(', ')}${codes.length > 5 ? '...' : ''}`);
@@ -366,7 +352,7 @@ export default function CatalogueGenerator() {
     }
 
     // Add to selection
-    const newIds = new Set([...selectedStyleIds, ...matchingStyles.map(s => s.id)]);
+    const newIds = new Set([...selectedStyleIds, ...matchingStyles.map((s) => s.id)]);
     setSelectedStyleIds(newIds);
     setBulkStyleCodes('');
     setBulkParseError(null);
@@ -384,10 +370,13 @@ export default function CatalogueGenerator() {
     seasons: selectedSeason ? [selectedSeason] : undefined,
     categoryIds: selectedCategory ? [selectedCategory] : undefined,
     brandCategoryIds: selectedBrandCategory ? [selectedBrandCategory] : undefined,
-    priceRange: (minPrice || maxPrice) ? {
-      min: minPrice ? parseFloat(minPrice) : undefined,
-      max: maxPrice ? parseFloat(maxPrice) : undefined,
-    } : undefined,
+    priceRange:
+      minPrice || maxPrice
+        ? {
+            min: minPrice ? parseFloat(minPrice) : undefined,
+            max: maxPrice ? parseFloat(maxPrice) : undefined,
+          }
+        : undefined,
     priceDisplay,
     showFabricDetails,
     showSizeRange,
@@ -432,10 +421,7 @@ export default function CatalogueGenerator() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      handleApiSuccess(
-        'Catalogue Generated',
-        `Successfully generated catalogue with ${selectedStyleIds.size} styles.`
-      );
+      handleApiSuccess('Catalogue Generated', `Successfully generated catalogue with ${selectedStyleIds.size} styles.`);
     } catch (error) {
       handleApiError(error, 'Failed to generate catalogue');
     } finally {
@@ -477,7 +463,7 @@ export default function CatalogueGenerator() {
     try {
       setIsSharing(true);
       const response = await api.get(`/documents/catalogue/${storedCatalogueId}/whatsapp-link`, {
-        params: { phone: cleanPhone, catalogueName }
+        params: { phone: cleanPhone, catalogueName },
       });
 
       window.open(response.data.data.whatsappUrl, '_blank');
@@ -490,7 +476,14 @@ export default function CatalogueGenerator() {
     }
   };
 
-  const hasActiveFilters = searchTerm || selectedSeason || selectedCategory || selectedBrandCategory || selectedSizes.length > 0 || minPrice || maxPrice;
+  const hasActiveFilters =
+    searchTerm ||
+    selectedSeason ||
+    selectedCategory ||
+    selectedBrandCategory ||
+    selectedSizes.length > 0 ||
+    minPrice ||
+    maxPrice;
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-6">
@@ -512,7 +505,7 @@ export default function CatalogueGenerator() {
               disabled={isGenerating || isSharing || selectedStyleIds.size === 0}
               className="gap-2 bg-purple-600 hover:bg-purple-700"
             >
-              {(isGenerating || isSharing) ? (
+              {isGenerating || isSharing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Processing...
@@ -560,10 +553,7 @@ export default function CatalogueGenerator() {
 
               <div className="space-y-2">
                 <Label>Layout</Label>
-                <Select
-                  value={columnsPerPage.toString()}
-                  onValueChange={(v) => setColumnsPerPage(parseInt(v))}
-                >
+                <Select value={columnsPerPage.toString()} onValueChange={(v) => setColumnsPerPage(parseInt(v))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Columns per page" />
                   </SelectTrigger>
@@ -581,19 +571,27 @@ export default function CatalogueGenerator() {
                 <RadioGroup value={priceDisplay} onValueChange={(v) => setPriceDisplay(v as PriceDisplay)}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="b2b" id="b2b" />
-                    <Label htmlFor="b2b" className="font-normal">B2B (Cost Price)</Label>
+                    <Label htmlFor="b2b" className="font-normal">
+                      B2B (Cost Price)
+                    </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="b2r" id="b2r" />
-                    <Label htmlFor="b2r" className="font-normal">B2R (MRP)</Label>
+                    <Label htmlFor="b2r" className="font-normal">
+                      B2R (MRP)
+                    </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="both" id="both" />
-                    <Label htmlFor="both" className="font-normal">Both Prices</Label>
+                    <Label htmlFor="both" className="font-normal">
+                      Both Prices
+                    </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="none" id="none" />
-                    <Label htmlFor="none" className="font-normal">No Prices</Label>
+                    <Label htmlFor="none" className="font-normal">
+                      No Prices
+                    </Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -605,7 +603,9 @@ export default function CatalogueGenerator() {
                     checked={showFabricDetails}
                     onCheckedChange={(checked) => setShowFabricDetails(checked as boolean)}
                   />
-                  <Label htmlFor="fabricDetails" className="font-normal">Show Fabric Details</Label>
+                  <Label htmlFor="fabricDetails" className="font-normal">
+                    Show Fabric Details
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -613,7 +613,9 @@ export default function CatalogueGenerator() {
                     checked={showSizeRange}
                     onCheckedChange={(checked) => setShowSizeRange(checked as boolean)}
                   />
-                  <Label htmlFor="sizeRange" className="font-normal">Show Size Range</Label>
+                  <Label htmlFor="sizeRange" className="font-normal">
+                    Show Size Range
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -621,7 +623,9 @@ export default function CatalogueGenerator() {
                     checked={includeIndex}
                     onCheckedChange={(checked) => setIncludeIndex(checked as boolean)}
                   />
-                  <Label htmlFor="includeIndex" className="font-normal">Include Index Page</Label>
+                  <Label htmlFor="includeIndex" className="font-normal">
+                    Include Index Page
+                  </Label>
                 </div>
               </div>
             </CardContent>
@@ -644,16 +648,12 @@ export default function CatalogueGenerator() {
                     setBulkStyleCodes(e.target.value);
                     setBulkParseError(null);
                   }}
-                  placeholder={"Paste style codes separated by comma or newline:\nKF-001, KF-002\nKF-003"}
+                  placeholder={'Paste style codes separated by comma or newline:\nKF-001, KF-002\nKF-003'}
                   className="h-24 font-mono text-sm"
                 />
-                <p className="text-xs text-gray-500">
-                  Separate codes with commas, newlines, or tabs
-                </p>
+                <p className="text-xs text-gray-500">Separate codes with commas, newlines, or tabs</p>
               </div>
-              {bulkParseError && (
-                <p className="text-xs text-red-600">{bulkParseError}</p>
-              )}
+              {bulkParseError && <p className="text-xs text-red-600">{bulkParseError}</p>}
               <Button
                 variant="outline"
                 size="sm"
@@ -768,9 +768,7 @@ export default function CatalogueGenerator() {
                     </Badge>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500">
-                  Filter by size availability
-                </p>
+                <p className="text-xs text-gray-500">Filter by size availability</p>
               </div>
 
               <div className="space-y-2">
@@ -802,13 +800,9 @@ export default function CatalogueGenerator() {
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base">
-                  Select Styles ({filteredStyles.length} available)
-                </CardTitle>
+                <CardTitle className="text-base">Select Styles ({filteredStyles.length} available)</CardTitle>
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary">
-                    {selectedStyleIds.size} selected
-                  </Badge>
+                  <Badge variant="secondary">{selectedStyleIds.size} selected</Badge>
                   <Button variant="outline" size="sm" onClick={selectAllVisible}>
                     Select All
                   </Button>
@@ -824,9 +818,7 @@ export default function CatalogueGenerator() {
                   <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                 </div>
               ) : filteredStyles.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  No styles found matching your filters.
-                </div>
+                <div className="text-center py-12 text-gray-500">No styles found matching your filters.</div>
               ) : (
                 <>
                   <div className="overflow-auto max-h-[500px]">
@@ -835,16 +827,24 @@ export default function CatalogueGenerator() {
                         <TableRow>
                           <TableHead className="w-12">
                             <Checkbox
-                              checked={paginatedFilteredStyles.length > 0 && paginatedFilteredStyles.every(s => selectedStyleIds.has(s.id))}
+                              checked={
+                                paginatedFilteredStyles.length > 0 &&
+                                paginatedFilteredStyles.every((s) => selectedStyleIds.has(s.id))
+                              }
                               onCheckedChange={(checked) => {
                                 if (checked) {
                                   // Select all on current page
-                                  const pageIds = new Set([...selectedStyleIds, ...paginatedFilteredStyles.map(s => s.id)]);
+                                  const pageIds = new Set([
+                                    ...selectedStyleIds,
+                                    ...paginatedFilteredStyles.map((s) => s.id),
+                                  ]);
                                   setSelectedStyleIds(pageIds);
                                 } else {
                                   // Deselect current page
-                                  const pageIdSet = new Set(paginatedFilteredStyles.map(s => s.id));
-                                  setSelectedStyleIds(new Set([...selectedStyleIds].filter(id => !pageIdSet.has(id))));
+                                  const pageIdSet = new Set(paginatedFilteredStyles.map((s) => s.id));
+                                  setSelectedStyleIds(
+                                    new Set([...selectedStyleIds].filter((id) => !pageIdSet.has(id)))
+                                  );
                                 }
                               }}
                             />
@@ -891,8 +891,7 @@ export default function CatalogueGenerator() {
                             <TableCell className="font-medium">{style.styleCode}</TableCell>
                             <TableCell>{style.styleName || '-'}</TableCell>
                             <TableCell>
-                              {style.productCategory?.name ||
-                               style.brandCategories?.category || '-'}
+                              {style.productCategory?.name || style.brandCategories?.category || '-'}
                             </TableCell>
                             <TableCell>{style.season || '-'}</TableCell>
                             <TableCell className="text-right">
@@ -907,7 +906,9 @@ export default function CatalogueGenerator() {
                   {/* Pagination Controls */}
                   <div className="flex items-center justify-between pt-4 border-t mt-4">
                     <div className="text-sm text-gray-500">
-                      Showing {((displayPage - 1) * DISPLAY_PAGE_SIZE) + 1}-{Math.min(displayPage * DISPLAY_PAGE_SIZE, filteredStyles.length)} of {filteredStyles.length} styles
+                      Showing {(displayPage - 1) * DISPLAY_PAGE_SIZE + 1}-
+                      {Math.min(displayPage * DISPLAY_PAGE_SIZE, filteredStyles.length)} of {filteredStyles.length}{' '}
+                      styles
                       {totalStyles > styles.length && (
                         <span className="ml-2 text-purple-600">
                           ({styles.length} loaded of {totalStyles} total)
@@ -918,7 +919,7 @@ export default function CatalogueGenerator() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setDisplayPage(p => Math.max(1, p - 1))}
+                        onClick={() => setDisplayPage((p) => Math.max(1, p - 1))}
                         disabled={displayPage === 1}
                       >
                         Previous
@@ -929,7 +930,7 @@ export default function CatalogueGenerator() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setDisplayPage(p => Math.min(totalDisplayPages, p + 1))}
+                        onClick={() => setDisplayPage((p) => Math.min(totalDisplayPages, p + 1))}
                         disabled={displayPage >= totalDisplayPages}
                       >
                         Next
@@ -940,11 +941,7 @@ export default function CatalogueGenerator() {
                   {/* Load More Button */}
                   {totalStyles > styles.length && (
                     <div className="flex justify-center pt-4">
-                      <Button
-                        variant="outline"
-                        onClick={loadMoreStyles}
-                        disabled={isLoadingMore}
-                      >
+                      <Button variant="outline" onClick={loadMoreStyles} disabled={isLoadingMore}>
                         {isLoadingMore ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -989,18 +986,12 @@ export default function CatalogueGenerator() {
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="Enter phone number (e.g., 9876543210)"
               />
-              <p className="text-xs text-gray-500">
-                Include country code without + (e.g., 919876543210 for India)
-              </p>
+              <p className="text-xs text-gray-500">Include country code without + (e.g., 919876543210 for India)</p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setWhatsappDialogOpen(false)}
-              disabled={isSharing}
-            >
+            <Button variant="outline" onClick={() => setWhatsappDialogOpen(false)} disabled={isSharing}>
               Cancel
             </Button>
             <Button

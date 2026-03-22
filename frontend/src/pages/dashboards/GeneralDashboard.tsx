@@ -6,27 +6,13 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ShoppingCart,
-  Factory,
-  Package,
-  Users,
-  TrendingUp,
-  FileText,
-  AlertTriangle,
-} from 'lucide-react';
+import { ShoppingCart, Factory, Package, Users, TrendingUp, FileText, AlertTriangle } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { usePermissions } from '@/hooks/usePermissions';
 import { UserRole } from '@/types/user.types';
 import { formatCurrencyWhole } from '@/lib/currency';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import api from '@/lib/api';
 
 interface DashboardStats {
@@ -106,9 +92,7 @@ export default function GeneralDashboard() {
     }
   };
 
-  const roleDisplayName = userRole
-    ? userRole.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-    : 'User';
+  const roleDisplayName = userRole ? userRole.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : 'User';
 
   return (
     <DashboardLayout

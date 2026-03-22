@@ -36,19 +36,11 @@ export interface BulkActionsBarProps {
   className?: string;
 }
 
-export function BulkActionsBar({
-  count,
-  onClear,
-  children,
-  label,
-  className = '',
-}: BulkActionsBarProps) {
+export function BulkActionsBar({ count, onClear, children, label, className = '' }: BulkActionsBarProps) {
   const displayLabel = label || `${count} item${count !== 1 ? 's' : ''} selected`;
 
   return (
-    <div
-      className={`flex items-center justify-between gap-4 rounded-lg border bg-muted/50 px-4 py-3 ${className}`}
-    >
+    <div className={`flex items-center justify-between gap-4 rounded-lg border bg-muted/50 px-4 py-3 ${className}`}>
       <div className="flex items-center gap-3">
         <CheckSquare className="h-5 w-5 text-primary" />
         <span className="font-medium text-sm">{displayLabel}</span>

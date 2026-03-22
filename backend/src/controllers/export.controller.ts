@@ -34,12 +34,12 @@ export const exportData = async (req: Request, res: Response) => {
         const availableColumns = templateService.getAvailableColumns(module);
         if (availableColumns.length === 0) {
           return res.status(400).json({
-            error: `No default columns configured for module '${module}'. Please create an export template.`
+            error: `No default columns configured for module '${module}'. Please create an export template.`,
           });
         }
-        columnConfig = availableColumns.map(col => ({
+        columnConfig = availableColumns.map((col) => ({
           fieldName: col.fieldName,
-          displayName: col.displayName
+          displayName: col.displayName,
         }));
       }
     }
@@ -55,7 +55,7 @@ export const exportData = async (req: Request, res: Response) => {
       columns: columnConfig,
       data,
       filename: `${module}_export_${new Date().toISOString().split('T')[0]}`,
-      title: template?.templateName || `${module} Export`
+      title: template?.templateName || `${module} Export`,
     };
 
     // Generate export based on format
@@ -98,12 +98,11 @@ export const exportData = async (req: Request, res: Response) => {
     } else {
       res.send(result);
     }
-
   } catch (error: unknown) {
     logError('Export error:', error);
     res.status(500).json({
       error: 'Export failed',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 };
@@ -111,7 +110,10 @@ export const exportData = async (req: Request, res: Response) => {
 /**
  * Fetch data from database based on module
  */
-async function fetchModuleData(moduleName: string, filters: Record<string, unknown> = {}): Promise<Record<string, unknown>[]> {
+async function fetchModuleData(
+  moduleName: string,
+  filters: Record<string, unknown> = {}
+): Promise<Record<string, unknown>[]> {
   // Build where clause from filters
   const where: Record<string, unknown> = { isActive: true, ...filters };
 
@@ -140,9 +142,9 @@ async function fetchModuleData(moduleName: string, filters: Record<string, unkno
         include: {
           customers: true,
           users_orders_createdByIdTousers: {
-            select: { firstName: true, lastName: true }
-          }
-        }
+            select: { firstName: true, lastName: true },
+          },
+        },
       });
       break;
 
@@ -153,10 +155,10 @@ async function fetchModuleData(moduleName: string, filters: Record<string, unkno
           style: true,
           items: {
             include: {
-              material: true
-            }
-          }
-        }
+              material: true,
+            },
+          },
+        },
       });
       break;
 

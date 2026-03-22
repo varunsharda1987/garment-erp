@@ -15,7 +15,7 @@ interface AgentComboboxProps {
 export function AgentCombobox({
   value,
   onValueChange,
-  placeholder = "Select agent...",
+  placeholder = 'Select agent...',
   className,
   disabled = false,
   agencyId,
@@ -29,37 +29,40 @@ export function AgentCombobox({
     loadAgents('');
   }, [agencyId]);
 
-  const loadAgents = useCallback(async (search: string) => {
-    try {
-      setIsLoading(true);
-      const agentList = await searchAgents({
-        search: search || undefined,
-        limit: 50,
-        agencyId: agencyId || undefined,
-      });
+  const loadAgents = useCallback(
+    async (search: string) => {
+      try {
+        setIsLoading(true);
+        const agentList = await searchAgents({
+          search: search || undefined,
+          limit: 50,
+          agencyId: agencyId || undefined,
+        });
 
-      const agentOptions: ComboboxOption[] = agentList.map((agent) => ({
-        value: agent.id,
-        label: `${agent.code} - ${agent.name}`,
-        searchText: `${agent.code} ${agent.name} ${agent.phone || ''}`,
-      }));
+        const agentOptions: ComboboxOption[] = agentList.map((agent) => ({
+          value: agent.id,
+          label: `${agent.code} - ${agent.name}`,
+          searchText: `${agent.code} ${agent.name} ${agent.phone || ''}`,
+        }));
 
-      setAgents(agentOptions);
-      setInitialLoaded(true);
-    } catch (error: any) {
-      console.error('Failed to load agents:', error);
-      toast.error(error?.message || 'Failed to load agents');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [agencyId]);
+        setAgents(agentOptions);
+        setInitialLoaded(true);
+      } catch (error: any) {
+        console.error('Failed to load agents:', error);
+        toast.error(error?.message || 'Failed to load agents');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [agencyId]
+  );
 
   return (
     <Combobox
       options={agents}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? "Loading agents..." : placeholder}
+      placeholder={!initialLoaded ? 'Loading agents...' : placeholder}
       searchPlaceholder="Search by code, name, phone..."
       emptyText="No agents found."
       disabled={disabled || !initialLoaded}

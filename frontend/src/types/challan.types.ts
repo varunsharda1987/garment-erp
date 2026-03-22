@@ -8,7 +8,7 @@ export const ChallanType = {
   INTERNAL: 'INTERNAL',
 } as const;
 
-export type ChallanType = typeof ChallanType[keyof typeof ChallanType];
+export type ChallanType = (typeof ChallanType)[keyof typeof ChallanType];
 
 export const ChallanTypeLabels: Record<ChallanType, string> = {
   OUTWARD: 'Outward',
@@ -31,7 +31,7 @@ export const ChallanStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type ChallanStatus = typeof ChallanStatus[keyof typeof ChallanStatus];
+export type ChallanStatus = (typeof ChallanStatus)[keyof typeof ChallanStatus];
 
 export const ChallanStatusLabels: Record<ChallanStatus, string> = {
   DRAFT: 'Draft',

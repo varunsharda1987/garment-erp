@@ -28,9 +28,7 @@ export default function ProcessGuidePage() {
           stage.title.toLowerCase().includes(searchLower) ||
           stage.description.toLowerCase().includes(searchLower) ||
           stage.purpose.toLowerCase().includes(searchLower) ||
-          stage.databaseModels.some((model) =>
-            model.toLowerCase().includes(searchLower)
-          )
+          stage.databaseModels.some((model) => model.toLowerCase().includes(searchLower))
       );
     }
 
@@ -106,9 +104,7 @@ export default function ProcessGuidePage() {
                 <div className="relative mb-8">
                   <div className="rounded-xl shadow-xl overflow-hidden">
                     {/* Full Gradient Background */}
-                    <div
-                      className={`bg-gradient-to-r ${categoryInfo.gradientFrom} ${categoryInfo.gradientTo} p-8`}
-                    >
+                    <div className={`bg-gradient-to-r ${categoryInfo.gradientFrom} ${categoryInfo.gradientTo} p-8`}>
                       <div className="flex items-center gap-6">
                         {/* Larger badge with white border and backdrop effect */}
                         <div className="w-20 h-20 rounded-2xl bg-white bg-opacity-20 backdrop-blur-sm border-4 border-white flex items-center justify-center text-white font-extrabold text-3xl shadow-lg">
@@ -151,12 +147,8 @@ export default function ProcessGuidePage() {
         {/* No Results */}
         {filteredStages.length === 0 && (
           <div className="mt-12 text-center py-12">
-            <p className="text-gray-500 text-lg">
-              No stages found matching your search criteria.
-            </p>
-            <p className="text-gray-400 text-sm mt-2">
-              Try adjusting your search or filter settings.
-            </p>
+            <p className="text-gray-500 text-lg">No stages found matching your search criteria.</p>
+            <p className="text-gray-400 text-sm mt-2">Try adjusting your search or filter settings.</p>
           </div>
         )}
 
@@ -164,14 +156,11 @@ export default function ProcessGuidePage() {
         <div className="my-12 border-t border-gray-200" />
         <div className="text-center pb-8">
           <p className="text-sm text-gray-500">
-            Complete Process Guide - {processStages.length} Stages from Style
-            Creation to Dispatch
+            Complete Process Guide - {processStages.length} Stages from Style Creation to Dispatch
           </p>
           <p className="text-xs text-gray-400 mt-2">
             For detailed documentation, refer to{' '}
-            <code className="bg-gray-100 px-2 py-1 rounded text-gray-600">
-              docs/PRODUCT_FLOW_GUIDE.md
-            </code>
+            <code className="bg-gray-100 px-2 py-1 rounded text-gray-600">docs/PRODUCT_FLOW_GUIDE.md</code>
           </p>
         </div>
       </div>

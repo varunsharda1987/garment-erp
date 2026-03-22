@@ -10,7 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { createOtherMaterial, getOtherMaterialById, updateOtherMaterial } from '@/services/otherMaterial.service';
 import { getAllSuppliers } from '@/services/supplier.service';
-import type { CreateOtherMaterialRequest, UpdateOtherMaterialRequest, OtherMaterial } from '@/types/otherMaterial.types';
+import type {
+  CreateOtherMaterialRequest,
+  UpdateOtherMaterialRequest,
+  OtherMaterial,
+} from '@/types/otherMaterial.types';
 import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
@@ -27,20 +31,7 @@ interface SupplierInput {
   pricePerUnit: string;
 }
 
-const UNIT_OPTIONS = [
-  'PIECE',
-  'METER',
-  'KG',
-  'GRAM',
-  'LITER',
-  'SET',
-  'PAIR',
-  'DOZEN',
-  'PACKET',
-  'BOX',
-  'ROLL',
-  'YARD',
-];
+const UNIT_OPTIONS = ['PIECE', 'METER', 'KG', 'GRAM', 'LITER', 'SET', 'PAIR', 'DOZEN', 'PACKET', 'BOX', 'ROLL', 'YARD'];
 
 export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialFormProps) {
   const { id } = useParams<{ id: string }>();
@@ -93,13 +84,15 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
 
           // Set suppliers from junction table
           if (material.otherMaterialSuppliers && material.otherMaterialSuppliers.length > 0) {
-            setSuppliers(material.otherMaterialSuppliers.map(s => ({
-              supplierId: s.supplierId,
-              isPreferred: s.isPreferred,
-              isActive: s.isActive,
-              notes: s.notes || '',
-              pricePerUnit: s.pricePerUnit?.toString() || '',
-            })));
+            setSuppliers(
+              material.otherMaterialSuppliers.map((s) => ({
+                supplierId: s.supplierId,
+                isPreferred: s.isPreferred,
+                isActive: s.isActive,
+                notes: s.notes || '',
+                pricePerUnit: s.pricePerUnit?.toString() || '',
+              }))
+            );
           }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load material', false);
@@ -114,23 +107,24 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
 
   // Supplier management functions
   const handleAddSupplier = () => {
-    setSuppliers(prev => [...prev, {
-      supplierId: '',
-      isPreferred: prev.length === 0, // First supplier is preferred by default
-      isActive: true,
-      notes: '',
-      pricePerUnit: '',
-    }]);
+    setSuppliers((prev) => [
+      ...prev,
+      {
+        supplierId: '',
+        isPreferred: prev.length === 0, // First supplier is preferred by default
+        isActive: true,
+        notes: '',
+        pricePerUnit: '',
+      },
+    ]);
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setSuppliers(prev => prev.filter((_, i) => i !== index));
+    setSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: keyof SupplierInput, value: string | boolean) => {
-    setSuppliers(prev => prev.map((s, i) =>
-      i === index ? { ...s, [field]: value } : s
-    ));
+    setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const onSubmit = async (data: CreateOtherMaterialRequest) => {
@@ -139,13 +133,15 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
       setError(null);
 
       // Validate suppliers have valid supplier IDs
-      const validSuppliers = suppliers.filter(s => s.supplierId).map(s => ({
-        supplierId: s.supplierId,
-        isPreferred: s.isPreferred,
-        isActive: s.isActive,
-        notes: s.notes || undefined,
-        pricePerUnit: s.pricePerUnit ? Number(s.pricePerUnit) : undefined,
-      }));
+      const validSuppliers = suppliers
+        .filter((s) => s.supplierId)
+        .map((s) => ({
+          supplierId: s.supplierId,
+          isPreferred: s.isPreferred,
+          isActive: s.isActive,
+          notes: s.notes || undefined,
+          pricePerUnit: s.pricePerUnit ? Number(s.pricePerUnit) : undefined,
+        }));
 
       const payload: CreateOtherMaterialRequest | UpdateOtherMaterialRequest = {
         ...data,
@@ -164,11 +160,7 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
 
       navigate('/materials/other');
     } catch (err: unknown) {
-      const errorMessage = handleApiError(
-        err,
-        `Failed to ${isNewMaterial ? 'create' : 'update'} material`,
-        false
-      );
+      const errorMessage = handleApiError(err, `Failed to ${isNewMaterial ? 'create' : 'update'} material`, false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -191,11 +183,7 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* MATERIAL INFORMATION */}
             <div>
@@ -210,7 +198,9 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
                     )}
                   </Label>
                   {!isNewMaterial && materialCode ? (
-                    <Badge variant="outline" className="font-mono mt-2">{materialCode}</Badge>
+                    <Badge variant="outline" className="font-mono mt-2">
+                      {materialCode}
+                    </Badge>
                   ) : (
                     <p className="text-sm text-gray-500 mt-1">Will be generated automatically</p>
                   )}
@@ -224,19 +214,13 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
                     {...register('materialName', { required: 'Material name is required' })}
                     placeholder="e.g., Safety Pins, Measuring Tape, Chalk"
                   />
-                  {errors.materialName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.materialName.message}</p>
-                  )}
+                  {errors.materialName && <p className="text-red-500 text-sm mt-1">{errors.materialName.message}</p>}
                 </div>
 
                 {/* Category */}
                 <div>
                   <Label htmlFor="category">Category</Label>
-                  <Input
-                    id="category"
-                    {...register('category')}
-                    placeholder="e.g., Tools, Stationery, Miscellaneous"
-                  />
+                  <Input id="category" {...register('category')} placeholder="e.g., Tools, Stationery, Miscellaneous" />
                 </div>
 
                 {/* Unit */}
@@ -259,13 +243,7 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
                 {/* Price Per Unit */}
                 <div>
                   <Label htmlFor="pricePerUnit">Price Per Unit (₹)</Label>
-                  <Input
-                    id="pricePerUnit"
-                    type="number"
-                    step="0.01"
-                    {...register('pricePerUnit')}
-                    placeholder="0.00"
-                  />
+                  <Input id="pricePerUnit" type="number" step="0.01" {...register('pricePerUnit')} placeholder="0.00" />
                 </div>
 
                 {/* Specifications */}
@@ -390,12 +368,7 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
 
             {/* FORM ACTIONS */}
             <div className="flex justify-end gap-3 pt-6 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/materials/other')}
-                disabled={isLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/materials/other')} disabled={isLoading}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>

@@ -36,9 +36,7 @@ export default function QuickStartChecklist() {
     phase,
     label: phaseLabels[phase],
     color: phaseColors[phase],
-    items: masterDataItems
-      .filter((item) => item.phase === phase)
-      .sort((a, b) => a.priority - b.priority),
+    items: masterDataItems.filter((item) => item.phase === phase).sort((a, b) => a.priority - b.priority),
   }));
 
   return (
@@ -50,9 +48,7 @@ export default function QuickStartChecklist() {
               <CheckCircle2 className="h-5 w-5" />
               Quick Start Checklist
             </CardTitle>
-            <CardDescription>
-              Set up essential master data before creating styles
-            </CardDescription>
+            <CardDescription>Set up essential master data before creating styles</CardDescription>
           </div>
           <Button
             variant="ghost"
@@ -80,9 +76,7 @@ export default function QuickStartChecklist() {
           {groupedItems.map(({ phase, label, color, items }) => (
             <div key={phase} className="space-y-3">
               <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <span
-                  className={`px-2 py-1 rounded text-xs font-medium border ${color}`}
-                >
+                <span className={`px-2 py-1 rounded text-xs font-medium border ${color}`}>
                   Phase {phaseOrder.indexOf(phase) + 1}
                 </span>
                 {label}
@@ -102,9 +96,7 @@ export default function QuickStartChecklist() {
                         </span>
                         <ExternalLink className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                        {item.description}
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.description}</p>
                     </div>
                   </Link>
                 ))}

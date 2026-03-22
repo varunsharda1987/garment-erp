@@ -118,10 +118,13 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
   }
 
   // Build overrides map
-  const overridesMap = new Map<string, {
-    extraPercentage?: number | null;
-    sizeOverrides: Map<string, { barcodeValue?: string | null; mrp?: number | null }>;
-  }>();
+  const overridesMap = new Map<
+    string,
+    {
+      extraPercentage?: number | null;
+      sizeOverrides: Map<string, { barcodeValue?: string | null; mrp?: number | null }>;
+    }
+  >();
 
   for (const override of orderItem.labelOverrides) {
     const sizeOverridesMap = new Map<string, { barcodeValue?: string | null; mrp?: number | null }>();
@@ -168,7 +171,9 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
 
       // Fall back to style config if not overridden
       if (!barcodeValue || !mrp) {
-        const styleConfig = labelConfig.labelSizeConfigs.find((sc: typeof labelConfig.labelSizeConfigs[0]) => sc.size === size);
+        const styleConfig = labelConfig.labelSizeConfigs.find(
+          (sc: (typeof labelConfig.labelSizeConfigs)[0]) => sc.size === size
+        );
         if (styleConfig) {
           barcodeValue = barcodeValue ?? styleConfig.barcodeValue;
           mrp = mrp ?? (styleConfig.mrp ? Number(styleConfig.mrp) : null);
@@ -190,8 +195,12 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
 
     // Calculate estimated cost
     let estimatedCost: number | null = null;
-    const pricePerPiece = labelConfig.label_master.pricePerPiece ? Number(labelConfig.label_master.pricePerPiece) : null;
-    const pricePerHundred = labelConfig.label_master.pricePerHundred ? Number(labelConfig.label_master.pricePerHundred) : null;
+    const pricePerPiece = labelConfig.label_master.pricePerPiece
+      ? Number(labelConfig.label_master.pricePerPiece)
+      : null;
+    const pricePerHundred = labelConfig.label_master.pricePerHundred
+      ? Number(labelConfig.label_master.pricePerHundred)
+      : null;
 
     if (pricePerPiece) {
       estimatedCost = totalWithExtra * pricePerPiece;
@@ -238,12 +247,7 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
  */
 export const createLabelOverride = async (req: Request, res: Response): Promise<void> => {
   const { orderItemId } = req.params;
-  const {
-    styleMaterialBomId,
-    extraPercentage,
-    notes,
-    sizeOverrides = [],
-  }: CreateOverrideInput = req.body;
+  const { styleMaterialBomId, extraPercentage, notes, sizeOverrides = [] }: CreateOverrideInput = req.body;
 
   // Verify order item exists
   const orderItem = await prisma.order_items.findUnique({
@@ -479,17 +483,20 @@ export const getOrderTotalLabelRequirements = async (req: Request, res: Response
   }
 
   // Aggregate label requirements across all order items
-  const aggregatedLabels = new Map<string, {
-    labelId: string;
-    labelCode: string;
-    labelName: string;
-    labelCategory: string;
-    labelType: string | null;
-    totalQuantity: number;
-    sizeQuantities: Map<string, number>;
-    pricePerPiece: number | null;
-    pricePerHundred: number | null;
-  }>();
+  const aggregatedLabels = new Map<
+    string,
+    {
+      labelId: string;
+      labelCode: string;
+      labelName: string;
+      labelCategory: string;
+      labelType: string | null;
+      totalQuantity: number;
+      sizeQuantities: Map<string, number>;
+      pricePerPiece: number | null;
+      pricePerHundred: number | null;
+    }
+  >();
 
   for (const orderItem of order.order_items) {
     // Build size quantities map from breakup
@@ -542,7 +549,9 @@ export const getOrderTotalLabelRequirements = async (req: Request, res: Response
           totalQuantity: itemTotalWithExtra,
           sizeQuantities: itemSizeQuantities,
           pricePerPiece: labelConfig.label_master.pricePerPiece ? Number(labelConfig.label_master.pricePerPiece) : null,
-          pricePerHundred: labelConfig.label_master.pricePerHundred ? Number(labelConfig.label_master.pricePerHundred) : null,
+          pricePerHundred: labelConfig.label_master.pricePerHundred
+            ? Number(labelConfig.label_master.pricePerHundred)
+            : null,
         });
       }
     }

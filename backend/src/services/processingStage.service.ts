@@ -390,9 +390,7 @@ class ProcessingStageService {
 
     // Check if all quantity has been received
     if (stage.quantityReceived < stage.quantitySent) {
-      throw new Error(
-        'Cannot complete stage: Not all quantity has been received'
-      );
+      throw new Error('Cannot complete stage: Not all quantity has been received');
     }
 
     const updatedStage = await prisma.processing_stage.update({
@@ -482,9 +480,7 @@ class ProcessingStageService {
             count: 0,
           };
         }
-        acc.byType[stage.processingType].quantity += Number(
-          stage.quantityInProcess
-        );
+        acc.byType[stage.processingType].quantity += Number(stage.quantityInProcess);
         acc.byType[stage.processingType].cost += Number(stage.processingCost);
         acc.byType[stage.processingType].count += 1;
 
@@ -494,10 +490,7 @@ class ProcessingStageService {
         totalStages: activeStages.length,
         totalQuantity: 0,
         totalCost: 0,
-        byType: {} as Record<
-          string,
-          { quantity: number; cost: number; count: number }
-        >,
+        byType: {} as Record<string, { quantity: number; cost: number; count: number }>,
       }
     );
 
@@ -525,9 +518,7 @@ class ProcessingStageService {
     }
 
     if (stage._count.movements > 0 || stage._count.deliveries > 0) {
-      throw new Error(
-        'Cannot delete stage: Has associated movements or deliveries'
-      );
+      throw new Error('Cannot delete stage: Has associated movements or deliveries');
     }
 
     await prisma.processing_stage.delete({

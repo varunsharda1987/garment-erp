@@ -223,7 +223,10 @@ export const dyeProcessPOService = {
   async delete(id: string): Promise<void> {
     await api.delete(`/dyeing/process-pos/${id}`);
   },
-  async sendToMill(id: string, data: { sentDate: string; challanNumber?: string; vehicleNumber?: string }): Promise<ProcessPO> {
+  async sendToMill(
+    id: string,
+    data: { sentDate: string; challanNumber?: string; vehicleNumber?: string }
+  ): Promise<ProcessPO> {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/send`, data);
     return response.data.data;
   },
@@ -239,7 +242,10 @@ export const dyeProcessPOService = {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/update-stock`);
     return response.data.data;
   },
-  async returnUnprocessed(id: string, data: { returnedQtyMeters: number; returnDate: string; remarks?: string }): Promise<ProcessPO> {
+  async returnUnprocessed(
+    id: string,
+    data: { returnedQtyMeters: number; returnDate: string; remarks?: string }
+  ): Promise<ProcessPO> {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/return-unprocessed`, data);
     return response.data.data;
   },

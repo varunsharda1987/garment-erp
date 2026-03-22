@@ -5,13 +5,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
-import {
-  useListQuery,
-  useDetailQuery,
-  useCreateMutation,
-  useDeleteMutation,
-  queryKeys,
-} from '../hooks/useQuery';
+import { useListQuery, useDetailQuery, useCreateMutation, useDeleteMutation, queryKeys } from '../hooks/useQuery';
 
 // Mock notify
 jest.mock('../lib/notify', () => ({
@@ -49,11 +43,7 @@ describe('React Query Hooks', () => {
 
     it('should generate correct customer keys', () => {
       expect(queryKeys.customers.all).toEqual(['customers']);
-      expect(queryKeys.customers.list({ status: 'active' })).toEqual([
-        'customers',
-        'list',
-        { status: 'active' },
-      ]);
+      expect(queryKeys.customers.list({ status: 'active' })).toEqual(['customers', 'list', { status: 'active' }]);
     });
 
     it('should generate correct bom keys', () => {

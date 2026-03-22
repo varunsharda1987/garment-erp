@@ -39,7 +39,10 @@ export const testingLabQuerySchema = z.object({
   page: z.string().optional().default('1').transform(Number),
   limit: z.string().optional().default('20').transform(Number),
   search: z.string().optional(),
-  isActive: z.string().optional().transform(val => val ? val === 'true' : undefined),
+  isActive: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val === 'true' : undefined)),
   city: z.string().optional(),
   state: z.string().optional(),
 });
@@ -83,38 +86,40 @@ export const testTemplateQuerySchema = z.object({
   limit: z.string().optional().default('20').transform(Number),
   search: z.string().optional(),
   templateType: z.nativeEnum(TestTemplateType).optional(),
-  isActive: z.string().optional().transform(val => val ? val === 'true' : undefined),
+  isActive: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val === 'true' : undefined)),
 });
 
 // ============================================================================
 // FABRIC PHYSICAL TESTS SCHEMAS
 // ============================================================================
 
-export const createFabricPhysicalTestSchema = z.object({
-  // Fabric Linkage (at least one required)
-  fabricId: z.string().uuid().optional(),
-  fabricProcurementId: z.string().uuid().optional(),
-  fabricStockLotId: z.string().uuid().optional(),
-  styleId: z.string().uuid().optional(),
-  customerId: z.string().uuid().optional(),
+export const createFabricPhysicalTestSchema = z
+  .object({
+    // Fabric Linkage (at least one required)
+    fabricId: z.string().uuid().optional(),
+    fabricProcurementId: z.string().uuid().optional(),
+    fabricStockLotId: z.string().uuid().optional(),
+    styleId: z.string().uuid().optional(),
+    customerId: z.string().uuid().optional(),
 
-  // Test Sending
-  sentToLabDate: z.string().datetime().optional(),
-  testingLabId: z.string().uuid().optional(),
-  sampleQuantity: z.number().positive().optional(),
-  batchNumber: z.string().max(100).optional(),
+    // Test Sending
+    sentToLabDate: z.string().datetime().optional(),
+    testingLabId: z.string().uuid().optional(),
+    sampleQuantity: z.number().positive().optional(),
+    batchNumber: z.string().max(100).optional(),
 
-  // Expected Parameters
-  expectedGSM: z.number().int().positive().optional(),
-  expectedConstruction: z.string().max(100).optional(),
-  expectedCount: z.string().max(50).optional(),
-  toleranceGSM: z.number().optional(),
-}).refine(
-  data => data.fabricId || data.fabricProcurementId || data.fabricStockLotId || data.styleId,
-  {
+    // Expected Parameters
+    expectedGSM: z.number().int().positive().optional(),
+    expectedConstruction: z.string().max(100).optional(),
+    expectedCount: z.string().max(50).optional(),
+    toleranceGSM: z.number().optional(),
+  })
+  .refine((data) => data.fabricId || data.fabricProcurementId || data.fabricStockLotId || data.styleId, {
     message: 'At least one linkage (fabricId, fabricProcurementId, fabricStockLotId, or styleId) is required',
-  }
-);
+  });
 
 export const updateFabricPhysicalTestSchema = z.object({
   // Test Sending
@@ -170,16 +175,15 @@ export const retestFabricSchema = z.object({
   sampleQuantity: z.number().positive().optional(),
 });
 
-export const approveFabricTestSchema = z.object({
-  adminOverride: z.boolean().optional().default(false),
-  overrideReason: z.string().max(500).optional(),
-}).refine(
-  data => !data.adminOverride || (data.adminOverride && data.overrideReason),
-  {
+export const approveFabricTestSchema = z
+  .object({
+    adminOverride: z.boolean().optional().default(false),
+    overrideReason: z.string().max(500).optional(),
+  })
+  .refine((data) => !data.adminOverride || (data.adminOverride && data.overrideReason), {
     message: 'Override reason is required when admin override is true',
     path: ['overrideReason'],
-  }
-);
+  });
 
 export const fabricPhysicalTestQuerySchema = z.object({
   page: z.string().optional().default('1').transform(Number),
@@ -193,8 +197,14 @@ export const fabricPhysicalTestQuerySchema = z.object({
   sentDateTo: z.string().datetime().optional(),
   receivedDateFrom: z.string().datetime().optional(),
   receivedDateTo: z.string().datetime().optional(),
-  isRetest: z.string().optional().transform(val => val ? val === 'true' : undefined),
-  pendingApproval: z.string().optional().transform(val => val ? val === 'true' : undefined),
+  isRetest: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val === 'true' : undefined)),
+  pendingApproval: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val === 'true' : undefined)),
 });
 
 // ============================================================================
@@ -274,16 +284,15 @@ export const retestGarmentSchema = z.object({
   sampleQuantity: z.number().positive().optional(),
 });
 
-export const approveGarmentTestSchema = z.object({
-  adminOverride: z.boolean().optional().default(false),
-  overrideReason: z.string().max(500).optional(),
-}).refine(
-  data => !data.adminOverride || (data.adminOverride && data.overrideReason),
-  {
+export const approveGarmentTestSchema = z
+  .object({
+    adminOverride: z.boolean().optional().default(false),
+    overrideReason: z.string().max(500).optional(),
+  })
+  .refine((data) => !data.adminOverride || (data.adminOverride && data.overrideReason), {
     message: 'Override reason is required when admin override is true',
     path: ['overrideReason'],
-  }
-);
+  });
 
 export const buyerApproveGarmentTestSchema = z.object({
   buyerRemarks: z.string().max(1000).optional(),
@@ -302,8 +311,17 @@ export const garmentPhysicalTestQuerySchema = z.object({
   sentDateTo: z.string().datetime().optional(),
   receivedDateFrom: z.string().datetime().optional(),
   receivedDateTo: z.string().datetime().optional(),
-  isRetest: z.string().optional().transform(val => val ? val === 'true' : undefined),
-  pendingApproval: z.string().optional().transform(val => val ? val === 'true' : undefined),
-  pendingBuyerApproval: z.string().optional().transform(val => val ? val === 'true' : undefined),
+  isRetest: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val === 'true' : undefined)),
+  pendingApproval: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val === 'true' : undefined)),
+  pendingBuyerApproval: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val === 'true' : undefined)),
 });
 // Schema validation fix

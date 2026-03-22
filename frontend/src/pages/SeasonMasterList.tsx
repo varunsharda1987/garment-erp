@@ -3,13 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -141,9 +135,7 @@ export default function SeasonMasterList() {
     <Badge
       variant="outline"
       className={
-        type === 'SS'
-          ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-          : 'bg-blue-50 text-blue-700 border-blue-200'
+        type === 'SS' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-blue-50 text-blue-700 border-blue-200'
       }
     >
       {type}
@@ -184,19 +176,13 @@ export default function SeasonMasterList() {
     {
       key: 'seasonType',
       header: 'Type',
-      render: (item) => (
-        <span className="text-sm text-gray-600">
-          {SEASON_TYPE_NAMES[item.seasonType]}
-        </span>
-      ),
+      render: (item) => <span className="text-sm text-gray-600">{SEASON_TYPE_NAMES[item.seasonType]}</span>,
     },
     {
       key: 'isActive',
       header: 'Status',
       render: (item) => (
-        <Badge variant={item.isActive ? 'default' : 'secondary'}>
-          {item.isActive ? 'Active' : 'Inactive'}
-        </Badge>
+        <Badge variant={item.isActive ? 'default' : 'secondary'}>{item.isActive ? 'Active' : 'Inactive'}</Badge>
       ),
     },
     {
@@ -256,11 +242,7 @@ export default function SeasonMasterList() {
           {/* Filters */}
           <div className="flex flex-wrap gap-4 mb-6">
             <div className="flex-1 min-w-[200px]">
-              <SearchInput
-                placeholder="Search seasons..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
+              <SearchInput placeholder="Search seasons..." value={searchQuery} onChange={setSearchQuery} />
             </div>
             <div className="w-[140px]">
               <Select
@@ -307,11 +289,7 @@ export default function SeasonMasterList() {
           </div>
 
           {/* Error */}
-          {error && (
-            <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">
-              {error}
-            </div>
-          )}
+          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
 
           {/* Stats */}
           <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
@@ -329,7 +307,7 @@ export default function SeasonMasterList() {
             onRowClick={(item) => navigate(`/seasons/${item.id}/edit`)}
             emptyState={{
               title: 'No seasons found',
-              description: 'Generate seasons or add your first season to get started.'
+              description: 'Generate seasons or add your first season to get started.',
             }}
             pagination={{
               currentPage,
@@ -364,8 +342,8 @@ export default function SeasonMasterList() {
           <DialogHeader>
             <DialogTitle>Generate Seasons</DialogTitle>
             <DialogDescription>
-              Automatically generate seasons for a range of years. This will create both SS
-              (Spring/Summer) and AW (Autumn/Winter) seasons for each year.
+              Automatically generate seasons for a range of years. This will create both SS (Spring/Summer) and AW
+              (Autumn/Winter) seasons for each year.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -395,8 +373,7 @@ export default function SeasonMasterList() {
             </div>
             <p className="text-sm text-muted-foreground">
               This will generate {(generateEndYear - generateStartYear + 1) * 2} seasons (
-              {generateEndYear - generateStartYear + 1} years × 2 seasons per year). Existing
-              seasons will be skipped.
+              {generateEndYear - generateStartYear + 1} years × 2 seasons per year). Existing seasons will be skipped.
             </p>
           </div>
           <DialogFooter>

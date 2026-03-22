@@ -70,7 +70,6 @@ function isSizeIndependentTrim(materialType: string): boolean {
 // ============================================
 
 class CostSheetPOGenerationService {
-
   // ============================================
   // Requirement Calculation
   // ============================================
@@ -78,10 +77,7 @@ class CostSheetPOGenerationService {
   /**
    * Calculate material requirements from cost sheet
    */
-  async calculateRequirements(
-    costSheetId: string,
-    totalOrderQty: number
-  ): Promise<CalculatedRequirements> {
+  async calculateRequirements(costSheetId: string, totalOrderQty: number): Promise<CalculatedRequirements> {
     logDebug('Calculating requirements', { costSheetId, totalOrderQty });
 
     // Fetch cost sheet with related data
@@ -143,7 +139,9 @@ class CostSheetPOGenerationService {
     for (const fabricItem of costSheet.fabricItems) {
       const consumptionPerUnit = Number(fabricItem.effectiveCad);
       const requiredQty = totalOrderQty * consumptionPerUnit;
-      const stockInfo = fabricItem.fabricId ? await this.getStockInfoForMaterial(fabricItem.fabricId) : { available: 0 };
+      const stockInfo = fabricItem.fabricId
+        ? await this.getStockInfoForMaterial(fabricItem.fabricId)
+        : { available: 0 };
 
       const item: MaterialRequirement = {
         materialId: fabricItem.fabricId || fabricItem.greigeId || '',
@@ -393,7 +391,7 @@ class CostSheetPOGenerationService {
     requirements: MaterialRequirement[],
     defaultAllowancePercent: number = 3
   ): OrderQuantityResult[] {
-    return requirements.map(req => {
+    return requirements.map((req) => {
       const allowancePercent = defaultAllowancePercent;
       const allowanceQty = req.shortfall * (allowancePercent / 100);
       const orderQty = req.shortfall + allowanceQty;
@@ -444,40 +442,42 @@ class CostSheetPOGenerationService {
     // Determine interstate status
     const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
 
-    const itemsData = await Promise.all(input.items.map(async item => {
-      const totalPrice = item.orderQty * item.unitPrice;
-      subtotal += totalPrice;
+    const itemsData = await Promise.all(
+      input.items.map(async (item) => {
+        const totalPrice = item.orderQty * item.unitPrice;
+        subtotal += totalPrice;
 
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        materialId: item.materialId,
-        isInterstate,
-      });
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          materialId: item.materialId,
+          isInterstate,
+        });
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        id: randomUUID(),
-        poId,
-        materialId: item.materialId,
-        orderedQuantity: item.orderQty,
-        receivedQuantity: 0,
-        unit: item.unit as any,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || `Allowance: ${item.allowancePercent}%`,
-      };
-    }));
+        return {
+          id: randomUUID(),
+          poId,
+          materialId: item.materialId,
+          orderedQuantity: item.orderQty,
+          receivedQuantity: 0,
+          unit: item.unit as any,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks: item.remarks || `Allowance: ${item.allowancePercent}%`,
+        };
+      })
+    );
 
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
@@ -579,40 +579,42 @@ class CostSheetPOGenerationService {
 
     const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
 
-    const itemsData = await Promise.all(input.items.map(async item => {
-      const totalPrice = item.orderQty * item.unitPrice;
-      subtotal += totalPrice;
+    const itemsData = await Promise.all(
+      input.items.map(async (item) => {
+        const totalPrice = item.orderQty * item.unitPrice;
+        subtotal += totalPrice;
 
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        materialId: item.materialId,
-        isInterstate,
-      });
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          materialId: item.materialId,
+          isInterstate,
+        });
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        id: randomUUID(),
-        poId,
-        materialId: item.materialId,
-        orderedQuantity: item.orderQty,
-        receivedQuantity: 0,
-        unit: item.unit as any,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || `Greige for processing. Allowance: ${item.allowancePercent}%`,
-      };
-    }));
+        return {
+          id: randomUUID(),
+          poId,
+          materialId: item.materialId,
+          orderedQuantity: item.orderQty,
+          receivedQuantity: 0,
+          unit: item.unit as any,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks: item.remarks || `Greige for processing. Allowance: ${item.allowancePercent}%`,
+        };
+      })
+    );
 
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
@@ -714,40 +716,42 @@ class CostSheetPOGenerationService {
 
     const { isInterstate } = await gstService.isInterstatePO(input.processorId);
 
-    const itemsData = await Promise.all(input.items.map(async item => {
-      const totalPrice = item.orderQty * item.unitPrice;
-      subtotal += totalPrice;
+    const itemsData = await Promise.all(
+      input.items.map(async (item) => {
+        const totalPrice = item.orderQty * item.unitPrice;
+        subtotal += totalPrice;
 
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        materialId: item.materialId,
-        isInterstate,
-      });
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          materialId: item.materialId,
+          isInterstate,
+        });
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        id: randomUUID(),
-        poId,
-        materialId: item.materialId,
-        orderedQuantity: item.orderQty,
-        receivedQuantity: 0,
-        unit: item.unit as any,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || `Processing: ${item.processType}. Allowance: ${item.allowancePercent}%`,
-      };
-    }));
+        return {
+          id: randomUUID(),
+          poId,
+          materialId: item.materialId,
+          orderedQuantity: item.orderQty,
+          receivedQuantity: 0,
+          unit: item.unit as any,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks: item.remarks || `Processing: ${item.processType}. Allowance: ${item.allowancePercent}%`,
+        };
+      })
+    );
 
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
@@ -775,9 +779,7 @@ class CostSheetPOGenerationService {
     }
 
     // Create PO with PENDING_GREIGE status if linked to Greige PO
-    const initialStatus = input.linkedGreigePOId
-      ? PurchaseOrderStatus.PENDING_GREIGE
-      : PurchaseOrderStatus.DRAFT;
+    const initialStatus = input.linkedGreigePOId ? PurchaseOrderStatus.PENDING_GREIGE : PurchaseOrderStatus.DRAFT;
 
     // Create PO and items in transaction
     const purchaseOrder = await prisma.$transaction(async (tx) => {
@@ -841,9 +843,7 @@ class CostSheetPOGenerationService {
     logInfo('Generating Trims PO', { costSheetId: input.costSheetId });
 
     // Filter out size-dependent items (safety check)
-    const validItems = input.items.filter(item =>
-      isSizeIndependentTrim(item.materialType)
-    );
+    const validItems = input.items.filter((item) => isSizeIndependentTrim(item.materialType));
 
     if (validItems.length === 0) {
       throw new Error('No size-independent trims to order');
@@ -866,40 +866,42 @@ class CostSheetPOGenerationService {
 
     const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
 
-    const itemsData = await Promise.all(validItems.map(async item => {
-      const totalPrice = item.orderQty * item.unitPrice;
-      subtotal += totalPrice;
+    const itemsData = await Promise.all(
+      validItems.map(async (item) => {
+        const totalPrice = item.orderQty * item.unitPrice;
+        subtotal += totalPrice;
 
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        materialId: item.materialId,
-        isInterstate,
-      });
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          materialId: item.materialId,
+          isInterstate,
+        });
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        id: randomUUID(),
-        poId,
-        materialId: item.materialId,
-        orderedQuantity: item.orderQty,
-        receivedQuantity: 0,
-        unit: item.unit as any,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || `${item.materialType}. Allowance: ${item.allowancePercent}%`,
-      };
-    }));
+        return {
+          id: randomUUID(),
+          poId,
+          materialId: item.materialId,
+          orderedQuantity: item.orderQty,
+          receivedQuantity: 0,
+          unit: item.unit as any,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks: item.remarks || `${item.materialType}. Allowance: ${item.allowancePercent}%`,
+        };
+      })
+    );
 
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
@@ -1014,9 +1016,7 @@ class CostSheetPOGenerationService {
       if (laceItem.sourcingStrategy === 'GREIGE_PROCESSED') {
         // Check lab dip approval
         if (!laceItem.labDipId) {
-          errors.push(
-            `Lace "${laceItem.laceName}" requires lab dip approval but none is assigned`
-          );
+          errors.push(`Lace "${laceItem.laceName}" requires lab dip approval but none is assigned`);
         } else if (laceItem.labDip?.status !== 'APPROVED') {
           pendingLabDips.push({
             laceId: laceItem.laceId,
@@ -1098,40 +1098,42 @@ class CostSheetPOGenerationService {
 
     const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
 
-    const itemsData = await Promise.all(input.items.map(async item => {
-      const totalPrice = item.orderQty * item.unitPrice;
-      subtotal += totalPrice;
+    const itemsData = await Promise.all(
+      input.items.map(async (item) => {
+        const totalPrice = item.orderQty * item.unitPrice;
+        subtotal += totalPrice;
 
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        materialId: item.materialId,
-        isInterstate,
-      });
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          materialId: item.materialId,
+          isInterstate,
+        });
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        id: randomUUID(),
-        poId,
-        materialId: item.materialId,
-        orderedQuantity: item.orderQty,
-        receivedQuantity: 0,
-        unit: item.unit as any,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || `Ready Lace. Allowance: ${item.allowancePercent}%`,
-      };
-    }));
+        return {
+          id: randomUUID(),
+          poId,
+          materialId: item.materialId,
+          orderedQuantity: item.orderQty,
+          receivedQuantity: 0,
+          unit: item.unit as any,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks: item.remarks || `Ready Lace. Allowance: ${item.allowancePercent}%`,
+        };
+      })
+    );
 
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
@@ -1232,40 +1234,44 @@ class CostSheetPOGenerationService {
 
     const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
 
-    const itemsData = await Promise.all(input.items.map(async item => {
-      const totalPrice = item.orderQty * item.unitPrice;
-      subtotal += totalPrice;
+    const itemsData = await Promise.all(
+      input.items.map(async (item) => {
+        const totalPrice = item.orderQty * item.unitPrice;
+        subtotal += totalPrice;
 
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        materialId: item.materialId,
-        isInterstate,
-      });
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          materialId: item.materialId,
+          isInterstate,
+        });
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        id: randomUUID(),
-        poId,
-        materialId: item.materialId,
-        orderedQuantity: item.orderQty,
-        receivedQuantity: 0,
-        unit: item.unit as any,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || `Greige Lace for processing. Shrinkage: ${item.expectedShrinkagePercent || 5}%. Allowance: ${item.allowancePercent}%`,
-      };
-    }));
+        return {
+          id: randomUUID(),
+          poId,
+          materialId: item.materialId,
+          orderedQuantity: item.orderQty,
+          receivedQuantity: 0,
+          unit: item.unit as any,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks:
+            item.remarks ||
+            `Greige Lace for processing. Shrinkage: ${item.expectedShrinkagePercent || 5}%. Allowance: ${item.allowancePercent}%`,
+        };
+      })
+    );
 
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
@@ -1357,9 +1363,7 @@ class CostSheetPOGenerationService {
           where: { id: item.labDipId },
         });
         if (!labDip || labDip.status !== 'APPROVED') {
-          throw new Error(
-            `Lab dip must be approved before generating processing PO. Lab dip ID: ${item.labDipId}`
-          );
+          throw new Error(`Lab dip must be approved before generating processing PO. Lab dip ID: ${item.labDipId}`);
         }
       }
     }
@@ -1381,40 +1385,44 @@ class CostSheetPOGenerationService {
 
     const { isInterstate } = await gstService.isInterstatePO(input.processorId);
 
-    const itemsData = await Promise.all(input.items.map(async item => {
-      const totalPrice = item.orderQty * item.unitPrice;
-      subtotal += totalPrice;
+    const itemsData = await Promise.all(
+      input.items.map(async (item) => {
+        const totalPrice = item.orderQty * item.unitPrice;
+        subtotal += totalPrice;
 
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        materialId: item.materialId,
-        isInterstate,
-      });
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal: totalPrice,
+          materialId: item.materialId,
+          isInterstate,
+        });
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        id: randomUUID(),
-        poId,
-        materialId: item.materialId,
-        orderedQuantity: item.orderQty,
-        receivedQuantity: 0,
-        unit: item.unit as any,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || `Lace ${item.processType}. Lab Dip: ${item.labDipId || 'N/A'}. Allowance: ${item.allowancePercent}%`,
-      };
-    }));
+        return {
+          id: randomUUID(),
+          poId,
+          materialId: item.materialId,
+          orderedQuantity: item.orderQty,
+          receivedQuantity: 0,
+          unit: item.unit as any,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks:
+            item.remarks ||
+            `Lace ${item.processType}. Lab Dip: ${item.labDipId || 'N/A'}. Allowance: ${item.allowancePercent}%`,
+        };
+      })
+    );
 
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
@@ -1442,9 +1450,7 @@ class CostSheetPOGenerationService {
     }
 
     // Create PO with PENDING_GREIGE status if linked to Greige Lace PO
-    const initialStatus = input.linkedGreigeLacePOId
-      ? PurchaseOrderStatus.PENDING_GREIGE
-      : PurchaseOrderStatus.DRAFT;
+    const initialStatus = input.linkedGreigeLacePOId ? PurchaseOrderStatus.PENDING_GREIGE : PurchaseOrderStatus.DRAFT;
 
     // Create PO and items in transaction
     const purchaseOrder = await prisma.$transaction(async (tx) => {
@@ -1522,7 +1528,7 @@ class CostSheetPOGenerationService {
 
     // Check if PO is fully received
     const fullyReceived = greigeLacePO.purchase_order_items.every(
-      item => item.receivedQuantity >= item.orderedQuantity
+      (item) => item.receivedQuantity >= item.orderedQuantity
     );
 
     if (!fullyReceived) {
@@ -1578,9 +1584,7 @@ class CostSheetPOGenerationService {
     }
 
     // Check if PO is fully received
-    const fullyReceived = greigePO.purchase_order_items.every(
-      item => item.receivedQuantity >= item.orderedQuantity
-    );
+    const fullyReceived = greigePO.purchase_order_items.every((item) => item.receivedQuantity >= item.orderedQuantity);
 
     if (!fullyReceived) {
       logDebug('Greige PO not fully received yet', { greigePOId });
@@ -1640,7 +1644,7 @@ class CostSheetPOGenerationService {
       orderBy: { generatedAt: 'desc' },
     });
 
-    return generations.map(gen => ({
+    return generations.map((gen) => ({
       generationId: gen.id,
       costSheetId: gen.costSheetId,
       totalOrderQty: gen.totalOrderQuantity,
@@ -1651,7 +1655,7 @@ class CostSheetPOGenerationService {
       greigePOId: gen.greigePOId,
       processingPOId: gen.processingPOId,
       trimsPOId: gen.trimsPOId,
-      purchaseOrders: gen.purchaseOrders.map(po => ({
+      purchaseOrders: gen.purchaseOrders.map((po) => ({
         id: po.id,
         poNumber: po.poNumber,
         poCategory: po.poCategory,

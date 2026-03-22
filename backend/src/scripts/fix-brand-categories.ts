@@ -28,14 +28,14 @@ async function fixBrandCategories() {
           // Split the categories
           const categories = bc.category
             .split(',')
-            .map(c => c.trim())
-            .filter(c => c.length > 0);
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0);
 
           console.log(`   Splitting into: ${categories.join(', ')}`);
 
           // Delete the old entry
           await prisma.brand_categories.delete({
-            where: { id: bc.id }
+            where: { id: bc.id },
           });
 
           // Create new entries for each category
@@ -47,13 +47,12 @@ async function fixBrandCategories() {
                 category: category,
                 subCategory: bc.subCategory,
                 subSubCategory: bc.subSubCategory,
-              }
+              },
             });
           }
 
           console.log(`   ✅ Created ${categories.length} separate entries\n`);
           fixedCount++;
-
         } catch (error: unknown) {
           console.error(`   ❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`);
           errorCount++;
@@ -65,7 +64,6 @@ async function fixBrandCategories() {
     console.log(`   ✅ Fixed: ${fixedCount}`);
     console.log(`   ❌ Errors: ${errorCount}`);
     console.log('\n✨ Fix complete!');
-
   } catch (error) {
     console.error('❌ Fix failed:', error);
     throw error;

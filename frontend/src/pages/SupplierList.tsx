@@ -4,7 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { getAllSuppliers, deleteSupplier, canDeactivate, type DeactivationCheck } from '@/services/supplier.service';
 import { SupplierCategory, SupplierCategoryLabels } from '@/types/supplier.types';
 import type { Supplier } from '@/types/supplier.types';
@@ -124,9 +131,7 @@ export default function SupplierList() {
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            className={`h-4 w-4 ${
-              star <= stars ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
-            }`}
+            className={`h-4 w-4 ${star <= stars ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
           />
         ))}
       </div>
@@ -160,9 +165,7 @@ export default function SupplierList() {
     {
       key: 'code',
       header: 'Code',
-      render: (supplier) => (
-        <div className="text-sm font-medium text-gray-900">{supplier.code}</div>
-      ),
+      render: (supplier) => <div className="text-sm font-medium text-gray-900">{supplier.code}</div>,
     },
     {
       key: 'name',
@@ -194,15 +197,9 @@ export default function SupplierList() {
       header: 'Contact',
       render: (supplier) => (
         <div>
-          {supplier.contactPerson && (
-            <div className="text-sm text-gray-900">{supplier.contactPerson}</div>
-          )}
-          {supplier.email && (
-            <div className="text-xs text-gray-500">{supplier.email}</div>
-          )}
-          {supplier.phone && (
-            <div className="text-xs text-gray-500">{supplier.phone}</div>
-          )}
+          {supplier.contactPerson && <div className="text-sm text-gray-900">{supplier.contactPerson}</div>}
+          {supplier.email && <div className="text-xs text-gray-500">{supplier.email}</div>}
+          {supplier.phone && <div className="text-xs text-gray-500">{supplier.phone}</div>}
         </div>
       ),
     },
@@ -214,23 +211,18 @@ export default function SupplierList() {
     {
       key: 'paymentTerms',
       header: 'Payment Terms',
-      render: (supplier) => (
-        <div className="text-sm text-gray-700">
-          {supplier.paymentTerms || '-'}
-        </div>
-      ),
+      render: (supplier) => <div className="text-sm text-gray-700">{supplier.paymentTerms || '-'}</div>,
     },
     {
       key: 'stats',
       header: 'Stats',
-      render: (supplier) => (
+      render: (supplier) =>
         supplier._count && (
           <div className="text-xs text-gray-500">
             <div>POs: {supplier._count.purchaseOrders}</div>
             <div>Materials: {supplier._count.materials}</div>
           </div>
-        )
-      ),
+        ),
     },
     {
       key: 'actions',
@@ -289,13 +281,8 @@ export default function SupplierList() {
                   rating: ratingFilter !== 'all' ? parseInt(ratingFilter) : undefined,
                 }}
               />
-              <ImportButton
-                module="suppliers"
-                onSuccess={fetchSuppliers}
-              />
-              <Button onClick={() => navigate('/suppliers/new')}>
-                + Add New Supplier
-              </Button>
+              <ImportButton module="suppliers" onSuccess={fetchSuppliers} />
+              <Button onClick={() => navigate('/suppliers/new')}>+ Add New Supplier</Button>
             </div>
           </div>
         </CardHeader>
@@ -348,9 +335,10 @@ export default function SupplierList() {
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No suppliers found',
-              description: searchQuery || categoryFilter || ratingFilter
-                ? 'Try adjusting your search or filter criteria'
-                : 'Get started by creating your first supplier',
+              description:
+                searchQuery || categoryFilter || ratingFilter
+                  ? 'Try adjusting your search or filter criteria'
+                  : 'Get started by creating your first supplier',
               actionLabel: 'Create First Supplier',
               onAction: () => navigate('/suppliers/new'),
             }}

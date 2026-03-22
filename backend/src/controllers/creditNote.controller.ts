@@ -7,17 +7,7 @@ export class CreditNoteController {
    * Get all credit notes with pagination
    */
   async getAll(req: Request, res: Response) {
-    const {
-      page = '1',
-      limit = '20',
-      search,
-      status,
-      customerId,
-      fromDate,
-      toDate,
-      sortBy,
-      sortOrder,
-    } = req.query;
+    const { page = '1', limit = '20', search, status, customerId, fromDate, toDate, sortBy, sortOrder } = req.query;
 
     const result = await creditNoteService.getAll({
       page: parseInt(page as string, 10),

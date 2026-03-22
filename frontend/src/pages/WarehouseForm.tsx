@@ -54,7 +54,7 @@ export default function WarehouseForm() {
     contactPhone: '',
     contactEmail: '',
     capacity: '',
-    isActive: true
+    isActive: true,
   });
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function WarehouseForm() {
         contactPhone: data.contactPhone || '',
         contactEmail: data.contactEmail || '',
         capacity: data.capacity?.toString() || '',
-        isActive: data.isActive
+        isActive: data.isActive,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load warehouse';
@@ -250,21 +250,13 @@ export default function WarehouseForm() {
               {/* City */}
               <div className="space-y-2">
                 <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => handleChange('city', e.target.value)}
-                />
+                <Input id="city" value={formData.city} onChange={(e) => handleChange('city', e.target.value)} />
               </div>
 
               {/* State */}
               <div className="space-y-2">
                 <Label htmlFor="state">State</Label>
-                <Input
-                  id="state"
-                  value={formData.state}
-                  onChange={(e) => handleChange('state', e.target.value)}
-                />
+                <Input id="state" value={formData.state} onChange={(e) => handleChange('state', e.target.value)} />
               </div>
 
               {/* Pincode */}
@@ -341,20 +333,12 @@ export default function WarehouseForm() {
 
               {/* Actions */}
               <div className="flex gap-2 justify-end md:col-span-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate('/inventory/warehouses')}
-                >
+                <Button type="button" variant="outline" onClick={() => navigate('/inventory/warehouses')}>
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <ButtonSpinner className="mr-2" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
+                  {loading ? <ButtonSpinner className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
                   {isEdit ? 'Update' : 'Create'}
                 </Button>
               </div>

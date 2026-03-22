@@ -8,17 +8,18 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { getDashboardStats, getRequirementsNeedingPO, getOverdueRequirements } from '@/services/serviceRequirement.service';
+  getDashboardStats,
+  getRequirementsNeedingPO,
+  getOverdueRequirements,
+} from '@/services/serviceRequirement.service';
 import type { ServiceDashboardStats, ServiceRequirement } from '@/types/serviceRequirement.types';
-import { ServiceRequirementStatusColors, ServiceRequirementStatusLabels, ServiceTypeLabels } from '@/types/serviceRequirement.types';
+import {
+  ServiceRequirementStatusColors,
+  ServiceRequirementStatusLabels,
+  ServiceTypeLabels,
+} from '@/types/serviceRequirement.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import {
   Zap,
@@ -79,10 +80,7 @@ export default function ServiceRequirementsDashboard() {
     color?: string;
     onClick?: () => void;
   }) => (
-    <Card
-      className={onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}
-      onClick={onClick}
-    >
+    <Card className={onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''} onClick={onClick}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className={`h-4 w-4 ${color}`} />
@@ -240,20 +238,14 @@ export default function ServiceRequirementsDashboard() {
                 <CardTitle className="text-lg">Services Needing PO</CardTitle>
                 <CardDescription>Services pending purchase order generation</CardDescription>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/service-requirements/list?status=PENDING')}
-              >
+              <Button variant="ghost" size="sm" onClick={() => navigate('/service-requirements/list?status=PENDING')}>
                 View All <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             {needingPO.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">
-                No services currently need PO
-              </p>
+              <p className="text-center text-muted-foreground py-4">No services currently need PO</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -271,14 +263,10 @@ export default function ServiceRequirementsDashboard() {
                       onClick={() => navigate(`/work-orders/${req.workOrderId}`)}
                     >
                       <TableCell>
-                        <Badge variant="outline">
-                          {ServiceTypeLabels[req.serviceType]}
-                        </Badge>
+                        <Badge variant="outline">{ServiceTypeLabels[req.serviceType]}</Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium">
-                          {req.workOrder?.workOrderNumber || 'N/A'}
-                        </div>
+                        <div className="font-medium">{req.workOrder?.workOrderNumber || 'N/A'}</div>
                       </TableCell>
                       <TableCell>
                         <Badge className={ServiceRequirementStatusColors[req.status]}>
@@ -304,20 +292,14 @@ export default function ServiceRequirementsDashboard() {
                 </CardTitle>
                 <CardDescription>Services behind schedule</CardDescription>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/service-requirements/list?overdue=true')}
-              >
+              <Button variant="ghost" size="sm" onClick={() => navigate('/service-requirements/list?overdue=true')}>
                 View All <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             {overdueReqs.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">
-                No overdue service requirements
-              </p>
+              <p className="text-center text-muted-foreground py-4">No overdue service requirements</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -335,14 +317,10 @@ export default function ServiceRequirementsDashboard() {
                       onClick={() => navigate(`/work-orders/${req.workOrderId}`)}
                     >
                       <TableCell>
-                        <Badge variant="outline">
-                          {ServiceTypeLabels[req.serviceType]}
-                        </Badge>
+                        <Badge variant="outline">{ServiceTypeLabels[req.serviceType]}</Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium">
-                          {req.workOrder?.workOrderNumber || 'N/A'}
-                        </div>
+                        <div className="font-medium">{req.workOrder?.workOrderNumber || 'N/A'}</div>
                       </TableCell>
                       <TableCell>
                         <Badge className={ServiceRequirementStatusColors[req.status]}>
@@ -381,13 +359,9 @@ export default function ServiceRequirementsDashboard() {
                     <TableRow
                       key={item.serviceType}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() =>
-                        navigate(`/service-requirements/list?serviceType=${item.serviceType}`)
-                      }
+                      onClick={() => navigate(`/service-requirements/list?serviceType=${item.serviceType}`)}
                     >
-                      <TableCell className="font-medium">
-                        {ServiceTypeLabels[item.serviceType]}
-                      </TableCell>
+                      <TableCell className="font-medium">{ServiceTypeLabels[item.serviceType]}</TableCell>
                       <TableCell className="text-right">{item.count}</TableCell>
                       <TableCell className="text-right text-purple-600">
                         ₹{item.estimatedCost.toLocaleString()}
@@ -421,15 +395,11 @@ export default function ServiceRequirementsDashboard() {
                     <TableRow
                       key={item.processorId}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() =>
-                        navigate(`/service-requirements/list?processorId=${item.processorId}`)
-                      }
+                      onClick={() => navigate(`/service-requirements/list?processorId=${item.processorId}`)}
                     >
                       <TableCell className="font-medium">{item.processorName}</TableCell>
                       <TableCell className="text-right">{item.requirementCount}</TableCell>
-                      <TableCell className="text-right text-green-600">
-                        ₹{item.totalValue.toLocaleString()}
-                      </TableCell>
+                      <TableCell className="text-right text-green-600">₹{item.totalValue.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

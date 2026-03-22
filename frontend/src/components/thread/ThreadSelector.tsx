@@ -21,11 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import type {
-  ThreadPly,
-  ThreadMaterial,
-  ThreadPackagingType,
-} from '../../types/thread.types';
+import type { ThreadPly, ThreadMaterial, ThreadPackagingType } from '../../types/thread.types';
 import { getAllThreads } from '../../services/thread.service';
 
 // Label constants
@@ -87,8 +83,8 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
       // Map Thread objects to ThreadOption interface
       // Filter for threads with new Thread Material module fields (ply, materialComposition)
       const threadOptions: ThreadOption[] = response.data
-        .filter(thread => thread.isActive && thread.ply && thread.materialComposition && thread.packagingType)
-        .map(thread => ({
+        .filter((thread) => thread.isActive && thread.ply && thread.materialComposition && thread.packagingType)
+        .map((thread) => ({
           id: thread.id,
           threadCode: thread.threadCode,
           threadName: thread.threadName,
@@ -108,10 +104,10 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
     }
   };
 
-  const selectedThread = threads.find(t => t.id === value) || null;
+  const selectedThread = threads.find((t) => t.id === value) || null;
 
   const handleValueChange = (newValue: string) => {
-    const thread = threads.find(t => t.id === newValue) || null;
+    const thread = threads.find((t) => t.id === newValue) || null;
     onChange(thread?.id || null, thread);
   };
 
@@ -120,28 +116,15 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
       <div className="flex items-center justify-between">
         <Label htmlFor="thread-select">{label}</Label>
         {onQuickAdd && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onQuickAdd}
-            disabled={disabled}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={onQuickAdd} disabled={disabled}>
             <Plus className="h-4 w-4 mr-1" />
             Quick Add
           </Button>
         )}
       </div>
 
-      <Select
-        value={value || undefined}
-        onValueChange={handleValueChange}
-        disabled={disabled || loading}
-      >
-        <SelectTrigger
-          id="thread-select"
-          className={error ? 'border-red-500' : ''}
-        >
+      <Select value={value || undefined} onValueChange={handleValueChange} disabled={disabled || loading}>
+        <SelectTrigger id="thread-select" className={error ? 'border-red-500' : ''}>
           <SelectValue placeholder={loading ? 'Loading threads...' : placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -163,20 +146,14 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
               </SelectItem>
             ))}
             {threads.length === 0 && !loading && (
-              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                No threads found
-              </div>
+              <div className="px-2 py-6 text-center text-sm text-muted-foreground">No threads found</div>
             )}
           </SelectGroup>
         </SelectContent>
       </Select>
 
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
-      {helperText && !error && (
-        <p className="text-sm text-muted-foreground">{helperText}</p>
-      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      {helperText && !error && <p className="text-sm text-muted-foreground">{helperText}</p>}
 
       {/* Selected thread display */}
       {selectedThread && (

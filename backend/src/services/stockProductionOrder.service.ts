@@ -40,7 +40,6 @@ interface SPOQueryParams {
 }
 
 export class StockProductionOrderService {
-
   private async generateSPONumber(): Promise<string> {
     const now = new Date();
     const yy = now.getFullYear().toString().slice(-2);
@@ -76,7 +75,7 @@ export class StockProductionOrderService {
         createdById: data.createdById,
         status: StockProductionOrderStatus.DRAFT,
         items: {
-          create: data.items.map(item => ({
+          create: data.items.map((item) => ({
             id: randomUUID(),
             colorId: item.colorId || null,
             sizeId: item.sizeId,
@@ -190,7 +189,7 @@ export class StockProductionOrderService {
         });
 
         await tx.stock_production_order_items.createMany({
-          data: data.items.map(item => ({
+          data: data.items.map((item) => ({
             id: randomUUID(),
             stockProductionOrderId: id,
             colorId: item.colorId || null,
@@ -217,7 +216,7 @@ export class StockProductionOrderService {
     const spo = await prisma.stock_production_orders.findUnique({
       where: { id },
       select: { status: true },
-      });
+    });
 
     if (!spo) {
       throw new Error('Stock Production Order not found');
@@ -296,7 +295,7 @@ export class StockProductionOrderService {
         remarks: `Stock production from ${spo.spoNumber}`,
         createdById: userId,
         work_order_breakup: {
-          create: spo.items.map(item => ({
+          create: spo.items.map((item) => ({
             id: randomUUID(),
             colorId: item.colorId || null,
             sizeId: item.sizeId,

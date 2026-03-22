@@ -15,15 +15,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Search,
-  Package,
-  Check,
-  Plus,
-  ShoppingBag,
-  Scissors,
-  Box
-} from 'lucide-react';
+import { Search, Package, Check, Plus, ShoppingBag, Scissors, Box } from 'lucide-react';
 import type { MaterialType, MaterialUsageCategory, Material } from '../types/style-material-bom.types';
 import { MaterialTypeLabels } from '../constants/style-material-bom.constants';
 import { searchMaterials, formatPrice, parsePrice } from '../services/style-material-bom.service';
@@ -32,21 +24,8 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
 
 export interface MaterialBOMEntry {
@@ -72,26 +51,18 @@ interface MaterialBOMPickerProps {
   allowedTypes?: MaterialType[];
 }
 
-const MATERIAL_TYPES: MaterialType[] = [
-  'LACE',
-  'BUTTON',
-  'THREAD',
-  'ZIPPER',
-  'ELASTIC',
-  'LABEL',
-  'PACKAGING'
-];
+const MATERIAL_TYPES: MaterialType[] = ['LACE', 'BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LABEL', 'PACKAGING'];
 
 const USAGE_CATEGORY_LABELS: Record<MaterialUsageCategory, string> = {
   GARMENT_TRIM: 'Garment Trim',
   VALUE_ADDITION: 'Value Addition',
-  PACKAGING: 'Packaging'
+  PACKAGING: 'Packaging',
 };
 
 const USAGE_CATEGORY_ICONS: Record<MaterialUsageCategory, React.ReactNode> = {
   GARMENT_TRIM: <Scissors className="h-4 w-4" />,
   VALUE_ADDITION: <ShoppingBag className="h-4 w-4" />,
-  PACKAGING: <Box className="h-4 w-4" />
+  PACKAGING: <Box className="h-4 w-4" />,
 };
 
 export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
@@ -100,12 +71,12 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
   onSelect,
   defaultUsageCategory = 'GARMENT_TRIM',
   defaultComponentName = '',
-  allowedTypes
+  allowedTypes,
 }) => {
   // Filter material types based on allowedTypes prop - memoized to prevent useEffect dependency issues
   const visibleTypes = useMemo(() => {
     return allowedTypes && allowedTypes.length > 0
-      ? MATERIAL_TYPES.filter(t => allowedTypes.includes(t))
+      ? MATERIAL_TYPES.filter((t) => allowedTypes.includes(t))
       : MATERIAL_TYPES;
   }, [allowedTypes]);
 
@@ -180,13 +151,13 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
       unitPrice: price,
       usageCategory,
       componentName: componentName || undefined,
-      specifications: selectedMaterial.specifications as Record<string, string | number | boolean | null>
+      specifications: selectedMaterial.specifications as Record<string, string | number | boolean | null>,
     };
 
     onSelect(entry);
 
     // Stay open for adding more materials
-    setAddedCount(prev => prev + 1);
+    setAddedCount((prev) => prev + 1);
     setSelectedMaterial(null);
     setQuantity(1);
     setComponentName(defaultComponentName);
@@ -219,9 +190,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
             <Package className="h-5 w-5" />
             Add Material to BOM
           </DialogTitle>
-          <DialogDescription>
-            Select material type, search, and configure quantity and usage
-          </DialogDescription>
+          <DialogDescription>Select material type, search, and configure quantity and usage</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex">
@@ -234,11 +203,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                   style={{ gridTemplateColumns: `repeat(${visibleTypes.length}, minmax(0, 1fr))` }}
                 >
                   {visibleTypes.map((type) => (
-                    <TabsTrigger
-                      key={type}
-                      value={type}
-                      className="text-xs py-2 data-[state=active]:bg-blue-100"
-                    >
+                    <TabsTrigger key={type} value={type} className="text-xs py-2 data-[state=active]:bg-blue-100">
                       {MaterialTypeLabels[type]}
                     </TabsTrigger>
                   ))}
@@ -261,11 +226,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
 
               {/* Material List */}
               {visibleTypes.map((type) => (
-                <TabsContent
-                  key={type}
-                  value={type}
-                  className="flex-1 overflow-auto p-4 m-0"
-                >
+                <TabsContent key={type} value={type} className="flex-1 overflow-auto p-4 m-0">
                   {isLoading ? (
                     <div className="text-center py-12 text-gray-500">
                       <Package className="h-12 w-12 mx-auto mb-3 animate-pulse" />
@@ -275,9 +236,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                     <div className="text-center py-12 text-gray-500">
                       <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                       <p className="font-medium">No materials found</p>
-                      {searchQuery && (
-                        <p className="text-sm mt-1">Try a different search term</p>
-                      )}
+                      {searchQuery && <p className="text-sm mt-1">Try a different search term</p>}
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -300,18 +259,14 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                                 <Badge variant="outline" className="text-xs font-mono">
                                   {material.materialCode}
                                 </Badge>
-                                <span className="font-medium text-sm truncate">
-                                  {material.materialName}
-                                </span>
+                                <span className="font-medium text-sm truncate">{material.materialName}</span>
                               </div>
                               <div className="text-xs text-gray-600 space-y-0.5">
                                 {getSpecificationsSummary(material).map((spec, idx) => (
                                   <div key={idx}>{spec}</div>
                                 ))}
                                 {material.supplierName && (
-                                  <div className="text-gray-500">
-                                    Supplier: {material.supplierName}
-                                  </div>
+                                  <div className="text-gray-500">Supplier: {material.supplierName}</div>
                                 )}
                               </div>
                             </div>
@@ -319,9 +274,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                               <div className="font-semibold text-sm text-blue-600">
                                 {formatPrice(parsePrice(material.pricePerUnit))}
                               </div>
-                              <div className="text-xs text-gray-500">
-                                per {material.unit}
-                              </div>
+                              <div className="text-xs text-gray-500">per {material.unit}</div>
                             </div>
                           </div>
                           {selectedMaterial?.materialCode === material.materialCode && (
@@ -398,9 +351,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                     onChange={(e) => setComponentName(e.target.value)}
                     placeholder="e.g., Front Panel, Collar"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Specify which component uses this material
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Specify which component uses this material</p>
                 </div>
 
                 <Button
@@ -417,9 +368,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
               <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
                 <Package className="h-16 w-16 mb-3" />
                 <p className="text-sm font-medium">No material selected</p>
-                <p className="text-xs mt-1 px-4">
-                  Select a material from the list to configure quantity and usage
-                </p>
+                <p className="text-xs mt-1 px-4">Select a material from the list to configure quantity and usage</p>
               </div>
             )}
           </div>

@@ -39,13 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function SampleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -187,9 +181,7 @@ export default function SampleDetail() {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-gray-900">{sample.sampleNumber}</h1>
-                <Badge className={SampleStatusColors[sample.status]}>
-                  {SampleStatusLabels[sample.status]}
-                </Badge>
+                <Badge className={SampleStatusColors[sample.status]}>{SampleStatusLabels[sample.status]}</Badge>
                 {isOverdue && (
                   <Badge variant="destructive" className="flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
@@ -213,7 +205,12 @@ export default function SampleDetail() {
             </Button>
           )}
           {sample.status === 'IN_PROGRESS' && (
-            <Button onClick={() => { setNewStatus('SUBMITTED'); setStatusDialogOpen(true); }}>
+            <Button
+              onClick={() => {
+                setNewStatus('SUBMITTED');
+                setStatusDialogOpen(true);
+              }}
+            >
               <CheckCircle className="h-4 w-4 mr-2" />
               Mark Complete
             </Button>
@@ -270,9 +267,7 @@ export default function SampleDetail() {
                 ) : (
                   <span className="text-gray-400">No style linked</span>
                 )}
-                {sample.style && (
-                  <p className="text-sm text-gray-500">{sample.style.styleName}</p>
-                )}
+                {sample.style && <p className="text-sm text-gray-500">{sample.style.styleName}</p>}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-gray-500">Customer</Label>
@@ -334,9 +329,7 @@ export default function SampleDetail() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Measurements</CardTitle>
-                  <CardDescription>
-                    Spec vs Actual measurements for quality check
-                  </CardDescription>
+                  <CardDescription>Spec vs Actual measurements for quality check</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {sample.measurements && sample.measurements.length > 0 ? (
@@ -356,16 +349,11 @@ export default function SampleDetail() {
                             <tr key={m.id} className="border-b hover:bg-gray-50">
                               <td className="py-2 px-3 font-medium">{m.measurementPoint}</td>
                               <td className="py-2 px-3 text-right">{m.specValue}"</td>
-                              <td className="py-2 px-3 text-right">
-                                {m.actualValue ? `${m.actualValue}"` : '-'}
-                              </td>
+                              <td className="py-2 px-3 text-right">{m.actualValue ? `${m.actualValue}"` : '-'}</td>
                               <td className="py-2 px-3 text-right">±{m.tolerance}"</td>
                               <td className="py-2 px-3 text-center">
                                 {m.status ? (
-                                  <Badge
-                                    variant={m.status === 'PASS' ? 'default' : 'destructive'}
-                                    className="text-xs"
-                                  >
+                                  <Badge variant={m.status === 'PASS' ? 'default' : 'destructive'} className="text-xs">
                                     {m.status}
                                   </Badge>
                                 ) : (
@@ -378,9 +366,7 @@ export default function SampleDetail() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">
-                      No measurements recorded yet.
-                    </p>
+                    <p className="text-gray-500 text-center py-8">No measurements recorded yet.</p>
                   )}
                 </CardContent>
               </Card>
@@ -390,9 +376,7 @@ export default function SampleDetail() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Colorways (PP Sample)</CardTitle>
-                  <CardDescription>
-                    Multiple colorways sent for buyer approval
-                  </CardDescription>
+                  <CardDescription>Multiple colorways sent for buyer approval</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {sample.colorways && sample.colorways.length > 0 ? (
@@ -420,8 +404,8 @@ export default function SampleDetail() {
                                     c.status === 'APPROVED'
                                       ? 'default'
                                       : c.status === 'REJECTED'
-                                      ? 'destructive'
-                                      : 'secondary'
+                                        ? 'destructive'
+                                        : 'secondary'
                                   }
                                   className="text-xs"
                                 >
@@ -434,9 +418,7 @@ export default function SampleDetail() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">
-                      No colorways recorded.
-                    </p>
+                    <p className="text-gray-500 text-center py-8">No colorways recorded.</p>
                   )}
                 </CardContent>
               </Card>
@@ -446,9 +428,7 @@ export default function SampleDetail() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Size Set</CardTitle>
-                  <CardDescription>
-                    Jumping sizes with mix of colors for buyer approval
-                  </CardDescription>
+                  <CardDescription>Jumping sizes with mix of colors for buyer approval</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {sample.sizeSets && sample.sizeSets.length > 0 ? (
@@ -474,8 +454,8 @@ export default function SampleDetail() {
                                     s.status === 'APPROVED'
                                       ? 'default'
                                       : s.status === 'REJECTED'
-                                      ? 'destructive'
-                                      : 'secondary'
+                                        ? 'destructive'
+                                        : 'secondary'
                                   }
                                   className="text-xs"
                                 >
@@ -488,9 +468,7 @@ export default function SampleDetail() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">
-                      No size set recorded.
-                    </p>
+                    <p className="text-gray-500 text-center py-8">No size set recorded.</p>
                   )}
                 </CardContent>
               </Card>
@@ -521,9 +499,7 @@ export default function SampleDetail() {
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-500">Tracking Number</Label>
                   <div className="flex items-center gap-2">
-                    <code className="bg-gray-100 px-2 py-1 rounded text-sm">
-                      {sample.trackingNumber}
-                    </code>
+                    <code className="bg-gray-100 px-2 py-1 rounded text-sm">{sample.trackingNumber}</code>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -624,9 +600,7 @@ export default function SampleDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Mark Sample as Sent</DialogTitle>
-            <DialogDescription>
-              Enter shipping details for tracking
-            </DialogDescription>
+            <DialogDescription>Enter shipping details for tracking</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -671,16 +645,19 @@ export default function SampleDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Record Buyer Feedback</DialogTitle>
-            <DialogDescription>
-              Enter the buyer's response to this sample
-            </DialogDescription>
+            <DialogDescription>Enter the buyer's response to this sample</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Status</Label>
               <Select
                 value={feedbackForm.status}
-                onValueChange={(v) => setFeedbackForm({ ...feedbackForm, status: v as 'APPROVED' | 'REJECTED' | 'REVISION_NEEDED' | 'APPROVED_WITH_COMMENTS' })}
+                onValueChange={(v) =>
+                  setFeedbackForm({
+                    ...feedbackForm,
+                    status: v as 'APPROVED' | 'REJECTED' | 'REVISION_NEEDED' | 'APPROVED_WITH_COMMENTS',
+                  })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -707,9 +684,7 @@ export default function SampleDetail() {
               <Textarea
                 placeholder="Any measurement-specific comments..."
                 value={feedbackForm.measurementComments}
-                onChange={(e) =>
-                  setFeedbackForm({ ...feedbackForm, measurementComments: e.target.value })
-                }
+                onChange={(e) => setFeedbackForm({ ...feedbackForm, measurementComments: e.target.value })}
                 rows={2}
               />
             </div>
@@ -731,9 +706,7 @@ export default function SampleDetail() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Update Status</DialogTitle>
-            <DialogDescription>
-              Change the sample status
-            </DialogDescription>
+            <DialogDescription>Change the sample status</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Select value={newStatus} onValueChange={(v) => setNewStatus(v as SampleStatus)}>

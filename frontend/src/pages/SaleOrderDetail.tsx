@@ -1,30 +1,12 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeft,
-  CheckCircle,
-  Package,
-  ShoppingBag,
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle, Package, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,21 +17,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  getSaleOrderById,
-  confirmSaleOrder,
-  allocateStock,
-  getAvailableStock,
-} from '@/services/saleOrder.service';
+import { getSaleOrderById, confirmSaleOrder, allocateStock, getAvailableStock } from '@/services/saleOrder.service';
 import type { SaleOrderStatus, SaleOrderItem, AvailableFGStock } from '@/types/saleOrder.types';
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
@@ -102,8 +73,7 @@ export default function SaleOrderDetail() {
   });
 
   const allocateMutation = useMutation({
-    mutationFn: (data: { saleOrderItemId: string; fgStockId: string; quantity: number }) =>
-      allocateStock(data),
+    mutationFn: (data: { saleOrderItemId: string; fgStockId: string; quantity: number }) => allocateStock(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sale-order', id] });
       queryClient.invalidateQueries({ queryKey: ['available-stock'] });
@@ -314,28 +284,29 @@ export default function SaleOrderDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Sale Order?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will confirm {so.saleOrderNumber} for {formatCurrency(Number(so.totalAmount))}.
-              After confirmation, you can allocate finished goods stock.
+              This will confirm {so.saleOrderNumber} for {formatCurrency(Number(so.totalAmount))}. After confirmation,
+              you can allocate finished goods stock.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmMutation.mutate()}>
-              Confirm
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => confirmMutation.mutate()}>Confirm</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Allocate Stock Dialog */}
-      <Dialog open={allocateDialogOpen} onOpenChange={(open) => {
-        setAllocateDialogOpen(open);
-        if (!open) {
-          setSelectedItem(null);
-          setAllocateQty('');
-          setSelectedFgStockId('');
-        }
-      }}>
+      <Dialog
+        open={allocateDialogOpen}
+        onOpenChange={(open) => {
+          setAllocateDialogOpen(open);
+          if (!open) {
+            setSelectedItem(null);
+            setAllocateQty('');
+            setSelectedFgStockId('');
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Allocate Finished Goods Stock</DialogTitle>
@@ -343,10 +314,18 @@ export default function SaleOrderDetail() {
           {selectedItem && (
             <div className="space-y-4">
               <div className="p-3 bg-muted rounded-md text-sm">
-                <div><strong>Style:</strong> {selectedItem.style?.styleCode} - {selectedItem.style?.styleName}</div>
-                <div><strong>Color:</strong> {selectedItem.color?.colorName || 'N/A'}</div>
-                <div><strong>Size:</strong> {selectedItem.size?.sizeName || '-'}</div>
-                <div><strong>Remaining to allocate:</strong> {selectedItem.quantity - selectedItem.allocatedQty} pcs</div>
+                <div>
+                  <strong>Style:</strong> {selectedItem.style?.styleCode} - {selectedItem.style?.styleName}
+                </div>
+                <div>
+                  <strong>Color:</strong> {selectedItem.color?.colorName || 'N/A'}
+                </div>
+                <div>
+                  <strong>Size:</strong> {selectedItem.size?.sizeName || '-'}
+                </div>
+                <div>
+                  <strong>Remaining to allocate:</strong> {selectedItem.quantity - selectedItem.allocatedQty} pcs
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -372,7 +351,8 @@ export default function SaleOrderDetail() {
                           <span className="font-medium text-green-700">{stock.availableQty} available</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Location: {stock.locations?.name || '-'} | Total: {stock.quantity} | Allocated: {stock.allocatedQty}
+                          Location: {stock.locations?.name || '-'} | Total: {stock.quantity} | Allocated:{' '}
+                          {stock.allocatedQty}
                         </div>
                       </div>
                     ))}

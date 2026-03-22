@@ -15,21 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -48,18 +35,31 @@ import ProcessorAllocationDialog from '@/components/ProcessorAllocationDialog';
 import BulkServicePODialog from '@/components/BulkServicePODialog';
 
 // Services
-import { getRequirements, generatePOFromRequirements, cancelRequirement, calculateRequirements, getDashboardStats as getMRPDashboardStats, getRequirementStyles, convertToGreigeProcessing } from '@/services/mrp.service';
-import { getAllServiceRequirements, generateServicePO, getDashboardStats as getServiceDashboardStats } from '@/services/serviceRequirement.service';
+import {
+  getRequirements,
+  generatePOFromRequirements,
+  cancelRequirement,
+  calculateRequirements,
+  getDashboardStats as getMRPDashboardStats,
+  getRequirementStyles,
+  convertToGreigeProcessing,
+} from '@/services/mrp.service';
+import {
+  getAllServiceRequirements,
+  generateServicePO,
+  getDashboardStats as getServiceDashboardStats,
+} from '@/services/serviceRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import api from '@/lib/api';
 
 // Types
 import type { MaterialRequirement, RequirementFilters, MaterialRequirementStatus } from '@/types/mrp.types';
-import {
-  MaterialRequirementStatusColors,
-  MaterialRequirementStatusLabels,
-} from '@/types/mrp.types';
-import type { ServiceRequirement, ServiceRequirementFilters, ServiceRequirementStatus } from '@/types/serviceRequirement.types';
+import { MaterialRequirementStatusColors, MaterialRequirementStatusLabels } from '@/types/mrp.types';
+import type {
+  ServiceRequirement,
+  ServiceRequirementFilters,
+  ServiceRequirementStatus,
+} from '@/types/serviceRequirement.types';
 import {
   ServiceRequirementStatusColors,
   ServiceRequirementStatusLabels,
@@ -108,11 +108,19 @@ export default function UnifiedRequirementsPage() {
   );
 
   // Combined stats
-  const totalRequirements = (mrpStats?.totalPendingRequirements || 0) + (mrpStats?.poInProgress || 0) + (mrpStats?.awaitingReceipt || 0) + (mrpStats?.processingRequirementsCount || 0) + (serviceStats?.totalServices || 0);
-  const needsAssignment = (mrpStats?.requirementsNeedingPO || 0) + (mrpStats?.processingRequirementsCount || 0) + (serviceStats?.servicesWithoutProcessor || 0);
+  const totalRequirements =
+    (mrpStats?.totalPendingRequirements || 0) +
+    (mrpStats?.poInProgress || 0) +
+    (mrpStats?.awaitingReceipt || 0) +
+    (mrpStats?.processingRequirementsCount || 0) +
+    (serviceStats?.totalServices || 0);
+  const needsAssignment =
+    (mrpStats?.requirementsNeedingPO || 0) +
+    (mrpStats?.processingRequirementsCount || 0) +
+    (serviceStats?.servicesWithoutProcessor || 0);
   const poGenerated = (mrpStats?.poInProgress || 0) + (serviceStats?.poGeneratedServices || 0);
-  const overdueCount = (mrpStats?.overdueRequirements || 0);
-  const estimatedValue = (serviceStats?.totalEstimatedCost || 0);
+  const overdueCount = mrpStats?.overdueRequirements || 0;
+  const estimatedValue = serviceStats?.totalEstimatedCost || 0;
 
   // ─── Tab Switch ────────────────────────────────────────────
 
@@ -122,14 +130,17 @@ export default function UnifiedRequirementsPage() {
     setSearchParams(newParams, { replace: true });
   };
 
-  const updateURLParams = useCallback((updates: Record<string, string | undefined>) => {
-    const newParams = new URLSearchParams(searchParams);
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value) newParams.set(key, value);
-      else newParams.delete(key);
-    });
-    setSearchParams(newParams, { replace: true });
-  }, [searchParams, setSearchParams]);
+  const updateURLParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      const newParams = new URLSearchParams(searchParams);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value) newParams.set(key, value);
+        else newParams.delete(key);
+      });
+      setSearchParams(newParams, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
 
   // ─── Render ────────────────────────────────────────────────
 
@@ -239,7 +250,9 @@ export default function UnifiedRequirementsPage() {
             <Package className="h-4 w-4" />
             Material Requirements
             <Badge variant="secondary" className="ml-1 text-xs">
-              {(mrpStats?.totalPendingRequirements || 0) + (mrpStats?.poInProgress || 0) + (mrpStats?.awaitingReceipt || 0)}
+              {(mrpStats?.totalPendingRequirements || 0) +
+                (mrpStats?.poInProgress || 0) +
+                (mrpStats?.awaitingReceipt || 0)}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="outsourced" className="flex items-center gap-2">
@@ -254,15 +267,9 @@ export default function UnifiedRequirementsPage() {
 
       {/* Tab Content */}
       {activeTab === 'material' ? (
-        <MaterialRequirementsTab
-          searchParams={searchParams}
-          updateURLParams={updateURLParams}
-        />
+        <MaterialRequirementsTab searchParams={searchParams} updateURLParams={updateURLParams} />
       ) : (
-        <OutsourcedWorkTab
-          searchParams={searchParams}
-          updateURLParams={updateURLParams}
-        />
+        <OutsourcedWorkTab searchParams={searchParams} updateURLParams={updateURLParams} />
       )}
     </div>
   );
@@ -307,18 +314,21 @@ function MaterialRequirementsTab({
   const [isConverting, setIsConverting] = useState(false);
 
   // Filters — hard-code requirementType to MATERIAL
-  const filters = useMemo((): RequirementFilters => ({
-    orderId: searchParams.get('orderId') || undefined,
-    status: searchParams.get('status')?.split(',') as MaterialRequirementStatus[] | undefined,
-    supplierId: searchParams.get('supplierId') || undefined,
-    styleId: searchParams.get('styleId') || undefined,
-    requirementType: 'MATERIAL',
-    search: searchParams.get('search') || undefined,
-    page: parseInt(searchParams.get('page') || '1'),
-    limit: 20,
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-  }), [searchParams]);
+  const filters = useMemo(
+    (): RequirementFilters => ({
+      orderId: searchParams.get('orderId') || undefined,
+      status: searchParams.get('status')?.split(',') as MaterialRequirementStatus[] | undefined,
+      supplierId: searchParams.get('supplierId') || undefined,
+      styleId: searchParams.get('styleId') || undefined,
+      requirementType: 'MATERIAL',
+      search: searchParams.get('search') || undefined,
+      page: parseInt(searchParams.get('page') || '1'),
+      limit: 20,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    }),
+    [searchParams]
+  );
 
   // Queries
   const { data: requirementsResponse, isLoading } = useListQuery(
@@ -355,7 +365,7 @@ function MaterialRequirementsTab({
   };
 
   const handleSelectOne = (id: string, checked: boolean) => {
-    setSelectedIds((prev) => checked ? [...prev, id] : prev.filter((i) => i !== id));
+    setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((i) => i !== id)));
   };
 
   const refreshData = () => {
@@ -416,7 +426,13 @@ function MaterialRequirementsTab({
         api.get('/fabric-management/greige', { params: { limit: 50 } }),
         api.get('/mrp/processing-assignment/processors'),
       ]);
-      setGreigeOptions((greigeRes.data?.data || []).map((g: any) => ({ id: g.id, name: g.genericName || g.name || g.code, code: g.code })));
+      setGreigeOptions(
+        (greigeRes.data?.data || []).map((g: any) => ({
+          id: g.id,
+          name: g.genericName || g.name || g.code,
+          code: g.code,
+        }))
+      );
       setProcessorOptions((processorRes.data?.data || []).map((p: any) => ({ id: p.id, name: p.name, code: p.code })));
     } catch {
       // Silently handle — user can still type IDs
@@ -461,7 +477,10 @@ function MaterialRequirementsTab({
           checkStock: true,
         });
       }
-      handleApiSuccess('MRP Re-calculated', `Requirements recalculated for ${orderIds.length} order(s). Fabric/greige requirements should now appear.`);
+      handleApiSuccess(
+        'MRP Re-calculated',
+        `Requirements recalculated for ${orderIds.length} order(s). Fabric/greige requirements should now appear.`
+      );
       refreshData();
     } catch (err) {
       handleApiError(err, 'Failed to re-calculate MRP');
@@ -490,12 +509,7 @@ function MaterialRequirementsTab({
             </Button>
           )}
           {requirements.length > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setRecalcDialogOpen(true)}
-              disabled={isRecalculating}
-            >
+            <Button size="sm" variant="outline" onClick={() => setRecalcDialogOpen(true)} disabled={isRecalculating}>
               <RefreshCw className={`h-4 w-4 mr-1 ${isRecalculating ? 'animate-spin' : ''}`} />
               {isRecalculating ? 'Re-calculating...' : 'Re-calculate MRP'}
             </Button>
@@ -517,20 +531,14 @@ function MaterialRequirementsTab({
               >
                 Bulk Generate POs ({selectedIds.length})
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowGeneratePO(true)}
-              >
+              <Button size="sm" variant="outline" onClick={() => setShowGeneratePO(true)}>
                 Manual PO
               </Button>
             </>
           )}
         </div>
         <div className="text-sm text-muted-foreground">
-          {selectedIds.length > 0 && (
-            <span className="text-primary font-medium">{selectedIds.length} selected</span>
-          )}
+          {selectedIds.length > 0 && <span className="text-primary font-medium">{selectedIds.length} selected</span>}
         </div>
       </div>
 
@@ -556,7 +564,9 @@ function MaterialRequirementsTab({
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 {Object.entries(MaterialRequirementStatusLabels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -571,7 +581,9 @@ function MaterialRequirementsTab({
               <SelectContent>
                 <SelectItem value="all">All Suppliers</SelectItem>
                 {suppliers.map((s: any) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -586,7 +598,9 @@ function MaterialRequirementsTab({
               <SelectContent>
                 <SelectItem value="all">All Styles</SelectItem>
                 {styleOptions.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.styleCode} — {s.styleName}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.styleCode} — {s.styleName}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -666,19 +680,25 @@ function MaterialRequirementsTab({
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">{req.order?.orderNumber || '-'}</div>
-                        {req.orderBom && <div className="text-xs text-muted-foreground">BOM v{req.orderBom.version}</div>}
+                        {req.orderBom && (
+                          <div className="text-xs text-muted-foreground">BOM v{req.orderBom.version}</div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right text-sm">
                         {req.totalRequired} {req.unit}
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className={`text-sm font-medium ${req.shortfall > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                        <span
+                          className={`text-sm font-medium ${req.shortfall > 0 ? 'text-orange-600' : 'text-green-600'}`}
+                        >
                           {req.shortfall > 0 ? req.shortfall : 'Fulfilled'}
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">{formatDate(req.requiredDate)}</TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${MaterialRequirementStatusColors[req.status]}`}>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${MaterialRequirementStatusColors[req.status]}`}
+                        >
                           {MaterialRequirementStatusLabels[req.status]}
                         </span>
                       </TableCell>
@@ -687,22 +707,28 @@ function MaterialRequirementsTab({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
-                          {req.shortfall > 0 && req.material?.materialType === 'FABRIC' && !req.material?.fabricId && (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-blue-600 hover:text-blue-800 text-xs"
-                              onClick={() => openConvertGreigeDialog(req)}
-                            >
-                              Greige Process
-                            </Button>
-                          )}
+                          {req.shortfall > 0 &&
+                            req.material?.materialType === 'FABRIC' &&
+                            !req.material?.fabricId &&
+                            (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-600 hover:text-blue-800 text-xs"
+                                onClick={() => openConvertGreigeDialog(req)}
+                              >
+                                Greige Process
+                              </Button>
+                            )}
                           {(req.status === 'PENDING' || req.status === 'PO_REQUIRED') && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="text-red-600 hover:text-red-800"
-                              onClick={() => { setRequirementToCancel(req.id); setCancelDialogOpen(true); }}
+                              onClick={() => {
+                                setRequirementToCancel(req.id);
+                                setCancelDialogOpen(true);
+                              }}
                             >
                               Cancel
                             </Button>
@@ -784,9 +810,7 @@ function MaterialRequirementsTab({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Generate Purchase Order</DialogTitle>
-            <DialogDescription>
-              Create a PO for {selectedIds.length} selected requirement(s)
-            </DialogDescription>
+            <DialogDescription>Create a PO for {selectedIds.length} selected requirement(s)</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -797,7 +821,9 @@ function MaterialRequirementsTab({
                 </SelectTrigger>
                 <SelectContent>
                   {suppliers.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -823,11 +849,10 @@ function MaterialRequirementsTab({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGeneratePO(false)}>Cancel</Button>
-            <Button
-              onClick={handleGeneratePO}
-              disabled={!poSupplierId || !poDeliveryDate || isGenerating}
-            >
+            <Button variant="outline" onClick={() => setShowGeneratePO(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGeneratePO} disabled={!poSupplierId || !poDeliveryDate || isGenerating}>
               {isGenerating ? 'Generating...' : 'Generate PO'}
             </Button>
           </DialogFooter>
@@ -840,7 +865,8 @@ function MaterialRequirementsTab({
           <DialogHeader>
             <DialogTitle>Convert to Greige Processing</DialogTitle>
             <DialogDescription>
-              Convert the shortfall of {convertingRequirement?.shortfall || 0} {convertingRequirement?.unit || 'units'} to greige procurement + processing workflow.
+              Convert the shortfall of {convertingRequirement?.shortfall || 0} {convertingRequirement?.unit || 'units'}{' '}
+              to greige procurement + processing workflow.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -852,7 +878,9 @@ function MaterialRequirementsTab({
                 </SelectTrigger>
                 <SelectContent>
                   {greigeOptions.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>{g.name} ({g.code})</SelectItem>
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name} ({g.code})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -865,7 +893,9 @@ function MaterialRequirementsTab({
                 </SelectTrigger>
                 <SelectContent>
                   {processorOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.code})</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} ({p.code})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -883,7 +913,9 @@ function MaterialRequirementsTab({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConvertGreigeDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setConvertGreigeDialogOpen(false)}>
+              Cancel
+            </Button>
             <Button
               onClick={handleConvertToGreige}
               disabled={!selectedGreigeId || !selectedProcessorId || isConverting}
@@ -973,16 +1005,19 @@ function OutsourcedWorkTab({
   const orderIdFilter = searchParams.get('orderId') || undefined;
   const workOrderIdFilter = searchParams.get('workOrderId') || undefined;
 
-  const processingFilters = useMemo((): RequirementFilters => ({
-    requirementType: 'PROCESSING',
-    orderId: orderIdFilter,
-    status: statusFilter?.split(',') as MaterialRequirementStatus[] | undefined,
-    search: searchFilter,
-    page,
-    limit: 20,
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-  }), [statusFilter, searchFilter, orderIdFilter, page]);
+  const processingFilters = useMemo(
+    (): RequirementFilters => ({
+      requirementType: 'PROCESSING',
+      orderId: orderIdFilter,
+      status: statusFilter?.split(',') as MaterialRequirementStatus[] | undefined,
+      search: searchFilter,
+      page,
+      limit: 20,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    }),
+    [statusFilter, searchFilter, orderIdFilter, page]
+  );
 
   const { data: processingResponse, isLoading: processingLoading } = useQuery({
     queryKey: [...queryKeys.mrp.all, 'processing-list', processingFilters],
@@ -992,17 +1027,20 @@ function OutsourcedWorkTab({
   });
 
   // Service requirements (from service-requirements/list)
-  const serviceFilters = useMemo((): ServiceRequirementFilters => ({
-    orderId: orderIdFilter,
-    workOrderId: workOrderIdFilter,
-    status: statusFilter?.split(',') as ServiceRequirementStatus[] | undefined,
-    processorId: processorIdFilter,
-    search: searchFilter,
-    page,
-    limit: 20,
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-  }), [statusFilter, searchFilter, processorIdFilter, orderIdFilter, workOrderIdFilter, page]);
+  const serviceFilters = useMemo(
+    (): ServiceRequirementFilters => ({
+      orderId: orderIdFilter,
+      workOrderId: workOrderIdFilter,
+      status: statusFilter?.split(',') as ServiceRequirementStatus[] | undefined,
+      processorId: processorIdFilter,
+      search: searchFilter,
+      page,
+      limit: 20,
+      sortBy: 'createdAt',
+      sortOrder: 'desc',
+    }),
+    [statusFilter, searchFilter, processorIdFilter, orderIdFilter, workOrderIdFilter, page]
+  );
 
   const { data: serviceResponse, isLoading: serviceLoading } = useQuery({
     queryKey: [...queryKeys.serviceRequirements.all, 'service-list', serviceFilters],
@@ -1019,7 +1057,8 @@ function OutsourcedWorkTab({
   );
   const suppliers = (suppliersResponse as any)?.data || [];
 
-  const isLoading = (sourceFilter !== 'service' && processingLoading) || (sourceFilter !== 'processing' && serviceLoading);
+  const isLoading =
+    (sourceFilter !== 'service' && processingLoading) || (sourceFilter !== 'processing' && serviceLoading);
 
   // ─── Normalize to OutsourcedRow ────────────────────────────
 
@@ -1099,7 +1138,15 @@ function OutsourcedWorkTab({
     const procTotal = processingResponse?.pagination?.total || 0;
     const svcTotal = serviceResponse?.pagination?.total || 0;
     const total = procTotal + svcTotal;
-    return { page, limit: 40, total, totalPages: Math.max(processingResponse?.pagination?.totalPages || 1, serviceResponse?.pagination?.totalPages || 1) };
+    return {
+      page,
+      limit: 40,
+      total,
+      totalPages: Math.max(
+        processingResponse?.pagination?.totalPages || 1,
+        serviceResponse?.pagination?.totalPages || 1
+      ),
+    };
   }, [sourceFilter, processingResponse, serviceResponse, page]);
 
   // Selection helpers
@@ -1123,16 +1170,14 @@ function OutsourcedWorkTab({
 
   const handleSelectOne = (row: OutsourcedRow, checked: boolean) => {
     if (row.source === 'PROCESSING') {
-      setSelectedProcessingIds((prev) => checked ? [...prev, row.id] : prev.filter((i) => i !== row.id));
+      setSelectedProcessingIds((prev) => (checked ? [...prev, row.id] : prev.filter((i) => i !== row.id)));
     } else {
-      setSelectedServiceIds((prev) => checked ? [...prev, row.id] : prev.filter((i) => i !== row.id));
+      setSelectedServiceIds((prev) => (checked ? [...prev, row.id] : prev.filter((i) => i !== row.id)));
     }
   };
 
   const isSelected = (row: OutsourcedRow) => {
-    return row.source === 'PROCESSING'
-      ? selectedProcessingIds.includes(row.id)
-      : selectedServiceIds.includes(row.id);
+    return row.source === 'PROCESSING' ? selectedProcessingIds.includes(row.id) : selectedServiceIds.includes(row.id);
   };
 
   const clearSelection = () => {
@@ -1209,7 +1254,9 @@ function OutsourcedWorkTab({
               <Badge variant="outline" className="text-orange-600 border-orange-300 py-1">
                 Select items of the same type for bulk actions
               </Badge>
-              <Button size="sm" variant="ghost" onClick={clearSelection}>Clear</Button>
+              <Button size="sm" variant="ghost" onClick={clearSelection}>
+                Clear
+              </Button>
             </div>
           ) : hasProcessingSelected ? (
             <>
@@ -1228,11 +1275,7 @@ function OutsourcedWorkTab({
               >
                 Bulk Generate POs ({selectedProcessingIds.length})
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowGenerateProcessingPO(true)}
-              >
+              <Button size="sm" variant="outline" onClick={() => setShowGenerateProcessingPO(true)}>
                 Manual PO
               </Button>
             </>
@@ -1253,11 +1296,7 @@ function OutsourcedWorkTab({
               >
                 Bulk Generate POs ({selectedServiceIds.length})
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowGenerateServicePO(true)}
-              >
+              <Button size="sm" variant="outline" onClick={() => setShowGenerateServicePO(true)}>
                 Manual Service PO
               </Button>
             </>
@@ -1287,10 +1326,14 @@ function OutsourcedWorkTab({
               >
                 {src === 'all' ? 'All' : src === 'processing' ? 'Processing' : 'Service'}
                 {src === 'processing' && processingResponse?.pagination?.total != null && (
-                  <Badge variant="secondary" className="ml-1 text-xs">{processingResponse.pagination.total}</Badge>
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {processingResponse.pagination.total}
+                  </Badge>
                 )}
                 {src === 'service' && serviceResponse?.pagination?.total != null && (
-                  <Badge variant="secondary" className="ml-1 text-xs">{serviceResponse.pagination.total}</Badge>
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {serviceResponse.pagination.total}
+                  </Badge>
                 )}
               </Button>
             ))}
@@ -1335,7 +1378,9 @@ function OutsourcedWorkTab({
               <SelectContent>
                 <SelectItem value="all">All Processors</SelectItem>
                 {suppliers.map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1400,7 +1445,11 @@ function OutsourcedWorkTab({
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className={row.source === 'PROCESSING' ? 'border-purple-300 text-purple-700 bg-purple-50' : 'border-teal-300 text-teal-700 bg-teal-50'}
+                        className={
+                          row.source === 'PROCESSING'
+                            ? 'border-purple-300 text-purple-700 bg-purple-50'
+                            : 'border-teal-300 text-teal-700 bg-teal-50'
+                        }
                       >
                         {row.source === 'PROCESSING' ? 'Processing' : 'Service'}
                       </Badge>
@@ -1444,13 +1493,13 @@ function OutsourcedWorkTab({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor}`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor}`}
+                      >
                         {row.statusLabel}
                       </span>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(row.createdAt)}
-                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatDate(row.createdAt)}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -1517,7 +1566,9 @@ function OutsourcedWorkTab({
                 </SelectTrigger>
                 <SelectContent>
                   {suppliers.map((s: any) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1543,7 +1594,9 @@ function OutsourcedWorkTab({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGenerateProcessingPO(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowGenerateProcessingPO(false)}>
+              Cancel
+            </Button>
             <Button
               onClick={handleGenerateProcessingPO}
               disabled={!procPOSupplierId || !procPODeliveryDate || isGenerating}
@@ -1587,7 +1640,9 @@ function OutsourcedWorkTab({
                 </SelectTrigger>
                 <SelectContent>
                   {suppliers.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1613,7 +1668,9 @@ function OutsourcedWorkTab({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGenerateServicePO(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowGenerateServicePO(false)}>
+              Cancel
+            </Button>
             <Button
               onClick={handleGenerateServicePOAction}
               disabled={!svcPOProcessorId || !svcPODeliveryDate || isGenerating}

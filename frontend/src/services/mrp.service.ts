@@ -85,9 +85,7 @@ export async function getRequirements(filters?: RequirementFilters): Promise<Req
     }
   }
 
-  const response = await api.get<RequirementListResponse>(
-    `${BASE_URL}/requirements?${params.toString()}`
-  );
+  const response = await api.get<RequirementListResponse>(`${BASE_URL}/requirements?${params.toString()}`);
   return response.data;
 }
 
@@ -102,9 +100,7 @@ export async function getRequirementById(id: string): Promise<MaterialRequiremen
 /**
  * Create a manual material requirement
  */
-export async function createManualRequirement(
-  data: CreateManualRequirementRequest
-): Promise<MaterialRequirement> {
+export async function createManualRequirement(data: CreateManualRequirementRequest): Promise<MaterialRequirement> {
   const response = await api.post<RequirementResponse>(`${BASE_URL}/requirements`, data);
   return response.data.data;
 }
@@ -124,42 +120,24 @@ export async function cancelRequirement(id: string): Promise<MaterialRequirement
 /**
  * Allocate stock to a requirement
  */
-export async function allocateStock(
-  id: string,
-  data: AllocateStockRequest
-): Promise<MaterialRequirement> {
-  const response = await api.post<RequirementResponse>(
-    `${BASE_URL}/requirements/${id}/allocate-stock`,
-    data
-  );
+export async function allocateStock(id: string, data: AllocateStockRequest): Promise<MaterialRequirement> {
+  const response = await api.post<RequirementResponse>(`${BASE_URL}/requirements/${id}/allocate-stock`, data);
   return response.data.data;
 }
 
 /**
  * Link a requirement to an existing PO item
  */
-export async function linkRequirementToPO(
-  id: string,
-  data: LinkToPORequest
-): Promise<MaterialRequirement> {
-  const response = await api.post<RequirementResponse>(
-    `${BASE_URL}/requirements/${id}/link-po`,
-    data
-  );
+export async function linkRequirementToPO(id: string, data: LinkToPORequest): Promise<MaterialRequirement> {
+  const response = await api.post<RequirementResponse>(`${BASE_URL}/requirements/${id}/link-po`, data);
   return response.data.data;
 }
 
 /**
  * Update requirement status
  */
-export async function updateRequirementStatus(
-  id: string,
-  data: UpdateStatusRequest
-): Promise<MaterialRequirement> {
-  const response = await api.patch<RequirementResponse>(
-    `${BASE_URL}/requirements/${id}/status`,
-    data
-  );
+export async function updateRequirementStatus(id: string, data: UpdateStatusRequest): Promise<MaterialRequirement> {
+  const response = await api.patch<RequirementResponse>(`${BASE_URL}/requirements/${id}/status`, data);
   return response.data.data;
 }
 
@@ -170,9 +148,7 @@ export async function updateRequirementStatus(
 /**
  * Generate Purchase Order from requirements
  */
-export async function generatePOFromRequirements(
-  data: GeneratePORequest
-): Promise<POGenerationResponse['data']> {
+export async function generatePOFromRequirements(data: GeneratePORequest): Promise<POGenerationResponse['data']> {
   const response = await api.post<POGenerationResponse>(`${BASE_URL}/generate-po`, data);
   return response.data.data;
 }
@@ -280,7 +256,9 @@ export async function validateBulkPOGeneration(requirementIds: string[]): Promis
 /**
  * Get distinct styles that have material requirements (for filter dropdown)
  */
-export async function getRequirementStyles(requirementType?: string): Promise<{ id: string; styleCode: string; styleName: string }[]> {
+export async function getRequirementStyles(
+  requirementType?: string
+): Promise<{ id: string; styleCode: string; styleName: string }[]> {
   const params = requirementType ? `?requirementType=${requirementType}` : '';
   const response = await api.get<{ success: boolean; data: { id: string; styleCode: string; styleName: string }[] }>(
     `${BASE_URL}/requirements/styles${params}`
@@ -333,9 +311,7 @@ export async function getOrderRequirements(
 /**
  * Get overdue requirements
  */
-export async function getOverdueRequirements(
-  filters?: Partial<RequirementFilters>
-): Promise<RequirementListResponse> {
+export async function getOverdueRequirements(filters?: Partial<RequirementFilters>): Promise<RequirementListResponse> {
   const today = new Date().toISOString().split('T')[0];
   return getRequirements({
     ...filters,

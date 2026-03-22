@@ -10,23 +10,11 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { laceDefectService } from '../services/laceDefect.service';
-import type {
-  LaceDefect,
-  DefectType,
-  ClaimStatus,
-  DiscoveredAt,
-  DefectFilters,
-} from '../types/laceDefect.types';
+import type { LaceDefect, DefectType, ClaimStatus, DiscoveredAt, DefectFilters } from '../types/laceDefect.types';
 import {
   DEFECT_TYPE_LABELS,
   DEFECT_TYPE_COLORS,
@@ -207,9 +195,7 @@ export default function LaceDefectList() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Lace Defects</h1>
-          <p className="text-gray-500 mt-1">
-            Track defects, manage claims, and record replacements
-          </p>
+          <p className="text-gray-500 mt-1">Track defects, manage claims, and record replacements</p>
         </div>
         <Button onClick={() => navigate('/lace-defects/new')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -232,12 +218,8 @@ export default function LaceDefectList() {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all ${
-            claimStatusFilter === 'PENDING' ? 'ring-2 ring-gray-500' : ''
-          }`}
-          onClick={() =>
-            setClaimStatusFilter(claimStatusFilter === 'PENDING' ? '' : 'PENDING')
-          }
+          className={`cursor-pointer transition-all ${claimStatusFilter === 'PENDING' ? 'ring-2 ring-gray-500' : ''}`}
+          onClick={() => setClaimStatusFilter(claimStatusFilter === 'PENDING' ? '' : 'PENDING')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -251,12 +233,8 @@ export default function LaceDefectList() {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all ${
-            claimStatusFilter === 'SUBMITTED' ? 'ring-2 ring-blue-500' : ''
-          }`}
-          onClick={() =>
-            setClaimStatusFilter(claimStatusFilter === 'SUBMITTED' ? '' : 'SUBMITTED')
-          }
+          className={`cursor-pointer transition-all ${claimStatusFilter === 'SUBMITTED' ? 'ring-2 ring-blue-500' : ''}`}
+          onClick={() => setClaimStatusFilter(claimStatusFilter === 'SUBMITTED' ? '' : 'SUBMITTED')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -270,12 +248,8 @@ export default function LaceDefectList() {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all ${
-            claimStatusFilter === 'RESOLVED' ? 'ring-2 ring-green-500' : ''
-          }`}
-          onClick={() =>
-            setClaimStatusFilter(claimStatusFilter === 'RESOLVED' ? '' : 'RESOLVED')
-          }
+          className={`cursor-pointer transition-all ${claimStatusFilter === 'RESOLVED' ? 'ring-2 ring-green-500' : ''}`}
+          onClick={() => setClaimStatusFilter(claimStatusFilter === 'RESOLVED' ? '' : 'RESOLVED')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -304,7 +278,7 @@ export default function LaceDefectList() {
 
         <Select
           value={defectTypeFilter || '__all__'}
-          onValueChange={(value) => setDefectTypeFilter(value === '__all__' ? '' : value as DefectType)}
+          onValueChange={(value) => setDefectTypeFilter(value === '__all__' ? '' : (value as DefectType))}
         >
           <SelectTrigger className="w-[170px]">
             <SelectValue placeholder="All Defect Types" />
@@ -321,7 +295,7 @@ export default function LaceDefectList() {
 
         <Select
           value={claimStatusFilter || '__all__'}
-          onValueChange={(value) => setClaimStatusFilter(value === '__all__' ? '' : value as ClaimStatus)}
+          onValueChange={(value) => setClaimStatusFilter(value === '__all__' ? '' : (value as ClaimStatus))}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="All Statuses" />
@@ -338,7 +312,7 @@ export default function LaceDefectList() {
 
         <Select
           value={discoveredAtFilter || '__all__'}
-          onValueChange={(value) => setDiscoveredAtFilter(value === '__all__' ? '' : value as DiscoveredAt)}
+          onValueChange={(value) => setDiscoveredAtFilter(value === '__all__' ? '' : (value as DiscoveredAt))}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="All Stages" />
@@ -400,9 +374,7 @@ export default function LaceDefectList() {
                     return (
                       <tr key={defect.id} className="hover:bg-gray-50">
                         <td className="px-4 py-4">
-                          <Badge
-                            className={`${DEFECT_TYPE_COLORS[defect.defectType]} border`}
-                          >
+                          <Badge className={`${DEFECT_TYPE_COLORS[defect.defectType]} border`}>
                             {DEFECT_TYPE_LABELS[defect.defectType]}
                           </Badge>
                           {defect.defectDescription && (
@@ -412,33 +384,21 @@ export default function LaceDefectList() {
                           )}
                         </td>
                         <td className="px-4 py-4">
-                          <span className="text-sm">
-                            {DISCOVERED_AT_LABELS[defect.discoveredAt]}
-                          </span>
+                          <span className="text-sm">{DISCOVERED_AT_LABELS[defect.discoveredAt]}</span>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <span className="font-medium text-red-600">
-                            {defect.defectQuantity.toLocaleString()}m
-                          </span>
+                          <span className="font-medium text-red-600">{defect.defectQuantity.toLocaleString()}m</span>
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <Badge
-                            className={`${CLAIM_STATUS_COLORS[defect.claimStatus]} border`}
-                          >
+                          <Badge className={`${CLAIM_STATUS_COLORS[defect.claimStatus]} border`}>
                             {CLAIM_STATUS_LABELS[defect.claimStatus]}
                           </Badge>
                           {defect.claimReference && (
-                            <div className="text-xs text-gray-500 mt-1 font-mono">
-                              {defect.claimReference}
-                            </div>
+                            <div className="text-xs text-gray-500 mt-1 font-mono">{defect.claimReference}</div>
                           )}
                         </td>
-                        <td className="px-4 py-4 text-right">
-                          {formatCurrency(defect.claimAmount)}
-                        </td>
-                        <td className="px-4 py-4 text-sm">
-                          {formatDate(defect.discoveredDate)}
-                        </td>
+                        <td className="px-4 py-4 text-right">{formatCurrency(defect.claimAmount)}</td>
+                        <td className="px-4 py-4 text-sm">{formatDate(defect.discoveredDate)}</td>
                         <td className="px-4 py-4">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -528,8 +488,7 @@ export default function LaceDefectList() {
             {selectedDefect && (
               <div className="text-sm text-gray-500">
                 <p>
-                  <strong>Defect:</strong>{' '}
-                  {DEFECT_TYPE_LABELS[selectedDefect.defectType]}
+                  <strong>Defect:</strong> {DEFECT_TYPE_LABELS[selectedDefect.defectType]}
                 </p>
                 <p>
                   <strong>Quantity:</strong> {selectedDefect.defectQuantity}m
@@ -540,9 +499,7 @@ export default function LaceDefectList() {
               <Label>Claim Reference</Label>
               <Input
                 value={claimForm.claimReference}
-                onChange={(e) =>
-                  setClaimForm({ ...claimForm, claimReference: e.target.value })
-                }
+                onChange={(e) => setClaimForm({ ...claimForm, claimReference: e.target.value })}
                 placeholder="e.g., CLM-2024-001"
               />
             </div>
@@ -564,9 +521,7 @@ export default function LaceDefectList() {
               <Label>Notes (Optional)</Label>
               <Textarea
                 value={claimForm.notes}
-                onChange={(e) =>
-                  setClaimForm({ ...claimForm, notes: e.target.value })
-                }
+                onChange={(e) => setClaimForm({ ...claimForm, notes: e.target.value })}
                 placeholder="Additional notes..."
               />
             </div>

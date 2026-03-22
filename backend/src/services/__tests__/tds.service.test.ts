@@ -316,16 +316,65 @@ describe('TDSService', () => {
     it('should return correct per-quarter counts and sums with entries in all 4 quarters', async () => {
       const entries = [
         // Q1 entries
-        makeTDSEntry({ id: 'tds-q1-1', quarter: 1, grossAmount: 50000, tdsAmount: 1000, netAmount: 49000, status: 'VERIFIED' }),
-        makeTDSEntry({ id: 'tds-q1-2', quarter: 1, grossAmount: 30000, tdsAmount: 600, netAmount: 29400, status: 'PENDING' }),
+        makeTDSEntry({
+          id: 'tds-q1-1',
+          quarter: 1,
+          grossAmount: 50000,
+          tdsAmount: 1000,
+          netAmount: 49000,
+          status: 'VERIFIED',
+        }),
+        makeTDSEntry({
+          id: 'tds-q1-2',
+          quarter: 1,
+          grossAmount: 30000,
+          tdsAmount: 600,
+          netAmount: 29400,
+          status: 'PENDING',
+        }),
         // Q2 entries
-        makeTDSEntry({ id: 'tds-q2-1', quarter: 2, grossAmount: 80000, tdsAmount: 1600, netAmount: 78400, status: 'CERTIFICATE_RECEIVED' }),
+        makeTDSEntry({
+          id: 'tds-q2-1',
+          quarter: 2,
+          grossAmount: 80000,
+          tdsAmount: 1600,
+          netAmount: 78400,
+          status: 'CERTIFICATE_RECEIVED',
+        }),
         // Q3 entries
-        makeTDSEntry({ id: 'tds-q3-1', quarter: 3, grossAmount: 120000, tdsAmount: 2400, netAmount: 117600, status: 'PENDING' }),
-        makeTDSEntry({ id: 'tds-q3-2', quarter: 3, grossAmount: 60000, tdsAmount: 1200, netAmount: 58800, status: 'VERIFIED' }),
-        makeTDSEntry({ id: 'tds-q3-3', quarter: 3, grossAmount: 40000, tdsAmount: 800, netAmount: 39200, status: 'PENDING' }),
+        makeTDSEntry({
+          id: 'tds-q3-1',
+          quarter: 3,
+          grossAmount: 120000,
+          tdsAmount: 2400,
+          netAmount: 117600,
+          status: 'PENDING',
+        }),
+        makeTDSEntry({
+          id: 'tds-q3-2',
+          quarter: 3,
+          grossAmount: 60000,
+          tdsAmount: 1200,
+          netAmount: 58800,
+          status: 'VERIFIED',
+        }),
+        makeTDSEntry({
+          id: 'tds-q3-3',
+          quarter: 3,
+          grossAmount: 40000,
+          tdsAmount: 800,
+          netAmount: 39200,
+          status: 'PENDING',
+        }),
         // Q4 entries
-        makeTDSEntry({ id: 'tds-q4-1', quarter: 4, grossAmount: 100000, tdsAmount: 2000, netAmount: 98000, status: 'CERTIFICATE_RECEIVED' }),
+        makeTDSEntry({
+          id: 'tds-q4-1',
+          quarter: 4,
+          grossAmount: 100000,
+          tdsAmount: 2000,
+          netAmount: 98000,
+          status: 'CERTIFICATE_RECEIVED',
+        }),
       ];
 
       (mockPrisma.tds_entries.findMany as jest.Mock).mockResolvedValue(entries);
@@ -338,9 +387,9 @@ describe('TDSService', () => {
       // Q1: 2 entries
       expect(result.quarterSummary[0].quarter).toBe(1);
       expect(result.quarterSummary[0].count).toBe(2);
-      expect(result.quarterSummary[0].totalGross).toBe(80000);  // 50000 + 30000
-      expect(result.quarterSummary[0].totalTDS).toBe(1600);     // 1000 + 600
-      expect(result.quarterSummary[0].totalNet).toBe(78400);    // 49000 + 29400
+      expect(result.quarterSummary[0].totalGross).toBe(80000); // 50000 + 30000
+      expect(result.quarterSummary[0].totalTDS).toBe(1600); // 1000 + 600
+      expect(result.quarterSummary[0].totalNet).toBe(78400); // 49000 + 29400
       expect(result.quarterSummary[0].pending).toBe(1);
       expect(result.quarterSummary[0].certificateReceived).toBe(0);
       expect(result.quarterSummary[0].verified).toBe(1);
@@ -356,7 +405,7 @@ describe('TDSService', () => {
       expect(result.quarterSummary[2].quarter).toBe(3);
       expect(result.quarterSummary[2].count).toBe(3);
       expect(result.quarterSummary[2].totalGross).toBe(220000); // 120000 + 60000 + 40000
-      expect(result.quarterSummary[2].totalTDS).toBe(4400);     // 2400 + 1200 + 800
+      expect(result.quarterSummary[2].totalTDS).toBe(4400); // 2400 + 1200 + 800
       expect(result.quarterSummary[2].pending).toBe(2);
       expect(result.quarterSummary[2].verified).toBe(1);
 
@@ -368,8 +417,8 @@ describe('TDSService', () => {
       // Grand totals
       expect(result.totalEntries).toBe(7);
       expect(result.totalGross).toBe(480000); // sum of all grossAmount
-      expect(result.totalTDS).toBe(9600);     // sum of all tdsAmount
-      expect(result.totalNet).toBe(470400);   // sum of all netAmount
+      expect(result.totalTDS).toBe(9600); // sum of all tdsAmount
+      expect(result.totalNet).toBe(470400); // sum of all netAmount
     });
 
     it('should return all zeros for empty financial year', async () => {
@@ -396,11 +445,46 @@ describe('TDSService', () => {
 
     it('should count mixed statuses correctly', async () => {
       const entries = [
-        makeTDSEntry({ id: 'tds-1', quarter: 1, grossAmount: 10000, tdsAmount: 200, netAmount: 9800, status: 'PENDING' }),
-        makeTDSEntry({ id: 'tds-2', quarter: 1, grossAmount: 20000, tdsAmount: 400, netAmount: 19600, status: 'PENDING' }),
-        makeTDSEntry({ id: 'tds-3', quarter: 1, grossAmount: 30000, tdsAmount: 600, netAmount: 29400, status: 'CERTIFICATE_RECEIVED' }),
-        makeTDSEntry({ id: 'tds-4', quarter: 1, grossAmount: 40000, tdsAmount: 800, netAmount: 39200, status: 'VERIFIED' }),
-        makeTDSEntry({ id: 'tds-5', quarter: 1, grossAmount: 50000, tdsAmount: 1000, netAmount: 49000, status: 'VERIFIED' }),
+        makeTDSEntry({
+          id: 'tds-1',
+          quarter: 1,
+          grossAmount: 10000,
+          tdsAmount: 200,
+          netAmount: 9800,
+          status: 'PENDING',
+        }),
+        makeTDSEntry({
+          id: 'tds-2',
+          quarter: 1,
+          grossAmount: 20000,
+          tdsAmount: 400,
+          netAmount: 19600,
+          status: 'PENDING',
+        }),
+        makeTDSEntry({
+          id: 'tds-3',
+          quarter: 1,
+          grossAmount: 30000,
+          tdsAmount: 600,
+          netAmount: 29400,
+          status: 'CERTIFICATE_RECEIVED',
+        }),
+        makeTDSEntry({
+          id: 'tds-4',
+          quarter: 1,
+          grossAmount: 40000,
+          tdsAmount: 800,
+          netAmount: 39200,
+          status: 'VERIFIED',
+        }),
+        makeTDSEntry({
+          id: 'tds-5',
+          quarter: 1,
+          grossAmount: 50000,
+          tdsAmount: 1000,
+          netAmount: 49000,
+          status: 'VERIFIED',
+        }),
       ];
 
       (mockPrisma.tds_entries.findMany as jest.Mock).mockResolvedValue(entries);
@@ -426,9 +510,9 @@ describe('TDSService', () => {
       const result = await tdsService.getSummary('2025-26');
 
       expect(result.totalEntries).toBe(3);
-      expect(result.totalGross).toBe(150000);  // 25000 + 75000 + 50000
-      expect(result.totalTDS).toBe(3000);      // 500 + 1500 + 1000
-      expect(result.totalNet).toBe(147000);    // 24500 + 73500 + 49000
+      expect(result.totalGross).toBe(150000); // 25000 + 75000 + 50000
+      expect(result.totalTDS).toBe(3000); // 500 + 1500 + 1000
+      expect(result.totalNet).toBe(147000); // 24500 + 73500 + 49000
     });
 
     it('should query with correct financialYear filter', async () => {

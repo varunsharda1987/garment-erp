@@ -12,21 +12,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +37,12 @@ import { useState } from 'react';
 import SearchInput from '@/components/SearchInput';
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { getAllPurchaseOrders, getPOStats, deletePurchaseOrder, cancelPurchaseOrder } from '@/services/purchaseOrder.service';
+import {
+  getAllPurchaseOrders,
+  getPOStats,
+  deletePurchaseOrder,
+  cancelPurchaseOrder,
+} from '@/services/purchaseOrder.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { PurchaseOrderStatus, POSource, PurchaseOrderFilters, POStats } from '@/types/purchaseOrder.types';
 import {
@@ -139,11 +131,7 @@ export default function PurchaseOrderList() {
 
   // ─── Queries ───────────────────────────────────────────────
 
-  const { data: stats } = useListQuery<POStats>(
-    queryKeys.purchaseOrders.stats(),
-    getPOStats,
-    { staleTime: 60 * 1000 }
-  );
+  const { data: stats } = useListQuery<POStats>(queryKeys.purchaseOrders.stats(), getPOStats, { staleTime: 60 * 1000 });
 
   const { data: poResponse, isLoading } = useListQuery(
     queryKeys.purchaseOrders.list(filters as unknown as Record<string, unknown>),
@@ -201,7 +189,7 @@ export default function PurchaseOrderList() {
   // Category options for current tab
   const categoryOptions = useMemo(() => {
     if (activeTab === 'all') return [];
-    return PO_GROUP_CATEGORIES[activeTab].map(cat => ({
+    return PO_GROUP_CATEGORIES[activeTab].map((cat) => ({
       value: cat,
       label: PO_CATEGORY_LABELS[cat] || cat,
     }));
@@ -279,15 +267,24 @@ export default function PurchaseOrderList() {
 
   const getStatusVariant = (status: PurchaseOrderStatus) => {
     switch (status) {
-      case 'DRAFT': return 'secondary';
-      case 'SENT': return 'info';
-      case 'ACKNOWLEDGED': return 'info';
-      case 'PARTIALLY_RECEIVED': return 'warning';
-      case 'RECEIVED': return 'success';
-      case 'CANCELLED': return 'destructive';
-      case 'PENDING_GREIGE': return 'warning';
-      case 'READY_FOR_PROCESSING': return 'info';
-      default: return 'secondary';
+      case 'DRAFT':
+        return 'secondary';
+      case 'SENT':
+        return 'info';
+      case 'ACKNOWLEDGED':
+        return 'info';
+      case 'PARTIALLY_RECEIVED':
+        return 'warning';
+      case 'RECEIVED':
+        return 'success';
+      case 'CANCELLED':
+        return 'destructive';
+      case 'PENDING_GREIGE':
+        return 'warning';
+      case 'READY_FOR_PROCESSING':
+        return 'info';
+      default:
+        return 'secondary';
     }
   };
 
@@ -382,16 +379,28 @@ export default function PurchaseOrderList() {
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="all">
-            All <Badge variant="secondary" className="ml-1.5 text-xs">{tabCounts.all}</Badge>
+            All{' '}
+            <Badge variant="secondary" className="ml-1.5 text-xs">
+              {tabCounts.all}
+            </Badge>
           </TabsTrigger>
           <TabsTrigger value="material">
-            Material <Badge variant="secondary" className="ml-1.5 text-xs">{tabCounts.material}</Badge>
+            Material{' '}
+            <Badge variant="secondary" className="ml-1.5 text-xs">
+              {tabCounts.material}
+            </Badge>
           </TabsTrigger>
           <TabsTrigger value="processing">
-            Processing <Badge variant="secondary" className="ml-1.5 text-xs">{tabCounts.processing}</Badge>
+            Processing{' '}
+            <Badge variant="secondary" className="ml-1.5 text-xs">
+              {tabCounts.processing}
+            </Badge>
           </TabsTrigger>
           <TabsTrigger value="service">
-            Service <Badge variant="secondary" className="ml-1.5 text-xs">{tabCounts.service}</Badge>
+            Service{' '}
+            <Badge variant="secondary" className="ml-1.5 text-xs">
+              {tabCounts.service}
+            </Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -439,7 +448,9 @@ export default function PurchaseOrderList() {
                   <SelectContent>
                     <SelectItem value="all">All Suppliers</SelectItem>
                     {suppliers.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -475,7 +486,9 @@ export default function PurchaseOrderList() {
                     <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
                       {categoryOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -518,7 +531,10 @@ export default function PurchaseOrderList() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={activeTab === 'all' ? 9 : 8} className="text-center py-12 text-muted-foreground">
+                      <TableCell
+                        colSpan={activeTab === 'all' ? 9 : 8}
+                        className="text-center py-12 text-muted-foreground"
+                      >
                         Loading purchase orders...
                       </TableCell>
                     </TableRow>
@@ -556,12 +572,8 @@ export default function PurchaseOrderList() {
                         {/* PO Number */}
                         <TableCell>
                           <div>
-                            <span className="text-sm font-medium text-blue-600 hover:underline">
-                              {po.poNumber}
-                            </span>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {formatDate(po.poDate)}
-                            </div>
+                            <span className="text-sm font-medium text-blue-600 hover:underline">{po.poNumber}</span>
+                            <div className="text-xs text-muted-foreground mt-0.5">{formatDate(po.poDate)}</div>
                           </div>
                         </TableCell>
 
@@ -576,7 +588,9 @@ export default function PurchaseOrderList() {
                         {/* Category */}
                         <TableCell>
                           {po.poCategory && (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${PO_CATEGORY_COLORS[po.poCategory] || 'bg-gray-100 text-gray-600'}`}>
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${PO_CATEGORY_COLORS[po.poCategory] || 'bg-gray-100 text-gray-600'}`}
+                            >
                               {PO_CATEGORY_LABELS[po.poCategory] || po.poCategory}
                             </span>
                           )}
@@ -600,7 +614,9 @@ export default function PurchaseOrderList() {
                         {/* Source (All tab only) */}
                         {activeTab === 'all' && (
                           <TableCell>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${po.poSource ? POSourceColors[po.poSource] : 'bg-gray-100 text-gray-600'}`}>
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${po.poSource ? POSourceColors[po.poSource] : 'bg-gray-100 text-gray-600'}`}
+                            >
                               {po.poSource ? POSourceLabels[po.poSource] : 'Unknown'}
                             </span>
                           </TableCell>
@@ -618,11 +634,7 @@ export default function PurchaseOrderList() {
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => e.stopPropagation()}
-                              >
+                              <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>

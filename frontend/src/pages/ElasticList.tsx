@@ -119,38 +119,26 @@ export default function ElasticList() {
       render: (elastic) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{elastic.elasticName}</div>
-          {elastic.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{elastic.description}</div>
-          )}
+          {elastic.description && <div className="text-xs text-gray-500 line-clamp-1">{elastic.description}</div>}
         </div>
       ),
     },
     {
       key: 'width',
       header: 'Width',
-      render: (elastic) => (
-        <div className="text-sm text-gray-700">
-          {elastic.width ? `${elastic.width}mm` : '-'}
-        </div>
-      ),
+      render: (elastic) => <div className="text-sm text-gray-700">{elastic.width ? `${elastic.width}mm` : '-'}</div>,
     },
     {
       key: 'stretchPercent',
       header: 'Stretch %',
       render: (elastic) => (
-        <div className="text-sm text-gray-700">
-          {elastic.stretchPercent ? `${elastic.stretchPercent}%` : '-'}
-        </div>
+        <div className="text-sm text-gray-700">{elastic.stretchPercent ? `${elastic.stretchPercent}%` : '-'}</div>
       ),
     },
     {
       key: 'color',
       header: 'Color',
-      render: (elastic) => (
-        <div className="text-sm text-gray-700">
-          {elastic.color || '-'}
-        </div>
-      ),
+      render: (elastic) => <div className="text-sm text-gray-700">{elastic.color || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -206,11 +194,7 @@ export default function ElasticList() {
       className: 'text-right',
       render: (elastic) => (
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/materials/elastic/${elastic.id}/edit`)}
-          >
+          <Button variant="outline" size="sm" onClick={() => navigate(`/materials/elastic/${elastic.id}/edit`)}>
             Edit
           </Button>
           <Button
@@ -236,17 +220,9 @@ export default function ElasticList() {
             <CardTitle>Elastic Management</CardTitle>
             <div className="flex gap-2">
               <ViewStockButton materialType="ELASTIC" stockCount={stockCount} />
-              <ExportButton
-                module="elastic"
-                filters={{}}
-              />
-              <ImportButton
-                module="elastic"
-                onSuccess={fetchElasticItems}
-              />
-              <Button onClick={() => navigate('/materials/elastic/new')}>
-                + Add New Elastic
-              </Button>
+              <ExportButton module="elastic" filters={{}} />
+              <ImportButton module="elastic" onSuccess={fetchElasticItems} />
+              <Button onClick={() => navigate('/materials/elastic/new')}>+ Add New Elastic</Button>
             </div>
           </div>
         </CardHeader>

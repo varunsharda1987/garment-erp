@@ -211,7 +211,7 @@ export interface CreateStyleRequest {
   numberOfComponents?: number | string | null;
   // New simplified trims (phase 4)
   trims?: StyleTrimInput[];
-  accessories?: MaterialBOMInput[];  // Packaging items only
+  accessories?: MaterialBOMInput[]; // Packaging items only
   // Legacy fields (deprecated)
   valueAdditions?: ValueAdditionInput[];
   packagingTrims?: PackagingTrimInput[];

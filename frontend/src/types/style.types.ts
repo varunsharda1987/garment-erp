@@ -17,7 +17,7 @@ export const ProductionStage = {
   COMPLETED: 'COMPLETED',
 } as const;
 
-export type ProductionStage = typeof ProductionStage[keyof typeof ProductionStage];
+export type ProductionStage = (typeof ProductionStage)[keyof typeof ProductionStage];
 
 // Re-export CAD enums from dedicated CAD module (backward compatibility)
 export { CADStatus, PrintDirection, PRINT_DIRECTION_LABELS } from './cad-planning.types';
@@ -25,7 +25,7 @@ export type { CADStatus as CADStatusType, PrintDirection as PrintDirectionType }
 
 export interface Style {
   id: string;
-  internalCode?: string | null;  // Auto-generated internal reference (e.g., STY-202506-0001)
+  internalCode?: string | null; // Auto-generated internal reference (e.g., STY-202506-0001)
   styleCode: string;
   styleName: string;
   customerName: string;
@@ -249,7 +249,6 @@ export interface StyleCosting {
   createdAt: string;
   updatedAt: string;
 }
-
 
 export interface StyleProductionTracking {
   id: string;
@@ -518,22 +517,10 @@ export const ACCESSORY_TYPES = [
 ];
 
 // Process names
-export const PROCESS_NAMES = [
-  'Printing',
-  'Dying',
-  'Embroidery',
-  'Handwork',
-];
+export const PROCESS_NAMES = ['Printing', 'Dying', 'Embroidery', 'Handwork'];
 
 // Unit options for accessories
-export const UNIT_OPTIONS = [
-  'pcs',
-  'meters',
-  'yards',
-  'dozen',
-  'grams',
-  'kg',
-];
+export const UNIT_OPTIONS = ['pcs', 'meters', 'yards', 'dozen', 'grams', 'kg'];
 
 // Style Variant interface
 export interface StyleVariant {
@@ -562,12 +549,12 @@ export interface FabricMasterRef {
 
 // Common fabric widths (in inches)
 export const COMMON_FABRIC_WIDTHS = [
-  36,  // 36 inches
-  44,  // 44 inches
-  54,  // 54 inches
-  58,  // 58 inches
-  60,  // 60 inches
-  72,  // 72 inches
+  36, // 36 inches
+  44, // 44 inches
+  54, // 54 inches
+  58, // 58 inches
+  60, // 60 inches
+  72, // 72 inches
   108, // 108 inches (extra wide)
 ];
 

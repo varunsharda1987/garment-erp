@@ -23,16 +23,8 @@ export async function createLabDip(req: Request, res: Response) {
     });
   }
 
-  const {
-    greigeLaceId,
-    targetColor,
-    processorId,
-    sampleQuantity,
-    colorRecipe,
-    costSheetId,
-    styleId,
-    labDipCost,
-  } = req.body;
+  const { greigeLaceId, targetColor, processorId, sampleQuantity, colorRecipe, costSheetId, styleId, labDipCost } =
+    req.body;
 
   if (!greigeLaceId || !targetColor || !processorId || !sampleQuantity) {
     throw new ValidationError('greigeLaceId, targetColor, processorId, and sampleQuantity are required');
@@ -52,11 +44,13 @@ export async function createLabDip(req: Request, res: Response) {
     userId
   );
 
-  res.status(201).json(serialize({
-    success: true,
-    data: labDip,
-    message: 'Lab dip request created successfully',
-  }));
+  res.status(201).json(
+    serialize({
+      success: true,
+      data: labDip,
+      message: 'Lab dip request created successfully',
+    })
+  );
 }
 
 /**
@@ -64,15 +58,7 @@ export async function createLabDip(req: Request, res: Response) {
  * Get all lace lab dips with filters
  */
 export async function getLabDips(req: Request, res: Response) {
-  const {
-    status,
-    greigeLaceId,
-    processorId,
-    styleId,
-    costSheetId,
-    page = '1',
-    limit = '20',
-  } = req.query;
+  const { status, greigeLaceId, processorId, styleId, costSheetId, page = '1', limit = '20' } = req.query;
 
   const filters: any = {
     page: parseInt(page as string),
@@ -87,10 +73,12 @@ export async function getLabDips(req: Request, res: Response) {
 
   const result = await laceLabDipService.getLaceLabDips(filters);
 
-  res.json(serialize({
-    success: true,
-    ...result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      ...result,
+    })
+  );
 }
 
 /**
@@ -106,10 +94,12 @@ export async function getLabDipById(req: Request, res: Response) {
     throw new NotFoundError('Lab dip', id);
   }
 
-  res.json(serialize({
-    success: true,
-    data: labDip,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: labDip,
+    })
+  );
 }
 
 /**
@@ -118,15 +108,8 @@ export async function getLabDipById(req: Request, res: Response) {
  */
 export async function updateLabDip(req: Request, res: Response) {
   const { id } = req.params;
-  const {
-    targetColor,
-    colorRecipe,
-    sampleQuantity,
-    labDipCost,
-    buyerRemarks,
-    rejectionReason,
-    approvalReference,
-  } = req.body;
+  const { targetColor, colorRecipe, sampleQuantity, labDipCost, buyerRemarks, rejectionReason, approvalReference } =
+    req.body;
 
   const updated = await laceLabDipService.updateLaceLabDip(id, {
     targetColor,
@@ -138,11 +121,13 @@ export async function updateLabDip(req: Request, res: Response) {
     approvalReference,
   });
 
-  res.json(serialize({
-    success: true,
-    data: updated,
-    message: 'Lab dip updated successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: updated,
+      message: 'Lab dip updated successfully',
+    })
+  );
 }
 
 /**
@@ -170,17 +155,19 @@ export async function updateStatus(req: Request, res: Response) {
     throw new ValidationError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }
 
-  const updated = await laceLabDipService.updateLabDipStatus(
-    id,
-    status as LaceLabDipStatus,
-    { buyerRemarks, rejectionReason, approvalReference }
-  );
+  const updated = await laceLabDipService.updateLabDipStatus(id, status as LaceLabDipStatus, {
+    buyerRemarks,
+    rejectionReason,
+    approvalReference,
+  });
 
-  res.json(serialize({
-    success: true,
-    data: updated,
-    message: `Lab dip status updated to ${status}`,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: updated,
+      message: `Lab dip status updated to ${status}`,
+    })
+  );
 }
 
 /**
@@ -192,10 +179,12 @@ export async function getApprovedForLace(req: Request, res: Response) {
 
   const labDips = await laceLabDipService.getApprovedLabDipsForLace(greigeLaceId);
 
-  res.json(serialize({
-    success: true,
-    data: labDips,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: labDips,
+    })
+  );
 }
 
 /**
@@ -207,10 +196,12 @@ export async function deleteLabDip(req: Request, res: Response) {
 
   await laceLabDipService.deleteLaceLabDip(id);
 
-  res.json(serialize({
-    success: true,
-    message: 'Lab dip deleted successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: 'Lab dip deleted successfully',
+    })
+  );
 }
 
 export default {

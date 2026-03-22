@@ -5,23 +5,11 @@
  * Supports inline "Add new" functionality for adding new values on the fly.
  */
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Loader2 } from 'lucide-react';
 import { getLookupsByCategory, createLookup } from '@/services/lookup.service';
 import type { LookupValue } from '@/types/lookup.types';
@@ -97,7 +85,7 @@ export function LookupSelect({
       });
 
       notify.success(`"${newValue}" added successfully`);
-      setOptions(prev => [...prev, created].sort((a, b) => a.value.localeCompare(b.value)));
+      setOptions((prev) => [...prev, created].sort((a, b) => a.value.localeCompare(b.value)));
       onChange(created.value);
       setDialogOpen(false);
       setNewValue('');
@@ -128,11 +116,7 @@ export function LookupSelect({
         </Label>
       )}
       <div className="flex gap-2">
-        <Select
-          value={value || undefined}
-          onValueChange={onChange}
-          disabled={disabled || loading}
-        >
+        <Select value={value || undefined} onValueChange={onChange} disabled={disabled || loading}>
           <SelectTrigger className={`flex-1 ${error ? 'border-red-500' : ''}`}>
             <SelectValue placeholder={loading ? 'Loading...' : placeholder} />
           </SelectTrigger>
@@ -161,9 +145,7 @@ export function LookupSelect({
         )}
       </div>
 
-      {error && (
-        <p className="text-sm text-red-500 mt-1">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
 
       {/* Add New Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -196,11 +178,7 @@ export function LookupSelect({
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              onClick={handleAddNew}
-              disabled={saving || !newValue.trim()}
-            >
+            <Button type="button" onClick={handleAddNew} disabled={saving || !newValue.trim()}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

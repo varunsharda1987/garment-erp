@@ -117,22 +117,14 @@ export default function StyleFabricReport() {
 
   const loadStockData = async (styleId: string) => {
     try {
-      setStyles((prev) =>
-        prev.map((s) => (s.id === styleId ? { ...s, isLoading: true } : s))
-      );
+      setStyles((prev) => prev.map((s) => (s.id === styleId ? { ...s, isLoading: true } : s)));
 
       const stockData = await getStyleStock(styleId);
 
-      setStyles((prev) =>
-        prev.map((s) =>
-          s.id === styleId ? { ...s, stockData, isLoading: false } : s
-        )
-      );
+      setStyles((prev) => prev.map((s) => (s.id === styleId ? { ...s, stockData, isLoading: false } : s)));
     } catch (err) {
       logError('Failed to load stock data:', err);
-      setStyles((prev) =>
-        prev.map((s) => (s.id === styleId ? { ...s, isLoading: false } : s))
-      );
+      setStyles((prev) => prev.map((s) => (s.id === styleId ? { ...s, isLoading: false } : s)));
     }
   };
 
@@ -162,13 +154,9 @@ export default function StyleFabricReport() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle>Style Fabric Report</CardTitle>
-              <p className="text-sm text-gray-500 mt-2">
-                View fabric usage and stock availability for all styles
-              </p>
+              <p className="text-sm text-gray-500 mt-2">View fabric usage and stock availability for all styles</p>
             </div>
-            <Button onClick={() => navigate('/styles/import')}>
-              Import Styles
-            </Button>
+            <Button onClick={() => navigate('/styles/import')}>Import Styles</Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -268,9 +256,7 @@ export default function StyleFabricReport() {
 
                       {style.stockData && (
                         <div className="text-right">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {style.stockData.canMakeGarments}
-                          </div>
+                          <div className="text-2xl font-bold text-blue-600">{style.stockData.canMakeGarments}</div>
                           <div className="text-xs text-gray-500">Can Make</div>
                         </div>
                       )}
@@ -315,15 +301,9 @@ export default function StyleFabricReport() {
                               <tbody className="bg-white divide-y divide-gray-200">
                                 {style.stockData.fabricStocks.map((fabric) => (
                                   <tr key={fabric.fabricId}>
-                                    <td className="px-4 py-3 text-sm text-gray-900">
-                                      {fabric.componentName}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-600">
-                                      {fabric.fabricCode}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-600">
-                                      {fabric.fabricName}
-                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-900">{fabric.componentName}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{fabric.fabricCode}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{fabric.fabricName}</td>
                                     <td className="px-4 py-3 text-sm text-right text-gray-900">
                                       {fabric.requiredPerGarment.toFixed(2)}m
                                     </td>
@@ -333,9 +313,7 @@ export default function StyleFabricReport() {
                                       </span>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-right">
-                                      <span className="text-yellow-600">
-                                        {fabric.reservedStock.toFixed(2)}m
-                                      </span>
+                                      <span className="text-yellow-600">{fabric.reservedStock.toFixed(2)}m</span>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-right">
                                       <span
@@ -383,9 +361,7 @@ export default function StyleFabricReport() {
                           </div>
                         </div>
                       ) : (
-                        <div className="text-center py-4 text-gray-500">
-                          No stock data available
-                        </div>
+                        <div className="text-center py-4 text-gray-500">No stock data available</div>
                       )}
                     </div>
                   )}

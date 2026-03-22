@@ -51,91 +51,85 @@ export interface AccessoryDetail {
 // VALIDATION SCHEMAS
 // ============================================================================
 
-export const FabricDetailSchema = z.object({
-  fabricName: z.string().min(1, 'Fabric name is required'),
-  fabricWidth: z.number().nonnegative('Fabric width must be non-negative'),
-  fabricAverage: z.number().nonnegative('Fabric average must be non-negative'),
-  fabricRate: z.number().nonnegative('Fabric rate must be non-negative'),
-  fabricTotal: z.number().nonnegative('Fabric total must be non-negative'),
-  isNotApplicable: z.boolean().optional().default(false),
-  // Sourcing strategy fields (optional)
-  fabricId: z.string().optional(),
-  sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_FABRIC', 'GREIGE_PROCESSED']).optional(),
-  stockLotId: z.string().optional(),
-  processorId: z.string().optional(),
-  rateCardId: z.string().optional(),
-  procurementId: z.string().optional(),
-  greigeCost: z.number().optional(),
-  processingCost: z.number().optional(),
-  isManualOverride: z.boolean().optional(),
-  overrideReason: z.string().optional(),
-}).refine(
-  (data) => data.isNotApplicable || (data.fabricRate > 0 && data.fabricAverage > 0),
-  {
+export const FabricDetailSchema = z
+  .object({
+    fabricName: z.string().min(1, 'Fabric name is required'),
+    fabricWidth: z.number().nonnegative('Fabric width must be non-negative'),
+    fabricAverage: z.number().nonnegative('Fabric average must be non-negative'),
+    fabricRate: z.number().nonnegative('Fabric rate must be non-negative'),
+    fabricTotal: z.number().nonnegative('Fabric total must be non-negative'),
+    isNotApplicable: z.boolean().optional().default(false),
+    // Sourcing strategy fields (optional)
+    fabricId: z.string().optional(),
+    sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_FABRIC', 'GREIGE_PROCESSED']).optional(),
+    stockLotId: z.string().optional(),
+    processorId: z.string().optional(),
+    rateCardId: z.string().optional(),
+    procurementId: z.string().optional(),
+    greigeCost: z.number().optional(),
+    processingCost: z.number().optional(),
+    isManualOverride: z.boolean().optional(),
+    overrideReason: z.string().optional(),
+  })
+  .refine((data) => data.isNotApplicable || (data.fabricRate > 0 && data.fabricAverage > 0), {
     message: 'Fabric rate and average must be > 0 unless marked as Not Applicable (N/A)',
     path: ['fabricRate'],
-  }
-);
+  });
 
-export const TrimDetailSchema = z.object({
-  trimName: z.string().min(1, 'Trim name is required'),
-  trimQuantity: z.number().nonnegative('Trim quantity must be non-negative'),
-  trimRate: z.number().nonnegative('Trim rate must be non-negative'),
-  trimTotal: z.number().nonnegative('Trim total must be non-negative'),
-  isNotApplicable: z.boolean().optional().default(false),
-  // BOM reference fields (optional)
-  unit: z.string().optional(),
-  bomId: z.string().optional(),
-  materialType: z.string().optional(),
-}).refine(
-  (data) => data.isNotApplicable || (data.trimRate > 0 && data.trimQuantity > 0),
-  {
+export const TrimDetailSchema = z
+  .object({
+    trimName: z.string().min(1, 'Trim name is required'),
+    trimQuantity: z.number().nonnegative('Trim quantity must be non-negative'),
+    trimRate: z.number().nonnegative('Trim rate must be non-negative'),
+    trimTotal: z.number().nonnegative('Trim total must be non-negative'),
+    isNotApplicable: z.boolean().optional().default(false),
+    // BOM reference fields (optional)
+    unit: z.string().optional(),
+    bomId: z.string().optional(),
+    materialType: z.string().optional(),
+  })
+  .refine((data) => data.isNotApplicable || (data.trimRate > 0 && data.trimQuantity > 0), {
     message: 'Trim rate and quantity must be > 0 unless marked as Not Applicable (N/A)',
     path: ['trimRate'],
-  }
-);
+  });
 
-export const EmbroideryDetailSchema = z.object({
-  embroideryName: z.string().min(1, 'Embroidery name is required'),
-  embroideryAverage: z.number().nonnegative('Embroidery average must be non-negative'),
-  embroideryRate: z.number().nonnegative('Embroidery rate must be non-negative'),
-  embroideryTotal: z.number().nonnegative('Embroidery total must be non-negative'),
-  isNotApplicable: z.boolean().optional().default(false),
-}).refine(
-  (data) => data.isNotApplicable || (data.embroideryRate > 0 && data.embroideryAverage > 0),
-  {
+export const EmbroideryDetailSchema = z
+  .object({
+    embroideryName: z.string().min(1, 'Embroidery name is required'),
+    embroideryAverage: z.number().nonnegative('Embroidery average must be non-negative'),
+    embroideryRate: z.number().nonnegative('Embroidery rate must be non-negative'),
+    embroideryTotal: z.number().nonnegative('Embroidery total must be non-negative'),
+    isNotApplicable: z.boolean().optional().default(false),
+  })
+  .refine((data) => data.isNotApplicable || (data.embroideryRate > 0 && data.embroideryAverage > 0), {
     message: 'Embroidery rate and average must be > 0 unless marked as Not Applicable (N/A)',
     path: ['embroideryRate'],
-  }
-);
+  });
 
-export const AccessoryDetailSchema = z.object({
-  accessoryName: z.string().min(1, 'Accessory name is required'),
-  accessoryQuantity: z.number().nonnegative('Accessory quantity must be non-negative'),
-  accessoryRate: z.number().nonnegative('Accessory rate must be non-negative'),
-  accessoryTotal: z.number().nonnegative('Accessory total must be non-negative'),
-  isNotApplicable: z.boolean().optional().default(false),
-}).refine(
-  (data) => data.isNotApplicable || (data.accessoryRate > 0 && data.accessoryQuantity > 0),
-  {
+export const AccessoryDetailSchema = z
+  .object({
+    accessoryName: z.string().min(1, 'Accessory name is required'),
+    accessoryQuantity: z.number().nonnegative('Accessory quantity must be non-negative'),
+    accessoryRate: z.number().nonnegative('Accessory rate must be non-negative'),
+    accessoryTotal: z.number().nonnegative('Accessory total must be non-negative'),
+    isNotApplicable: z.boolean().optional().default(false),
+  })
+  .refine((data) => data.isNotApplicable || (data.accessoryRate > 0 && data.accessoryQuantity > 0), {
     message: 'Accessory rate and quantity must be > 0 unless marked as Not Applicable (N/A)',
     path: ['accessoryRate'],
-  }
-);
+  });
 
 /**
  * Safely parse a Prisma JSON column as a typed array using Zod validation.
  * Logs a warning if the stored data doesn't match the expected schema,
  * instead of silently double-casting (as unknown as Type[]).
  */
-export function parseJsonArray<T>(
-  value: unknown,
-  schema: z.ZodType<T>,
-  fieldName: string,
-): T[] {
+export function parseJsonArray<T>(value: unknown, schema: z.ZodType<T>, fieldName: string): T[] {
   if (!value || !Array.isArray(value)) {
     if (value !== null && value !== undefined) {
-      logWarn(`[CostSheet] JSON column '${fieldName}' expected an array but got ${typeof value}. Returning empty array. This may indicate corrupted data — check the cost sheet record.`);
+      logWarn(
+        `[CostSheet] JSON column '${fieldName}' expected an array but got ${typeof value}. Returning empty array. This may indicate corrupted data — check the cost sheet record.`
+      );
     }
     return [];
   }
@@ -145,7 +139,9 @@ export function parseJsonArray<T>(
     if (parsed.success) {
       results.push(parsed.data);
     } else {
-      logWarn(`[CostSheet] JSON column '${fieldName}' item[${i}] failed validation: ${parsed.error.issues.map(e => e.message).join(', ')}. Item will be included as-is but may have invalid data.`);
+      logWarn(
+        `[CostSheet] JSON column '${fieldName}' item[${i}] failed validation: ${parsed.error.issues.map((e) => e.message).join(', ')}. Item will be included as-is but may have invalid data.`
+      );
       results.push(value[i] as T);
     }
   }

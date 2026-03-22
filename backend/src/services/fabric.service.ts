@@ -669,10 +669,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
   /**
    * Bulk import fabric masters
    */
-  async bulkImport(
-    fabrics: Array<Record<string, unknown>>,
-    userId: string
-  ): Promise<BulkImportResult> {
+  async bulkImport(fabrics: Array<Record<string, unknown>>, userId: string): Promise<BulkImportResult> {
     const results: BulkImportResult = {
       created: 0,
       updated: 0,
@@ -728,8 +725,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         }
 
         // Auto-generate fabric code if not provided
-        const fabricCode =
-          (fabric.fabricCode as string) || `FAB-${String(currentCount + i + 1).padStart(4, '0')}`;
+        const fabricCode = (fabric.fabricCode as string) || `FAB-${String(currentCount + i + 1).padStart(4, '0')}`;
 
         // Auto-generate fabric name if not provided
         let fabricName = fabric.fabricName as string | undefined;
@@ -762,8 +758,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         }
 
         const actualWidth = parseFloat(String(fabric.actualWidth));
-        const cutableWidth =
-          (fabric.cutableWidth as number) || actualWidth - 2;
+        const cutableWidth = (fabric.cutableWidth as number) || actualWidth - 2;
 
         // Check if fabric code already exists
         const existingFabric = await this.prisma.fabric_master.findFirst({
@@ -788,9 +783,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
               finishedConstruction: (fabric.finishedConstruction as string) || null,
               actualGSM: fabric.actualGSM ? parseInt(String(fabric.actualGSM)) : null,
               valueAddition: (fabric.valueAddition as string) || null,
-              valueAdditionCost: fabric.valueAdditionCost
-                ? parseFloat(String(fabric.valueAdditionCost))
-                : null,
+              valueAdditionCost: fabric.valueAdditionCost ? parseFloat(String(fabric.valueAdditionCost)) : null,
               styleReference: (fabric.styleReference as string) || null,
               description: (fabric.description as string) || null,
               notes: (fabric.notes as string) || null,
@@ -818,9 +811,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
               finishedConstruction: (fabric.finishedConstruction as string) || null,
               actualGSM: fabric.actualGSM ? parseInt(String(fabric.actualGSM)) : null,
               valueAddition: (fabric.valueAddition as string) || null,
-              valueAdditionCost: fabric.valueAdditionCost
-                ? parseFloat(String(fabric.valueAdditionCost))
-                : null,
+              valueAdditionCost: fabric.valueAdditionCost ? parseFloat(String(fabric.valueAdditionCost)) : null,
               styleReference: (fabric.styleReference as string) || null,
               description: (fabric.description as string) || null,
               notes: (fabric.notes as string) || null,

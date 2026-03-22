@@ -93,11 +93,11 @@ export default function StageProgressBar({
   inspectionStatus,
 }: StageProgressBarProps) {
   // Find current production stage index (only among production stages)
-  const productionStages = FULL_STAGE_ORDER.filter(s => s.type === 'production');
+  const productionStages = FULL_STAGE_ORDER.filter((s) => s.type === 'production');
   const currentStageIndex = productionStages.findIndex((s) => s.stage === currentStage);
 
   const getProductionStageStatus = (stageItem: StageItem): 'completed' | 'active' | 'blocked' | 'pending' => {
-    const prodIndex = productionStages.findIndex(s => s.key === stageItem.key);
+    const prodIndex = productionStages.findIndex((s) => s.key === stageItem.key);
 
     if (prodIndex < currentStageIndex) return 'completed';
     if (prodIndex === currentStageIndex) {
@@ -113,7 +113,9 @@ export default function StageProgressBar({
     return 'pending';
   };
 
-  const getSampleStageStatus = (sampleKey: keyof SampleStatus): 'completed' | 'active' | 'blocked' | 'pending' | 'rejected' => {
+  const getSampleStageStatus = (
+    sampleKey: keyof SampleStatus
+  ): 'completed' | 'active' | 'blocked' | 'pending' | 'rejected' => {
     if (!sampleStatus) return 'pending';
 
     const sample = sampleStatus[sampleKey];
@@ -136,7 +138,9 @@ export default function StageProgressBar({
     }
   };
 
-  const getInspectionStageStatus = (inspectionKey: keyof InspectionStatus): 'completed' | 'active' | 'blocked' | 'pending' | 'rejected' => {
+  const getInspectionStageStatus = (
+    inspectionKey: keyof InspectionStatus
+  ): 'completed' | 'active' | 'blocked' | 'pending' | 'rejected' => {
     if (!inspectionStatus) return 'pending';
 
     const inspection = inspectionStatus[inspectionKey];
@@ -246,23 +250,17 @@ export default function StageProgressBar({
                 {/* Stage Node */}
                 <div
                   className={`flex flex-col items-center justify-center flex-shrink-0 ${
-                    isSpecial
-                      ? `rounded-lg px-2 py-1.5 border ${getStageBackgroundColor(status, stageItem.type)}`
-                      : ''
+                    isSpecial ? `rounded-lg px-2 py-1.5 border ${getStageBackgroundColor(status, stageItem.type)}` : ''
                   }`}
                   title={stageItem.label}
                 >
                   <div className="flex flex-col items-center gap-0.5">
                     {getStageIcon(status, stageItem.type)}
-                    <span
-                      className={`text-[11px] font-semibold whitespace-nowrap ${getStatusTextColor(status)}`}
-                    >
+                    <span className={`text-[11px] font-semibold whitespace-nowrap ${getStatusTextColor(status)}`}>
                       {stageItem.label}
                     </span>
                     {isSpecial && (
-                      <span className={`text-[9px] ${
-                        isSample ? 'text-purple-500' : 'text-orange-500'
-                      }`}>
+                      <span className={`text-[9px] ${isSample ? 'text-purple-500' : 'text-orange-500'}`}>
                         {isSample ? 'Sample' : 'QC'}
                       </span>
                     )}
@@ -272,9 +270,7 @@ export default function StageProgressBar({
                 {/* Connector Line */}
                 {!isLast && (
                   <div className="flex-1 min-w-[8px] mx-1">
-                    <div
-                      className={`h-1 rounded-full ${getConnectorColor(status)}`}
-                    />
+                    <div className={`h-1 rounded-full ${getConnectorColor(status)}`} />
                   </div>
                 )}
               </div>
@@ -295,10 +291,10 @@ export default function StageProgressBar({
               overallProgress >= 80
                 ? 'bg-gradient-to-r from-green-500 to-green-600'
                 : overallProgress >= 50
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600'
-                : overallProgress >= 25
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600'
-                : 'bg-gradient-to-r from-gray-400 to-gray-500'
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                  : overallProgress >= 25
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600'
+                    : 'bg-gradient-to-r from-gray-400 to-gray-500'
             }`}
             style={{ width: `${overallProgress}%` }}
           />

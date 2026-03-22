@@ -66,9 +66,7 @@ export function FormField({
         step={step}
         className={cn(error && 'border-destructive focus-visible:ring-destructive')}
       />
-      {helperText && !error && (
-        <p className="text-sm text-muted-foreground">{helperText}</p>
-      )}
+      {helperText && !error && <p className="text-sm text-muted-foreground">{helperText}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
@@ -102,9 +100,7 @@ export function TextareaField({
         maxLength={maxLength}
         className={cn(error && 'border-destructive focus-visible:ring-destructive')}
       />
-      {helperText && !error && (
-        <p className="text-sm text-muted-foreground">{helperText}</p>
-      )}
+      {helperText && !error && <p className="text-sm text-muted-foreground">{helperText}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );

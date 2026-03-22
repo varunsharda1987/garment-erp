@@ -79,13 +79,15 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
 
           // Set suppliers from junction table
           if (part.machinePartSuppliers && part.machinePartSuppliers.length > 0) {
-            setSuppliers(part.machinePartSuppliers.map(s => ({
-              supplierId: s.supplierId,
-              isPreferred: s.isPreferred,
-              isActive: s.isActive,
-              notes: s.notes || '',
-              pricePerUnit: s.pricePerUnit?.toString() || '',
-            })));
+            setSuppliers(
+              part.machinePartSuppliers.map((s) => ({
+                supplierId: s.supplierId,
+                isPreferred: s.isPreferred,
+                isActive: s.isActive,
+                notes: s.notes || '',
+                pricePerUnit: s.pricePerUnit?.toString() || '',
+              }))
+            );
           }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load machine part', false);
@@ -100,23 +102,24 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
 
   // Supplier management functions
   const handleAddSupplier = () => {
-    setSuppliers(prev => [...prev, {
-      supplierId: '',
-      isPreferred: prev.length === 0, // First supplier is preferred by default
-      isActive: true,
-      notes: '',
-      pricePerUnit: '',
-    }]);
+    setSuppliers((prev) => [
+      ...prev,
+      {
+        supplierId: '',
+        isPreferred: prev.length === 0, // First supplier is preferred by default
+        isActive: true,
+        notes: '',
+        pricePerUnit: '',
+      },
+    ]);
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setSuppliers(prev => prev.filter((_, i) => i !== index));
+    setSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: keyof SupplierInput, value: string | boolean) => {
-    setSuppliers(prev => prev.map((s, i) =>
-      i === index ? { ...s, [field]: value } : s
-    ));
+    setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const onSubmit = async (data: CreateMachinePartRequest) => {
@@ -125,13 +128,15 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
       setError(null);
 
       // Validate suppliers have valid supplier IDs
-      const validSuppliers = suppliers.filter(s => s.supplierId).map(s => ({
-        supplierId: s.supplierId,
-        isPreferred: s.isPreferred,
-        isActive: s.isActive,
-        notes: s.notes || undefined,
-        pricePerUnit: s.pricePerUnit ? Number(s.pricePerUnit) : undefined,
-      }));
+      const validSuppliers = suppliers
+        .filter((s) => s.supplierId)
+        .map((s) => ({
+          supplierId: s.supplierId,
+          isPreferred: s.isPreferred,
+          isActive: s.isActive,
+          notes: s.notes || undefined,
+          pricePerUnit: s.pricePerUnit ? Number(s.pricePerUnit) : undefined,
+        }));
 
       const payload: CreateMachinePartRequest | UpdateMachinePartRequest = {
         ...data,
@@ -149,11 +154,7 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
 
       navigate('/materials/machine-part');
     } catch (err: unknown) {
-      const errorMessage = handleApiError(
-        err,
-        `Failed to ${isNewPart ? 'create' : 'update'} machine part`,
-        false
-      );
+      const errorMessage = handleApiError(err, `Failed to ${isNewPart ? 'create' : 'update'} machine part`, false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -176,11 +177,7 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* PART INFORMATION */}
             <div>
@@ -195,7 +192,9 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
                     )}
                   </Label>
                   {!isNewPart && partCode ? (
-                    <Badge variant="outline" className="font-mono mt-2">{partCode}</Badge>
+                    <Badge variant="outline" className="font-mono mt-2">
+                      {partCode}
+                    </Badge>
                   ) : (
                     <p className="text-sm text-gray-500 mt-1">Will be generated automatically</p>
                   )}
@@ -209,71 +208,43 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
                     {...register('partName', { required: 'Part name is required' })}
                     placeholder="e.g., Needle Set Industrial, Bobbin Case"
                   />
-                  {errors.partName && (
-                    <p className="text-red-500 text-sm mt-1">{errors.partName.message}</p>
-                  )}
+                  {errors.partName && <p className="text-red-500 text-sm mt-1">{errors.partName.message}</p>}
                 </div>
 
                 {/* Part Number */}
                 <div>
                   <Label htmlFor="partNumber">Part Number</Label>
-                  <Input
-                    id="partNumber"
-                    {...register('partNumber')}
-                    placeholder="Manufacturer part number"
-                  />
+                  <Input id="partNumber" {...register('partNumber')} placeholder="Manufacturer part number" />
                 </div>
 
                 {/* Category */}
                 <div>
                   <Label htmlFor="category">Category</Label>
-                  <Input
-                    id="category"
-                    {...register('category')}
-                    placeholder="e.g., Needle, Bobbin, Belt, Motor"
-                  />
+                  <Input id="category" {...register('category')} placeholder="e.g., Needle, Bobbin, Belt, Motor" />
                 </div>
 
                 {/* Machine */}
                 <div>
                   <Label htmlFor="machine">Machine</Label>
-                  <Input
-                    id="machine"
-                    {...register('machine')}
-                    placeholder="e.g., Single Needle Lockstitch"
-                  />
+                  <Input id="machine" {...register('machine')} placeholder="e.g., Single Needle Lockstitch" />
                 </div>
 
                 {/* Brand */}
                 <div>
                   <Label htmlFor="brand">Brand</Label>
-                  <Input
-                    id="brand"
-                    {...register('brand')}
-                    placeholder="e.g., Juki, Brother, Groz-Beckert"
-                  />
+                  <Input id="brand" {...register('brand')} placeholder="e.g., Juki, Brother, Groz-Beckert" />
                 </div>
 
                 {/* Model */}
                 <div>
                   <Label htmlFor="model">Model</Label>
-                  <Input
-                    id="model"
-                    {...register('model')}
-                    placeholder="Model number"
-                  />
+                  <Input id="model" {...register('model')} placeholder="Model number" />
                 </div>
 
                 {/* Price Per Unit */}
                 <div>
                   <Label htmlFor="pricePerUnit">Price Per Unit (₹)</Label>
-                  <Input
-                    id="pricePerUnit"
-                    type="number"
-                    step="0.01"
-                    {...register('pricePerUnit')}
-                    placeholder="0.00"
-                  />
+                  <Input id="pricePerUnit" type="number" step="0.01" {...register('pricePerUnit')} placeholder="0.00" />
                 </div>
 
                 {/* Specifications */}

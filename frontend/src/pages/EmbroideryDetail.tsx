@@ -29,7 +29,8 @@ export default function EmbroideryDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
+  const canEdit =
+    currentUser?.role === 'ADMIN' || currentUser?.role === 'PURCHASE' || currentUser?.role === 'MERCHANDISER';
 
   useEffect(() => {
     if (id) {
@@ -159,9 +160,7 @@ export default function EmbroideryDetail() {
                   <Palette className="h-4 w-4 text-gray-500 mt-1" />
                   <div>
                     <label className="text-sm font-medium text-gray-600">Thread Colors</label>
-                    <p className="text-gray-900 text-xl font-semibold">
-                      {embroidery.threadColors || '-'}
-                    </p>
+                    <p className="text-gray-900 text-xl font-semibold">{embroidery.threadColors || '-'}</p>
                   </div>
                 </div>
               </div>
@@ -196,9 +195,7 @@ export default function EmbroideryDetail() {
                 <label className="text-sm font-medium text-gray-600">Usable Width After Embroidery</label>
                 <div className="flex items-center gap-2">
                   <Scissors className="h-4 w-4 text-purple-600" />
-                  <p className="text-purple-700 text-2xl font-semibold">
-                    {embroidery.usableWidthAfter}"
-                  </p>
+                  <p className="text-purple-700 text-2xl font-semibold">{embroidery.usableWidthAfter}"</p>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Cuttable width for CAD planning</p>
               </div>
@@ -216,9 +213,7 @@ export default function EmbroideryDetail() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-600">Cost per Meter</label>
-                <p className="text-gray-900 text-3xl font-semibold">
-                  {formatCurrency(embroidery.costPerMeter)}
-                </p>
+                <p className="text-gray-900 text-3xl font-semibold">{formatCurrency(embroidery.costPerMeter)}</p>
               </div>
               {embroidery.leadTimeDays && (
                 <div className="flex items-center gap-2">
@@ -294,9 +289,7 @@ export default function EmbroideryDetail() {
                     >
                       <div className="font-medium text-gray-900">{usage.styleCode}</div>
                       <div className="text-sm text-gray-600">{usage.styleName}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Component: {usage.componentName}
-                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Component: {usage.componentName}</div>
                     </div>
                   ))}
                 </div>

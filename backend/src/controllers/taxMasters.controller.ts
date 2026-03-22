@@ -9,16 +9,7 @@ import { NotFoundError, ConflictError, UnauthorizedError } from '../errors';
  * POST /api/tax-masters
  */
 export const createTax = async (req: Request, res: Response): Promise<void> => {
-  const {
-    taxCode,
-    taxName,
-    taxType,
-    taxRate,
-    hsnSacCode,
-    description,
-    applicableFrom,
-    applicableTo,
-  } = req.body;
+  const { taxCode, taxName, taxType, taxRate, hsnSacCode, description, applicableFrom, applicableTo } = req.body;
 
   const userId = req.user?.userId;
 
@@ -70,13 +61,7 @@ export const createTax = async (req: Request, res: Response): Promise<void> => {
  * GET /api/tax-masters
  */
 export const getAllTaxes = async (req: Request, res: Response): Promise<void> => {
-  const {
-    page = '1',
-    limit = '20',
-    search = '',
-    taxType,
-    activeOnly = 'true',
-  } = req.query;
+  const { page = '1', limit = '20', search = '', taxType, activeOnly = 'true' } = req.query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
@@ -143,10 +128,7 @@ export const getApplicableTaxes = async (req: Request, res: Response): Promise<v
   const where: Prisma.tax_mastersWhereInput = {
     isActive: true,
     applicableFrom: { lte: checkDate },
-    OR: [
-      { applicableTo: null },
-      { applicableTo: { gte: checkDate } },
-    ],
+    OR: [{ applicableTo: null }, { applicableTo: { gte: checkDate } }],
   };
 
   if (taxType) {
@@ -198,16 +180,7 @@ export const getTaxById = async (req: Request, res: Response): Promise<void> => 
  */
 export const updateTax = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const {
-    taxCode,
-    taxName,
-    taxType,
-    taxRate,
-    hsnSacCode,
-    description,
-    applicableFrom,
-    applicableTo,
-  } = req.body;
+  const { taxCode, taxName, taxType, taxRate, hsnSacCode, description, applicableFrom, applicableTo } = req.body;
 
   // Check if tax exists
   const existingTax = await prisma.tax_masters.findUnique({

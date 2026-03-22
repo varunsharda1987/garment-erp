@@ -3,21 +3,14 @@ import { z } from 'zod';
 /**
  * HSNSACType Enum - matches Prisma HSNSACType enum
  */
-export const HSNSACTypeEnum = z.enum([
-  'HSN',
-  'SAC',
-]);
+export const HSNSACTypeEnum = z.enum(['HSN', 'SAC']);
 
 /**
  * Create HSN/SAC Master Schema
  * POST /api/hsn-sac-masters
  */
 export const createHsnSacMasterSchema = z.object({
-  code: z
-    .string()
-    .min(1, 'Code is required')
-    .max(20, 'Code must not exceed 20 characters')
-    .trim(),
+  code: z.string().min(1, 'Code is required').max(20, 'Code must not exceed 20 characters').trim(),
   type: HSNSACTypeEnum,
   description: z
     .string()
@@ -40,11 +33,7 @@ export const createHsnSacMasterSchema = z.object({
  * Note: code is always required for updates (not optional)
  */
 export const updateHsnSacMasterSchema = z.object({
-  code: z
-    .string()
-    .min(1, 'Code is required')
-    .max(20, 'Code must not exceed 20 characters')
-    .trim(),
+  code: z.string().min(1, 'Code is required').max(20, 'Code must not exceed 20 characters').trim(),
   type: HSNSACTypeEnum.optional(),
   description: z
     .string()

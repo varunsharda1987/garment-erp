@@ -80,14 +80,16 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
 
           // Set suppliers from junction table
           if (button.buttonSuppliers && button.buttonSuppliers.length > 0) {
-            setSuppliers(button.buttonSuppliers.map(s => ({
-              supplierId: s.supplierId,
-              isPreferred: s.isPreferred,
-              isActive: s.isActive,
-              notes: s.notes || '',
-              pricePerPiece: s.pricePerPiece?.toString() || '',
-              pricePerGross: s.pricePerGross?.toString() || '',
-            })));
+            setSuppliers(
+              button.buttonSuppliers.map((s) => ({
+                supplierId: s.supplierId,
+                isPreferred: s.isPreferred,
+                isActive: s.isActive,
+                notes: s.notes || '',
+                pricePerPiece: s.pricePerPiece?.toString() || '',
+                pricePerGross: s.pricePerGross?.toString() || '',
+              }))
+            );
           }
 
           // Set style codes
@@ -107,24 +109,25 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
 
   // Supplier management functions
   const handleAddSupplier = () => {
-    setSuppliers(prev => [...prev, {
-      supplierId: '',
-      isPreferred: prev.length === 0, // First supplier is preferred by default
-      isActive: true,
-      notes: '',
-      pricePerPiece: '',
-      pricePerGross: '',
-    }]);
+    setSuppliers((prev) => [
+      ...prev,
+      {
+        supplierId: '',
+        isPreferred: prev.length === 0, // First supplier is preferred by default
+        isActive: true,
+        notes: '',
+        pricePerPiece: '',
+        pricePerGross: '',
+      },
+    ]);
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setSuppliers(prev => prev.filter((_, i) => i !== index));
+    setSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: keyof ButtonSupplierInput, value: string | boolean) => {
-    setSuppliers(prev => prev.map((s, i) =>
-      i === index ? { ...s, [field]: value } : s
-    ));
+    setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const onSubmit = async (data: ButtonFormData) => {
@@ -133,7 +136,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
       setError(null);
 
       // Validate suppliers have valid supplier IDs
-      const validSuppliers = suppliers.filter(s => s.supplierId);
+      const validSuppliers = suppliers.filter((s) => s.supplierId);
 
       // If name wasn't manually edited (or is same as original), send empty to trigger auto-regeneration
       const shouldAutoGenerateName = !isNewButton && !nameManuallyEdited && data.buttonName === originalButtonName;
@@ -158,11 +161,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
 
       navigate('/materials/button');
     } catch (err: unknown) {
-      const errorMessage = handleApiError(
-        err,
-        `Failed to ${isNewButton ? 'create' : 'update'} button`,
-        false
-      );
+      const errorMessage = handleApiError(err, `Failed to ${isNewButton ? 'create' : 'update'} button`, false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -185,11 +184,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* BUTTON INFORMATION */}
             <div>
@@ -221,9 +216,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                         placeholder="Will be auto-generated (e.g., BTN-000001)"
                         className="bg-gray-50 cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Code will be automatically assigned upon creation
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
                     </>
                   )}
                 </div>
@@ -242,37 +235,27 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                         if (e.target.value !== originalButtonName) {
                           setNameManuallyEdited(true);
                         }
-                      }
+                      },
                     })}
                     placeholder="Leave empty to auto-generate from color, material, holes, size, etc."
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     {isNewButton
                       ? 'If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Material Holes Button Size")'
-                      : 'Name will auto-update when you change attributes. Edit manually to override.'
-                    }
+                      : 'Name will auto-update when you change attributes. Edit manually to override.'}
                   </p>
                 </div>
 
                 {/* Size */}
                 <div>
                   <Label htmlFor="size">Size</Label>
-                  <Input
-                    id="size"
-                    {...register('size')}
-                    placeholder="e.g., 15mm, 18L, 1/2 inch"
-                  />
+                  <Input id="size" {...register('size')} placeholder="e.g., 15mm, 18L, 1/2 inch" />
                 </div>
 
                 {/* Holes */}
                 <div>
                   <Label htmlFor="holes">Holes</Label>
-                  <Input
-                    id="holes"
-                    type="number"
-                    {...register('holes')}
-                    placeholder="e.g., 2, 4"
-                  />
+                  <Input id="holes" type="number" {...register('holes')} placeholder="e.g., 2, 4" />
                 </div>
 
                 {/* Color */}
@@ -302,21 +285,13 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                 {/* Material */}
                 <div>
                   <Label htmlFor="material">Material</Label>
-                  <Input
-                    id="material"
-                    {...register('material')}
-                    placeholder="e.g., Plastic, Metal, Wood"
-                  />
+                  <Input id="material" {...register('material')} placeholder="e.g., Plastic, Metal, Wood" />
                 </div>
 
                 {/* Shape */}
                 <div>
                   <Label htmlFor="shape">Shape</Label>
-                  <Input
-                    id="shape"
-                    {...register('shape')}
-                    placeholder="e.g., Round, Square, Oval"
-                  />
+                  <Input id="shape" {...register('shape')} placeholder="e.g., Round, Square, Oval" />
                 </div>
 
                 {/* Price Per Piece */}
@@ -349,12 +324,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddSupplier}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
                 </Button>
@@ -372,7 +342,9 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
-                          <Label>Supplier <span className="text-red-500">*</span></Label>
+                          <Label>
+                            Supplier <span className="text-red-500">*</span>
+                          </Label>
                           <Select
                             value={supplier.supplierId || undefined}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
@@ -381,7 +353,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                               <SelectValue placeholder="Select supplier..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableSuppliers.map(s => (
+                              {availableSuppliers.map((s) => (
                                 <SelectItem key={s.id} value={s.id}>
                                   {s.code} - {s.name}
                                 </SelectItem>

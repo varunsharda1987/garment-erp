@@ -48,15 +48,8 @@ export function RefreshButton({
   }
 
   return (
-    <Button
-      variant={ghost ? 'ghost' : 'outline'}
-      disabled={disabled || loading}
-      className={className}
-      {...props}
-    >
-      {showIcon && (
-        <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
-      )}
+    <Button variant={ghost ? 'ghost' : 'outline'} disabled={disabled || loading} className={className} {...props}>
+      {showIcon && <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />}
       {loading ? 'Refreshing...' : children}
     </Button>
   );

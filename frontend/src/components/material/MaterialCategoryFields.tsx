@@ -575,7 +575,10 @@ function PrimaryPackagingFields({ data, updateField }: CategoryFieldProps) {
 
         <div>
           <Label htmlFor="printingRequired">Printing Required *</Label>
-          <Select value={asString(data.printingRequired) || 'No'} onValueChange={(value) => updateField('printingRequired', value)}>
+          <Select
+            value={asString(data.printingRequired) || 'No'}
+            onValueChange={(value) => updateField('printingRequired', value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select option" />
             </SelectTrigger>

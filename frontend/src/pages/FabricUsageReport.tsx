@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
-import { getFabricStyles, getFabricStockHistory, type FabricStyleUsage, type FabricStockHistoryEntry } from '../services/style-stock.service';
+import {
+  getFabricStyles,
+  getFabricStockHistory,
+  type FabricStyleUsage,
+  type FabricStockHistoryEntry,
+} from '../services/style-stock.service';
 import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { logError } from '../lib/logger';
@@ -68,9 +73,8 @@ export default function FabricUsageReport() {
     }
 
     if (filterByStyle) {
-      filtered = filtered.filter(
-        (fabric) =>
-          fabric.styleReference?.toLowerCase().includes(filterByStyle.toLowerCase())
+      filtered = filtered.filter((fabric) =>
+        fabric.styleReference?.toLowerCase().includes(filterByStyle.toLowerCase())
       );
     }
 
@@ -92,9 +96,7 @@ export default function FabricUsageReport() {
 
   const loadFabricData = async (fabricId: string) => {
     try {
-      setFabrics((prev) =>
-        prev.map((f) => (f.id === fabricId ? { ...f, isLoading: true } : f))
-      );
+      setFabrics((prev) => prev.map((f) => (f.id === fabricId ? { ...f, isLoading: true } : f)));
 
       const [stylesData, stockHistoryData] = await Promise.all([
         getFabricStyles(fabricId),
@@ -103,16 +105,12 @@ export default function FabricUsageReport() {
 
       setFabrics((prev) =>
         prev.map((f) =>
-          f.id === fabricId
-            ? { ...f, styles: stylesData, stockHistory: stockHistoryData, isLoading: false }
-            : f
+          f.id === fabricId ? { ...f, styles: stylesData, stockHistory: stockHistoryData, isLoading: false } : f
         )
       );
     } catch (err) {
       logError('Failed to load fabric data:', err);
-      setFabrics((prev) =>
-        prev.map((f) => (f.id === fabricId ? { ...f, isLoading: false } : f))
-      );
+      setFabrics((prev) => prev.map((f) => (f.id === fabricId ? { ...f, isLoading: false } : f)));
     }
   };
 
@@ -121,9 +119,7 @@ export default function FabricUsageReport() {
       <Card>
         <CardHeader>
           <CardTitle>Fabric Usage Report</CardTitle>
-          <p className="text-sm text-gray-500 mt-2">
-            View which styles use each fabric and stock allocation details
-          </p>
+          <p className="text-sm text-gray-500 mt-2">View which styles use each fabric and stock allocation details</p>
         </CardHeader>
         <CardContent>
           {/* Filters */}
@@ -176,21 +172,15 @@ export default function FabricUsageReport() {
                         <h3 className="font-semibold text-gray-900">{fabric.fabricCode}</h3>
                         <p className="text-sm text-gray-600">{fabric.fabricName}</p>
                         <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                          {fabric.styleReference && (
-                            <span>Style: {fabric.styleReference}</span>
-                          )}
-                          {fabric.componentType && (
-                            <span>Component: {fabric.componentType}</span>
-                          )}
+                          {fabric.styleReference && <span>Style: {fabric.styleReference}</span>}
+                          {fabric.componentType && <span>Component: {fabric.componentType}</span>}
                           <span>Width: {fabric.actualWidth}"</span>
                         </div>
                       </div>
 
                       {fabric.styles && (
                         <div className="text-right">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {fabric.styles.length}
-                          </div>
+                          <div className="text-2xl font-bold text-blue-600">{fabric.styles.length}</div>
                           <div className="text-xs text-gray-500">Styles</div>
                         </div>
                       )}
@@ -237,24 +227,14 @@ export default function FabricUsageReport() {
                                   <tbody className="bg-white divide-y divide-gray-200">
                                     {fabric.styles.map((style, index) => (
                                       <tr key={index}>
-                                        <td className="px-4 py-3 text-sm text-gray-900">
-                                          {style.styleCode}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">
-                                          {style.styleName}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">
-                                          {style.componentName}
-                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-900">{style.styleCode}</td>
+                                        <td className="px-4 py-3 text-sm text-gray-600">{style.styleName}</td>
+                                        <td className="px-4 py-3 text-sm text-gray-600">{style.componentName}</td>
                                         <td className="px-4 py-3 text-sm text-right text-gray-900">
                                           {(style.quantityPerGarment ?? 0).toFixed(2)}
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-right text-blue-600">
-                                          -
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-right text-green-600">
-                                          -
-                                        </td>
+                                        <td className="px-4 py-3 text-sm text-right text-blue-600">-</td>
+                                        <td className="px-4 py-3 text-sm text-right text-green-600">-</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -299,18 +279,12 @@ export default function FabricUsageReport() {
                                   <tbody className="bg-white divide-y divide-gray-200">
                                     {fabric.stockHistory.map((stock, index) => (
                                       <tr key={index}>
-                                        <td className="px-4 py-3 text-sm text-gray-900">
-                                          {stock.id.slice(0, 8)}...
-                                        </td>
+                                        <td className="px-4 py-3 text-sm text-gray-900">{stock.id.slice(0, 8)}...</td>
                                         <td className="px-4 py-3 text-sm text-right text-gray-900">
                                           {stock.quantity.toFixed(2)}m
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-right text-gray-600">
-                                          {stock.width}"
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">
-                                          {stock.rollNumbers || '-'}
-                                        </td>
+                                        <td className="px-4 py-3 text-sm text-right text-gray-600">{stock.width}"</td>
+                                        <td className="px-4 py-3 text-sm text-gray-600">{stock.rollNumbers || '-'}</td>
                                         <td className="px-4 py-3 text-sm text-gray-600">
                                           {stock.warehouseLocation || '-'}
                                         </td>
@@ -318,7 +292,9 @@ export default function FabricUsageReport() {
                                           {stock.purchaseCost ? `₹${stock.purchaseCost.toFixed(2)}` : '-'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-600">
-                                          {stock.receivedDate ? new Date(stock.receivedDate).toLocaleDateString() : 'N/A'}
+                                          {stock.receivedDate
+                                            ? new Date(stock.receivedDate).toLocaleDateString()
+                                            : 'N/A'}
                                         </td>
                                       </tr>
                                     ))}

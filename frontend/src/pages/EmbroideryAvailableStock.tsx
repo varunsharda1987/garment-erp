@@ -179,8 +179,9 @@ export default function EmbroideryAvailableStock() {
 
   const getPendingCount = () => sendOuts.filter((so) => so.status === 'SENT').length;
   const getOverdueCount = () =>
-    sendOuts.filter((so) => so.expectedReturnDate && new Date(so.expectedReturnDate) < new Date() && so.status === 'SENT')
-      .length;
+    sendOuts.filter(
+      (so) => so.expectedReturnDate && new Date(so.expectedReturnDate) < new Date() && so.status === 'SENT'
+    ).length;
   const getTotalPendingMeters = () =>
     sendOuts.filter((so) => so.status === 'SENT').reduce((sum, so) => sum + so.quantitySent, 0);
   const getTotalEmbroideredMeters = () => filteredStock.reduce((sum, stock) => sum + stock.quantityAvailable, 0);
@@ -295,7 +296,10 @@ export default function EmbroideryAvailableStock() {
                 <Package2 className="h-4 w-4 mr-2" />
                 Receive
               </Button>
-              <Button onClick={() => navigate('/embroidery-stock/send-out')} className="bg-purple-600 hover:bg-purple-700">
+              <Button
+                onClick={() => navigate('/embroidery-stock/send-out')}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Send Out
               </Button>
@@ -449,12 +453,17 @@ export default function EmbroideryAvailableStock() {
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {filteredSendOuts.map((so) => (
-                        <tr key={so.id} className={`hover:bg-gray-50 ${isOverdue(so.expectedReturnDate, so.status) ? 'bg-red-50' : ''}`}>
+                        <tr
+                          key={so.id}
+                          className={`hover:bg-gray-50 ${isOverdue(so.expectedReturnDate, so.status) ? 'bg-red-50' : ''}`}
+                        >
                           <td className="px-4 py-3">
                             <div className="font-medium text-gray-900">
                               {so.sourceFabricStock?.fabricMaster?.fabricCode}
                             </div>
-                            <div className="text-xs text-gray-500">{so.sourceFabricStock?.fabricMaster?.fabricName}</div>
+                            <div className="text-xs text-gray-500">
+                              {so.sourceFabricStock?.fabricMaster?.fabricName}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
@@ -580,14 +589,19 @@ export default function EmbroideryAvailableStock() {
                           </td>
                           <td className="px-4 py-3 text-center text-gray-700">{stock.width}"</td>
                           <td className="px-4 py-3 text-center">{getQualityBadge(stock.qualityGrade)}</td>
-                          <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(stock.weightedAvgCost)}</td>
+                          <td className="px-4 py-3 text-right text-gray-700">
+                            {formatCurrency(stock.weightedAvgCost)}
+                          </td>
                           <td className="px-4 py-3 text-right font-medium text-gray-900">
                             {formatCurrency(stock.quantityAvailable * stock.weightedAvgCost)}
                           </td>
                           <td className="px-4 py-3 text-gray-700">{stock.warehouseLocation || '-'}</td>
                           <td className="px-4 py-3">
                             {stock.forStyle ? (
-                              <Link to={`/styles/${stock.forStyle.id}`} className="text-blue-600 hover:underline text-xs">
+                              <Link
+                                to={`/styles/${stock.forStyle.id}`}
+                                className="text-blue-600 hover:underline text-xs"
+                              >
                                 {stock.forStyle.styleCode}
                               </Link>
                             ) : (

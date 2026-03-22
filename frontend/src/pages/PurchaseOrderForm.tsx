@@ -15,14 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { getAllMaterials } from '@/services/material.service';
@@ -33,11 +26,7 @@ import {
   updatePurchaseOrder,
   sendPurchaseOrder,
 } from '@/services/purchaseOrder.service';
-import type {
-  CreatePurchaseOrderRequest,
-  CreatePurchaseOrderItemRequest,
-  Unit,
-} from '@/types/purchaseOrder.types';
+import type { CreatePurchaseOrderRequest, CreatePurchaseOrderItemRequest, Unit } from '@/types/purchaseOrder.types';
 import {
   Unit as UnitEnum,
   PO_CATEGORY_LABELS,
@@ -92,10 +81,26 @@ const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
   GREIGE: ['GREIGE', 'GREIGE_FABRIC'],
   FABRIC: ['FABRIC', 'FINISHED_FABRIC'],
   TRIMS: [
-    'TRIMS', 'BUTTON', 'ZIPPER', 'ELASTIC', 'HOOK_EYE', 'SNAP_BUTTON',
-    'BUCKLE', 'BELT', 'VELCRO', 'DRAWSTRING', 'RIBBON', 'SEQUIN', 'BEAD',
-    'MOTIF', 'INTERLINING', 'PADDING', 'OTHER_FASTENER', 'OTHER_TAPE',
-    'OTHER_DECORATIVE', 'OTHER_FUNCTIONAL',
+    'TRIMS',
+    'BUTTON',
+    'ZIPPER',
+    'ELASTIC',
+    'HOOK_EYE',
+    'SNAP_BUTTON',
+    'BUCKLE',
+    'BELT',
+    'VELCRO',
+    'DRAWSTRING',
+    'RIBBON',
+    'SEQUIN',
+    'BEAD',
+    'MOTIF',
+    'INTERLINING',
+    'PADDING',
+    'OTHER_FASTENER',
+    'OTHER_TAPE',
+    'OTHER_DECORATIVE',
+    'OTHER_FUNCTIONAL',
   ],
   LACE: ['LACE'],
   GREIGE_LACE: ['LACE'],
@@ -217,7 +222,7 @@ export default function PurchaseOrderForm() {
       const types = PO_CATEGORY_TO_MATERIAL_TYPES[poCategory];
       const response = await getAllMaterials({
         limit: 200,
-        supplierId: skipSupplierFilter ? undefined : (forSupplierId || undefined),
+        supplierId: skipSupplierFilter ? undefined : forSupplierId || undefined,
         materialTypes: types ? types.join(',') : undefined,
       });
       setMaterials(response.data as unknown as Material[]);
@@ -625,9 +630,7 @@ export default function PurchaseOrderForm() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold">
-            {isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
-          </h1>
+          <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}</h1>
           {poCategory && (
             <Badge className={PO_CATEGORY_COLORS[poCategory] || 'bg-gray-100 text-gray-800'}>
               {PO_CATEGORY_LABELS[poCategory] || poCategory}
@@ -798,15 +801,9 @@ export default function PurchaseOrderForm() {
       {poCategory && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>
-              {isProcessing ? 'Processing Items' : isService ? 'Service Items' : 'Order Items'}
-            </CardTitle>
+            <CardTitle>{isProcessing ? 'Processing Items' : isService ? 'Service Items' : 'Order Items'}</CardTitle>
             {isMaterial && supplierId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowMaterialPicker(true)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setShowMaterialPicker(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Browse All Materials
               </Button>
@@ -835,17 +832,14 @@ export default function PurchaseOrderForm() {
                       disabled={isLoadingMaterials}
                     />
                   </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setShowMaterialPicker(true)}
-                  >
+                  <Button variant="secondary" size="sm" onClick={() => setShowMaterialPicker(true)}>
                     Or Browse All
                   </Button>
                 </div>
                 {materials.length > 0 && (
                   <p className="text-xs text-gray-600 mt-2">
-                    Showing {materials.length} materials matching supplier or {PO_CATEGORY_LABELS[poCategory] || poCategory} category.
+                    Showing {materials.length} materials matching supplier or{' '}
+                    {PO_CATEGORY_LABELS[poCategory] || poCategory} category.
                   </p>
                 )}
                 {!isLoadingMaterials && materials.length === 0 && (
@@ -892,9 +886,7 @@ export default function PurchaseOrderForm() {
 
             {/* No supplier selected */}
             {!supplierId && (
-              <div className="text-center py-8 text-gray-500">
-                Please select a supplier to add items.
-              </div>
+              <div className="text-center py-8 text-gray-500">Please select a supplier to add items.</div>
             )}
 
             {/* Empty items */}
@@ -904,8 +896,8 @@ export default function PurchaseOrderForm() {
                 {isProcessing
                   ? 'Select a greige fabric above to add processing items.'
                   : isService
-                  ? 'Click "Add Item" to start.'
-                  : 'Use Quick Add or Browse Materials.'}
+                    ? 'Click "Add Item" to start.'
+                    : 'Use Quick Add or Browse Materials.'}
               </div>
             )}
 
@@ -914,9 +906,7 @@ export default function PurchaseOrderForm() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>
-                      {isProcessing ? 'Greige Fabric' : isService ? 'Description' : 'Material'}
-                    </TableHead>
+                    <TableHead>{isProcessing ? 'Greige Fabric' : isService ? 'Description' : 'Material'}</TableHead>
                     {isProcessing && <TableHead className="w-[200px]">Description</TableHead>}
                     <TableHead className="w-[120px]">Quantity</TableHead>
                     <TableHead className="w-[100px]">Unit</TableHead>
@@ -972,10 +962,7 @@ export default function PurchaseOrderForm() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={item.unit}
-                          onValueChange={(value) => updateItem(item.tempId, 'unit', value)}
-                        >
+                        <Select value={item.unit} onValueChange={(value) => updateItem(item.tempId, 'unit', value)}>
                           <SelectTrigger className="w-full">
                             <SelectValue />
                           </SelectTrigger>
@@ -998,9 +985,7 @@ export default function PurchaseOrderForm() {
                           className="w-full"
                         />
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(item.totalPrice)}
-                      </TableCell>
+                      <TableCell className="font-medium">{formatCurrency(item.totalPrice)}</TableCell>
                       <TableCell>
                         <Input
                           value={item.remarks}
@@ -1072,9 +1057,7 @@ export default function PurchaseOrderForm() {
               />
               <div className="max-h-[400px] overflow-y-auto">
                 {filteredMaterials.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">
-                    No materials found for this supplier
-                  </div>
+                  <div className="text-center py-4 text-gray-500">No materials found for this supplier</div>
                 ) : (
                   <Table>
                     <TableHeader>

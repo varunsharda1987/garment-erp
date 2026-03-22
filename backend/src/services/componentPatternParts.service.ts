@@ -91,7 +91,9 @@ export async function assignPatternPartsToComponent(
       assignedPatterns.push(patternPart.code);
     }
 
-    logInfo(`Assigned ${assignedCount} pattern parts to component "${component.name}" (${component.componentGroup?.name})`);
+    logInfo(
+      `Assigned ${assignedCount} pattern parts to component "${component.name}" (${component.componentGroup?.name})`
+    );
 
     return {
       assigned: assignedCount,

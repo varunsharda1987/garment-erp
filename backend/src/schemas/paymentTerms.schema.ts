@@ -5,16 +5,8 @@ import { z } from 'zod';
  * POST /api/payment-terms
  */
 export const createPaymentTermSchema = z.object({
-  termCode: z
-    .string()
-    .min(1, 'Term code is required')
-    .max(50, 'Term code must not exceed 50 characters')
-    .trim(),
-  termName: z
-    .string()
-    .min(1, 'Term name is required')
-    .max(100, 'Term name must not exceed 100 characters')
-    .trim(),
+  termCode: z.string().min(1, 'Term code is required').max(50, 'Term code must not exceed 50 characters').trim(),
+  termName: z.string().min(1, 'Term name is required').max(100, 'Term name must not exceed 100 characters').trim(),
   description: z.string().max(500, 'Description must not exceed 500 characters').trim().optional().nullable(),
   daysCount: z.number().int().nonnegative('Days count must be non-negative').optional().nullable(),
   discountPercent: z

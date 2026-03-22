@@ -10,11 +10,7 @@ import {
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
-import {
-  createCostCenterSchema,
-  updateCostCenterSchema,
-  costCenterQuerySchema,
-} from '../schemas/costCenters.schema';
+import { createCostCenterSchema, updateCostCenterSchema, costCenterQuerySchema } from '../schemas/costCenters.schema';
 
 const router = express.Router();
 

@@ -6,13 +6,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +18,12 @@ import {
 import { fabricService, greigeService } from '../services/fabricGreigeService';
 import { PatternPartMultiSelect } from '../components/fabric/PatternPartMultiSelect';
 import { embroideryService } from '../services/embroidery.service';
-import type { FabricMasterFormData, GreigeMaster, FabricStyleAllocation, PatternPartForAllocation } from '../types/fabric-greige.types';
+import type {
+  FabricMasterFormData,
+  GreigeMaster,
+  FabricStyleAllocation,
+  PatternPartForAllocation,
+} from '../types/fabric-greige.types';
 import type { Embroidery } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
 import { notify } from '../lib/notify';
@@ -182,23 +181,26 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   }, []);
 
   // Fetch next fabric code from backend
-  const fetchNextFabricCode = useCallback(async (source: FabricSource, styleCode?: string) => {
-    try {
-      const token = getAuthToken();
-      let url = `${API_URL}/fabric-management/fabric/next-code?source=${source}`;
-      if (source === 'style_linked' && styleCode) {
-        url += `&styleCode=${styleCode}`;
+  const fetchNextFabricCode = useCallback(
+    async (source: FabricSource, styleCode?: string) => {
+      try {
+        const token = getAuthToken();
+        let url = `${API_URL}/fabric-management/fabric/next-code?source=${source}`;
+        if (source === 'style_linked' && styleCode) {
+          url += `&styleCode=${styleCode}`;
+        }
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        return data.nextCode || '';
+      } catch (error) {
+        logError('Error fetching next fabric code:', error);
+        return '';
       }
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      return data.nextCode || '';
-    } catch (error) {
-      logError('Error fetching next fabric code:', error);
-      return '';
-    }
-  }, [getAuthToken]);
+    },
+    [getAuthToken]
+  );
 
   // Generate fabric name based on selected fields
   const generateFabricName = useCallback(() => {
@@ -211,7 +213,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
     // Add greige name or generic fabric name
     if (formData.greigeId) {
-      const greige = greigeMasters.find(g => g.id === formData.greigeId);
+      const greige = greigeMasters.find((g) => g.id === formData.greigeId);
       if (greige) {
         // Extract fabric type from greige name (e.g., "Cambric 40×40" → "Cambric")
         const match = greige.greigeName.match(/^([A-Za-z\s]+?)(?:\s*\d|×)/);
@@ -231,9 +233,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     // Add first pattern part name (if any selected) - for fabric distinction
     if (selectedPatternPartIds.length > 0) {
       const allPatternParts = [...cadPatternParts, ...masterPatternParts];
-      const firstSelectedPart = allPatternParts.find(
-        (part) => selectedPatternPartIds.includes(part.id)
-      );
+      const firstSelectedPart = allPatternParts.find((part) => selectedPatternPartIds.includes(part.id));
       if (firstSelectedPart) {
         parts.push(firstSelectedPart.name);
       }
@@ -253,7 +253,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     if (hasEmbroidery) {
       if (selectedEmbroideryId) {
         // Find the embroidery design to get its code
-        const design = embroideryDesigns.find(d => d.id === selectedEmbroideryId);
+        const design = embroideryDesigns.find((d) => d.id === selectedEmbroideryId);
         if (design) {
           parts.push(design.embroideryCode);
         } else {
@@ -265,7 +265,22 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
 
     return parts.join(' - ');
-  }, [fabricSource, selectedStyleCode, formData.greigeId, formData.genericGreigeName, formData.finishType, formData.colorName, formData.actualWidth, greigeMasters, hasEmbroidery, selectedEmbroideryId, embroideryDesigns, selectedPatternPartIds, cadPatternParts, masterPatternParts]);
+  }, [
+    fabricSource,
+    selectedStyleCode,
+    formData.greigeId,
+    formData.genericGreigeName,
+    formData.finishType,
+    formData.colorName,
+    formData.actualWidth,
+    greigeMasters,
+    hasEmbroidery,
+    selectedEmbroideryId,
+    embroideryDesigns,
+    selectedPatternPartIds,
+    cadPatternParts,
+    masterPatternParts,
+  ]);
 
   // Helper to get finish type display text
   const getFinishTypeDisplay = (finishType: string): string => {
@@ -317,11 +332,11 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         if (fabricSource === 'style_linked') {
           if (selectedStyleCode) {
             const code = await fetchNextFabricCode(fabricSource, selectedStyleCode);
-            setFormData(prev => ({ ...prev, fabricCode: code }));
+            setFormData((prev) => ({ ...prev, fabricCode: code }));
           }
         } else {
           const code = await fetchNextFabricCode(fabricSource);
-          setFormData(prev => ({ ...prev, fabricCode: code }));
+          setFormData((prev) => ({ ...prev, fabricCode: code }));
         }
       };
       generateCode();
@@ -333,7 +348,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     if (mode === 'create') {
       const generatedName = generateFabricName();
       if (generatedName) {
-        setFormData(prev => ({ ...prev, fabricName: generatedName }));
+        setFormData((prev) => ({ ...prev, fabricName: generatedName }));
       }
     }
   }, [mode, generateFabricName]);
@@ -341,7 +356,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   // Sync selectedStyle when styles load and selectedStyleId is already set (edit mode)
   useEffect(() => {
     if (selectedStyleId && styles.length > 0 && !selectedStyle) {
-      const style = styles.find(s => s.id === selectedStyleId);
+      const style = styles.find((s) => s.id === selectedStyleId);
       if (style) {
         setSelectedStyle(style);
       }
@@ -373,7 +388,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
           // Extract pattern part IDs from the allocation
           if (firstAllocation.patternParts && firstAllocation.patternParts.length > 0) {
-            const patternPartIds = firstAllocation.patternParts.map((pp: { patternPartId: string }) => pp.patternPartId);
+            const patternPartIds = firstAllocation.patternParts.map(
+              (pp: { patternPartId: string }) => pp.patternPartId
+            );
             setSelectedPatternPartIds(patternPartIds);
           }
 
@@ -381,7 +398,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           try {
             setLoadingPatternParts(true);
             const { cadPatternParts: cadParts, masterPatternParts: masterParts } =
-              await fabricService.getCADPatternPartsForComponent(firstAllocation.component.style.id, firstAllocation.componentId);
+              await fabricService.getCADPatternPartsForComponent(
+                firstAllocation.component.style.id,
+                firstAllocation.componentId
+              );
             setCadPatternParts(cadParts);
             setMasterPatternParts(masterParts);
           } catch (error) {
@@ -407,7 +427,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         finishType: fabric.finishType || 'solid',
         printDesign: fabric.printDesign || '',
         actualWidth: fabric.actualWidth,
-        cutableWidth: fabric.cutableWidth || (fabric.actualWidth - 2),
+        cutableWidth: fabric.cutableWidth || fabric.actualWidth - 2,
         finishedConstruction: fabric.finishedConstruction || '',
         actualGSM: fabric.actualGSM,
         valueAddition: fabric.valueAddition || '',
@@ -418,12 +438,15 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         imageUrl: fabric.imageUrl || '',
         isGeneric: fabric.isGeneric || false,
         isActive: fabric.isActive,
-        suppliers: fabric.supplier?.map((s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
-          supplierId: s.supplier.id,
-          isPreferred: s.isPreferred,
-          isActive: s.isActive,
-          notes: s.notes || '',
-        })) || [],
+        suppliers:
+          fabric.supplier?.map(
+            (s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
+              supplierId: s.supplier.id,
+              isPreferred: s.isPreferred,
+              isActive: s.isActive,
+              notes: s.notes || '',
+            })
+          ) || [],
       });
     } catch (error) {
       logError('Error loading fabric:', error);
@@ -477,9 +500,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   // Handle quick-create greige completion
   const handleGreigeCreated = (newGreige: GreigeMaster) => {
     // Add the new greige to the list
-    setGreigeMasters(prev => [newGreige, ...prev]);
+    setGreigeMasters((prev) => [newGreige, ...prev]);
     // Auto-select the new greige and populate fields
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       greigeId: newGreige.id,
       greigeName: newGreige.greigeName,
@@ -507,7 +530,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     setHasEmbroidery(false);
     setSelectedEmbroideryId(null);
     // Set isGeneric based on source
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       isGeneric: newSource === 'stock',
     }));
@@ -541,7 +564,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       const fullStyle = data.data || data;
       setSelectedStyle(fullStyle);
       setSelectedStyleCode(fullStyle.styleCode || '');
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         styleReference: fullStyle.styleCode || '',
       }));
@@ -567,21 +590,21 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
     // Auto-populate genericGreigeName from the selected component's style_fabrics
     // The serializer maps 'styleFabrics' to 'fabrics', so check both
-    const component = selectedStyle?.components?.find(c => c.id === componentId);
+    const component = selectedStyle?.components?.find((c) => c.id === componentId);
     const componentFabrics = component?.fabrics || component?.styleFabrics;
     if (componentFabrics && componentFabrics.length > 0) {
       const firstFabric = componentFabrics[0];
       const fabricGenericName = firstFabric.genericGreigeName || firstFabric.fabricName;
       if (fabricGenericName && !formData.genericGreigeName) {
         // Only auto-populate if genericGreigeName is not already set
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           genericGreigeName: fabricGenericName,
         }));
       }
 
       // Check if any fabric in this component uses embroidery
-      const usesEmbroidery = componentFabrics.some(f => f.hasEmbroidery);
+      const usesEmbroidery = componentFabrics.some((f) => f.hasEmbroidery);
       if (usesEmbroidery) {
         setComponentUsesEmbroidery(true);
         // Load embroidery designs if not already loaded
@@ -620,10 +643,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      setFormData((prev) => ({ ...prev, [name]: checked }));
     } else if (type === 'number') {
       const numValue = value === '' ? undefined : parseFloat(value);
-      setFormData(prev => {
+      setFormData((prev) => {
         const updated = { ...prev, [name]: numValue };
 
         // Auto-calculate cutableWidth when actualWidth changes (skip for embroidery fabrics)
@@ -635,10 +658,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       });
     } else if (name === 'greigeId') {
       // When greige is selected, auto-populate fields from greige
-      setFormData(prev => {
+      setFormData((prev) => {
         const updated = { ...prev, greigeId: value };
         if (value) {
-          const greige = greigeMasters.find(g => g.id === value);
+          const greige = greigeMasters.find((g) => g.id === value);
           if (greige?.greigeName) {
             updated.greigeName = greige.greigeName;
           }
@@ -653,30 +676,28 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         return updated;
       });
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
   const handleAddSupplier = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       suppliers: [...prev.suppliers, { supplierId: '', isPreferred: false, isActive: true, notes: '' }],
     }));
   };
 
   const handleRemoveSupplier = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       suppliers: prev.suppliers.filter((_, i) => i !== index),
     }));
   };
 
   const handleSupplierChange = (index: number, field: string, value: string | boolean) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      suppliers: prev.suppliers.map((s, i) =>
-        i === index ? { ...s, [field]: value } : s
-      ),
+      suppliers: prev.suppliers.map((s, i) => (i === index ? { ...s, [field]: value } : s)),
     }));
   };
 
@@ -698,7 +719,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         greigeName,
         genericGreigeName: formData.genericGreigeName,
         greigeWidth: formData.actualWidth,
-        defaultCutableWidth: formData.cutableWidth || (formData.actualWidth > 4 ? formData.actualWidth - 4 : formData.actualWidth),
+        defaultCutableWidth:
+          formData.cutableWidth || (formData.actualWidth > 4 ? formData.actualWidth - 4 : formData.actualWidth),
         composition: formData.composition || '100% Cotton',
         averageShrinkagePercent: 8,
         isActive: true,
@@ -716,7 +738,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       };
 
       // Add new greige to the list
-      setGreigeMasters(prev => [newGreige, ...prev]);
+      setGreigeMasters((prev) => [newGreige, ...prev]);
 
       // Now save the fabric with the greige linked
       await saveFabric(updatedFormData);
@@ -884,7 +906,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 required
               >
                 <option value="">Select component...</option>
-                {selectedStyle?.components?.map(comp => (
+                {selectedStyle?.components?.map((comp) => (
                   <option key={comp.id} value={comp.id}>
                     {comp.componentMaster?.name || comp.componentName}
                   </option>
@@ -929,9 +951,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
               {hasEmbroidery && (
                 <div className="mt-3">
-                  <label className="block text-xs font-medium text-purple-700 mb-1">
-                    Embroidery Design
-                  </label>
+                  <label className="block text-xs font-medium text-purple-700 mb-1">Embroidery Design</label>
                   <select
                     value={selectedEmbroideryId || ''}
                     onChange={(e) => setSelectedEmbroideryId(e.target.value || null)}
@@ -939,15 +959,13 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                     className="w-full max-w-md px-3 py-2 text-sm border border-purple-300 rounded-md bg-white focus:ring-purple-500 focus:border-purple-500"
                   >
                     <option value="">Select embroidery design (optional)...</option>
-                    {embroideryDesigns.map(design => (
+                    {embroideryDesigns.map((design) => (
                       <option key={design.id} value={design.id}>
                         {design.embroideryCode} - {design.designName}
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-purple-600 mt-1">
-                    Design can be selected later if not yet finalized
-                  </p>
+                  <p className="text-xs text-purple-600 mt-1">Design can be selected later if not yet finalized</p>
                 </div>
               )}
             </div>
@@ -960,7 +978,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             <label className="block text-xs font-medium text-gray-600 mb-2">Pattern Parts</label>
             {loadingPatternParts ? (
               <span className="text-xs text-gray-500">Loading pattern parts...</span>
-            ) : (cadPatternParts.length > 0 || masterPatternParts.length > 0) ? (
+            ) : cadPatternParts.length > 0 || masterPatternParts.length > 0 ? (
               <PatternPartMultiSelect
                 cadPatternParts={cadPatternParts}
                 masterPatternParts={masterPatternParts}
@@ -1024,7 +1042,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               </label>
               <GenericGreigeSelector
                 value={formData.genericGreigeName}
-                onChange={(value) => setFormData(prev => ({ ...prev, genericGreigeName: value }))}
+                onChange={(value) => setFormData((prev) => ({ ...prev, genericGreigeName: value }))}
                 label=""
                 placeholder="Search or type greige name..."
                 required={!formData.greigeId}
@@ -1049,7 +1067,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 >
                   <option value="">Select greige...</option>
                   {greigeMasters
-                    .filter(greige => {
+                    .filter((greige) => {
                       if (!formData.genericGreigeName) return true;
                       const searchTerm = formData.genericGreigeName.toLowerCase();
                       return (
@@ -1057,7 +1075,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                         greige.greigeName?.toLowerCase().includes(searchTerm)
                       );
                     })
-                    .map(greige => (
+                    .map((greige) => (
                       <option key={greige.id} value={greige.id}>
                         {greige.greigeName}
                       </option>
@@ -1125,13 +1143,13 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               onChange={(colorId, color) => {
                 setSelectedColorId(colorId);
                 if (color) {
-                  setFormData(prev => ({
+                  setFormData((prev) => ({
                     ...prev,
                     colorName: color.colorName,
                     colorCode: color.hexCode || '',
                   }));
                 } else {
-                  setFormData(prev => ({
+                  setFormData((prev) => ({
                     ...prev,
                     colorName: '',
                     colorCode: '',
@@ -1182,7 +1200,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             {/* Cutable - narrow */}
             <div className="col-span-3 sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cutable" {hasEmbroidery ? (
+                Cutable"{' '}
+                {hasEmbroidery ? (
                   <span className="text-xs text-purple-600">(manual)</span>
                 ) : (
                   <span className="text-xs text-green-600">(auto)</span>
@@ -1193,7 +1212,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 name="cutableWidth"
                 value={formData.cutableWidth || ''}
                 onChange={handleChange}
-                placeholder={hasEmbroidery ? "Enter width" : "W-2"}
+                placeholder={hasEmbroidery ? 'Enter width' : 'W-2'}
                 step="0.1"
                 className={`text-sm ${hasEmbroidery ? 'border-purple-300 focus:border-purple-500' : ''}`}
               />
@@ -1279,8 +1298,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                     required
                   >
                     <option value="">Select supplier...</option>
-                    {suppliers.map(s => (
-                      <option key={s.id} value={s.id}>{s.code} - {s.name}</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.code} - {s.name}
+                      </option>
                     ))}
                   </select>
                   <label className="inline-flex items-center gap-1.5 text-sm whitespace-nowrap cursor-pointer">
@@ -1329,12 +1350,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-3">
               <h4 className="text-sm font-semibold text-gray-800">Allocated Styles</h4>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setAllocationModalOpen(true)}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => setAllocationModalOpen(true)}>
                 + Allocate to Style
               </Button>
             </div>
@@ -1377,12 +1393,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
         {/* Form Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate('/fabric')}
-            disabled={saving}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate('/fabric')} disabled={saving}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
@@ -1417,17 +1428,36 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           <DialogHeader>
             <DialogTitle>Create Greige Automatically?</DialogTitle>
             <DialogDescription>
-              No greige is linked to this fabric. Would you like to automatically create a matching greige for CAD planning?
+              No greige is linked to this fabric. Would you like to automatically create a matching greige for CAD
+              planning?
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
               <p className="font-medium text-blue-800">Greige will be created with:</p>
               <ul className="mt-2 text-blue-700 space-y-1">
-                <li>Name: <span className="font-medium">{formData.genericGreigeName} {formData.actualWidth}"</span></li>
-                <li>Width: <span className="font-medium">{formData.actualWidth}"</span></li>
-                <li>Cutable Width: <span className="font-medium">{formData.cutableWidth || (formData.actualWidth > 4 ? formData.actualWidth - 4 : formData.actualWidth)}"</span></li>
-                {formData.composition && <li>Composition: <span className="font-medium">{formData.composition}</span></li>}
+                <li>
+                  Name:{' '}
+                  <span className="font-medium">
+                    {formData.genericGreigeName} {formData.actualWidth}"
+                  </span>
+                </li>
+                <li>
+                  Width: <span className="font-medium">{formData.actualWidth}"</span>
+                </li>
+                <li>
+                  Cutable Width:{' '}
+                  <span className="font-medium">
+                    {formData.cutableWidth ||
+                      (formData.actualWidth > 4 ? formData.actualWidth - 4 : formData.actualWidth)}
+                    "
+                  </span>
+                </li>
+                {formData.composition && (
+                  <li>
+                    Composition: <span className="font-medium">{formData.composition}</span>
+                  </li>
+                )}
               </ul>
             </div>
           </div>
@@ -1447,11 +1477,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             >
               Save Without Greige
             </Button>
-            <Button
-              type="button"
-              onClick={handleAutoCreateGreigeAndSave}
-              disabled={saving}
-            >
+            <Button type="button" onClick={handleAutoCreateGreigeAndSave} disabled={saving}>
               {saving ? 'Creating...' : 'Create Greige & Save'}
             </Button>
           </DialogFooter>

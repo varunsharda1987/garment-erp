@@ -7,21 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -107,7 +94,7 @@ export default function CuttingDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (batch && batch.skuOutputs && batch.skuOutputs.some(s => s.goodPcs > 0)) {
+    if (batch && batch.skuOutputs && batch.skuOutputs.some((s) => s.goodPcs > 0)) {
       fetchStitchingIssues();
     }
   }, [batch]);
@@ -397,9 +384,7 @@ export default function CuttingDetail() {
   // ============================================
 
   const getStatusBadge = (status: CuttingBatchStatus) => (
-    <Badge className={CuttingBatchStatusColors[status]}>
-      {CuttingBatchStatusLabels[status]}
-    </Badge>
+    <Badge className={CuttingBatchStatusColors[status]}>{CuttingBatchStatusLabels[status]}</Badge>
   );
 
   const totalToCut = batch?.skuOutputs?.reduce((sum, s) => sum + s.toCut, 0) || 0;
@@ -410,9 +395,7 @@ export default function CuttingDetail() {
 
   // Sort SKU outputs by size sortOrder
   const sortedSkus = useMemo(() => {
-    return [...(batch?.skuOutputs || [])].sort(
-      (a, b) => (a.size?.sortOrder || 0) - (b.size?.sortOrder || 0)
-    );
+    return [...(batch?.skuOutputs || [])].sort((a, b) => (a.size?.sortOrder || 0) - (b.size?.sortOrder || 0));
   }, [batch?.skuOutputs]);
 
   const hasGoodPcs = totalGood > 0;
@@ -420,12 +403,10 @@ export default function CuttingDetail() {
   const isCompleted = batch?.status === 'COMPLETED';
 
   // Check if all fabrics have at least one lay (for issue-to-stitching guard)
-  const uncutFabrics = batch?.additionalFabrics?.filter(af =>
-    !lays.some(lay => lay.cuttingBatchFabricId === af.id)
-  ) || [];
-  const allFabricsCut = batch?.additionalFabrics && batch.additionalFabrics.length > 0
-    ? uncutFabrics.length === 0
-    : true;
+  const uncutFabrics =
+    batch?.additionalFabrics?.filter((af) => !lays.some((lay) => lay.cuttingBatchFabricId === af.id)) || [];
+  const allFabricsCut =
+    batch?.additionalFabrics && batch.additionalFabrics.length > 0 ? uncutFabrics.length === 0 : true;
 
   if (isLoading) {
     return (
@@ -464,7 +445,8 @@ export default function CuttingDetail() {
               </div>
               <p className="text-gray-500">
                 {batch.workOrder?.style?.styleCode} - {batch.workOrder?.style?.styleName}
-                {' | '}{batch.workOrder?.workOrderNumber}
+                {' | '}
+                {batch.workOrder?.workOrderNumber}
               </p>
             </div>
           </div>
@@ -542,9 +524,7 @@ export default function CuttingDetail() {
                       <span className="font-medium min-w-[120px]">
                         {af.fabricStock?.fabricMaster?.fabricName || af.fabricStock?.rollNumbers || 'Fabric'}
                       </span>
-                      <span className="text-gray-500">
-                        Lot: {af.fabricStock?.rollNumbers || '-'}
-                      </span>
+                      <span className="text-gray-500">Lot: {af.fabricStock?.rollNumbers || '-'}</span>
                       <span className="font-semibold">
                         CAD Avg: {af.cadAvgUsed != null ? `${Number(af.cadAvgUsed).toFixed(2)} m/pc` : '-'}
                       </span>
@@ -585,7 +565,8 @@ export default function CuttingDetail() {
                 </div>
               ) : (
                 <span className="text-gray-500">
-                  Fabric Used: <span className="font-semibold text-gray-900">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
+                  Fabric Used:{' '}
+                  <span className="font-semibold text-gray-900">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
                 </span>
               )}
               <span className="text-gray-500">
@@ -595,10 +576,7 @@ export default function CuttingDetail() {
           </div>
           {/* Progress bar */}
           <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-            <div
-              className="bg-orange-500 h-2 rounded-full transition-all"
-              style={{ width: `${progressPercent}%` }}
-            />
+            <div className="bg-orange-500 h-2 rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
         </CardHeader>
         <CardContent>
@@ -619,7 +597,9 @@ export default function CuttingDetail() {
                 <TableRow>
                   <TableCell className="font-medium text-gray-500">Planned</TableCell>
                   {sortedSkus.map((sku) => (
-                    <TableCell key={sku.id} className="text-center">{sku.toCut}</TableCell>
+                    <TableCell key={sku.id} className="text-center">
+                      {sku.toCut}
+                    </TableCell>
                   ))}
                   <TableCell className="text-center font-semibold">{totalToCut}</TableCell>
                 </TableRow>
@@ -664,17 +644,15 @@ export default function CuttingDetail() {
               <Layers className="h-5 w-5 text-orange-600" />
               Add New Lay
             </CardTitle>
-            <CardDescription>Record a cutting lay — enter number of layers, fabric lengths, and pieces per layer per size</CardDescription>
+            <CardDescription>
+              Record a cutting lay — enter number of layers, fabric lengths, and pieces per layer per size
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="space-y-1">
                 <Label className="text-sm">Lay Date</Label>
-                <Input
-                  type="date"
-                  value={layDate}
-                  onChange={(e) => setLayDate(e.target.value)}
-                />
+                <Input type="date" value={layDate} onChange={(e) => setLayDate(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label className="text-sm">Number of Layers (plies)</Label>
@@ -734,7 +712,7 @@ export default function CuttingDetail() {
                             className="w-32"
                             placeholder="Length (m)"
                             value={fabricLayerLengths[af.id] || ''}
-                            onChange={(e) => setFabricLayerLengths(prev => ({ ...prev, [af.id]: e.target.value }))}
+                            onChange={(e) => setFabricLayerLengths((prev) => ({ ...prev, [af.id]: e.target.value }))}
                           />
                           <span className="text-sm text-gray-500">m</span>
                           {consumed > 0 && (
@@ -774,9 +752,7 @@ export default function CuttingDetail() {
                         <TableCell>
                           <Checkbox
                             checked={layChecked[key] || false}
-                            onCheckedChange={(checked) =>
-                              setLayChecked((prev) => ({ ...prev, [key]: !!checked }))
-                            }
+                            onCheckedChange={(checked) => setLayChecked((prev) => ({ ...prev, [key]: !!checked }))}
                           />
                         </TableCell>
                         <TableCell className="font-medium">{sku.size?.sizeName || '-'}</TableCell>
@@ -808,11 +784,7 @@ export default function CuttingDetail() {
 
             <div className="flex justify-end">
               <Button onClick={handleSaveLay} disabled={isSavingLay}>
-                {isSavingLay ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4 mr-2" />
-                )}
+                {isSavingLay ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                 {isSavingLay ? 'Saving...' : 'Save Lay'}
               </Button>
             </div>
@@ -844,51 +816,54 @@ export default function CuttingDetail() {
                 {lays.map((lay, idx) => {
                   const layers = lay.numberOfLayers || 1;
                   return (
-                  <TableRow key={lay.id}>
-                    <TableCell className="font-mono font-medium">#{lay.layNumber}</TableCell>
-                    <TableCell>{format(new Date(lay.layDate), 'dd MMM yyyy')}</TableCell>
-                    <TableCell className="text-right">{layers}</TableCell>
-                    <TableCell>
-                      {lay.layFabrics && lay.layFabrics.length > 0 ? (
-                        <div className="space-y-0.5 text-xs">
-                          {lay.layFabrics.map((lf) => (
-                            <div key={lf.id}>
-                              {lf.batchFabric?.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
-                              <span className="font-medium">{(Number(lf.layerLength) * layers).toFixed(2)} m</span>
-                              <span className="text-gray-400"> ({Number(lf.layerLength).toFixed(2)} × {layers})</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-sm">{(lay.layerLength * layers).toFixed(2)} m</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {lay.skuOutputs.map((s) => (
-                          <Badge key={s.id} variant="secondary" className="text-xs">
-                            {s.size?.sizeName}: {s.pieces}/layer = {s.pieces * layers}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">{lay.totalPieces}</TableCell>
-                    <TableCell className="text-gray-500 text-sm">{lay.remarks || '-'}</TableCell>
-                    {isInProgress && (
+                    <TableRow key={lay.id}>
+                      <TableCell className="font-mono font-medium">#{lay.layNumber}</TableCell>
+                      <TableCell>{format(new Date(lay.layDate), 'dd MMM yyyy')}</TableCell>
+                      <TableCell className="text-right">{layers}</TableCell>
                       <TableCell>
-                        {idx === 0 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteLay(lay.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        {lay.layFabrics && lay.layFabrics.length > 0 ? (
+                          <div className="space-y-0.5 text-xs">
+                            {lay.layFabrics.map((lf) => (
+                              <div key={lf.id}>
+                                {lf.batchFabric?.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
+                                <span className="font-medium">{(Number(lf.layerLength) * layers).toFixed(2)} m</span>
+                                <span className="text-gray-400">
+                                  {' '}
+                                  ({Number(lf.layerLength).toFixed(2)} × {layers})
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-sm">{(lay.layerLength * layers).toFixed(2)} m</span>
                         )}
                       </TableCell>
-                    )}
-                  </TableRow>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {lay.skuOutputs.map((s) => (
+                            <Badge key={s.id} variant="secondary" className="text-xs">
+                              {s.size?.sizeName}: {s.pieces}/layer = {s.pieces * layers}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{lay.totalPieces}</TableCell>
+                      <TableCell className="text-gray-500 text-sm">{lay.remarks || '-'}</TableCell>
+                      {isInProgress && (
+                        <TableCell>
+                          {idx === 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700"
+                              onClick={() => handleDeleteLay(lay.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
                   );
                 })}
               </TableBody>
@@ -910,7 +885,8 @@ export default function CuttingDetail() {
                 <div className="flex items-center gap-2">
                   {!allFabricsCut && (
                     <span className="text-xs text-red-600">
-                      {uncutFabrics.map(af => af.fabricStock?.fabricMaster?.fabricName || 'Fabric').join(', ')} not yet cut
+                      {uncutFabrics.map((af) => af.fabricStock?.fabricMaster?.fabricName || 'Fabric').join(', ')} not
+                      yet cut
                     </span>
                   )}
                   <Button size="sm" onClick={handleOpenIssueForm} disabled={!allFabricsCut}>
@@ -939,16 +915,24 @@ export default function CuttingDetail() {
                       <TableCell className="font-medium">{sku.sizeName}</TableCell>
                       <TableCell className="text-center">{sku.goodPcs}</TableCell>
                       <TableCell className="text-center text-blue-600">{sku.issuedQty}</TableCell>
-                      <TableCell className={`text-center font-medium ${sku.availableQty > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                      <TableCell
+                        className={`text-center font-medium ${sku.availableQty > 0 ? 'text-green-600' : 'text-gray-400'}`}
+                      >
                         {sku.availableQty}
                       </TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="bg-gray-50 font-semibold">
                     <TableCell>Total</TableCell>
-                    <TableCell className="text-center">{stitchingData.perSku.reduce((s, r) => s + r.goodPcs, 0)}</TableCell>
-                    <TableCell className="text-center text-blue-600">{stitchingData.perSku.reduce((s, r) => s + r.issuedQty, 0)}</TableCell>
-                    <TableCell className="text-center text-green-600">{stitchingData.perSku.reduce((s, r) => s + r.availableQty, 0)}</TableCell>
+                    <TableCell className="text-center">
+                      {stitchingData.perSku.reduce((s, r) => s + r.goodPcs, 0)}
+                    </TableCell>
+                    <TableCell className="text-center text-blue-600">
+                      {stitchingData.perSku.reduce((s, r) => s + r.issuedQty, 0)}
+                    </TableCell>
+                    <TableCell className="text-center text-green-600">
+                      {stitchingData.perSku.reduce((s, r) => s + r.availableQty, 0)}
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -1029,7 +1013,9 @@ export default function CuttingDetail() {
                   </Table>
 
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setShowIssueForm(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowIssueForm(false)}>
+                      Cancel
+                    </Button>
                     <Button onClick={handleIssueToStitching} disabled={isIssueing}>
                       {isIssueing ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1058,7 +1044,9 @@ export default function CuttingDetail() {
                             <p className="text-xs text-gray-500">{format(new Date(issue.issueDate), 'dd MMM yyyy')}</p>
                           </div>
                           <div>
-                            <p className="text-sm">To: <span className="font-medium">{issue.issuedTo.name}</span></p>
+                            <p className="text-sm">
+                              To: <span className="font-medium">{issue.issuedTo.name}</span>
+                            </p>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {issue.skuBreakdown.map((s, i) => (
@@ -1076,7 +1064,12 @@ export default function CuttingDetail() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/documents/transfer-slips/${issue.id}/pdf`, '_blank')}
+                            onClick={() =>
+                              window.open(
+                                `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/documents/transfer-slips/${issue.id}/pdf`,
+                                '_blank'
+                              )
+                            }
                             title="Print Transfer Slip"
                           >
                             <Printer className="h-4 w-4" />
@@ -1106,7 +1099,8 @@ export default function CuttingDetail() {
                   <div className="space-y-0.5">
                     {batch.additionalFabrics.map((af) => (
                       <p key={af.id} className="font-semibold text-xs">
-                        {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}: {af.cadAvgUsed != null ? `${Number(af.cadAvgUsed).toFixed(3)} m/pc` : '-'}
+                        {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
+                        {af.cadAvgUsed != null ? `${Number(af.cadAvgUsed).toFixed(3)} m/pc` : '-'}
                       </p>
                     ))}
                   </div>
@@ -1120,7 +1114,9 @@ export default function CuttingDetail() {
               </div>
               <div>
                 <Label className="text-gray-500">Variance</Label>
-                <p className={`font-semibold ${batch.variancePercent && batch.variancePercent > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                <p
+                  className={`font-semibold ${batch.variancePercent && batch.variancePercent > 0 ? 'text-red-600' : 'text-green-600'}`}
+                >
                   {batch.variancePercent?.toFixed(2)}%
                 </p>
               </div>
@@ -1159,7 +1155,9 @@ export default function CuttingDetail() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
+              Cancel
+            </Button>
             <Button onClick={handleComplete} disabled={isActioning}>
               {isActioning ? 'Completing...' : 'Complete Batch'}
             </Button>

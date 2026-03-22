@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { getGRNById, approveGRN, rejectGRN } from '@/services/grn.service';
@@ -22,13 +15,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  ArrowLeft,
-  CheckCircle,
-  XCircle,
-  Printer,
-  FileText,
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Printer, FileText } from 'lucide-react';
 
 export default function GRNDetail() {
   const { id } = useParams<{ id: string }>();
@@ -72,7 +59,9 @@ export default function GRNDetail() {
     try {
       const data = await warehouseService.getAll({ isActive: true });
       setWarehouses(data);
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   };
 
   const fetchGRN = async () => {
@@ -96,14 +85,16 @@ export default function GRNDetail() {
     }
     try {
       const isProcessing = grn?.purchaseOrders?.poCategory === 'PROCESSING';
-      const qcData: ProcessingQCData | undefined = isProcessing ? {
-        qualityGrade: qcGrade,
-        colorMatchStatus: qcColorMatch || undefined,
-        defectMeters: qcDefectMeters ? parseFloat(qcDefectMeters) : undefined,
-        defectType: qcDefectType || undefined,
-        actualRate: qcActualRate ? parseFloat(qcActualRate) : undefined,
-        remarks: qcRemarks || undefined,
-      } : undefined;
+      const qcData: ProcessingQCData | undefined = isProcessing
+        ? {
+            qualityGrade: qcGrade,
+            colorMatchStatus: qcColorMatch || undefined,
+            defectMeters: qcDefectMeters ? parseFloat(qcDefectMeters) : undefined,
+            defectType: qcDefectType || undefined,
+            actualRate: qcActualRate ? parseFloat(qcActualRate) : undefined,
+            remarks: qcRemarks || undefined,
+          }
+        : undefined;
       await approveGRN(id!, wId, qcData);
       handleApiSuccess('GRN approved', 'The goods have been accepted and stock has been updated.');
       fetchGRN();
@@ -193,14 +184,9 @@ export default function GRNDetail() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">{grn.grnNumber}</h1>
-            <p className="text-sm text-gray-500">
-              Received on {formatDate(grn.receivingDate)}
-            </p>
+            <p className="text-sm text-gray-500">Received on {formatDate(grn.receivingDate)}</p>
           </div>
-          <StatusBadge
-            status={GRNStatusLabels[grn.status]}
-            variant={getStatusVariant(grn.status)}
-          />
+          <StatusBadge status={GRNStatusLabels[grn.status]} variant={getStatusVariant(grn.status)} />
         </div>
         <div className="flex gap-2">
           {canApprove && (
@@ -234,9 +220,7 @@ export default function GRNDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Received</div>
             <div className="text-2xl font-bold">
-              {grn.items
-                ?.reduce((sum, item) => sum + Number(item.receivedQuantity), 0)
-                .toLocaleString()}
+              {grn.items?.reduce((sum, item) => sum + Number(item.receivedQuantity), 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -244,9 +228,7 @@ export default function GRNDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Accepted</div>
             <div className="text-2xl font-bold text-green-600">
-              {grn.items
-                ?.reduce((sum, item) => sum + Number(item.acceptedQuantity), 0)
-                .toLocaleString()}
+              {grn.items?.reduce((sum, item) => sum + Number(item.acceptedQuantity), 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -254,9 +236,7 @@ export default function GRNDetail() {
           <CardContent className="pt-6">
             <div className="text-sm text-gray-500">Total Rejected</div>
             <div className="text-2xl font-bold text-red-600">
-              {grn.items
-                ?.reduce((sum, item) => sum + Number(item.rejectedQuantity), 0)
-                .toLocaleString()}
+              {grn.items?.reduce((sum, item) => sum + Number(item.rejectedQuantity), 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -359,9 +339,7 @@ export default function GRNDetail() {
                       <div className="text-sm text-gray-500">{item.materials?.name}</div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    {Number(item.orderedQuantity).toLocaleString()}
-                  </TableCell>
+                  <TableCell className="text-right">{Number(item.orderedQuantity).toLocaleString()}</TableCell>
                   <TableCell className="text-right font-medium">
                     {Number(item.receivedQuantity).toLocaleString()}
                   </TableCell>
@@ -369,14 +347,10 @@ export default function GRNDetail() {
                     {Number(item.acceptedQuantity).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right text-red-600">
-                    {Number(item.rejectedQuantity) > 0
-                      ? Number(item.rejectedQuantity).toLocaleString()
-                      : '-'}
+                    {Number(item.rejectedQuantity) > 0 ? Number(item.rejectedQuantity).toLocaleString() : '-'}
                   </TableCell>
                   <TableCell>{item.unit}</TableCell>
-                  <TableCell className="text-sm text-gray-500">
-                    {item.remarks || '-'}
-                  </TableCell>
+                  <TableCell className="text-sm text-gray-500">{item.remarks || '-'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -396,9 +370,7 @@ export default function GRNDetail() {
               <p className="font-medium">
                 {grn.receivedBy ? `${grn.receivedBy.firstName} ${grn.receivedBy.lastName}` : '-'}
               </p>
-              <p className="text-gray-500">
-                {grn.receivedBy?.email}
-              </p>
+              <p className="text-gray-500">{grn.receivedBy?.email}</p>
             </div>
             {grn.approvedById && (
               <div>
@@ -406,9 +378,7 @@ export default function GRNDetail() {
                 <p className="font-medium">
                   {grn.approvedBy ? `${grn.approvedBy.firstName} ${grn.approvedBy.lastName}` : '-'}
                 </p>
-                <p className="text-gray-500">
-                  {grn.approvedBy?.email}
-                </p>
+                <p className="text-gray-500">{grn.approvedBy?.email}</p>
               </div>
             )}
           </div>
@@ -609,8 +579,8 @@ export default function GRNDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-gray-600">
-                Are you sure you want to reject GRN {grn.grnNumber}? This will revert the received
-                quantities on the purchase order.
+                Are you sure you want to reject GRN {grn.grnNumber}? This will revert the received quantities on the
+                purchase order.
               </p>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Rejection Reason *</label>

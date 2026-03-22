@@ -22,10 +22,12 @@ import {
 export async function getProcessors(req: Request, res: Response) {
   const processors = await processorRateV2Service.getAllDyeingPrintingProcessors();
 
-  res.json(serialize({
-    success: true,
-    data: processors,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: processors,
+    })
+  );
 }
 
 /**
@@ -51,13 +53,15 @@ export async function getProcessorMatrix(req: Request, res: Response) {
   const matrix = await processorRateV2Service.getProcessorRateMatrix(
     processorId,
     processingType as ProcessingTypeV2,
-    processingType === 'PRINTING' ? (printingType as PrintingTypeV2 || 'PIGMENT') : undefined
+    processingType === 'PRINTING' ? (printingType as PrintingTypeV2) || 'PIGMENT' : undefined
   );
 
-  res.json(serialize({
-    success: true,
-    data: matrix,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: matrix,
+    })
+  );
 }
 
 /**
@@ -67,10 +71,12 @@ export async function getProcessorMatrix(req: Request, res: Response) {
 export async function getGreigesForRateCard(req: Request, res: Response) {
   const greiges = await processorRateV2Service.getGreigeFabricsForRateCard();
 
-  res.json(serialize({
-    success: true,
-    data: greiges,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: greiges,
+    })
+  );
 }
 
 /**
@@ -101,11 +107,13 @@ export async function updateSlabs(req: Request, res: Response) {
     userId
   );
 
-  res.json(serialize({
-    success: true,
-    data: updatedSlabs,
-    message: 'Slabs updated successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: updatedSlabs,
+      message: 'Slabs updated successfully',
+    })
+  );
 }
 
 /**
@@ -129,7 +137,9 @@ export async function saveMatrix(req: Request, res: Response) {
   // Validate printingType for PRINTING
   if (processingType === 'PRINTING') {
     if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+      throw new ValidationError(
+        `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`
+      );
     }
   }
 
@@ -148,10 +158,12 @@ export async function saveMatrix(req: Request, res: Response) {
     userId
   );
 
-  res.json(serialize({
-    success: true,
-    message: 'Rate matrix saved successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: 'Rate matrix saved successfully',
+    })
+  );
 }
 
 /**
@@ -165,7 +177,14 @@ export async function copyRates(req: Request, res: Response) {
     throw new ValidationError('User not authenticated');
   }
 
-  const { sourceProcessorId, targetProcessorId, processingType, printingType, copySlabs, copyRates: copyRatesFlag } = req.body;
+  const {
+    sourceProcessorId,
+    targetProcessorId,
+    processingType,
+    printingType,
+    copySlabs,
+    copyRates: copyRatesFlag,
+  } = req.body;
 
   if (!sourceProcessorId || !targetProcessorId) {
     throw new ValidationError('sourceProcessorId and targetProcessorId are required');
@@ -178,7 +197,9 @@ export async function copyRates(req: Request, res: Response) {
   // Validate printingType for PRINTING
   if (processingType === 'PRINTING') {
     if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+      throw new ValidationError(
+        `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`
+      );
     }
   }
 
@@ -197,10 +218,12 @@ export async function copyRates(req: Request, res: Response) {
 
   await processorRateV2Service.copyProcessorRates(input, userId);
 
-  res.json(serialize({
-    success: true,
-    message: 'Rates copied successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: 'Rates copied successfully',
+    })
+  );
 }
 
 /**
@@ -224,7 +247,9 @@ export async function addGreige(req: Request, res: Response) {
   // Validate printingType for PRINTING
   if (processingType === 'PRINTING') {
     if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+      throw new ValidationError(
+        `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`
+      );
     }
   }
 
@@ -236,10 +261,12 @@ export async function addGreige(req: Request, res: Response) {
     userId
   );
 
-  res.json(serialize({
-    success: true,
-    message: 'Greige added successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: 'Greige added successfully',
+    })
+  );
 }
 
 /**
@@ -258,7 +285,9 @@ export async function removeGreige(req: Request, res: Response) {
   // Validate printingType for PRINTING
   if (processingType === 'PRINTING') {
     if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+      throw new ValidationError(
+        `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`
+      );
     }
   }
 
@@ -269,10 +298,12 @@ export async function removeGreige(req: Request, res: Response) {
     greigeId
   );
 
-  res.json(serialize({
-    success: true,
-    message: 'Greige removed successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: 'Greige removed successfully',
+    })
+  );
 }
 
 /**
@@ -282,10 +313,12 @@ export async function removeGreige(req: Request, res: Response) {
 export async function getSummary(req: Request, res: Response) {
   const summary = await processorRateV2Service.getProcessorRateCardSummary();
 
-  res.json(serialize({
-    success: true,
-    data: summary,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: summary,
+    })
+  );
 }
 
 /**
@@ -307,7 +340,9 @@ export async function lookupRate(req: Request, res: Response) {
   // Validate printingType for PRINTING
   if (processingType === 'PRINTING') {
     if (!printingType || !PRINTING_TYPES.includes(printingType as PrintingTypeV2)) {
-      throw new ValidationError(`printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`);
+      throw new ValidationError(
+        `printingType is required for PRINTING and must be one of: ${PRINTING_TYPES.join(', ')}`
+      );
     }
   }
 
@@ -323,10 +358,12 @@ export async function lookupRate(req: Request, res: Response) {
     throw new NotFoundError('Rate', `processor=${processorId}, greige=${greigeId}`);
   }
 
-  res.json(serialize({
-    success: true,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+    })
+  );
 }
 
 // ==========================================
@@ -340,10 +377,12 @@ export async function lookupRate(req: Request, res: Response) {
 export async function getGreigeLacesForRateCard(req: Request, res: Response) {
   const laces = await processorRateV2Service.getGreigeLaceForRateCard();
 
-  res.json(serialize({
-    success: true,
-    data: laces,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: laces,
+    })
+  );
 }
 
 /**
@@ -355,10 +394,12 @@ export async function getLaceProcessorMatrix(req: Request, res: Response) {
 
   const matrix = await processorRateV2Service.getLaceProcessorRateMatrix(processorId);
 
-  res.json(serialize({
-    success: true,
-    data: matrix,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: matrix,
+    })
+  );
 }
 
 /**
@@ -378,17 +419,15 @@ export async function saveLaceMatrix(req: Request, res: Response) {
     throw new ValidationError('rates must be an array');
   }
 
-  const result = await processorRateV2Service.saveLaceRateMatrix(
-    processorId,
-    rates,
-    userId
-  );
+  const result = await processorRateV2Service.saveLaceRateMatrix(processorId, rates, userId);
 
-  res.json(serialize({
-    success: true,
-    message: `Lace rate matrix saved successfully. ${result.saved} saved, ${result.skipped} skipped.`,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: `Lace rate matrix saved successfully. ${result.saved} saved, ${result.skipped} skipped.`,
+      data: result,
+    })
+  );
 }
 
 /**
@@ -403,16 +442,14 @@ export async function addLace(req: Request, res: Response) {
 
   const { processorId, laceId } = req.params;
 
-  await processorRateV2Service.addLaceToProcessor(
-    processorId,
-    laceId,
-    userId
-  );
+  await processorRateV2Service.addLaceToProcessor(processorId, laceId, userId);
 
-  res.json(serialize({
-    success: true,
-    message: 'Greige lace added successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: 'Greige lace added successfully',
+    })
+  );
 }
 
 /**
@@ -422,15 +459,14 @@ export async function addLace(req: Request, res: Response) {
 export async function removeLace(req: Request, res: Response) {
   const { processorId, laceId } = req.params;
 
-  await processorRateV2Service.removeLaceFromProcessor(
-    processorId,
-    laceId
-  );
+  await processorRateV2Service.removeLaceFromProcessor(processorId, laceId);
 
-  res.json(serialize({
-    success: true,
-    message: 'Greige lace removed successfully',
-  }));
+  res.json(
+    serialize({
+      success: true,
+      message: 'Greige lace removed successfully',
+    })
+  );
 }
 
 /**
@@ -454,10 +490,12 @@ export async function lookupLaceRate(req: Request, res: Response) {
     throw new NotFoundError('LaceRate', laceId);
   }
 
-  res.json(serialize({
-    success: true,
-    data: result,
-  }));
+  res.json(
+    serialize({
+      success: true,
+      data: result,
+    })
+  );
 }
 
 export default {

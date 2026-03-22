@@ -24,13 +24,21 @@ router.post(
  * @desc    Get generic greige stock (not tied to any style)
  * @access  Protected - All authenticated users
  */
-router.get('/generic-stock', authenticateToken, asyncHandler((req: Request, res: Response) => StyleStockController.getGenericGreigeStock(req, res)));
+router.get(
+  '/generic-stock',
+  authenticateToken,
+  asyncHandler((req: Request, res: Response) => StyleStockController.getGenericGreigeStock(req, res))
+);
 
 /**
  * @route   GET /api/greige/summary
  * @desc    Get greige stock summary for unified dashboard
  * @access  Protected - All authenticated users
  */
-router.get('/summary', authenticateToken, asyncHandler((req: Request, res: Response) => StyleStockController.getGreigeStockSummary(req, res)));
+router.get(
+  '/summary',
+  authenticateToken,
+  asyncHandler((req: Request, res: Response) => StyleStockController.getGreigeStockSummary(req, res))
+);
 
 export default router;

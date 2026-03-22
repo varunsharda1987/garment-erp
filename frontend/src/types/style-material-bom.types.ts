@@ -1,17 +1,7 @@
 // Style Material BOM Types - Phase 2
-export type MaterialType =
-  | 'LACE'
-  | 'BUTTON'
-  | 'THREAD'
-  | 'ZIPPER'
-  | 'ELASTIC'
-  | 'LABEL'
-  | 'PACKAGING';
+export type MaterialType = 'LACE' | 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING';
 
-export type MaterialUsageCategory =
-  | 'GARMENT_TRIM'
-  | 'VALUE_ADDITION'
-  | 'PACKAGING';
+export type MaterialUsageCategory = 'GARMENT_TRIM' | 'VALUE_ADDITION' | 'PACKAGING';
 
 export interface MaterialSpecifications {
   // Lace
@@ -166,14 +156,14 @@ export const MaterialTypeLabels: Record<MaterialType, string> = {
   ZIPPER: 'Zipper',
   ELASTIC: 'Elastic',
   LABEL: 'Label',
-  PACKAGING: 'Packaging'
+  PACKAGING: 'Packaging',
 };
 
 // Helper type for usage category display names
 export const UsageCategoryLabels: Record<MaterialUsageCategory, string> = {
   GARMENT_TRIM: 'Garment Trim',
   VALUE_ADDITION: 'Value Addition',
-  PACKAGING: 'Packaging'
+  PACKAGING: 'Packaging',
 };
 
 // Unit options
@@ -184,6 +174,6 @@ export const UnitOptions = [
   { value: 'kg', label: 'Kilograms' },
   { value: 'cones', label: 'Cones' },
   { value: 'rolls', label: 'Rolls' },
-  { value: 'yards', label: 'Yards' }
+  { value: 'yards', label: 'Yards' },
 ];
 // Cache bust: 1764071356

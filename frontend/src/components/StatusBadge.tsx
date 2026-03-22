@@ -11,7 +11,10 @@ export function StatusBadge({ status, variant, className }: StatusBadgeProps) {
   // Handle undefined/null status
   if (!status) {
     return (
-      <Badge variant="outline" className={cn('capitalize', 'bg-muted text-muted-foreground hover:bg-muted/80', className)}>
+      <Badge
+        variant="outline"
+        className={cn('capitalize', 'bg-muted text-muted-foreground hover:bg-muted/80', className)}
+      >
         -
       </Badge>
     );
@@ -26,40 +29,38 @@ export function StatusBadge({ status, variant, className }: StatusBadgeProps) {
     const statusLower = status.toLowerCase();
 
     // Success states
-    if (statusLower.includes('active') ||
-        statusLower.includes('approved') ||
-        statusLower.includes('completed') ||
-        statusLower.includes('confirmed') ||
-        statusLower.includes('success')) {
+    if (
+      statusLower.includes('active') ||
+      statusLower.includes('approved') ||
+      statusLower.includes('completed') ||
+      statusLower.includes('confirmed') ||
+      statusLower.includes('success')
+    ) {
       return 'bg-success/10 text-success border-success/20 hover:bg-success/20';
     }
 
     // Pending/Draft states
-    if (statusLower.includes('pending') ||
-        statusLower.includes('draft') ||
-        statusLower.includes('review')) {
+    if (statusLower.includes('pending') || statusLower.includes('draft') || statusLower.includes('review')) {
       return 'bg-secondary text-secondary-foreground hover:bg-secondary/80';
     }
 
     // Warning states
-    if (statusLower.includes('warning') ||
-        statusLower.includes('on hold') ||
-        statusLower.includes('delayed')) {
+    if (statusLower.includes('warning') || statusLower.includes('on hold') || statusLower.includes('delayed')) {
       return 'bg-warning/10 text-warning-foreground border-warning/20 hover:bg-warning/20';
     }
 
     // Error/Destructive states
-    if (statusLower.includes('cancelled') ||
-        statusLower.includes('rejected') ||
-        statusLower.includes('error') ||
-        statusLower.includes('failed')) {
+    if (
+      statusLower.includes('cancelled') ||
+      statusLower.includes('rejected') ||
+      statusLower.includes('error') ||
+      statusLower.includes('failed')
+    ) {
       return 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20';
     }
 
     // Info states
-    if (statusLower.includes('processing') ||
-        statusLower.includes('in progress') ||
-        statusLower.includes('info')) {
+    if (statusLower.includes('processing') || statusLower.includes('in progress') || statusLower.includes('info')) {
       return 'bg-info/10 text-info border-info/20 hover:bg-info/20';
     }
 
@@ -99,7 +100,7 @@ export function MovementTypeBadge({ type }: { type: string }) {
     IN: 'bg-green-100 text-green-800 hover:bg-green-100',
     OUT: 'bg-red-100 text-red-800 hover:bg-red-100',
     TRANSFER: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
-    ADJUSTMENT: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
+    ADJUSTMENT: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
   };
 
   const colorClass = colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';

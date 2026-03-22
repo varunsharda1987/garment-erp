@@ -50,13 +50,9 @@ export default function SampleStatusIndicator({ sampleStatus }: SampleStatusIndi
       {sampleStatus.fitSample.exists && (
         <div className="flex items-center gap-1">
           {getSampleIcon(sampleStatus.fitSample.status)}
-          <span className={getSampleTextColor(sampleStatus.fitSample.status)}>
-            FIT
-          </span>
+          <span className={getSampleTextColor(sampleStatus.fitSample.status)}>FIT</span>
           {sampleStatus.fitSample.daysPending && sampleStatus.fitSample.daysPending > 0 && (
-            <span className="text-gray-500">
-              ({sampleStatus.fitSample.daysPending}d)
-            </span>
+            <span className="text-gray-500">({sampleStatus.fitSample.daysPending}d)</span>
           )}
         </div>
       )}
@@ -65,13 +61,9 @@ export default function SampleStatusIndicator({ sampleStatus }: SampleStatusIndi
       {sampleStatus.ppSample.exists && (
         <div className="flex items-center gap-1">
           {getSampleIcon(sampleStatus.ppSample.status)}
-          <span className={getSampleTextColor(sampleStatus.ppSample.status)}>
-            PP
-          </span>
+          <span className={getSampleTextColor(sampleStatus.ppSample.status)}>PP</span>
           {sampleStatus.ppSample.daysPending && sampleStatus.ppSample.daysPending > 0 && (
-            <span className="text-gray-500">
-              ({sampleStatus.ppSample.daysPending}d)
-            </span>
+            <span className="text-gray-500">({sampleStatus.ppSample.daysPending}d)</span>
           )}
         </div>
       )}
@@ -80,13 +72,9 @@ export default function SampleStatusIndicator({ sampleStatus }: SampleStatusIndi
       {sampleStatus.sizeSetSample.exists && (
         <div className="flex items-center gap-1">
           {getSampleIcon(sampleStatus.sizeSetSample.status)}
-          <span className={getSampleTextColor(sampleStatus.sizeSetSample.status)}>
-            Size Set
-          </span>
+          <span className={getSampleTextColor(sampleStatus.sizeSetSample.status)}>Size Set</span>
           {sampleStatus.sizeSetSample.daysPending && sampleStatus.sizeSetSample.daysPending > 0 && (
-            <span className="text-gray-500">
-              ({sampleStatus.sizeSetSample.daysPending}d)
-            </span>
+            <span className="text-gray-500">({sampleStatus.sizeSetSample.daysPending}d)</span>
           )}
         </div>
       )}
@@ -95,21 +83,17 @@ export default function SampleStatusIndicator({ sampleStatus }: SampleStatusIndi
       {sampleStatus.shipmentSample.exists && (
         <div className="flex items-center gap-1">
           {getSampleIcon(sampleStatus.shipmentSample.status)}
-          <span className={getSampleTextColor(sampleStatus.shipmentSample.status)}>
-            Shipment
-          </span>
+          <span className={getSampleTextColor(sampleStatus.shipmentSample.status)}>Shipment</span>
           {sampleStatus.shipmentSample.daysPending && sampleStatus.shipmentSample.daysPending > 0 && (
-            <span className="text-gray-500">
-              ({sampleStatus.shipmentSample.daysPending}d)
-            </span>
+            <span className="text-gray-500">({sampleStatus.shipmentSample.daysPending}d)</span>
           )}
         </div>
       )}
 
-      {!sampleStatus.fitSample.exists && !sampleStatus.ppSample.exists &&
-       !sampleStatus.sizeSetSample.exists && !sampleStatus.shipmentSample.exists && (
-        <span className="text-gray-400">No samples tracked</span>
-      )}
+      {!sampleStatus.fitSample.exists &&
+        !sampleStatus.ppSample.exists &&
+        !sampleStatus.sizeSetSample.exists &&
+        !sampleStatus.shipmentSample.exists && <span className="text-gray-400">No samples tracked</span>}
     </div>
   );
 }

@@ -1,13 +1,5 @@
 import { Router } from 'express';
-import {
-  getAll,
-  getById,
-  create,
-  update,
-  remove,
-  getConfigs,
-  getCounts
-} from '../controllers/generic-trim.controller';
+import { getAll, getById, create, update, remove, getConfigs, getCounts } from '../controllers/generic-trim.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 

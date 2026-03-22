@@ -5,21 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { materialMasterService } from '../services/materialMaster.service';
@@ -38,9 +25,7 @@ export default function MaterialMasterList() {
   // Filters
   const selectedType = (searchParams.get('type') as MaterialType) || null;
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
-  const [activeOnly, setActiveOnly] = useState(
-    searchParams.get('active') !== 'false'
-  );
+  const [activeOnly, setActiveOnly] = useState(searchParams.get('active') !== 'false');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   useEffect(() => {
@@ -90,11 +75,7 @@ export default function MaterialMasterList() {
   };
 
   const handleDelete = async (id: number, name: string) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete "${name}"? This will set it as inactive.`
-      )
-    ) {
+    if (!window.confirm(`Are you sure you want to delete "${name}"? This will set it as inactive.`)) {
       return;
     }
 
@@ -290,16 +271,13 @@ export default function MaterialMasterList() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge variant="outline">
-                          {MaterialTypeLabels[material.materialType]}
-                        </Badge>
+                        <Badge variant="outline">{MaterialTypeLabels[material.materialType]}</Badge>
                       </TableCell>
 
                       <TableCell>{formatPrice(material)}</TableCell>
 
                       <TableCell>
-                        {material.specifications &&
-                        Object.keys(material.specifications).length > 0 ? (
+                        {material.specifications && Object.keys(material.specifications).length > 0 ? (
                           <div className="text-sm text-gray-500">
                             {Object.entries(material.specifications)
                               .slice(0, 2)
@@ -312,16 +290,12 @@ export default function MaterialMasterList() {
                       </TableCell>
 
                       <TableCell>
-                        <Badge
-                          variant={material.isActive ? 'default' : 'secondary'}
-                        >
+                        <Badge variant={material.isActive ? 'default' : 'secondary'}>
                           {material.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
 
-                      <TableCell>
-                        {material.supplier?.length || 0}
-                      </TableCell>
+                      <TableCell>{material.supplier?.length || 0}</TableCell>
 
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -336,9 +310,7 @@ export default function MaterialMasterList() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              navigate(`/material-master/${material.id}/edit`)
-                            }
+                            onClick={() => navigate(`/material-master/${material.id}/edit`)}
                             title="Edit"
                           >
                             <Edit className="h-4 w-4" />

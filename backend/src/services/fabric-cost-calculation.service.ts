@@ -109,9 +109,7 @@ export interface FabricCostCalculationResult {
 /**
  * Calculate fabric cost with all sourcing options
  */
-export async function calculateFabricCost(
-  options: FabricCostOptions
-): Promise<FabricCostCalculationResult> {
+export async function calculateFabricCost(options: FabricCostOptions): Promise<FabricCostCalculationResult> {
   const { fabricId, cadMeters, width, orderQuantity, styleId } = options;
 
   // Get fabric details
@@ -148,11 +146,7 @@ export async function calculateFabricCost(
   const readyFabricOption = await getReadyFabricCost(fabricId, totalMetersNeeded, fabric);
 
   // Option 3: Calculate greige + processing
-  const greigeProcessingOption = await calculateGreigeProcessingCost(
-    fabricId,
-    totalMetersNeeded,
-    fabric
-  );
+  const greigeProcessingOption = await calculateGreigeProcessingCost(fabricId, totalMetersNeeded, fabric);
 
   // Build comparison table
   const comparisonTable: {
@@ -244,10 +238,7 @@ async function checkStockAvailability(
       fabricId,
       status: 'AVAILABLE',
       quantityAvailable: { gte: quantityNeeded },
-      OR: [
-        { finishedWidth: width },
-        { cutableWidth: width },
-      ],
+      OR: [{ finishedWidth: width }, { cutableWidth: width }],
     },
     include: {
       originStyle: {
@@ -299,11 +290,7 @@ async function checkStockAvailability(
 /**
  * Get ready fabric cost from latest procurement or fabric_master
  */
-async function getReadyFabricCost(
-  fabricId: string,
-  quantityNeeded: number,
-  fabric: any
-): Promise<ReadyFabricOption> {
+async function getReadyFabricCost(fabricId: string, quantityNeeded: number, fabric: any): Promise<ReadyFabricOption> {
   // Try to get latest procurement rate
   const latestProcurement = await prisma.fabric_procurement.findFirst({
     where: {
@@ -446,15 +433,11 @@ async function calculateGreigeProcessingCost(
   } else if (greigeStockLevel?.valuationRate) {
     greigeCostPerMeter = Number(greigeStockLevel.valuationRate);
     greigeRateSource = 'STOCK_WAC';
-    greigeLastUpdated = greigeStockLevel.lastUpdated
-      ? new Date(greigeStockLevel.lastUpdated).toISOString()
-      : null;
+    greigeLastUpdated = greigeStockLevel.lastUpdated ? new Date(greigeStockLevel.lastUpdated).toISOString() : null;
   } else if (fabric.greige.costPerMeter) {
     greigeCostPerMeter = Number(fabric.greige.costPerMeter);
     greigeRateSource = 'GREIGE_MASTER';
-    greigeLastUpdated = fabric.greige.updatedAt
-      ? new Date(fabric.greige.updatedAt).toISOString()
-      : null;
+    greigeLastUpdated = fabric.greige.updatedAt ? new Date(fabric.greige.updatedAt).toISOString() : null;
   }
 
   if (!greigeCostPerMeter) {

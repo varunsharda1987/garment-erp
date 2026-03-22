@@ -1,14 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  FlaskConical,
-  Building2,
-  FileText,
-  Shirt,
-  XCircle,
-  Clock,
-  AlertTriangle,
-} from 'lucide-react';
+import { FlaskConical, Building2, FileText, Shirt, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -69,27 +61,42 @@ export default function TestingDashboard() {
       const fptData = fptResult.status === 'fulfilled' ? fptResult.value : { pagination: { total: 0 }, data: [] };
       const gptData = gptResult.status === 'fulfilled' ? gptResult.value : { pagination: { total: 0 }, data: [] };
       const labsData = labsResult.status === 'fulfilled' ? labsResult.value : { pagination: { total: 0 }, data: [] };
-      const templatesData = templatesResult.status === 'fulfilled' ? templatesResult.value : { pagination: { total: 0 }, data: [] };
+      const templatesData =
+        templatesResult.status === 'fulfilled' ? templatesResult.value : { pagination: { total: 0 }, data: [] };
 
       // Get count for each status with error handling
       const fptStatusResults = await Promise.allSettled([
-        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PENDING' }).catch(() => ({ pagination: { total: 0 } })),
-        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PASS' }).catch(() => ({ pagination: { total: 0 } })),
-        fabricPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'FAIL' }).catch(() => ({ pagination: { total: 0 } })),
+        fabricPhysicalTestsService
+          .getAll({ limit: 1, overallTestResult: 'PENDING' })
+          .catch(() => ({ pagination: { total: 0 } })),
+        fabricPhysicalTestsService
+          .getAll({ limit: 1, overallTestResult: 'PASS' })
+          .catch(() => ({ pagination: { total: 0 } })),
+        fabricPhysicalTestsService
+          .getAll({ limit: 1, overallTestResult: 'FAIL' })
+          .catch(() => ({ pagination: { total: 0 } })),
       ]);
 
-      const [fptPending, fptPassed, fptFailed] = fptStatusResults.map(r =>
+      const [fptPending, fptPassed, fptFailed] = fptStatusResults.map((r) =>
         r.status === 'fulfilled' ? r.value : { pagination: { total: 0 } }
       );
 
       const gptStatusResults = await Promise.allSettled([
-        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PENDING' }).catch(() => ({ pagination: { total: 0 } })),
-        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'PASS' }).catch(() => ({ pagination: { total: 0 } })),
-        garmentPhysicalTestsService.getAll({ limit: 1, overallTestResult: 'FAIL' }).catch(() => ({ pagination: { total: 0 } })),
-        garmentPhysicalTestsService.getAll({ limit: 1, pendingBuyerApproval: true }).catch(() => ({ pagination: { total: 0 } })),
+        garmentPhysicalTestsService
+          .getAll({ limit: 1, overallTestResult: 'PENDING' })
+          .catch(() => ({ pagination: { total: 0 } })),
+        garmentPhysicalTestsService
+          .getAll({ limit: 1, overallTestResult: 'PASS' })
+          .catch(() => ({ pagination: { total: 0 } })),
+        garmentPhysicalTestsService
+          .getAll({ limit: 1, overallTestResult: 'FAIL' })
+          .catch(() => ({ pagination: { total: 0 } })),
+        garmentPhysicalTestsService
+          .getAll({ limit: 1, pendingBuyerApproval: true })
+          .catch(() => ({ pagination: { total: 0 } })),
       ]);
 
-      const [gptPending, gptPassed, gptFailed, gptBuyerApproval] = gptStatusResults.map(r =>
+      const [gptPending, gptPassed, gptFailed, gptBuyerApproval] = gptStatusResults.map((r) =>
         r.status === 'fulfilled' ? r.value : { pagination: { total: 0 } }
       );
 
@@ -143,16 +150,16 @@ export default function TestingDashboard() {
           <FlaskConical className="h-8 w-8 text-blue-600" />
           Testing Module Dashboard
         </h1>
-        <p className="text-gray-500 mt-1">
-          Manage fabric and garment physical testing, labs, and test templates
-        </p>
+        <p className="text-gray-500 mt-1">Manage fabric and garment physical testing, labs, and test templates</p>
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* FPT Card */}
-        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-blue-500"
-          onClick={() => navigate('/fabric-physical-tests')}>
+        <Card
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-blue-500"
+          onClick={() => navigate('/fabric-physical-tests')}
+        >
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm text-gray-500 font-medium">Fabric Tests (FPT)</p>
@@ -185,8 +192,10 @@ export default function TestingDashboard() {
         </Card>
 
         {/* GPT Card */}
-        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-purple-500"
-          onClick={() => navigate('/garment-physical-tests')}>
+        <Card
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-purple-500"
+          onClick={() => navigate('/garment-physical-tests')}
+        >
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm text-gray-500 font-medium">Garment Tests (GPT)</p>
@@ -219,8 +228,10 @@ export default function TestingDashboard() {
         </Card>
 
         {/* Testing Labs Card */}
-        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-green-500"
-          onClick={() => navigate('/testing-labs')}>
+        <Card
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-green-500"
+          onClick={() => navigate('/testing-labs')}
+        >
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm text-gray-500 font-medium">Testing Labs</p>
@@ -241,8 +252,10 @@ export default function TestingDashboard() {
         </Card>
 
         {/* Test Templates Card */}
-        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-orange-500"
-          onClick={() => navigate('/test-templates')}>
+        <Card
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-orange-500"
+          onClick={() => navigate('/test-templates')}
+        >
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm text-gray-500 font-medium">Test Templates</p>
@@ -287,11 +300,7 @@ export default function TestingDashboard() {
                         {stats?.fpt.failed} Fabric Test{stats?.fpt.failed !== 1 ? 's' : ''} Failed
                       </span>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate('/fabric-physical-tests?status=FAIL')}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => navigate('/fabric-physical-tests?status=FAIL')}>
                       Review
                     </Button>
                   </div>
@@ -304,11 +313,7 @@ export default function TestingDashboard() {
                         {stats?.gpt.failed} Garment Test{stats?.gpt.failed !== 1 ? 's' : ''} Failed
                       </span>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate('/garment-physical-tests?status=FAIL')}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => navigate('/garment-physical-tests?status=FAIL')}>
                       Review
                     </Button>
                   </div>
@@ -318,7 +323,8 @@ export default function TestingDashboard() {
                     <div className="flex items-center gap-2">
                       <Clock className="h-5 w-5 text-orange-600" />
                       <span className="text-sm font-medium text-gray-900">
-                        {stats?.gpt.pendingBuyerApproval} Garment Test{stats?.gpt.pendingBuyerApproval !== 1 ? 's' : ''} Pending Buyer Approval
+                        {stats?.gpt.pendingBuyerApproval} Garment Test{stats?.gpt.pendingBuyerApproval !== 1 ? 's' : ''}{' '}
+                        Pending Buyer Approval
                       </span>
                     </div>
                     <Button

@@ -26,6 +26,9 @@ router.delete('/:id', asyncHandler(stockProductionOrderController.delete.bind(st
 router.post('/:id/approve', asyncHandler(stockProductionOrderController.approve.bind(stockProductionOrderController)));
 
 // POST /api/stock-production-orders/:id/generate-work-orders - Generate work orders
-router.post('/:id/generate-work-orders', asyncHandler(stockProductionOrderController.generateWorkOrders.bind(stockProductionOrderController)));
+router.post(
+  '/:id/generate-work-orders',
+  asyncHandler(stockProductionOrderController.generateWorkOrders.bind(stockProductionOrderController))
+);
 
 export default router;

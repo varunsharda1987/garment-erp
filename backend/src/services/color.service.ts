@@ -208,9 +208,7 @@ class ColorServiceClass extends BaseService<ColorMaster, CreateColorInput, Updat
       const total = await prisma.color_master.count({ where });
 
       // Build orderBy
-      const orderBy: OrderByClause = sortBy
-        ? { [sortBy]: sortOrder || 'asc' }
-        : { sortOrder: 'asc' };
+      const orderBy: OrderByClause = sortBy ? { [sortBy]: sortOrder || 'asc' } : { sortOrder: 'asc' };
 
       // Fetch colors
       const colors = await prisma.color_master.findMany({

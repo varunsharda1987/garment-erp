@@ -6,12 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,12 +24,7 @@ interface EmbroiderySelectorProps {
   currentEmbroideryId?: string | null;
 }
 
-export function EmbroiderySelector({
-  isOpen,
-  onClose,
-  onSelect,
-  currentEmbroideryId,
-}: EmbroiderySelectorProps) {
+export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroideryId }: EmbroiderySelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<EmbroiderySearchResult[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(currentEmbroideryId || null);
@@ -165,16 +155,9 @@ export function EmbroiderySelector({
                   <p className="text-sm mt-1">Try a different search or create a new one</p>
                 </div>
               ) : (
-                <RadioGroup
-                  value={selectedId || ''}
-                  onValueChange={setSelectedId}
-                  className="divide-y"
-                >
+                <RadioGroup value={selectedId || ''} onValueChange={setSelectedId} className="divide-y">
                   {searchResults.map((emb) => (
-                    <label
-                      key={emb.id}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer"
-                    >
+                    <label key={emb.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
                       <RadioGroupItem value={emb.id} />
                       {emb.designImage ? (
                         <img
@@ -193,9 +176,7 @@ export function EmbroiderySelector({
                           <Badge variant="outline" className="font-mono text-xs">
                             {emb.embroideryCode}
                           </Badge>
-                          <span className="font-medium text-sm truncate">
-                            {emb.designName}
-                          </span>
+                          <span className="font-medium text-sm truncate">{emb.designName}</span>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
                           {emb.stitchCount ? `${emb.stitchCount.toLocaleString()} stitches` : 'N/A'} ·{' '}
@@ -225,11 +206,7 @@ export function EmbroiderySelector({
                 <Button type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </Button>
-                <Button
-                  type="button"
-                  onClick={handleSelectAndClose}
-                  disabled={!selectedId}
-                >
+                <Button type="button" onClick={handleSelectAndClose} disabled={!selectedId}>
                   Select
                 </Button>
               </div>
@@ -296,11 +273,7 @@ export function EmbroiderySelector({
             </div>
 
             <div className="flex items-center justify-between pt-4 border-t">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowCreateForm(false)}
-              >
+              <Button type="button" variant="ghost" onClick={() => setShowCreateForm(false)}>
                 Back to Search
               </Button>
               <div className="flex gap-2">

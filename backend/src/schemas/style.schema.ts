@@ -57,25 +57,22 @@ export const styleComponentSchema = z.object({
 });
 
 // Helper to coerce any value to number (handles Prisma Decimal objects, strings, etc.)
-const coerceAnyToNumber = z.preprocess(
-  (val) => {
-    if (val === null || val === undefined || val === '') return null;
-    if (typeof val === 'number') return val;
-    if (typeof val === 'string') {
-      const parsed = parseFloat(val);
-      return isNaN(parsed) ? null : parsed;
-    }
-    // Handle Prisma Decimal objects or any other objects
-    if (typeof val === 'object') {
-      // Try to convert to string first (Prisma Decimal has toString())
-      const str = String(val);
-      const parsed = parseFloat(str);
-      return isNaN(parsed) ? null : parsed;
-    }
-    return null;
-  },
-  z.number().nonnegative().nullable()
-);
+const coerceAnyToNumber = z.preprocess((val) => {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? null : parsed;
+  }
+  // Handle Prisma Decimal objects or any other objects
+  if (typeof val === 'object') {
+    // Try to convert to string first (Prisma Decimal has toString())
+    const str = String(val);
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? null : parsed;
+  }
+  return null;
+}, z.number().nonnegative().nullable());
 
 // Style Process Schema - processName optional since it can be derived from processType
 export const styleProcessSchema = z.object({
@@ -167,22 +164,26 @@ export const flatFabricSchema = z.object({
 // ============================================================================
 
 // Helper to coerce string to number or null
-const coerceToNumber = z.union([
-  z.number(),
-  z.string().transform(v => v === '' ? null : parseFloat(v)),
-  z.null(),
-]).optional().nullable();
+const coerceToNumber = z
+  .union([z.number(), z.string().transform((v) => (v === '' ? null : parseFloat(v))), z.null()])
+  .optional()
+  .nullable();
 
-const coerceToInt = z.union([
-  z.number().int(),
-  z.string().transform(v => v === '' ? null : parseInt(v, 10)),
-  z.null(),
-]).optional().nullable();
+const coerceToInt = z
+  .union([z.number().int(), z.string().transform((v) => (v === '' ? null : parseInt(v, 10))), z.null()])
+  .optional()
+  .nullable();
 
 export const createStyleSchema = z.object({
   // Required fields
-  styleCode: z.string().min(2, 'Style code must be at least 2 characters').max(50, 'Style code must not exceed 50 characters'),
-  styleName: z.string().min(2, 'Style name must be at least 2 characters').max(200, 'Style name must not exceed 200 characters'),
+  styleCode: z
+    .string()
+    .min(2, 'Style code must be at least 2 characters')
+    .max(50, 'Style code must not exceed 50 characters'),
+  styleName: z
+    .string()
+    .min(2, 'Style name must be at least 2 characters')
+    .max(200, 'Style name must not exceed 200 characters'),
 
   // Basic optional fields
   customerName: z.string().optional(),
@@ -241,7 +242,11 @@ export const createStyleSchema = z.object({
 
 export const updateStyleSchema = z.object({
   // All fields optional for updates
-  styleName: z.string().min(2, 'Style name must be at least 2 characters').max(200, 'Style name must not exceed 200 characters').optional(),
+  styleName: z
+    .string()
+    .min(2, 'Style name must be at least 2 characters')
+    .max(200, 'Style name must not exceed 200 characters')
+    .optional(),
   customerName: z.string().optional(),
   brandName: z.string().optional(),
   brandCategoryId: z.string().uuid().optional().nullable(),
@@ -331,21 +336,25 @@ export const createStyleVariantsSchema = z.object({
 // ============================================================================
 
 export const updateCADGroupingSchema = z.object({
-  fabricGroups: z.array(
-    z.object({
-      fabricId: z.string().uuid(),
-      cadGroupKey: z.string(),
-    })
-  ).min(1, 'At least one fabric group is required'),
+  fabricGroups: z
+    .array(
+      z.object({
+        fabricId: z.string().uuid(),
+        cadGroupKey: z.string(),
+      })
+    )
+    .min(1, 'At least one fabric group is required'),
 });
 
 export const approveCADPlanSchema = z.object({
-  fabricCADMappings: z.array(
-    z.object({
-      fabricId: z.string().uuid(),
-      fabricCADId: z.string().uuid(),
-    })
-  ).min(1, 'At least one fabric CAD mapping is required'),
+  fabricCADMappings: z
+    .array(
+      z.object({
+        fabricId: z.string().uuid(),
+        fabricCADId: z.string().uuid(),
+      })
+    )
+    .min(1, 'At least one fabric CAD mapping is required'),
 });
 
 // ============================================================================

@@ -49,9 +49,7 @@ export interface StatusUpdateResult {
  *
  * Call this when a GRN item is received/updated
  */
-export async function handleGRNItemReceipt(
-  update: GRNItemUpdate
-): Promise<StatusUpdateResult> {
+export async function handleGRNItemReceipt(update: GRNItemUpdate): Promise<StatusUpdateResult> {
   const poItem = await prisma.purchase_order_items.findUnique({
     where: { id: update.poItemId },
     include: {
@@ -79,16 +77,10 @@ export async function handleGRNItemReceipt(
   const newStatus = await updatePOReceivingStatus(poItem.poId);
 
   // 3. Update linked MRP requirements
-  const mrpRequirementsUpdated = await updateLinkedMRPRequirements(
-    update.poItemId,
-    update.acceptedQuantity
-  );
+  const mrpRequirementsUpdated = await updateLinkedMRPRequirements(update.poItemId, update.acceptedQuantity);
 
   // 4. Update linked service requirements
-  const serviceRequirementsUpdated = await updateLinkedServiceRequirements(
-    update.poItemId,
-    update.acceptedQuantity
-  );
+  const serviceRequirementsUpdated = await updateLinkedServiceRequirements(update.poItemId, update.acceptedQuantity);
 
   // 5. Check for linked Processing POs (Greige -> Processing chain)
   const processingPOsReadied = await checkProcessingPOReadiness(poItem.poId);
@@ -179,10 +171,7 @@ export async function updatePOReceivingStatus(poId: string): Promise<PurchaseOrd
 /**
  * Update linked MRP requirements when PO items are received
  */
-async function updateLinkedMRPRequirements(
-  poItemId: string,
-  receivedQuantity: number
-): Promise<string[]> {
+async function updateLinkedMRPRequirements(poItemId: string, receivedQuantity: number): Promise<string[]> {
   const updatedIds: string[] = [];
 
   // Find all linked MRP requirements via requirement_po_links
@@ -256,10 +245,7 @@ async function updateLinkedMRPRequirements(
 /**
  * Update linked service requirements when PO items are received
  */
-async function updateLinkedServiceRequirements(
-  poItemId: string,
-  receivedQuantity: number
-): Promise<string[]> {
+async function updateLinkedServiceRequirements(poItemId: string, receivedQuantity: number): Promise<string[]> {
   const updatedIds: string[] = [];
 
   // Find all linked service requirements via service_requirement_po_links
@@ -353,10 +339,7 @@ async function checkProcessingPOReadiness(greigePOId: string): Promise<string[]>
 /**
  * Send PO to supplier
  */
-export async function sendPO(
-  poId: string,
-  userId: string
-): Promise<{ success: boolean; poNumber: string }> {
+export async function sendPO(poId: string, userId: string): Promise<{ success: boolean; poNumber: string }> {
   const po = await prisma.purchase_orders.findUnique({
     where: { id: poId },
     select: { status: true, poNumber: true },
@@ -385,10 +368,7 @@ export async function sendPO(
 /**
  * Acknowledge PO receipt by supplier
  */
-export async function acknowledgePO(
-  poId: string,
-  userId: string
-): Promise<{ success: boolean; poNumber: string }> {
+export async function acknowledgePO(poId: string, userId: string): Promise<{ success: boolean; poNumber: string }> {
   const po = await prisma.purchase_orders.findUnique({
     where: { id: poId },
     select: { status: true, poNumber: true },
@@ -450,41 +430,45 @@ export async function cancelPO(
   });
 
   // Revert linked MRP requirements to PO_REQUIRED
-  await prisma.requirement_po_links.findMany({
-    where: {
-      purchaseOrderId: poId,
-    },
-    select: { requirementId: true },
-  }).then(async (links) => {
-    const reqIds = links.map((l) => l.requirementId);
-    if (reqIds.length > 0) {
-      await prisma.material_requirements.updateMany({
-        where: { id: { in: reqIds } },
-        data: { status: 'PO_REQUIRED' },
-      });
-    }
-  });
+  await prisma.requirement_po_links
+    .findMany({
+      where: {
+        purchaseOrderId: poId,
+      },
+      select: { requirementId: true },
+    })
+    .then(async (links) => {
+      const reqIds = links.map((l) => l.requirementId);
+      if (reqIds.length > 0) {
+        await prisma.material_requirements.updateMany({
+          where: { id: { in: reqIds } },
+          data: { status: 'PO_REQUIRED' },
+        });
+      }
+    });
 
   // Revert linked service requirements to PENDING
-  await prisma.service_requirement_po_links.findMany({
-    where: {
-      purchaseOrderItem: {
-        poId: poId,
-      },
-    },
-    select: { serviceRequirementId: true },
-  }).then(async (links) => {
-    const reqIds = links.map((l) => l.serviceRequirementId);
-    if (reqIds.length > 0) {
-      await prisma.work_order_service_requirements.updateMany({
-        where: { id: { in: reqIds } },
-        data: {
-          status: 'PENDING',
-          purchaseOrderId: null,
+  await prisma.service_requirement_po_links
+    .findMany({
+      where: {
+        purchaseOrderItem: {
+          poId: poId,
         },
-      });
-    }
-  });
+      },
+      select: { serviceRequirementId: true },
+    })
+    .then(async (links) => {
+      const reqIds = links.map((l) => l.serviceRequirementId);
+      if (reqIds.length > 0) {
+        await prisma.work_order_service_requirements.updateMany({
+          where: { id: { in: reqIds } },
+          data: {
+            status: 'PENDING',
+            purchaseOrderId: null,
+          },
+        });
+      }
+    });
 
   return { success: true, poNumber: po.poNumber };
 }
@@ -599,15 +583,9 @@ export async function getPOSourceStats(): Promise<{
   ]);
 
   return {
-    bySource: Object.fromEntries(
-      bySource.map((s) => [s.poSource || 'MANUAL', s._count.id])
-    ),
-    byCategory: Object.fromEntries(
-      byCategory.map((c) => [c.poCategory || 'GENERAL', c._count.id])
-    ),
-    byStatus: Object.fromEntries(
-      byStatus.map((s) => [s.status, s._count.id])
-    ),
+    bySource: Object.fromEntries(bySource.map((s) => [s.poSource || 'MANUAL', s._count.id])),
+    byCategory: Object.fromEntries(byCategory.map((c) => [c.poCategory || 'GENERAL', c._count.id])),
+    byStatus: Object.fromEntries(byStatus.map((s) => [s.status, s._count.id])),
     totalValue: totalValueResult._sum.totalAmount ? Number(totalValueResult._sum.totalAmount) : 0,
   };
 }

@@ -216,10 +216,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
 
     // Auto-create corresponding materials record with same ID
     try {
-      await materialService.createFromMaster(
-        { id: greige.id, code: data.greigeCode, name: data.greigeName },
-        'GREIGE'
-      );
+      await materialService.createFromMaster({ id: greige.id, code: data.greigeCode, name: data.greigeName }, 'GREIGE');
     } catch (err) {
       // Log but don't fail - greige creation succeeded
       logError('Failed to auto-create materials record for greige', err);
@@ -755,18 +752,12 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
         'Yarn Count': greige.yarnCount || '',
         Construction: greige.construction || '',
         'Greige Width (inches)': Number(greige.greigeWidth),
-        'Default Cutable Width (inches)': greige.defaultCutableWidth
-          ? Number(greige.defaultCutableWidth)
-          : '',
+        'Default Cutable Width (inches)': greige.defaultCutableWidth ? Number(greige.defaultCutableWidth) : '',
         Composition: greige.composition,
         'Weave Type': greige.weaveType || '',
         'GSM Range': greige.gsmRange || '',
-        'Expected Finished Width Min': greige.expectedFinishedWidthMin
-          ? Number(greige.expectedFinishedWidthMin)
-          : '',
-        'Expected Finished Width Max': greige.expectedFinishedWidthMax
-          ? Number(greige.expectedFinishedWidthMax)
-          : '',
+        'Expected Finished Width Min': greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : '',
+        'Expected Finished Width Max': greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : '',
         'Average Shrinkage %': Number(greige.averageShrinkagePercent),
         Description: greige.description || '',
         Notes: greige.notes || '',

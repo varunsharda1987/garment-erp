@@ -28,11 +28,7 @@ export type OrderBOMItemMaterialType =
   | 'GREIGE'
   | 'GENERIC';
 
-export type OrderBOMItemUsageCategory =
-  | 'GARMENT_TRIM'
-  | 'PACKAGING'
-  | 'VALUE_ADDITION'
-  | 'FABRIC';
+export type OrderBOMItemUsageCategory = 'GARMENT_TRIM' | 'PACKAGING' | 'VALUE_ADDITION' | 'FABRIC';
 
 export interface OrderBOMItem {
   id: string;

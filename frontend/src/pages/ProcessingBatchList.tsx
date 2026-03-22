@@ -11,24 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import processingBatchService from '../services/processingBatch.service';
-import type {
-  ProcessingBatch,
-  MaterialType,
-  BatchStatus,
-  ProcessingBatchFilters,
-} from '../types/processing.types';
+import type { ProcessingBatch, MaterialType, BatchStatus, ProcessingBatchFilters } from '../types/processing.types';
 import { notify } from '../lib/notify';
-import {
-  Plus,
-  Search,
-  RefreshCw,
-  Eye,
-  Factory,
-  Package,
-  Clock,
-  CheckCircle2,
-  Layers,
-} from 'lucide-react';
+import { Plus, Search, RefreshCw, Eye, Factory, Package, Clock, CheckCircle2, Layers } from 'lucide-react';
 
 // Status colors
 const STATUS_COLORS: Record<BatchStatus, string> = {
@@ -144,9 +129,7 @@ export default function ProcessingBatchList() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Processing Batches</h1>
-          <p className="text-gray-500 mt-1">
-            Manage job work processing for fabric and lace dyeing/printing
-          </p>
+          <p className="text-gray-500 mt-1">Manage job work processing for fabric and lace dyeing/printing</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/processing/job-work')}>
@@ -163,9 +146,7 @@ export default function ProcessingBatchList() {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card
-          className={`cursor-pointer transition-all ${
-            statusFilter === 'ACTIVE' ? 'ring-2 ring-blue-500' : ''
-          }`}
+          className={`cursor-pointer transition-all ${statusFilter === 'ACTIVE' ? 'ring-2 ring-blue-500' : ''}`}
           onClick={() => setStatusFilter(statusFilter === 'ACTIVE' ? '' : 'ACTIVE')}
         >
           <CardContent className="p-4">
@@ -180,9 +161,7 @@ export default function ProcessingBatchList() {
         </Card>
 
         <Card
-          className={`cursor-pointer transition-all ${
-            statusFilter === 'COMPLETED' ? 'ring-2 ring-green-500' : ''
-          }`}
+          className={`cursor-pointer transition-all ${statusFilter === 'COMPLETED' ? 'ring-2 ring-green-500' : ''}`}
           onClick={() => setStatusFilter(statusFilter === 'COMPLETED' ? '' : 'COMPLETED')}
         >
           <CardContent className="p-4">
@@ -200,9 +179,7 @@ export default function ProcessingBatchList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-purple-600">
-                  {summary.inProcess.toLocaleString()}m
-                </div>
+                <div className="text-2xl font-bold text-purple-600">{summary.inProcess.toLocaleString()}m</div>
                 <div className="text-sm text-gray-500">In Process</div>
               </div>
               <Layers className="h-8 w-8 text-purple-200" />
@@ -214,9 +191,7 @@ export default function ProcessingBatchList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-orange-600">
-                  {summary.inTransit.toLocaleString()}m
-                </div>
+                <div className="text-2xl font-bold text-orange-600">{summary.inTransit.toLocaleString()}m</div>
                 <div className="text-sm text-gray-500">In Transit</div>
               </div>
               <Package className="h-8 w-8 text-orange-200" />
@@ -240,7 +215,7 @@ export default function ProcessingBatchList() {
 
         <Select
           value={statusFilter || '__all__'}
-          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : value as BatchStatus)}
+          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : (value as BatchStatus))}
         >
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="All Statuses" />
@@ -255,7 +230,7 @@ export default function ProcessingBatchList() {
 
         <Select
           value={materialTypeFilter || '__all__'}
-          onValueChange={(value) => setMaterialTypeFilter(value === '__all__' ? '' : value as MaterialType)}
+          onValueChange={(value) => setMaterialTypeFilter(value === '__all__' ? '' : (value as MaterialType))}
         >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All Materials" />
@@ -280,9 +255,7 @@ export default function ProcessingBatchList() {
           {loading ? (
             <div className="text-center py-12">Loading...</div>
           ) : batches.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              No processing batches found
-            </div>
+            <div className="text-center py-12 text-gray-500">No processing batches found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -323,16 +296,12 @@ export default function ProcessingBatchList() {
                       <td className="px-4 py-4">
                         <span className="font-mono font-medium">{batch.batchNumber}</span>
                         {batch.materialType === 'LACE' && batch.colorToApply && (
-                          <div className="text-xs text-purple-600">
-                            Target: {batch.colorToApply}
-                          </div>
+                          <div className="text-xs text-purple-600">Target: {batch.colorToApply}</div>
                         )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="font-medium">{getMaterialName(batch)}</div>
-                        <div className="text-xs text-gray-500 font-mono">
-                          {getMaterialCode(batch)}
-                        </div>
+                        <div className="text-xs text-gray-500 font-mono">{getMaterialCode(batch)}</div>
                       </td>
                       <td className="px-4 py-4 text-center">
                         <Badge
@@ -340,34 +309,24 @@ export default function ProcessingBatchList() {
                             batch.materialType === 'LACE'
                               ? 'bg-pink-100 text-pink-800 border-pink-200'
                               : batch.materialType === 'GREIGE'
-                              ? 'bg-amber-100 text-amber-800 border-amber-200'
-                              : 'bg-gray-100 text-gray-800 border-gray-200'
+                                ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                : 'bg-gray-100 text-gray-800 border-gray-200'
                           } border`}
                         >
                           {MATERIAL_LABELS[batch.materialType]}
                         </Badge>
                       </td>
+                      <td className="px-4 py-4 text-right">{batch.totalQuantitySent.toLocaleString()}m</td>
                       <td className="px-4 py-4 text-right">
-                        {batch.totalQuantitySent.toLocaleString()}m
+                        <span className="text-purple-600">{batch.quantityInProcess.toLocaleString()}m</span>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <span className="text-purple-600">
-                          {batch.quantityInProcess.toLocaleString()}m
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <span className="text-green-600">
-                          {batch.totalQuantityReceived.toLocaleString()}m
-                        </span>
+                        <span className="text-green-600">{batch.totalQuantityReceived.toLocaleString()}m</span>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <Badge className={`${STATUS_COLORS[batch.overallStatus]} border`}>
-                          {batch.overallStatus}
-                        </Badge>
+                        <Badge className={`${STATUS_COLORS[batch.overallStatus]} border`}>{batch.overallStatus}</Badge>
                       </td>
-                      <td className="px-4 py-4 text-sm">
-                        {formatDate(batch.createdAt)}
-                      </td>
+                      <td className="px-4 py-4 text-sm">{formatDate(batch.createdAt)}</td>
                       <td className="px-4 py-4">
                         <div className="flex justify-end gap-2">
                           <Button

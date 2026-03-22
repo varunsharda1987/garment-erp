@@ -204,11 +204,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                {error}
-              </div>
-            )}
+            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
 
             {/* BASIC INFORMATION */}
             <div>
@@ -239,9 +235,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                         placeholder="Will be auto-generated (e.g., EMB-202512-0001)"
                         className="bg-gray-50 cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Code will be automatically assigned upon creation
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
                     </>
                   )}
                 </div>
@@ -254,30 +248,20 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                     {...register('designName', { required: 'Design name is required' })}
                     placeholder="e.g., Floral Vine Pattern, Geometric Border"
                   />
-                  {errors.designName && (
-                    <p className="text-sm text-red-500 mt-1">{errors.designName.message}</p>
-                  )}
+                  {errors.designName && <p className="text-sm text-red-500 mt-1">{errors.designName.message}</p>}
                 </div>
 
                 {/* Design Image URL */}
                 <div>
                   <Label htmlFor="designImage">Design Image URL</Label>
-                  <Input
-                    id="designImage"
-                    {...register('designImage')}
-                    placeholder="https://example.com/image.jpg"
-                  />
+                  <Input id="designImage" {...register('designImage')} placeholder="https://example.com/image.jpg" />
                   <p className="text-xs text-gray-500 mt-1">URL to a preview image of the design</p>
                 </div>
 
                 {/* Design File URL */}
                 <div>
                   <Label htmlFor="designFile">Design File URL</Label>
-                  <Input
-                    id="designFile"
-                    {...register('designFile')}
-                    placeholder="https://example.com/design.dst"
-                  />
+                  <Input id="designFile" {...register('designFile')} placeholder="https://example.com/design.dst" />
                   <p className="text-xs text-gray-500 mt-1">URL to the embroidery file (DST, PES, etc.)</p>
                 </div>
               </div>
@@ -290,23 +274,13 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                 {/* Stitch Count */}
                 <div>
                   <Label htmlFor="stitchCount">Stitch Count</Label>
-                  <Input
-                    id="stitchCount"
-                    type="number"
-                    {...register('stitchCount')}
-                    placeholder="e.g., 45000"
-                  />
+                  <Input id="stitchCount" type="number" {...register('stitchCount')} placeholder="e.g., 45000" />
                 </div>
 
                 {/* Thread Colors */}
                 <div>
                   <Label htmlFor="threadColors">Thread Colors</Label>
-                  <Input
-                    id="threadColors"
-                    type="number"
-                    {...register('threadColors')}
-                    placeholder="e.g., 3"
-                  />
+                  <Input id="threadColors" type="number" {...register('threadColors')} placeholder="e.g., 3" />
                 </div>
 
                 {/* Repeat Width */}
@@ -384,20 +358,13 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                     {...register('costPerMeter', { required: 'Cost per meter is required' })}
                     placeholder="e.g., 120.00"
                   />
-                  {errors.costPerMeter && (
-                    <p className="text-sm text-red-500 mt-1">{errors.costPerMeter.message}</p>
-                  )}
+                  {errors.costPerMeter && <p className="text-sm text-red-500 mt-1">{errors.costPerMeter.message}</p>}
                 </div>
 
                 {/* Lead Time */}
                 <div>
                   <Label htmlFor="leadTimeDays">Lead Time (days)</Label>
-                  <Input
-                    id="leadTimeDays"
-                    type="number"
-                    {...register('leadTimeDays')}
-                    placeholder="e.g., 7"
-                  />
+                  <Input id="leadTimeDays" type="number" {...register('leadTimeDays')} placeholder="e.g., 7" />
                 </div>
               </div>
             </div>
@@ -458,29 +425,18 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
               <div className="border-t pt-6">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Status</h3>
                 <div className="flex items-center gap-3">
-                  <Switch
-                    id="isActive"
-                    checked={isActive}
-                    onCheckedChange={setIsActive}
-                  />
+                  <Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} />
                   <Label htmlFor="isActive" className="cursor-pointer">
                     {isActive ? 'Active' : 'Inactive'}
                   </Label>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Inactive designs will not appear in selection dropdowns
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Inactive designs will not appear in selection dropdowns</p>
               </div>
             )}
 
             {/* ACTION BUTTONS */}
             <div className="flex gap-4 justify-end pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate('/embroidery')}
-                disabled={isLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => navigate('/embroidery')} disabled={isLoading}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>

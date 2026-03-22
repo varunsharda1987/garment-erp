@@ -39,12 +39,7 @@ interface NavItem {
 }
 
 export default function SidebarUpgraded({ isOpen }: SidebarProps) {
-  const [expandedGroups, setExpandedGroups] = useState<string[]>([
-    'Masters',
-    'Production',
-    'Inventory',
-    'Reports',
-  ]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['Masters', 'Production', 'Inventory', 'Reports']);
 
   const toggleGroup = (groupTitle: string) => {
     setExpandedGroups((prev) =>
@@ -256,9 +251,7 @@ export default function SidebarUpgraded({ isOpen }: SidebarProps) {
           to="/dashboard"
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2 rounded-md mb-2 transition-colors ${
-              isActive
-                ? 'bg-indigo-50 text-indigo-700 font-medium'
-                : 'text-gray-700 hover:bg-gray-100'
+              isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
             }`
           }
         >
@@ -279,9 +272,7 @@ export default function SidebarUpgraded({ isOpen }: SidebarProps) {
         >
           <ProductionIcons.Sparkles className={ICON_SIZES.md} />
           <span>AI Assistant</span>
-          <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-            NEW
-          </span>
+          <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">NEW</span>
         </NavLink>
 
         {/* Navigation Groups */}
@@ -322,9 +313,7 @@ export default function SidebarUpgraded({ isOpen }: SidebarProps) {
                       to={item.path}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                          isActive
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
-                            : 'text-gray-600 hover:bg-gray-100'
+                          isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
                         }`
                       }
                     >

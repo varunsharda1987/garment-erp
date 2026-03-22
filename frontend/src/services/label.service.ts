@@ -19,7 +19,7 @@ export const getAllLabels = async (params?: {
   search?: string;
   supplierId?: string;
   labelCategory?: string;
-  customerId?: string;  // Filter by customer
+  customerId?: string; // Filter by customer
 }): Promise<LabelListResponse> => {
   const { data } = await api.get<LabelListResponse>('/materials/label', {
     params,
@@ -75,14 +75,8 @@ export const deleteLabel = async (id: string): Promise<void> => {
 /**
  * Bulk import label items from Excel data
  */
-export const bulkImportLabels = async (
-  data: BulkImportRow[],
-  createStock?: boolean
-): Promise<BulkImportResponse> => {
-  const { data: response } = await api.post<BulkImportResponse>(
-    '/materials/label/bulk-import',
-    { data, createStock }
-  );
+export const bulkImportLabels = async (data: BulkImportRow[], createStock?: boolean): Promise<BulkImportResponse> => {
+  const { data: response } = await api.post<BulkImportResponse>('/materials/label/bulk-import', { data, createStock });
   return response;
 };
 

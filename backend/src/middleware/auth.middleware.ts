@@ -6,11 +6,7 @@ import { UserRole } from '@prisma/client';
 /**
  * Middleware to verify JWT token
  */
-export const authenticateToken = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
+export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;

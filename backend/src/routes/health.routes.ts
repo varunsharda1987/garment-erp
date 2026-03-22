@@ -68,45 +68,46 @@ interface HealthCheck {
   error?: string;
 }
 
-router.get('/readiness', asyncHandler(async (req: Request, res: Response) => {
-  const checks: Record<string, HealthCheck> = {};
+router.get(
+  '/readiness',
+  asyncHandler(async (req: Request, res: Response) => {
+    const checks: Record<string, HealthCheck> = {};
 
-  try {
-    // Check database connection
-    const dbStart = Date.now();
-    await prisma.$queryRaw`SELECT 1`;
-    const dbDuration = Date.now() - dbStart;
+    try {
+      // Check database connection
+      const dbStart = Date.now();
+      await prisma.$queryRaw`SELECT 1`;
+      const dbDuration = Date.now() - dbStart;
 
-    checks.database = {
-      status: 'up',
-      responseTime: `${dbDuration}ms`,
-    };
+      checks.database = {
+        status: 'up',
+        responseTime: `${dbDuration}ms`,
+      };
 
-    // Check if database is too slow
-    if (dbDuration > 5000) {
-      checks.database.status = 'degraded';
-      checks.database.warning = 'Slow response time';
+      // Check if database is too slow
+      if (dbDuration > 5000) {
+        checks.database.status = 'degraded';
+        checks.database.warning = 'Slow response time';
+      }
+    } catch (error: unknown) {
+      checks.database = {
+        status: 'down',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
-  } catch (error: unknown) {
-    checks.database = {
-      status: 'down',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
 
-  // Overall status
-  const isHealthy = Object.values(checks).every(
-    (check) => check.status === 'up' || check.status === 'degraded'
-  );
+    // Overall status
+    const isHealthy = Object.values(checks).every((check) => check.status === 'up' || check.status === 'degraded');
 
-  const statusCode = isHealthy ? 200 : 503;
+    const statusCode = isHealthy ? 200 : 503;
 
-  res.status(statusCode).json({
-    status: isHealthy ? 'ready' : 'not_ready',
-    timestamp: new Date().toISOString(),
-    checks,
-  });
-}));
+    res.status(statusCode).json({
+      status: isHealthy ? 'ready' : 'not_ready',
+      timestamp: new Date().toISOString(),
+      checks,
+    });
+  })
+);
 
 /**
  * @swagger
@@ -137,69 +138,72 @@ router.get('/liveness', (req: Request, res: Response) => {
  *       200:
  *         description: Metrics data
  */
-router.get('/metrics', asyncHandler(async (req: Request, res: Response) => {
-  // System metrics
-  const systemMetrics = {
-    platform: os.platform(),
-    arch: os.arch(),
-    nodeVersion: process.version,
-    cpus: os.cpus().length,
-    totalMemory: `${Math.round(os.totalmem() / 1024 / 1024)}MB`,
-    freeMemory: `${Math.round(os.freemem() / 1024 / 1024)}MB`,
-    uptime: `${Math.round(os.uptime())}s`,
-  };
+router.get(
+  '/metrics',
+  asyncHandler(async (req: Request, res: Response) => {
+    // System metrics
+    const systemMetrics = {
+      platform: os.platform(),
+      arch: os.arch(),
+      nodeVersion: process.version,
+      cpus: os.cpus().length,
+      totalMemory: `${Math.round(os.totalmem() / 1024 / 1024)}MB`,
+      freeMemory: `${Math.round(os.freemem() / 1024 / 1024)}MB`,
+      uptime: `${Math.round(os.uptime())}s`,
+    };
 
-  // Process metrics
-  const memUsage = process.memoryUsage();
-  const processMetrics = {
-    pid: process.pid,
-    uptime: `${Math.round(process.uptime())}s`,
-    memory: {
-      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
-      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
-      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
-      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
-    },
-  };
+    // Process metrics
+    const memUsage = process.memoryUsage();
+    const processMetrics = {
+      pid: process.pid,
+      uptime: `${Math.round(process.uptime())}s`,
+      memory: {
+        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+      },
+    };
 
-  // Database metrics
-  interface DbCountResult {
-    users_count?: number;
-    customers_count?: number;
-    suppliers_count?: number;
-    orders_count?: number;
-  }
-  let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string } = {};
-  try {
-    const dbStart = Date.now();
-    const result = await prisma.$queryRaw<DbCountResult[]>`
+    // Database metrics
+    interface DbCountResult {
+      users_count?: number;
+      customers_count?: number;
+      suppliers_count?: number;
+      orders_count?: number;
+    }
+    let databaseMetrics: { responseTime?: string; counts?: DbCountResult; error?: string } = {};
+    try {
+      const dbStart = Date.now();
+      const result = await prisma.$queryRaw<DbCountResult[]>`
       SELECT
         (SELECT count(*) FROM "Users") as users_count,
         (SELECT count(*) FROM "Customers") as customers_count,
         (SELECT count(*) FROM "Suppliers") as suppliers_count,
         (SELECT count(*) FROM "Orders") as orders_count
     `;
-    const dbDuration = Date.now() - dbStart;
+      const dbDuration = Date.now() - dbStart;
 
-    databaseMetrics = {
-      responseTime: `${dbDuration}ms`,
-      counts: result[0] || {},
-    };
-  } catch (error: unknown) {
-    databaseMetrics = {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+      databaseMetrics = {
+        responseTime: `${dbDuration}ms`,
+        counts: result[0] || {},
+      };
+    } catch (error: unknown) {
+      databaseMetrics = {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
 
-  res.status(200).json({
-    timestamp: new Date().toISOString(),
-    version,
-    environment: process.env.NODE_ENV || 'development',
-    system: systemMetrics,
-    process: processMetrics,
-    database: databaseMetrics,
-  });
-}));
+    res.status(200).json({
+      timestamp: new Date().toISOString(),
+      version,
+      environment: process.env.NODE_ENV || 'development',
+      system: systemMetrics,
+      process: processMetrics,
+      database: databaseMetrics,
+    });
+  })
+);
 
 /**
  * @swagger
@@ -230,13 +234,16 @@ router.get('/version', (req: Request, res: Response) => {
  *       200:
  *         description: Cleanup results
  */
-router.post('/cleanup', asyncHandler(async (req: Request, res: Response) => {
-  const results = await runAllCleanupTasks();
-  res.status(200).json({
-    status: 'success',
-    timestamp: new Date().toISOString(),
-    results,
-  });
-}));
+router.post(
+  '/cleanup',
+  asyncHandler(async (req: Request, res: Response) => {
+    const results = await runAllCleanupTasks();
+    res.status(200).json({
+      status: 'success',
+      timestamp: new Date().toISOString(),
+      results,
+    });
+  })
+);
 
 export default router;

@@ -18,7 +18,7 @@ export const MaterialRequirementStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type MaterialRequirementStatus = typeof MaterialRequirementStatus[keyof typeof MaterialRequirementStatus];
+export type MaterialRequirementStatus = (typeof MaterialRequirementStatus)[keyof typeof MaterialRequirementStatus];
 
 export const MaterialRequirementStatusLabels: Record<MaterialRequirementStatus, string> = {
   PENDING: 'Pending',
@@ -48,7 +48,7 @@ export const RequirementSource = {
   MANUAL: 'MANUAL',
 } as const;
 
-export type RequirementSource = typeof RequirementSource[keyof typeof RequirementSource];
+export type RequirementSource = (typeof RequirementSource)[keyof typeof RequirementSource];
 
 export const RequirementSourceLabels: Record<RequirementSource, string> = {
   SALES_ORDER: 'Sales Order',

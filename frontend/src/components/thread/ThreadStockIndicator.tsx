@@ -9,12 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import api from '../../lib/api';
 
@@ -59,7 +54,7 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
 
     try {
       const response = await api.get(`/materials/thread/${threadId}/stock`, {
-        params: { requiredUnits, warehouseId }
+        params: { requiredUnits, warehouseId },
       });
 
       const data = response.data.data;
@@ -134,7 +129,8 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
                 <div className="flex items-center gap-2 text-sm">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <span className="text-green-600 font-medium">
-                    In Stock: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)} boxes)
+                    In Stock: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)}{' '}
+                    boxes)
                   </span>
                 </div>
               )}
@@ -142,7 +138,9 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
             <TooltipContent>
               <div className="space-y-1 text-xs">
                 <p className="font-semibold">In Stock</p>
-                <p>Available: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)} boxes)</p>
+                <p>
+                  Available: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)} boxes)
+                </p>
                 <p>Required: {formatNumber(requiredUnits)} units</p>
               </div>
             </TooltipContent>
@@ -164,7 +162,8 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
                 <div className="flex items-center gap-2 text-sm">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   <span className="text-amber-600 font-medium">
-                    Low Stock: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)} boxes) - Reorder suggested
+                    Low Stock: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)}{' '}
+                    boxes) - Reorder suggested
                   </span>
                 </div>
               )}
@@ -172,7 +171,9 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
             <TooltipContent>
               <div className="space-y-1 text-xs">
                 <p className="font-semibold">Low Stock - Reorder Suggested</p>
-                <p>Available: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)} boxes)</p>
+                <p>
+                  Available: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)} boxes)
+                </p>
                 <p>Required: {formatNumber(requiredUnits)} units</p>
                 <p className="text-amber-500">⚠️ Stock is running low. Consider reordering soon.</p>
               </div>
@@ -196,7 +197,8 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
                   <XCircle className="h-4 w-4 text-red-600" />
                   <span className="text-red-600 font-medium">
                     ⚠️ SHORTAGE: Need {formatNumber(requiredUnits)}, Have {formatNumber(stockStatus.totalUnits)}
-                    (Short: {formatNumber(stockStatus.shortage)} units / {formatNumber(stockStatus.shortage / 10)} boxes)
+                    (Short: {formatNumber(stockStatus.shortage)} units / {formatNumber(stockStatus.shortage / 10)}{' '}
+                    boxes)
                   </span>
                 </div>
               )}
@@ -207,7 +209,8 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
                 <p>Required: {formatNumber(requiredUnits)} units</p>
                 <p>Available: {formatNumber(stockStatus.totalUnits)} units</p>
                 <p className="text-red-500 font-semibold">
-                  Short: {formatNumber(stockStatus.shortage)} units ({formatNumber(stockStatus.shortage / 10)} boxes approx.)
+                  Short: {formatNumber(stockStatus.shortage)} units ({formatNumber(stockStatus.shortage / 10)} boxes
+                  approx.)
                 </p>
               </div>
             </TooltipContent>

@@ -52,10 +52,7 @@ export interface CostingRun {
 /**
  * Get all costing runs for a style
  */
-export async function getRunsByStyle(
-  styleId: string,
-  purpose?: string
-): Promise<CostingRun[]> {
+export async function getRunsByStyle(styleId: string, purpose?: string): Promise<CostingRun[]> {
   const params = purpose ? `?purpose=${purpose}` : '';
   const response = await api.get(`/fabric-costing-runs/style/${styleId}${params}`);
   return response.data.data;
@@ -72,11 +69,7 @@ export async function getRunById(runId: string): Promise<CostingRun> {
 /**
  * Create a new costing run
  */
-export async function createRun(
-  styleId: string,
-  purpose: string,
-  fabricCadIds: string[]
-): Promise<CostingRun> {
+export async function createRun(styleId: string, purpose: string, fabricCadIds: string[]): Promise<CostingRun> {
   const response = await api.post(`/fabric-costing-runs/style/${styleId}`, {
     purpose,
     fabricCadIds,

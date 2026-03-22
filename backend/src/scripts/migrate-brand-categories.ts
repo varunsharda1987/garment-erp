@@ -51,16 +51,16 @@ async function migrateBrandCategories() {
         // Parse brandNames (newline-separated)
         const brands = customer.brandNames
           .split('\n')
-          .map(b => b.trim())
-          .filter(b => b.length > 0);
+          .map((b) => b.trim())
+          .filter((b) => b.length > 0);
 
         // Parse categories (newline-separated, matched by index)
         let categories: string[] = [];
         if (customer.categories) {
           categories = customer.categories
             .split('\n')
-            .map(c => c.trim())
-            .filter(c => c.length > 0);
+            .map((c) => c.trim())
+            .filter((c) => c.length > 0);
         }
 
         // Create brand_categories entries
@@ -74,7 +74,10 @@ async function migrateBrandCategories() {
           if (categories.length > 0) {
             // Parse comma-separated categories for this brand
             const brandCategories = categories[i]
-              ? categories[i].split(',').map(c => c.trim()).filter(c => c.length > 0)
+              ? categories[i]
+                  .split(',')
+                  .map((c) => c.trim())
+                  .filter((c) => c.length > 0)
               : ['General'];
 
             for (const category of brandCategories) {
@@ -121,7 +124,6 @@ async function migrateBrandCategories() {
     console.log(`   ⏭️  Skipped: ${skippedCount}`);
     console.log(`   ❌ Errors: ${errorCount}`);
     console.log('\n✨ Migration complete!');
-
   } catch (error) {
     console.error('❌ Migration failed:', error);
     throw error;

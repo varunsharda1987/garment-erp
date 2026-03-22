@@ -1,9 +1,5 @@
 import { Router } from 'express';
-import {
-  getSummary,
-  searchAllTrims,
-  getRecentTrims
-} from '../controllers/trim-dashboard.controller';
+import { getSummary, searchAllTrims, getRecentTrims } from '../controllers/trim-dashboard.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 

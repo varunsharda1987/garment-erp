@@ -88,10 +88,7 @@ describe('Transaction Utility', () => {
     it('should retry on serialization failure', async () => {
       const mockResult = { id: '1' };
       const serializationError = new Error('could not serialize access');
-      const mockCallback = jest
-        .fn()
-        .mockRejectedValueOnce(serializationError)
-        .mockResolvedValueOnce(mockResult);
+      const mockCallback = jest.fn().mockRejectedValueOnce(serializationError).mockResolvedValueOnce(mockResult);
 
       (prisma.$transaction as jest.Mock).mockImplementation(async (cb) => {
         return cb(prisma);

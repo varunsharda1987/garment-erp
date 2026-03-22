@@ -18,7 +18,7 @@ export const getAllPackaging = async (params?: {
   limit?: number;
   search?: string;
   supplierId?: string;
-  customerId?: string;  // Filter by customer
+  customerId?: string; // Filter by customer
 }): Promise<PackagingListResponse> => {
   const { data } = await api.get<PackagingListResponse>('/materials/packaging', {
     params,
@@ -80,10 +80,10 @@ export const bulkImportPackaging = async (
   data: BulkImportRow[],
   createStock?: boolean
 ): Promise<BulkImportResponse> => {
-  const { data: response } = await api.post<BulkImportResponse>(
-    '/materials/packaging/bulk-import',
-    { data, createStock }
-  );
+  const { data: response } = await api.post<BulkImportResponse>('/materials/packaging/bulk-import', {
+    data,
+    createStock,
+  });
   return response;
 };
 

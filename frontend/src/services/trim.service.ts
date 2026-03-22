@@ -86,7 +86,7 @@ export const trimService = {
   getRecent: async (limit: number = 10): Promise<TrimRecentResponse> => {
     const response = await api.get<TrimRecentResponse>(`/trims/recent?limit=${limit}`);
     return response.data;
-  }
+  },
 };
 
 export default trimService;

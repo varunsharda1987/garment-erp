@@ -129,9 +129,7 @@ export const cuttingBatchService = {
   },
 
   getStitchingIssues: async (batchId: string): Promise<StitchingIssueSummary> => {
-    const response = await api.get<{ data: StitchingIssueSummary }>(
-      `${BASE_URL}/batches/${batchId}/stitching-issues`
-    );
+    const response = await api.get<{ data: StitchingIssueSummary }>(`${BASE_URL}/batches/${batchId}/stitching-issues`);
     return response.data.data;
   },
 };
@@ -154,20 +152,8 @@ export const cuttingSummaryService = {
   },
 
   // Get work orders available for cutting (with approved samples & fabric ready)
-  getAvailableWorkOrders: async (): Promise<Array<{
-    id: string;
-    workOrderNumber: string;
-    styleCode: string;
-    styleName: string;
-    styleId: string;
-    orderQty: number;
-    cutQty: number;
-    pendingQty: number;
-    fabricIds: string[];
-    colors: Array<{ id: string; colorName: string }>;
-    components: Array<{ id: string; componentName: string; componentCode: string }>;
-  }>> => {
-    const response = await api.get<{ data: Array<{
+  getAvailableWorkOrders: async (): Promise<
+    Array<{
       id: string;
       workOrderNumber: string;
       styleCode: string;
@@ -179,21 +165,31 @@ export const cuttingSummaryService = {
       fabricIds: string[];
       colors: Array<{ id: string; colorName: string }>;
       components: Array<{ id: string; componentName: string; componentCode: string }>;
-    }> }>(`${BASE_URL}/available-work-orders`);
+    }>
+  > => {
+    const response = await api.get<{
+      data: Array<{
+        id: string;
+        workOrderNumber: string;
+        styleCode: string;
+        styleName: string;
+        styleId: string;
+        orderQty: number;
+        cutQty: number;
+        pendingQty: number;
+        fabricIds: string[];
+        colors: Array<{ id: string; colorName: string }>;
+        components: Array<{ id: string; componentName: string; componentCode: string }>;
+      }>;
+    }>(`${BASE_URL}/available-work-orders`);
     return response.data.data;
   },
 
   // Get fabric stock available for cutting
-  getAvailableFabricStock: async (fabricId: string): Promise<Array<{
-    id: string;
-    rollNumbers?: string;
-    quantityAvailable: number;
-    finishedWidth: number;
-    cutableWidth: number;
-    qualityGrade: string;
-    weightedAvgCost: number;
-  }>> => {
-    const response = await api.get<{ data: Array<{
+  getAvailableFabricStock: async (
+    fabricId: string
+  ): Promise<
+    Array<{
       id: string;
       rollNumbers?: string;
       quantityAvailable: number;
@@ -201,7 +197,19 @@ export const cuttingSummaryService = {
       cutableWidth: number;
       qualityGrade: string;
       weightedAvgCost: number;
-    }> }>(`${BASE_URL}/available-fabric-stock/${fabricId}`);
+    }>
+  > => {
+    const response = await api.get<{
+      data: Array<{
+        id: string;
+        rollNumbers?: string;
+        quantityAvailable: number;
+        finishedWidth: number;
+        cutableWidth: number;
+        qualityGrade: string;
+        weightedAvgCost: number;
+      }>;
+    }>(`${BASE_URL}/available-fabric-stock/${fabricId}`);
     return response.data.data;
   },
 

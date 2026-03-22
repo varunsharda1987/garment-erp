@@ -33,10 +33,7 @@ describe('Auth API Integration Tests', () => {
 
   describe('POST /api/auth/register', () => {
     it('should register a new user successfully', async () => {
-      const response = await request(app)
-        .post('/api/auth/register')
-        .send(testUser)
-        .expect(201);
+      const response = await request(app).post('/api/auth/register').send(testUser).expect(201);
 
       expect(response.body).toHaveProperty('token');
       expect(response.body).toHaveProperty('user');
@@ -45,10 +42,7 @@ describe('Auth API Integration Tests', () => {
     });
 
     it('should return 400 for duplicate email', async () => {
-      const response = await request(app)
-        .post('/api/auth/register')
-        .send(testUser)
-        .expect(400);
+      const response = await request(app).post('/api/auth/register').send(testUser).expect(400);
 
       expect(response.body).toHaveProperty('error');
     });
@@ -90,13 +84,11 @@ describe('Auth API Integration Tests', () => {
       }
 
       // 6th request should be rate limited
-      const response = await request(app)
-        .post('/api/auth/register')
-        .send({
-          email: 'test6@test.com',
-          password: 'password',
-          name: 'Test',
-        });
+      const response = await request(app).post('/api/auth/register').send({
+        email: 'test6@test.com',
+        password: 'password',
+        name: 'Test',
+      });
 
       expect([429, 400, 201]).toContain(response.status);
       if (response.status === 429) {
@@ -179,21 +171,16 @@ describe('Auth API Integration Tests', () => {
 
     beforeAll(async () => {
       // Login to get auth token
-      const response = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: testUser.email,
-          password: testUser.password,
-        });
+      const response = await request(app).post('/api/auth/login').send({
+        email: testUser.email,
+        password: testUser.password,
+      });
 
       authToken = response.body.token;
     });
 
     it('should return current user with valid token', async () => {
-      const response = await request(app)
-        .get('/api/auth/me')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+      const response = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${authToken}`).expect(200);
 
       expect(response.body).toHaveProperty('user');
       expect(response.body.user.email).toBe(testUser.email);
@@ -201,18 +188,13 @@ describe('Auth API Integration Tests', () => {
     });
 
     it('should return 401 without token', async () => {
-      const response = await request(app)
-        .get('/api/auth/me')
-        .expect(401);
+      const response = await request(app).get('/api/auth/me').expect(401);
 
       expect(response.body).toHaveProperty('error');
     });
 
     it('should return 401 with invalid token', async () => {
-      const response = await request(app)
-        .get('/api/auth/me')
-        .set('Authorization', 'Bearer invalid-token')
-        .expect(401);
+      const response = await request(app).get('/api/auth/me').set('Authorization', 'Bearer invalid-token').expect(401);
 
       expect(response.body).toHaveProperty('error');
     });

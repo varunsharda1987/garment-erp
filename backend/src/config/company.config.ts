@@ -26,20 +26,20 @@ export interface CompanyConfig {
 }
 
 export const COMPANY_CONFIG: CompanyConfig = {
-  name: "KASHAYA FABS",
-  tagline: "Quality Garments",
-  address: "H-1, 51, RIICO Industrial Area, Mansarovar",
-  city: "Jaipur",
-  state: "Rajasthan",
-  stateCode: "08",
-  pincode: "302020",
-  phone: "8890729433",
-  email: "kashayafabs.acc@gmail.com",
-  gstin: "08DCDPS0146D1ZU",
-  msmeNumber: "UDYAM-RJ-17-0028194",
-  panNumber: "DCDPS0146D",
-  logoPath: "/assets/company-logo.png",
-  website: "www.kashayafabs.com"
+  name: 'KASHAYA FABS',
+  tagline: 'Quality Garments',
+  address: 'H-1, 51, RIICO Industrial Area, Mansarovar',
+  city: 'Jaipur',
+  state: 'Rajasthan',
+  stateCode: '08',
+  pincode: '302020',
+  phone: '8890729433',
+  email: 'kashayafabs.acc@gmail.com',
+  gstin: '08DCDPS0146D1ZU',
+  msmeNumber: 'UDYAM-RJ-17-0028194',
+  panNumber: 'DCDPS0146D',
+  logoPath: '/assets/company-logo.png',
+  website: 'www.kashayafabs.com',
 };
 
 /**
@@ -48,31 +48,31 @@ export const COMPANY_CONFIG: CompanyConfig = {
  * is updated to query hsn_sac_masters.
  */
 export const DEFAULT_HSN_CODES = {
-  GARMENTS: "62114210",      // Ladies Garments
-  KURTA_SETS: "62114210",    // Ladies Kurta Sets
-  NIGHTWEAR: "62114210",     // Nightwear
-  FABRIC: "52091100",        // Cotton Fabric
-  ACCESSORIES: "63079090",   // Other made-up articles
+  GARMENTS: '62114210', // Ladies Garments
+  KURTA_SETS: '62114210', // Ladies Kurta Sets
+  NIGHTWEAR: '62114210', // Nightwear
+  FABRIC: '52091100', // Cotton Fabric
+  ACCESSORIES: '63079090', // Other made-up articles
 };
 
 /**
  * Document prefixes for numbering
  */
 export const DOCUMENT_PREFIXES = {
-  INVOICE: "KF",              // KF/25-26/0001
-  PROFORMA: "PF",             // PF/25-26/0001
-  QUOTATION: "QT",            // QT-2602-0001
-  ORDER_FORM: "OF",           // OF/25-26/0001
+  INVOICE: 'KF', // KF/25-26/0001
+  PROFORMA: 'PF', // PF/25-26/0001
+  QUOTATION: 'QT', // QT-2602-0001
+  ORDER_FORM: 'OF', // OF/25-26/0001
 };
 
 /**
  * Terms and conditions for invoices
  */
 export const INVOICE_TERMS = [
-  "Goods once sold will not be taken back.",
-  "Subject to Jaipur jurisdiction only.",
-  "E. & O.E.",
-  "Payment terms as per agreement.",
+  'Goods once sold will not be taken back.',
+  'Subject to Jaipur jurisdiction only.',
+  'E. & O.E.',
+  'Payment terms as per agreement.',
 ];
 
 /**
@@ -80,14 +80,32 @@ export const INVOICE_TERMS = [
  * Converts numbers to words in Indian format (Lakhs, Crores)
  */
 export function amountToWords(amount: number): string {
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven',
-    'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen',
-    'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty',
-    'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const ones = [
+    '',
+    'One',
+    'Two',
+    'Three',
+    'Four',
+    'Five',
+    'Six',
+    'Seven',
+    'Eight',
+    'Nine',
+    'Ten',
+    'Eleven',
+    'Twelve',
+    'Thirteen',
+    'Fourteen',
+    'Fifteen',
+    'Sixteen',
+    'Seventeen',
+    'Eighteen',
+    'Nineteen',
+  ];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
   amount = Math.round(amount);
-  if (amount === 0) return "Rupees Zero Only";
+  if (amount === 0) return 'Rupees Zero Only';
 
   const twoDigits = (n: number): string => {
     if (n < 20) return ones[n];
@@ -99,9 +117,7 @@ export function amountToWords(amount: number): string {
   const threeDigits = (n: number): string => {
     if (n >= 100) {
       const rest = twoDigits(n % 100);
-      return rest
-        ? `${ones[Math.floor(n / 100)]} Hundred ${rest}`
-        : `${ones[Math.floor(n / 100)]} Hundred`;
+      return rest ? `${ones[Math.floor(n / 100)]} Hundred ${rest}` : `${ones[Math.floor(n / 100)]} Hundred`;
     }
     return twoDigits(n);
   };

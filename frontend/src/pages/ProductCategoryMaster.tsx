@@ -17,13 +17,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
 import { notify } from '../lib/notify';
@@ -246,7 +240,9 @@ export default function ProductCategoryMaster() {
       // Expand all main categories by default
       setExpandedIds(new Set(mainCats.map((c) => c.id)));
     } catch (error: unknown) {
-      notify.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to load categories');
+      notify.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to load categories'
+      );
     } finally {
       setLoading(false);
     }
@@ -327,7 +323,10 @@ export default function ProductCategoryMaster() {
       notify.success('Default components saved successfully');
       setIsComponentsDialogOpen(false);
     } catch (error: unknown) {
-      notify.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to save default components');
+      notify.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Failed to save default components'
+      );
     } finally {
       setSavingComponents(false);
     }
@@ -384,7 +383,9 @@ export default function ProductCategoryMaster() {
       resetForm();
       loadData();
     } catch (error: unknown) {
-      notify.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to save category');
+      notify.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to save category'
+      );
     }
   };
 
@@ -403,7 +404,9 @@ export default function ProductCategoryMaster() {
       notify.success('Category deleted successfully');
       loadData();
     } catch (error: unknown) {
-      notify.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to delete category');
+      notify.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to delete category'
+      );
     } finally {
       setCategoryToDelete(null);
     }
@@ -416,7 +419,9 @@ export default function ProductCategoryMaster() {
       notify.success(`Category ${category.isActive ? 'deactivated' : 'activated'} successfully`);
       loadData();
     } catch (error: unknown) {
-      notify.error((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update category');
+      notify.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update category'
+      );
     }
   };
 
@@ -469,10 +474,7 @@ export default function ProductCategoryMaster() {
   };
 
   // Filter hierarchy based on search
-  const filterHierarchy = (
-    cats: ProductCategoryHierarchy[],
-    term: string
-  ): ProductCategoryHierarchy[] => {
+  const filterHierarchy = (cats: ProductCategoryHierarchy[], term: string): ProductCategoryHierarchy[] => {
     if (!term) return cats;
 
     const termLower = term.toLowerCase();
@@ -497,9 +499,7 @@ export default function ProductCategoryMaster() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Product Category Master</h1>
-          <p className="text-gray-600 mt-1">
-            Manage hierarchical product categories (Western Wear, Ethnic Wear, etc.)
-          </p>
+          <p className="text-gray-600 mt-1">Manage hierarchical product categories (Western Wear, Ethnic Wear, etc.)</p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
@@ -532,14 +532,14 @@ export default function ProductCategoryMaster() {
 
       {/* Tree View */}
       <div className="bg-white border rounded-lg">
-        <div className="border-b bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600">
-          Category Hierarchy
-        </div>
+        <div className="border-b bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600">Category Hierarchy</div>
         {loading ? (
           <div className="p-8 text-center text-gray-500">Loading categories...</div>
         ) : filteredHierarchy.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            {searchTerm ? 'No categories found matching your search.' : 'No categories found. Click "Add Category" to create one.'}
+            {searchTerm
+              ? 'No categories found matching your search.'
+              : 'No categories found. Click "Add Category" to create one.'}
           </div>
         ) : (
           <div>
@@ -565,15 +565,13 @@ export default function ProductCategoryMaster() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? 'Edit Category' : 'Add Category'}
-            </DialogTitle>
+            <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
             <DialogDescription>
               {editingCategory
                 ? 'Update the category details below.'
                 : formData.parentId
-                ? `Add a new sub-category under "${formParentName}".`
-                : 'Add a new main category.'}
+                  ? `Add a new sub-category under "${formParentName}".`
+                  : 'Add a new main category.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -585,9 +583,7 @@ export default function ProductCategoryMaster() {
                   <Input
                     id="code"
                     value={formData.code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, code: e.target.value.toUpperCase() })
-                    }
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                     placeholder="e.g., WW or WW-TSH"
                     required
                   />
@@ -598,9 +594,7 @@ export default function ProductCategoryMaster() {
                     id="sortOrder"
                     type="number"
                     value={formData.sortOrder}
-                    onChange={(e) =>
-                      setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })
-                    }
+                    onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
                     min={0}
                   />
                 </div>
@@ -621,9 +615,7 @@ export default function ProductCategoryMaster() {
                 <Label htmlFor="parentId">Parent Category</Label>
                 <Select
                   value={formData.parentId || 'none'}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, parentId: value === 'none' ? null : value })
-                  }
+                  onValueChange={(value) => setFormData({ ...formData, parentId: value === 'none' ? null : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select parent category" />
@@ -691,9 +683,7 @@ export default function ProductCategoryMaster() {
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingCategory ? 'Update' : 'Create'}
-              </Button>
+              <Button type="submit">{editingCategory ? 'Update' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -738,15 +728,10 @@ export default function ProductCategoryMaster() {
                           onCheckedChange={() => handleToggleComponent(component.id)}
                         />
                         <div>
-                          <label
-                            htmlFor={`component-${component.id}`}
-                            className="font-medium cursor-pointer"
-                          >
+                          <label htmlFor={`component-${component.id}`} className="font-medium cursor-pointer">
                             {component.name}
                           </label>
-                          {component.description && (
-                            <p className="text-sm text-gray-500">{component.description}</p>
-                          )}
+                          {component.description && <p className="text-sm text-gray-500">{component.description}</p>}
                           {component.componentCategory && (
                             <Badge variant="outline" className="mt-1 text-xs">
                               {component.componentCategory}
@@ -757,10 +742,7 @@ export default function ProductCategoryMaster() {
 
                       {isSelected && (
                         <div className="flex items-center gap-2">
-                          <label
-                            htmlFor={`required-${component.id}`}
-                            className="text-sm text-gray-600 cursor-pointer"
-                          >
+                          <label htmlFor={`required-${component.id}`} className="text-sm text-gray-600 cursor-pointer">
                             Required
                           </label>
                           <Checkbox
@@ -786,11 +768,7 @@ export default function ProductCategoryMaster() {
                   const component = componentMasters.find((c) => c.id === id);
                   const isRequired = requiredComponentIds.has(id);
                   return component ? (
-                    <Badge
-                      key={id}
-                      variant={isRequired ? 'default' : 'secondary'}
-                      className="flex items-center gap-1"
-                    >
+                    <Badge key={id} variant={isRequired ? 'default' : 'secondary'} className="flex items-center gap-1">
                       {component.name}
                       {isRequired && <span className="text-xs">*</span>}
                       <button
@@ -808,18 +786,10 @@ export default function ProductCategoryMaster() {
           )}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsComponentsDialogOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setIsComponentsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              type="button"
-              onClick={handleSaveComponents}
-              disabled={savingComponents}
-            >
+            <Button type="button" onClick={handleSaveComponents} disabled={savingComponents}>
               {savingComponents ? 'Saving...' : 'Save Defaults'}
             </Button>
           </DialogFooter>

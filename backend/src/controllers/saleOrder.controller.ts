@@ -3,18 +3,8 @@ import { saleOrderService } from '../services/saleOrder.service';
 import { NotFoundError, ValidationError } from '../errors';
 
 export class SaleOrderController {
-
   async getAll(req: Request, res: Response) {
-    const {
-      page = '1',
-      limit = '20',
-      search,
-      status,
-      customerId,
-      isActive,
-      sortBy,
-      sortOrder,
-    } = req.query;
+    const { page = '1', limit = '20', search, status, customerId, isActive, sortBy, sortOrder } = req.query;
 
     const result = await saleOrderService.getAll({
       page: parseInt(page as string, 10),
@@ -107,12 +97,7 @@ export class SaleOrderController {
       throw new ValidationError('saleOrderItemId, fgStockId, and quantity are required');
     }
 
-    const allocation = await saleOrderService.allocateStock(
-      saleOrderItemId,
-      fgStockId,
-      quantity,
-      userId
-    );
+    const allocation = await saleOrderService.allocateStock(saleOrderItemId, fgStockId, quantity, userId);
 
     res.status(201).json(allocation);
   }

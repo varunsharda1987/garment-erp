@@ -167,7 +167,7 @@ export const createCostSheetVersion = async (req: Request, res: Response): Promi
     if (!versionReason || versionReason.trim().length === 0) {
       res.status(400).json({
         error: 'Version reason is required',
-        message: 'Please provide a reason for creating a new version (e.g., "Updated fabric costs", "New CAD values")'
+        message: 'Please provide a reason for creating a new version (e.g., "Updated fabric costs", "New CAD values")',
       });
       return;
     }
@@ -195,7 +195,8 @@ export const createCostSheetVersion = async (req: Request, res: Response): Promi
     if (!isApproved) {
       res.status(400).json({
         error: 'Cannot version unapproved cost sheet',
-        message: 'Only approved cost sheets can be versioned. Please approve the current version first or update it directly.'
+        message:
+          'Only approved cost sheets can be versioned. Please approve the current version first or update it directly.',
       });
       return;
     }
@@ -271,8 +272,12 @@ export const createCostSheetVersion = async (req: Request, res: Response): Promi
         cadWastagePercent: sourceCostSheet.cadWastagePercent,
         // Note: widthCombinationHash and widthCombinationDescription are copied if they exist
         // These fields use @map in Prisma schema, so we access them conditionally
-        ...((sourceCostSheet as any).widthCombinationHash && { widthCombinationHash: (sourceCostSheet as any).widthCombinationHash }),
-        ...((sourceCostSheet as any).widthCombinationDescription && { widthCombinationDescription: (sourceCostSheet as any).widthCombinationDescription }),
+        ...((sourceCostSheet as any).widthCombinationHash && {
+          widthCombinationHash: (sourceCostSheet as any).widthCombinationHash,
+        }),
+        ...((sourceCostSheet as any).widthCombinationDescription && {
+          widthCombinationDescription: (sourceCostSheet as any).widthCombinationDescription,
+        }),
         notes: `Versioned from v${sourceCostSheet.version}. Reason: ${versionReason.trim()}`,
 
         // New version starts as PENDING
@@ -454,33 +459,39 @@ export const compareCostSheetVersions = async (req: Request, res: Response): Pro
         v1: Number(costSheet1.fabricTotal),
         v2: Number(costSheet2.fabricTotal),
         change: Number(costSheet2.fabricTotal) - Number(costSheet1.fabricTotal),
-        changePercent: costSheet1.fabricTotal && Number(costSheet1.fabricTotal) !== 0
-          ? ((Number(costSheet2.fabricTotal) - Number(costSheet1.fabricTotal)) / Number(costSheet1.fabricTotal)) * 100
-          : 0,
+        changePercent:
+          costSheet1.fabricTotal && Number(costSheet1.fabricTotal) !== 0
+            ? ((Number(costSheet2.fabricTotal) - Number(costSheet1.fabricTotal)) / Number(costSheet1.fabricTotal)) * 100
+            : 0,
       },
       trimsTotal: {
         v1: Number(costSheet1.trimsTotal),
         v2: Number(costSheet2.trimsTotal),
         change: Number(costSheet2.trimsTotal) - Number(costSheet1.trimsTotal),
-        changePercent: costSheet1.trimsTotal && Number(costSheet1.trimsTotal) !== 0
-          ? ((Number(costSheet2.trimsTotal) - Number(costSheet1.trimsTotal)) / Number(costSheet1.trimsTotal)) * 100
-          : 0,
+        changePercent:
+          costSheet1.trimsTotal && Number(costSheet1.trimsTotal) !== 0
+            ? ((Number(costSheet2.trimsTotal) - Number(costSheet1.trimsTotal)) / Number(costSheet1.trimsTotal)) * 100
+            : 0,
       },
       cmtTotal: {
         v1: Number(costSheet1.cmtTotal),
         v2: Number(costSheet2.cmtTotal),
         change: Number(costSheet2.cmtTotal) - Number(costSheet1.cmtTotal),
-        changePercent: costSheet1.cmtTotal && Number(costSheet1.cmtTotal) !== 0
-          ? ((Number(costSheet2.cmtTotal) - Number(costSheet1.cmtTotal)) / Number(costSheet1.cmtTotal)) * 100
-          : 0,
+        changePercent:
+          costSheet1.cmtTotal && Number(costSheet1.cmtTotal) !== 0
+            ? ((Number(costSheet2.cmtTotal) - Number(costSheet1.cmtTotal)) / Number(costSheet1.cmtTotal)) * 100
+            : 0,
       },
       totalProductCost: {
         v1: Number(costSheet1.totalProductCost),
         v2: Number(costSheet2.totalProductCost),
         change: Number(costSheet2.totalProductCost) - Number(costSheet1.totalProductCost),
-        changePercent: costSheet1.totalProductCost && Number(costSheet1.totalProductCost) !== 0
-          ? ((Number(costSheet2.totalProductCost) - Number(costSheet1.totalProductCost)) / Number(costSheet1.totalProductCost)) * 100
-          : 0,
+        changePercent:
+          costSheet1.totalProductCost && Number(costSheet1.totalProductCost) !== 0
+            ? ((Number(costSheet2.totalProductCost) - Number(costSheet1.totalProductCost)) /
+                Number(costSheet1.totalProductCost)) *
+              100
+            : 0,
       },
     };
 
@@ -592,7 +603,9 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
       return;
     }
 
-    logInfo(`[copyCostSheetForProcurement] Creating PROCUREMENT_PRODUCTION cost sheet from COSTING ${sourceCostSheetId}`);
+    logInfo(
+      `[copyCostSheetForProcurement] Creating PROCUREMENT_PRODUCTION cost sheet from COSTING ${sourceCostSheetId}`
+    );
 
     // Create new PROCUREMENT_PRODUCTION cost sheet
     const newCostSheet = await prisma.style_costing.create({
@@ -699,7 +712,8 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
     res.status(201).json({
       success: true,
       data: newCostSheet,
-      message: 'Procurement cost sheet created successfully. Please review budget values, adjust buffer percentages if needed, and approve when ready.',
+      message:
+        'Procurement cost sheet created successfully. Please review budget values, adjust buffer percentages if needed, and approve when ready.',
       copyInfo: {
         sourceCostSheetId,
         sourceMode: 'COSTING',
@@ -726,14 +740,7 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
 export const updateActuals = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const {
-      fabricActual,
-      trimsActual,
-      cmtActual,
-      embroideryActual,
-      accessoriesActual,
-      totalActual,
-    } = req.body;
+    const { fabricActual, trimsActual, cmtActual, embroideryActual, accessoriesActual, totalActual } = req.body;
 
     logInfo(`[updateActuals] Updating actuals for cost sheet ${id}`);
 

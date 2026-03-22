@@ -52,13 +52,7 @@ import {
   PackageCheck,
   ArrowDownToLine,
 } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Local type definition for DataTable
 type Column<T> = {
@@ -90,13 +84,13 @@ export default function PrintingList() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>(
-    searchParams.get('status') || 'all'
-  );
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'processPO' } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'processPO' } | null>(
+    null
+  );
 
   // Receive dialog state
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
@@ -154,11 +148,12 @@ export default function PrintingList() {
     try {
       setIsLoading(true);
       setError(null);
-      const effectiveStatus = activeTab === 'process-pos' && statusFilter !== 'all'
-        ? statusFilter as ProcessPOStatus
-        : processPOsStatusFilter !== 'all'
-          ? processPOsStatusFilter as ProcessPOStatus
-          : undefined;
+      const effectiveStatus =
+        activeTab === 'process-pos' && statusFilter !== 'all'
+          ? (statusFilter as ProcessPOStatus)
+          : processPOsStatusFilter !== 'all'
+            ? (processPOsStatusFilter as ProcessPOStatus)
+            : undefined;
       const response = await printingService.processPOs.getAll({
         page: currentPage,
         limit: pageSize,
@@ -260,7 +255,7 @@ export default function PrintingList() {
     const thans = parseFloat(receiveForm.thanCount);
     const foldL = parseFloat(receiveForm.foldLengthCm);
     if (thans > 0 && foldL > 0) {
-      return (thans * foldL / 100).toFixed(2);
+      return ((thans * foldL) / 100).toFixed(2);
     }
     return '';
   })();
@@ -305,7 +300,10 @@ export default function PrintingList() {
     try {
       await printingService.processPOs.updateStock(selectedPOForStock.id);
       const fabricName = selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricName || 'fabric';
-      const qty = selectedPOForStock.jobWorkOrder?.qtyReceivedMeters || selectedPOForStock.jobWorkOrder?.calculatedActualMeters || 0;
+      const qty =
+        selectedPOForStock.jobWorkOrder?.qtyReceivedMeters ||
+        selectedPOForStock.jobWorkOrder?.calculatedActualMeters ||
+        0;
       handleApiSuccess('Stock Updated', `${Number(qty).toFixed(2)}m of ${fabricName} added to inventory.`);
       setUpdateStockDialogOpen(false);
       setSelectedPOForStock(null);
@@ -348,20 +346,14 @@ export default function PrintingList() {
     {
       key: 'fabric',
       header: 'Fabric',
-      render: (item) => (
-        <div className="text-sm text-gray-700">
-          {item.fabric?.fabricCode || '-'}
-        </div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.fabric?.fabricCode || '-'}</div>,
     },
     {
       key: 'printDetails',
       header: 'Print Details',
       render: (item) => (
         <div className="text-sm">
-          {item.printMethod && (
-            <div className="text-gray-700">{PrintMethodLabels[item.printMethod]}</div>
-          )}
+          {item.printMethod && <div className="text-gray-700">{PrintMethodLabels[item.printMethod]}</div>}
           {item.printChemistry && (
             <div className="text-xs text-gray-500">{PrintChemistryLabels[item.printChemistry]}</div>
           )}
@@ -371,16 +363,12 @@ export default function PrintingList() {
     {
       key: 'mill',
       header: 'Mill',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{item.mill?.name || '-'}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.mill?.name || '-'}</div>,
     },
     {
       key: 'submissionDate',
       header: 'Submitted',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{formatDate(item.submissionDate)}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{formatDate(item.submissionDate)}</div>,
     },
     {
       key: 'status',
@@ -472,9 +460,7 @@ export default function PrintingList() {
     {
       key: 'supplier',
       header: 'Mill / Supplier',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>,
     },
     {
       key: 'fabric',
@@ -489,9 +475,7 @@ export default function PrintingList() {
                 {fabricType}
               </Badge>
             )}
-            {finishedFabric && (
-              <div className="text-xs text-gray-500 mt-1">{finishedFabric.fabricCode}</div>
-            )}
+            {finishedFabric && <div className="text-xs text-gray-500 mt-1">{finishedFabric.fabricCode}</div>}
           </div>
         );
       },
@@ -518,16 +502,16 @@ export default function PrintingList() {
       header: 'Amount',
       render: (item) => (
         <div className="text-sm font-medium text-gray-900">
-          {item.totalAmount != null ? `\u20B9${Number(item.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+          {item.totalAmount != null
+            ? `\u20B9${Number(item.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+            : '-'}
         </div>
       ),
     },
     {
       key: 'poDate',
       header: 'PO Date',
-      render: (item) => (
-        <div className="text-sm text-gray-700">{formatDate(item.poDate)}</div>
-      ),
+      render: (item) => <div className="text-sm text-gray-700">{formatDate(item.poDate)}</div>,
     },
     {
       key: 'status',
@@ -563,13 +547,16 @@ export default function PrintingList() {
               onClick={(e) => {
                 e.stopPropagation();
                 // Send to mill with today's date
-                printingService.processPOs.sendToMill(item.id, {
-                  sentDate: new Date().toISOString().split('T')[0],
-                }).then(() => {
-                  handleApiSuccess('Sent to Mill', `${item.poNumber} has been sent to mill.`);
-                  fetchProcessPOs();
-                  fetchSummary();
-                }).catch((err: unknown) => handleApiError(err, 'Failed to send to mill'));
+                printingService.processPOs
+                  .sendToMill(item.id, {
+                    sentDate: new Date().toISOString().split('T')[0],
+                  })
+                  .then(() => {
+                    handleApiSuccess('Sent to Mill', `${item.poNumber} has been sent to mill.`);
+                    fetchProcessPOs();
+                    fetchSummary();
+                  })
+                  .catch((err: unknown) => handleApiError(err, 'Failed to send to mill'));
               }}
               className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
               title="Send to Mill"
@@ -669,10 +656,7 @@ export default function PrintingList() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => navigate('/manufacturing/printing/lab-dip/new')}
-          >
+          <Button variant="outline" onClick={() => navigate('/manufacturing/printing/lab-dip/new')}>
             <Droplets className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
@@ -779,11 +763,7 @@ export default function PrintingList() {
             <CardContent>
               <div className="flex flex-wrap gap-4">
                 <div className="w-64">
-                  <SearchInput
-                    placeholder="Search lab dips..."
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                  />
+                  <SearchInput placeholder="Search lab dips..." value={searchQuery} onChange={setSearchQuery} />
                 </div>
                 <div className="w-48">
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
@@ -863,11 +843,7 @@ export default function PrintingList() {
             <CardContent>
               <div className="flex flex-wrap gap-4">
                 <div className="w-64">
-                  <SearchInput
-                    placeholder="Search process POs..."
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                  />
+                  <SearchInput placeholder="Search process POs..." value={searchQuery} onChange={setSearchQuery} />
                 </div>
                 <div className="w-48">
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
@@ -953,10 +929,13 @@ export default function PrintingList() {
       />
 
       {/* Receive from Mill Dialog */}
-      <Dialog open={receiveDialogOpen} onOpenChange={(open) => {
-        setReceiveDialogOpen(open);
-        if (!open) setSelectedPOForReceive(null);
-      }}>
+      <Dialog
+        open={receiveDialogOpen}
+        onOpenChange={(open) => {
+          setReceiveDialogOpen(open);
+          if (!open) setSelectedPOForReceive(null);
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Receive from Mill</DialogTitle>
@@ -969,7 +948,9 @@ export default function PrintingList() {
             <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-gray-500">Sent Qty:</span>
-                <span className="font-medium">{selectedPOForReceive?.jobWorkOrder?.qtySentMeters?.toFixed(2)} mtrs</span>
+                <span className="font-medium">
+                  {selectedPOForReceive?.jobWorkOrder?.qtySentMeters?.toFixed(2)} mtrs
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Sent Width:</span>
@@ -995,7 +976,7 @@ export default function PrintingList() {
                     min="1"
                     placeholder="e.g. 50"
                     value={receiveForm.thanCount}
-                    onChange={(e) => setReceiveForm(f => ({ ...f, thanCount: e.target.value }))}
+                    onChange={(e) => setReceiveForm((f) => ({ ...f, thanCount: e.target.value }))}
                   />
                 </div>
                 <div>
@@ -1007,7 +988,7 @@ export default function PrintingList() {
                     min="1"
                     placeholder="e.g. 97.5"
                     value={receiveForm.foldLengthCm}
-                    onChange={(e) => setReceiveForm(f => ({ ...f, foldLengthCm: e.target.value }))}
+                    onChange={(e) => setReceiveForm((f) => ({ ...f, foldLengthCm: e.target.value }))}
                   />
                 </div>
               </div>
@@ -1028,7 +1009,7 @@ export default function PrintingList() {
                 step="0.01"
                 placeholder={calculatedActualMeters ? `Auto: ${calculatedActualMeters}` : 'Enter manually'}
                 value={receiveForm.qtyReceivedMeters}
-                onChange={(e) => setReceiveForm(f => ({ ...f, qtyReceivedMeters: e.target.value }))}
+                onChange={(e) => setReceiveForm((f) => ({ ...f, qtyReceivedMeters: e.target.value }))}
               />
               <p className="text-xs text-gray-400 mt-1">Leave blank to use calculated value from thans x L</p>
             </div>
@@ -1041,19 +1022,21 @@ export default function PrintingList() {
                 type="number"
                 step="0.1"
                 value={receiveForm.receivedWidthInches}
-                onChange={(e) => setReceiveForm(f => ({ ...f, receivedWidthInches: e.target.value }))}
+                onChange={(e) => setReceiveForm((f) => ({ ...f, receivedWidthInches: e.target.value }))}
               />
-              {receiveForm.receivedWidthInches && selectedPOForReceive?.jobWorkOrder?.sentWidthInches && (
+              {receiveForm.receivedWidthInches &&
+                selectedPOForReceive?.jobWorkOrder?.sentWidthInches &&
                 (() => {
-                  const diff = parseFloat(receiveForm.receivedWidthInches) - selectedPOForReceive.jobWorkOrder.sentWidthInches;
+                  const diff =
+                    parseFloat(receiveForm.receivedWidthInches) - selectedPOForReceive.jobWorkOrder.sentWidthInches;
                   if (diff === 0 || isNaN(diff)) return null;
                   return (
                     <p className={`text-xs mt-1 ${diff < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                      {diff > 0 ? '+' : ''}{diff.toFixed(1)}" vs sent width
+                      {diff > 0 ? '+' : ''}
+                      {diff.toFixed(1)}" vs sent width
                     </p>
                   );
-                })()
-              )}
+                })()}
             </div>
 
             {/* Date and challan */}
@@ -1064,7 +1047,7 @@ export default function PrintingList() {
                   id="receivedDate"
                   type="date"
                   value={receiveForm.receivedDate}
-                  onChange={(e) => setReceiveForm(f => ({ ...f, receivedDate: e.target.value }))}
+                  onChange={(e) => setReceiveForm((f) => ({ ...f, receivedDate: e.target.value }))}
                 />
               </div>
               <div>
@@ -1073,7 +1056,7 @@ export default function PrintingList() {
                   id="receivedChallan"
                   placeholder="Challan number"
                   value={receiveForm.receivedChallan}
-                  onChange={(e) => setReceiveForm(f => ({ ...f, receivedChallan: e.target.value }))}
+                  onChange={(e) => setReceiveForm((f) => ({ ...f, receivedChallan: e.target.value }))}
                 />
               </div>
             </div>
@@ -1084,7 +1067,7 @@ export default function PrintingList() {
                 id="invoiceNumber"
                 placeholder="Invoice number (optional)"
                 value={receiveForm.invoiceNumber}
-                onChange={(e) => setReceiveForm(f => ({ ...f, invoiceNumber: e.target.value }))}
+                onChange={(e) => setReceiveForm((f) => ({ ...f, invoiceNumber: e.target.value }))}
               />
             </div>
           </div>
@@ -1103,16 +1086,17 @@ export default function PrintingList() {
       </Dialog>
 
       {/* Update Stock Confirmation Dialog */}
-      <Dialog open={updateStockDialogOpen} onOpenChange={(open) => {
-        setUpdateStockDialogOpen(open);
-        if (!open) setSelectedPOForStock(null);
-      }}>
+      <Dialog
+        open={updateStockDialogOpen}
+        onOpenChange={(open) => {
+          setUpdateStockDialogOpen(open);
+          if (!open) setSelectedPOForStock(null);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Update Stock</DialogTitle>
-            <DialogDescription>
-              Create inventory stock from received fabric
-            </DialogDescription>
+            <DialogDescription>Create inventory stock from received fabric</DialogDescription>
           </DialogHeader>
           {selectedPOForStock && (
             <div className="space-y-3 py-2">
@@ -1123,28 +1107,43 @@ export default function PrintingList() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Finished Fabric:</span>
-                  <span className="font-medium">{selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricCode || '-'}</span>
+                  <span className="font-medium">
+                    {selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricCode || '-'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Qty Received:</span>
                   <span className="font-medium">
-                    {(selectedPOForStock.jobWorkOrder?.qtyReceivedMeters || Number(selectedPOForStock.jobWorkOrder?.calculatedActualMeters) || 0).toFixed(2)} mtrs
+                    {(
+                      selectedPOForStock.jobWorkOrder?.qtyReceivedMeters ||
+                      Number(selectedPOForStock.jobWorkOrder?.calculatedActualMeters) ||
+                      0
+                    ).toFixed(2)}{' '}
+                    mtrs
                   </span>
                 </div>
-                {selectedPOForStock.jobWorkOrder?.defectMeters != null && selectedPOForStock.jobWorkOrder.defectMeters > 0 && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Defect Meters:</span>
-                      <span className="font-medium text-red-600">{selectedPOForStock.jobWorkOrder.defectMeters} mtrs</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-1">
-                      <span className="text-gray-500">Good Qty:</span>
-                      <span className="font-bold text-green-700">
-                        {((selectedPOForStock.jobWorkOrder.qtyReceivedMeters || Number(selectedPOForStock.jobWorkOrder.calculatedActualMeters) || 0) - (selectedPOForStock.jobWorkOrder.defectMeters || 0)).toFixed(2)} mtrs
-                      </span>
-                    </div>
-                  </>
-                )}
+                {selectedPOForStock.jobWorkOrder?.defectMeters != null &&
+                  selectedPOForStock.jobWorkOrder.defectMeters > 0 && (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Defect Meters:</span>
+                        <span className="font-medium text-red-600">
+                          {selectedPOForStock.jobWorkOrder.defectMeters} mtrs
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t pt-1">
+                        <span className="text-gray-500">Good Qty:</span>
+                        <span className="font-bold text-green-700">
+                          {(
+                            (selectedPOForStock.jobWorkOrder.qtyReceivedMeters ||
+                              Number(selectedPOForStock.jobWorkOrder.calculatedActualMeters) ||
+                              0) - (selectedPOForStock.jobWorkOrder.defectMeters || 0)
+                          ).toFixed(2)}{' '}
+                          mtrs
+                        </span>
+                      </div>
+                    </>
+                  )}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Quality Grade:</span>
                   <Badge variant="outline">{selectedPOForStock.jobWorkOrder?.qualityGrade || '-'}</Badge>
@@ -1155,7 +1154,9 @@ export default function PrintingList() {
                 </div>
               </div>
               <p className="text-sm text-gray-600">
-                This will create a fabric stock entry for <strong>{selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above quantities.
+                This will create a fabric stock entry for{' '}
+                <strong>{selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricName || 'the finished fabric'}</strong>{' '}
+                with the above quantities.
               </p>
             </div>
           )}
@@ -1163,11 +1164,7 @@ export default function PrintingList() {
             <Button variant="outline" onClick={() => setUpdateStockDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleUpdateStock}
-              disabled={stockLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
+            <Button onClick={handleUpdateStock} disabled={stockLoading} className="bg-green-600 hover:bg-green-700">
               {stockLoading ? 'Creating Stock...' : 'Confirm & Create Stock'}
             </Button>
           </DialogFooter>

@@ -5,26 +5,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  LayoutGrid,
-  Plus,
-  Search,
-  Trash2,
-  Edit2,
-  Calendar,
-  Filter,
-} from 'lucide-react';
+import { LayoutGrid, Plus, Search, Trash2, Edit2, Calendar, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,20 +35,12 @@ const STATUS_COLORS: Record<MoodBoardStatus, string> = {
 };
 
 // Mood board card component
-function MoodBoardCard({
-  moodBoard,
-  onDelete,
-}: {
-  moodBoard: MoodBoard;
-  onDelete: (moodBoard: MoodBoard) => void;
-}) {
+function MoodBoardCard({ moodBoard, onDelete }: { moodBoard: MoodBoard; onDelete: (moodBoard: MoodBoard) => void }) {
   const navigate = useNavigate();
   const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
   // Get first image item as cover
-  const coverImage = moodBoard.items.find(
-    (item) => item.itemType === 'IMAGE' && item.imageUrl
-  );
+  const coverImage = moodBoard.items.find((item) => item.itemType === 'IMAGE' && item.imageUrl);
 
   return (
     <Card className="group relative overflow-hidden hover:shadow-lg transition-shadow">
@@ -84,14 +62,10 @@ function MoodBoardCard({
         )}
 
         {/* Item count badge */}
-        <Badge className="absolute bottom-2 left-2 bg-black/60 text-white">
-          {moodBoard.items.length} items
-        </Badge>
+        <Badge className="absolute bottom-2 left-2 bg-black/60 text-white">{moodBoard.items.length} items</Badge>
 
         {/* Status badge */}
-        <Badge
-          className={`absolute top-2 right-2 ${STATUS_COLORS[moodBoard.status]} text-white`}
-        >
+        <Badge className={`absolute top-2 right-2 ${STATUS_COLORS[moodBoard.status]} text-white`}>
           {moodBoard.status}
         </Badge>
 
@@ -124,9 +98,7 @@ function MoodBoardCard({
       {/* Info */}
       <CardContent className="p-4">
         <h3 className="font-semibold truncate">{moodBoard.name}</h3>
-        {moodBoard.description && (
-          <p className="text-sm text-gray-500 truncate">{moodBoard.description}</p>
-        )}
+        {moodBoard.description && <p className="text-sm text-gray-500 truncate">{moodBoard.description}</p>}
         <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
           {moodBoard.season && (
             <span className="flex items-center gap-1">
@@ -134,9 +106,7 @@ function MoodBoardCard({
               {moodBoard.season.name}
             </span>
           )}
-          <span>
-            {formatDistanceToNow(new Date(moodBoard.updatedAt), { addSuffix: true })}
-          </span>
+          <span>{formatDistanceToNow(new Date(moodBoard.updatedAt), { addSuffix: true })}</span>
         </div>
       </CardContent>
     </Card>
@@ -263,9 +233,7 @@ export function MoodBoardList() {
           <CardContent className="flex flex-col items-center justify-center h-64">
             <LayoutGrid className="h-12 w-12 text-gray-300 mb-4" />
             <p className="text-gray-500 mb-2">No mood boards yet</p>
-            <p className="text-sm text-gray-400 mb-4">
-              Create your first mood board to start collecting inspiration
-            </p>
+            <p className="text-sm text-gray-400 mb-4">Create your first mood board to start collecting inspiration</p>
             <Button onClick={() => navigate('/mood-boards/new')}>
               <Plus className="h-4 w-4 mr-2" />
               Create Mood Board
@@ -275,11 +243,7 @@ export function MoodBoardList() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {moodBoards.map((moodBoard) => (
-            <MoodBoardCard
-              key={moodBoard.id}
-              moodBoard={moodBoard}
-              onDelete={setDeleteTarget}
-            />
+            <MoodBoardCard key={moodBoard.id} moodBoard={moodBoard} onDelete={setDeleteTarget} />
           ))}
         </div>
       )}
@@ -290,8 +254,7 @@ export function MoodBoardList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Mood Board?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{deleteTarget?.name}" and all its items.
-              This action cannot be undone.
+              This will permanently delete "{deleteTarget?.name}" and all its items. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

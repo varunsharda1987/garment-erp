@@ -8,48 +8,26 @@ import { SupplierCategory } from '@/types/supplier.types';
 // Material category name to supplier categories mapping
 export const MATERIAL_SUPPLIER_MAPPING: Record<string, SupplierCategory[]> = {
   // TRIMS & NOTIONS
-  'Closures': [
-    SupplierCategory.TRIMS_SUPPLIER,
-  ],
-  'Labels & Tags': [
-    SupplierCategory.TRIMS_SUPPLIER,
-    SupplierCategory.PACKAGING_SUPPLIER,
-  ],
-  'Elastic & Tapes': [
-    SupplierCategory.TRIMS_SUPPLIER,
-  ],
-  'Decorative': [
+  Closures: [SupplierCategory.TRIMS_SUPPLIER],
+  'Labels & Tags': [SupplierCategory.TRIMS_SUPPLIER, SupplierCategory.PACKAGING_SUPPLIER],
+  'Elastic & Tapes': [SupplierCategory.TRIMS_SUPPLIER],
+  Decorative: [
     SupplierCategory.TRIMS_SUPPLIER,
     SupplierCategory.LACE_SUPPLIER,
     SupplierCategory.EMBROIDERY,
     SupplierCategory.HAND_WORK,
   ],
-  'Hardware': [
-    SupplierCategory.TRIMS_SUPPLIER,
-  ],
+  Hardware: [SupplierCategory.TRIMS_SUPPLIER],
 
   // THREADS
-  'Sewing Thread': [
-    SupplierCategory.THREAD_SUPPLIER,
-  ],
-  'Embroidery Thread': [
-    SupplierCategory.THREAD_SUPPLIER,
-    SupplierCategory.EMBROIDERY,
-  ],
-  'Specialty Thread': [
-    SupplierCategory.THREAD_SUPPLIER,
-  ],
+  'Sewing Thread': [SupplierCategory.THREAD_SUPPLIER],
+  'Embroidery Thread': [SupplierCategory.THREAD_SUPPLIER, SupplierCategory.EMBROIDERY],
+  'Specialty Thread': [SupplierCategory.THREAD_SUPPLIER],
 
   // PACKAGING
-  'Primary Packaging': [
-    SupplierCategory.PACKAGING_SUPPLIER,
-  ],
-  'Secondary Packaging': [
-    SupplierCategory.PACKAGING_SUPPLIER,
-  ],
-  'Labeling': [
-    SupplierCategory.PACKAGING_SUPPLIER,
-  ],
+  'Primary Packaging': [SupplierCategory.PACKAGING_SUPPLIER],
+  'Secondary Packaging': [SupplierCategory.PACKAGING_SUPPLIER],
+  Labeling: [SupplierCategory.PACKAGING_SUPPLIER],
 };
 
 /**
@@ -86,5 +64,5 @@ export function isSupplierCategoriesRelevantForMaterial(
   supplierCategories: SupplierCategory[]
 ): boolean {
   const relevantCategories = getRelevantSupplierCategories(materialCategoryName);
-  return supplierCategories.some(cat => relevantCategories.includes(cat));
+  return supplierCategories.some((cat) => relevantCategories.includes(cat));
 }

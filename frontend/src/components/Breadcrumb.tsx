@@ -34,10 +34,7 @@ export default function Breadcrumb() {
   return (
     <nav className="flex items-center space-x-1 text-sm text-gray-600">
       {/* Home */}
-      <Link
-        to="/dashboard"
-        className="flex items-center hover:text-indigo-600 transition-colors"
-      >
+      <Link to="/dashboard" className="flex items-center hover:text-indigo-600 transition-colors">
         <Home className="h-4 w-4" />
       </Link>
 
@@ -53,10 +50,7 @@ export default function Breadcrumb() {
             {isLast ? (
               <span className="font-medium text-gray-900">{label}</span>
             ) : (
-              <Link
-                to={to}
-                className="hover:text-indigo-600 transition-colors"
-              >
+              <Link to={to} className="hover:text-indigo-600 transition-colors">
                 {label}
               </Link>
             )}

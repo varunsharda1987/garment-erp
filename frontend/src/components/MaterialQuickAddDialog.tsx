@@ -4,12 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { MaterialTypeSelector } from './material-quick-add/MaterialTypeSelector';
 import { DynamicMaterialForm } from './material-quick-add/DynamicMaterialForm';
 import { getMaterialConfig } from '../config/material-quick-add.config';
@@ -136,11 +131,7 @@ export const MaterialQuickAddDialog: React.FC<MaterialQuickAddDialogProps> = ({
 
         <div className="flex-1 overflow-y-auto">
           {step === 1 && (
-            <MaterialTypeSelector
-              domain={materialDomain}
-              selectedType={selectedType}
-              onSelectType={handleSelectType}
-            />
+            <MaterialTypeSelector domain={materialDomain} selectedType={selectedType} onSelectType={handleSelectType} />
           )}
 
           {step === 2 && config && (

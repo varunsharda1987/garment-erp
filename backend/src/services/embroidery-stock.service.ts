@@ -83,9 +83,7 @@ class EmbroideryStockService {
 
       const availableQty = parseFloat(sourceStock.quantityAvailable.toString());
       if (availableQty < data.quantitySent) {
-        throw new Error(
-          `Insufficient stock. Available: ${availableQty}, Requested: ${data.quantitySent}`
-        );
+        throw new Error(`Insufficient stock. Available: ${availableQty}, Requested: ${data.quantitySent}`);
       }
 
       // 2. Verify embroidery design exists
@@ -267,8 +265,7 @@ class EmbroideryStockService {
       // 5. Update send-out record
       const totalReceived = data.quantityReceived + (data.quantityDamaged || 0);
       const quantitySent = parseFloat(sendOut.quantitySent.toString());
-      const newStatus =
-        totalReceived >= quantitySent ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
+      const newStatus = totalReceived >= quantitySent ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
 
       const updatedSendOut = await tx.embroidery_send_out.update({
         where: { id: data.sendOutId },
@@ -546,9 +543,7 @@ class EmbroideryStockService {
     });
 
     // Get embroidery details for the grouped stock
-    const embroideryIds = embroideredStock
-      .map((s) => s.embroideryId)
-      .filter((id): id is string => id !== null);
+    const embroideryIds = embroideredStock.map((s) => s.embroideryId).filter((id): id is string => id !== null);
 
     const embroideries = await prisma.embroidery_master.findMany({
       where: { id: { in: embroideryIds } },

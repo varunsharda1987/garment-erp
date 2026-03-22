@@ -142,9 +142,7 @@ export const fabricStockService = {
       queryParams.append('embroideryId', params.embroideryId ?? 'null');
     }
 
-    const url = `${API_URL}/styles/${styleId}/fabric-stock${
-      queryParams.toString() ? `?${queryParams}` : ''
-    }`;
+    const url = `${API_URL}/styles/${styleId}/fabric-stock${queryParams.toString() ? `?${queryParams}` : ''}`;
 
     const response = await fetch(url, {
       method: 'GET',

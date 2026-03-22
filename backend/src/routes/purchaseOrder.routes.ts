@@ -22,10 +22,7 @@ import {
 } from '../controllers/purchaseOrder.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import {
-  getPOStatsController,
-  getPOsBySourceController,
-} from '../controllers/unified-po.controller';
+import { getPOStatsController, getPOsBySourceController } from '../controllers/unified-po.controller';
 
 const router = Router();
 

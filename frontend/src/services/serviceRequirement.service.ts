@@ -42,10 +42,9 @@ export async function calculateServices(
   workOrderId: string,
   userId: string
 ): Promise<CalculationResultResponse['data']> {
-  const response = await api.post<CalculationResultResponse>(
-    `/work-orders/${workOrderId}/calculate-services`,
-    { userId }
-  );
+  const response = await api.post<CalculationResultResponse>(`/work-orders/${workOrderId}/calculate-services`, {
+    userId,
+  });
   return response.data.data;
 }
 
@@ -137,9 +136,7 @@ export async function getAllServiceRequirements(
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
   }
 
-  const response = await api.get<ServiceRequirementListResponse>(
-    `/service-requirements/list?${params.toString()}`
-  );
+  const response = await api.get<ServiceRequirementListResponse>(`/service-requirements/list?${params.toString()}`);
   return response.data;
 }
 
@@ -147,9 +144,7 @@ export async function getAllServiceRequirements(
  * Get service requirements summary for a work order
  * GET /api/work-orders/:workOrderId/service-requirements/summary
  */
-export async function getServiceRequirementsSummary(
-  workOrderId: string
-): Promise<ServiceRequirementsSummary> {
+export async function getServiceRequirementsSummary(workOrderId: string): Promise<ServiceRequirementsSummary> {
   const response = await api.get<WorkOrderServiceSummaryResponse>(
     `/work-orders/${workOrderId}/service-requirements/summary`
   );
@@ -160,12 +155,8 @@ export async function getServiceRequirementsSummary(
  * Get service requirements summary for an order (across all work orders)
  * GET /api/orders/:orderId/service-requirements/summary
  */
-export async function getOrderServiceRequirementsSummary(
-  orderId: string
-): Promise<OrderServiceRequirementsSummary> {
-  const response = await api.get<OrderServiceSummaryResponse>(
-    `/orders/${orderId}/service-requirements/summary`
-  );
+export async function getOrderServiceRequirementsSummary(orderId: string): Promise<OrderServiceRequirementsSummary> {
+  const response = await api.get<OrderServiceSummaryResponse>(`/orders/${orderId}/service-requirements/summary`);
   return response.data.data;
 }
 
@@ -192,9 +183,7 @@ export async function updateServiceExecution(
  * Get processor suggestion for a service type
  * POST /api/service-requirements/suggest-processor
  */
-export async function suggestProcessor(
-  data: SuggestProcessorRequest
-): Promise<ProcessorSuggestion> {
+export async function suggestProcessor(data: SuggestProcessorRequest): Promise<ProcessorSuggestion> {
   const response = await api.post<{ success: boolean; data: ProcessorSuggestion }>(
     '/service-requirements/suggest-processor',
     data
@@ -209,10 +198,9 @@ export async function suggestProcessor(
 export async function suggestProcessorsForRequirements(
   requirementIds: string[]
 ): Promise<ProcessorSuggestionsResponse['data']> {
-  const response = await api.post<ProcessorSuggestionsResponse>(
-    '/service-requirements/suggest-processors-bulk',
-    { requirementIds }
-  );
+  const response = await api.post<ProcessorSuggestionsResponse>('/service-requirements/suggest-processors-bulk', {
+    requirementIds,
+  });
   return response.data.data;
 }
 
@@ -224,9 +212,7 @@ export async function suggestProcessorsForRequirements(
  * Bulk assign processors to service requirements
  * POST /api/service-requirements/bulk-assign-processors
  */
-export async function bulkAssignProcessors(
-  assignments: BulkProcessorAssignment[]
-): Promise<BulkAssignResponse> {
+export async function bulkAssignProcessors(assignments: BulkProcessorAssignment[]): Promise<BulkAssignResponse> {
   const response = await api.post<{
     success: boolean;
     data: BulkAssignResponse;
@@ -265,10 +251,9 @@ export async function autoAssignProcessors(
 export async function groupRequirementsByProcessor(
   requirementIds: string[]
 ): Promise<GroupByProcessorResponse['data']> {
-  const response = await api.post<GroupByProcessorResponse>(
-    '/service-requirements/group-by-processor',
-    { requirementIds }
-  );
+  const response = await api.post<GroupByProcessorResponse>('/service-requirements/group-by-processor', {
+    requirementIds,
+  });
   return response.data.data;
 }
 
@@ -276,13 +261,8 @@ export async function groupRequirementsByProcessor(
  * Generate a single service purchase order
  * POST /api/service-requirements/generate-po
  */
-export async function generateServicePO(
-  data: GenerateServicePORequest
-): Promise<ServicePOGenerationResponse['data']> {
-  const response = await api.post<ServicePOGenerationResponse>(
-    '/service-requirements/generate-po',
-    data
-  );
+export async function generateServicePO(data: GenerateServicePORequest): Promise<ServicePOGenerationResponse['data']> {
+  const response = await api.post<ServicePOGenerationResponse>('/service-requirements/generate-po', data);
   return response.data.data;
 }
 
@@ -293,10 +273,9 @@ export async function generateServicePO(
 export async function bulkGenerateServicePOs(
   groups: BulkGenerateServicePOsRequest['groups']
 ): Promise<BulkServicePOGenerationResponse['data']> {
-  const response = await api.post<BulkServicePOGenerationResponse>(
-    '/service-requirements/generate-pos-bulk',
-    { groups }
-  );
+  const response = await api.post<BulkServicePOGenerationResponse>('/service-requirements/generate-pos-bulk', {
+    groups,
+  });
   return response.data.data;
 }
 

@@ -111,10 +111,7 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
             },
           },
         },
-        orderBy: [
-          { isPrimary: 'desc' },
-          { createdAt: 'asc' },
-        ],
+        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
       },
       billing_state: {
         select: {
@@ -364,9 +361,7 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
     // Validate deactivation
     const validation = await this.validateDeactivation(id);
     if (!validation.canDeactivate) {
-      const message = validation.blockers
-        .map((b) => `${b.count} ${b.type}`)
-        .join(', ');
+      const message = validation.blockers.map((b) => `${b.count} ${b.type}`).join(', ');
       throw new ValidationError(`Cannot deactivate supplier. Active dependencies: ${message}`);
     }
 

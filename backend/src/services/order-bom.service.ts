@@ -225,15 +225,30 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     if (existingBomCount === 0) {
       // Parse cost sheet JSON to check for trims/accessories
-      const csTrims = costSheet.trimsDetails as unknown as Array<{
-        trimName?: string; trimRate?: number; trimQuantity?: number; materialType?: string;
-        threadId?: string; buttonId?: string; zipperId?: string; elasticId?: string;
-        labelId?: string; packagingId?: string; materialId?: string;
-      }> || [];
-      const csAccessories = costSheet.accessoriesDetails as unknown as Array<{
-        accessoryName?: string; accessoryRate?: number; accessoryQuantity?: number;
-        labelId?: string; packagingId?: string; materialId?: string; materialType?: string;
-      }> || [];
+      const csTrims =
+        (costSheet.trimsDetails as unknown as Array<{
+          trimName?: string;
+          trimRate?: number;
+          trimQuantity?: number;
+          materialType?: string;
+          threadId?: string;
+          buttonId?: string;
+          zipperId?: string;
+          elasticId?: string;
+          labelId?: string;
+          packagingId?: string;
+          materialId?: string;
+        }>) || [];
+      const csAccessories =
+        (costSheet.accessoriesDetails as unknown as Array<{
+          accessoryName?: string;
+          accessoryRate?: number;
+          accessoryQuantity?: number;
+          labelId?: string;
+          packagingId?: string;
+          materialId?: string;
+          materialType?: string;
+        }>) || [];
 
       if (csTrims.length > 0 || csAccessories.length > 0) {
         logInfo('style_material_bom is empty — auto-populating from cost sheet', {
@@ -334,39 +349,50 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const nextVersion = latestBOM ? latestBOM.version + 1 : 1;
 
     // Parse cost sheet details for prices
-    const fabricDetails = costSheet.fabricDetails as unknown as Array<{
-      fabricName?: string;
-      fabricRate?: number;
-      fabricAverage?: number;
-      fabricTotal?: number;
-      fabricWidth?: number;
-      fabricId?: string;
-      sourcingStrategy?: string;
-      processorId?: string;
-      greigeCost?: number;
-      processingCost?: number;
-      rateCardId?: string;
-    }> || [];
+    const fabricDetails =
+      (costSheet.fabricDetails as unknown as Array<{
+        fabricName?: string;
+        fabricRate?: number;
+        fabricAverage?: number;
+        fabricTotal?: number;
+        fabricWidth?: number;
+        fabricId?: string;
+        sourcingStrategy?: string;
+        processorId?: string;
+        greigeCost?: number;
+        processingCost?: number;
+        rateCardId?: string;
+      }>) || [];
 
-    const trimsDetails = costSheet.trimsDetails as unknown as Array<{
-      trimName?: string;
-      trimRate?: number;
-      trimQuantity?: number;
-      trimTotal?: number;
-      bomId?: string;
-      unit?: string;
-      materialType?: string;
-      threadId?: string; buttonId?: string; zipperId?: string; elasticId?: string;
-      labelId?: string; packagingId?: string; materialId?: string;
-    }> || [];
+    const trimsDetails =
+      (costSheet.trimsDetails as unknown as Array<{
+        trimName?: string;
+        trimRate?: number;
+        trimQuantity?: number;
+        trimTotal?: number;
+        bomId?: string;
+        unit?: string;
+        materialType?: string;
+        threadId?: string;
+        buttonId?: string;
+        zipperId?: string;
+        elasticId?: string;
+        labelId?: string;
+        packagingId?: string;
+        materialId?: string;
+      }>) || [];
 
-    const accessoriesDetails = costSheet.accessoriesDetails as unknown as Array<{
-      accessoryName?: string;
-      accessoryRate?: number;
-      accessoryQuantity?: number;
-      accessoryTotal?: number;
-      labelId?: string; packagingId?: string; materialId?: string; materialType?: string;
-    }> || [];
+    const accessoriesDetails =
+      (costSheet.accessoriesDetails as unknown as Array<{
+        accessoryName?: string;
+        accessoryRate?: number;
+        accessoryQuantity?: number;
+        accessoryTotal?: number;
+        labelId?: string;
+        packagingId?: string;
+        materialId?: string;
+        materialType?: string;
+      }>) || [];
 
     // Build BOM items from style material BOM + cost sheet prices
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -380,13 +406,15 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       );
 
       // Fallback: check accessoriesDetails for PACKAGING items
-      const accessoryPrice = !trimPrice ? accessoriesDetails.find(
-        (a) => a.accessoryName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
-      ) : null;
+      const accessoryPrice = !trimPrice
+        ? accessoriesDetails.find(
+            (a) => a.accessoryName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
+          )
+        : null;
 
       // Default qty to 1 for PACKAGING items (1 label/polybag per garment)
-      const quantityPerGarment = Number(material.quantityPerGarment) ||
-        (material.usageCategory === 'PACKAGING' ? 1 : 0);
+      const quantityPerGarment =
+        Number(material.quantityPerGarment) || (material.usageCategory === 'PACKAGING' ? 1 : 0);
       const totalQuantity = quantityPerGarment * orderQuantity;
       const wastagePercent = Number(material.extraPercentage) || 2;
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
@@ -399,7 +427,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       } else if (Number(material.unitPrice)) {
         unitPrice = Number(material.unitPrice);
       } else {
-        logWarn(`[OrderBOM] No price found for BOM item '${material.componentName || material.materialType}' (materialId: ${material.materialId || 'none'}). Unit price defaults to 0 — BOM total will be understated. Fix: add price in Cost Sheet trims/accessories or set unitPrice on the material.`);
+        logWarn(
+          `[OrderBOM] No price found for BOM item '${material.componentName || material.materialType}' (materialId: ${material.materialId || 'none'}). Unit price defaults to 0 — BOM total will be understated. Fix: add price in Cost Sheet trims/accessories or set unitPrice on the material.`
+        );
       }
       const totalCost = totalWithWastage * unitPrice;
 
@@ -540,7 +570,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             });
             if (styleComponents.length > 0) {
               const styleFabrics = await this.prisma.style_fabrics.findMany({
-                where: { componentId: { in: styleComponents.map(c => c.id) }, fabricId: { not: null } },
+                where: { componentId: { in: styleComponents.map((c) => c.id) }, fabricId: { not: null } },
                 select: { fabricId: true },
               });
               if (styleFabrics[i]) {
@@ -560,17 +590,18 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         const wastagePercent = Number(fabricItem.cadWastagePercent) || 5;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
         // For GREIGE_PROCESSED: use greige rate only (processing is a separate service)
-        const unitPrice = (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' && fabricItem.greigeCost)
-          ? Number(fabricItem.greigeCost)
-          : Number(fabricItem.costPerMeter) || 0;
+        const unitPrice =
+          fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' && fabricItem.greigeCost
+            ? Number(fabricItem.greigeCost)
+            : Number(fabricItem.costPerMeter) || 0;
         const totalCost = totalWithWastage * unitPrice;
 
         bomItems.push({
           id: uuidv4(),
           orderBomId: '', // Will be set in transaction
           materialType: fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' ? 'GREIGE' : 'FABRIC',
-          fabricId: resolvedFabricId || null,  // Use resolved ID (Fix 10)
-          sourcingStrategy: fabricItem.sourcingStrategy,  // Copy sourcing strategy for code display
+          fabricId: resolvedFabricId || null, // Use resolved ID (Fix 10)
+          sourcingStrategy: fabricItem.sourcingStrategy, // Copy sourcing strategy for code display
           quantityPerGarment,
           orderQuantity,
           totalQuantity,
@@ -585,10 +616,11 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           // Preserve greigeId regardless of sourcingStrategy — for READY_FABRIC + landed price,
           // greigeId identifies the material to procure (no processing step).
           // Only fall back to fabric.greigeId for GREIGE_PROCESSED (where fabric_master links back to greige).
-          greigeId: fabricItem.greigeId
-            || fabricItem.greige?.id
-            || (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' ? fabricItem.fabric?.greigeId : null)
-            || null,
+          greigeId:
+            fabricItem.greigeId ||
+            fabricItem.greige?.id ||
+            (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' ? fabricItem.fabric?.greigeId : null) ||
+            null,
           processorId: fabricItem.processorId,
           greigeCost: fabricItem.greigeCost ? Number(fabricItem.greigeCost) : null,
           processingCost: fabricItem.processingCost ? Number(fabricItem.processingCost) : null,
@@ -615,7 +647,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           if (styleComponents.length > 0) {
             const styleFabrics = await this.prisma.style_fabrics.findMany({
               where: {
-                componentId: { in: styleComponents.map(c => c.id) },
+                componentId: { in: styleComponents.map((c) => c.id) },
                 fabricId: { not: null },
               },
               select: { fabricId: true },
@@ -665,9 +697,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         }
 
         // For GREIGE_PROCESSED: use greige rate only (processing is a separate service)
-        const unitPrice = (sourcingStrategy === 'GREIGE_PROCESSED' && greigeCost)
-          ? greigeCost
-          : (fabric.fabricRate || 0);
+        const unitPrice = sourcingStrategy === 'GREIGE_PROCESSED' && greigeCost ? greigeCost : fabric.fabricRate || 0;
         const totalCost = totalWithWastage * unitPrice;
 
         bomItems.push({
@@ -764,7 +794,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     });
 
     // Only add thread items if not already covered by styleMaterialBOM or trimsDetails fallback
-    const hasThreadInBom = bomItems.some(item => item.materialType === 'THREAD');
+    const hasThreadInBom = bomItems.some((item) => item.materialType === 'THREAD');
     if (!hasThreadInBom && threadItems.length > 0) {
       for (let i = 0; i < threadItems.length; i++) {
         const threadItem = threadItems[i];
@@ -1092,9 +1122,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     }
 
     // Build a map of bomItemId → newCadId
-    const changeMap = new Map(
-      input.fabricItemChanges.map((c) => [c.bomItemId, c.newCadId])
-    );
+    const changeMap = new Map(input.fabricItemChanges.map((c) => [c.bomItemId, c.newCadId]));
 
     // Fetch all referenced CAD records
     const cadIds = input.fabricItemChanges.map((c) => c.newCadId);
@@ -1650,10 +1678,11 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     // Group by category
     const byCategory: { [category: string]: { itemCount: number; totalCost: number } } = {};
     for (const req of requirements) {
-      const category = bom.items.find(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (i: any) => this.getMaterialInfo(i).code === req.materialCode
-      )?.usageCategory || 'OTHER';
+      const category =
+        bom.items.find(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (i: any) => this.getMaterialInfo(i).code === req.materialCode
+        )?.usageCategory || 'OTHER';
 
       if (!byCategory[category]) {
         byCategory[category] = { itemCount: 0, totalCost: 0 };
@@ -1711,8 +1740,15 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     if (explicitType) return explicitType;
     const lower = name.toLowerCase();
     if (lower.includes('thread')) return 'THREAD';
-    if (lower.includes('label') || lower.includes('washcare') || lower.includes('size label') || lower.includes('main label')) return 'LABEL';
-    if (lower.includes('poly bag') || lower.includes('polybag') || lower.includes('hanger') || lower.includes('carton')) return 'PACKAGING';
+    if (
+      lower.includes('label') ||
+      lower.includes('washcare') ||
+      lower.includes('size label') ||
+      lower.includes('main label')
+    )
+      return 'LABEL';
+    if (lower.includes('poly bag') || lower.includes('polybag') || lower.includes('hanger') || lower.includes('carton'))
+      return 'PACKAGING';
     if (lower.includes('button')) return 'BUTTON';
     if (lower.includes('zipper') || lower.includes('zip')) return 'ZIPPER';
     if (lower.includes('elastic')) return 'ELASTIC';
@@ -1824,7 +1860,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
    * Validate BOM items for MRP readiness.
    * Returns warnings for items that will be skipped during MRP calculation.
    */
-  async validateForMRP(bomId: string): Promise<{ ready: boolean; warnings: { componentName: string; materialType: string; issue: string }[] }> {
+  async validateForMRP(
+    bomId: string
+  ): Promise<{ ready: boolean; warnings: { componentName: string; materialType: string; issue: string }[] }> {
     const bom = await this.prisma.order_bom.findUnique({
       where: { id: bomId },
       include: {
@@ -1858,7 +1896,14 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       const hasFabric = item.materialType === 'FABRIC' && !!item.fabricId;
       const hasLace = item.materialType === 'LACE' && !!item.laceId;
       const hasGreige = !!item.greigeId; // greigeId = linked regardless of strategy (covers landed price too)
-      const hasTrimMaster = !!(item.buttonId || item.threadId || item.zipperId || item.elasticId || item.labelId || item.packagingId);
+      const hasTrimMaster = !!(
+        item.buttonId ||
+        item.threadId ||
+        item.zipperId ||
+        item.elasticId ||
+        item.labelId ||
+        item.packagingId
+      );
 
       if (!hasMaterial && !hasFabric && !hasLace && !hasGreige && !hasTrimMaster) {
         let issue = '';

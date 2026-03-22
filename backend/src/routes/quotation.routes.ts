@@ -106,22 +106,13 @@ router.put(
  * Delete quotation (only DRAFT quotations can be deleted)
  * Requires: ADMIN role
  */
-router.delete(
-  '/:id',
-  authorize(UserRole.ADMIN),
-  validateParams(quotationIdParamSchema),
-  asyncHandler(deleteQuotation)
-);
+router.delete('/:id', authorize(UserRole.ADMIN), validateParams(quotationIdParamSchema), asyncHandler(deleteQuotation));
 
 /**
  * POST /api/quotations/mark-expired
  * Mark expired quotations (cron job endpoint)
  * Requires: ADMIN role
  */
-router.post(
-  '/mark-expired',
-  authorize(UserRole.ADMIN),
-  asyncHandler(markExpiredQuotations)
-);
+router.post('/mark-expired', authorize(UserRole.ADMIN), asyncHandler(markExpiredQuotations));
 
 export default router;

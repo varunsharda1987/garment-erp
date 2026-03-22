@@ -87,9 +87,7 @@ export const materialMasterService = {
    * Get material count by type
    */
   getCountByType: async (type: MaterialType): Promise<{ type: string; count: number }> => {
-    const response = await api.get<{ type: string; count: number }>(
-      `${BASE_URL}/types/${type}/count`
-    );
+    const response = await api.get<{ type: string; count: number }>(`${BASE_URL}/types/${type}/count`);
     return response.data;
   },
 
@@ -97,23 +95,15 @@ export const materialMasterService = {
    * Get suppliers for a material
    */
   getSuppliers: async (materialId: number): Promise<MaterialSupplierMapping[]> => {
-    const response = await api.get<MaterialSupplierMapping[]>(
-      `${BASE_URL}/${materialId}/suppliers`
-    );
+    const response = await api.get<MaterialSupplierMapping[]>(`${BASE_URL}/${materialId}/suppliers`);
     return response.data;
   },
 
   /**
    * Add supplier to material
    */
-  addSupplier: async (
-    materialId: number,
-    data: MaterialSupplierMappingDto
-  ): Promise<MaterialSupplierMapping> => {
-    const response = await api.post<MaterialSupplierMapping>(
-      `${BASE_URL}/${materialId}/suppliers`,
-      data
-    );
+  addSupplier: async (materialId: number, data: MaterialSupplierMappingDto): Promise<MaterialSupplierMapping> => {
+    const response = await api.post<MaterialSupplierMapping>(`${BASE_URL}/${materialId}/suppliers`, data);
     return response.data;
   },
 };

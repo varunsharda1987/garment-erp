@@ -13,21 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -40,10 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import ProcessorAllocationDialog from '@/components/ProcessorAllocationDialog';
 import BulkServicePODialog from '@/components/BulkServicePODialog';
-import {
-  getAllServiceRequirements,
-  generateServicePO,
-} from '@/services/serviceRequirement.service';
+import { getAllServiceRequirements, generateServicePO } from '@/services/serviceRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type {
   ServiceRequirement,
@@ -59,17 +43,7 @@ import {
   RequirementSourceLabels,
 } from '@/types/serviceRequirement.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import {
-  ArrowLeft,
-  Search,
-  ShoppingCart,
-  RefreshCw,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Zap,
-  UserCheck,
-} from 'lucide-react';
+import { ArrowLeft, Search, ShoppingCart, RefreshCw, X, ChevronLeft, ChevronRight, Zap, UserCheck } from 'lucide-react';
 
 export default function ServiceRequirementsList() {
   const navigate = useNavigate();
@@ -195,9 +169,7 @@ export default function ServiceRequirementsList() {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       // Only select items that are pending or in progress
-      const selectableIds = requirements
-        .filter((r) => isSelectable(r))
-        .map((r) => r.id);
+      const selectableIds = requirements.filter((r) => isSelectable(r)).map((r) => r.id);
       setSelectedIds(selectableIds);
     } else {
       setSelectedIds([]);
@@ -332,10 +304,7 @@ export default function ServiceRequirementsList() {
             {/* Status Filter */}
             <div className="w-[180px]">
               <Label className="text-xs">Status</Label>
-              <Select
-                value={searchParams.get('status')?.split(',')[0] || 'all'}
-                onValueChange={handleStatusFilter}
-              >
+              <Select value={searchParams.get('status')?.split(',')[0] || 'all'} onValueChange={handleStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
@@ -374,10 +343,7 @@ export default function ServiceRequirementsList() {
             {/* Processor Filter */}
             <div className="w-[200px]">
               <Label className="text-xs">Processor</Label>
-              <Select
-                value={searchParams.get('processorId') || 'all'}
-                onValueChange={handleProcessorFilter}
-              >
+              <Select value={searchParams.get('processorId') || 'all'} onValueChange={handleProcessorFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Processors" />
                 </SelectTrigger>
@@ -409,9 +375,7 @@ export default function ServiceRequirementsList() {
           Showing {requirements.length} of {total} service requirements
         </span>
         {selectedIds.length > 0 && (
-          <span className="text-primary font-medium">
-            {selectedIds.length} selected for PO generation
-          </span>
+          <span className="text-primary font-medium">{selectedIds.length} selected for PO generation</span>
         )}
       </div>
 
@@ -436,8 +400,7 @@ export default function ServiceRequirementsList() {
                   <TableHead className="w-[40px]">
                     <Checkbox
                       checked={
-                        selectedIds.length > 0 &&
-                        selectedIds.length === requirements.filter(isSelectable).length
+                        selectedIds.length > 0 && selectedIds.length === requirements.filter(isSelectable).length
                       }
                       onCheckedChange={handleSelectAll}
                     />
@@ -458,9 +421,7 @@ export default function ServiceRequirementsList() {
                       {isSelectable(req) && (
                         <Checkbox
                           checked={selectedIds.includes(req.id)}
-                          onCheckedChange={(checked) =>
-                            handleSelectOne(req.id, checked as boolean)
-                          }
+                          onCheckedChange={(checked) => handleSelectOne(req.id, checked as boolean)}
                         />
                       )}
                     </TableCell>
@@ -491,18 +452,14 @@ export default function ServiceRequirementsList() {
                     <TableCell>
                       {req.assignedProcessor ? (
                         <div>
-                          <div className="font-medium">
-                            {req.assignedProcessor.supplierCode}
-                          </div>
+                          <div className="font-medium">{req.assignedProcessor.supplierCode}</div>
                           <div className="text-sm text-muted-foreground truncate max-w-[150px]">
                             {req.assignedProcessor.supplierName}
                           </div>
                         </div>
                       ) : req.preferredProcessor ? (
                         <div>
-                          <div className="font-medium text-orange-600">
-                            {req.preferredProcessor.supplierCode}
-                          </div>
+                          <div className="font-medium text-orange-600">{req.preferredProcessor.supplierCode}</div>
                           <div className="text-xs text-muted-foreground">(Suggested)</div>
                         </div>
                       ) : (
@@ -513,9 +470,7 @@ export default function ServiceRequirementsList() {
                     </TableCell>
                     <TableCell className="text-right">
                       {req.estimatedTotal ? (
-                        <div className="font-medium text-purple-600">
-                          ₹{req.estimatedTotal.toLocaleString()}
-                        </div>
+                        <div className="font-medium text-purple-600">₹{req.estimatedTotal.toLocaleString()}</div>
                       ) : (
                         <span className="text-muted-foreground">--</span>
                       )}

@@ -6,7 +6,9 @@ import { logDebug } from './logger';
  * Generic type for serializable data
  */
 type SerializableValue = string | number | boolean | null | undefined | SerializableObject | SerializableArray;
-interface SerializableObject { [key: string]: SerializableValue }
+interface SerializableObject {
+  [key: string]: SerializableValue;
+}
 type SerializableArray = SerializableValue[];
 
 /**
@@ -18,9 +20,10 @@ function isPrismaDecimal(value: unknown): value is Decimal {
     return false;
   }
   // Check for Decimal instance or duck-type check for toNumber method
-  return value instanceof Decimal ||
-         (typeof (value as Decimal).toNumber === 'function' &&
-          typeof (value as Decimal).toString === 'function');
+  return (
+    value instanceof Decimal ||
+    (typeof (value as Decimal).toNumber === 'function' && typeof (value as Decimal).toString === 'function')
+  );
 }
 
 /**
@@ -69,7 +72,7 @@ function convertAllDecimals(data: unknown): unknown {
 
   // Recursively process arrays
   if (Array.isArray(data)) {
-    return data.map(item => convertAllDecimals(item));
+    return data.map((item) => convertAllDecimals(item));
   }
 
   // Recursively process plain objects
@@ -114,7 +117,7 @@ export function toCamelCase<T = unknown>(data: unknown): T {
 
   // Handle arrays
   if (Array.isArray(data)) {
-    return data.map(item => toCamelCase(item)) as T;
+    return data.map((item) => toCamelCase(item)) as T;
   }
 
   // Handle objects (but not special objects like Decimal)
@@ -130,7 +133,7 @@ export function toCamelCase<T = unknown>(data: unknown): T {
       process: (key: string, convert: (key: string) => string) => {
         // Don't convert UUID keys - they should remain as-is
         return isUUID(key) ? key : convert(key);
-      }
+      },
     };
     const camelized = (humps.camelizeKeys as Function)(
       decimalsConverted as Record<string, unknown>,
@@ -194,7 +197,7 @@ export function toSnakeCase<T = unknown>(data: unknown): T {
 
   // Handle arrays
   if (Array.isArray(data)) {
-    return data.map(item => toSnakeCase(item)) as T;
+    return data.map((item) => toSnakeCase(item)) as T;
   }
 
   // Handle objects
@@ -468,7 +471,7 @@ export function applyRelationMappings<T = unknown>(data: unknown): T {
   }
 
   if (Array.isArray(data)) {
-    return data.map(item => applyRelationMappings(item)) as T;
+    return data.map((item) => applyRelationMappings(item)) as T;
   }
 
   if (typeof data === 'object' && data.constructor === Object) {
@@ -530,10 +533,27 @@ export function deserialize<T = unknown>(data: unknown): T {
  *   - 'createdBy'/'approvedBy' (various verbose user relations)
  */
 const KNOWN_SAFE_COLLISIONS = new Set([
-  'items', 'billing', 'shipping', 'breakup', 'createdBy', 'approvedBy',
-  'receivedBy', 'issuedBy', 'user', 'inspectedBy', 'operatedBy',
-  'managedBy', 'preparedBy', 'inspector', 'approver', 'category',
-  'paymentTerms', 'placeOfSupply', 'gstBilling', 'laceItems', 'supplier',
+  'items',
+  'billing',
+  'shipping',
+  'breakup',
+  'createdBy',
+  'approvedBy',
+  'receivedBy',
+  'issuedBy',
+  'user',
+  'inspectedBy',
+  'operatedBy',
+  'managedBy',
+  'preparedBy',
+  'inspector',
+  'approver',
+  'category',
+  'paymentTerms',
+  'placeOfSupply',
+  'gstBilling',
+  'laceItems',
+  'supplier',
   'suppliers',
 ]);
 

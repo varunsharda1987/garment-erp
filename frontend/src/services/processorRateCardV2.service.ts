@@ -50,10 +50,9 @@ export const processorRateCardV2Service = {
    * Get summary dashboard data for all processors
    */
   async getSummary(): Promise<ProcessorRateCardSummary> {
-    const response = await axios.get<ApiResponse<ProcessorRateCardSummary>>(
-      `${BASE_URL}/summary`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<ProcessorRateCardSummary>>(`${BASE_URL}/summary`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data;
   },
 
@@ -61,10 +60,9 @@ export const processorRateCardV2Service = {
    * Get all DYEING/PRINTING processors
    */
   async getProcessors(): Promise<ProcessorInfo[]> {
-    const response = await axios.get<ApiResponse<ProcessorInfo[]>>(
-      `${BASE_URL}/processors`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<ProcessorInfo[]>>(`${BASE_URL}/processors`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data;
   },
 
@@ -82,10 +80,7 @@ export const processorRateCardV2Service = {
     if (processingType === 'PRINTING' && printingType) {
       url += `&printingType=${printingType}`;
     }
-    const response = await axios.get<ApiResponse<ProcessorRateMatrixFromAPI>>(
-      url,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<ProcessorRateMatrixFromAPI>>(url, { headers: getAuthHeader() });
 
     // Convert API format to local format
     const apiMatrix = response.data.data;
@@ -99,10 +94,9 @@ export const processorRateCardV2Service = {
    * Get all greige fabrics for row population
    */
   async getGreigeFabrics(): Promise<GreigeForRateCard[]> {
-    const response = await axios.get<ApiResponse<GreigeForRateCard[]>>(
-      `${BASE_URL}/greiges`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<GreigeForRateCard[]>>(`${BASE_URL}/greiges`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data;
   },
 
@@ -125,26 +119,15 @@ export const processorRateCardV2Service = {
   /**
    * Bulk save rate matrix
    */
-  async saveMatrix(
-    processorId: string,
-    request: SaveMatrixRequest
-  ): Promise<void> {
-    await axios.put(
-      `${BASE_URL}/processors/${processorId}/matrix`,
-      request,
-      { headers: getAuthHeader() }
-    );
+  async saveMatrix(processorId: string, request: SaveMatrixRequest): Promise<void> {
+    await axios.put(`${BASE_URL}/processors/${processorId}/matrix`, request, { headers: getAuthHeader() });
   },
 
   /**
    * Copy rates between processors
    */
   async copyRates(input: CopyRatesInput): Promise<void> {
-    await axios.post(
-      `${BASE_URL}/copy`,
-      input,
-      { headers: getAuthHeader() }
-    );
+    await axios.post(`${BASE_URL}/copy`, input, { headers: getAuthHeader() });
   },
 
   /**
@@ -161,11 +144,7 @@ export const processorRateCardV2Service = {
     if (processingType === 'PRINTING' && printingType) {
       body.printingType = printingType;
     }
-    await axios.post(
-      `${BASE_URL}/processors/${processorId}/greiges/${greigeId}`,
-      body,
-      { headers: getAuthHeader() }
-    );
+    await axios.post(`${BASE_URL}/processors/${processorId}/greiges/${greigeId}`, body, { headers: getAuthHeader() });
   },
 
   /**
@@ -212,16 +191,14 @@ export const processorRateCardV2Service = {
       if (processingType === 'PRINTING' && printingType) {
         body.printingType = printingType;
       }
-      const response = await axios.post<ApiResponse<{
-        id: string;
-        ratePerMeter: number;
-        totalCost: number;
-        slabLabel: string;
-      }>>(
-        `${BASE_URL}/lookup`,
-        body,
-        { headers: getAuthHeader() }
-      );
+      const response = await axios.post<
+        ApiResponse<{
+          id: string;
+          ratePerMeter: number;
+          totalCost: number;
+          slabLabel: string;
+        }>
+      >(`${BASE_URL}/lookup`, body, { headers: getAuthHeader() });
       return response.data.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
@@ -239,10 +216,9 @@ export const processorRateCardV2Service = {
    * Get all greige laces for rate card row population
    */
   async getGreigeLaces(): Promise<GreigeLaceForRateCard[]> {
-    const response = await axios.get<ApiResponse<GreigeLaceForRateCard[]>>(
-      `${BASE_URL}/laces`,
-      { headers: getAuthHeader() }
-    );
+    const response = await axios.get<ApiResponse<GreigeLaceForRateCard[]>>(`${BASE_URL}/laces`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data;
   },
 
@@ -265,36 +241,22 @@ export const processorRateCardV2Service = {
   /**
    * Bulk save lace rate matrix
    */
-  async saveLaceMatrix(
-    processorId: string,
-    request: SaveLaceMatrixRequest
-  ): Promise<void> {
-    await axios.put(
-      `${BASE_URL}/processors/${processorId}/lace-matrix`,
-      request,
-      { headers: getAuthHeader() }
-    );
+  async saveLaceMatrix(processorId: string, request: SaveLaceMatrixRequest): Promise<void> {
+    await axios.put(`${BASE_URL}/processors/${processorId}/lace-matrix`, request, { headers: getAuthHeader() });
   },
 
   /**
    * Add lace row to processor's matrix
    */
   async addLace(processorId: string, laceId: string): Promise<void> {
-    await axios.post(
-      `${BASE_URL}/processors/${processorId}/laces/${laceId}`,
-      {},
-      { headers: getAuthHeader() }
-    );
+    await axios.post(`${BASE_URL}/processors/${processorId}/laces/${laceId}`, {}, { headers: getAuthHeader() });
   },
 
   /**
    * Remove lace row from processor's matrix
    */
   async removeLace(processorId: string, laceId: string): Promise<void> {
-    await axios.delete(
-      `${BASE_URL}/processors/${processorId}/laces/${laceId}`,
-      { headers: getAuthHeader() }
-    );
+    await axios.delete(`${BASE_URL}/processors/${processorId}/laces/${laceId}`, { headers: getAuthHeader() });
   },
 
   /**
@@ -313,18 +275,16 @@ export const processorRateCardV2Service = {
     lace: { id: string; name: string; costPerMeterGreige: number | null };
   } | null> {
     try {
-      const response = await axios.post<ApiResponse<{
-        ratePerMeter: number;
-        totalCost: number;
-        shrinkagePercent: number | null;
-        slab: { id: string; label: string; minQuantity: number; maxQuantity: number };
-        processor: { id: string; name: string };
-        lace: { id: string; name: string; costPerMeterGreige: number | null };
-      }>>(
-        `${BASE_URL}/lookup-lace`,
-        { processorId, laceId, quantityMeters },
-        { headers: getAuthHeader() }
-      );
+      const response = await axios.post<
+        ApiResponse<{
+          ratePerMeter: number;
+          totalCost: number;
+          shrinkagePercent: number | null;
+          slab: { id: string; label: string; minQuantity: number; maxQuantity: number };
+          processor: { id: string; name: string };
+          lace: { id: string; name: string; costPerMeterGreige: number | null };
+        }>
+      >(`${BASE_URL}/lookup-lace`, { processorId, laceId, quantityMeters }, { headers: getAuthHeader() });
       return response.data.data;
     } catch (error: any) {
       if (error.response?.status === 404) {

@@ -10,11 +10,7 @@ export const RateTypeEnum = z.enum(['BUYING', 'SELLING', 'AVERAGE']);
  * POST /api/currencies
  */
 export const createCurrencySchema = z.object({
-  currencyCode: z
-    .string()
-    .length(3, 'Currency code must be exactly 3 characters')
-    .trim()
-    .toUpperCase(),
+  currencyCode: z.string().length(3, 'Currency code must be exactly 3 characters').trim().toUpperCase(),
   currencyName: z
     .string()
     .min(1, 'Currency name is required')
@@ -68,20 +64,13 @@ export const updateCurrencySchema = z.object({
  * POST /api/currencies/:code/exchange-rates
  */
 export const createExchangeRateSchema = z.object({
-  currencyCode: z
-    .string()
-    .length(3, 'Currency code must be exactly 3 characters')
-    .trim()
-    .toUpperCase()
-    .optional(), // Optional since it can come from URL param
+  currencyCode: z.string().length(3, 'Currency code must be exactly 3 characters').trim().toUpperCase().optional(), // Optional since it can come from URL param
   effectiveDate: z
     .string()
     .min(1, 'Effective date is required')
     .refine((val) => !isNaN(Date.parse(val)), 'Invalid date format'),
   rateType: RateTypeEnum,
-  exchangeRate: z
-    .number()
-    .positive('Exchange rate must be positive'),
+  exchangeRate: z.number().positive('Exchange rate must be positive'),
 });
 
 /**
@@ -110,10 +99,7 @@ export const currencyQuerySchema = z.object({
       return val === 'true';
     })
     .pipe(z.boolean().optional()),
-  sortBy: z
-    .enum(['currencyCode', 'currencyName', 'createdAt'])
-    .optional()
-    .default('currencyCode'),
+  sortBy: z.enum(['currencyCode', 'currencyName', 'createdAt']).optional().default('currencyCode'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('asc'),
 });
 

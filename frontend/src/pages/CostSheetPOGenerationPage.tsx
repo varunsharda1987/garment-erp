@@ -62,9 +62,7 @@ export default function CostSheetPOGenerationPage() {
   } | null>(null);
 
   // Form State
-  const [totalOrderQty, setTotalOrderQty] = useState<number>(
-    Number(searchParams.get('qty')) || 0
-  );
+  const [totalOrderQty, setTotalOrderQty] = useState<number>(Number(searchParams.get('qty')) || 0);
   const [requirements, setRequirements] = useState<CalculatedRequirements | null>(null);
 
   // PO Type Selection (Fabric vs Greige - Mutually Exclusive)
@@ -78,9 +76,15 @@ export default function CostSheetPOGenerationPage() {
   const [trimsSupplierId, setTrimsSupplierId] = useState<string>('');
 
   // Item Selections and Allowances
-  const [fabricItems, setFabricItems] = useState<Array<OrderQuantityResult & { selected: boolean; adjustedAllowance: number }>>([]);
-  const [greigeItems, setGreigeItems] = useState<Array<OrderQuantityResult & { selected: boolean; adjustedAllowance: number }>>([]);
-  const [trimsItems, setTrimsItems] = useState<Array<OrderQuantityResult & { selected: boolean; adjustedAllowance: number }>>([]);
+  const [fabricItems, setFabricItems] = useState<
+    Array<OrderQuantityResult & { selected: boolean; adjustedAllowance: number }>
+  >([]);
+  const [greigeItems, setGreigeItems] = useState<
+    Array<OrderQuantityResult & { selected: boolean; adjustedAllowance: number }>
+  >([]);
+  const [trimsItems, setTrimsItems] = useState<
+    Array<OrderQuantityResult & { selected: boolean; adjustedAllowance: number }>
+  >([]);
   const [createProcessingPO, setCreateProcessingPO] = useState(false);
 
   // Generated POs
@@ -162,21 +166,21 @@ export default function CostSheetPOGenerationPage() {
 
         // Initialize items with selection state
         setFabricItems(
-          (response.data.fabricOrderQtys || []).map(item => ({
+          (response.data.fabricOrderQtys || []).map((item) => ({
             ...item,
             selected: item.shortfall > 0,
             adjustedAllowance: 3,
           }))
         );
         setGreigeItems(
-          (response.data.greigeOrderQtys || []).map(item => ({
+          (response.data.greigeOrderQtys || []).map((item) => ({
             ...item,
             selected: item.shortfall > 0,
             adjustedAllowance: 3,
           }))
         );
         setTrimsItems(
-          (response.data.trimsOrderQtys || []).map(item => ({
+          (response.data.trimsOrderQtys || []).map((item) => ({
             ...item,
             selected: item.shortfall > 0,
             adjustedAllowance: 3,
@@ -196,7 +200,7 @@ export default function CostSheetPOGenerationPage() {
   };
 
   const handleGenerateFabricPO = async () => {
-    const selectedItems = fabricItems.filter(item => item.selected && item.shortfall > 0);
+    const selectedItems = fabricItems.filter((item) => item.selected && item.shortfall > 0);
     if (selectedItems.length === 0) {
       toast({
         title: 'No Items Selected',
@@ -221,7 +225,7 @@ export default function CostSheetPOGenerationPage() {
         costSheetId: costSheetId!,
         totalOrderQty,
         supplierId: fabricSupplierId,
-        items: selectedItems.map(item => ({
+        items: selectedItems.map((item) => ({
           materialId: item.materialId,
           orderQty: calculateAdjustedOrderQty(item),
           unit: item.unit,
@@ -231,7 +235,7 @@ export default function CostSheetPOGenerationPage() {
       });
 
       if (response.success && response.data) {
-        setGeneratedPOs(prev => [...prev, response.data]);
+        setGeneratedPOs((prev) => [...prev, response.data]);
         toast({
           title: 'Fabric PO Generated',
           description: `PO ${response.data.poNumber} created successfully`,
@@ -247,7 +251,7 @@ export default function CostSheetPOGenerationPage() {
   };
 
   const handleGenerateGreigePO = async () => {
-    const selectedItems = greigeItems.filter(item => item.selected && item.shortfall > 0);
+    const selectedItems = greigeItems.filter((item) => item.selected && item.shortfall > 0);
     if (selectedItems.length === 0) {
       toast({
         title: 'No Items Selected',
@@ -272,7 +276,7 @@ export default function CostSheetPOGenerationPage() {
         costSheetId: costSheetId!,
         totalOrderQty,
         supplierId: greigeSupplierId,
-        items: selectedItems.map(item => ({
+        items: selectedItems.map((item) => ({
           materialId: item.materialId,
           orderQty: calculateAdjustedOrderQty(item),
           unit: item.unit,
@@ -282,7 +286,7 @@ export default function CostSheetPOGenerationPage() {
       });
 
       if (response.success && response.data) {
-        setGeneratedPOs(prev => [...prev, response.data]);
+        setGeneratedPOs((prev) => [...prev, response.data]);
         toast({
           title: 'Greige PO Generated',
           description: `PO ${response.data.poNumber} created successfully`,
@@ -329,7 +333,7 @@ export default function CostSheetPOGenerationPage() {
         totalOrderQty,
         processorId,
         linkedGreigePOId,
-        items: processingItems.map(item => ({
+        items: processingItems.map((item) => ({
           materialId: item.materialId,
           orderQty: item.requiredQty,
           unit: item.unit,
@@ -341,7 +345,7 @@ export default function CostSheetPOGenerationPage() {
       });
 
       if (response.success && response.data) {
-        setGeneratedPOs(prev => [...prev, response.data]);
+        setGeneratedPOs((prev) => [...prev, response.data]);
         toast({
           title: 'Processing PO Generated',
           description: `PO ${response.data.poNumber} created with status ${linkedGreigePOId ? 'PENDING_GREIGE' : 'DRAFT'}`,
@@ -356,7 +360,7 @@ export default function CostSheetPOGenerationPage() {
   };
 
   const handleGenerateTrimsPO = async () => {
-    const selectedItems = trimsItems.filter(item => item.selected && item.shortfall > 0);
+    const selectedItems = trimsItems.filter((item) => item.selected && item.shortfall > 0);
     if (selectedItems.length === 0) {
       toast({
         title: 'No Items Selected',
@@ -381,7 +385,7 @@ export default function CostSheetPOGenerationPage() {
         costSheetId: costSheetId!,
         totalOrderQty,
         supplierId: trimsSupplierId,
-        items: selectedItems.map(item => ({
+        items: selectedItems.map((item) => ({
           materialId: item.materialId,
           orderQty: calculateAdjustedOrderQty(item),
           unit: item.unit,
@@ -391,7 +395,7 @@ export default function CostSheetPOGenerationPage() {
       });
 
       if (response.success && response.data) {
-        setGeneratedPOs(prev => [...prev, response.data]);
+        setGeneratedPOs((prev) => [...prev, response.data]);
         toast({
           title: 'Trims PO Generated',
           description: `PO ${response.data.poNumber} created successfully`,
@@ -444,18 +448,12 @@ export default function CostSheetPOGenerationPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate(-1)}
-          >
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Generate Purchase Orders</h1>
-            <p className="text-muted-foreground">
-              Generate POs from Cost Sheet for early procurement
-            </p>
+            <p className="text-muted-foreground">Generate POs from Cost Sheet for early procurement</p>
           </div>
         </div>
       </div>
@@ -498,9 +496,7 @@ export default function CostSheetPOGenerationPage() {
             <Calculator className="h-5 w-5" />
             Calculate Requirements
           </CardTitle>
-          <CardDescription>
-            Enter the total order quantity to calculate material requirements
-          </CardDescription>
+          <CardDescription>Enter the total order quantity to calculate material requirements</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-end gap-4">
@@ -515,10 +511,7 @@ export default function CostSheetPOGenerationPage() {
                 placeholder="Enter quantity..."
               />
             </div>
-            <Button
-              onClick={handleCalculate}
-              disabled={calculating || totalOrderQty <= 0}
-            >
+            <Button onClick={handleCalculate} disabled={calculating || totalOrderQty <= 0}>
               {calculating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -543,17 +536,11 @@ export default function CostSheetPOGenerationPage() {
                   <Package className="h-5 w-5" />
                   Fabric / Greige PO
                 </CardTitle>
-                <CardDescription>
-                  Choose between ordering ready fabric or greige for processing
-                </CardDescription>
+                <CardDescription>Choose between ordering ready fabric or greige for processing</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Mutual Exclusion Selection */}
-                <RadioGroup
-                  value={poType}
-                  onValueChange={(v) => setPOType(v as POType)}
-                  className="flex gap-6"
-                >
+                <RadioGroup value={poType} onValueChange={(v) => setPOType(v as POType)} className="flex gap-6">
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="FABRIC" id="fabric" disabled={!hasFabricItems} />
                     <Label htmlFor="fabric" className={!hasFabricItems ? 'text-muted-foreground' : ''}>
@@ -610,15 +597,17 @@ export default function CostSheetPOGenerationPage() {
                               <Checkbox
                                 checked={item.selected}
                                 onCheckedChange={(checked) => {
-                                  setFabricItems(prev => prev.map((i, j) =>
-                                    j === idx ? { ...i, selected: !!checked } : i
-                                  ));
+                                  setFabricItems((prev) =>
+                                    prev.map((i, j) => (j === idx ? { ...i, selected: !!checked } : i))
+                                  );
                                 }}
                                 disabled={item.shortfall <= 0}
                               />
                             </TableCell>
                             <TableCell className="font-medium">{item.materialName}</TableCell>
-                            <TableCell className="text-right">{item.requiredQty.toFixed(2)} {item.unit}</TableCell>
+                            <TableCell className="text-right">
+                              {item.requiredQty.toFixed(2)} {item.unit}
+                            </TableCell>
                             <TableCell className="text-right">{item.availableStock.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{item.shortfall.toFixed(2)}</TableCell>
                             <TableCell className="text-right">
@@ -629,9 +618,11 @@ export default function CostSheetPOGenerationPage() {
                                 step="0.5"
                                 value={item.adjustedAllowance}
                                 onChange={(e) => {
-                                  setFabricItems(prev => prev.map((i, j) =>
-                                    j === idx ? { ...i, adjustedAllowance: Number(e.target.value) } : i
-                                  ));
+                                  setFabricItems((prev) =>
+                                    prev.map((i, j) =>
+                                      j === idx ? { ...i, adjustedAllowance: Number(e.target.value) } : i
+                                    )
+                                  );
                                 }}
                                 className="w-16 text-right"
                                 disabled={!item.selected}
@@ -652,7 +643,7 @@ export default function CostSheetPOGenerationPage() {
                     <div className="flex justify-end">
                       <Button
                         onClick={handleGenerateFabricPO}
-                        disabled={generating || !fabricSupplierId || fabricItems.every(i => !i.selected)}
+                        disabled={generating || !fabricSupplierId || fabricItems.every((i) => !i.selected)}
                       >
                         {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Generate Fabric PO
@@ -701,15 +692,17 @@ export default function CostSheetPOGenerationPage() {
                               <Checkbox
                                 checked={item.selected}
                                 onCheckedChange={(checked) => {
-                                  setGreigeItems(prev => prev.map((i, j) =>
-                                    j === idx ? { ...i, selected: !!checked } : i
-                                  ));
+                                  setGreigeItems((prev) =>
+                                    prev.map((i, j) => (j === idx ? { ...i, selected: !!checked } : i))
+                                  );
                                 }}
                                 disabled={item.shortfall <= 0}
                               />
                             </TableCell>
                             <TableCell className="font-medium">{item.materialName}</TableCell>
-                            <TableCell className="text-right">{item.requiredQty.toFixed(2)} {item.unit}</TableCell>
+                            <TableCell className="text-right">
+                              {item.requiredQty.toFixed(2)} {item.unit}
+                            </TableCell>
                             <TableCell className="text-right">{item.availableStock.toFixed(2)}</TableCell>
                             <TableCell className="text-right">{item.shortfall.toFixed(2)}</TableCell>
                             <TableCell className="text-right">
@@ -720,9 +713,11 @@ export default function CostSheetPOGenerationPage() {
                                 step="0.5"
                                 value={item.adjustedAllowance}
                                 onChange={(e) => {
-                                  setGreigeItems(prev => prev.map((i, j) =>
-                                    j === idx ? { ...i, adjustedAllowance: Number(e.target.value) } : i
-                                  ));
+                                  setGreigeItems((prev) =>
+                                    prev.map((i, j) =>
+                                      j === idx ? { ...i, adjustedAllowance: Number(e.target.value) } : i
+                                    )
+                                  );
                                 }}
                                 className="w-16 text-right"
                                 disabled={!item.selected}
@@ -775,7 +770,7 @@ export default function CostSheetPOGenerationPage() {
                     <div className="flex justify-end">
                       <Button
                         onClick={handleGenerateGreigePO}
-                        disabled={generating || !greigeSupplierId || greigeItems.every(i => !i.selected)}
+                        disabled={generating || !greigeSupplierId || greigeItems.every((i) => !i.selected)}
                       >
                         {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Generate Greige PO{createProcessingPO ? ' + Processing PO' : ''}
@@ -843,15 +838,17 @@ export default function CostSheetPOGenerationPage() {
                           <Checkbox
                             checked={item.selected}
                             onCheckedChange={(checked) => {
-                              setTrimsItems(prev => prev.map((i, j) =>
-                                j === idx ? { ...i, selected: !!checked } : i
-                              ));
+                              setTrimsItems((prev) =>
+                                prev.map((i, j) => (j === idx ? { ...i, selected: !!checked } : i))
+                              );
                             }}
                             disabled={item.shortfall <= 0}
                           />
                         </TableCell>
                         <TableCell className="font-medium">{item.materialName}</TableCell>
-                        <TableCell className="text-right">{item.requiredQty.toFixed(2)} {item.unit}</TableCell>
+                        <TableCell className="text-right">
+                          {item.requiredQty.toFixed(2)} {item.unit}
+                        </TableCell>
                         <TableCell className="text-right">{item.availableStock.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{item.shortfall.toFixed(2)}</TableCell>
                         <TableCell className="text-right">
@@ -862,9 +859,11 @@ export default function CostSheetPOGenerationPage() {
                             step="0.5"
                             value={item.adjustedAllowance}
                             onChange={(e) => {
-                              setTrimsItems(prev => prev.map((i, j) =>
-                                j === idx ? { ...i, adjustedAllowance: Number(e.target.value) } : i
-                              ));
+                              setTrimsItems((prev) =>
+                                prev.map((i, j) =>
+                                  j === idx ? { ...i, adjustedAllowance: Number(e.target.value) } : i
+                                )
+                              );
                             }}
                             className="w-16 text-right"
                             disabled={!item.selected}
@@ -885,7 +884,7 @@ export default function CostSheetPOGenerationPage() {
                 <div className="flex justify-end">
                   <Button
                     onClick={handleGenerateTrimsPO}
-                    disabled={generating || !trimsSupplierId || trimsItems.every(i => !i.selected)}
+                    disabled={generating || !trimsSupplierId || trimsItems.every((i) => !i.selected)}
                   >
                     {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Generate Trims PO
@@ -927,23 +926,17 @@ export default function CostSheetPOGenerationPage() {
                     </TableCell>
                     <TableCell>{po.supplierName}</TableCell>
                     <TableCell>
-                      <Badge variant={po.status === 'DRAFT' ? 'secondary' : 'default'}>
-                        {po.status}
-                      </Badge>
+                      <Badge variant={po.status === 'DRAFT' ? 'secondary' : 'default'}>{po.status}</Badge>
                     </TableCell>
                     <TableCell className="text-right">{formatCurrency(po.totalAmount)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/purchase-orders/${po.id}`)}
-                      >
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/purchase-orders/${po.id}`)}>
                         View
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))}
-                {generationHistory.flatMap(gen =>
+                {generationHistory.flatMap((gen) =>
                   gen.purchaseOrders.map((po) => (
                     <TableRow key={po.id}>
                       <TableCell className="font-medium">{po.poNumber}</TableCell>
@@ -952,18 +945,17 @@ export default function CostSheetPOGenerationPage() {
                       </TableCell>
                       <TableCell>{po.supplierName}</TableCell>
                       <TableCell>
-                        <Badge variant={po.status === 'DRAFT' ? 'secondary' :
-                                       po.status === 'PENDING_GREIGE' ? 'outline' : 'default'}>
+                        <Badge
+                          variant={
+                            po.status === 'DRAFT' ? 'secondary' : po.status === 'PENDING_GREIGE' ? 'outline' : 'default'
+                          }
+                        >
                           {po.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(po.totalAmount)}</TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/purchase-orders/${po.id}`)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/purchase-orders/${po.id}`)}>
                           View
                         </Button>
                       </TableCell>

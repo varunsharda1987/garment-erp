@@ -59,10 +59,7 @@ export const deleteOtherMaterial = async (id: string): Promise<void> => {
 /**
  * Bulk import other materials from Excel
  */
-export const bulkImportOtherMaterials = async (data: {
-  data: any[];
-  createStock?: boolean;
-}): Promise<any> => {
+export const bulkImportOtherMaterials = async (data: { data: any[]; createStock?: boolean }): Promise<any> => {
   const response = await api.post('/materials/other/bulk-import', data);
   return response.data;
 };

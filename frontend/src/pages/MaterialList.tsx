@@ -118,9 +118,7 @@ export default function MaterialList() {
     {
       key: 'code',
       header: 'Code',
-      render: (material) => (
-        <div className="text-sm font-medium text-gray-900">{material.code}</div>
-      ),
+      render: (material) => <div className="text-sm font-medium text-gray-900">{material.code}</div>,
     },
     {
       key: 'name',
@@ -128,56 +126,38 @@ export default function MaterialList() {
       render: (material) => (
         <div>
           <div className="text-sm font-medium text-gray-900">{material.name}</div>
-          {material.description && (
-            <div className="text-xs text-gray-500 line-clamp-1">{material.description}</div>
-          )}
+          {material.description && <div className="text-xs text-gray-500 line-clamp-1">{material.description}</div>}
         </div>
       ),
     },
     {
       key: 'category',
       header: 'Category',
-      render: (material) => (
-        <div className="text-sm text-gray-700">
-          {material.category?.name || '-'}
-        </div>
-      ),
+      render: (material) => <div className="text-sm text-gray-700">{material.category?.name || '-'}</div>,
     },
     {
       key: 'materialType',
       header: 'Type',
-      render: (material) => (
-        <StatusBadge status={MaterialTypeLabels[material.materialType]} variant="info" />
-      ),
+      render: (material) => <StatusBadge status={MaterialTypeLabels[material.materialType]} variant="info" />,
     },
     {
       key: 'customer',
       header: 'Customer',
-      render: (material) => (
-        <div className="text-sm text-gray-700">
-          {material.customer?.name || '-'}
-        </div>
-      ),
+      render: (material) => <div className="text-sm text-gray-700">{material.customer?.name || '-'}</div>,
     },
     {
       key: 'supplier',
       header: 'Preferred Supplier',
       render: (material) => (
         <div className="text-sm text-gray-700">
-          {material.supplier && material.supplier.length > 0
-            ? material.supplier[0].supplier.name
-            : '-'}
+          {material.supplier && material.supplier.length > 0 ? material.supplier[0].supplier.name : '-'}
         </div>
       ),
     },
     {
       key: 'unit',
       header: 'Unit',
-      render: (material) => (
-        <div className="text-sm text-gray-700">
-          {UnitLabels[material.unit]}
-        </div>
-      ),
+      render: (material) => <div className="text-sm text-gray-700">{UnitLabels[material.unit]}</div>,
     },
     {
       key: 'actions',
@@ -186,11 +166,7 @@ export default function MaterialList() {
       className: 'text-right',
       render: (material) => (
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(`/materials/raw/${material.id}/edit`)}
-          >
+          <Button variant="outline" size="sm" onClick={() => navigate(`/materials/raw/${material.id}/edit`)}>
             Edit
           </Button>
           <Button
@@ -222,13 +198,8 @@ export default function MaterialList() {
                   unit: unitFilter !== 'all' ? unitFilter : undefined,
                 }}
               />
-              <ImportButton
-                module="materials"
-                onSuccess={fetchMaterials}
-              />
-              <Button onClick={() => setCategorySelectorOpen(true)}>
-                + Add New Material
-              </Button>
+              <ImportButton module="materials" onSuccess={fetchMaterials} />
+              <Button onClick={() => setCategorySelectorOpen(true)}>+ Add New Material</Button>
             </div>
           </div>
         </CardHeader>
@@ -281,9 +252,10 @@ export default function MaterialList() {
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No materials found',
-              description: searchQuery || categoryFilter || unitFilter
-                ? 'Try adjusting your search or filter criteria'
-                : 'Get started by creating your first material',
+              description:
+                searchQuery || categoryFilter || unitFilter
+                  ? 'Try adjusting your search or filter criteria'
+                  : 'Get started by creating your first material',
               actionLabel: 'Create First Material',
               onAction: () => setCategorySelectorOpen(true),
             }}
@@ -312,10 +284,7 @@ export default function MaterialList() {
       />
 
       {/* Material Category Selector Dialog */}
-      <MaterialCategorySelector
-        open={categorySelectorOpen}
-        onOpenChange={setCategorySelectorOpen}
-      />
+      <MaterialCategorySelector open={categorySelectorOpen} onOpenChange={setCategorySelectorOpen} />
     </>
   );
 }

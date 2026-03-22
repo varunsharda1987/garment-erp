@@ -24,18 +24,20 @@ const AVAILABLE_ROLES = [
 ];
 
 // Validation schema
-const registerSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().optional(),
-  role: z.string().min(1, 'Please select a role'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
+const registerSchema = z
+  .object({
+    firstName: z.string().min(2, 'First name must be at least 2 characters'),
+    lastName: z.string().min(2, 'Last name must be at least 2 characters'),
+    email: z.string().email('Invalid email address'),
+    phone: z.string().optional(),
+    role: z.string().min(1, 'Please select a role'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
@@ -90,9 +92,7 @@ export default function Register() {
               </div>
             </div>
             <CardTitle className="text-2xl text-center text-green-700">Registration Submitted</CardTitle>
-            <CardDescription className="text-center">
-              {successMessage}
-            </CardDescription>
+            <CardDescription className="text-center">{successMessage}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm">
@@ -105,10 +105,7 @@ export default function Register() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button
-              className="w-full"
-              onClick={() => navigate('/login')}
-            >
+            <Button className="w-full" onClick={() => navigate('/login')}>
               Go to Login
             </Button>
           </CardFooter>
@@ -125,45 +122,25 @@ export default function Register() {
             <div className="text-4xl">🏭</div>
           </div>
           <CardTitle className="text-2xl text-center">Create an Account</CardTitle>
-          <CardDescription className="text-center">
-            Enter your information to request access
-          </CardDescription>
+          <CardDescription className="text-center">Enter your information to request access</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-                {error}
-              </div>
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
             )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  type="text"
-                  placeholder="John"
-                  {...register('firstName')}
-                  disabled={isLoading}
-                />
-                {errors.firstName && (
-                  <p className="text-sm text-red-500">{errors.firstName.message}</p>
-                )}
+                <Input id="firstName" type="text" placeholder="John" {...register('firstName')} disabled={isLoading} />
+                {errors.firstName && <p className="text-sm text-red-500">{errors.firstName.message}</p>}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  type="text"
-                  placeholder="Doe"
-                  {...register('lastName')}
-                  disabled={isLoading}
-                />
-                {errors.lastName && (
-                  <p className="text-sm text-red-500">{errors.lastName.message}</p>
-                )}
+                <Input id="lastName" type="text" placeholder="Doe" {...register('lastName')} disabled={isLoading} />
+                {errors.lastName && <p className="text-sm text-red-500">{errors.lastName.message}</p>}
               </div>
             </div>
 
@@ -176,32 +153,20 @@ export default function Register() {
                 {...register('email')}
                 disabled={isLoading}
               />
-              {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number <span className="text-gray-400 text-xs">(Optional)</span></Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+91 98765 43210"
-                {...register('phone')}
-                disabled={isLoading}
-              />
-              {errors.phone && (
-                <p className="text-sm text-red-500">{errors.phone.message}</p>
-              )}
+              <Label htmlFor="phone">
+                Phone Number <span className="text-gray-400 text-xs">(Optional)</span>
+              </Label>
+              <Input id="phone" type="tel" placeholder="+91 98765 43210" {...register('phone')} disabled={isLoading} />
+              {errors.phone && <p className="text-sm text-red-500">{errors.phone.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select
-                value={selectedRole}
-                onValueChange={(value) => setValue('role', value)}
-                disabled={isLoading}
-              >
+              <Select value={selectedRole} onValueChange={(value) => setValue('role', value)} disabled={isLoading}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
@@ -213,9 +178,7 @@ export default function Register() {
                   ))}
                 </SelectContent>
               </Select>
-              {errors.role && (
-                <p className="text-sm text-red-500">{errors.role.message}</p>
-              )}
+              {errors.role && <p className="text-sm text-red-500">{errors.role.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -228,9 +191,7 @@ export default function Register() {
                 disabled={isLoading}
               />
               <p className="text-xs text-gray-500">Must be at least 6 characters</p>
-              {errors.password && (
-                <p className="text-sm text-red-500">{errors.password.message}</p>
-              )}
+              {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -242,9 +203,7 @@ export default function Register() {
                 {...register('confirmPassword')}
                 disabled={isLoading}
               />
-              {errors.confirmPassword && (
-                <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
-              )}
+              {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>}
             </div>
 
             <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md text-sm">

@@ -1,14 +1,14 @@
 import api from '../lib/api';
-import type {
-  ChartOfAccount,
-  ChartOfAccountCreate,
-} from '../types/financial.types';
+import type { ChartOfAccount, ChartOfAccountCreate } from '../types/financial.types';
 
 const BASE_URL = '/chart-of-accounts';
 
 export const chartOfAccountsService = {
   // Get all accounts with pagination
-  getAll: async (page = 1, limit = 100): Promise<{ data: ChartOfAccount[]; total: number; page: number; limit: number }> => {
+  getAll: async (
+    page = 1,
+    limit = 100
+  ): Promise<{ data: ChartOfAccount[]; total: number; page: number; limit: number }> => {
     const response = await api.get(`${BASE_URL}?page=${page}&limit=${limit}`);
     return response.data;
   },

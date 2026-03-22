@@ -41,23 +41,13 @@ export function initializeSentry(app: Application): void {
       profilesSampleRate: environment === 'production' ? 0.1 : 1.0,
 
       // Profiling integration for performance monitoring
-      integrations: [
-        nodeProfilingIntegration(),
-        Sentry.httpIntegration(),
-        Sentry.expressIntegration(),
-      ],
+      integrations: [nodeProfilingIntegration(), Sentry.httpIntegration(), Sentry.expressIntegration()],
 
       // Don't send errors in test environment
       enabled: environment !== 'test',
 
       // Ignore common errors that don't need tracking
-      ignoreErrors: [
-        'ECONNREFUSED',
-        'ETIMEDOUT',
-        'ENOTFOUND',
-        'NetworkError',
-        'Non-Error promise rejection captured',
-      ],
+      ignoreErrors: ['ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'NetworkError', 'Non-Error promise rejection captured'],
 
       // Customize error grouping
       beforeSend(event, hint) {
@@ -127,10 +117,7 @@ export function captureException(error: Error, context?: Record<string, any>): v
  * @param message Message to capture
  * @param level Severity level
  */
-export function captureMessage(
-  message: string,
-  level: Sentry.SeverityLevel = 'info'
-): void {
+export function captureMessage(message: string, level: Sentry.SeverityLevel = 'info'): void {
   Sentry.captureMessage(message, level);
 }
 
@@ -139,11 +126,7 @@ export function captureMessage(
  *
  * @param user User information
  */
-export function setUserContext(user: {
-  id: string;
-  email?: string;
-  username?: string;
-}): void {
+export function setUserContext(user: { id: string; email?: string; username?: string }): void {
   Sentry.setUser(user);
 }
 
@@ -161,11 +144,7 @@ export function clearUserContext(): void {
  * @param category Category
  * @param data Additional data
  */
-export function addBreadcrumb(
-  message: string,
-  category: string = 'custom',
-  data?: Record<string, any>
-): void {
+export function addBreadcrumb(message: string, category: string = 'custom', data?: Record<string, any>): void {
   Sentry.addBreadcrumb({
     message,
     category,

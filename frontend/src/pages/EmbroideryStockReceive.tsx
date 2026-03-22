@@ -30,7 +30,12 @@ export default function EmbroideryStockReceive() {
 
   // Navigation timeout ref for cleanup
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current); }, []);
+  useEffect(
+    () => () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    },
+    []
+  );
 
   // Form data
   const [formData, setFormData] = useState({
@@ -522,13 +527,19 @@ export default function EmbroideryStockReceive() {
                       <div className="flex justify-between">
                         <span className="text-gray-600">Original Fabric Cost:</span>
                         <span className="font-medium">
-                          {formatCurrency(parseFloat(formData.quantityReceived) * (sendOut.sourceFabricStock?.weightedAvgCost || 0))}
+                          {formatCurrency(
+                            parseFloat(formData.quantityReceived) * (sendOut.sourceFabricStock?.weightedAvgCost || 0)
+                          )}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Embroidery Cost:</span>
                         <span className="font-medium">
-                          {formatCurrency(formData.actualCost ? parseFloat(formData.actualCost) : parseFloat(formData.quantityReceived) * sendOut.agreedRate)}
+                          {formatCurrency(
+                            formData.actualCost
+                              ? parseFloat(formData.actualCost)
+                              : parseFloat(formData.quantityReceived) * sendOut.agreedRate
+                          )}
                         </span>
                       </div>
                       <div className="flex justify-between pt-2 border-t text-base">
@@ -536,9 +547,9 @@ export default function EmbroideryStockReceive() {
                         <span className="font-bold text-green-600">
                           {formatCurrency(
                             (sendOut.sourceFabricStock?.weightedAvgCost || 0) +
-                            (formData.actualCost
-                              ? parseFloat(formData.actualCost) / parseFloat(formData.quantityReceived)
-                              : sendOut.agreedRate)
+                              (formData.actualCost
+                                ? parseFloat(formData.actualCost) / parseFloat(formData.quantityReceived)
+                                : sendOut.agreedRate)
                           )}
                           /m
                         </span>

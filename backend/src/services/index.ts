@@ -31,11 +31,7 @@ export type {
 
 // Style Service
 export { styleService } from './style.service';
-export type {
-  CreateStyleDTO,
-  UpdateStyleDTO,
-  StyleWithRelations,
-} from './style.service';
+export type { CreateStyleDTO, UpdateStyleDTO, StyleWithRelations } from './style.service';
 
 // Order Service
 export { orderService } from './order.service';
@@ -81,12 +77,7 @@ export type {
 
 // Fabric Service
 export { fabricService } from './fabric.service';
-export type {
-  CreateFabricDTO,
-  UpdateFabricDTO,
-  FabricQueryOptions,
-  FabricSupplierInput,
-} from './fabric.service';
+export type { CreateFabricDTO, UpdateFabricDTO, FabricQueryOptions, FabricSupplierInput } from './fabric.service';
 
 // Greige Service
 export { greigeService } from './greige.service';

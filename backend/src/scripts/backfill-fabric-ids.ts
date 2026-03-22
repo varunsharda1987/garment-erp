@@ -136,9 +136,8 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main()
-  .catch((error) => {
-    console.error('Error during backfill:', error);
-    prisma.$disconnect();
-    process.exit(1);
-  });
+main().catch((error) => {
+  console.error('Error during backfill:', error);
+  prisma.$disconnect();
+  process.exit(1);
+});

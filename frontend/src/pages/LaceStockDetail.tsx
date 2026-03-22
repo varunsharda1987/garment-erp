@@ -11,19 +11,9 @@ import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { laceStockService } from '../services/laceStock.service';
-import type {
-  LaceStock,
-  LaceStockAllocation,
-  LaceStockTransaction,
-} from '../types/laceStock.types';
+import type { LaceStock, LaceStockAllocation, LaceStockTransaction } from '../types/laceStock.types';
 import {
   LACE_STOCK_STATUS_COLORS,
   LACE_STOCK_STATUS_LABELS,
@@ -235,9 +225,7 @@ export default function LaceStockDetail() {
           Back to List
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">
-            {stock.laceMaster?.laceName || 'Unknown Lace'}
-          </h1>
+          <h1 className="text-2xl font-bold">{stock.laceMaster?.laceName || 'Unknown Lace'}</h1>
           <p className="text-gray-500 font-mono">
             {stock.laceMaster?.laceCode || ''}
             {stock.lotNumber && ` / Lot: ${stock.lotNumber}`}
@@ -279,9 +267,7 @@ export default function LaceStockDetail() {
         <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-sm">
           {LACE_STOCK_TYPE_LABELS[stock.stockType]}
         </Badge>
-        <Badge className={`${AGING_BUCKET_COLORS[agingBucket]} border text-sm`}>
-          {stock.agingDays} days old
-        </Badge>
+        <Badge className={`${AGING_BUCKET_COLORS[agingBucket]} border text-sm`}>{stock.agingDays} days old</Badge>
       </div>
 
       {/* Tabs */}
@@ -332,21 +318,15 @@ export default function LaceStockDetail() {
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-gray-500">Available</span>
-                <span className="font-bold text-green-600 text-lg">
-                  {stock.quantityAvailable.toLocaleString()}m
-                </span>
+                <span className="font-bold text-green-600 text-lg">{stock.quantityAvailable.toLocaleString()}m</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-gray-500">Reserved</span>
-                <span className="font-bold text-blue-600">
-                  {stock.quantityReserved.toLocaleString()}m
-                </span>
+                <span className="font-bold text-blue-600">{stock.quantityReserved.toLocaleString()}m</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-gray-500">Consumed</span>
-                <span className="font-bold text-gray-600">
-                  {stock.quantityConsumed.toLocaleString()}m
-                </span>
+                <span className="font-bold text-gray-600">{stock.quantityConsumed.toLocaleString()}m</span>
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-500">Total Original</span>
@@ -414,9 +394,7 @@ export default function LaceStockDetail() {
                 </div>
               )}
               {!stock.originStyleCode && !stock.procurementId && (
-                <div className="text-gray-400 text-center py-4">
-                  Generic stock - no origin tracking
-                </div>
+                <div className="text-gray-400 text-center py-4">Generic stock - no origin tracking</div>
               )}
             </CardContent>
           </Card>
@@ -455,35 +433,19 @@ export default function LaceStockDetail() {
         <Card>
           <CardContent className="p-0">
             {allocations.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                No allocations found
-              </div>
+              <div className="text-center py-12 text-gray-500">No allocations found</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Style
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Order
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                        Type
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                        Allocated
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                        Consumed
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Date
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Style</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Allocated</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Consumed</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -492,41 +454,29 @@ export default function LaceStockDetail() {
                         <td className="px-4 py-4">
                           <span className="font-mono">{alloc.styleCode}</span>
                           {alloc.originalStyleCode && alloc.originalStyleCode !== alloc.styleCode && (
-                            <div className="text-xs text-gray-500">
-                              From: {alloc.originalStyleCode}
-                            </div>
+                            <div className="text-xs text-gray-500">From: {alloc.originalStyleCode}</div>
                           )}
                         </td>
-                        <td className="px-4 py-4">
-                          {alloc.order?.orderNumber || '-'}
-                        </td>
+                        <td className="px-4 py-4">{alloc.order?.orderNumber || '-'}</td>
                         <td className="px-4 py-4 text-center">
-                          <Badge className="bg-gray-100 text-gray-800">
-                            {alloc.allocationType.replace(/_/g, ' ')}
-                          </Badge>
+                          <Badge className="bg-gray-100 text-gray-800">{alloc.allocationType.replace(/_/g, ' ')}</Badge>
                         </td>
-                        <td className="px-4 py-4 text-right">
-                          {alloc.quantityAllocated.toLocaleString()}m
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          {alloc.quantityConsumed.toLocaleString()}m
-                        </td>
+                        <td className="px-4 py-4 text-right">{alloc.quantityAllocated.toLocaleString()}m</td>
+                        <td className="px-4 py-4 text-right">{alloc.quantityConsumed.toLocaleString()}m</td>
                         <td className="px-4 py-4 text-center">
                           <Badge
                             className={
                               alloc.allocationStatus === 'CONSUMED'
                                 ? 'bg-gray-100 text-gray-800'
                                 : alloc.allocationStatus === 'IN_USE'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-yellow-100 text-yellow-800'
                             }
                           >
                             {alloc.allocationStatus}
                           </Badge>
                         </td>
-                        <td className="px-4 py-4 text-sm">
-                          {formatDate(alloc.createdAt)}
-                        </td>
+                        <td className="px-4 py-4 text-sm">{formatDate(alloc.createdAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -541,9 +491,7 @@ export default function LaceStockDetail() {
         <Card>
           <CardContent className="p-0">
             {transactions.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                No transaction history
-              </div>
+              <div className="text-center py-12 text-gray-500">No transaction history</div>
             ) : (
               <div className="divide-y divide-gray-200">
                 {transactions.map((txn) => (
@@ -555,8 +503,8 @@ export default function LaceStockDetail() {
                             txn.transactionType.includes('IN') || txn.transactionType === 'RETURN'
                               ? 'bg-green-100 text-green-800'
                               : txn.transactionType.includes('OUT') || txn.transactionType === 'CONSUMPTION'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-gray-100 text-gray-800'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-gray-100 text-gray-800'
                           }
                         >
                           {LACE_TRANSACTION_TYPE_LABELS[txn.transactionType]}
@@ -566,13 +514,9 @@ export default function LaceStockDetail() {
                             ? `-${txn.quantity.toLocaleString()}m`
                             : `+${txn.quantity.toLocaleString()}m`}
                         </span>
-                        <span className="text-gray-500">
-                          → Balance: {txn.balanceAfter.toLocaleString()}m
-                        </span>
+                        <span className="text-gray-500">→ Balance: {txn.balanceAfter.toLocaleString()}m</span>
                       </div>
-                      <span className="text-sm text-gray-500">
-                        {formatDateTime(txn.transactionDate)}
-                      </span>
+                      <span className="text-sm text-gray-500">{formatDateTime(txn.transactionDate)}</span>
                     </div>
                     {(txn.fromStyleCode || txn.toStyleCode || txn.notes) && (
                       <div className="mt-2 text-sm text-gray-600">
@@ -604,16 +548,12 @@ export default function LaceStockDetail() {
             <DialogTitle>Transfer Stock</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="text-sm text-gray-500">
-              Available: {stock.quantityAvailable.toLocaleString()}m
-            </div>
+            <div className="text-sm text-gray-500">Available: {stock.quantityAvailable.toLocaleString()}m</div>
             <div>
               <Label>Target Style ID</Label>
               <Input
                 value={transferForm.toStyleId}
-                onChange={(e) =>
-                  setTransferForm({ ...transferForm, toStyleId: e.target.value })
-                }
+                onChange={(e) => setTransferForm({ ...transferForm, toStyleId: e.target.value })}
                 placeholder="Enter style ID"
               />
             </div>
@@ -621,9 +561,7 @@ export default function LaceStockDetail() {
               <Label>Target Order ID</Label>
               <Input
                 value={transferForm.toOrderId}
-                onChange={(e) =>
-                  setTransferForm({ ...transferForm, toOrderId: e.target.value })
-                }
+                onChange={(e) => setTransferForm({ ...transferForm, toOrderId: e.target.value })}
                 placeholder="Enter order ID"
               />
             </div>
@@ -645,9 +583,7 @@ export default function LaceStockDetail() {
               <Label>Notes</Label>
               <Textarea
                 value={transferForm.transferNotes}
-                onChange={(e) =>
-                  setTransferForm({ ...transferForm, transferNotes: e.target.value })
-                }
+                onChange={(e) => setTransferForm({ ...transferForm, transferNotes: e.target.value })}
                 placeholder="Transfer reason..."
               />
             </div>
@@ -687,9 +623,7 @@ export default function LaceStockDetail() {
               <Label>Notes</Label>
               <Textarea
                 value={returnForm.notes}
-                onChange={(e) =>
-                  setReturnForm({ ...returnForm, notes: e.target.value })
-                }
+                onChange={(e) => setReturnForm({ ...returnForm, notes: e.target.value })}
                 placeholder="Return reason..."
               />
             </div>
@@ -714,9 +648,7 @@ export default function LaceStockDetail() {
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <span className="text-sm text-amber-800">
-                This action cannot be undone
-              </span>
+              <span className="text-sm text-amber-800">This action cannot be undone</span>
             </div>
             <div>
               <Label>New Grade</Label>
@@ -752,9 +684,7 @@ export default function LaceStockDetail() {
               <Label>Reason</Label>
               <Textarea
                 value={downgradeForm.reason}
-                onChange={(e) =>
-                  setDowngradeForm({ ...downgradeForm, reason: e.target.value })
-                }
+                onChange={(e) => setDowngradeForm({ ...downgradeForm, reason: e.target.value })}
                 placeholder="Reason for downgrade..."
                 required
               />
@@ -764,11 +694,7 @@ export default function LaceStockDetail() {
             <Button variant="outline" onClick={() => setShowDowngradeModal(false)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDowngrade}
-              disabled={processing}
-            >
+            <Button variant="destructive" onClick={handleDowngrade} disabled={processing}>
               {processing ? 'Processing...' : 'Downgrade'}
             </Button>
           </DialogFooter>

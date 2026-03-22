@@ -1,13 +1,34 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, XCircle, Edit, Eye, Trash2, RefreshCw, FileText, GitBranch, Lock, Copy, AlertTriangle, Package, Calendar } from 'lucide-react';
+import {
+  CheckCircle,
+  XCircle,
+  Edit,
+  Eye,
+  Trash2,
+  RefreshCw,
+  FileText,
+  GitBranch,
+  Lock,
+  Copy,
+  AlertTriangle,
+  Package,
+  Calendar,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Card, CardContent } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { Textarea } from '../components/ui/textarea';
 import { PageHeader } from '../components/PageHeader';
 import SearchInput from '../components/SearchInput';
@@ -19,7 +40,13 @@ import ExportButton from '../components/ExportButton';
 import Pagination from '../components/Pagination';
 import { usePagination } from '../hooks/usePagination';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
-import { getAllCostSheets, approveCostSheet, rejectCostSheet, deleteCostSheet, createCostSheetVersion } from '../services/costSheet.service';
+import {
+  getAllCostSheets,
+  approveCostSheet,
+  rejectCostSheet,
+  deleteCostSheet,
+  createCostSheetVersion,
+} from '../services/costSheet.service';
 import type { CostSheet } from '../types/costSheet.types';
 
 const CostSheetList = () => {
@@ -109,7 +136,10 @@ const CostSheetList = () => {
       const newVersion = await createCostSheetVersion(costSheetToModify.id, {
         versionReason: `Created from Version ${costSheetToModify.version}`,
       });
-      handleApiSuccess('New version created', `Version ${newVersion.version} created for ${costSheetToModify.styleCode}. You can now edit it.`);
+      handleApiSuccess(
+        'New version created',
+        `Version ${newVersion.version} created for ${costSheetToModify.styleCode}. You can now edit it.`
+      );
       setCreateVersionDialogOpen(false);
       // Navigate to edit the new version
       navigate(`/cost-sheets/${newVersion.id}/edit`);
@@ -190,13 +220,8 @@ const CostSheetList = () => {
     <>
       <PageHeader title="Cost Sheets">
         <div className="flex gap-2">
-          <ExportButton
-            module="style_costing"
-            filters={{ approved: approvedFilter }}
-          />
-          <Button onClick={() => navigate('/cost-sheets/new')}>
-            + New Cost Sheet
-          </Button>
+          <ExportButton module="style_costing" filters={{ approved: approvedFilter }} />
+          <Button onClick={() => navigate('/cost-sheets/new')}>+ New Cost Sheet</Button>
         </div>
       </PageHeader>
 
@@ -218,10 +243,13 @@ const CostSheetList = () => {
 
             <div>
               <Label htmlFor="approvalFilter">Approval Status</Label>
-              <Select value={approvedFilter} onValueChange={(value: string) => {
-                setApprovedFilter(value);
-                resetPage();
-              }}>
+              <Select
+                value={approvedFilter}
+                onValueChange={(value: string) => {
+                  setApprovedFilter(value);
+                  resetPage();
+                }}
+              >
                 <SelectTrigger id="approvalFilter">
                   <SelectValue />
                 </SelectTrigger>
@@ -262,9 +290,11 @@ const CostSheetList = () => {
             <EmptyState
               icon={<FileText className="h-16 w-16" />}
               title="No cost sheets found"
-              description={search || approvedFilter !== 'all'
-                ? 'Try adjusting your search or filter criteria'
-                : 'Create your first cost sheet to get started'}
+              description={
+                search || approvedFilter !== 'all'
+                  ? 'Try adjusting your search or filter criteria'
+                  : 'Create your first cost sheet to get started'
+              }
               actionLabel={!search && approvedFilter === 'all' ? 'Create First Cost Sheet' : undefined}
               onAction={!search && approvedFilter === 'all' ? () => navigate('/cost-sheets/new') : undefined}
             />
@@ -279,34 +309,47 @@ const CostSheetList = () => {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold">
-                          {sheet.style?.styleCode || 'N/A'}
-                        </h3>
+                        <h3 className="text-xl font-semibold">{sheet.style?.styleCode || 'N/A'}</h3>
                         <Badge variant="outline" className="text-xs font-medium">
-                          <GitBranch className="w-3 h-3 mr-1" />
-                          v{sheet.version || 1}
+                          <GitBranch className="w-3 h-3 mr-1" />v{sheet.version || 1}
                         </Badge>
                         <StatusBadge
-                          status={sheet.approvalStatus === 'APPROVED' ? 'Approved' :
-                                  sheet.approvalStatus === 'REJECTED' ? 'Rejected' : 'Pending'}
-                          variant={sheet.approvalStatus === 'APPROVED' ? 'success' :
-                                  sheet.approvalStatus === 'REJECTED' ? 'destructive' : 'warning'}
+                          status={
+                            sheet.approvalStatus === 'APPROVED'
+                              ? 'Approved'
+                              : sheet.approvalStatus === 'REJECTED'
+                                ? 'Rejected'
+                                : 'Pending'
+                          }
+                          variant={
+                            sheet.approvalStatus === 'APPROVED'
+                              ? 'success'
+                              : sheet.approvalStatus === 'REJECTED'
+                                ? 'destructive'
+                                : 'warning'
+                          }
                         />
                         {/* Mode/Purpose Badge */}
                         {sheet.purpose && (
                           <Badge
                             variant="outline"
                             className={`text-xs ${
-                              sheet.purpose === 'COSTING' ? 'border-blue-500 text-blue-600' :
-                              sheet.purpose === 'RAW_MATERIAL_CALCULATION' ? 'border-orange-500 text-orange-600' :
-                              sheet.purpose === 'PRODUCTION' ? 'border-purple-500 text-purple-600' :
-                              'border-gray-500 text-gray-600'
+                              sheet.purpose === 'COSTING'
+                                ? 'border-blue-500 text-blue-600'
+                                : sheet.purpose === 'RAW_MATERIAL_CALCULATION'
+                                  ? 'border-orange-500 text-orange-600'
+                                  : sheet.purpose === 'PRODUCTION'
+                                    ? 'border-purple-500 text-purple-600'
+                                    : 'border-gray-500 text-gray-600'
                             }`}
                           >
-                            {sheet.purpose === 'COSTING' ? 'Costing' :
-                             sheet.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material' :
-                             sheet.purpose === 'PRODUCTION' ? 'Production' :
-                             sheet.purpose}
+                            {sheet.purpose === 'COSTING'
+                              ? 'Costing'
+                              : sheet.purpose === 'RAW_MATERIAL_CALCULATION'
+                                ? 'Raw Material'
+                                : sheet.purpose === 'PRODUCTION'
+                                  ? 'Production'
+                                  : sheet.purpose}
                           </Badge>
                         )}
                         {sheet.lockedForOrders && (
@@ -332,9 +375,7 @@ const CostSheetList = () => {
 
                       <p className="text-gray-600 mb-2">{sheet.style?.styleName}</p>
                       {sheet.widthCombinationDescription && (
-                        <p className="text-xs text-blue-600 mb-3">
-                          Width: {sheet.widthCombinationDescription}
-                        </p>
+                        <p className="text-xs text-blue-600 mb-3">Width: {sheet.widthCombinationDescription}</p>
                       )}
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -352,9 +393,7 @@ const CostSheetList = () => {
                         </div>
                         <div>
                           <span className="text-gray-500">Selling Price:</span>
-                          <p className="font-semibold text-green-600">
-                            ₹{sheet.sellingPricePerPiece.toFixed(2)}
-                          </p>
+                          <p className="font-semibold text-green-600">₹{sheet.sellingPricePerPiece.toFixed(2)}</p>
                         </div>
                       </div>
 
@@ -379,7 +418,10 @@ const CostSheetList = () => {
                       <div className="mt-3 text-xs text-gray-500">
                         Created by: {sheet.createdBy?.firstName} {sheet.createdBy?.lastName}
                         {sheet.isApproved && sheet.approvedBy && (
-                          <> • Approved by: {sheet.approvedBy.firstName} {sheet.approvedBy.lastName}</>
+                          <>
+                            {' '}
+                            • Approved by: {sheet.approvedBy.firstName} {sheet.approvedBy.lastName}
+                          </>
                         )}
                       </div>
 
@@ -387,12 +429,13 @@ const CostSheetList = () => {
                       <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                         <Calendar className="h-3 w-3" />
                         <span>
-                          Created: {new Date(sheet.createdAt).toLocaleDateString('en-IN', {
+                          Created:{' '}
+                          {new Date(sheet.createdAt).toLocaleDateString('en-IN', {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
                           })}
                         </span>
                       </div>
@@ -485,11 +528,13 @@ const CostSheetList = () => {
                             variant="outline"
                             size="sm"
                             className="text-blue-600 hover:bg-blue-50 flex items-center gap-2"
-                            onClick={() => handleCreateVersionClick(
-                              sheet.id,
-                              sheet.style?.styleCode || 'this cost sheet',
-                              sheet.version || 1
-                            )}
+                            onClick={() =>
+                              handleCreateVersionClick(
+                                sheet.id,
+                                sheet.style?.styleCode || 'this cost sheet',
+                                sheet.version || 1
+                              )
+                            }
                           >
                             <Copy className="h-4 w-4" />
                             New Version
@@ -513,11 +558,7 @@ const CostSheetList = () => {
           </div>
 
           {/* Pagination */}
-          <Pagination
-            {...paginationProps}
-            totalPages={totalPages}
-            totalItems={totalItems}
-          />
+          <Pagination {...paginationProps} totalPages={totalPages} totalItems={totalItems} />
         </>
       )}
 
@@ -578,8 +619,8 @@ const CostSheetList = () => {
               Reject Cost Sheet
             </DialogTitle>
             <DialogDescription>
-              Reject the cost sheet for &quot;{costSheetToModify?.styleCode}&quot;?
-              Please provide a reason for rejection.
+              Reject the cost sheet for &quot;{costSheetToModify?.styleCode}&quot;? Please provide a reason for
+              rejection.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -606,11 +647,7 @@ const CostSheetList = () => {
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmReject}
-              disabled={rejecting || !rejectionNotes.trim()}
-            >
+            <Button variant="destructive" onClick={confirmReject} disabled={rejecting || !rejectionNotes.trim()}>
               {rejecting ? 'Rejecting...' : 'Reject'}
             </Button>
           </DialogFooter>

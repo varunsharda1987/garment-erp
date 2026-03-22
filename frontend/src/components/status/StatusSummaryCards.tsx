@@ -83,9 +83,7 @@ export default function StatusSummaryCards({ summary, loading }: StatusSummaryCa
                 <p className="text-sm font-medium text-gray-600 mb-1">{card.title}</p>
                 <p className="text-3xl font-bold text-gray-900 mb-1">{card.value}</p>
                 <p className="text-xs text-gray-500">{card.subValue}</p>
-                {card.pieces && (
-                  <p className="text-xs text-gray-500 mt-1">{card.pieces}</p>
-                )}
+                {card.pieces && <p className="text-xs text-gray-500 mt-1">{card.pieces}</p>}
               </div>
               <div className={`p-2 rounded-lg ${card.bgColor}`}>
                 <Icon className={`h-6 w-6 ${card.iconColor}`} />

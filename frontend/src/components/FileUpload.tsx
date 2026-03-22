@@ -41,11 +41,11 @@ export default function FileUpload({
 
     // Check file type if accept is specified
     if (accept) {
-      const acceptedTypes = accept.split(',').map(t => t.trim());
+      const acceptedTypes = accept.split(',').map((t) => t.trim());
       const fileType = file.type;
       const fileExtension = `.${file.name.split('.').pop()}`;
 
-      const isAccepted = acceptedTypes.some(type => {
+      const isAccepted = acceptedTypes.some((type) => {
         if (type.startsWith('.')) {
           return fileExtension === type;
         }
@@ -63,60 +63,64 @@ export default function FileUpload({
     return null;
   };
 
-  const handleFiles = useCallback((files: FileList | null) => {
-    if (!files || disabled) return;
+  const handleFiles = useCallback(
+    (files: FileList | null) => {
+      if (!files || disabled) return;
 
-    const fileArray = Array.from(files);
+      const fileArray = Array.from(files);
 
-    // Check max files limit
-    if (uploadedFiles.length + fileArray.length > maxFiles) {
-      notify.error('Too many files', {
-        description: `Maximum ${maxFiles} files allowed`,
-      });
-      return;
-    }
-
-    const validFiles: File[] = [];
-    const newUploadedFiles: UploadedFile[] = [];
-
-    fileArray.forEach(file => {
-      const error = validateFile(file);
-
-      if (error) {
-        notify.error('File validation failed', {
-          description: `${file.name}: ${error}`,
+      // Check max files limit
+      if (uploadedFiles.length + fileArray.length > maxFiles) {
+        notify.error('Too many files', {
+          description: `Maximum ${maxFiles} files allowed`,
         });
-        newUploadedFiles.push({
-          file,
-          status: 'error',
-          error,
-        });
-      } else {
-        validFiles.push(file);
-        newUploadedFiles.push({
-          file,
-          status: 'success',
-          preview: file.type.startsWith('image/')
-            ? URL.createObjectURL(file)
-            : undefined,
-        });
+        return;
       }
-    });
 
-    setUploadedFiles(prev => [...prev, ...newUploadedFiles]);
+      const validFiles: File[] = [];
+      const newUploadedFiles: UploadedFile[] = [];
 
-    if (validFiles.length > 0) {
-      onFilesSelect(validFiles);
-    }
-  }, [uploadedFiles, maxFiles, disabled, onFilesSelect, validateFile]);
+      fileArray.forEach((file) => {
+        const error = validateFile(file);
 
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!disabled) {
-      setIsDragging(true);
-    }
-  }, [disabled]);
+        if (error) {
+          notify.error('File validation failed', {
+            description: `${file.name}: ${error}`,
+          });
+          newUploadedFiles.push({
+            file,
+            status: 'error',
+            error,
+          });
+        } else {
+          validFiles.push(file);
+          newUploadedFiles.push({
+            file,
+            status: 'success',
+            preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+          });
+        }
+      });
+
+      setUploadedFiles((prev) => [...prev, ...newUploadedFiles]);
+
+      if (validFiles.length > 0) {
+        onFilesSelect(validFiles);
+      }
+    },
+    [uploadedFiles, maxFiles, disabled, onFilesSelect, validateFile]
+  );
+
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!disabled) {
+        setIsDragging(true);
+      }
+    },
+    [disabled]
+  );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -129,24 +133,30 @@ export default function FileUpload({
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
 
-    if (!disabled) {
-      handleFiles(e.dataTransfer.files);
-    }
-  }, [disabled, handleFiles]);
+      if (!disabled) {
+        handleFiles(e.dataTransfer.files);
+      }
+    },
+    [disabled, handleFiles]
+  );
 
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    handleFiles(e.target.files);
-    // Reset input value so same file can be selected again
-    e.target.value = '';
-  }, [handleFiles]);
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      handleFiles(e.target.files);
+      // Reset input value so same file can be selected again
+      e.target.value = '';
+    },
+    [handleFiles]
+  );
 
   const removeFile = (index: number) => {
-    setUploadedFiles(prev => {
+    setUploadedFiles((prev) => {
       const newFiles = [...prev];
       const removed = newFiles.splice(index, 1)[0];
       // Revoke object URL to prevent memory leaks
@@ -162,7 +172,7 @@ export default function FileUpload({
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   return (
@@ -175,9 +185,7 @@ export default function FileUpload({
         onDrop={handleDrop}
         className={cn(
           'relative border-2 border-dashed rounded-lg p-8 text-center transition-colors',
-          isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-border hover:border-primary/50',
+          isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
           disabled && 'opacity-50 cursor-not-allowed'
         )}
       >
@@ -192,23 +200,13 @@ export default function FileUpload({
         />
 
         <div className="flex flex-col items-center gap-4">
-          <div className={cn(
-            'p-4 rounded-full',
-            isDragging ? 'bg-primary/10' : 'bg-muted'
-          )}>
-            <Upload className={cn(
-              'h-8 w-8',
-              isDragging ? 'text-primary' : 'text-muted-foreground'
-            )} />
+          <div className={cn('p-4 rounded-full', isDragging ? 'bg-primary/10' : 'bg-muted')}>
+            <Upload className={cn('h-8 w-8', isDragging ? 'text-primary' : 'text-muted-foreground')} />
           </div>
 
           <div>
-            <p className="text-sm font-medium mb-1">
-              {isDragging ? 'Drop files here' : 'Drag and drop files here'}
-            </p>
-            <p className="text-xs text-muted-foreground mb-4">
-              or click to browse
-            </p>
+            <p className="text-sm font-medium mb-1">{isDragging ? 'Drop files here' : 'Drag and drop files here'}</p>
+            <p className="text-xs text-muted-foreground mb-4">or click to browse</p>
           </div>
 
           <Button
@@ -235,10 +233,7 @@ export default function FileUpload({
       {uploadedFiles.length > 0 && (
         <div className="mt-4 space-y-2">
           {uploadedFiles.map((uploadedFile, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-3 p-3 rounded-lg border bg-card"
-            >
+            <div key={index} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
               {/* File Icon/Preview */}
               <div className="flex-shrink-0">
                 {uploadedFile.preview ? (
@@ -257,37 +252,19 @@ export default function FileUpload({
 
               {/* File Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {uploadedFile.file.name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatFileSize(uploadedFile.file.size)}
-                </p>
-                {uploadedFile.error && (
-                  <p className="text-xs text-destructive mt-1">
-                    {uploadedFile.error}
-                  </p>
-                )}
+                <p className="text-sm font-medium truncate">{uploadedFile.file.name}</p>
+                <p className="text-xs text-muted-foreground">{formatFileSize(uploadedFile.file.size)}</p>
+                {uploadedFile.error && <p className="text-xs text-destructive mt-1">{uploadedFile.error}</p>}
               </div>
 
               {/* Status Icon */}
               <div className="flex-shrink-0">
-                {uploadedFile.status === 'success' && (
-                  <CheckCircle2 className="h-5 w-5 text-success" />
-                )}
-                {uploadedFile.status === 'error' && (
-                  <AlertCircle className="h-5 w-5 text-destructive" />
-                )}
+                {uploadedFile.status === 'success' && <CheckCircle2 className="h-5 w-5 text-success" />}
+                {uploadedFile.status === 'error' && <AlertCircle className="h-5 w-5 text-destructive" />}
               </div>
 
               {/* Remove Button */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => removeFile(index)}
-              >
+              <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => removeFile(index)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>

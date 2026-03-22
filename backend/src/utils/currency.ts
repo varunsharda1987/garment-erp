@@ -76,10 +76,7 @@ export function multiplyCurrency(
  * Divide currency values safely (a / b)
  * Returns 0 if divisor is 0
  */
-export function divideCurrency(
-  a: string | number | null | undefined,
-  b: string | number | null | undefined
-): Decimal {
+export function divideCurrency(a: string | number | null | undefined, b: string | number | null | undefined): Decimal {
   const divisor = toCurrency(b);
   if (divisor.isZero()) {
     return new Decimal(0);
@@ -109,10 +106,7 @@ export function roundToCent(value: Decimal | number): Decimal {
  * Compare two currency values
  * Returns: -1 if a < b, 0 if a == b, 1 if a > b
  */
-export function compareCurrency(
-  a: string | number | null | undefined,
-  b: string | number | null | undefined
-): number {
+export function compareCurrency(a: string | number | null | undefined, b: string | number | null | undefined): number {
   return toCurrency(a).comparedTo(toCurrency(b));
 }
 
@@ -211,10 +205,7 @@ export function calculateWeightedAverageCost(
 /**
  * Sum an array of objects by a numeric field
  */
-export function sumByField<T>(
-  items: T[],
-  field: keyof T
-): Decimal {
+export function sumByField<T>(items: T[], field: keyof T): Decimal {
   return items.reduce((sum, item) => {
     const value = item[field] as unknown;
     return sum.plus(toCurrency(value as string | number | null | undefined));

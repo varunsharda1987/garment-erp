@@ -127,7 +127,7 @@ export default function StitchingForm() {
   };
 
   const handleSlipToggle = (slipId: string, checked: boolean) => {
-    const slip = pendingTransferSlips.find(s => s.id === slipId);
+    const slip = pendingTransferSlips.find((s) => s.id === slipId);
     if (!slip) return;
 
     let newIds: string[];
@@ -140,13 +140,13 @@ export default function StitchingForm() {
         newIds = [...selectedSlipIds, slipId];
       }
     } else {
-      newIds = selectedSlipIds.filter(id => id !== slipId);
+      newIds = selectedSlipIds.filter((id) => id !== slipId);
     }
 
     setSelectedSlipIds(newIds);
 
     // Get selected slips and merge SKUs
-    const selectedSlips = pendingTransferSlips.filter(s => newIds.includes(s.id));
+    const selectedSlips = pendingTransferSlips.filter((s) => newIds.includes(s.id));
     if (selectedSlips.length > 0) {
       setWorkOrderId(selectedSlips[0].workOrderId);
       setSkuBreakdown(mergeSkuBreakdowns(selectedSlips));
@@ -169,7 +169,7 @@ export default function StitchingForm() {
 
     if (checked) {
       // Select all slips for this WO (clear any other WO selections)
-      const woSlipIds = woSlips.slips.map(s => s.id);
+      const woSlipIds = woSlips.slips.map((s) => s.id);
       setSelectedSlipIds(woSlipIds);
       setWorkOrderId(woId);
       setSkuBreakdown(mergeSkuBreakdowns(woSlips.slips));
@@ -187,7 +187,7 @@ export default function StitchingForm() {
   };
 
   const updateSKUQuantity = (index: number, value: number) => {
-    setSkuBreakdown(prev => {
+    setSkuBreakdown((prev) => {
       const updated = [...prev];
       updated[index] = {
         ...updated[index],
@@ -241,8 +241,8 @@ export default function StitchingForm() {
         remarks: remarks || undefined,
         transferSlipIds: selectedSlipIds,
         skuBreakdown: skuBreakdown
-          .filter(sku => sku.issuedQty > 0)
-          .map(sku => ({
+          .filter((sku) => sku.issuedQty > 0)
+          .map((sku) => ({
             colorId: sku.colorId,
             sizeId: sku.sizeId,
             availableQty: sku.availableQty,
@@ -271,7 +271,7 @@ export default function StitchingForm() {
   }
 
   const totalSelectedPieces = pendingTransferSlips
-    .filter(s => selectedSlipIds.includes(s.id))
+    .filter((s) => selectedSlipIds.includes(s.id))
     .reduce((sum, s) => sum + s.totalGoodPieces, 0);
 
   return (
@@ -310,8 +310,8 @@ export default function StitchingForm() {
               ) : (
                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
                   {Array.from(slipsByWorkOrder.entries()).map(([woId, group]) => {
-                    const allSelected = group.slips.every(s => selectedSlipIds.includes(s.id));
-                    const someSelected = group.slips.some(s => selectedSlipIds.includes(s.id));
+                    const allSelected = group.slips.every((s) => selectedSlipIds.includes(s.id));
+                    const someSelected = group.slips.some((s) => selectedSlipIds.includes(s.id));
                     const isActiveWO = !workOrderId || workOrderId === woId;
 
                     return (
@@ -410,15 +410,14 @@ export default function StitchingForm() {
 
                 <div>
                   <Label htmlFor="contractor">Stitching Contractor *</Label>
-                  <Select
-                    value={contractorId || 'NONE'}
-                    onValueChange={(v) => setContractorId(v === 'NONE' ? '' : v)}
-                  >
+                  <Select value={contractorId || 'NONE'} onValueChange={(v) => setContractorId(v === 'NONE' ? '' : v)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select contractor..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="NONE" disabled>Select contractor...</SelectItem>
+                      <SelectItem value="NONE" disabled>
+                        Select contractor...
+                      </SelectItem>
                       {contractors.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name} ({c.code})
@@ -479,13 +478,9 @@ export default function StitchingForm() {
                     <TableBody>
                       {skuBreakdown.map((sku, index) => (
                         <TableRow key={`${sku.colorId || 'null'}-${sku.sizeId}`}>
-                          <TableCell className="font-medium">
-                            {sku.colorName || '—'}
-                          </TableCell>
+                          <TableCell className="font-medium">{sku.colorName || '—'}</TableCell>
                           <TableCell>{sku.sizeName}</TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">
-                            {sku.availableQty}
-                          </TableCell>
+                          <TableCell className="text-right text-green-600 font-medium">{sku.availableQty}</TableCell>
                           <TableCell className="text-right">
                             <Input
                               type="number"
@@ -504,12 +499,8 @@ export default function StitchingForm() {
                         <td colSpan={2} className="px-4 py-3 text-sm font-semibold">
                           Total
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
-                          {getTotalAvailable()}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-blue-600">
-                          {getTotalIssued()}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-green-600">{getTotalAvailable()}</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-blue-600">{getTotalIssued()}</td>
                       </tr>
                     </tfoot>
                   </Table>
@@ -517,8 +508,8 @@ export default function StitchingForm() {
 
                 {getTotalIssued() < getTotalAvailable() && (
                   <p className="text-sm text-amber-600 mt-2">
-                    Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} available pieces.
-                    Remaining pieces can be issued later.
+                    Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} available pieces. Remaining pieces
+                    can be issued later.
                   </p>
                 )}
               </CardContent>
@@ -535,11 +526,7 @@ export default function StitchingForm() {
                 </div>
 
                 <div className="flex gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate('/manufacturing/stitching')}
-                  >
+                  <Button type="button" variant="outline" onClick={() => navigate('/manufacturing/stitching')}>
                     Cancel
                   </Button>
                   <Button

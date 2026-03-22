@@ -8,14 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getDashboardStats, getRequirementsNeedingPO, getOverdueRequirements } from '@/services/mrp.service';
 import type { MRPDashboardStats, MaterialRequirement } from '@/types/mrp.types';
 import { MaterialRequirementStatusColors, MaterialRequirementStatusLabels } from '@/types/mrp.types';
@@ -78,10 +71,7 @@ export default function MRPDashboard() {
     color?: string;
     onClick?: () => void;
   }) => (
-    <Card
-      className={onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}
-      onClick={onClick}
-    >
+    <Card className={onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''} onClick={onClick}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className={`h-4 w-4 ${color}`} />
@@ -111,9 +101,7 @@ export default function MRPDashboard() {
             <Calculator className="h-6 w-6" />
             Material Requirement Planning
           </h1>
-          <p className="text-muted-foreground">
-            Track material needs, shortfalls, and purchase order status
-          </p>
+          <p className="text-muted-foreground">Track material needs, shortfalls, and purchase order status</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={fetchDashboardData}>
@@ -205,12 +193,7 @@ export default function MRPDashboard() {
               <ShoppingCart className="h-4 w-4 mr-2" />
               Generate PO for Shortfalls
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => navigate('/orders')}
-            >
+            <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => navigate('/orders')}>
               <Calculator className="h-4 w-4 mr-2" />
               Calculate from Orders
             </Button>
@@ -239,9 +222,7 @@ export default function MRPDashboard() {
           </CardHeader>
           <CardContent>
             {needingPO.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">
-                No requirements currently need PO
-              </p>
+              <p className="text-center text-muted-foreground py-4">No requirements currently need PO</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -293,20 +274,14 @@ export default function MRPDashboard() {
                 </CardTitle>
                 <CardDescription>Requirements past their required date</CardDescription>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/mrp/requirements?overdue=true')}
-              >
+              <Button variant="ghost" size="sm" onClick={() => navigate('/mrp/requirements?overdue=true')}>
                 View All <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </CardHeader>
           <CardContent>
             {overdueReqs.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">
-                No overdue requirements
-              </p>
+              <p className="text-center text-muted-foreground py-4">No overdue requirements</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -369,13 +344,9 @@ export default function MRPDashboard() {
                 <TableBody>
                   {stats.byMaterialType.map((item) => (
                     <TableRow key={item.materialType}>
-                      <TableCell className="font-medium">
-                        {item.materialType.replace(/_/g, ' ')}
-                      </TableCell>
+                      <TableCell className="font-medium">{item.materialType.replace(/_/g, ' ')}</TableCell>
                       <TableCell className="text-right">{item.count}</TableCell>
-                      <TableCell className="text-right text-orange-600">
-                        {item.shortfall.toLocaleString()}
-                      </TableCell>
+                      <TableCell className="text-right text-orange-600">{item.shortfall.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -404,9 +375,7 @@ export default function MRPDashboard() {
                     <TableRow
                       key={item.supplierId}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() =>
-                        navigate(`/mrp/requirements?supplierId=${item.supplierId}`)
-                      }
+                      onClick={() => navigate(`/mrp/requirements?supplierId=${item.supplierId}`)}
                     >
                       <TableCell className="font-medium">{item.supplierName}</TableCell>
                       <TableCell className="text-right">{item.requirementCount}</TableCell>

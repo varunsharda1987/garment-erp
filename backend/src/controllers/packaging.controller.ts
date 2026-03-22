@@ -34,7 +34,7 @@ export const createPackaging = async (req: Request, res: Response) => {
     packagingName,
     supplierCode,
     buyerCode,
-    customerId,  // Link to customer - makes packaging customer-specific
+    customerId, // Link to customer - makes packaging customer-specific
     brandCategoryId, // Link to specific brand within customer
     packagingType,
     size,
@@ -45,7 +45,7 @@ export const createPackaging = async (req: Request, res: Response) => {
     pricePerHundred,
     supplierId,
     description,
-    suppliers = [] // Array of supplier relationships
+    suppliers = [], // Array of supplier relationships
   } = req.body;
 
   // Validation
@@ -57,7 +57,7 @@ export const createPackaging = async (req: Request, res: Response) => {
   if (brandCategoryId && customerId) {
     const brand = await prisma.brand_categories.findUnique({
       where: { id: brandCategoryId },
-      select: { customerId: true }
+      select: { customerId: true },
     });
 
     if (!brand) {
@@ -74,7 +74,7 @@ export const createPackaging = async (req: Request, res: Response) => {
 
   // Get Packaging category ID
   const packagingCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Packaging' }
+    where: { name: 'Packaging' },
   });
 
   if (!packagingCategory) {
@@ -82,9 +82,7 @@ export const createPackaging = async (req: Request, res: Response) => {
   }
 
   // Ensure thickness is a string if provided
-  const thicknessValue = thickness !== undefined && thickness !== '' && thickness !== null
-    ? String(thickness)
-    : null;
+  const thicknessValue = thickness !== undefined && thickness !== '' && thickness !== null ? String(thickness) : null;
 
   // Create packaging_master entry using Prisma with suppliers
   const packagingRecord = await prisma.packaging_master.create({
@@ -93,7 +91,7 @@ export const createPackaging = async (req: Request, res: Response) => {
       packagingName,
       supplierCode: supplierCode || null,
       buyerCode: buyerCode || null,
-      customerId: customerId || null,  // Link to customer
+      customerId: customerId || null, // Link to customer
       brandCategoryId: brandCategoryId || null, // Link to brand
       packagingType: packagingType || null,
       size: size || null,
@@ -122,7 +120,7 @@ export const createPackaging = async (req: Request, res: Response) => {
           id: true,
           code: true,
           name: true,
-        }
+        },
       },
       packaging_suppliers: {
         include: {
@@ -135,12 +133,12 @@ export const createPackaging = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Create corresponding material entry
@@ -155,13 +153,13 @@ export const createPackaging = async (req: Request, res: Response) => {
       categoryId: packagingCategory.id,
       unit: 'PIECE',
       isActive: true,
-    } as Prisma.materialsUncheckedCreateInput
+    } as Prisma.materialsUncheckedCreateInput,
   });
 
   res.status(201).json({
     packaging: packagingRecord,
     material: materialEntry,
-    message: 'Packaging created successfully'
+    message: 'Packaging created successfully',
   });
 };
 
@@ -175,8 +173,8 @@ export const getAllPackaging = async (req: Request, res: Response) => {
     limit = 10,
     search = '',
     supplierId = '',
-    customerId = '',  // Filter by customer
-    brandCategoryId = '' // Filter by brand
+    customerId = '', // Filter by customer
+    brandCategoryId = '', // Filter by brand
   } = req.query;
 
   const offset = (Number(page) - 1) * Number(limit);
@@ -188,10 +186,7 @@ export const getAllPackaging = async (req: Request, res: Response) => {
   // Filter by customer - show customer-specific packaging OR generic (no customer)
   if (customerId) {
     whereConditions.push({
-      OR: [
-        { customerId: String(customerId) },
-        { customerId: null }
-      ]
+      OR: [{ customerId: String(customerId) }, { customerId: null }],
     });
   }
 
@@ -206,8 +201,8 @@ export const getAllPackaging = async (req: Request, res: Response) => {
       OR: [
         { packagingName: { contains: String(search), mode: 'insensitive' } },
         { packagingCode: { contains: String(search), mode: 'insensitive' } },
-        { packagingType: { contains: String(search), mode: 'insensitive' } }
-      ]
+        { packagingType: { contains: String(search), mode: 'insensitive' } },
+      ],
     });
   }
 
@@ -231,7 +226,7 @@ export const getAllPackaging = async (req: Request, res: Response) => {
           id: true,
           code: true,
           name: true,
-        }
+        },
       },
       brandCategory: {
         select: {
@@ -239,13 +234,13 @@ export const getAllPackaging = async (req: Request, res: Response) => {
           brandName: true,
           category: true,
           subCategory: true,
-        }
+        },
       },
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       suppliers: {
-        select: { id: true, code: true, name: true }
+        select: { id: true, code: true, name: true },
       },
       packaging_suppliers: {
         include: {
@@ -258,15 +253,15 @@ export const getAllPackaging = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
+        orderBy: { isPreferred: 'desc' },
+      },
     },
     orderBy: { createdAt: 'desc' },
     skip: offset,
-    take: limitNum
+    take: limitNum,
   });
 
   // Transform to match expected format
@@ -284,8 +279,8 @@ export const getAllPackaging = async (req: Request, res: Response) => {
       page: Number(page),
       limit: Number(limit),
       total,
-      totalPages: Math.ceil(total / Number(limit))
-    }
+      totalPages: Math.ceil(total / Number(limit)),
+    },
   });
 };
 
@@ -304,7 +299,7 @@ export const getPackagingById = async (req: Request, res: Response) => {
           id: true,
           code: true,
           name: true,
-        }
+        },
       },
       brandCategory: {
         select: {
@@ -312,13 +307,13 @@ export const getPackagingById = async (req: Request, res: Response) => {
           brandName: true,
           category: true,
           subCategory: true,
-        }
+        },
       },
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       suppliers: {
-        select: { id: true, code: true, name: true }
+        select: { id: true, code: true, name: true },
       },
       packaging_suppliers: {
         include: {
@@ -331,12 +326,12 @@ export const getPackagingById = async (req: Request, res: Response) => {
               email: true,
               phone: true,
               isActive: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   if (!packaging) {
@@ -351,7 +346,7 @@ export const getPackagingById = async (req: Request, res: Response) => {
     supplierName: packaging.suppliers?.name,
     supplierCodeRef: packaging.suppliers?.code,
     // Map packaging_suppliers to frontend format
-    packagingSuppliers: packaging.packaging_suppliers.map(ps => ({
+    packagingSuppliers: packaging.packaging_suppliers.map((ps) => ({
       id: ps.id,
       supplierId: ps.supplierId,
       supplierCode: ps.supplier.code,
@@ -360,7 +355,7 @@ export const getPackagingById = async (req: Request, res: Response) => {
       isActive: ps.isActive,
       notes: ps.notes,
       pricePerPiece: ps.pricePerPiece,
-    }))
+    })),
   };
 
   res.json(response);
@@ -377,7 +372,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
     packagingName,
     supplierCode,
     buyerCode,
-    customerId,  // Link to customer
+    customerId, // Link to customer
     brandCategoryId, // Link to specific brand within customer
     packagingType,
     size,
@@ -389,12 +384,12 @@ export const updatePackaging = async (req: Request, res: Response) => {
     supplierId,
     description,
     isActive,
-    suppliers // Array of supplier relationships (replaces existing)
+    suppliers, // Array of supplier relationships (replaces existing)
   } = req.body;
 
   // Check if packaging exists
   const existing = await prisma.packaging_master.findUnique({
-    where: { id }
+    where: { id },
   });
 
   if (!existing) {
@@ -405,7 +400,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
   if (brandCategoryId && customerId) {
     const brand = await prisma.brand_categories.findUnique({
       where: { id: brandCategoryId },
-      select: { customerId: true }
+      select: { customerId: true },
     });
 
     if (!brand) {
@@ -421,7 +416,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
   if (suppliers !== undefined && Array.isArray(suppliers)) {
     // Delete existing supplier relationships
     await prisma.packaging_suppliers.deleteMany({
-      where: { packagingId: id }
+      where: { packagingId: id },
     });
 
     // Create new supplier relationships
@@ -434,7 +429,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
           pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
-        }))
+        })),
       });
     }
   }
@@ -454,7 +449,9 @@ export const updatePackaging = async (req: Request, res: Response) => {
       ...(thickness !== undefined && { thickness: thickness !== null && thickness !== '' ? String(thickness) : null }),
       ...(printDetails !== undefined && { printDetails: printDetails || null }),
       ...(pricePerPiece !== undefined && { pricePerPiece: pricePerPiece ? parseFloat(String(pricePerPiece)) : null }),
-      ...(pricePerHundred !== undefined && { pricePerHundred: pricePerHundred ? parseFloat(String(pricePerHundred)) : null }),
+      ...(pricePerHundred !== undefined && {
+        pricePerHundred: pricePerHundred ? parseFloat(String(pricePerHundred)) : null,
+      }),
       ...(supplierId !== undefined && { supplierId: supplierId || null }),
       ...(description !== undefined && { description: description || null }),
       ...(isActive !== undefined && { isActive }),
@@ -465,7 +462,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
           id: true,
           code: true,
           name: true,
-        }
+        },
       },
       brandCategory: {
         select: {
@@ -473,10 +470,10 @@ export const updatePackaging = async (req: Request, res: Response) => {
           brandName: true,
           category: true,
           subCategory: true,
-        }
+        },
       },
       materials: {
-        select: { id: true, code: true }
+        select: { id: true, code: true },
       },
       packaging_suppliers: {
         include: {
@@ -485,19 +482,19 @@ export const updatePackaging = async (req: Request, res: Response) => {
               id: true,
               code: true,
               name: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { isPreferred: 'desc' }
-      }
-    }
+        orderBy: { isPreferred: 'desc' },
+      },
+    },
   });
 
   // Also update material name if packagingName changed
   if (packagingName) {
     await prisma.materials.updateMany({
       where: { packagingId: id },
-      data: { name: packagingName }
+      data: { name: packagingName },
     });
   }
 
@@ -506,7 +503,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
     ...updated,
     materialCode: updated.materials?.[0]?.code,
     materialId: updated.materials?.[0]?.id,
-    packagingSuppliers: updated.packaging_suppliers.map(ps => ({
+    packagingSuppliers: updated.packaging_suppliers.map((ps) => ({
       id: ps.id,
       supplierId: ps.supplierId,
       supplierCode: ps.supplier.code,
@@ -515,12 +512,12 @@ export const updatePackaging = async (req: Request, res: Response) => {
       isActive: ps.isActive,
       notes: ps.notes,
       pricePerPiece: ps.pricePerPiece,
-    }))
+    })),
   };
 
   res.json({
     packaging: response,
-    message: 'Packaging updated successfully'
+    message: 'Packaging updated successfully',
   });
 };
 
@@ -548,7 +545,9 @@ export const deletePackaging = async (req: Request, res: Response) => {
   `;
 
   if (bomUsage[0]?.count > 0) {
-    throw new BusinessError(`Cannot delete packaging. This packaging is used in ${bomUsage[0].count} BOM(s). Please remove from BOMs first.`);
+    throw new BusinessError(
+      `Cannot delete packaging. This packaging is used in ${bomUsage[0].count} BOM(s). Please remove from BOMs first.`
+    );
   }
 
   // Delete material entry first (FK constraint)
@@ -577,7 +576,7 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
 
   // Get Packaging category
   const packagingCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Packaging' }
+    where: { name: 'Packaging' },
   });
 
   if (!packagingCategory) {
@@ -599,7 +598,7 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
         results.push({
           success: false,
           row: i + 1,
-          error: 'Packaging name is required'
+          error: 'Packaging name is required',
         });
         continue;
       }
@@ -648,7 +647,7 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
           categoryId: packagingCategory.id,
           unit: 'PIECE',
           isActive: true,
-        } as Prisma.materialsUncheckedCreateInput
+        } as Prisma.materialsUncheckedCreateInput,
       });
 
       // Create stock if requested
@@ -668,8 +667,8 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
               materialId: `mat-${packagingCode.toLowerCase()}`,
               warehouseId: warehouse[0].id,
               quantity: row.stockQuantity,
-              unit: 'PIECE'
-            }
+              unit: 'PIECE',
+            },
           });
           stockCreated = true;
         }
@@ -681,29 +680,28 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
         packagingCode,
         materialCode: packagingCode,
         packagingName: row.packagingName,
-        stockCreated
+        stockCreated,
       });
-
     } catch (error: unknown) {
       results.push({
         success: false,
         row: i + 1,
         packagingCode,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
 
   const summary: BulkImportSummary = {
     total: data.length,
-    success: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length
+    success: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
   };
 
   res.json({
     results,
     summary,
-    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`
+    message: `Bulk import completed: ${summary.success} succeeded, ${summary.failed} failed`,
   });
 };
 
@@ -724,7 +722,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { name: 'weight', required: false, description: 'Weight in grams (Optional)' },
       { name: 'pricePerPiece', required: false, description: 'Price per piece (Optional)' },
       { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' }
+      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
     ],
     exampleData: [
       {
@@ -737,9 +735,9 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         weight: 25,
         pricePerPiece: 0.15,
         stockQuantity: 5000,
-        locationCode: 'WH-01'
-      }
-    ]
+        locationCode: 'WH-01',
+      },
+    ],
   };
 
   res.json(template);

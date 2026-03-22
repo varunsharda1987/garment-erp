@@ -390,7 +390,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       specifications: data.specifications,
       unit: data.unit,
       reorderLevel: data.reorderLevel ? parseInt(String(data.reorderLevel)) : undefined,
-      hsnCode: data.hsnCode !== undefined ? (data.hsnCode || null) : undefined,
+      hsnCode: data.hsnCode !== undefined ? data.hsnCode || null : undefined,
       gstRate: data.gstRate !== undefined ? (data.gstRate ? parseFloat(String(data.gstRate)) : null) : undefined,
       image: data.image,
       categoryData: data.categoryData ? JSON.parse(JSON.stringify(data.categoryData)) : undefined,
@@ -757,7 +757,9 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
    * Get or create a category for material types
    * These categories are auto-created if they don't exist
    */
-  async getOrCreateCategory(type: 'FABRIC' | 'LACE' | 'GREIGE' | 'THREAD' | 'BUTTON' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING'): Promise<string> {
+  async getOrCreateCategory(
+    type: 'FABRIC' | 'LACE' | 'GREIGE' | 'THREAD' | 'BUTTON' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING'
+  ): Promise<string> {
     const categoryMap: Record<string, { id: string; name: string }> = {
       FABRIC: { id: 'CAT-FABRIC', name: 'Fabric' },
       GREIGE: { id: 'CAT-GREIGE', name: 'Greige (Raw Fabric)' },
@@ -833,18 +835,24 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
 
     // Determine unit based on type
     const unitMap: Record<string, Unit> = {
-      FABRIC: 'METER', GREIGE: 'METER', LACE: 'METER', ELASTIC: 'METER',
+      FABRIC: 'METER',
+      GREIGE: 'METER',
+      LACE: 'METER',
+      ELASTIC: 'METER',
       THREAD: 'CONE',
-      BUTTON: 'PIECE', ZIPPER: 'PIECE', LABEL: 'PIECE', PACKAGING: 'PIECE',
+      BUTTON: 'PIECE',
+      ZIPPER: 'PIECE',
+      LABEL: 'PIECE',
+      PACKAGING: 'PIECE',
     };
     const unit: Unit = unitMap[type] || 'PIECE';
 
     // Create materials record with SAME ID as master
     const material = await this.prisma.materials.create({
       data: {
-        id: master.id,           // Same ID as master
-        code: master.code,       // Same code
-        name: master.name,       // Same name
+        id: master.id, // Same ID as master
+        code: master.code, // Same code
+        name: master.name, // Same name
         categoryId,
         materialType: type,
         unit,

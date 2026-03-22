@@ -7,23 +7,13 @@
 import React, { useState } from 'react';
 import { Download, FileSpreadsheet, FileText, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import exportService from '../services/export.service';
 import { notify } from '../lib/notify';
 import type { ExportButtonProps } from '../types/export.types';
 import { logError } from '../lib/logger';
 
-const ExportButton: React.FC<ExportButtonProps> = ({
-  module,
-  filters = {},
-  disabled = false,
-  className = '',
-}) => {
+const ExportButton: React.FC<ExportButtonProps> = ({ module, filters = {}, disabled = false, className = '' }) => {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async (format: 'csv' | 'excel' | 'pdf') => {
@@ -44,11 +34,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          disabled={disabled || isExporting}
-          className={className}
-        >
+        <Button variant="outline" disabled={disabled || isExporting} className={className}>
           {isExporting ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

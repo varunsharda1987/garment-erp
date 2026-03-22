@@ -26,13 +26,13 @@ import { SeasonService } from './season.service';
 
 // Size ordering for standard garment sizes
 const SIZE_ORDER: Record<string, number> = {
-  'XS': 0,
-  'S': 1,
-  'M': 2,
-  'L': 3,
-  'XL': 4,
-  'XXL': 5,
-  'XXXL': 6,
+  XS: 0,
+  S: 1,
+  M: 2,
+  L: 3,
+  XL: 4,
+  XXL: 5,
+  XXXL: 6,
   '2XL': 5,
   '3XL': 6,
   '4XL': 7,
@@ -52,9 +52,9 @@ const SIZE_ORDER: Record<string, number> = {
   '14Y': 21,
   '16Y': 22,
   // Free size
-  'FREE': 50,
+  FREE: 50,
   'FREE SIZE': 50,
-  'FREESIZE': 50,
+  FREESIZE: 50,
 };
 
 export class StyleImportService {
@@ -157,24 +157,30 @@ export class StyleImportService {
           equals: brandName.trim(),
           mode: 'insensitive',
         },
-        ...(category ? {
-          category: {
-            equals: category.trim(),
-            mode: 'insensitive' as const,
-          },
-        } : {}),
-        ...(subCategory ? {
-          subCategory: {
-            equals: subCategory.trim(),
-            mode: 'insensitive' as const,
-          },
-        } : {}),
-        ...(subSubCategory ? {
-          subSubCategory: {
-            equals: subSubCategory.trim(),
-            mode: 'insensitive' as const,
-          },
-        } : {}),
+        ...(category
+          ? {
+              category: {
+                equals: category.trim(),
+                mode: 'insensitive' as const,
+              },
+            }
+          : {}),
+        ...(subCategory
+          ? {
+              subCategory: {
+                equals: subCategory.trim(),
+                mode: 'insensitive' as const,
+              },
+            }
+          : {}),
+        ...(subSubCategory
+          ? {
+              subSubCategory: {
+                equals: subSubCategory.trim(),
+                mode: 'insensitive' as const,
+              },
+            }
+          : {}),
       },
     });
 
@@ -333,12 +339,7 @@ export class StyleImportService {
           }
 
           // Create or update style
-          const style = await this.createOrUpdateStyle(
-            firstRow,
-            rows,
-            userId,
-            existingStyle ? true : false
-          );
+          const style = await this.createOrUpdateStyle(firstRow, rows, userId, existingStyle ? true : false);
 
           if (existingStyle) {
             summary.stylesUpdated++;
@@ -464,7 +465,10 @@ export class StyleImportService {
 
       // Legacy field handling
       const cadAverage = typeof row.cadAverage === 'string' ? parseFloat(row.cadAverage) : row.cadAverage;
-      const lastProductionAverage = typeof row.lastProductionAverage === 'string' ? parseFloat(row.lastProductionAverage) : row.lastProductionAverage;
+      const lastProductionAverage =
+        typeof row.lastProductionAverage === 'string'
+          ? parseFloat(row.lastProductionAverage)
+          : row.lastProductionAverage;
       const fabricWidth = typeof row.fabricWidth === 'string' ? parseFloat(row.fabricWidth) : row.fabricWidth;
       const componentName = (row.componentName || 'Main Component').trim();
       const fabricDescription = (row.fabricDescription || 'Fabric Not Specified').trim();
@@ -548,16 +552,17 @@ export class StyleImportService {
   /**
    * Group rows by style code
    */
-  private groupRowsByStyle(
-    rows: StyleImportRow[]
-  ): Record<string, StyleImportRow[]> {
-    return rows.reduce((groups, row) => {
-      if (!groups[row.styleCode]) {
-        groups[row.styleCode] = [];
-      }
-      groups[row.styleCode].push(row);
-      return groups;
-    }, {} as Record<string, StyleImportRow[]>);
+  private groupRowsByStyle(rows: StyleImportRow[]): Record<string, StyleImportRow[]> {
+    return rows.reduce(
+      (groups, row) => {
+        if (!groups[row.styleCode]) {
+          groups[row.styleCode] = [];
+        }
+        groups[row.styleCode].push(row);
+        return groups;
+      },
+      {} as Record<string, StyleImportRow[]>
+    );
   }
 
   /**
@@ -613,7 +618,7 @@ export class StyleImportService {
       projectGroup: row.projectGroup,
       season: row.season,
       seasonId: seasonId,
-      gender: row.gender || 'UNISEX' as Gender,
+      gender: row.gender || ('UNISEX' as Gender),
       description: row.buyerCategory || row.category,
       isActive: true,
       createdById: userId,
@@ -660,19 +665,20 @@ export class StyleImportService {
     let cadEntriesCreated = 0;
 
     // Group rows by component
-    const componentGroups = rows.reduce((groups, row) => {
-      const compName = row.componentName || 'Main Component';
-      if (!groups[compName]) {
-        groups[compName] = [];
-      }
-      groups[compName].push(row);
-      return groups;
-    }, {} as Record<string, StyleImportRow[]>);
+    const componentGroups = rows.reduce(
+      (groups, row) => {
+        const compName = row.componentName || 'Main Component';
+        if (!groups[compName]) {
+          groups[compName] = [];
+        }
+        groups[compName].push(row);
+        return groups;
+      },
+      {} as Record<string, StyleImportRow[]>
+    );
 
     // Process each component
-    for (const [componentName, componentRows] of Object.entries(
-      componentGroups
-    )) {
+    for (const [componentName, componentRows] of Object.entries(componentGroups)) {
       // Create component
       const component = await prisma.style_components.create({
         data: {
@@ -704,22 +710,11 @@ export class StyleImportService {
           const csvRow = row as unknown as Record<string, unknown>;
           const fabricDesc = row.fabricDescription || 'Default Fabric';
           const greigeName = (csvRow.greigeName as string) || fabricDesc;
-          const greigeId = await this.lookupOrCreateGreige(
-            greigeName,
-            userId
-          );
+          const greigeId = await this.lookupOrCreateGreige(greigeName, userId);
 
           // Generate fabric code
-          const fabricCode = this.generateFabricCode(
-            styleCode,
-            componentName,
-            fabricSequence
-          );
-          const fabricName = this.generateFabricName(
-            fabricDesc,
-            styleCode,
-            componentName
-          );
+          const fabricCode = this.generateFabricCode(styleCode, componentName, fabricSequence);
+          const fabricName = this.generateFabricName(fabricDesc, styleCode, componentName);
 
           // Create fabric
           const fabric = await prisma.fabric_master.create({
@@ -729,9 +724,7 @@ export class StyleImportService {
               fabricName,
               greigeId,
               description: fabricDesc,
-              actualWidth: row.fabricWidth
-                ? new Prisma.Decimal(row.fabricWidth)
-                : new Prisma.Decimal(58), // Default 58 inches
+              actualWidth: row.fabricWidth ? new Prisma.Decimal(row.fabricWidth) : new Prisma.Decimal(58), // Default 58 inches
               styleReference: styleCode,
               isGeneric: false,
               isActive: true,
@@ -746,8 +739,7 @@ export class StyleImportService {
           if (row.fabricWidth) {
             const cadVariancePercent =
               row.cadAverage && row.lastProductionAverage
-                ? ((row.lastProductionAverage - row.cadAverage) / row.cadAverage) *
-                  100
+                ? ((row.lastProductionAverage - row.cadAverage) / row.cadAverage) * 100
                 : null;
 
             await prisma.fabric_width_cad.create({
@@ -755,15 +747,9 @@ export class StyleImportService {
                 id: `${fabric.id}-CAD-${Date.now()}`,
                 fabricId: fabric.id,
                 cutableWidth: new Prisma.Decimal(row.fabricWidth),
-                cadMeters: row.cadAverage
-                  ? new Prisma.Decimal(row.cadAverage)
-                  : null,
-                actualCad: row.lastProductionAverage
-                  ? new Prisma.Decimal(row.lastProductionAverage)
-                  : null,
-                cadVariancePercent: cadVariancePercent
-                  ? new Prisma.Decimal(cadVariancePercent)
-                  : null,
+                cadMeters: row.cadAverage ? new Prisma.Decimal(row.cadAverage) : null,
+                actualCad: row.lastProductionAverage ? new Prisma.Decimal(row.lastProductionAverage) : null,
+                cadVariancePercent: cadVariancePercent ? new Prisma.Decimal(cadVariancePercent) : null,
                 cadWastagePercent: new Prisma.Decimal(5), // Default 5%
                 isPreferred: true, // Mark as preferred width
                 createdById: userId,
@@ -780,9 +766,7 @@ export class StyleImportService {
               componentId: component.id,
               fabricId: fabric.id,
               fabricCADId: null, // Will be populated when CAD is selected
-              quantityNeeded: row.cadAverage
-                ? new Prisma.Decimal(row.cadAverage)
-                : null,
+              quantityNeeded: row.cadAverage ? new Prisma.Decimal(row.cadAverage) : null,
             },
           });
         } catch (error: unknown) {
@@ -798,10 +782,7 @@ export class StyleImportService {
   /**
    * Lookup greige by name or create generic greige
    */
-  private async lookupOrCreateGreige(
-    greigeName: string,
-    userId: string
-  ): Promise<string> {
+  private async lookupOrCreateGreige(greigeName: string, userId: string): Promise<string> {
     // Try to find existing greige by exact name first
     let existing = await prisma.greige_master.findFirst({
       where: {
@@ -852,10 +833,7 @@ export class StyleImportService {
   /**
    * Process production workflow and create style_processes records
    */
-  private async processProductionWorkflow(
-    styleId: string,
-    row: StyleImportRow
-  ): Promise<number> {
+  private async processProductionWorkflow(styleId: string, row: StyleImportRow): Promise<number> {
     let processesCreated = 0;
     const csvRow = row as any; // Access original CSV columns
 
@@ -902,11 +880,7 @@ export class StyleImportService {
 
     // 2. DYEING (Optional)
     if (isProcessEnabled(csvRow.dyeing)) {
-      const dyeingNotes = [
-        csvRow.dyeingColor ? `Color: ${csvRow.dyeingColor}` : null,
-      ]
-        .filter(Boolean)
-        .join(' | ');
+      const dyeingNotes = [csvRow.dyeingColor ? `Color: ${csvRow.dyeingColor}` : null].filter(Boolean).join(' | ');
 
       await prisma.style_processes.create({
         data: {
@@ -990,9 +964,7 @@ export class StyleImportService {
 
     // 7. WASHING (Optional)
     if (isProcessEnabled(csvRow.washing)) {
-      const washingNotes = [csvRow.washType ? `Wash Type: ${csvRow.washType}` : null]
-        .filter(Boolean)
-        .join(' | ');
+      const washingNotes = [csvRow.washType ? `Wash Type: ${csvRow.washType}` : null].filter(Boolean).join(' | ');
 
       await prisma.style_processes.create({
         data: {
@@ -1018,16 +990,9 @@ export class StyleImportService {
   /**
    * Generate fabric code
    */
-  private generateFabricCode(
-    styleCode: string,
-    componentName: string,
-    sequence: number
-  ): string {
+  private generateFabricCode(styleCode: string, componentName: string, sequence: number): string {
     const safeComponentName = componentName || 'COMPONENT';
-    const componentAbbr = safeComponentName
-      .toUpperCase()
-      .replace(/\s+/g, '')
-      .substring(0, 10);
+    const componentAbbr = safeComponentName.toUpperCase().replace(/\s+/g, '').substring(0, 10);
     const seq = sequence.toString().padStart(3, '0');
     return `${styleCode}-${componentAbbr}-${seq}`;
   }
@@ -1035,11 +1000,7 @@ export class StyleImportService {
   /**
    * Generate fabric name
    */
-  private generateFabricName(
-    fabricDescription: string,
-    styleCode: string,
-    componentName: string
-  ): string {
+  private generateFabricName(fabricDescription: string, styleCode: string, componentName: string): string {
     return `${fabricDescription} - ${styleCode} ${componentName}`;
   }
 
@@ -1069,12 +1030,7 @@ export class StyleImportService {
   /**
    * Update staging records status
    */
-  private async updateStagingRecords(
-    rows: StyleImportRow[],
-    status: string,
-    styleId?: string,
-    errorMessage?: string
-  ) {
+  private async updateStagingRecords(rows: StyleImportRow[], status: string, styleId?: string, errorMessage?: string) {
     for (const row of rows) {
       await prisma.style_import_staging.updateMany({
         where: {
@@ -1167,9 +1123,7 @@ export class StyleImportService {
         componentName: r.componentName,
         fabricDescription: r.fabricDescription,
         cadAverage: r.cadAverage ? r.cadAverage.toNumber() : undefined,
-        lastProductionAverage: r.lastProductionAverage
-          ? r.lastProductionAverage.toNumber()
-          : undefined,
+        lastProductionAverage: r.lastProductionAverage ? r.lastProductionAverage.toNumber() : undefined,
         fabricWidth: r.fabricWidth ? r.fabricWidth.toNumber() : undefined,
       };
     });
@@ -1181,11 +1135,7 @@ export class StyleImportService {
    * Process and create variants for a style from CSV rows
    * Updated to auto-generate SKU from styleCode + size
    */
-  private async processStyleVariants(
-    styleId: string,
-    styleCode: string,
-    rows: StyleImportRow[]
-  ): Promise<number> {
+  private async processStyleVariants(styleId: string, styleCode: string, rows: StyleImportRow[]): Promise<number> {
     // Extract unique size combinations from rows
     // Each row with a size should create a variant
     const variantMap = new Map<string, StyleVariantData>();
@@ -1223,7 +1173,9 @@ export class StyleImportService {
       return orderA - orderB;
     });
 
-    logDebug(`Creating ${variants.length} variants for style ${styleCode}: ${variants.map(v => v.sizeName).join(', ')}`);
+    logDebug(
+      `Creating ${variants.length} variants for style ${styleCode}: ${variants.map((v) => v.sizeName).join(', ')}`
+    );
 
     // Find or create size options and link them
     for (const variant of variants) {

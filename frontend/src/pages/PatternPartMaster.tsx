@@ -13,14 +13,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { notify } from '../lib/notify';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
@@ -31,10 +24,7 @@ import {
   deletePatternPart,
 } from '../services/patternPart.service';
 import { componentGroupService } from '../services/componentGroup.service';
-import type {
-  PatternPart,
-  PatternPartFormData,
-} from '../types/patternPart.types';
+import type { PatternPart, PatternPartFormData } from '../types/patternPart.types';
 import type { ComponentGroup } from '../types/componentGroup.types';
 
 export default function PatternPartMaster() {
@@ -143,7 +133,7 @@ export default function PatternPartMaster() {
       description: patternPart.description || '',
       sortOrder: patternPart.sortOrder,
       isActive: patternPart.isActive,
-      componentGroupIds: patternPart.componentGroups?.map(g => g.id) || [],
+      componentGroupIds: patternPart.componentGroups?.map((g) => g.id) || [],
     });
     setIsDialogOpen(true);
   };
@@ -173,7 +163,7 @@ export default function PatternPartMaster() {
     if (currentIds.includes(groupId)) {
       setFormData({
         ...formData,
-        componentGroupIds: currentIds.filter(id => id !== groupId),
+        componentGroupIds: currentIds.filter((id) => id !== groupId),
       });
     } else {
       setFormData({
@@ -275,11 +265,7 @@ export default function PatternPartMaster() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(patternPart)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(patternPart)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
@@ -301,9 +287,7 @@ export default function PatternPartMaster() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {editingPatternPart ? 'Edit Pattern Part' : 'Create Pattern Part'}
-            </DialogTitle>
+            <DialogTitle>{editingPatternPart ? 'Edit Pattern Part' : 'Create Pattern Part'}</DialogTitle>
             <DialogDescription>
               {editingPatternPart
                 ? 'Update the pattern part details below.'
@@ -325,9 +309,7 @@ export default function PatternPartMaster() {
                   required
                   className="font-mono"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Unique identifier code (auto-uppercased)
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Unique identifier code (auto-uppercased)</p>
               </div>
 
               <div>
@@ -345,9 +327,7 @@ export default function PatternPartMaster() {
 
               <div>
                 <Label>Component Groups</Label>
-                <p className="text-xs text-gray-500 mb-2">
-                  Select which garment types this pattern part applies to
-                </p>
+                <p className="text-xs text-gray-500 mb-2">Select which garment types this pattern part applies to</p>
                 <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-gray-50">
                   {componentGroups.map((group) => {
                     const isSelected = formData.componentGroupIds?.includes(group.id);
@@ -356,9 +336,7 @@ export default function PatternPartMaster() {
                         key={group.id}
                         variant={isSelected ? 'default' : 'outline'}
                         className={`cursor-pointer transition-colors ${
-                          isSelected
-                            ? 'bg-blue-600 hover:bg-blue-700'
-                            : 'hover:bg-gray-200'
+                          isSelected ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-200'
                         }`}
                         onClick={() => toggleGroupSelection(group.id)}
                       >
@@ -368,9 +346,7 @@ export default function PatternPartMaster() {
                   })}
                 </div>
                 {formData.componentGroupIds && formData.componentGroupIds.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.componentGroupIds.length} group(s) selected
-                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{formData.componentGroupIds.length} group(s) selected</p>
                 )}
               </div>
 
@@ -379,9 +355,7 @@ export default function PatternPartMaster() {
                 <Input
                   id="description"
                   value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Brief description of this pattern part"
                 />
               </div>
@@ -392,9 +366,7 @@ export default function PatternPartMaster() {
                   id="sortOrder"
                   type="number"
                   value={formData.sortOrder}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
                   placeholder="0"
                 />
               </div>
@@ -404,9 +376,7 @@ export default function PatternPartMaster() {
                   type="checkbox"
                   id="isActive"
                   checked={formData.isActive}
-                  onChange={(e) =>
-                    setFormData({ ...formData, isActive: e.target.checked })
-                  }
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                   className="h-4 w-4"
                 />
                 <Label htmlFor="isActive" className="cursor-pointer">
@@ -416,16 +386,10 @@ export default function PatternPartMaster() {
             </div>
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingPatternPart ? 'Update' : 'Create'}
-              </Button>
+              <Button type="submit">{editingPatternPart ? 'Update' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

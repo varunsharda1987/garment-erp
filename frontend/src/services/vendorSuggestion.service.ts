@@ -43,7 +43,8 @@ export interface VendorSuggestionForRequirement {
 }
 
 export interface SuppliersByTypeResponse {
-  filteredSuppliers: Array<{  // Changed from 'suppliers' to avoid serializer key transformation
+  filteredSuppliers: Array<{
+    // Changed from 'suppliers' to avoid serializer key transformation
     id: string;
     name: string;
     code?: string;
@@ -91,10 +92,9 @@ export interface AutoAssignResponse {
  * POST /api/mrp/vendor-suggestions/material
  */
 export async function suggestForMaterial(materialId: string): Promise<VendorSuggestion> {
-  const response = await api.post<{ success: boolean; data: VendorSuggestion }>(
-    '/mrp/vendor-suggestions/material',
-    { materialId }
-  );
+  const response = await api.post<{ success: boolean; data: VendorSuggestion }>('/mrp/vendor-suggestions/material', {
+    materialId,
+  });
   return response.data.data;
 }
 
@@ -102,9 +102,7 @@ export async function suggestForMaterial(materialId: string): Promise<VendorSugg
  * Get vendor suggestions for multiple requirements
  * POST /api/mrp/vendor-suggestions/requirements
  */
-export async function suggestForRequirements(
-  requirementIds: string[]
-): Promise<SuggestionsResponse> {
+export async function suggestForRequirements(requirementIds: string[]): Promise<SuggestionsResponse> {
   const response = await api.post<{ success: boolean; data: SuggestionsResponse }>(
     '/mrp/vendor-suggestions/requirements',
     { requirementIds }
@@ -116,9 +114,7 @@ export async function suggestForRequirements(
  * Bulk assign vendors to requirements
  * POST /api/mrp/vendor-suggestions/bulk-assign
  */
-export async function bulkAssignVendors(
-  assignments: BulkAssignmentInput[]
-): Promise<BulkAssignResponse> {
+export async function bulkAssignVendors(assignments: BulkAssignmentInput[]): Promise<BulkAssignResponse> {
   const response = await api.post<{
     success: boolean;
     data: BulkAssignResponse;
@@ -147,9 +143,7 @@ export async function autoAssignVendors(
  * Get suppliers filtered by material type
  * GET /api/mrp/vendor-suggestions/suppliers-by-type?materialType=GREIGE
  */
-export async function getSuppliersByMaterialType(
-  materialType: string | null
-): Promise<SuppliersByTypeResponse> {
+export async function getSuppliersByMaterialType(materialType: string | null): Promise<SuppliersByTypeResponse> {
   const params = materialType ? `?materialType=${encodeURIComponent(materialType)}` : '';
   const response = await api.get<{
     success: boolean;
@@ -207,9 +201,7 @@ export interface ProcessorListResponse {
 /**
  * Get processor suggestions for PROCESSING material requirements
  */
-export async function suggestProcessorsForProcessing(
-  requirementIds: string[]
-): Promise<ProcessingSuggestionsResponse> {
+export async function suggestProcessorsForProcessing(requirementIds: string[]): Promise<ProcessingSuggestionsResponse> {
   const response = await api.post<{ success: boolean; data: ProcessingSuggestionsResponse }>(
     '/mrp/processing-assignment/suggest',
     { requirementIds }
@@ -261,9 +253,7 @@ export async function getProcessorSuppliers(): Promise<ProcessorListResponse> {
 /**
  * Get confidence badge color
  */
-export function getConfidenceBadgeColor(
-  confidence: 'high' | 'medium' | 'low'
-): string {
+export function getConfidenceBadgeColor(confidence: 'high' | 'medium' | 'low'): string {
   switch (confidence) {
     case 'high':
       return 'bg-green-100 text-green-800 border-green-200';

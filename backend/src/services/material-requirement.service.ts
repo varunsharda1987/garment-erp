@@ -95,7 +95,13 @@ export async function calculateMaterialRequirement(
     const totalRequired = quantityPerPiece * orderQuantity;
 
     // Get material info from the appropriate master table
-    let materialId = bom.materialId || '';
+    let materialId = bom.materialId;
+    if (!materialId) {
+      logWarn(
+        `[MRP] BOM item has no linked material (bomId: ${bom.id}, component: ${(bom as any).componentName || 'unknown'}). Skipping.`
+      );
+      continue;
+    }
     let materialCode = '';
     let materialName = '';
 

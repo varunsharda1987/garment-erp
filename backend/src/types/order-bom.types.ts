@@ -50,6 +50,13 @@ export interface OrderBOMItemInput {
   labelId?: string;
   packagingId?: string;
   fabricId?: string;
+  greigeId?: string;
+  sourcingStrategy?: string;
+  processorId?: string;
+  greigeCost?: number;
+  processingCost?: number;
+  rateCardId?: string;
+  colorName?: string;
 
   quantityPerGarment: number;
   orderQuantity: number;

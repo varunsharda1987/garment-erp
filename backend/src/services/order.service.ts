@@ -10,6 +10,8 @@ import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
 import workOrderService from './workOrder.service';
+import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
+import { validateTransition } from '../utils/stateMachine';
 
 // ============================================
 // Types
@@ -425,12 +427,29 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   }
 
   /**
-   * Update order status
+   * Update order status with state machine validation.
+   * Normal users: only valid forward transitions allowed.
+   * Admin users: can override with reason logged.
    */
-  async updateStatus(id: string, status: OrderStatus): Promise<orders> {
-    logDebug('Updating order status', { id, status });
+  async updateStatus(id: string, status: OrderStatus, userRole?: string, reason?: string): Promise<orders> {
+    logDebug('Updating order status', { id, status, userRole });
 
-    await this.findByIdOrThrow(id);
+    const existing = await this.findByIdOrThrow(id);
+
+    // Validate transition
+    const transition = validateTransition('order', existing.status, status, userRole);
+    if (!transition.valid) {
+      throw new ValidationError(transition.message || 'Invalid status transition');
+    }
+
+    if (transition.isAdminOverride) {
+      logInfo('Admin override: order status change', {
+        id,
+        from: existing.status,
+        to: status,
+        reason: reason || 'No reason provided',
+      });
+    }
 
     const order = await this.prisma.orders.update({
       where: { id },
@@ -446,7 +465,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       },
     });
 
-    logInfo('Order status updated', { id, status });
+    logInfo('Order status updated', { id, from: existing.status, to: status });
     return order;
   }
 
@@ -790,30 +809,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
    * Generate unique order number
    */
   private async generateOrderNumber(): Promise<string> {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-
-    // Find the last order number for this month (including deleted orders to avoid gaps)
-    // Note: We include deleted orders to maintain sequential numbering
-    const lastOrder = await this.prisma.orders.findFirst({
-      where: {
-        orderNumber: {
-          startsWith: `ORD${year}${month}`,
-        },
-      },
-      orderBy: {
-        orderNumber: 'desc',
-      },
-    });
-
-    let sequence = 1;
-    if (lastOrder) {
-      const lastSequence = parseInt(lastOrder.orderNumber.slice(-4));
-      sequence = lastSequence + 1;
-    }
-
-    return `ORD${year}${month}${String(sequence).padStart(4, '0')}`;
+    return generateAtomicOrderNumber();
   }
 }
 

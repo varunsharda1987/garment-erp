@@ -139,45 +139,64 @@ class CostSheetPOGenerationService {
     for (const fabricItem of costSheet.fabricItems) {
       const consumptionPerUnit = Number(fabricItem.effectiveCad);
       const requiredQty = totalOrderQty * consumptionPerUnit;
-      const stockInfo = fabricItem.fabricId
-        ? await this.getStockInfoForMaterial(fabricItem.fabricId)
-        : { available: 0 };
 
-      const item: MaterialRequirement = {
-        materialId: fabricItem.fabricId || fabricItem.greigeId || '',
-        materialCode: fabricItem.fabric?.fabricCode || fabricItem.greige?.greigeCode || '',
-        materialName: fabricItem.fabricName || fabricItem.fabric?.fabricName || fabricItem.greige?.greigeName || '',
-        materialType: 'FABRIC',
-        consumptionPerUnit,
-        unit: 'METERS',
-        requiredQty,
-        availableStock: stockInfo.available,
-        shortfall: Math.max(0, requiredQty - stockInfo.available),
-        unitPrice: Number(fabricItem.costPerMeter),
-        sourcingStrategy: fabricItem.sourcingStrategy as any,
-        fabricWidth: Number(fabricItem.width),
-      };
+      if (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' && fabricItem.greigeId) {
+        // GREIGE_PROCESSED: check greige_stock (not fabric_stock)
+        const greigeStockInfo = await this.getStockInfoForGreige(fabricItem.greigeId);
 
-      if (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED') {
-        // Add greige item
         const greigeItem: MaterialRequirement = {
-          ...item,
+          materialId: fabricItem.greigeId, // Use greigeId — this is what we're buying
+          materialCode: fabricItem.greige?.greigeCode || '',
+          materialName: fabricItem.fabricName || fabricItem.greige?.greigeName || '',
           materialType: 'GREIGE',
+          consumptionPerUnit,
+          unit: 'METERS',
+          requiredQty,
+          availableStock: greigeStockInfo.available,
+          shortfall: Math.max(0, requiredQty - greigeStockInfo.available),
           unitPrice: Number(fabricItem.greigeCost || 0),
+          sourcingStrategy: fabricItem.sourcingStrategy as any,
+          fabricWidth: Number(fabricItem.width),
         };
         greigeItems.push(greigeItem);
 
         // Add processing item
         if (fabricItem.processorId) {
           const processingItem: MaterialRequirement = {
-            ...item,
+            materialId: fabricItem.greigeId,
+            materialCode: fabricItem.greige?.greigeCode || '',
+            materialName: fabricItem.fabricName || fabricItem.greige?.greigeName || '',
             materialType: 'PROCESSING',
+            consumptionPerUnit,
+            unit: 'METERS',
+            requiredQty,
+            availableStock: 0,
+            shortfall: requiredQty,
             unitPrice: Number(fabricItem.processingCost || 0),
+            sourcingStrategy: fabricItem.sourcingStrategy as any,
+            fabricWidth: Number(fabricItem.width),
             processorId: fabricItem.processorId,
           };
           processingItems.push(processingItem);
         }
-      } else if (fabricItem.sourcingStrategy === 'READY_FABRIC') {
+      } else if (fabricItem.sourcingStrategy === 'READY_FABRIC' && fabricItem.fabricId) {
+        // READY_FABRIC: check fabric_stock
+        const stockInfo = await this.getStockInfoForMaterial(fabricItem.fabricId);
+
+        const item: MaterialRequirement = {
+          materialId: fabricItem.fabricId, // Use fabricId — this is what we're buying
+          materialCode: fabricItem.fabric?.fabricCode || '',
+          materialName: fabricItem.fabricName || fabricItem.fabric?.fabricName || '',
+          materialType: 'FABRIC',
+          consumptionPerUnit,
+          unit: 'METERS',
+          requiredQty,
+          availableStock: stockInfo.available,
+          shortfall: Math.max(0, requiredQty - stockInfo.available),
+          unitPrice: Number(fabricItem.costPerMeter),
+          sourcingStrategy: fabricItem.sourcingStrategy as any,
+          fabricWidth: Number(fabricItem.width),
+        };
         fabricItems.push(item);
       }
       // STOCK_REUSE items don't need PO generation
@@ -270,14 +289,20 @@ class CostSheetPOGenerationService {
         labDipId: laceItem.labDipId || undefined,
         labDipStatus: laceItem.labDip?.status,
         processorId: laceItem.processorId || undefined,
-        expectedShrinkagePercent: laceItem.greigeLace
-          ? Number(laceItem.greigeLace.expectedShrinkagePercent || 5)
+        expectedShrinkagePercent: laceItem.greigeLace?.expectedShrinkagePercent
+          ? Number(laceItem.greigeLace.expectedShrinkagePercent)
           : undefined,
       };
 
       if (laceItem.sourcingStrategy === 'GREIGE_PROCESSED') {
         // Calculate greige quantity with shrinkage factor
-        const shrinkage = Number(laceItem.greigeLace?.expectedShrinkagePercent || 5);
+        if (!laceItem.greigeLace?.expectedShrinkagePercent) {
+          throw new Error(
+            `Shrinkage % not configured for greige lace "${laceItem.greigeLace?.laceName || laceItem.laceId}". ` +
+              `Set expected shrinkage percentage before generating PO.`
+          );
+        }
+        const shrinkage = Number(laceItem.greigeLace.expectedShrinkagePercent);
         const greigeRequiredQty = requiredQty / (1 - shrinkage / 100);
 
         // Add greige lace item
@@ -353,6 +378,30 @@ class CostSheetPOGenerationService {
       reserved: 0, // TODO: Calculate reserved from existing requirements
       total: available + fabricAvailable,
       unit: 'UNITS',
+    };
+  }
+
+  /**
+   * Get stock info for greige from greige_stock table
+   */
+  private async getStockInfoForGreige(greigeId: string): Promise<StockInfo> {
+    const greigeStock = await prisma.greige_stock.findMany({
+      where: {
+        greigeId,
+        status: 'AVAILABLE',
+      },
+    });
+
+    const available = greigeStock.reduce((sum, stock) => {
+      return sum + Number(stock.quantityAvailable || 0);
+    }, 0);
+
+    return {
+      materialId: greigeId,
+      available,
+      reserved: 0,
+      total: available,
+      unit: 'METERS',
     };
   }
 

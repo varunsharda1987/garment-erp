@@ -72,8 +72,8 @@ async function ensureMaterialForFabric(fabricId: string): Promise<{ id: string }
             notes: 'Auto-linked from fabric_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -123,8 +123,8 @@ async function ensureMaterialForLace(laceId: string): Promise<{ id: string } | n
             notes: 'Auto-linked from lace_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -174,8 +174,8 @@ async function ensureMaterialForGreige(greigeId: string): Promise<{ id: string }
             notes: 'Auto-linked from greige_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -225,8 +225,8 @@ async function ensureMaterialForThread(threadId: string): Promise<{ id: string }
             notes: 'Auto-linked from thread_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -276,8 +276,8 @@ async function ensureMaterialForButton(buttonId: string): Promise<{ id: string }
             notes: 'Auto-linked from button_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -327,8 +327,8 @@ async function ensureMaterialForZipper(zipperId: string): Promise<{ id: string }
             notes: 'Auto-linked from zipper_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -378,8 +378,8 @@ async function ensureMaterialForElastic(elasticId: string): Promise<{ id: string
             notes: 'Auto-linked from elastic_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -429,8 +429,8 @@ async function ensureMaterialForLabel(labelId: string): Promise<{ id: string } |
             notes: 'Auto-linked from label_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -480,8 +480,8 @@ async function ensureMaterialForPackaging(packagingId: string): Promise<{ id: st
             notes: 'Auto-linked from packaging_master default supplier',
           },
         });
-      } catch (_) {
-        /* non-fatal */
+      } catch (err) {
+        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
       }
     }
 
@@ -1210,6 +1210,7 @@ export async function calculateRequirementsFromOrder(
           isGreigeRequirement: true, // Flag for creating linked processing requirement
           processorId: bomItem.processorId || null, // Store for processing requirement
           processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
+          colorName: (bomItem as any).colorName || null,
         });
 
         // Requirement 2: PROCESSING requirement (linked to GREIGE)
@@ -1233,6 +1234,7 @@ export async function calculateRequirementsFromOrder(
           processorId: bomItem.processorId || null,
           processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
           printingType: bomItem.rateCard?.printingType || null,
+          colorName: (bomItem as any).colorName || null,
           // Fabric width tracking for split PO scenarios
           fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
           linkedGreigeMaterialId: greigeMaterialId, // Link to parent GREIGE requirement
@@ -1295,13 +1297,15 @@ export async function calculateRequirementsFromOrder(
 
       // First pass: Create/update MATERIAL requirements (including GREIGE)
       for (const req of materialReqs) {
-        // Check if requirement already exists for this order item + material + requirementType
+        // Check if a CANCELLED requirement exists to reuse (prevents overwriting active ones when same greige used twice)
         const existing = await tx.material_requirements.findFirst({
           where: {
             orderId: req.orderId,
             orderItemId: req.orderItemId,
             materialId: req.materialId,
             requirementType: req.requirementType || 'MATERIAL',
+            colorName: (req as any).colorName || null, // Different colors = separate requirements
+            status: 'CANCELLED', // Only reuse CANCELLED — prevents second BOM item overwriting first
           },
         });
 
@@ -1348,6 +1352,7 @@ export async function calculateRequirementsFromOrder(
               fabricWidth: req.fabricWidth,
               cadId: req.cadId,
               requirementType: req.requirementType || 'MATERIAL',
+              colorName: (req as any).colorName || null,
               requiredDate,
               createdById: userId,
             },
@@ -1358,7 +1363,10 @@ export async function calculateRequirementsFromOrder(
 
         // Track GREIGE requirements for linking to PROCESSING requirements
         if ((req as any).isGreigeRequirement && saved) {
-          greigeRequirementIds.set(`${req.orderId}-${req.orderItemId}-${req.materialId}`, saved.id);
+          greigeRequirementIds.set(
+            `${req.orderId}-${req.orderItemId}-${req.materialId}-${(req as any).colorName || ''}`,
+            saved.id
+          );
         }
 
         savedRequirements.push(mapToResponse(saved));
@@ -1367,7 +1375,7 @@ export async function calculateRequirementsFromOrder(
       // Second pass: Create/update PROCESSING requirements with linked GREIGE IDs
       for (const req of processingReqs) {
         const linkedGreigeId = greigeRequirementIds.get(
-          `${req.orderId}-${req.orderItemId}-${(req as any).linkedGreigeMaterialId || req.materialId}`
+          `${req.orderId}-${req.orderItemId}-${(req as any).linkedGreigeMaterialId || req.materialId}-${(req as any).colorName || ''}`
         );
 
         const existing = await tx.material_requirements.findFirst({
@@ -1376,6 +1384,8 @@ export async function calculateRequirementsFromOrder(
             orderItemId: req.orderItemId,
             materialId: req.materialId,
             requirementType: 'PROCESSING',
+            colorName: (req as any).colorName || null,
+            status: 'CANCELLED', // Only reuse CANCELLED — prevents second BOM item overwriting first
           },
         });
 
@@ -1425,6 +1435,7 @@ export async function calculateRequirementsFromOrder(
               processingCost: (req as any).processingCost,
               printingType: (req as any).printingType || null,
               linkedRequirementId: linkedGreigeId,
+              colorName: (req as any).colorName || null,
               requiredDate,
               createdById: userId,
             },
@@ -1916,8 +1927,12 @@ export async function generatePOFromRequirements(
     },
     include: {
       materials: true,
-      orderBom: {
-        select: { sourceCostSheetId: true },
+      orderBom: { select: { sourceCostSheetId: true } },
+      orders: { select: { orderNumber: true } },
+      order_items: {
+        select: {
+          styles: { select: { styleCode: true, styleName: true } },
+        },
       },
     },
   });
@@ -1942,13 +1957,39 @@ export async function generatePOFromRequirements(
       .map((sp) => [sp.materialId, Number(sp.supplierPrice)])
   );
 
-  // Resolve cost-sheet rates for each material (FABRIC / GREIGE priority lookup)
+  // Resolve cost-sheet rates for each material (FABRIC / GREIGE / PROCESSING)
   const costSheetRateMap = new Map<string, number>();
   for (const req of requirements) {
     if (itemPrices?.[req.materialId] != null) continue; // manual override takes priority, skip
     const costSheetId = (req as any).orderBom?.sourceCostSheetId ?? null;
     const fabricId = (req.materials as any)?.fabricId ?? null;
     const matType = req.materials?.materialType;
+
+    // PROCESSING requirements: resolve from processor rate card or stored processingCost
+    if (req.requirementType === 'PROCESSING') {
+      const groupKey = req.id; // Each PROCESSING req is a separate PO item
+      if (itemPrices?.[groupKey] != null) continue;
+      try {
+        const resolved = await resolveRate({
+          poCategory: 'PROCESSING' as any,
+          supplierId: req.processorId || req.preferredSupplierId || supplierId,
+          printingType: req.printingType || undefined,
+          materialId: req.materialId,
+        });
+        if (resolved.rate && resolved.rate > 0) {
+          costSheetRateMap.set(groupKey, resolved.rate);
+        } else if (req.processingCost) {
+          costSheetRateMap.set(groupKey, Number(req.processingCost));
+        }
+      } catch {
+        if (req.processingCost) {
+          costSheetRateMap.set(groupKey, Number(req.processingCost));
+        }
+      }
+      continue;
+    }
+
+    // FABRIC / GREIGE: resolve from cost sheet
     if (!costSheetId) continue;
     if (matType !== 'FABRIC' && matType !== 'GREIGE') continue;
     const poCategory = matType === 'GREIGE' ? 'GREIGE' : 'FABRIC';
@@ -1993,18 +2034,39 @@ export async function generatePOFromRequirements(
     requirementIds: string[];
     printingType?: string | null;
     material: any;
+    // Enriched fields for PO document
+    colorName?: string | null;
+    styleCode?: string | null;
+    orderNumber?: string | null;
+    processingType?: string | null;
+    fabricWidth?: number | null;
   }
 
   const poItems: POItemData[] = [];
+
+  // Helper to extract enriched fields from a requirement
+  const getEnrichedFields = (req: any) => ({
+    colorName: req.colorName || null,
+    styleCode: req.order_items?.styles?.styleCode || null,
+    orderNumber: req.orders?.orderNumber || null,
+    processingType: req.printingType || (req.requirementType === 'PROCESSING' ? 'DYEING' : null),
+    fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
+  });
 
   if (consolidate) {
     const materialGroups = new Map<string, POItemData>();
 
     for (const req of requirements) {
-      const key = req.materialId;
-      // Priority: manual override → cost sheet rate → supplier price → 0
+      // PROCESSING requirements: never merge (each is a distinct processing job)
+      const key = req.requirementType === 'PROCESSING' ? req.id : req.materialId;
+      // Priority: manual override → cost sheet / processing rate → supplier price → 0
       const price =
-        itemPrices?.[req.materialId] ?? costSheetRateMap.get(req.materialId) ?? autoPriceMap.get(req.materialId) ?? 0;
+        itemPrices?.[key] ??
+        itemPrices?.[req.materialId] ??
+        costSheetRateMap.get(key) ??
+        costSheetRateMap.get(req.materialId) ??
+        autoPriceMap.get(req.materialId) ??
+        0;
       const existing = materialGroups.get(key);
 
       if (existing) {
@@ -2019,6 +2081,7 @@ export async function generatePOFromRequirements(
           requirementIds: [req.id],
           printingType: req.printingType || null,
           material: req.materials,
+          ...getEnrichedFields(req),
         });
       }
     }
@@ -2026,9 +2089,15 @@ export async function generatePOFromRequirements(
     poItems.push(...materialGroups.values());
   } else {
     for (const req of requirements) {
-      // Priority: manual override → cost sheet rate → supplier price → 0
+      // Priority: manual override → cost sheet / processing rate → supplier price → 0
+      const groupKey = req.requirementType === 'PROCESSING' ? req.id : req.materialId;
       const price =
-        itemPrices?.[req.materialId] ?? costSheetRateMap.get(req.materialId) ?? autoPriceMap.get(req.materialId) ?? 0;
+        itemPrices?.[groupKey] ??
+        itemPrices?.[req.materialId] ??
+        costSheetRateMap.get(groupKey) ??
+        costSheetRateMap.get(req.materialId) ??
+        autoPriceMap.get(req.materialId) ??
+        0;
       poItems.push({
         materialId: req.materialId,
         quantity: Number(req.shortfall),
@@ -2037,6 +2106,7 @@ export async function generatePOFromRequirements(
         requirementIds: [req.id],
         printingType: req.printingType || null,
         material: req.materials,
+        ...getEnrichedFields(req),
       });
     }
   }
@@ -2164,6 +2234,15 @@ export async function generatePOFromRequirements(
     // Create PO items and links
     let linkedCount = 0;
     for (const item of itemsWithGst) {
+      // Build PO line item remarks with processing context (visible on printed PO)
+      const remarkParts: string[] = [];
+      if ((item as any).colorName) remarkParts.push(`Color: ${(item as any).colorName}`);
+      if ((item as any).styleCode) remarkParts.push(`Style: ${(item as any).styleCode}`);
+      if ((item as any).orderNumber) remarkParts.push(`Order: ${(item as any).orderNumber}`);
+      if ((item as any).processingType) remarkParts.push(`Process: ${(item as any).processingType}`);
+      if ((item as any).fabricWidth) remarkParts.push(`CW: ${(item as any).fabricWidth}"`);
+      const autoRemarks = remarkParts.length > 0 ? remarkParts.join(' | ') : null;
+
       const poItem = await tx.purchase_order_items.create({
         data: {
           id: crypto.randomUUID(),
@@ -2174,6 +2253,7 @@ export async function generatePOFromRequirements(
           unitPrice: item.unitPrice,
           totalPrice: item.lineTotal,
           printingType: item.printingType || null,
+          remarks: autoRemarks,
           hsnCode: item.hsnCode,
           gstRate: item.gstRate,
           cgstRate: item.cgstRate,
@@ -2411,6 +2491,19 @@ function getRequirementIncludes() {
         },
       },
     },
+    orderBom: {
+      select: { id: true, version: true },
+    },
+    linkedRequirement: {
+      select: {
+        id: true,
+        requirementNumber: true,
+        requirementType: true,
+        status: true,
+        totalRequired: true,
+        materials: { select: { id: true, code: true, name: true } },
+      },
+    },
   };
 }
 
@@ -2515,6 +2608,23 @@ function mapToResponse(req: any): MaterialRequirementResponse {
           }
         : undefined,
     })),
+    orderBom: req.orderBom ? { id: req.orderBom.id, version: req.orderBom.version } : null,
+    linkedRequirement: req.linkedRequirement
+      ? {
+          id: req.linkedRequirement.id,
+          requirementNumber: req.linkedRequirement.requirementNumber,
+          requirementType: req.linkedRequirement.requirementType,
+          status: req.linkedRequirement.status,
+          totalRequired: Number(req.linkedRequirement.totalRequired),
+          material: req.linkedRequirement.materials
+            ? {
+                id: req.linkedRequirement.materials.id,
+                code: req.linkedRequirement.materials.code,
+                name: req.linkedRequirement.materials.name,
+              }
+            : undefined,
+        }
+      : null,
   };
 }
 
@@ -2919,7 +3029,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
 
     const isInterstate = supplierStateCode ? supplierStateCode !== COMPANY_CONFIG.stateCode : false;
 
-    // Fetch requirements with materials
+    // Fetch requirements with materials, order, and style info for enriched PO preview
     const requirements = await prisma.material_requirements.findMany({
       where: {
         id: { in: requirementIds },
@@ -2928,6 +3038,12 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       include: {
         materials: true,
         orderBom: { select: { sourceCostSheetId: true } },
+        orders: { select: { orderNumber: true } },
+        order_items: {
+          select: {
+            styles: { select: { styleCode: true, styleName: true } },
+          },
+        },
       },
     });
 
@@ -2945,12 +3061,38 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         .map((sp) => [sp.materialId, Number(sp.supplierPrice)])
     );
 
-    // Resolve cost-sheet rates for FABRIC / GREIGE materials
+    // Resolve cost-sheet rates for FABRIC / GREIGE / PROCESSING materials
     const costSheetRateMap = new Map<string, number>();
     for (const req of requirements) {
       const costSheetId = (req as any).orderBom?.sourceCostSheetId ?? null;
       const fabricId = (req.materials as any)?.fabricId ?? null;
       const matType = req.materials?.materialType;
+
+      // PROCESSING requirements: resolve from processor rate card or use stored processingCost
+      if (req.requirementType === 'PROCESSING') {
+        const groupKey = req.id; // Each PROCESSING req is a separate PO item
+        try {
+          const resolved = await resolveRate({
+            poCategory: 'PROCESSING' as any,
+            supplierId: req.processorId || req.preferredSupplierId || supplierId,
+            printingType: req.printingType || undefined,
+            materialId: req.materialId,
+          });
+          if (resolved.rate && resolved.rate > 0) {
+            costSheetRateMap.set(groupKey, resolved.rate);
+          } else if (req.processingCost) {
+            costSheetRateMap.set(groupKey, Number(req.processingCost));
+          }
+        } catch {
+          // Fallback to stored processingCost from MRP calculation
+          if (req.processingCost) {
+            costSheetRateMap.set(groupKey, Number(req.processingCost));
+          }
+        }
+        continue;
+      }
+
+      // FABRIC / GREIGE materials: resolve from cost sheet rate
       if (!costSheetId) continue;
       if (matType !== 'FABRIC' && matType !== 'GREIGE') continue;
       const poCategory = matType === 'GREIGE' ? 'GREIGE' : 'FABRIC';
@@ -2970,7 +3112,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       }
     }
 
-    // Consolidate by material
+    // Consolidate by material — PROCESSING requirements are NEVER merged (each is a separate job)
     const materialGroups = new Map<
       string,
       {
@@ -2979,21 +3121,40 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         unit: string;
         requirementIds: string[];
         material: any;
+        // Enriched fields for PO preview
+        colorName: string | null;
+        styleName: string | null;
+        styleCode: string | null;
+        orderNumber: string | null;
+        processingType: string | null;
+        componentName: string | null;
+        fabricWidth: number | null;
       }
     >();
 
     for (const req of requirements) {
-      const existing = materialGroups.get(req.materialId);
+      // PROCESSING requirements: each gets its own PO line item (distinct processing job)
+      const groupKey = req.requirementType === 'PROCESSING' ? req.id : req.materialId;
+
+      const existing = materialGroups.get(groupKey);
       if (existing) {
         existing.quantity += Number(req.shortfall);
         existing.requirementIds.push(req.id);
       } else {
-        materialGroups.set(req.materialId, {
+        materialGroups.set(groupKey, {
           materialId: req.materialId,
           quantity: Number(req.shortfall),
           unit: req.unit,
           requirementIds: [req.id],
           material: req.materials,
+          // Enriched fields
+          colorName: (req as any).colorName || null,
+          styleName: (req as any).order_items?.styles?.styleName || null,
+          styleCode: (req as any).order_items?.styles?.styleCode || null,
+          orderNumber: (req as any).orders?.orderNumber || null,
+          processingType: req.printingType || (req.requirementType === 'PROCESSING' ? 'DYEING' : null),
+          componentName: (req as any).componentName || null,
+          fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
         });
       }
     }
@@ -3006,12 +3167,13 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
     let totalIgst = 0;
     let hasZeroPriceItems = false;
 
-    for (const [, mg] of materialGroups) {
+    for (const [groupKey, mg] of materialGroups) {
       const mat = mg.material;
       const matType = mat?.materialType || '';
       const isGreige = matType === 'GREIGE' || matType === 'GREIGE_FABRIC' || matType === 'GREIGE_LACE';
-      // Priority: cost sheet rate (FABRIC/GREIGE) → supplier price → 0 (user enters manually)
-      const unitPrice = costSheetRateMap.get(mg.materialId) ?? priceMap.get(mg.materialId) ?? 0;
+      // Priority: cost sheet / processing rate (by groupKey) → supplier price → 0 (user enters manually)
+      const unitPrice =
+        costSheetRateMap.get(groupKey) ?? costSheetRateMap.get(mg.materialId) ?? priceMap.get(mg.materialId) ?? 0;
       const priceRequired = unitPrice === 0;
       if (priceRequired) hasZeroPriceItems = true;
 
@@ -3058,6 +3220,14 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         isGreige,
         priceRequired,
         requirementIds: mg.requirementIds,
+        // Enriched fields for PO context
+        colorName: mg.colorName,
+        styleName: mg.styleName,
+        styleCode: mg.styleCode,
+        orderNumber: mg.orderNumber,
+        processingType: mg.processingType,
+        componentName: mg.componentName,
+        fabricWidth: mg.fabricWidth,
       });
 
       subtotal += lineTotal;

@@ -196,14 +196,14 @@ router.post(
       items.map(async (item: { amount: number; taxRate: number }) => {
         const calc = await gstService.calculateGST(
           item.amount,
-          item.taxRate || 12, // Default to 12% if not provided
+          item.taxRate || 5, // Default to 5% base rate for garments (≤₹2,500/piece)
           supplierStateId,
           customerStateId
         );
 
         return {
           amount: item.amount,
-          taxRate: item.taxRate || 12,
+          taxRate: item.taxRate || 5,
           ...calc,
         };
       })

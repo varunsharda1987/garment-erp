@@ -272,7 +272,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               componentName: trim.trimName,
               quantityPerGarment: trim.trimQuantity || 1,
               unit: 'PCS',
-              unitPrice: trim.trimRate || 0,
+              unitPrice: trim.trimRate ?? 0, // NOTE: Zero rate = missing data in cost sheet
               notes: 'Auto-populated from cost sheet',
               sortOrder: sortOrder++,
               isActive: true,
@@ -301,7 +301,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               componentName: acc.accessoryName,
               quantityPerGarment: acc.accessoryQuantity || 1,
               unit: 'PCS',
-              unitPrice: acc.accessoryRate || 0,
+              unitPrice: acc.accessoryRate ?? 0, // NOTE: Zero rate = missing data in cost sheet
               notes: 'Auto-populated from cost sheet',
               sortOrder: sortOrder++,
               isActive: true,
@@ -625,13 +625,20 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           greigeCost: fabricItem.greigeCost ? Number(fabricItem.greigeCost) : null,
           processingCost: fabricItem.processingCost ? Number(fabricItem.processingCost) : null,
           rateCardId: fabricItem.rateCardId,
+          colorName: fabricItem.colorName || null,
         });
       }
     } else {
       // Fallback to JSON fabricDetails (primary path — relational table is not populated)
       for (let i = 0; i < fabricDetails.length; i++) {
         const fabric = fabricDetails[i];
-        const quantityPerGarment = fabric.fabricAverage || 0;
+        const quantityPerGarment = fabric.fabricAverage;
+        if (!quantityPerGarment || quantityPerGarment <= 0) {
+          throw new Error(
+            `Fabric average (consumption per garment) not set for "${fabric.fabricName || 'Unknown fabric'}". ` +
+              `Set the fabric average in the cost sheet before approving BOM.`
+          );
+        }
         const totalQuantity = quantityPerGarment * orderQuantity;
         const wastagePercent = 2;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
@@ -793,38 +800,51 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       orderBy: { createdAt: 'asc' },
     });
 
-    // Only add thread items if not already covered by styleMaterialBOM or trimsDetails fallback
+    // Add thread items or backfill threadId on existing placeholders
     const hasThreadInBom = bomItems.some((item) => item.materialType === 'THREAD');
-    if (!hasThreadInBom && threadItems.length > 0) {
-      for (let i = 0; i < threadItems.length; i++) {
-        const threadItem = threadItems[i];
-        // Thread cost is typically a flat cost per garment (not qty * rate)
-        const costPerGarment = Number(threadItem.costPerGarment) || 4;
-        const quantityPerGarment = 1; // 1 lot per garment
-        const totalQuantity = quantityPerGarment * orderQuantity;
-        const wastagePercent = 2;
-        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-        const unitPrice = costPerGarment;
-        const totalCost = totalWithWastage * unitPrice;
+    if (threadItems.length > 0) {
+      if (hasThreadInBom) {
+        // Backfill threadId on existing placeholder thread items (e.g., auto-added with null threadId)
+        const nullThreadItems = bomItems.filter((item) => item.materialType === 'THREAD' && !item.threadId);
+        if (nullThreadItems.length > 0 && threadItems[0]?.threadId) {
+          for (const item of nullThreadItems) {
+            item.threadId = threadItems[0].threadId;
+            item.componentName = threadItems[0].thread?.threadName || item.componentName;
+            logInfo('Backfilled threadId on placeholder thread item', { threadId: threadItems[0].threadId });
+          }
+        }
+      } else {
+        // No thread at all — add from relational table
+        for (let i = 0; i < threadItems.length; i++) {
+          const threadItem = threadItems[i];
+          // Thread cost is typically a flat cost per garment (not qty * rate)
+          const costPerGarment = Number(threadItem.costPerGarment) || 4;
+          const quantityPerGarment = 1; // 1 lot per garment
+          const totalQuantity = quantityPerGarment * orderQuantity;
+          const wastagePercent = 2;
+          const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+          const unitPrice = costPerGarment;
+          const totalCost = totalWithWastage * unitPrice;
 
-        bomItems.push({
-          id: uuidv4(),
-          orderBomId: '',
-          materialType: 'THREAD',
-          threadId: threadItem.threadId || null,
-          quantityPerGarment,
-          orderQuantity,
-          totalQuantity,
-          wastagePercent,
-          totalWithWastage,
-          unit: 'LOT',
-          unitPrice,
-          totalCost,
-          componentName: threadItem.threadName || threadItem.thread?.threadName || `Thread ${i + 1}`,
-          usageCategory: 'GARMENT_TRIM',
-          notes: threadItem.notes || 'From cost sheet thread items',
-          sortOrder: 200 + i, // After fabric and lace
-        });
+          bomItems.push({
+            id: uuidv4(),
+            orderBomId: '',
+            materialType: 'THREAD',
+            threadId: threadItem.threadId || null,
+            quantityPerGarment,
+            orderQuantity,
+            totalQuantity,
+            wastagePercent,
+            totalWithWastage,
+            unit: 'LOT',
+            unitPrice,
+            totalCost,
+            componentName: threadItem.threadName || threadItem.thread?.threadName || `Thread ${i + 1}`,
+            usageCategory: 'GARMENT_TRIM',
+            notes: threadItem.notes || 'From cost sheet thread items',
+            sortOrder: 200 + i, // After fabric and lace
+          });
+        }
       }
     }
 
@@ -1015,6 +1035,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         labelId: item.labelId,
         packagingId: item.packagingId,
         fabricId: item.fabricId,
+        greigeId: item.greigeId,
+        sourcingStrategy: item.sourcingStrategy,
+        processorId: item.processorId,
+        greigeCost: item.greigeCost ? Number(item.greigeCost) : null,
+        processingCost: item.processingCost ? Number(item.processingCost) : null,
+        rateCardId: item.rateCardId,
+        colorName: item.colorName || null,
         quantityPerGarment,
         orderQuantity: newOrderQuantity,
         totalQuantity,
@@ -1183,6 +1210,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           labelId: item.labelId,
           packagingId: item.packagingId,
           fabricId: item.fabricId,
+          greigeId: item.greigeId,
+          sourcingStrategy: item.sourcingStrategy,
+          processorId: item.processorId,
+          greigeCost: item.greigeCost ? Number(item.greigeCost) : null,
+          processingCost: item.processingCost ? Number(item.processingCost) : null,
+          rateCardId: item.rateCardId,
+          colorName: item.colorName || null,
           quantityPerGarment: newCadAverage,
           orderQuantity,
           totalQuantity,
@@ -1215,6 +1249,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           labelId: item.labelId,
           packagingId: item.packagingId,
           fabricId: item.fabricId,
+          greigeId: item.greigeId,
+          sourcingStrategy: item.sourcingStrategy,
+          processorId: item.processorId,
+          greigeCost: item.greigeCost ? Number(item.greigeCost) : null,
+          processingCost: item.processingCost ? Number(item.processingCost) : null,
+          rateCardId: item.rateCardId,
+          colorName: item.colorName || null,
           quantityPerGarment: Number(item.quantityPerGarment),
           orderQuantity: item.orderQuantity,
           totalQuantity: Number(item.totalQuantity),
@@ -1447,6 +1488,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             labelId: item.labelId,
             packagingId: item.packagingId,
             fabricId: item.fabricId,
+            greigeId: item.greigeId || null,
+            sourcingStrategy: item.sourcingStrategy || null,
+            processorId: item.processorId || null,
+            greigeCost: item.greigeCost || null,
+            processingCost: item.processingCost || null,
+            rateCardId: item.rateCardId || null,
+            colorName: item.colorName || null,
             quantityPerGarment: item.quantityPerGarment,
             orderQuantity: item.orderQuantity,
             totalQuantity,

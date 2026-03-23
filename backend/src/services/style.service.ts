@@ -194,6 +194,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     if (!data.styleCode || !data.styleName) {
       throw new ValidationError('styleCode and styleName are required');
     }
+    if (data.status !== 'DRAFT' && !data.customerName) {
+      throw new ValidationError('Customer name is required for non-draft styles');
+    }
 
     // Check for duplicate style code (only among active styles)
     const existingStyle = await this.prisma.styles.findFirst({
@@ -1363,6 +1366,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     if (!draft) {
       throw new NotFoundError('Draft', id);
+    }
+
+    if (!draft.customerName) {
+      throw new ValidationError('Customer name is required before publishing a style');
     }
 
     const publishedStyle = await this.prisma.styles.update({

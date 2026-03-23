@@ -248,6 +248,13 @@ const OrderBOMDetail = () => {
         labelId: item.labelId || undefined,
         packagingId: item.packagingId || undefined,
         fabricId: item.fabricId || undefined,
+        greigeId: (item as any).greigeId || undefined,
+        sourcingStrategy: (item as any).sourcingStrategy || undefined,
+        processorId: (item as any).processorId || undefined,
+        greigeCost: (item as any).greigeCost ? Number((item as any).greigeCost) : undefined,
+        processingCost: (item as any).processingCost ? Number((item as any).processingCost) : undefined,
+        rateCardId: (item as any).rateCardId || undefined,
+        colorName: (item as any).colorName || undefined,
         quantityPerGarment: Number(item.quantityPerGarment),
         orderQuantity: Number(item.orderQuantity),
         wastagePercent: item.id === itemId ? clamped : Number(item.wastagePercent ?? 0),
@@ -469,9 +476,11 @@ const OrderBOMDetail = () => {
                         <span className="font-medium">{item.componentName || 'Unknown'}</span>
                         <span className="text-orange-500 ml-1">({item.materialType})</span>
                         {' — '}
-                        {item.materialType === 'LABEL' || item.materialType === 'PACKAGING'
-                          ? `Create a ${item.materialType === 'LABEL' ? 'Label' : 'Packaging'} Master and add to customer accessory preset`
-                          : `Select a ${item.materialType} Master in the cost sheet trims section`}
+                        {item.materialType === 'GREIGE' || item.materialType === 'FABRIC'
+                          ? `Select a ${item.materialType === 'GREIGE' ? 'Greige' : 'Fabric'} Master in CAD Planning for this fabric`
+                          : item.materialType === 'LABEL' || item.materialType === 'PACKAGING'
+                            ? `Create a ${item.materialType === 'LABEL' ? 'Label' : 'Packaging'} Master and add to customer accessory preset`
+                            : `Select a ${item.materialType} Master in the cost sheet trims section`}
                       </li>
                     ))}
                   </ul>

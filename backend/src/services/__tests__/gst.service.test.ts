@@ -627,10 +627,12 @@ describe('GSTService', () => {
   // 9. getDefaultGSTRate (legacy, deprecated)
   // ============================================
   describe('getDefaultGSTRate (legacy)', () => {
-    it('should return 12% for garment HSN codes (61-63)', () => {
-      expect(gstService.getDefaultGSTRate('6109')).toBe(12);
-      expect(gstService.getDefaultGSTRate('6204')).toBe(12);
-      expect(gstService.getDefaultGSTRate('6309')).toBe(12);
+    it('should return 5% (base rate) for garment HSN codes (61-63)', () => {
+      // GST 2.0: garments ≤₹2,500/piece → 5%, >₹2,500 → 18%
+      // getDefaultGSTRate returns base rate (no unitPrice param), so always 5%
+      expect(gstService.getDefaultGSTRate('6109')).toBe(5);
+      expect(gstService.getDefaultGSTRate('6204')).toBe(5);
+      expect(gstService.getDefaultGSTRate('6309')).toBe(5);
     });
 
     it('should return 5% for footwear HSN (64)', () => {
@@ -643,13 +645,74 @@ describe('GSTService', () => {
       expect(gstService.getDefaultGSTRate('6001')).toBe(5);
     });
 
-    it('should return 12% for unknown HSN', () => {
-      expect(gstService.getDefaultGSTRate('9606')).toBe(12);
+    it('should return 5% for unknown HSN (default garment rate)', () => {
+      expect(gstService.getDefaultGSTRate('9606')).toBe(5);
     });
 
-    it('should return 12% for no HSN', () => {
-      expect(gstService.getDefaultGSTRate()).toBe(12);
-      expect(gstService.getDefaultGSTRate(undefined)).toBe(12);
+    it('should return 5% for no HSN (default garment rate)', () => {
+      expect(gstService.getDefaultGSTRate()).toBe(5);
+      expect(gstService.getDefaultGSTRate(undefined)).toBe(5);
+    });
+  });
+
+  // ============================================
+  // 9b. Apparel price-based GST slab (unit test for applyApparelPriceSlab via getGSTRate)
+  // ============================================
+  describe('apparel price-based GST slab', () => {
+    it('should apply 5% for garment HSN 61/62 when unitPrice ≤ ₹2,500', async () => {
+      // Mock hsn_sac_masters to return 5% for apparel
+      (prisma.materials.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.hsn_sac_masters.findUnique as jest.Mock).mockResolvedValue({ defaultGstRate: 5 });
+
+      const rate = await gstService.getGSTRate({
+        hsnSacCode: '6109',
+        unitPrice: 2000,
+      });
+      expect(rate).toBe(5);
+    });
+
+    it('should apply 18% for garment HSN 61/62 when unitPrice > ₹2,500', async () => {
+      (prisma.materials.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.hsn_sac_masters.findUnique as jest.Mock).mockResolvedValue({ defaultGstRate: 5 });
+
+      const rate = await gstService.getGSTRate({
+        hsnSacCode: '6204',
+        unitPrice: 3000,
+      });
+      expect(rate).toBe(18);
+    });
+
+    it('should apply 5% at exactly ₹2,500 boundary', async () => {
+      (prisma.materials.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.hsn_sac_masters.findUnique as jest.Mock).mockResolvedValue({ defaultGstRate: 5 });
+
+      const rate = await gstService.getGSTRate({
+        hsnSacCode: '6109',
+        unitPrice: 2500,
+      });
+      expect(rate).toBe(5); // ≤₹2,500 → 5%
+    });
+
+    it('should NOT apply apparel slab to non-apparel HSN (fabric 52)', async () => {
+      (prisma.materials.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.hsn_sac_masters.findUnique as jest.Mock).mockResolvedValue({ defaultGstRate: 5 });
+
+      const rate = await gstService.getGSTRate({
+        hsnSacCode: '5208',
+        unitPrice: 5000, // Even with high price, fabric stays 5%
+      });
+      expect(rate).toBe(5);
+    });
+
+    it('should NOT apply apparel slab when unitPrice not provided', async () => {
+      (prisma.materials.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.hsn_sac_masters.findUnique as jest.Mock).mockResolvedValue({ defaultGstRate: 5 });
+
+      const rate = await gstService.getGSTRate({
+        hsnSacCode: '6109',
+        // No unitPrice — slab not applied
+      });
+      expect(rate).toBe(5);
     });
   });
 

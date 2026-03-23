@@ -13,38 +13,15 @@ import { costSheetPOGenerationService } from './costSheetPOGeneration.service';
 import greigeStockService from './greige-stock.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
 import { logInfo, logError } from '../utils/logger';
+import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 
 class GRNService {
   /**
    * Generate unique GRN number - Format: GRN2511-0001
+   * Uses atomic sequence generator to prevent duplicate numbers under concurrency.
    */
   private async generateGRNNumber(): Promise<string> {
-    const year = new Date().getFullYear().toString().slice(-2);
-    const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-    const prefix = `GRN${year}${month}`;
-
-    // Find the last GRN number for this month (including deleted GRNs to avoid gaps in sequence)
-    // Note: We include deleted GRNs to maintain sequential numbering without gaps.
-    // This prevents confusion in auditing and maintains continuous numbering like GRN2511-0001, GRN2511-0002, etc.
-    const lastGRN = await prisma.goods_receiving_notes.findFirst({
-      where: {
-        grnNumber: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        grnNumber: 'desc',
-      },
-    });
-
-    let sequence = 1;
-    if (lastGRN) {
-      // Extract sequence from format GRN2511-0001
-      const lastSequence = parseInt(lastGRN.grnNumber.split('-')[1] || '0');
-      sequence = lastSequence + 1;
-    }
-
-    return `${prefix}-${sequence.toString().padStart(4, '0')}`;
+    return generateAtomicGRNNumber();
   }
 
   /**
@@ -93,6 +70,14 @@ class GRNService {
       if (item.acceptedQuantity + item.rejectedQuantity !== item.receivedQuantity) {
         throw new Error(
           `Accepted (${item.acceptedQuantity}) + Rejected (${item.rejectedQuantity}) must equal Received (${item.receivedQuantity})`
+        );
+      }
+
+      // Validate material matches PO item material (prevent cross-linking)
+      if (item.materialId && poItem.materialId && item.materialId !== poItem.materialId) {
+        throw new Error(
+          `GRN material (${item.materialId}) does not match PO item material (${poItem.materialId}). ` +
+            `Cannot receive a different material than what was ordered.`
         );
       }
     }

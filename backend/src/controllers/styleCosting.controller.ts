@@ -252,6 +252,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         include: {
           fabric: { select: { id: true, fabricName: true, greigeId: true } },
           greige: { select: { id: true, greigeName: true } },
+          batchGroupColor: { select: { colorName: true } },
         },
         orderBy: { updatedAt: 'desc' },
       });
@@ -278,8 +279,9 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
           costingId: costSheetId,
           fabricCADId: cad.id,
           fabricId: cad.fabricId || null,
-          greigeId: cad.greigeId || null,
+          greigeId: cad.greigeId || cad.fabric?.greigeId || null,
           fabricName: jsonFabric.fabricName || cad.fabric?.fabricName || cad.greige?.greigeName || 'Unknown Fabric',
+          colorName: cad.batchGroupColor?.colorName || null,
           width: cad.cutableWidth,
           cadMeters: cadAvg,
           cadWastagePercent: wastage,
@@ -812,6 +814,7 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
         include: {
           fabric: { select: { id: true, fabricName: true, greigeId: true } },
           greige: { select: { id: true, greigeName: true } },
+          batchGroupColor: { select: { colorName: true } },
         },
         orderBy: { updatedAt: 'desc' },
       });
@@ -840,8 +843,9 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
           costingId: id,
           fabricCADId: cad.id,
           fabricId: cad.fabricId || null,
-          greigeId: cad.greigeId || null,
+          greigeId: cad.greigeId || cad.fabric?.greigeId || null,
           fabricName: jsonFabric.fabricName || cad.fabric?.fabricName || cad.greige?.greigeName || 'Unknown Fabric',
+          colorName: cad.batchGroupColor?.colorName || null,
           width: cad.cutableWidth,
           cadMeters: cadAvg,
           cadWastagePercent: wastage,

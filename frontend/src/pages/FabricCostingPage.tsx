@@ -152,7 +152,7 @@ export default function FabricCostingPage() {
   useEffect(() => {
     const fetchColors = async () => {
       try {
-        const colors = await colorService.search({ limit: 100 });
+        const colors = await colorService.search({ limit: 500 });
         setGlobalColors(colors || []);
       } catch (error) {
         console.error('Failed to load global colors:', error);

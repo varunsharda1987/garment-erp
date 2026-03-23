@@ -563,8 +563,18 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
 
             if (styleId) {
               const fabricId = item.fabricId || processing.finishedFabricId!;
-              const finishedWidth = Number(processing.actualFinishedWidth || 44);
-              const totalCost = Number(processing.costPerMeter || 0);
+              if (!processing.actualFinishedWidth) {
+                throw new Error(
+                  `Finished width not recorded for processing (greige ${processing.greigeId}). Update the processing record before receiving.`
+                );
+              }
+              if (!processing.costPerMeter) {
+                throw new Error(
+                  `Processing cost per meter not set for processing (greige ${processing.greigeId}). Update the processing record before receiving.`
+                );
+              }
+              const finishedWidth = Number(processing.actualFinishedWidth);
+              const totalCost = Number(processing.costPerMeter);
 
               await fabricStockService.createStyleStock(
                 {

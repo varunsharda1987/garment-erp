@@ -327,7 +327,10 @@
       "Read(//c/Users/NEW/garment-erp/backend/src/routes/**)",
       "Bash(node -e \"console.log\\(require\\(''zod/package.json''\\).version\\)\")",
       "Bash(npx husky:*)",
-      "Bash(npx prettier:*)"
+      "Bash(npx prettier:*)",
+      "Bash(mkdir -p prisma/migrations/20260322_add_unique_constraints_and_code_sequences)",
+      "Bash(prisma/migrations/20260322_add_unique_constraints_and_code_sequences/migration.sql:*)",
+      "Bash(node -e \":*)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",

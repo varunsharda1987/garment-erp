@@ -228,8 +228,10 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
           placeOfSupplyId = data.placeOfSupplyId || customer.billingStateId || null;
 
           if (placeOfSupplyId) {
-            // Calculate GST breakdown
-            taxRate = data.taxRate || 12; // Default to 12% for garments
+            // Calculate GST breakdown — rate determined per-item by HSN + unit price slab
+            // Header-level taxRate is only used for the legacy calculateGST aggregate;
+            // per-item GST below uses calculateLineItemGST with proper price slab logic.
+            taxRate = data.taxRate || 5; // Base rate for garments ≤₹2,500; per-item calc overrides for >₹2,500
             gstCalc = await gstService.calculateGST(totalAmount, taxRate, COMPANY_STATE_ID, placeOfSupplyId);
 
             totalWithTax = totalAmount + gstCalc.totalTax;
@@ -268,6 +270,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
               lineTotal: totalPrice,
               hsnSacCode: hsnCode,
               isInterstate,
+              unitPrice: item.unitPrice,
             });
             itemGst = {
               hsnCode: gstResult.hsnCode,

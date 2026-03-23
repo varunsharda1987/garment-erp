@@ -202,11 +202,39 @@ class StyleStockController {
   async getGenericGreigeStock(req: Request, res: Response) {
     try {
       // Use new GreigeStockService with dedicated greige_stock table
-      const stock = await GreigeStockService.getGreigeStock();
+      const rawStock = await GreigeStockService.getGreigeStock();
+
+      // Aggregate by greigeId — frontend expects one row per greige type with totalStock
+      const aggregated = new Map<
+        string,
+        {
+          greigeId: string;
+          greigeCode: string;
+          greigeName: string;
+          composition: string;
+          totalStock: number;
+          unit: string;
+        }
+      >();
+      for (const item of rawStock) {
+        const existing = aggregated.get(item.greigeId);
+        if (existing) {
+          existing.totalStock += item.quantityAvailable;
+        } else {
+          aggregated.set(item.greigeId, {
+            greigeId: item.greigeId,
+            greigeCode: (item.greige as any)?.greigeCode || '',
+            greigeName: (item.greige as any)?.greigeName || '',
+            composition: (item.greige as any)?.composition || '',
+            totalStock: item.quantityAvailable,
+            unit: 'meters',
+          });
+        }
+      }
 
       return res.status(200).json({
         success: true,
-        data: stock,
+        data: Array.from(aggregated.values()),
       });
     } catch (error: unknown) {
       logError('Get generic greige stock error:', error);

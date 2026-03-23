@@ -4,6 +4,7 @@
  */
 
 import { PurchaseOrderStatus, Prisma, POSource, ServiceType } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { gstService } from './gst.service';
@@ -14,38 +15,16 @@ import {
   UpdatePurchaseOrderItemDTO,
   PurchaseOrderFilters,
 } from '../types/purchaseOrder.types';
+import { generateAtomicPONumber } from '../utils/atomicCodeGenerator';
+import { validateTransition } from '../utils/stateMachine';
 
 class PurchaseOrderService {
   /**
    * Generate unique PO number - Format: PO2511-0001
+   * Uses atomic sequence generator to prevent duplicate numbers under concurrency.
    */
   private async generatePONumber(): Promise<string> {
-    const year = new Date().getFullYear().toString().slice(-2);
-    const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-    const prefix = `PO${year}${month}`;
-
-    // Find the last PO number for this month (including deleted POs to avoid gaps in sequence)
-    // Note: We include deleted POs to maintain sequential numbering without gaps.
-    // This prevents confusion in auditing and maintains continuous numbering like PO2511-0001, PO2511-0002, etc.
-    const lastPO = await prisma.purchase_orders.findFirst({
-      where: {
-        poNumber: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        poNumber: 'desc',
-      },
-    });
-
-    let sequence = 1;
-    if (lastPO) {
-      // Extract sequence from format PO2511-0001
-      const lastSequence = parseInt(lastPO.poNumber.split('-')[1] || '0');
-      sequence = lastSequence + 1;
-    }
-
-    return `${prefix}-${sequence.toString().padStart(4, '0')}`;
+    return generateAtomicPONumber();
   }
 
   /**
@@ -63,30 +42,31 @@ class PurchaseOrderService {
       where: { poId },
     });
 
-    let subtotal = 0;
-    let totalCgst = 0;
-    let totalSgst = 0;
-    let totalIgst = 0;
+    // Use Decimal arithmetic to avoid floating-point rounding errors
+    let subtotal = new Decimal(0);
+    let totalCgst = new Decimal(0);
+    let totalSgst = new Decimal(0);
+    let totalIgst = new Decimal(0);
 
     for (const item of items) {
-      subtotal += Number(item.totalPrice);
-      totalCgst += Number(item.cgstAmount || 0);
-      totalSgst += Number(item.sgstAmount || 0);
-      totalIgst += Number(item.igstAmount || 0);
+      subtotal = subtotal.add(item.totalPrice || 0);
+      totalCgst = totalCgst.add(item.cgstAmount || 0);
+      totalSgst = totalSgst.add(item.sgstAmount || 0);
+      totalIgst = totalIgst.add(item.igstAmount || 0);
     }
 
-    const totalTax = totalCgst + totalSgst + totalIgst;
-    const totalAmount = subtotal + totalTax;
+    const totalTax = totalCgst.add(totalSgst).add(totalIgst);
+    const totalAmount = subtotal.add(totalTax);
 
     await prisma.purchase_orders.update({
       where: { id: poId },
       data: {
-        subtotal: parseFloat(subtotal.toFixed(2)),
-        totalCgst: parseFloat(totalCgst.toFixed(2)),
-        totalSgst: parseFloat(totalSgst.toFixed(2)),
-        totalIgst: parseFloat(totalIgst.toFixed(2)),
-        totalTax: parseFloat(totalTax.toFixed(2)),
-        totalAmount: parseFloat(totalAmount.toFixed(2)),
+        subtotal: subtotal.toDecimalPlaces(2),
+        totalCgst: totalCgst.toDecimalPlaces(2),
+        totalSgst: totalSgst.toDecimalPlaces(2),
+        totalIgst: totalIgst.toDecimalPlaces(2),
+        totalTax: totalTax.toDecimalPlaces(2),
+        totalAmount: totalAmount.toDecimalPlaces(2),
       },
     });
   }
@@ -142,12 +122,13 @@ class PurchaseOrderService {
         const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
         subtotal += totalPrice;
 
-        // Calculate GST for this item
+        // Calculate GST for this item (unitPrice passed for apparel price-slab logic)
         const gst = await gstService.calculateLineItemGST({
           lineTotal: totalPrice,
           hsnSacCode: null, // Will be resolved from materialId
           materialId: item.materialId || null,
           isInterstate,
+          unitPrice: item.unitPrice,
         });
 
         poTotalCgst += gst.cgstAmount;
@@ -434,6 +415,7 @@ class PurchaseOrderService {
                 ? (await gstService.getSACCodeForService(item.serviceType as ServiceType)).sacCode
                 : null,
               isInterstate,
+              unitPrice: item.unitPrice,
             });
 
             poTotalCgst += gst.cgstAmount;
@@ -553,6 +535,7 @@ class PurchaseOrderService {
       lineTotal: totalPrice,
       materialId: item.materialId,
       isInterstate,
+      unitPrice: item.unitPrice,
     });
 
     const newItem = await prisma.purchase_order_items.create({
@@ -637,6 +620,7 @@ class PurchaseOrderService {
       lineTotal: totalPrice,
       materialId: existingItem.materialId || undefined,
       isInterstate,
+      unitPrice,
     });
 
     const updatedItem = await prisma.purchase_order_items.update({
@@ -778,7 +762,7 @@ class PurchaseOrderService {
   /**
    * Cancel purchase order
    */
-  async cancelPurchaseOrder(id: string, reason: string) {
+  async cancelPurchaseOrder(id: string, reason: string, userRole?: string) {
     const existingPO = await prisma.purchase_orders.findUnique({
       where: { id },
     });
@@ -787,12 +771,10 @@ class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
-    if (existingPO.status === PurchaseOrderStatus.RECEIVED) {
-      throw new Error('Cannot cancel a received purchase order');
-    }
-
-    if (existingPO.status === PurchaseOrderStatus.CANCELLED) {
-      throw new Error('Purchase order is already cancelled');
+    // State machine validation (strict + admin override)
+    const transition = validateTransition('purchaseOrder', existingPO.status, 'CANCELLED', userRole);
+    if (!transition.valid) {
+      throw new Error(transition.message || 'Cannot cancel this purchase order');
     }
 
     const purchaseOrder = await prisma.$transaction(async (tx) => {

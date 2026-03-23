@@ -47,7 +47,7 @@ export default function HSNSACMasterList() {
     description: '',
     chapter: '',
     section: '',
-    defaultGstRate: 12,
+    defaultGstRate: 5,
     unit: '',
   });
 
@@ -107,7 +107,7 @@ export default function HSNSACMasterList() {
       description: '',
       chapter: '',
       section: '',
-      defaultGstRate: 12,
+      defaultGstRate: 5,
       unit: '',
     });
     setDialogOpen(true);

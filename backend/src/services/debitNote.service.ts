@@ -89,6 +89,7 @@ export class DebitNoteService {
           lineTotal,
           hsnSacCode: item.hsnCode,
           isInterstate,
+          unitPrice: item.unitPrice,
         });
 
         return {
@@ -116,6 +117,32 @@ export class DebitNoteService {
 
     const totalAmount = subtotal + totalTax;
     const debitNoteNumber = await this.generateDebitNoteNumber();
+
+    // Validate: cumulative debit notes must not exceed PO total (if linked to PO)
+    if (data.poId) {
+      const existingDebitNotes = await prisma.debit_notes.aggregate({
+        where: {
+          poId: data.poId,
+          status: { not: 'CANCELLED' },
+        },
+        _sum: { totalAmount: true },
+      });
+      const existingTotal = Number(existingDebitNotes._sum.totalAmount || 0);
+
+      const po = await prisma.purchase_orders.findUnique({
+        where: { id: data.poId },
+        select: { totalAmount: true },
+      });
+      const poTotal = Number(po?.totalAmount || 0);
+
+      if (poTotal > 0 && existingTotal + totalAmount > poTotal) {
+        throw new Error(
+          `Debit note total (₹${totalAmount.toFixed(2)}) would exceed PO amount. ` +
+            `PO total: ₹${poTotal}, existing debit notes: ₹${existingTotal.toFixed(2)}, ` +
+            `remaining allowance: ₹${(poTotal - existingTotal).toFixed(2)}`
+        );
+      }
+    }
 
     // Create inside a transaction
     return prisma.$transaction(async (tx) => {

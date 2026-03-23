@@ -127,7 +127,10 @@ export const invoiceQuerySchema = z.object({
 
   toDate: z.string().datetime('Invalid to date format').optional(),
 
-  sortBy: z.string().optional().default('createdAt'),
+  sortBy: z
+    .enum(['createdAt', 'updatedAt', 'invoiceNumber', 'invoiceDate', 'dueDate', 'totalAmount', 'status'])
+    .optional()
+    .default('createdAt'),
 
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });

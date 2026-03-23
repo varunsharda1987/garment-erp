@@ -87,6 +87,7 @@ export class CreditNoteService {
             lineTotal,
             hsnSacCode: item.hsnCode,
             isInterstate,
+            unitPrice: item.unitPrice,
           });
 
           return {
@@ -120,6 +121,30 @@ export class CreditNoteService {
 
       const totalTax = parseFloat((totalCgst + totalSgst + totalIgst).toFixed(2));
       const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+
+      // Validate: cumulative credit notes must not exceed invoice total
+      const existingCreditNotes = await tx.credit_notes.aggregate({
+        where: {
+          invoiceId: data.invoiceId,
+          status: { not: 'CANCELLED' },
+        },
+        _sum: { totalAmount: true },
+      });
+      const existingTotal = Number(existingCreditNotes._sum.totalAmount || 0);
+
+      const invoiceFull = await tx.invoices.findUnique({
+        where: { id: data.invoiceId },
+        select: { totalAmount: true },
+      });
+      const invoiceTotal = Number(invoiceFull?.totalAmount || 0);
+
+      if (existingTotal + totalAmount > invoiceTotal) {
+        throw new Error(
+          `Credit note total (₹${totalAmount}) would exceed invoice amount. ` +
+            `Invoice total: ₹${invoiceTotal}, existing credit notes: ₹${existingTotal}, ` +
+            `remaining allowance: ₹${(invoiceTotal - existingTotal).toFixed(2)}`
+        );
+      }
 
       // Create credit note with items
       const creditNote = await tx.credit_notes.create({

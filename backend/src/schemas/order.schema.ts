@@ -59,7 +59,9 @@ export const orderQuerySchema = z.object({
   search: z.string().max(100).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(1000).default(20),
-  sortBy: z.string().optional(),
+  sortBy: z
+    .enum(['createdAt', 'updatedAt', 'orderNumber', 'orderDate', 'deliveryDate', 'status', 'totalQuantity'])
+    .optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 

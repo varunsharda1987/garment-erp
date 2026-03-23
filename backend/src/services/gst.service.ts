@@ -67,12 +67,22 @@ class GSTServiceClass {
   // ============================================
 
   /**
+   * Apparel HSN chapters where price-based GST slab applies:
+   * ≤₹2,500/piece → 5%, >₹2,500/piece → 18%
+   */
+  private readonly APPAREL_HSN_CHAPTERS = ['61', '62'];
+  private readonly APPAREL_PRICE_THRESHOLD = 2500;
+  private readonly APPAREL_LOW_RATE = 5;
+  private readonly APPAREL_HIGH_RATE = 18;
+
+  /**
    * Get GST rate from database sources (replaces hardcoded getDefaultGSTRate)
    *
    * Priority:
    * 1. gstRateOverride (if explicitly provided)
    * 2. Material's gstRate field (if materialId provided)
    * 3. hsn_sac_masters table (exact code match, then chapter match)
+   *    3a. Apparel price slab: If HSN chapter 61/62 AND unitPrice > ₹2,500 → override to 18%
    * 4. tax_masters fallback
    * 5. Absolute fallback: 5% (GST 2.0 default for textiles/apparel)
    */
@@ -81,9 +91,10 @@ class GSTServiceClass {
       hsnSacCode?: string | null;
       materialId?: string | null;
       gstRateOverride?: number | null;
+      unitPrice?: number | null;
     } = {}
   ): Promise<number> {
-    const { hsnSacCode, materialId, gstRateOverride } = params;
+    const { hsnSacCode, materialId, gstRateOverride, unitPrice } = params;
 
     // 1. Explicit override
     if (gstRateOverride !== null && gstRateOverride !== undefined) {
@@ -118,7 +129,8 @@ class GSTServiceClass {
           select: { defaultGstRate: true },
         });
         if (exact) {
-          return Number(exact.defaultGstRate);
+          const baseRate = Number(exact.defaultGstRate);
+          return this.applyApparelPriceSlab(baseRate, resolvedHsnCode, unitPrice);
         }
 
         // Chapter-level match (4-digit, then 2-digit)
@@ -130,7 +142,8 @@ class GSTServiceClass {
               select: { defaultGstRate: true },
             });
             if (chapterMatch) {
-              return Number(chapterMatch.defaultGstRate);
+              const baseRate = Number(chapterMatch.defaultGstRate);
+              return this.applyApparelPriceSlab(baseRate, resolvedHsnCode, unitPrice);
             }
           }
         }
@@ -159,6 +172,27 @@ class GSTServiceClass {
 
     // 5. Absolute fallback (GST 2.0: 5% for textiles/apparel)
     return 5;
+  }
+
+  /**
+   * Apply apparel price-based GST slab for finished garments (HSN 61/62).
+   * Indian GST rule: garments ≤₹2,500/piece → 5%, >₹2,500/piece → 18%.
+   * Only overrides when unitPrice is provided AND HSN is apparel chapter.
+   */
+  private applyApparelPriceSlab(baseRate: number, hsnCode: string, unitPrice?: number | null): number {
+    if (!unitPrice || !hsnCode) return baseRate;
+
+    const chapter = hsnCode.substring(0, 2);
+    if (!this.APPAREL_HSN_CHAPTERS.includes(chapter)) return baseRate;
+
+    if (unitPrice > this.APPAREL_PRICE_THRESHOLD) {
+      logDebug(
+        `[GST] Apparel price slab: HSN ${hsnCode}, unit price ₹${unitPrice} > ₹${this.APPAREL_PRICE_THRESHOLD} → ${this.APPAREL_HIGH_RATE}% (overriding base ${baseRate}%)`
+      );
+      return this.APPAREL_HIGH_RATE;
+    }
+
+    return this.APPAREL_LOW_RATE;
   }
 
   /**
@@ -191,12 +225,13 @@ class GSTServiceClass {
    * Reusable across manual POs, cost sheet POs, service POs, MRP POs, invoices, quotations
    */
   async calculateLineItemGST(params: CalculateLineItemGSTParams): Promise<LineItemGSTResult> {
-    const { lineTotal, hsnSacCode, materialId, gstRateOverride, isInterstate } = params;
+    const { lineTotal, hsnSacCode, materialId, gstRateOverride, isInterstate, unitPrice } = params;
 
     const gstRate = await this.getGSTRate({
       hsnSacCode,
       materialId,
       gstRateOverride,
+      unitPrice,
     });
 
     let cgstRate = 0,
@@ -235,6 +270,8 @@ class GSTServiceClass {
    * Aggregate item-level GST into PO/invoice header totals
    */
   calculateTotals(items: Array<{ lineTotal: number } & LineItemGSTResult>): POGSTTotals {
+    // Accumulate using plain numbers but round only at the end (not per-item)
+    // to minimize rounding drift across many line items
     let subtotal = 0;
     let totalCgst = 0;
     let totalSgst = 0;
@@ -247,12 +284,17 @@ class GSTServiceClass {
       totalIgst += item.igstAmount;
     }
 
+    // Round to 2 decimal places only at the header level
+    const roundedCgst = parseFloat(totalCgst.toFixed(2));
+    const roundedSgst = parseFloat(totalSgst.toFixed(2));
+    const roundedIgst = parseFloat(totalIgst.toFixed(2));
+
     return {
       subtotal: parseFloat(subtotal.toFixed(2)),
-      totalCgst: parseFloat(totalCgst.toFixed(2)),
-      totalSgst: parseFloat(totalSgst.toFixed(2)),
-      totalIgst: parseFloat(totalIgst.toFixed(2)),
-      totalTax: parseFloat((totalCgst + totalSgst + totalIgst).toFixed(2)),
+      totalCgst: roundedCgst,
+      totalSgst: roundedSgst,
+      totalIgst: roundedIgst,
+      totalTax: parseFloat((roundedCgst + roundedSgst + roundedIgst).toFixed(2)),
     };
   }
 
@@ -457,20 +499,23 @@ class GSTServiceClass {
 
   /**
    * @deprecated Use getGSTRate() instead. Kept for backward compatibility.
+   * WARNING: This method cannot apply the apparel price-based slab (5% vs 18%)
+   * because it doesn't receive unitPrice. Use getGSTRate({ hsnSacCode, unitPrice }) instead.
    */
   getDefaultGSTRate(hsnCode?: string): number {
-    // GST 2.0 (Sep 22, 2025): Default 5% for textiles/apparel (≤₹2,500)
     const DEFAULT_GARMENT_RATE = 5;
     if (!hsnCode) {
       logWarn(
-        '[GST] getDefaultGSTRate called without HSN code — defaulting to 5% GST. This may produce incorrect tax calculations. Fix: ensure all materials have an HSN code assigned, and migrate callers to use getGSTRate() instead of this deprecated method.'
+        '[GST] getDefaultGSTRate called without HSN code — defaulting to 5% GST. ' +
+          'This CANNOT apply price-based slab (5% ≤₹2,500 / 18% >₹2,500). ' +
+          'Migrate callers to use getGSTRate() with unitPrice parameter.'
       );
       return DEFAULT_GARMENT_RATE;
     }
 
     const hsnPrefix = hsnCode.substring(0, 2);
     switch (hsnPrefix) {
-      // Apparel (5% for ≤₹2,500; 18% for >₹2,500 — default to 5%)
+      // Apparel — base rate 5% (≤₹2,500/piece). For >₹2,500, use getGSTRate() with unitPrice.
       case '61':
       case '62':
       case '63':

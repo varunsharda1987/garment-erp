@@ -100,6 +100,7 @@ export interface CalculatedRequirement {
   printingType?: string | null;
   linkedGreigeMaterialId?: string;
   isGreigeRequirement?: boolean;
+  colorName?: string | null;
 }
 
 // ============================================
@@ -166,6 +167,14 @@ export interface POPreviewItem {
   isGreige: boolean;
   priceRequired: boolean; // true if price = 0
   requirementIds: string[];
+  // Enriched fields for PO context
+  colorName?: string | null;
+  styleName?: string | null;
+  styleCode?: string | null;
+  orderNumber?: string | null;
+  processingType?: string | null;
+  componentName?: string | null;
+  fabricWidth?: number | null;
 }
 
 export interface POPreviewGroup {
@@ -312,6 +321,22 @@ export interface MaterialRequirementResponse {
     lastName: string;
   };
   poLinks?: RequirementPOLinkResponse[];
+  orderBom?: {
+    id: string;
+    version: number;
+  } | null;
+  linkedRequirement?: {
+    id: string;
+    requirementNumber: string;
+    requirementType: string;
+    status: MaterialRequirementStatus;
+    totalRequired: number;
+    material?: {
+      id: string;
+      code: string;
+      name: string;
+    };
+  } | null;
 }
 
 /**

@@ -18,6 +18,7 @@ import prisma from '../config/database';
 import { COMPANY_CONFIG, amountToWords, INVOICE_TERMS, DEFAULT_HSN_CODES } from '../config/company.config';
 import path from 'path';
 import fs from 'fs';
+import { logWarn } from '../utils/logger';
 
 // Types
 export interface DocumentOptions {
@@ -3067,8 +3068,13 @@ From ${COMPANY_CONFIG.name}
               doc.image(imgPath, mL + 5, headerY + 5, { width: imgW, height: imgH, fit: [imgW, imgH] });
               imageRendered = true;
             }
-          } catch (_) {
-            /* ignore image errors */
+          } catch (imgErr) {
+            logWarn(`[DocGen] Failed to render image: ${(imgErr as Error).message}`);
+            // Show placeholder instead of silently omitting image
+            doc
+              .fontSize(8)
+              .fillColor('#999')
+              .text('[Image unavailable]', mL + 5, headerY + 20);
           }
         }
         if (!imageRendered) {

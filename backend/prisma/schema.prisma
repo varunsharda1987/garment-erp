@@ -170,6 +170,7 @@ model order_bom_items {
   greigeCost     Decimal? @db.Decimal(12, 2)
   processingCost Decimal? @db.Decimal(12, 2)
   rateCardId     String? // FK to processor_rate_card
+  colorName      String? // Dye/processing color (from fabric costing, differentiates same greige)
 
   button_master    button_master?    @relation(fields: [buttonId], references: [id])
   elastic_master   elastic_master?   @relation(fields: [elasticId], references: [id])
@@ -653,7 +654,7 @@ model finished_goods_stock {
 
 model goods_receiving_notes {
   id                                              String            @id
-  grnNumber                                       String
+  grnNumber                                       String            @unique
   poId                                            String
   supplierId                                      String
   warehouseId                                     String?
@@ -1013,7 +1014,7 @@ model order_items {
 
 model orders {
   id                               String                      @id
-  orderNumber                      String
+  orderNumber                      String                      @unique
   customerId                       String
   orderDate                        DateTime                    @default(now())
   expectedDeliveryDate             DateTime
@@ -1156,7 +1157,7 @@ model purchase_order_items {
 
 model purchase_orders {
   id                                        String                            @id
-  poNumber                                  String
+  poNumber                                  String                            @unique
   supplierId                                String
   poDate                                    DateTime                          @default(now())
   expectedDeliveryDate                      DateTime
@@ -1288,7 +1289,7 @@ model quotation_items {
 
 model quotations {
   id                                   String            @id
-  quotationNumber                      String
+  quotationNumber                      String            @unique
   customerId                           String
   quotationDate                        DateTime          @default(now())
   validUntil                           DateTime
@@ -3135,6 +3136,7 @@ model material_requirements {
   linkedRequirementId String? // Links PROCESSING to its parent GREIGE requirement
   processingCost      Decimal? @db.Decimal(12, 2)
   printingType        String? // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
+  colorName           String? // Dye/processing color — differentiates same greige with different colors
 
   createdBy            users                   @relation("mrp_requirement_createdBy", fields: [createdById], references: [id])
   materials            materials               @relation(fields: [materialId], references: [id])
@@ -8333,4 +8335,14 @@ model tcs_entries {
   @@index([invoiceId])
   @@index([financialYear, quarter])
   @@index([status])
+}
+
+/// Atomic code sequence generator — prevents duplicate document numbers.
+/// Each row tracks the last-used sequence for a given prefix (e.g., PO2603, ORD202603).
+/// Used with SELECT ... FOR UPDATE to guarantee uniqueness under concurrency.
+model code_sequences {
+  id        String   @id @default(uuid())
+  prefix    String   @unique
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
 }

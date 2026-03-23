@@ -217,6 +217,7 @@ export async function generateCADOptions(req: Request, res: Response) {
         cad = await prisma.fabric_width_cad.create({
           data: {
             fabricId: fabric.id,
+            costingStyleId: styleId, // Link to style for cost sheet discovery
             cutableWidth: cutableWidth,
             widthUnit: 'inches',
             cadWastagePercent: 5, // Default 5% wastage
@@ -225,6 +226,15 @@ export async function generateCADOptions(req: Request, res: Response) {
             componentName: componentName || null,
             isPreferred: cutableWidth === cutableWidths[0], // Prefer largest width
             createdById: req.user?.userId || 'system',
+          },
+        });
+      } else if (greigeId && cad.greigeId !== greigeId) {
+        // Update existing CAD entry's greigeId if user selected a different greige
+        cad = await prisma.fabric_width_cad.update({
+          where: { id: cad.id },
+          data: {
+            greigeId,
+            costingStyleId: styleId, // Ensure costingStyleId is set on existing rows too
           },
         });
       }
@@ -1239,6 +1249,7 @@ export async function addCADWidth(req: Request, res: Response) {
   const newCad = await prisma.fabric_width_cad.create({
     data: {
       fabricId: targetFabricId,
+      costingStyleId: styleId, // Link to style for cost sheet discovery
       cutableWidth,
       widthUnit: 'inches',
       cadWastagePercent: 5,

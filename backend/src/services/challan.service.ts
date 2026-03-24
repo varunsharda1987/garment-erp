@@ -164,6 +164,8 @@ export async function createChallan(input: CreateChallanInput) {
             laceStockId: item.laceStockId,
             materialRequirementId: item.materialRequirementId,
             serviceRequirementId: item.serviceRequirementId,
+            componentName: (item as any).componentName || null,
+            colorName: (item as any).colorName || null,
           })),
         },
       },

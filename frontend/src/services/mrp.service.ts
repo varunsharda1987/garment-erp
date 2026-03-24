@@ -208,6 +208,7 @@ export async function bulkGeneratePOs(
     expectedDeliveryDate: string;
     remarks?: string;
     itemPrices?: Record<string, number>;
+    itemQuantities?: Record<string, number>;
   }>
 ): Promise<{
   purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }>;

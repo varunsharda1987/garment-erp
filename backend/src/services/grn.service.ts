@@ -101,17 +101,22 @@ class GRNService {
           remarks: data.remarks || null,
           receivedById: userId,
           grn_items: {
-            create: data.items.map((item) => ({
-              id: randomUUID(),
-              poItemId: item.poItemId,
-              materialId: item.materialId,
-              orderedQuantity: po.purchase_order_items.find((pi) => pi.id === item.poItemId)?.orderedQuantity || 0,
-              receivedQuantity: item.receivedQuantity,
-              acceptedQuantity: item.acceptedQuantity,
-              rejectedQuantity: item.rejectedQuantity,
-              unit: item.unit,
-              remarks: item.remarks || null,
-            })),
+            create: data.items.map((item) => {
+              const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
+              return {
+                id: randomUUID(),
+                poItemId: item.poItemId,
+                materialId: item.materialId,
+                orderedQuantity: poItem?.orderedQuantity || 0,
+                receivedQuantity: item.receivedQuantity,
+                acceptedQuantity: item.acceptedQuantity,
+                rejectedQuantity: item.rejectedQuantity,
+                unit: item.unit,
+                remarks: item.remarks || null,
+                componentName: (poItem as any)?.componentName || null,
+                colorName: (poItem as any)?.colorName || null,
+              };
+            }),
           },
         },
         include: this.getFullInclude(),

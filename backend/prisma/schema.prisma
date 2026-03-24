@@ -693,6 +693,8 @@ model grn_items {
   rejectedQuantity      Decimal               @default(0) @db.Decimal(10, 3)
   unit                  Unit
   remarks               String?
+  componentName         String? // Garment component (Top, Shirt) — copied from PO item
+  colorName             String? // Dye/processing color — copied from PO item
   goods_receiving_notes goods_receiving_notes @relation(fields: [grnId], references: [id], onDelete: Cascade)
   materials             materials             @relation(fields: [materialId], references: [id])
   purchase_order_items  purchase_order_items  @relation(fields: [poItemId], references: [id], onDelete: Cascade)
@@ -1129,6 +1131,9 @@ model purchase_order_items {
   unitPrice                    Decimal                        @db.Decimal(10, 2)
   totalPrice                   Decimal                        @db.Decimal(12, 2)
   remarks                      String?
+  componentName                String? // Garment component (Top, Shirt, Sleeve) — from BOM/MRP
+  colorName                    String? // Dye/processing color (Burgundy, White) — from BOM/MRP
+  fabricWidth                  Decimal? @db.Decimal(10, 2) // Expected cutable width (inches) — from CAD planning
   // Service PO fields (used when materialId is null)
   serviceType                  ServiceType?
   serviceDescription           String?
@@ -3137,6 +3142,7 @@ model material_requirements {
   processingCost      Decimal? @db.Decimal(12, 2)
   printingType        String? // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
   colorName           String? // Dye/processing color — differentiates same greige with different colors
+  componentName       String? // Garment component (Top, Shirt) — for traceability through PO/GRN
 
   createdBy            users                   @relation("mrp_requirement_createdBy", fields: [createdById], references: [id])
   materials            materials               @relation(fields: [materialId], references: [id])
@@ -4157,6 +4163,8 @@ model fabric_processing {
   processingStatus         String              @default("SENT")
   qualityNotes             String?
   rejectionReason          String?
+  componentName            String? // Garment component (Top, Shirt) — for traceability
+  colorName                String? // Dye/processing color — what color to apply
   createdById              String
   createdAt                DateTime            @default(now())
   updatedAt                DateTime            @updatedAt
@@ -7332,6 +7340,10 @@ model challan_items {
 
   // Rate (if applicable, for reference)
   rate Decimal? @db.Decimal(10, 2)
+
+  // Component & color traceability
+  componentName         String? // Garment component (Top, Shirt) — for material movement tracking
+  colorName             String? // Dye/processing color — for material movement tracking
 
   // Stock & MRP traceability
   greigeStockId         String? // FK to greige_stock (for OUTWARD greige challan auto-deduction)

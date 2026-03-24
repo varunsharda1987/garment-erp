@@ -1211,6 +1211,7 @@ export async function calculateRequirementsFromOrder(
           processorId: bomItem.processorId || null, // Store for processing requirement
           processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
           colorName: (bomItem as any).colorName || null,
+          componentName: bomItem.componentName || null,
         });
 
         // Requirement 2: PROCESSING requirement (linked to GREIGE)
@@ -1235,6 +1236,7 @@ export async function calculateRequirementsFromOrder(
           processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
           printingType: bomItem.rateCard?.printingType || null,
           colorName: (bomItem as any).colorName || null,
+          componentName: bomItem.componentName || null,
           // Fabric width tracking for split PO scenarios
           fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
           linkedGreigeMaterialId: greigeMaterialId, // Link to parent GREIGE requirement
@@ -1353,6 +1355,7 @@ export async function calculateRequirementsFromOrder(
               cadId: req.cadId,
               requirementType: req.requirementType || 'MATERIAL',
               colorName: (req as any).colorName || null,
+              componentName: (req as any).componentName || null,
               requiredDate,
               createdById: userId,
             },
@@ -1436,6 +1439,7 @@ export async function calculateRequirementsFromOrder(
               printingType: (req as any).printingType || null,
               linkedRequirementId: linkedGreigeId,
               colorName: (req as any).colorName || null,
+              componentName: (req as any).componentName || null,
               requiredDate,
               createdById: userId,
             },
@@ -1917,7 +1921,15 @@ export async function generatePOFromRequirements(
   data: GeneratePOFromRequirementsRequest,
   userId: string
 ): Promise<{ purchaseOrder: any; linkedRequirements: number; totalItems: number }> {
-  const { requirementIds, supplierId, expectedDeliveryDate, remarks, consolidate = true, itemPrices } = data;
+  const {
+    requirementIds,
+    supplierId,
+    expectedDeliveryDate,
+    remarks,
+    consolidate = true,
+    itemPrices,
+    itemQuantities,
+  } = data;
 
   // Get all requirements
   const requirements = await prisma.material_requirements.findMany({
@@ -2073,9 +2085,12 @@ export async function generatePOFromRequirements(
         existing.quantity += Number(req.shortfall);
         existing.requirementIds.push(req.id);
       } else {
+        // Use edited quantity if provided, otherwise use MRP shortfall
+        const baseQty = Number(req.shortfall);
+        const overrideQty = (itemQuantities as any)?.[key] ?? (itemQuantities as any)?.[req.materialId];
         materialGroups.set(key, {
           materialId: req.materialId,
-          quantity: Number(req.shortfall),
+          quantity: overrideQty != null ? Number(overrideQty) : baseQty,
           unit: req.unit,
           unitPrice: price,
           requirementIds: [req.id],
@@ -2098,9 +2113,11 @@ export async function generatePOFromRequirements(
         costSheetRateMap.get(req.materialId) ??
         autoPriceMap.get(req.materialId) ??
         0;
+      const baseQty = Number(req.shortfall);
+      const overrideQty = (itemQuantities as any)?.[groupKey] ?? (itemQuantities as any)?.[req.materialId];
       poItems.push({
         materialId: req.materialId,
-        quantity: Number(req.shortfall),
+        quantity: overrideQty != null ? Number(overrideQty) : baseQty,
         unit: req.unit,
         unitPrice: price,
         requirementIds: [req.id],
@@ -2234,15 +2251,6 @@ export async function generatePOFromRequirements(
     // Create PO items and links
     let linkedCount = 0;
     for (const item of itemsWithGst) {
-      // Build PO line item remarks with processing context (visible on printed PO)
-      const remarkParts: string[] = [];
-      if ((item as any).colorName) remarkParts.push(`Color: ${(item as any).colorName}`);
-      if ((item as any).styleCode) remarkParts.push(`Style: ${(item as any).styleCode}`);
-      if ((item as any).orderNumber) remarkParts.push(`Order: ${(item as any).orderNumber}`);
-      if ((item as any).processingType) remarkParts.push(`Process: ${(item as any).processingType}`);
-      if ((item as any).fabricWidth) remarkParts.push(`CW: ${(item as any).fabricWidth}"`);
-      const autoRemarks = remarkParts.length > 0 ? remarkParts.join(' | ') : null;
-
       const poItem = await tx.purchase_order_items.create({
         data: {
           id: crypto.randomUUID(),
@@ -2253,7 +2261,9 @@ export async function generatePOFromRequirements(
           unitPrice: item.unitPrice,
           totalPrice: item.lineTotal,
           printingType: item.printingType || null,
-          remarks: autoRemarks,
+          componentName: (item as any).componentName || null,
+          colorName: (item as any).colorName || null,
+          fabricWidth: (item as any).fabricWidth || null,
           hsnCode: item.hsnCode,
           gstRate: item.gstRate,
           cgstRate: item.cgstRate,
@@ -2530,6 +2540,9 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     processingCost: req.processingCost ? Number(req.processingCost) : null,
     printingType: req.printingType || null,
     linkedRequirementId: req.linkedRequirementId || null,
+    colorName: req.colorName || null,
+    componentName: req.componentName || null,
+    fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
     status: req.status,
     requiredDate: req.requiredDate.toISOString(),
     calculatedAt: req.calculatedAt.toISOString(),
@@ -2711,6 +2724,7 @@ export async function generatePOsBySupplier(
     expectedDeliveryDate: string;
     remarks?: string;
     itemPrices?: Record<string, number>;
+    itemQuantities?: Record<string, number>;
   }>,
   userId: string
 ): Promise<{
@@ -2750,6 +2764,7 @@ export async function generatePOsBySupplier(
           remarks: group.remarks,
           consolidate: true,
           itemPrices: group.itemPrices,
+          itemQuantities: group.itemQuantities,
         },
         userId
       );
@@ -2984,6 +2999,8 @@ export async function convertToGreigeProcessing(
       processingCost: data.processingCost || null,
       finishedFabricId: requirement.materials?.fabricId || null,
       processingStatus: 'PLANNED',
+      componentName: (data as any).componentName || (requirement as any).componentName || null,
+      colorName: (data as any).colorName || (requirement as any).colorName || null,
       createdById: userId,
     },
   });

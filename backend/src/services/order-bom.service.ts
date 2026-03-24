@@ -205,6 +205,15 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
                 id: true,
               },
             },
+            fabricCAD: {
+              select: {
+                styleFabric: {
+                  select: {
+                    style_components: { select: { componentName: true } },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -610,7 +619,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           unit: 'METER',
           unitPrice,
           totalCost,
-          componentName: fabricItem.fabricName || fabricItem.fabric?.fabricName || `Fabric ${i + 1}`,
+          componentName: (fabricItem as any).fabricCAD?.styleFabric?.style_components?.componentName
+            ? `${(fabricItem as any).fabricCAD.styleFabric.style_components.componentName} - ${fabricItem.fabricName || fabricItem.fabric?.fabricName || 'Fabric'}`
+            : fabricItem.fabricName || fabricItem.fabric?.fabricName || `Fabric ${i + 1}`,
           usageCategory: 'FABRIC',
           sortOrder: i,
           // Preserve greigeId regardless of sourcingStrategy — for READY_FABRIC + landed price,
@@ -626,6 +637,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           processingCost: fabricItem.processingCost ? Number(fabricItem.processingCost) : null,
           rateCardId: fabricItem.rateCardId,
           colorName: fabricItem.colorName || null,
+          fabricWidthInches: fabricItem.width ? Number(fabricItem.width) : null,
+          selectedCadId: fabricItem.fabricCADId || null,
         });
       }
     } else {

@@ -954,6 +954,9 @@ interface OutsourcedRow {
   statusLabel: string;
   isSelectable: boolean;
   createdAt: string;
+  componentName?: string | null;
+  colorName?: string | null;
+  fabricWidth?: number | null;
   // Original data references for bulk operations
   originalProcessing?: MaterialRequirement;
   originalService?: ServiceRequirement;
@@ -1087,6 +1090,9 @@ function OutsourcedWorkTab({
           statusLabel: MaterialRequirementStatusLabels[req.status] || req.status,
           isSelectable: req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK',
           createdAt: req.createdAt,
+          componentName: (req as any).componentName || null,
+          colorName: (req as any).colorName || null,
+          fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
           originalProcessing: req,
         });
       }
@@ -1408,6 +1414,9 @@ function OutsourcedWorkTab({
                 </TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Style</TableHead>
+                <TableHead>Component</TableHead>
+                <TableHead>Color</TableHead>
+                <TableHead>Width</TableHead>
                 <TableHead>Work Type</TableHead>
                 <TableHead>Printing Type</TableHead>
                 <TableHead>Reference</TableHead>
@@ -1421,13 +1430,13 @@ function OutsourcedWorkTab({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={14} className="text-center py-12 text-muted-foreground">
                     Loading outsourced work items...
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={14} className="text-center py-12 text-muted-foreground">
                     No outsourced work items found
                   </TableCell>
                 </TableRow>
@@ -1456,6 +1465,15 @@ function OutsourcedWorkTab({
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-medium">{row.style}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{(row as any).componentName || '-'}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{(row as any).colorName || '-'}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{(row as any).fabricWidth ? `${(row as any).fabricWidth}"` : '-'}</span>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-medium">{row.workType}</span>

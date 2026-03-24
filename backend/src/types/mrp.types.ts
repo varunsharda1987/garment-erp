@@ -101,6 +101,7 @@ export interface CalculatedRequirement {
   linkedGreigeMaterialId?: string;
   isGreigeRequirement?: boolean;
   colorName?: string | null;
+  componentName?: string | null;
 }
 
 // ============================================
@@ -138,7 +139,8 @@ export interface GeneratePOFromRequirementsRequest {
   expectedDeliveryDate: string;
   remarks?: string;
   consolidate?: boolean; // Combine same materials into single PO item
-  itemPrices?: Record<string, number>; // materialId → unitPrice (user-edited prices)
+  itemPrices?: Record<string, number>; // itemKey → unitPrice (user-edited prices)
+  itemQuantities?: Record<string, number>; // itemKey → quantity (user-edited quantities, allows ordering more than MRP shortfall)
 }
 
 // ============================================
@@ -277,6 +279,9 @@ export interface MaterialRequirementResponse {
   processingCost?: number | null;
   printingType?: string | null;
   linkedRequirementId?: string | null;
+  colorName?: string | null;
+  componentName?: string | null;
+  fabricWidth?: number | null;
   status: MaterialRequirementStatus;
   requiredDate: string;
   calculatedAt: string;

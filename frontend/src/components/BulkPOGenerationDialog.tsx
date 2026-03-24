@@ -74,8 +74,9 @@ export default function BulkPOGenerationDialog({
 
   // Step 2 state
   const [previewData, setPreviewData] = useState<POPreviewGroup[]>([]);
-  // Editable prices: { [supplierId]: { [materialId]: number } }
+  // Editable prices & quantities: { [supplierId]: { [itemKey]: number } }
   const [editedPrices, setEditedPrices] = useState<Record<string, Record<string, number>>>({});
+  const [editedQuantities, setEditedQuantities] = useState<Record<string, Record<string, number>>>({});
 
   // Reset when dialog closes
   useEffect(() => {
@@ -83,6 +84,7 @@ export default function BulkPOGenerationDialog({
       setStep('grouping');
       setPreviewData([]);
       setEditedPrices({});
+      setEditedQuantities({});
     }
   }, [open]);
 
@@ -176,6 +178,18 @@ export default function BulkPOGenerationDialog({
     }
   };
 
+  // Quantity edit handler
+  const handleQuantityChange = useCallback((supplierId: string, itemKey: string, value: string) => {
+    const numVal = parseFloat(value) || 0;
+    setEditedQuantities((prev) => ({
+      ...prev,
+      [supplierId]: {
+        ...prev[supplierId],
+        [itemKey]: numVal,
+      },
+    }));
+  }, []);
+
   // Price edit handler
   const handlePriceChange = useCallback((supplierId: string, materialId: string, value: string) => {
     const numVal = parseFloat(value) || 0;
@@ -191,8 +205,11 @@ export default function BulkPOGenerationDialog({
   // Recalculate GST for an item based on edited price
   const getRecalculatedItem = useCallback(
     (group: POPreviewGroup, item: POPreviewItem): POPreviewItem => {
-      const price = editedPrices[group.supplierId]?.[item.materialId] ?? item.unitPrice;
-      const lineTotal = item.quantity * price;
+      const itemKey =
+        item.requirementIds?.length === 1 && item.processingType ? item.requirementIds[0] : item.materialId;
+      const qty = editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity;
+      const price = editedPrices[group.supplierId]?.[itemKey] ?? item.unitPrice;
+      const lineTotal = qty * price;
       const gstRate = item.gstRate;
 
       let cgstRate = 0,
@@ -214,6 +231,7 @@ export default function BulkPOGenerationDialog({
 
       return {
         ...item,
+        quantity: qty,
         unitPrice: price,
         lineTotal,
         cgstRate,
@@ -234,7 +252,9 @@ export default function BulkPOGenerationDialog({
   const hasAnyZeroPriceItems = useCallback((): boolean => {
     for (const group of previewData) {
       for (const item of group.items) {
-        const price = editedPrices[group.supplierId]?.[item.materialId] ?? item.unitPrice;
+        const itemKey =
+          item.requirementIds?.length === 1 && item.processingType ? item.requirementIds[0] : item.materialId;
+        const price = editedPrices[group.supplierId]?.[itemKey] ?? item.unitPrice;
         if (price <= 0) return true;
       }
     }
@@ -281,6 +301,7 @@ export default function BulkPOGenerationDialog({
         expectedDeliveryDate: group.deliveryDate,
         remarks: group.remarks || undefined,
         itemPrices: editedPrices[group.supplierId] || {},
+        itemQuantities: editedQuantities[group.supplierId] || {},
       }));
 
       const result = await bulkGeneratePOs(groups);
@@ -400,15 +421,63 @@ export default function BulkPOGenerationDialog({
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          <div className="bg-muted/30 p-3 rounded-md text-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Total Quantity:</span>
+                          <div className="bg-muted/30 p-3 rounded-md text-sm space-y-3">
+                            {group.requirements.map((r) => (
+                              <div key={r.id} className="border-b last:border-b-0 pb-2 last:pb-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">{r.material?.name || 'Unknown'}</span>
+                                  <span className="font-bold text-primary">
+                                    {Number(r.shortfall).toLocaleString()} {r.unit}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
+                                  {(r as any).componentName && (
+                                    <span>
+                                      Component:{' '}
+                                      <span className="text-foreground font-medium">{(r as any).componentName}</span>
+                                    </span>
+                                  )}
+                                  {r.orderItem?.styleCode && (
+                                    <span>
+                                      Style:{' '}
+                                      <span className="text-foreground">
+                                        {r.orderItem.styleCode}
+                                        {r.orderItem.styleName ? ` - ${r.orderItem.styleName}` : ''}
+                                      </span>
+                                    </span>
+                                  )}
+                                  {(r as any).colorName && (
+                                    <span>
+                                      Color: <span className="text-foreground">{(r as any).colorName}</span>
+                                    </span>
+                                  )}
+                                  {r.order?.orderNumber && (
+                                    <span>
+                                      Order: <span className="text-foreground">{r.order.orderNumber}</span>
+                                    </span>
+                                  )}
+                                  {r.requirementType === 'PROCESSING' && (
+                                    <span>
+                                      Process: <span className="text-foreground">{r.printingType || 'Dyeing'}</span>
+                                    </span>
+                                  )}
+                                  {r.processingCost != null && r.processingCost > 0 && (
+                                    <span>
+                                      Rate:{' '}
+                                      <span className="text-foreground">
+                                        {'\u20B9'}
+                                        {Number(r.processingCost).toFixed(2)}/m
+                                      </span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between border-t pt-2">
+                              <span className="text-muted-foreground font-medium">Total Quantity:</span>
                               <span className="font-bold text-primary">
                                 {calculateTotal(group.requirements).toLocaleString()}
                               </span>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {group.requirements.map((r) => r.material?.name).join(', ')}
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
@@ -514,28 +583,75 @@ export default function BulkPOGenerationDialog({
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {group.items.map((item) => {
+                            {group.items.map((item, itemIdx) => {
                               const recalc = getRecalculatedItem(group, item);
-                              const currentPrice = editedPrices[group.supplierId]?.[item.materialId] ?? item.unitPrice;
+                              // Key must match backend grouping: PROCESSING items use requirementId, others use materialId
+                              // Detect PROCESSING: has exactly 1 requirementId and processingType badge
+                              const itemKey =
+                                item.requirementIds?.length === 1 && item.processingType
+                                  ? item.requirementIds[0]
+                                  : item.materialId;
+                              const currentPrice =
+                                editedPrices[group.supplierId]?.[itemKey] ??
+                                editedPrices[group.supplierId]?.[item.materialId] ??
+                                item.unitPrice;
                               const isZeroPrice = currentPrice <= 0;
                               const rowClass = item.isGreige ? 'bg-orange-50' : isZeroPrice ? 'bg-red-50' : '';
 
+                              const rowKey = item.requirementIds?.[0] || `${item.materialId}-${itemIdx}`;
+
                               return (
-                                <TableRow key={item.materialId} className={rowClass}>
+                                <TableRow key={rowKey} className={rowClass}>
                                   <TableCell className="text-xs">
                                     <div className="font-medium">{item.materialCode}</div>
-                                    <div className="text-muted-foreground truncate max-w-[180px]">
+                                    <div className="text-muted-foreground truncate max-w-[220px]">
                                       {item.materialName}
                                     </div>
-                                    {item.isGreige && (
-                                      <span className="text-[10px] bg-orange-200 text-orange-800 px-1 rounded">
-                                        Greige
-                                      </span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {item.componentName && (
+                                        <span className="text-[10px] bg-teal-100 text-teal-800 px-1 rounded font-medium">
+                                          {item.componentName}
+                                        </span>
+                                      )}
+                                      {item.isGreige && (
+                                        <span className="text-[10px] bg-orange-200 text-orange-800 px-1 rounded">
+                                          Greige
+                                        </span>
+                                      )}
+                                      {item.colorName && (
+                                        <span className="text-[10px] bg-purple-100 text-purple-800 px-1 rounded">
+                                          {item.colorName}
+                                        </span>
+                                      )}
+                                      {item.processingType && (
+                                        <span className="text-[10px] bg-blue-100 text-blue-800 px-1 rounded">
+                                          {item.processingType}
+                                        </span>
+                                      )}
+                                      {item.fabricWidth && (
+                                        <span className="text-[10px] bg-gray-100 text-gray-700 px-1 rounded">
+                                          {item.fabricWidth}&quot; CW
+                                        </span>
+                                      )}
+                                    </div>
+                                    {(item.styleCode || item.orderNumber) && (
+                                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                                        {item.styleCode && <span>{item.styleCode}</span>}
+                                        {item.styleCode && item.orderNumber && <span> | </span>}
+                                        {item.orderNumber && <span>{item.orderNumber}</span>}
+                                      </div>
                                     )}
                                   </TableCell>
                                   <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
-                                  <TableCell className="text-xs text-right font-mono">
-                                    {item.quantity.toLocaleString('en-IN', { maximumFractionDigits: 3 })}
+                                  <TableCell className="text-xs text-right">
+                                    <Input
+                                      type="number"
+                                      min={item.quantity}
+                                      step="0.01"
+                                      className="h-7 text-xs text-right w-[100px]"
+                                      value={editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity}
+                                      onChange={(e) => handleQuantityChange(group.supplierId, itemKey, e.target.value)}
+                                    />
                                   </TableCell>
                                   <TableCell className="text-xs">{item.unit}</TableCell>
                                   <TableCell className="text-xs text-right">
@@ -547,9 +663,7 @@ export default function BulkPOGenerationDialog({
                                         isZeroPrice ? 'border-red-400 bg-red-50' : ''
                                       }`}
                                       value={currentPrice || ''}
-                                      onChange={(e) =>
-                                        handlePriceChange(group.supplierId, item.materialId, e.target.value)
-                                      }
+                                      onChange={(e) => handlePriceChange(group.supplierId, itemKey, e.target.value)}
                                     />
                                   </TableCell>
                                   <TableCell className="text-xs text-right font-mono">{recalc.gstRate}%</TableCell>

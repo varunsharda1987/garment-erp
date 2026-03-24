@@ -367,6 +367,9 @@ export default function PurchaseOrderDetail() {
               <TableRow>
                 <TableHead>Material / Service</TableHead>
                 <TableHead>HSN/SAC</TableHead>
+                <TableHead>Component</TableHead>
+                <TableHead>Color</TableHead>
+                <TableHead>Width</TableHead>
                 <TableHead className="text-right">Ordered</TableHead>
                 <TableHead className="text-right">Received</TableHead>
                 <TableHead>Unit</TableHead>
@@ -408,13 +411,16 @@ export default function PurchaseOrderDetail() {
                           <span className="text-gray-400">-</span>
                         )}
                         {item.printingType && (
-                          <span className="text-xs font-semibold text-purple-700">
-                            {item.printingType.replace('_', ' ')}
-                          </span>
+                          <div className="text-xs text-purple-700 mt-0.5">{item.printingType.replace('_', ' ')}</div>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
+                    <TableCell className="text-sm">{(item as any).componentName || '-'}</TableCell>
+                    <TableCell className="text-sm">{(item as any).colorName || '-'}</TableCell>
+                    <TableCell className="text-sm">
+                      {(item as any).fabricWidth ? `${(item as any).fabricWidth}"` : '-'}
+                    </TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(item.orderedQuantity).toLocaleString()}
                     </TableCell>

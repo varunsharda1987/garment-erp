@@ -155,6 +155,9 @@ export interface MaterialRequirement {
   linkedRequirementId?: string | null;
   processingCost?: number | null;
   printingType?: string | null;
+  colorName?: string | null;
+  componentName?: string | null;
+  fabricWidth?: number | null;
 
   // Relations
   order?: OrderSummary | null;
@@ -224,6 +227,14 @@ export interface POPreviewItem {
   isGreige: boolean;
   priceRequired: boolean;
   requirementIds: string[];
+  // Enriched fields for PO context
+  colorName?: string | null;
+  styleName?: string | null;
+  styleCode?: string | null;
+  orderNumber?: string | null;
+  processingType?: string | null;
+  componentName?: string | null;
+  fabricWidth?: number | null;
 }
 
 export interface POPreviewGroup {

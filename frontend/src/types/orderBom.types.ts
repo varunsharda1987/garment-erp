@@ -59,6 +59,12 @@ export interface OrderBOMItem {
   notes?: string | null;
   sortOrder: number;
   sourcingStrategy?: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED' | null;
+  greigeId?: string | null;
+  processorId?: string | null;
+  greigeCost?: number | null;
+  processingCost?: number | null;
+  rateCardId?: string | null;
+  colorName?: string | null;
   // Material relations (populated from includes)
   material?: { id: string; code: string; name: string } | null;
   buttonMaster?: { id: string; buttonCode: string; buttonName: string } | null;

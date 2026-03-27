@@ -129,8 +129,9 @@ export default function LaceLabDipForm() {
       }
 
       navigate('/lace-lab-dips');
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to save lab dip');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      notify.error(axiosErr.response?.data?.error || 'Failed to save lab dip');
     } finally {
       setLoading(false);
     }
@@ -161,8 +162,9 @@ export default function LaceLabDipForm() {
       const updated = await laceLabDipService.updateLabDipStatus(id!, input);
       setLabDip(updated);
       notify.success(`Status updated to ${LAB_DIP_STATUS_LABELS[newStatus]}`);
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to update status');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      notify.error(axiosErr.response?.data?.error || 'Failed to update status');
     } finally {
       setLoading(false);
     }

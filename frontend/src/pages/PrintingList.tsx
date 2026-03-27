@@ -121,6 +121,7 @@ export default function PrintingList() {
       fetchProcessPOs();
     }
     fetchSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentPage, pageSize, searchQuery, statusFilter, processPOsStatusFilter]);
 
   const fetchLabDips = async () => {

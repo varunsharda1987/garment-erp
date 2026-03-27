@@ -29,7 +29,7 @@ export const DynamicMaterialForm: React.FC<DynamicMaterialFormProps> = ({
   onSave,
   saving,
 }) => {
-  const handleFieldChange = (fieldName: string, value: any) => {
+  const handleFieldChange = (fieldName: string, value: string | number | boolean) => {
     onChange({
       ...formData,
       [fieldName]: value,
@@ -127,8 +127,8 @@ export const DynamicMaterialForm: React.FC<DynamicMaterialFormProps> = ({
  */
 interface FormFieldProps {
   field: MaterialFieldConfig;
-  value: any;
-  onChange: (value: any) => void;
+  value: string | number | boolean | undefined;
+  onChange: (value: string | number | boolean) => void;
 }
 
 const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {

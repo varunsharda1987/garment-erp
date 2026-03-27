@@ -40,6 +40,7 @@ export default function ElasticDetail() {
     if (id) {
       fetchElasticDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchElasticDetails = async () => {

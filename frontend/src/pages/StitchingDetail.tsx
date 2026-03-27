@@ -72,6 +72,7 @@ export default function StitchingDetail() {
     if (id) {
       loadIssue();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadIssue = async () => {
@@ -299,7 +300,7 @@ export default function StitchingDetail() {
         {/* Workflow Stepper */}
         {(() => {
           const hasOutput = getTotalCompleted() > 0;
-          const hasTransferSlip = !!(issue as any).transferSlip;
+          const hasTransferSlip = !!(issue as unknown as Record<string, unknown>).transferSlip;
 
           const steps = [
             { label: 'Receive', desc: 'From Cutting' },
@@ -358,8 +359,9 @@ export default function StitchingDetail() {
         {/* Next Step Action Card */}
         {(() => {
           const hasOutput = getTotalCompleted() > 0;
-          const hasTransferSlip = !!(issue as any).transferSlip;
-          const transferSlip = (issue as any).transferSlip;
+          const issueRecord = issue as unknown as Record<string, unknown>;
+          const hasTransferSlip = !!issueRecord.transferSlip;
+          const transferSlip = issueRecord.transferSlip as { slipNumber?: string } | undefined;
 
           if (issue.status === 'PENDING_RECEIPT') {
             return (

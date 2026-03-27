@@ -53,7 +53,7 @@ export interface CreateTestingLabInput {
   isActive?: boolean;
 }
 
-export interface UpdateTestingLabInput extends Partial<CreateTestingLabInput> {}
+export type UpdateTestingLabInput = Partial<CreateTestingLabInput>;
 
 // ============================================================================
 // TEST TEMPLATES
@@ -100,7 +100,7 @@ export interface CreateTestTemplateInput {
   isActive?: boolean;
 }
 
-export interface UpdateTestTemplateInput extends Partial<CreateTestTemplateInput> {}
+export type UpdateTestTemplateInput = Partial<CreateTestTemplateInput>;
 
 // ============================================================================
 // FABRIC PHYSICAL TESTS
@@ -308,6 +308,24 @@ export interface UpdateGarmentPhysicalTestInput {
   buyerRemarks?: string;
   adminOverride?: boolean;
   overrideReason?: string;
+}
+
+// ============================================================================
+// TESTING LAB STATS
+// ============================================================================
+
+export interface TestingLabStats {
+  labId: string;
+  labCode: string;
+  labName: string;
+  totalTests: number;
+  completedTests: number;
+  pendingTests: number;
+  passedTests: number;
+  failedTests: number;
+  passRate: string;
+  averageTurnaroundExpected: number;
+  averageTurnaroundActual: number;
 }
 
 // ============================================================================

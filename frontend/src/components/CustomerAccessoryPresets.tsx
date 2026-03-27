@@ -72,6 +72,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
 
   useEffect(() => {
     loadPresets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
 
   const loadPresets = async () => {
@@ -200,9 +201,10 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
       }
 
       loadPresets();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save preset:', error);
-      notify.error(error.response?.data?.message || 'Failed to save preset');
+      const err = error as { response?: { data?: { message?: string } } };
+      notify.error(err.response?.data?.message || 'Failed to save preset');
     } finally {
       setSaving(false);
     }

@@ -288,17 +288,14 @@ export function useStyleFormData() {
   );
 
   // Load accessory presets when customer selected
-  const loadAccessoryPresets = useCallback(
-    async (_customerId: string) => {
-      try {
-        // TODO: Implement when API is available
-        dispatch({ type: 'SET_ACCESSORY_PRESETS', payload: [] });
-      } catch (error) {
-        console.error('Failed to load accessory presets:', error);
-      }
-    },
-    [dispatch]
-  );
+  const loadAccessoryPresets = useCallback(async () => {
+    try {
+      // TODO: Implement when API is available
+      dispatch({ type: 'SET_ACCESSORY_PRESETS', payload: [] });
+    } catch (error) {
+      console.error('Failed to load accessory presets:', error);
+    }
+  }, [dispatch]);
 
   // Handle customer selection
   useEffect(() => {
@@ -326,7 +323,7 @@ export function useStyleFormData() {
           type: 'SET_BASIC_INFO',
           payload: { brandName: '', category: '', availableCategories: [] },
         });
-        loadAccessoryPresets(selectedCustomerId);
+        loadAccessoryPresets();
       }
     }
   }, [selectedCustomerId, customers, dispatch, loadAccessoryPresets]);

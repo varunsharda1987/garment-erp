@@ -44,6 +44,7 @@ export default function ColorMasterList() {
 
   useEffect(() => {
     fetchColors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, familyFilter]);
 
   const fetchColors = async () => {

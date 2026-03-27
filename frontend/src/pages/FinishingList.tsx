@@ -115,6 +115,7 @@ export default function FinishingList() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter]);
 
   // Lazy-load tab data
@@ -125,6 +126,7 @@ export default function FinishingList() {
     if (activeTab === 'sizewise' && sizeSummary.length === 0) {
       fetchSizeSummary();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const handleSearch = () => {

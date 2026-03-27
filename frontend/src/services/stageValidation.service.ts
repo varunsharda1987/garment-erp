@@ -63,7 +63,7 @@ class StageValidationService {
         params: { workOrderId, targetStage },
       });
       return response.data.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error checking stage transition:', error);
       throw error;
     }
@@ -81,7 +81,7 @@ class StageValidationService {
         params: { styleId, sampleType },
       });
       return response.data.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error checking sample creation:', error);
       throw error;
     }
@@ -104,7 +104,7 @@ class StageValidationService {
         params: { workOrderId, sampleId, limit },
       });
       return response.data.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching override history:', error);
       throw error;
     }

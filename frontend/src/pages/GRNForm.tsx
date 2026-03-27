@@ -244,7 +244,7 @@ export default function GRNForm() {
           receivedQuantity: parseFloat(item.receivedQuantity),
           acceptedQuantity: parseFloat(item.acceptedQuantity) || 0,
           rejectedQuantity: parseFloat(item.rejectedQuantity) || 0,
-          unit: item.unit as any,
+          unit: item.unit as CreateGRNItemRequest['unit'],
           rejectionReason: item.rejectionReason || undefined,
           remarks: item.remarks || undefined,
         }));

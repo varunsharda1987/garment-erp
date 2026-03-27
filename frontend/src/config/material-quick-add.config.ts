@@ -3,7 +3,12 @@
  * Central configuration for all 23 material types (21 trims + 2 accessories)
  */
 
-import type { MaterialTypeConfig, CategoryConfig, MaterialFormData } from '../types/material-quick-add.types';
+import type {
+  MaterialTypeConfig,
+  CategoryConfig,
+  MaterialFormData,
+  MaterialCreateResult,
+} from '../types/material-quick-add.types';
 import { TRIM_TYPE_CONFIGS } from '../types/genericTrim.types';
 
 // Service imports
@@ -38,7 +43,7 @@ const BUTTON_CONFIG: MaterialTypeConfig = {
   ],
   createService: async (data: MaterialFormData) => {
     // Don't force-set the name field; let backend auto-generate if not provided
-    const payload: any = { ...data };
+    const payload: Record<string, string | number | boolean | undefined> = { ...data };
 
     // Only set type-specific name field if name was provided
     if (data.name !== undefined) {
@@ -49,8 +54,8 @@ const BUTTON_CONFIG: MaterialTypeConfig = {
     delete payload.name;
     delete payload._nameManuallyEdited;
 
-    const result = await createButton(payload);
-    return result;
+    const result = await createButton(payload as Parameters<typeof createButton>[0]);
+    return result as unknown as MaterialCreateResult;
   },
 };
 
@@ -69,14 +74,14 @@ const THREAD_CONFIG: MaterialTypeConfig = {
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
   createService: async (data: MaterialFormData) => {
-    const payload: any = { ...data };
+    const payload: Record<string, string | number | boolean | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.threadName = data.name;
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createThread(payload);
-    return result;
+    const result = await createThread(payload as Parameters<typeof createThread>[0]);
+    return result as unknown as MaterialCreateResult;
   },
 };
 
@@ -96,14 +101,14 @@ const ZIPPER_CONFIG: MaterialTypeConfig = {
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
   createService: async (data: MaterialFormData) => {
-    const payload: any = { ...data };
+    const payload: Record<string, string | number | boolean | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.zipperName = data.name;
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createZipper(payload);
-    return result;
+    const result = await createZipper(payload as Parameters<typeof createZipper>[0]);
+    return result as unknown as MaterialCreateResult;
   },
 };
 
@@ -122,14 +127,14 @@ const ELASTIC_CONFIG: MaterialTypeConfig = {
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
   createService: async (data: MaterialFormData) => {
-    const payload: any = { ...data };
+    const payload: Record<string, string | number | boolean | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.elasticName = data.name;
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createElastic(payload);
-    return result;
+    const result = await createElastic(payload as Parameters<typeof createElastic>[0]);
+    return result as unknown as MaterialCreateResult;
   },
 };
 
@@ -149,14 +154,14 @@ const LACE_CONFIG: MaterialTypeConfig = {
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
   createService: async (data: MaterialFormData) => {
-    const payload: any = { ...data };
+    const payload: Record<string, string | number | boolean | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.laceName = data.name;
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createLace(payload);
-    return result;
+    const result = await createLace(payload as Parameters<typeof createLace>[0]);
+    return result as unknown as MaterialCreateResult;
   },
 };
 
@@ -204,7 +209,7 @@ const createGenericTrimConfig = (trimType: string): MaterialTypeConfig => {
     })),
     createService: async (data: MaterialFormData) => {
       // Prepare data with the correct field names
-      const payload: any = {};
+      const payload: Record<string, string | number | boolean | undefined> = {};
 
       // Only set name field if provided
       if (data.name !== undefined) {
@@ -218,8 +223,11 @@ const createGenericTrimConfig = (trimType: string): MaterialTypeConfig => {
         }
       });
 
-      const result = await genericTrimService.create(trimType, payload);
-      return result.data;
+      const result = await genericTrimService.create(
+        trimType,
+        payload as unknown as Parameters<typeof genericTrimService.create>[1]
+      );
+      return result.data as unknown as MaterialCreateResult;
     },
   };
 };
@@ -250,7 +258,7 @@ const LABEL_CONFIG: MaterialTypeConfig = {
     // Determine labelCategory based on labelType
     const labelCategory = data.labelType === 'Price Tag' ? 'PRICE_TAG' : 'HANGTAG';
 
-    const payload: any = {
+    const payload: Record<string, string | number | boolean | undefined> = {
       labelCategory,
       ...data,
     };
@@ -262,8 +270,8 @@ const LABEL_CONFIG: MaterialTypeConfig = {
     delete payload.name;
     delete payload._nameManuallyEdited;
 
-    const result = await createLabel(payload);
-    return result;
+    const result = await createLabel(payload as Parameters<typeof createLabel>[0]);
+    return result as unknown as MaterialCreateResult;
   },
 };
 
@@ -288,14 +296,14 @@ const PACKAGING_CONFIG: MaterialTypeConfig = {
     { name: 'thickness', label: 'Thickness', type: 'text', required: false, placeholder: '40 microns, 3 ply' },
   ],
   createService: async (data: MaterialFormData) => {
-    const payload: any = { ...data };
+    const payload: Record<string, string | number | boolean | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.packagingName = data.name;
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createPackaging(payload);
-    return result;
+    const result = await createPackaging(payload as Parameters<typeof createPackaging>[0]);
+    return result as unknown as MaterialCreateResult;
   },
 };
 

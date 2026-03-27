@@ -53,7 +53,7 @@ export interface ListPageLayoutProps {
   /** Export module name */
   exportModule?: string;
   /** Export filters */
-  exportFilters?: Record<string, any>;
+  exportFilters?: Record<string, unknown>;
   /** Import module name */
   importModule?: string;
   /** Import success callback */

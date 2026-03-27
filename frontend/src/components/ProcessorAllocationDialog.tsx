@@ -67,6 +67,7 @@ export default function ProcessorAllocationDialog({
       loadSuggestions();
       loadProcessors();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, requirementIds]);
 
   const loadSuggestions = async () => {
@@ -93,7 +94,7 @@ export default function ProcessorAllocationDialog({
   const loadProcessors = async () => {
     try {
       const data = await getAllSuppliers({ limit: 100 });
-      setProcessors(data.data.filter((s: any) => s.isActive));
+      setProcessors(data.data.filter((s: Supplier) => s.isActive));
     } catch (err) {
       handleApiError(err, 'Failed to load processors');
     }

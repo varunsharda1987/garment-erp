@@ -6,6 +6,7 @@ import type {
   SPOQueryParams,
   PaginatedSPOs,
 } from '@/types/stockProductionOrder.types';
+import type { WorkOrder } from '@/types/production.types';
 
 const BASE_URL = '/stock-production-orders';
 
@@ -43,7 +44,7 @@ export async function approveSPO(id: string): Promise<StockProductionOrder> {
   return response.data;
 }
 
-export async function generateWorkOrders(id: string): Promise<any> {
+export async function generateWorkOrders(id: string): Promise<WorkOrder> {
   const response = await api.post(`${BASE_URL}/${id}/generate-work-orders`);
   return response.data;
 }

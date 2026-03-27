@@ -41,6 +41,7 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
 
   useEffect(() => {
     fetchStockStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, requiredUnits, warehouseId]);
 
   const fetchStockStatus = async () => {
@@ -70,9 +71,9 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
       };
 
       setStockStatus(stockData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch stock status:', err);
-      setError(err.message || 'Failed to fetch stock status');
+      setError(err instanceof Error ? err.message : 'Failed to fetch stock status');
     } finally {
       setLoading(false);
     }

@@ -47,6 +47,7 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
     if (mode === 'edit' && id) {
       loadMaterial();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, id]);
 
   const loadMaterial = async () => {
@@ -72,8 +73,8 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
         gstRate: material.gstRate,
         specifications: material.specifications || {},
       });
-    } catch (err: any) {
-      setError(err.message || 'Failed to load material');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load material');
     } finally {
       setLoading(false);
     }
@@ -91,14 +92,14 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
         await materialMasterService.update(parseInt(id), formData);
       }
       navigate('/material-master');
-    } catch (err: any) {
-      setError(err.message || 'Failed to save material');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save material');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | number | boolean | undefined) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,

@@ -709,6 +709,7 @@ export const BatchIcon: FC<IconProps> = ({ size = 24, color = 'currentColor', cl
 );
 
 // Export all icons as a collection for easy import
+// eslint-disable-next-line react-refresh/only-export-components
 export const GarmentIcons = {
   SewingMachine: SewingMachineIcon,
   FabricRoll: FabricRollIcon,

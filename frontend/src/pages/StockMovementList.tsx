@@ -42,6 +42,7 @@ export default function StockMovementList() {
 
   useEffect(() => {
     loadMovements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter, startDate, endDate]);
 
   const loadMovements = async () => {

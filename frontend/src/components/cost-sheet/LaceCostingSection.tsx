@@ -93,7 +93,26 @@ export default function LaceCostingSection({
     onLaceDetailsChange(updatedDetails);
   };
 
-  const handleStrategyChange = (index: number, strategy: any) => {
+  const handleStrategyChange = (
+    index: number,
+    strategy: {
+      sourcingStrategy: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
+      cost: number;
+      costPerMeter: number;
+      stockLotId?: string;
+      processorId?: string;
+      rateCardId?: string;
+      procurementId?: string;
+      greigeCost?: number;
+      processingCost?: number;
+      readyLaceCost?: number;
+      stockCost?: number;
+      greigeLaceId?: string;
+      labDipId?: string;
+      isManualOverride?: boolean;
+      overrideReason?: string;
+    }
+  ) => {
     const updatedDetails = [...laceDetails];
     updatedDetails[index] = {
       ...updatedDetails[index],

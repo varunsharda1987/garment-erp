@@ -30,7 +30,7 @@ type Column<T> = {
 export default function StockLevelList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
-  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<{ id: string; warehouseCode: string; warehouseName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +46,7 @@ export default function StockLevelList() {
 
   useEffect(() => {
     loadStockLevels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouseFilter, showLowStockOnly, searchTerm, materialTypeFilter]);
 
   const loadWarehouses = async () => {

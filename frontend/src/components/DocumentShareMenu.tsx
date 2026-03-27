@@ -125,7 +125,7 @@ export function DocumentShareMenu({
   const handleShareWhatsApp = async () => {
     if (!endpoints.whatsapp) return;
 
-    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const cleanPhone = phone.replace(/[\s\-()]/g, '');
     if (!cleanPhone || cleanPhone.length < 10) {
       handleApiError(new Error('Please enter a valid phone number'), 'Invalid Phone');
       return;

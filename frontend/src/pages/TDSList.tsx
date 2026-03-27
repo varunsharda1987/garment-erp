@@ -134,8 +134,9 @@ export default function TDSList() {
       toast.success('TDS entry recorded successfully');
       closeDialog();
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create TDS entry');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to create TDS entry');
     },
   });
 
@@ -146,8 +147,9 @@ export default function TDSList() {
       queryClient.invalidateQueries({ queryKey: ['tds-entries'] });
       toast.success('TDS status updated');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to update status');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to update status');
     },
   });
 
@@ -159,8 +161,9 @@ export default function TDSList() {
       setDeleteDialogOpen(false);
       setEntryToDelete(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to delete TDS entry');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to delete TDS entry');
     },
   });
 
@@ -241,6 +244,7 @@ export default function TDSList() {
 
   // ---------- Computed ----------
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const entries = data?.data || [];
   const pagination = data?.pagination;
 

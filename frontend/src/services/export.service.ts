@@ -61,7 +61,7 @@ class ExportService {
   /**
    * Export to CSV format
    */
-  async exportToCSV(module: string, templateId?: string, filters?: Record<string, any>): Promise<void> {
+  async exportToCSV(module: string, templateId?: string, filters?: Record<string, unknown>): Promise<void> {
     return this.exportData(module, {
       format: 'csv',
       templateId,
@@ -72,7 +72,7 @@ class ExportService {
   /**
    * Export to Excel format
    */
-  async exportToExcel(module: string, templateId?: string, filters?: Record<string, any>): Promise<void> {
+  async exportToExcel(module: string, templateId?: string, filters?: Record<string, unknown>): Promise<void> {
     return this.exportData(module, {
       format: 'excel',
       templateId,
@@ -83,7 +83,7 @@ class ExportService {
   /**
    * Export to PDF format
    */
-  async exportToPDF(module: string, templateId?: string, filters?: Record<string, any>): Promise<void> {
+  async exportToPDF(module: string, templateId?: string, filters?: Record<string, unknown>): Promise<void> {
     return this.exportData(module, {
       format: 'pdf',
       templateId,

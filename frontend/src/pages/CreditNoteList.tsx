@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -496,7 +496,7 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
 
     const payload: CreateCreditNoteRequest = {
       invoiceId: selectedInvoice.id,
-      customerId: selectedInvoice.customerId || selectedInvoice.customers?.id || '',
+      customerId: selectedInvoice.customerId || selectedInvoice.customer?.id || '',
       reason,
       remarks: remarks || undefined,
       items: lineItems.map((li) => ({
@@ -531,7 +531,7 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
                   <span className="font-mono font-medium text-sm">{selectedInvoice.invoiceNumber}</span>
                   <span className="mx-2 text-muted-foreground">-</span>
                   <span className="text-sm">
-                    {selectedInvoice.customers?.billingName || selectedInvoice.customers?.name || 'N/A'}
+                    {selectedInvoice.customer?.billingName || selectedInvoice.customer?.name || 'N/A'}
                   </span>
                 </div>
                 <Button
@@ -570,7 +570,7 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
                       >
                         <span className="font-mono">{inv.invoiceNumber}</span>
                         <span className="text-muted-foreground">
-                          {inv.customers?.billingName || inv.customers?.name || ''}
+                          {inv.customer?.billingName || inv.customer?.name || ''}
                         </span>
                       </button>
                     ))}

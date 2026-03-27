@@ -49,8 +49,6 @@ export default function LaceCostingRow({
   quantityPerGarment,
   wastagePercent,
   width,
-  orderQuantity: _orderQuantity,
-  styleId: _styleId,
   currentStrategy,
   currentCost,
   onStrategyChange,
@@ -85,9 +83,10 @@ export default function LaceCostingRow({
         costPerMeter: defaultCostPerMeter,
         readyLaceCost: defaultCostPerMeter,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error calculating lace cost:', err);
-      setError(err.response?.data?.error || 'Failed to calculate lace cost');
+      const error = err as { response?: { data?: { error?: string } } };
+      setError(error.response?.data?.error || 'Failed to calculate lace cost');
     } finally {
       setIsLoading(false);
     }

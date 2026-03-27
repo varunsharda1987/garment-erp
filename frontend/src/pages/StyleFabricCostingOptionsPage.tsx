@@ -43,7 +43,7 @@ export default function StyleFabricCostingOptionsPage() {
       try {
         const styleData = await styleService.getStyleById(styleId);
         setStyle(styleData);
-      } catch (error) {
+      } catch {
         notify.error('Failed to load style info');
       }
     };
@@ -72,7 +72,7 @@ export default function StyleFabricCostingOptionsPage() {
       } else {
         setComponents({});
       }
-    } catch (error) {
+    } catch {
       notify.error('Failed to load costing options');
     } finally {
       setIsLoading(false);
@@ -90,7 +90,7 @@ export default function StyleFabricCostingOptionsPage() {
       await fabricCostingService.approveCostingOption(optionId);
       notify.success('Option approved');
       fetchCostingOptions();
-    } catch (error) {
+    } catch {
       notify.error('Failed to approve option');
     } finally {
       setApprovingId(null);
@@ -104,7 +104,7 @@ export default function StyleFabricCostingOptionsPage() {
       await fabricCostingService.unapproveCostingOption(optionId);
       notify.success('Option unapproved');
       fetchCostingOptions();
-    } catch (error) {
+    } catch {
       notify.error('Failed to unapprove option');
     } finally {
       setUnapprovingId(null);
@@ -126,7 +126,7 @@ export default function StyleFabricCostingOptionsPage() {
       await fabricCostingService.deleteCostingOption(optionToDelete.id);
       notify.success('Option deleted');
       fetchCostingOptions();
-    } catch (error) {
+    } catch {
       notify.error('Failed to delete option');
     } finally {
       setDeletingId(null);
@@ -142,7 +142,7 @@ export default function StyleFabricCostingOptionsPage() {
       const label = targetPurpose === 'COSTING' ? 'Costing' : 'Production';
       notify.success(`Promoted to ${label}`);
       fetchCostingOptions();
-    } catch (error) {
+    } catch {
       notify.error('Failed to promote option');
     } finally {
       setPromotingId(null);

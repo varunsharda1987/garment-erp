@@ -38,6 +38,7 @@ import {
   Sparkles,
   AlertCircle,
 } from 'lucide-react';
+import { isAxiosError } from 'axios';
 import { cn } from '@/lib/utils';
 import { notify } from '@/lib/notify';
 import { cadPlanningService } from '@/services/cad-planning.service';
@@ -307,7 +308,7 @@ export function CADSpreadsheetTable({
   const [stockSelectionOpen, setStockSelectionOpen] = useState(false);
   const [selectedRowForStock, setSelectedRowForStock] = useState<string | null>(null);
   const [loadingStock, setLoadingStock] = useState(false);
-  const [availableStock, setAvailableStock] = useState<any[]>([]);
+  const [availableStock, setAvailableStock] = useState<FabricStockForCAD[]>([]);
   // Variance warning state
   const [varianceWarningOpen, setVarianceWarningOpen] = useState(false);
   const [pendingStockSelection, setPendingStockSelection] = useState<{
@@ -625,7 +626,11 @@ export function CADSpreadsheetTable({
   };
 
   // Handle field change with auto-populate logic for stock widths
-  const handleFieldChange = (rowId: string, field: keyof UpdateCADRowRequest, value: any) => {
+  const handleFieldChange = (
+    rowId: string,
+    field: keyof UpdateCADRowRequest,
+    value: UpdateCADRowRequest[keyof UpdateCADRowRequest]
+  ) => {
     setPendingChanges((prev) => {
       const newChanges = {
         ...prev,
@@ -726,15 +731,17 @@ export function CADSpreadsheetTable({
     try {
       await onUpdateRow(rowId, changes);
       setPendingChanges((prev) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [rowId]: _, ...rest } = prev;
         return rest;
       });
       setEditingRow(null);
       notify.success('CAD row updated successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle approval/locked errors with detailed message
-      if (error?.message && (error.message.includes('approved') || error.message.includes('locked'))) {
-        notify.error(error.message, { duration: 6000 });
+      const message = error instanceof Error ? error.message : '';
+      if (message && (message.includes('approved') || message.includes('locked'))) {
+        notify.error(message, { duration: 6000 });
       } else {
         notify.error('Failed to update CAD row');
       }
@@ -749,10 +756,11 @@ export function CADSpreadsheetTable({
     try {
       await onDeleteRow(rowId);
       notify.success('CAD row deleted');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle approval/locked errors with detailed message
-      if (error?.message && (error.message.includes('approved') || error.message.includes('locked'))) {
-        notify.error(error.message, { duration: 6000 });
+      const message = error instanceof Error ? error.message : '';
+      if (message && (message.includes('approved') || message.includes('locked'))) {
+        notify.error(message, { duration: 6000 });
       } else {
         notify.error('Failed to delete CAD row');
       }
@@ -790,8 +798,9 @@ export function CADSpreadsheetTable({
         embroideryId: embroideryFilter,
       });
       setProductionStockOptions(stock);
-    } catch (error: any) {
-      notify.error(`Failed to load stock: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      notify.error(`Failed to load stock: ${message}`);
       setProductionStockOptions([]);
     } finally {
       setLoadingProductionStock(false);
@@ -841,7 +850,7 @@ export function CADSpreadsheetTable({
       // Reset state
       resetAddRowDialogState();
       setAddRowDialogOpen(false);
-    } catch (error: any) {
+    } catch {
       notify.error('Failed to create CAD rows');
     } finally {
       setAddingRow(false);
@@ -894,8 +903,9 @@ export function CADSpreadsheetTable({
       // Reset state
       resetAddRowDialogState();
       setAddRowDialogOpen(false);
-    } catch (error: any) {
-      notify.error(error.message || 'Failed to create combined CAD row');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to create combined CAD row';
+      notify.error(message);
     } finally {
       setAddingRow(false);
     }
@@ -944,8 +954,9 @@ export function CADSpreadsheetTable({
         embroideryId: embroideryFilter,
       });
       setAvailableStock(stock);
-    } catch (error: any) {
-      notify.error(`Failed to load stock: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      notify.error(`Failed to load stock: ${message}`);
       setAvailableStock([]);
     } finally {
       setLoadingStock(false);
@@ -1021,8 +1032,9 @@ export function CADSpreadsheetTable({
       setSelectedRowForStock(null);
       setVarianceWarningOpen(false);
       setPendingStockSelection(null);
-    } catch (error: any) {
-      notify.error(`Failed to link stock: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      notify.error(`Failed to link stock: ${message}`);
     }
   };
 
@@ -1041,8 +1053,9 @@ export function CADSpreadsheetTable({
       notify.success('CAD approved successfully');
       // Trigger parent refresh
       window.location.reload(); // Simple approach - or use a callback prop
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to approve CAD');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
+      notify.error(msg || 'Failed to approve CAD');
     } finally {
       setApprovingRow(null);
     }
@@ -1064,8 +1077,9 @@ export function CADSpreadsheetTable({
       });
       notify.success('CAD rejected');
       window.location.reload();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to reject CAD');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
+      notify.error(msg || 'Failed to reject CAD');
     } finally {
       setRejectingRow(null);
     }
@@ -1082,8 +1096,9 @@ export function CADSpreadsheetTable({
       });
       notify.success(result.message || 'New version created successfully');
       window.location.reload();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to create version');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
+      notify.error(msg || 'Failed to create version');
     } finally {
       setCreatingVersion(null);
     }
@@ -1123,8 +1138,9 @@ export function CADSpreadsheetTable({
 
       // Reload to show new PENDING record
       window.location.reload();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to copy CAD');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
+      notify.error(msg || 'Failed to copy CAD');
     } finally {
       setCopyingRow(null);
     }
@@ -1790,6 +1806,7 @@ export function CADSpreadsheetTable({
                                     e.stopPropagation();
                                     setEditingRow(null);
                                     setPendingChanges((prev) => {
+                                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                       const { [row.id]: _, ...rest } = prev;
                                       return rest;
                                     });

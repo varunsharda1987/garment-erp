@@ -50,6 +50,9 @@ export interface FabricWithCAD {
   }>;
   quantityNeeded: number;
   fabricFinishType?: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null;
+  actualWidth?: number | null;
+  cutableWidth?: number | null;
+  allocatedPatternParts?: Array<{ id: string; code: string; name: string }>;
 }
 
 export interface PatternPartOption {

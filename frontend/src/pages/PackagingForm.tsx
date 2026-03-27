@@ -143,6 +143,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
       };
       fetchPackaging();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isNewPackaging, setValue]);
 
   // Supplier management functions

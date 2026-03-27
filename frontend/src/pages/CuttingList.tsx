@@ -88,6 +88,7 @@ export default function CuttingList() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter]);
 
   const handleSearch = () => {
@@ -106,6 +107,7 @@ export default function CuttingList() {
     if (activeTab === 'sizewise' && sizeSummary.length === 0) {
       fetchSizeSummary();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const handleStartBatch = async (id: string) => {

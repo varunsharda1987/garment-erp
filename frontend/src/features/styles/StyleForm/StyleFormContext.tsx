@@ -460,6 +460,7 @@ export function StyleFormProvider({
 // Hook
 // ============================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useStyleForm() {
   const context = useContext(StyleFormContext);
   if (!context) {

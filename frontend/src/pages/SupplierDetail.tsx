@@ -26,6 +26,7 @@ export default function SupplierDetail() {
     if (id) {
       fetchSupplierDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchSupplierDetails = async () => {

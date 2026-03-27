@@ -54,6 +54,7 @@ export default function EmbroideryAvailableStock() {
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, statusFilter, showOverdueOnly, sendOuts, embroideredStock, activeTab]);
 
   const loadData = async () => {

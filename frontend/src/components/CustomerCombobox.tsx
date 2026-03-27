@@ -25,6 +25,7 @@ export function CustomerCombobox({
   // Load initial customers (small set for immediate display)
   useEffect(() => {
     loadCustomers('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadCustomers = useCallback(async (search: string) => {
@@ -36,17 +37,19 @@ export function CustomerCombobox({
         search: search || undefined,
       });
 
-      const customerOptions: ComboboxOption[] = (response.data || []).map((customer: any) => ({
-        value: customer.id,
-        label: `${customer.code} - ${customer.name}`,
-        searchText: `${customer.code} ${customer.name} ${customer.brandNames || ''} ${customer.billingName || ''}`,
-      }));
+      const customerOptions: ComboboxOption[] = (response.data || []).map(
+        (customer: { id: string; code: string; name: string; brandNames?: string; billingName?: string }) => ({
+          value: customer.id,
+          label: `${customer.code} - ${customer.name}`,
+          searchText: `${customer.code} ${customer.name} ${customer.brandNames || ''} ${customer.billingName || ''}`,
+        })
+      );
 
       setCustomers(customerOptions);
       setInitialLoaded(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load customers:', error);
-      toast.error(error?.message || 'Failed to load customers');
+      toast.error(error instanceof Error ? error.message : 'Failed to load customers');
     } finally {
       setIsLoading(false);
     }

@@ -49,6 +49,7 @@ export default function SampleList() {
   useEffect(() => {
     fetchSamples();
     fetchSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, typeFilter, statusFilter]);
 
   const fetchSamples = async () => {

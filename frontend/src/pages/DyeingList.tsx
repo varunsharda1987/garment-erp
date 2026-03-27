@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { dyeingService } from '@/services/dyeing.service';
-import type { DyeLabDip, DyeingSummary, ProcessPO, ProcessPOStatus } from '@/types/dyeing.types';
+import type { DyeLabDip, DyeLabDipQueryParams, DyeingSummary, ProcessPO, ProcessPOStatus } from '@/types/dyeing.types';
 import {
   LabDipStatusLabels,
   LabDipStatusColors,
@@ -116,6 +116,7 @@ export default function DyeingList() {
       fetchProcessPOs();
     }
     fetchSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, currentPage, pageSize, searchQuery, statusFilter]);
 
   const fetchLabDips = async () => {
@@ -126,7 +127,7 @@ export default function DyeingList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
-        status: statusFilter !== 'all' ? (statusFilter as any) : undefined,
+        status: statusFilter !== 'all' ? (statusFilter as DyeLabDipQueryParams['status']) : undefined,
       });
       setLabDips(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -253,7 +254,7 @@ export default function DyeingList() {
     if (!selectedPOForReceive) return;
     setReceiveLoading(true);
     try {
-      const data: Record<string, any> = {
+      const data: Record<string, string | number> = {
         receivedWidthInches: parseFloat(receiveForm.receivedWidthInches),
         receivedDate: receiveForm.receivedDate,
       };

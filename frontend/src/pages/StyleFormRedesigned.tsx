@@ -21,15 +21,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { styleService } from '../services/style.service';
-import {
-  customerService,
-  type AccessoryPreset,
-  type AccessoryPresetItem as _AccessoryPresetItem,
-} from '../services/customer.service';
-import {
-  getAllPresetsForCustomer,
-  getDefaultPreset as _getDefaultPreset,
-} from '../services/customerSizePreset.service';
+import { customerService, type AccessoryPreset } from '../services/customer.service';
+import { getAllPresetsForCustomer } from '../services/customerSizePreset.service';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import { getAllComponentMasters, getCategories } from '../services/componentMaster.service';
 import { productCategoryService } from '../services/productCategory.service';
@@ -88,12 +81,14 @@ import {
   X,
 } from 'lucide-react';
 import { notify } from '../lib/notify';
+import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { cn, generateId } from '../lib/utils';
 import { getUploadUrl } from '../config/api.config';
 import api from '../lib/api';
+import { FABRIC_FINISH_TYPES, type FabricFinishType } from '../constants/fabric-finish-types';
 
 // Enums
-type FabricFinishType = 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW';
 type CADStatus = 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
 
 interface FabricEntry {
@@ -131,13 +126,6 @@ interface SKUVariant {
   barcode?: string;
   isActive: boolean;
 }
-
-const FABRIC_FINISH_TYPES: { value: FabricFinishType; label: string }[] = [
-  { value: 'DYED', label: 'Solid Dyed' },
-  { value: 'PRINTED', label: 'Printed' },
-  { value: 'YARN_DYED', label: 'Yarn Dyed (Checks/Stripes)' },
-  { value: 'RAW', label: 'Raw/Unfinished' },
-];
 
 // Inline component: search fabric_master and return a selected fabric
 interface FabricMasterSelectorProps {
@@ -269,6 +257,7 @@ export default function StyleFormRedesigned() {
   // Style status tracking (DRAFT/ACTIVE)
   const [styleStatus, setStyleStatus] = useState<string>('DRAFT');
   const [publishing, setPublishing] = useState(false);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -326,7 +315,7 @@ export default function StyleFormRedesigned() {
   // Component Masters
   const [componentMasters, setComponentMasters] = useState<ComponentMaster[]>([]);
   const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
-  const [_componentCategories, setComponentCategories] = useState<string[]>([]);
+  const [, setComponentCategories] = useState<string[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<Array<{ category: string; componentId: string }>>([]);
   const [openComponentPopovers, setOpenComponentPopovers] = useState<Record<number, boolean>>({});
   const [categoryComponentIds, setCategoryComponentIds] = useState<Set<string>>(new Set()); // Components allowed for selected category
@@ -340,6 +329,7 @@ export default function StyleFormRedesigned() {
       }
       setSelectedComponents(padded);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numberOfComponents, selectedComponents.length]);
 
   // Tab 2: Size & SKU
@@ -572,6 +562,7 @@ export default function StyleFormRedesigned() {
     // Allow auto-save after initial check
     const autoSaveTimer = setTimeout(() => setSkipAutoSave(false), 1000);
     return () => clearTimeout(autoSaveTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-save to localStorage (debounced)
@@ -599,6 +590,7 @@ export default function StyleFormRedesigned() {
     setIsFormDirty(true);
 
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     styleCode,
     styleName,
@@ -631,6 +623,7 @@ export default function StyleFormRedesigned() {
       // This handles the race condition where category was selected before components loaded
       updateProductCategoryId(selectedProductCategoryL1, selectedProductCategoryL2, selectedProductCategoryL3, false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [componentMasters.length]);
 
   // Load main product categories
@@ -786,6 +779,7 @@ export default function StyleFormRedesigned() {
     return () => {
       if (loadTimer) clearTimeout(loadTimer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, id, customers.length, componentMasters.length]);
 
   // Load customer brands when customer selected - MATCHES OLD STYLEFORM
@@ -833,6 +827,7 @@ export default function StyleFormRedesigned() {
         loadSizePresets(selectedCustomerId);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomerId, customers]);
 
   // Handler for when user manually changes customer - resets brand and category
@@ -881,6 +876,7 @@ export default function StyleFormRedesigned() {
         setBrandCategoryId('');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandName, selectedCustomerId, customers]);
 
   const loadCustomers = async () => {
@@ -1141,7 +1137,7 @@ export default function StyleFormRedesigned() {
               embroideryName: sf.embroidery?.designName || null,
               embroideryCode: sf.embroidery?.embroideryCode || null,
               // Pattern parts (read-only display)
-              patternParts: (sf as any).patternParts || [],
+              patternParts: (sf as typeof sf & { patternParts?: FabricEntry['patternParts'] }).patternParts || [],
             } as FabricEntry;
           })
         );
@@ -1151,8 +1147,7 @@ export default function StyleFormRedesigned() {
       // The backend includes specific material masters (laceMaster, buttonMaster, etc.)
       // We need to extract the name and code from the appropriate master based on materialType
       if (style.styleMaterialBom && style.styleMaterialBom.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const getMaterialDetails = (bom: any) => {
+        const getMaterialDetails = (bom: Record<string, unknown>) => {
           // Try to get details from specific material masters
           const masters = [
             { key: 'laceMaster', nameField: 'laceName', codeField: 'laceCode' },
@@ -1165,19 +1160,21 @@ export default function StyleFormRedesigned() {
           ];
 
           for (const master of masters) {
-            if (bom[master.key]) {
+            const masterObj = bom[master.key] as Record<string, string> | undefined;
+            if (masterObj) {
               return {
-                name: bom[master.key][master.nameField] || bom[master.key].name || '',
-                code: bom[master.key][master.codeField] || bom[master.key].code || '',
+                name: masterObj[master.nameField] || masterObj.name || '',
+                code: masterObj[master.codeField] || masterObj.code || '',
               };
             }
           }
 
           // Fallback to generic material if available
-          if (bom.material) {
+          const material = bom.material as { name?: string; code?: string } | undefined;
+          if (material) {
             return {
-              name: bom.material.name || '',
-              code: bom.material.code || '',
+              name: material.name || '',
+              code: material.code || '',
             };
           }
 
@@ -1190,16 +1187,16 @@ export default function StyleFormRedesigned() {
             (bom: { usageCategory?: string; materialType?: string }) =>
               bom.usageCategory === 'PACKAGING' || bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
           )
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((bom: any) => {
-            const materialDetails = getMaterialDetails(bom);
+          .map((bom) => {
+            const bomRecord = bom as unknown as Record<string, unknown>;
+            const materialDetails = getMaterialDetails(bomRecord);
             const masterId = bom.materialType === 'LABEL' ? bom.labelId || '' : bom.packagingId || '';
             return {
               accessoryType: (bom.materialType === 'LABEL' ? 'LABEL' : 'PACKAGING') as 'LABEL' | 'PACKAGING',
               masterId,
               masterCode: materialDetails.code,
               masterName: materialDetails.name,
-              subType: bom.labelType || bom.packagingType || null,
+              subType: (bomRecord.labelType as string) || (bomRecord.packagingType as string) || null,
             };
           });
 
@@ -1211,14 +1208,12 @@ export default function StyleFormRedesigned() {
           if (savedPreset?.items) {
             // Use material CODES for comparison (BOM uses packagingId, preset uses materialId - different ID systems)
             const bomMasterCodes = new Set(bomAccessories.map((a) => a.masterCode).filter(Boolean));
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const missingFromPreset: StyleAccessory[] = (savedPreset.items as any[])
+            const missingFromPreset: StyleAccessory[] = savedPreset.items
               .filter((item) => {
                 const code = item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || '';
                 return code && !bomMasterCodes.has(code);
               })
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .map((item: any) => ({
+              .map((item) => ({
                 accessoryType: (item.materialType === 'LABEL' ? 'LABEL' : 'PACKAGING') as 'LABEL' | 'PACKAGING',
                 masterId: item.materialType === 'LABEL' ? item.labelId || '' : item.materialId || '',
                 masterCode: item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || '',
@@ -1232,9 +1227,9 @@ export default function StyleFormRedesigned() {
 
             // Track BOM items that match preset items by CODE (not ID) for correct badge display
             // BOM uses packagingId, preset uses materialId - different ID systems, same masterCode
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
             const presetCodes = new Set(
-              (savedPreset.items as any[])
+              savedPreset.items
                 .map((item) =>
                   item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || ''
                 )
@@ -1264,11 +1259,16 @@ export default function StyleFormRedesigned() {
             (bom: { usageCategory?: string; materialType?: string }) =>
               bom.usageCategory === 'GARMENT_TRIM' && trimTypes.includes(bom.materialType || '')
           )
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((bom: any) => {
-            const materialDetails = getMaterialDetails(bom);
+          .map((bom) => {
+            const bomRecord = bom as unknown as Record<string, unknown>;
+            const materialDetails = getMaterialDetails(bomRecord);
             // Get the masterId from the appropriate FK field
-            const masterId = bom.buttonId || bom.threadId || bom.zipperId || bom.elasticId || bom.laceId || '';
+            const masterId = (bomRecord.buttonId ||
+              bomRecord.threadId ||
+              bomRecord.zipperId ||
+              bomRecord.elasticId ||
+              bomRecord.laceId ||
+              '') as string;
             return {
               trimType: bom.materialType as 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LACE',
               masterId: masterId,
@@ -1512,7 +1512,7 @@ export default function StyleFormRedesigned() {
     setNumberOfComponents(1);
     setSelectedComponents([
       {
-        category: (nightgownMaster as any).componentGroup?.code || 'FULL',
+        category: nightgownMaster.componentGroup?.code || 'FULL',
         componentId: nightgownMaster.id,
       },
     ]);
@@ -1527,7 +1527,7 @@ export default function StyleFormRedesigned() {
         fabricId: null,
         fabricCode: null,
         fabricName: null,
-        fabricFinishType: '' as any,
+        fabricFinishType: '' as FabricFinishType | '',
         hasEmbroidery: false,
         embroideryId: null,
         embroideryName: null,
@@ -1740,8 +1740,9 @@ export default function StyleFormRedesigned() {
     try {
       // Update the style to remove the image URL
       // imageUrl is accepted by the API but not in CreateStyleFormData type
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await styleService.updateStyle(id, { imageUrl: null } as any);
+      await styleService.updateStyle(id, { imageUrl: null } as unknown as Parameters<
+        typeof styleService.updateStyle
+      >[1]);
       setImageUrl('');
       notify.success('Image removed successfully');
     } catch (error: unknown) {
@@ -1755,16 +1756,21 @@ export default function StyleFormRedesigned() {
     await saveStyle(true);
   };
 
-  const handlePublish = async () => {
+  const handlePublishClick = () => {
     if (!effectiveId) return;
+    setPublishDialogOpen(true);
+  };
+
+  const confirmPublish = async () => {
+    if (!effectiveId) return;
+    setPublishDialogOpen(false);
     setPublishing(true);
     try {
       await styleService.publishDraft(effectiveId);
       setStyleStatus('ACTIVE');
-      notify.success('Style published successfully! It can now be used for orders.');
+      handleApiSuccess('Style published', 'Style published successfully! It can now be used for orders.');
     } catch (error: unknown) {
-      console.error('Publish error:', error);
-      notify.error('Failed to publish style');
+      handleApiError(error, 'Failed to publish style');
     } finally {
       setPublishing(false);
     }
@@ -2099,7 +2105,7 @@ export default function StyleFormRedesigned() {
           {isEditMode && styleStatus === 'DRAFT' && (
             <Button
               type="button"
-              onClick={handlePublish}
+              onClick={handlePublishClick}
               disabled={publishing || loading}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
             >
@@ -3370,7 +3376,7 @@ export default function StyleFormRedesigned() {
                 {isEditMode && styleStatus === 'DRAFT' && (
                   <Button
                     type="button"
-                    onClick={handlePublish}
+                    onClick={handlePublishClick}
                     disabled={publishing || loading}
                     className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
                   >
@@ -3398,6 +3404,18 @@ export default function StyleFormRedesigned() {
         currentEmbroideryId={
           embroideryPickerFabricId ? fabrics.find((f) => f.id === embroideryPickerFabricId)?.embroideryId : null
         }
+      />
+
+      {/* Publish Confirmation Dialog */}
+      <ConfirmDialog
+        open={publishDialogOpen}
+        onOpenChange={setPublishDialogOpen}
+        title="Publish Style"
+        description="Are you sure you want to publish this style? Once published, it will be available for orders and production planning. Make sure customer, brand, and fabrics are filled in."
+        confirmText={publishing ? 'Publishing...' : 'Publish'}
+        cancelText="Cancel"
+        onConfirm={confirmPublish}
+        variant="default"
       />
 
       {/* Restore Deleted Style Dialog */}

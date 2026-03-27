@@ -53,6 +53,7 @@ export default function VendorAllocationDialog({
     if (open && requirementIds.length > 0) {
       loadSuggestionsAndSuppliers();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, requirementIds]);
 
   const loadSuggestionsAndSuppliers = async () => {

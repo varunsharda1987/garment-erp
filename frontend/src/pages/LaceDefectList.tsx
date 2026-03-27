@@ -120,6 +120,7 @@ export default function LaceDefectList() {
 
   useEffect(() => {
     fetchDefects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, defectTypeFilter, claimStatusFilter, discoveredAtFilter]);
 
   const handleSearch = () => {
@@ -169,8 +170,9 @@ export default function LaceDefectList() {
       notify.success('Claim submitted successfully');
       setShowClaimModal(false);
       fetchDefects();
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to submit claim');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      notify.error(axiosErr.response?.data?.error || 'Failed to submit claim');
     } finally {
       setProcessing(false);
     }
@@ -184,8 +186,9 @@ export default function LaceDefectList() {
       });
       notify.success(`Status updated to ${CLAIM_STATUS_LABELS[newStatus]}`);
       fetchDefects();
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to update status');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      notify.error(axiosErr.response?.data?.error || 'Failed to update status');
     }
   };
 

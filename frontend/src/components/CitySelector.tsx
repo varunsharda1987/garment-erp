@@ -40,6 +40,7 @@ export default function CitySelector({
       setCities([]);
       onChange(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateId]);
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function CitySelector({
     } else if (stateId) {
       fetchCities();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   const fetchCities = async () => {

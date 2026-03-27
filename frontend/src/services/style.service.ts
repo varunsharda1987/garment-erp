@@ -198,6 +198,7 @@ export const styleService = {
    * Update production stage for a style
    * TODO: Backend endpoint not implemented yet - needs style_production_tracking logic
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   updateProductionStage: async (_id: string, _newStage: string, _pieces?: number, _notes?: string): Promise<void> => {
     // Temporarily disabled - backend endpoint needs to be implemented
     throw new Error('Production stage update not yet implemented. Please use Work Order stage transitions instead.');

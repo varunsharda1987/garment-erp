@@ -43,9 +43,11 @@ import type { StyleCostingStatus } from '../services/fabricCosting.service';
 import { getRunsByStyle, createRun, deleteRun, type CostingRun } from '../services/fabricCostingRun.service';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
+import { isAxiosError } from 'axios';
 import type {
   FabricCostingRow,
   FabricForCosting,
+  FabricWidthOption,
   ProcessorInfo,
   CostInputMode,
   TransportCostMode,
@@ -113,9 +115,9 @@ export default function FabricCostingPage() {
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [isLoadingStyles, setIsLoadingStyles] = useState(false);
   const [isLoadingFabrics, setIsLoadingFabrics] = useState(false);
-  const [_isLoadingProcessors, setIsLoadingProcessors] = useState(false);
+  const [, setIsLoadingProcessors] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [_approvingRowId, setApprovingRowId] = useState<string | null>(null);
+  const [, setApprovingRowId] = useState<string | null>(null);
   const [isRepeatOrder, setIsRepeatOrder] = useState(false); // Track if style is repeat order
   const [showStyleOptionsButton, setShowStyleOptionsButton] = useState(false); // Show "View Style Options" button after save
   const [styleCostingStatus, setStyleCostingStatus] = useState<Record<string, StyleCostingStatus>>({}); // Costing status for search results
@@ -139,7 +141,7 @@ export default function FabricCostingPage() {
       try {
         const response = await customerService.getAllCustomers({ page: 1, limit: 100 });
         setCustomers(response.data);
-      } catch (error) {
+      } catch {
         notify.error('Failed to load customers');
       } finally {
         setIsLoadingCustomers(false);
@@ -168,7 +170,7 @@ export default function FabricCostingPage() {
       try {
         const data = await fabricCostingService.getProcessors();
         setProcessors(data);
-      } catch (error) {
+      } catch {
         notify.error('Failed to load processors');
       } finally {
         setIsLoadingProcessors(false);
@@ -200,7 +202,7 @@ export default function FabricCostingPage() {
               }
             }
           }
-        } catch (error) {
+        } catch {
           notify.error('Failed to load preselected style. It may have been deleted.');
         }
       };
@@ -237,7 +239,7 @@ export default function FabricCostingPage() {
           const statusMap = await fabricCostingService.getStylesCostingStatus(styleIds);
           setStyleCostingStatus(statusMap);
         }
-      } catch (error) {
+      } catch {
         notify.error('Failed to search styles');
       } finally {
         setIsSearching(false);
@@ -315,7 +317,7 @@ export default function FabricCostingPage() {
           'ACTIVE'
         );
         setStyles(response.data);
-      } catch (error) {
+      } catch {
         notify.error('Failed to load styles');
       } finally {
         setIsLoadingStyles(false);
@@ -373,7 +375,7 @@ export default function FabricCostingPage() {
           if ((existingCosting && existingCosting.totalCostPerMeter != null) || fabric.totalCostPerMeter != null) {
             // Use existingCosting from widthOptions if available, otherwise use fabric directly
             // The redesigned backend returns costing data directly on fabric object
-            const cs = existingCosting || ({} as any); // Costing source from widthOptions
+            const cs = existingCosting || ({} as Partial<FabricWidthOption>); // Costing source from widthOptions
             return {
               id: fabric.id,
               styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
@@ -399,11 +401,11 @@ export default function FabricCostingPage() {
               readyFabricCost: fabric.readyFabricCost,
 
               // Cost input mode from saved data
-              costInputMode: ((cs.costInputMode || (fabric as any).costInputMode) as CostInputMode) || 'BUILD_UP',
+              costInputMode: ((cs.costInputMode || fabric.costInputMode) as CostInputMode) || 'BUILD_UP',
 
               // Landed price mode
               landedPricePerMeter:
-                (cs.costInputMode || (fabric as any).costInputMode) === 'LANDED_PRICE'
+                (cs.costInputMode || fabric.costInputMode) === 'LANDED_PRICE'
                   ? cs.totalCostPerMeter || fabric.totalCostPerMeter
                   : null,
 
@@ -453,7 +455,7 @@ export default function FabricCostingPage() {
               totalCostForQuantity: null,
 
               // Processing batch group (from saved data)
-              processingBatchGroupColorId: (fabric as any).processingBatchGroupColorId || null,
+              processingBatchGroupColorId: fabric.processingBatchGroupColorId || null,
               processingBatchGroupColorName: null, // Will be resolved from colorOptions
               batchRate: null,
               individualRate: null,
@@ -540,7 +542,7 @@ export default function FabricCostingPage() {
             totalCostForQuantity: null,
 
             // Processing batch group
-            processingBatchGroupColorId: (fabric as any).processingBatchGroupColorId || null,
+            processingBatchGroupColorId: fabric.processingBatchGroupColorId || null,
             processingBatchGroupColorName: null,
             batchRate: null,
             individualRate: null,
@@ -599,14 +601,15 @@ export default function FabricCostingPage() {
         }
 
         notify.success(`Loaded ${rowsWithTotals.length} fabrics from style`);
-      } catch (error) {
+      } catch {
         notify.error('Failed to load style fabrics');
       } finally {
         setIsLoadingFabrics(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedStyleId, fabricRows.length, purpose]
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // Validate if style has CAD data from CAD Planning
   const validateCADData = useCallback(async () => {
@@ -669,7 +672,7 @@ export default function FabricCostingPage() {
   const calculateRowTotals = useCallback(
     (row: FabricCostingRow): FabricCostingRow => {
       // Use row-level quantity if set, otherwise fall back to global orderQuantity
-      const rowQty = (row as any).rowQuantity || orderQuantity;
+      const rowQty = row.rowQuantity || orderQuantity;
       const totalQuantity = row.cadMeters * rowQty;
 
       // If landed price mode
@@ -734,6 +737,7 @@ export default function FabricCostingPage() {
     if (fabricRows.length > 0) {
       setFabricRows((rows) => rows.map((row) => calculateRowTotals(row)));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderQuantity, calculateRowTotals]);
 
   // Update a single row
@@ -763,7 +767,7 @@ export default function FabricCostingPage() {
     }
 
     // Use row-level quantity if set, otherwise fall back to global orderQuantity
-    const rowQty = (row as any).rowQuantity || orderQuantity;
+    const rowQty = row.rowQuantity || orderQuantity;
     const rowQuantityMeters = row.cadMeters * rowQty;
     if (rowQuantityMeters <= 0) {
       notify.warning('Order quantity must be greater than 0');
@@ -783,7 +787,7 @@ export default function FabricCostingPage() {
           r.processorId === row.processorId &&
           r.processingBatchGroupColorId === row.processingBatchGroupColorId
         ) {
-          const rQty = (r as any).rowQuantity || orderQuantity;
+          const rQty = r.rowQuantity || orderQuantity;
           return sum + r.cadMeters * rQty;
         }
         return sum;
@@ -848,7 +852,7 @@ export default function FabricCostingPage() {
               r.processingBatchGroupColorId === row.processingBatchGroupColorId
             ) {
               // Calculate this row's individual quantity for comparison
-              const otherRowQty = (r as any).rowQuantity || orderQuantity;
+              const otherRowQty = r.rowQuantity || orderQuantity;
               const otherRowMeters = r.cadMeters * otherRowQty;
 
               // Lookup individual rate for this row asynchronously
@@ -911,10 +915,13 @@ export default function FabricCostingPage() {
         });
         notify.warning('No rate found for this combination');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Extract error message and debug info from backend response
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to lookup rate';
-      // Debug info available in error.response?.data?.debug if needed
+      const errorMessage = isAxiosError(error)
+        ? ((error.response?.data as Record<string, unknown>)?.error as string) || error.message
+        : error instanceof Error
+          ? error.message
+          : 'Failed to lookup rate';
 
       updateRow(index, {
         isLoading: false,
@@ -947,7 +954,7 @@ export default function FabricCostingPage() {
         styleId: selectedStyleId,
         fabricCostings: rowsToSave.map((row) => {
           // Detect quantity change: if saved quantity exists and current quantity is different, clone instead of update
-          const currentQty = (row as any).rowQuantity ?? orderQuantity ?? 0;
+          const currentQty = row.rowQuantity ?? orderQuantity ?? 0;
           const savedQty = row.savedOrderQuantityPcs;
           const quantityChanged = savedQty != null && savedQty > 0 && currentQty !== savedQty && currentQty > 0;
 
@@ -979,7 +986,7 @@ export default function FabricCostingPage() {
             costInputMode: row.costInputMode,
             // Order quantity used for slab rate lookup (use row-level if set)
             // Use nullish coalescing (??) to preserve 0 as a valid value
-            orderQuantityPcs: (row as any).rowQuantity ?? orderQuantity ?? 0,
+            orderQuantityPcs: row.rowQuantity ?? orderQuantity ?? 0,
             // NOTE: cadMeters is CAD-owned - don't send it (managed by CAD Planning)
             // Workflow purpose mode
             purpose: purpose,
@@ -1010,8 +1017,11 @@ export default function FabricCostingPage() {
         // Show create run dialog
         setShowCreateRunDialog(true);
       }
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to save fabric costing');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error)
+        ? ((error.response?.data as Record<string, unknown>)?.error as string) || 'Failed to save fabric costing'
+        : 'Failed to save fabric costing';
+      notify.error(msg);
     } finally {
       setIsSaving(false);
     }
@@ -1029,8 +1039,11 @@ export default function FabricCostingPage() {
       // Refresh the runs list
       const runs = await getRunsByStyle(selectedStyleId, purpose);
       setExistingRuns(runs);
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to create costing run');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error)
+        ? ((error.response?.data as Record<string, unknown>)?.error as string) || 'Failed to create costing run'
+        : 'Failed to create costing run';
+      notify.error(msg);
     } finally {
       setIsCreatingRun(false);
     }
@@ -1045,15 +1058,18 @@ export default function FabricCostingPage() {
       // Refresh the runs list
       const runs = await getRunsByStyle(selectedStyleId, purpose);
       setExistingRuns(runs);
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to delete costing run');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error)
+        ? ((error.response?.data as Record<string, unknown>)?.error as string) || 'Failed to delete costing run'
+        : 'Failed to delete costing run';
+      notify.error(msg);
     } finally {
       setIsDeletingRun(null);
     }
   };
 
   // Approve a single row's costing option (temporarily disabled - can be re-enabled when needed)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const handleApproveRow = async (row: FabricCostingRow) => {
     if (!row.fabricWidthCadId) {
       notify.warning('Save the costing first before approving');
@@ -1064,8 +1080,11 @@ export default function FabricCostingPage() {
     try {
       await fabricCostingService.approveCostingOption(row.fabricWidthCadId);
       notify.success('Costing option approved');
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to approve');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error)
+        ? ((error.response?.data as Record<string, unknown>)?.error as string) || 'Failed to approve'
+        : 'Failed to approve';
+      notify.error(msg);
     } finally {
       setApprovingRowId(null);
     }
@@ -1199,7 +1218,7 @@ export default function FabricCostingPage() {
     rows.forEach((row) => {
       totalCadMeters += row.cadMeters || 0;
 
-      const qty = (row as any).rowQuantity || orderQuantity;
+      const qty = row.rowQuantity || orderQuantity;
       const fabricReq = row.cadMeters * qty;
       totalFabricReq += fabricReq;
 
@@ -1728,7 +1747,7 @@ export default function FabricCostingPage() {
                               return (
                                 <React.Fragment key={greigeKey}>
                                   {greigeGroup.rows.map((row) => {
-                                    const index = (row as any)._originalIndex;
+                                    const index = (row as FabricCostingRow & { _originalIndex: number })._originalIndex;
                                     return (
                                       <React.Fragment key={row.id}>
                                         <TableRow>
@@ -2299,7 +2318,7 @@ export default function FabricCostingPage() {
                         <React.Fragment key={groupKey}>
                           {/* Render rows in this group */}
                           {group.rows.map((row) => {
-                            const index = (row as any)._originalIndex;
+                            const index = (row as FabricCostingRow & { _originalIndex: number })._originalIndex;
                             return (
                               <React.Fragment key={row.id}>
                                 {/* Main Row */}
@@ -2418,11 +2437,11 @@ export default function FabricCostingPage() {
                                       type="number"
                                       min="1"
                                       className="w-20 text-center text-xs h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                      value={(row as any).rowQuantity || orderQuantity}
+                                      value={row.rowQuantity || orderQuantity}
                                       onChange={(e) =>
                                         updateRow(index, {
                                           rowQuantity: parseInt(e.target.value) || 1,
-                                        } as any)
+                                        })
                                       }
                                     />
                                   </TableCell>
@@ -2785,7 +2804,7 @@ export default function FabricCostingPage() {
                                   <TableCell className="px-1 text-center">
                                     {row.cadMeters > 0 ? (
                                       <span className="text-xs">
-                                        {(((row as any).rowQuantity || orderQuantity) * row.cadMeters).toLocaleString(
+                                        {((row.rowQuantity || orderQuantity) * row.cadMeters).toLocaleString(
                                           undefined,
                                           { maximumFractionDigits: 0 }
                                         )}
@@ -2799,7 +2818,7 @@ export default function FabricCostingPage() {
                                   <TableCell className="px-1 text-center">
                                     {row.cadMeters > 0 ? (
                                       (() => {
-                                        const qty = (row as any).rowQuantity || orderQuantity;
+                                        const qty = row.rowQuantity || orderQuantity;
                                         const fabricReq = row.cadMeters * qty;
                                         const shrinkage = row.shrinkagePercent || 0;
                                         const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;

@@ -38,6 +38,7 @@ export default function SizeCategoryList() {
 
   useEffect(() => {
     fetchSizeCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery]);
 
   const fetchSizeCategories = async () => {

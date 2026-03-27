@@ -60,6 +60,7 @@ export default function InvoiceList() {
 
   useEffect(() => {
     fetchInvoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter]);
 
   const fetchCustomers = async () => {

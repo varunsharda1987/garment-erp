@@ -51,13 +51,14 @@ export default function OtherMaterialList() {
   useEffect(() => {
     fetchMaterialItems();
     fetchStockCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery]);
 
   const fetchStockCount = async () => {
     try {
       const stockLevels = await stockLevelService.getByMaterialType('OTHER');
       setStockCount(stockLevels.length);
-    } catch (err) {
+    } catch {
       // Silently fail - stock count is not critical
       setStockCount(undefined);
     }

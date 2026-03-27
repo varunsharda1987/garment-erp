@@ -122,11 +122,11 @@ export interface LinkStockRequest {
  * @param error - The error from the API call
  * @throws Error with user-friendly message
  */
-function handleCADError(error: any): never {
-  if (error.response?.status === 403) {
+function handleCADError(error: unknown): never {
+  const err = error as { response?: { status?: number; data?: { message?: string } } };
+  if (err.response?.status === 403) {
     const message =
-      error.response.data?.message ||
-      'This CAD entry is locked and cannot be modified. Please contact an administrator.';
+      err.response.data?.message || 'This CAD entry is locked and cannot be modified. Please contact an administrator.';
     throw new Error(message);
   }
   throw error;

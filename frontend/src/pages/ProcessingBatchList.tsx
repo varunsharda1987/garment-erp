@@ -82,6 +82,7 @@ export default function ProcessingBatchList() {
 
   useEffect(() => {
     fetchBatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, materialTypeFilter]);
 
   const handleSearch = () => {

@@ -199,7 +199,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [isGlobalSearchMode, setIsGlobalSearchMode] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [_expandedCategories, setExpandedCategories] = useState<Record<TrimCategory, boolean>>({
+  const [, setExpandedCategories] = useState<Record<TrimCategory, boolean>>({
     FASTENERS_CLOSURES: true,
     THREADS_TAPES: false,
     DECORATIVE: false,
@@ -246,6 +246,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
     if (browseModalOpen) {
       loadAllTrims();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [browseModalOpen]);
 
   const loadAllTrims = async () => {
@@ -295,13 +296,16 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
           if (!config) return;
 
           const response = await genericTrimService.getAll(trimType, { limit: 100 });
-          const items: TrimItem[] = response.data.map((item: GenericTrimItem) => ({
-            id: item.id,
-            code: (item as any)[config.codeField],
-            name: (item as any)[config.nameField],
-            color: (item as any).color || null,
-            description: item.description,
-          }));
+          const items: TrimItem[] = response.data.map((item: GenericTrimItem) => {
+            const record = item as unknown as Record<string, unknown>;
+            return {
+              id: item.id,
+              code: String(record[config.codeField] ?? ''),
+              name: String(record[config.nameField] ?? ''),
+              color: typeof record.color === 'string' ? record.color : null,
+              description: item.description,
+            };
+          });
 
           // Convert snake_case API key to camelCase state key
           const stateKey = SNAKE_TO_CAMEL[trimType] || trimType;
@@ -469,6 +473,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
         item.code.toLowerCase().includes(query) ||
         item.color?.toLowerCase().includes(query)
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, searchQuery, buttons, threads, zippers, elastics, laces, genericTrims]);
 
   // Global search - search across ALL trim types

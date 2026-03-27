@@ -50,6 +50,7 @@ import {
   getDashboardStats as getServiceDashboardStats,
 } from '@/services/serviceRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
+import type { Supplier } from '@/types/supplier.types';
 import api from '@/lib/api';
 
 // Types
@@ -305,7 +306,6 @@ function MaterialRequirementsTab({
   // Convert to Greige Processing state
   const [convertGreigeDialogOpen, setConvertGreigeDialogOpen] = useState(false);
   const [convertingRequirement, setConvertingRequirement] = useState<MaterialRequirement | null>(null);
-  const [greigeSearch, setGreigeSearch] = useState('');
   const [greigeOptions, setGreigeOptions] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [selectedGreigeId, setSelectedGreigeId] = useState('');
   const [processorOptions, setProcessorOptions] = useState<Array<{ id: string; name: string; code: string }>>([]);
@@ -349,9 +349,10 @@ function MaterialRequirementsTab({
     staleTime: 5 * 60 * 1000,
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const requirements = requirementsResponse?.data || [];
   const pagination = requirementsResponse?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
-  const suppliers = (suppliersResponse as any)?.data || [];
+  const suppliers: Supplier[] = suppliersResponse?.data || [];
   const styleOptions = stylesForFilter || [];
 
   // Selection helpers
@@ -427,13 +428,19 @@ function MaterialRequirementsTab({
         api.get('/mrp/processing-assignment/processors'),
       ]);
       setGreigeOptions(
-        (greigeRes.data?.data || []).map((g: any) => ({
+        (greigeRes.data?.data || []).map((g: { id: string; genericName?: string; name?: string; code: string }) => ({
           id: g.id,
           name: g.genericName || g.name || g.code,
           code: g.code,
         }))
       );
-      setProcessorOptions((processorRes.data?.data || []).map((p: any) => ({ id: p.id, name: p.name, code: p.code })));
+      setProcessorOptions(
+        (processorRes.data?.data || []).map((p: { id: string; name: string; code: string }) => ({
+          id: p.id,
+          name: p.name,
+          code: p.code,
+        }))
+      );
     } catch {
       // Silently handle — user can still type IDs
     }
@@ -580,7 +587,7 @@ function MaterialRequirementsTab({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Suppliers</SelectItem>
-                {suppliers.map((s: any) => (
+                {suppliers.map((s: Supplier) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
                   </SelectItem>
@@ -820,7 +827,7 @@ function MaterialRequirementsTab({
                   <SelectValue placeholder="Select supplier" />
                 </SelectTrigger>
                 <SelectContent>
-                  {suppliers.map((s: any) => (
+                  {suppliers.map((s: Supplier) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
                     </SelectItem>
@@ -1058,7 +1065,7 @@ function OutsourcedWorkTab({
     () => getAllSuppliers({ limit: 100 }),
     { staleTime: 5 * 60 * 1000 }
   );
-  const suppliers = (suppliersResponse as any)?.data || [];
+  const suppliers: Supplier[] = suppliersResponse?.data || [];
 
   const isLoading =
     (sourceFilter !== 'service' && processingLoading) || (sourceFilter !== 'processing' && serviceLoading);
@@ -1090,8 +1097,8 @@ function OutsourcedWorkTab({
           statusLabel: MaterialRequirementStatusLabels[req.status] || req.status,
           isSelectable: req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK',
           createdAt: req.createdAt,
-          componentName: (req as any).componentName || null,
-          colorName: (req as any).colorName || null,
+          componentName: req.componentName || null,
+          colorName: req.colorName || null,
           fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
           originalProcessing: req,
         });
@@ -1106,7 +1113,7 @@ function OutsourcedWorkTab({
           id: req.id,
           rowKey: `svc-${req.id}`,
           source: 'SERVICE',
-          style: (req.workOrder as any)?.styles?.styleCode || (req.workOrder as any)?.styles?.styleName || '-',
+          style: req.workOrder?.styles?.styleCode || req.workOrder?.styles?.styleName || '-',
           workType: ServiceTypeLabels[req.serviceType] || req.serviceType,
           reference: req.workOrder?.workOrderNumber || '-',
           referenceLink: req.workOrderId ? `/work-orders/${req.workOrderId}` : undefined,
@@ -1383,7 +1390,7 @@ function OutsourcedWorkTab({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Processors</SelectItem>
-                {suppliers.map((p: any) => (
+                {suppliers.map((p: Supplier) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
                   </SelectItem>
@@ -1467,13 +1474,13 @@ function OutsourcedWorkTab({
                       <span className="text-sm font-medium">{row.style}</span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{(row as any).componentName || '-'}</span>
+                      <span className="text-sm">{row.componentName || '-'}</span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{(row as any).colorName || '-'}</span>
+                      <span className="text-sm">{row.colorName || '-'}</span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{(row as any).fabricWidth ? `${(row as any).fabricWidth}"` : '-'}</span>
+                      <span className="text-sm">{row.fabricWidth ? `${row.fabricWidth}"` : '-'}</span>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-medium">{row.workType}</span>
@@ -1583,7 +1590,7 @@ function OutsourcedWorkTab({
                   <SelectValue placeholder="Select supplier" />
                 </SelectTrigger>
                 <SelectContent>
-                  {suppliers.map((s: any) => (
+                  {suppliers.map((s: Supplier) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
                     </SelectItem>
@@ -1657,7 +1664,7 @@ function OutsourcedWorkTab({
                   <SelectValue placeholder="Select processor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {suppliers.map((p: any) => (
+                  {suppliers.map((p: Supplier) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
                     </SelectItem>

@@ -25,6 +25,7 @@ export default function MaterialDetail() {
     if (id) {
       fetchMaterialDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchMaterialDetails = async () => {

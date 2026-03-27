@@ -48,6 +48,7 @@ export default function FabricDetail() {
     if (id) {
       fetchFabricDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Update document title when fabric data is loaded
@@ -189,12 +190,20 @@ export default function FabricDetail() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to List
           </Button>
-          <Link to={`/fabric-stock-entry?fabricId=${id}`}>
-            <Button variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Stock
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const styleAllocation = allocations?.[0];
+              if (styleAllocation?.component?.style?.id) {
+                navigate(`/styles/${styleAllocation.component.style.id}/stock-entry`);
+              } else {
+                navigate(`/fabric-stock-entry?fabricId=${id}`);
+              }
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Stock
+          </Button>
           <Button variant="outline" onClick={() => navigate(`/fabric/${id}/edit`)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit

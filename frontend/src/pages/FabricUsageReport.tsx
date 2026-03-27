@@ -42,6 +42,7 @@ export default function FabricUsageReport() {
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterByStyle, fabrics]);
 
   const loadFabrics = async () => {

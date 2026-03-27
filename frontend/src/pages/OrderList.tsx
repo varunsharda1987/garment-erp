@@ -70,6 +70,7 @@ export default function OrderList() {
 
   useEffect(() => {
     fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter, priorityFilter]);
 
   const fetchCustomers = async () => {

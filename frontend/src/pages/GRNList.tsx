@@ -56,6 +56,7 @@ export default function GRNList() {
 
   useEffect(() => {
     fetchGRNs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, supplierFilter, statusFilter]);
 
   const fetchSuppliers = async () => {

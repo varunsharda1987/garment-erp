@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
-import type { CuttingChartData, CreateCuttingBatchRequest } from '@/types/cutting.types';
+import type { CuttingChartData, CuttingChartFabric, CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getUploadUrl } from '@/config/api.config';
 import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon } from 'lucide-react';
@@ -66,6 +66,7 @@ export default function CuttingChart() {
     } else {
       setChartData(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWorkOrderId, selectedColorId]);
 
   const loadChartData = async () => {
@@ -96,7 +97,7 @@ export default function CuttingChart() {
   // Check if all fabrics have PRODUCTION CAD (width + average)
   const fabricsMissingCAD = useMemo(() => {
     if (!chartData?.fabrics) return [];
-    return chartData.fabrics.filter((f: any) => !f.productionAverage || !f.productionWidth);
+    return chartData.fabrics.filter((f) => !f.productionAverage || !f.productionWidth);
   }, [chartData]);
   const hasProductionCAD = fabricsMissingCAD.length === 0;
 
@@ -104,13 +105,13 @@ export default function CuttingChart() {
   const handleCreateBatch = async () => {
     if (!chartData) return;
 
-    const fabricsWithLots = chartData.fabrics.filter((f: any) => f.lots.length > 0);
-    const getFabricKey = (f: any) => f.fabricId || f.part;
+    const fabricsWithLots = chartData.fabrics.filter((f) => f.lots.length > 0);
+    const getFabricKey = (f: CuttingChartFabric) => f.fabricId || f.part;
 
     // Validate all fabrics with lots have a selection
-    const missing = fabricsWithLots.filter((f: any) => !selectedLots[getFabricKey(f)]);
+    const missing = fabricsWithLots.filter((f) => !selectedLots[getFabricKey(f)]);
     if (fabricsWithLots.length > 0 && missing.length > 0) {
-      handleApiError(null, `Please select a lot for: ${missing.map((f: any) => f.part).join(', ')}`);
+      handleApiError(null, `Please select a lot for: ${missing.map((f) => f.part).join(', ')}`);
       return;
     }
     if (fabricsWithLots.length === 0) {
@@ -127,7 +128,7 @@ export default function CuttingChart() {
       // Primary fabric (first one) drives the main batch fields
       const primaryFabric = fabricsWithLots[0];
       const primaryLotId = selectedLots[getFabricKey(primaryFabric)];
-      const primaryLot = primaryFabric.lots.find((l: any) => l.lotId === primaryLotId);
+      const primaryLot = primaryFabric.lots.find((l) => l.lotId === primaryLotId);
       const primaryCadAvg =
         primaryFabric.productionAverage || primaryFabric.rawMatCalcAverage || primaryFabric.costingAverage || 0;
       const primaryCadWidth =
@@ -150,9 +151,9 @@ export default function CuttingChart() {
             plannedQty: s.cutQty,
           })),
         // All fabrics (including primary) stored in junction table
-        fabricStocks: fabricsWithLots.map((fabric: any) => {
+        fabricStocks: fabricsWithLots.map((fabric) => {
           const lotId = selectedLots[getFabricKey(fabric)];
-          const lot = fabric.lots.find((l: any) => l.lotId === lotId);
+          const lot = fabric.lots.find((l) => l.lotId === lotId);
           return {
             fabricStockId: lotId,
             cadAvgUsed: fabric.productionAverage || fabric.rawMatCalcAverage || fabric.costingAverage || 0,
@@ -182,8 +183,6 @@ export default function CuttingChart() {
     });
     return `/api/documents/cutting-chart/${chartData.workOrderId}/pdf?${params}`;
   }, [chartData, selectedColorId, extraPercent]);
-
-  const selectedWO = availableWorkOrders.find((wo) => wo.id === selectedWorkOrderId);
 
   if (isLoading && !chartData) {
     return (
@@ -219,8 +218,8 @@ export default function CuttingChart() {
           )}
           {chartData && !hasProductionCAD && (
             <span className="text-xs text-red-600 max-w-[300px] text-right">
-              Production CAD missing for: {fabricsMissingCAD.map((f: any) => f.part || f.fabricName).join(', ')}.
-              Complete PRODUCTION CAD planning first.
+              Production CAD missing for: {fabricsMissingCAD.map((f) => f.part || f.fabricName).join(', ')}. Complete
+              PRODUCTION CAD planning first.
             </span>
           )}
           {chartData && (
@@ -562,12 +561,12 @@ export default function CuttingChart() {
               </CardHeader>
               <CardContent>
                 {chartData.fabrics
-                  .filter((f: any) => f.lots.length > 0)
-                  .map((fabric: any, fIdx: number) => {
+                  .filter((f) => f.lots.length > 0)
+                  .map((fabric, fIdx) => {
                     const fabricKey = fabric.fabricId || fabric.part;
                     return (
                       <div key={fIdx} className={fIdx > 0 ? 'mt-6' : ''}>
-                        {chartData.fabrics.filter((f: any) => f.lots.length > 0).length > 1 && (
+                        {chartData.fabrics.filter((f) => f.lots.length > 0).length > 1 && (
                           <>
                             <p className="text-sm font-semibold text-gray-700 mb-2">
                               {fabric.part} — {fabric.fabricName}
@@ -591,7 +590,7 @@ export default function CuttingChart() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {fabric.lots.map((lot: any) => (
+                              {fabric.lots.map((lot) => (
                                 <TableRow
                                   key={lot.lotId}
                                   className={`cursor-pointer ${selectedLots[fabricKey] === lot.lotId ? 'bg-orange-50' : ''}`}

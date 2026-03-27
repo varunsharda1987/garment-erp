@@ -52,6 +52,7 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load initial styles

@@ -129,8 +129,9 @@ export default function TCSList() {
       toast.success('TCS entry recorded successfully');
       closeDialog();
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create TCS entry');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to create TCS entry');
     },
   });
 
@@ -140,8 +141,9 @@ export default function TCSList() {
       queryClient.invalidateQueries({ queryKey: ['tcs-entries'] });
       toast.success('TCS status updated');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to update status');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to update status');
     },
   });
 
@@ -153,8 +155,9 @@ export default function TCSList() {
       setDeleteDialogOpen(false);
       setEntryToDelete(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to delete TCS entry');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to delete TCS entry');
     },
   });
 
@@ -225,6 +228,7 @@ export default function TCSList() {
 
   // ---------- Computed ----------
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const entries = data?.data || [];
   const pagination = data?.pagination;
 

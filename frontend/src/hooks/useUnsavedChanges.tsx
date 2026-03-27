@@ -90,6 +90,7 @@ export function useUnsavedChanges(options: UseUnsavedChangesOptions = {}) {
       setShowDialog(true);
       setPendingNavigation(() => () => blocker.proceed());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocker.state]);
 
   const handleDiscard = useCallback(() => {

@@ -58,7 +58,7 @@ export const getOrderStatusSummary = async (): Promise<OrderStatusSummary> => {
 /**
  * Select CAD width for an order item
  */
-export const selectCadForOrder = async (orderItemId: string, data: SelectCadRequest): Promise<any> => {
+export const selectCadForOrder = async (orderItemId: string, data: SelectCadRequest): Promise<unknown> => {
   const response = await api.patch(`${ORDER_ITEMS_URL}/${orderItemId}/select-cad`, data);
   return response.data;
 };
@@ -66,7 +66,7 @@ export const selectCadForOrder = async (orderItemId: string, data: SelectCadRequ
 /**
  * Update inheritance settings for an order item
  */
-export const updateInheritance = async (orderItemId: string, data: UpdateInheritanceRequest): Promise<any> => {
+export const updateInheritance = async (orderItemId: string, data: UpdateInheritanceRequest): Promise<unknown> => {
   const response = await api.patch(`${ORDER_ITEMS_URL}/${orderItemId}/inheritance`, data);
   return response.data;
 };
@@ -74,7 +74,7 @@ export const updateInheritance = async (orderItemId: string, data: UpdateInherit
 /**
  * Get order item costing
  */
-export const getOrderItemCosting = async (orderItemId: string): Promise<any> => {
+export const getOrderItemCosting = async (orderItemId: string): Promise<unknown> => {
   const response = await api.get(`${ORDER_ITEMS_URL}/${orderItemId}/costing`);
   return response.data;
 };

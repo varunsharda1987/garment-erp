@@ -27,6 +27,7 @@ export function SupplierCombobox({
   // Load initial suppliers
   useEffect(() => {
     loadSuppliers('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryFilter]);
 
   const loadSuppliers = useCallback(
@@ -40,17 +41,17 @@ export function SupplierCombobox({
           category: categoryFilter || undefined,
         });
 
-        const supplierOptions: ComboboxOption[] = (response.data || []).map((supplier: any) => ({
+        const supplierOptions: ComboboxOption[] = (response.data || []).map((supplier) => ({
           value: supplier.id,
           label: `${supplier.code} - ${supplier.name}`,
-          searchText: `${supplier.code} ${supplier.name} ${supplier.contactPersonName || ''} ${supplier.supplierCategories?.map((c: any) => c.category).join(' ') || ''}`,
+          searchText: `${supplier.code} ${supplier.name} ${supplier.contactPerson || ''} ${Array.isArray(supplier.supplierCategories) ? supplier.supplierCategories.map((c) => (typeof c === 'string' ? c : String(c))).join(' ') : ''}`,
         }));
 
         setSuppliers(supplierOptions);
         setInitialLoaded(true);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Failed to load suppliers:', error);
-        toast.error(error?.message || 'Failed to load suppliers');
+        toast.error(error instanceof Error ? error.message : 'Failed to load suppliers');
       } finally {
         setIsLoading(false);
       }

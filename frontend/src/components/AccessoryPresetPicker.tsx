@@ -86,6 +86,7 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
     if (isOpen) {
       loadAllItems();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, customerId]);
 
   // Reset state when modal closes
@@ -171,6 +172,7 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
         item.subType?.toLowerCase().includes(query) ||
         item.brandName?.toLowerCase().includes(query)
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, searchQuery, labels, packaging]);
 
   // Check if item is selected

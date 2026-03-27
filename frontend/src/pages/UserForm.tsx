@@ -85,7 +85,7 @@ export default function UserForm({ mode }: UserFormProps) {
       navigate('/users', { replace: true });
       // Force reload by navigating away and back
       window.location.href = '/users';
-    } catch (error) {
+    } catch {
       setSubmitError('Failed to save');
     } finally {
       setLoading(false);

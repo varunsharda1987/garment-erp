@@ -123,7 +123,7 @@ export const cuttingBatchService = {
   // Issue to Stitching
   // ============================================
 
-  issueToStitching: async (batchId: string, data: IssueToStitchingRequest): Promise<any> => {
+  issueToStitching: async (batchId: string, data: IssueToStitchingRequest): Promise<unknown> => {
     const response = await api.post(`${BASE_URL}/batches/${batchId}/issue-to-stitching`, data);
     return response.data.data;
   },

@@ -99,6 +99,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
     if (isOpen) {
       loadMaterials();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, searchQuery, isOpen]);
 
   // Reset form when dialog opens

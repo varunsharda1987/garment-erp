@@ -233,8 +233,9 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   styleFabrics: 'fabrics',
   stylePatternParts: 'patternParts',
   styleAccessories: 'accessories',
-  colorOptions: 'colors',
-  sizeOptions: 'sizes',
+  // colorOptions and sizeOptions: removed from mappings — frontend uses these names directly
+  // colorOptions: 'colors',  // 24+ frontend files use colorOptions
+  // sizeOptions: 'sizes',    // 13+ frontend files use sizeOptions
   styleVariants: 'styleVariants',
   styleMaterialBom: 'styleMaterialBom',
   seasonMaster: 'seasonMaster', // Season master reference (styles.seasonId -> season_master)

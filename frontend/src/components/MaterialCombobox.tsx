@@ -26,11 +26,6 @@ export function MaterialCombobox({
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
 
-  // Load initial materials
-  useEffect(() => {
-    loadMaterials('');
-  }, [categoryFilter, supplierId]);
-
   const loadMaterials = useCallback(
     async (search: string) => {
       try {
@@ -42,23 +37,31 @@ export function MaterialCombobox({
           supplierId: supplierId || undefined,
         });
 
-        const materialOptions: ComboboxOption[] = (response.data || []).map((material: any) => ({
-          value: material.id,
-          label: `${material.code} - ${material.name}`,
-          searchText: `${material.code} ${material.name} ${material.category || ''} ${material.description || ''}`,
-        }));
+        const materialOptions: ComboboxOption[] = (response.data || []).map(
+          (material: { id: string; code: string; name: string; category?: string; description?: string }) => ({
+            value: material.id,
+            label: `${material.code} - ${material.name}`,
+            searchText: `${material.code} ${material.name} ${material.category || ''} ${material.description || ''}`,
+          })
+        );
 
         setMaterials(materialOptions);
         setInitialLoaded(true);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Failed to load materials:', error);
-        toast.error(error?.message || 'Failed to load materials');
+        toast.error(error instanceof Error ? error.message : 'Failed to load materials');
       } finally {
         setIsLoading(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [categoryFilter, supplierId]
   );
+
+  // Load initial materials
+  useEffect(() => {
+    loadMaterials('');
+  }, [loadMaterials]);
 
   return (
     <Combobox

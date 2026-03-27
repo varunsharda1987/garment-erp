@@ -82,6 +82,7 @@ export default function FabricAvailableStock() {
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, showAgedOnly, qualityFilter, warehouseFilter, fabricStock]);
 
   const loadFabricStock = async () => {

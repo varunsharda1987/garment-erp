@@ -73,7 +73,7 @@ export const componentGroupService = {
   /**
    * Get components in a specific group
    */
-  async getComponents(id: string, isActive?: boolean): Promise<any[]> {
+  async getComponents(id: string, isActive?: boolean): Promise<unknown[]> {
     const response = await api.get(`${BASE_URL}/${id}/components`, {
       params: { isActive },
     });

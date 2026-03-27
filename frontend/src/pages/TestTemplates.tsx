@@ -22,6 +22,7 @@ export default function TestTemplates() {
 
   useEffect(() => {
     fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search, templateType]);
 
   const fetchTemplates = async () => {

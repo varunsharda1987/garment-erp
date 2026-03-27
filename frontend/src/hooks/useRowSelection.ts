@@ -61,10 +61,10 @@ export interface UseRowSelectionReturn {
   /** Number of selected rows */
   selectionCount: number;
   /** Get selected items from data array */
-  getSelectedItems: <T extends Record<string, any>>(data: T[], idKey?: keyof T) => T[];
+  getSelectedItems: <T extends Record<string, unknown>>(data: T[], idKey?: keyof T) => T[];
 }
 
-export function useRowSelection<T extends Record<string, any>>(
+export function useRowSelection<T extends Record<string, unknown>>(
   data: T[],
   options: UseRowSelectionOptions<T> = {}
 ): UseRowSelectionReturn {
@@ -105,7 +105,7 @@ export function useRowSelection<T extends Record<string, any>>(
 
   // Toggle selection of all rows
   const toggleAll = useCallback(() => {
-    setSelectedIds((_prev) => {
+    setSelectedIds(() => {
       // If all are selected, deselect all
       // Otherwise, select all
       const newSelection = isAllSelected ? [] : [...allIds];
@@ -131,7 +131,7 @@ export function useRowSelection<T extends Record<string, any>>(
 
   // Get selected items from data array
   const getSelectedItems = useCallback(
-    <U extends Record<string, any>>(dataArray: U[], key: keyof U = idKey as unknown as keyof U): U[] => {
+    <U extends Record<string, unknown>>(dataArray: U[], key: keyof U = idKey as unknown as keyof U): U[] => {
       return dataArray.filter((item) => selectedIds.includes(item[key] as string | number));
     },
     [selectedIds, idKey]

@@ -63,7 +63,7 @@ export default function OverrideHistory() {
         100 // Load last 100 overrides
       );
       setOverrides(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load override history:', error);
       toast.error('Failed to load override history');
     } finally {

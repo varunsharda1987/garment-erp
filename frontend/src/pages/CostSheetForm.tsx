@@ -54,8 +54,8 @@ const CostSheetForm = () => {
   const [styles, setStyles] = useState<Style[]>([]);
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
-  const [_fabricWidthComparisons, setFabricWidthComparisons] = useState<Map<string, any>>(new Map());
-  const [fabricCostResults, _setFabricCostResults] = useState<FabricCostCalculationResult[]>([]);
+  const [, setFabricWidthComparisons] = useState<Map<string, unknown>>(new Map());
+  const [fabricCostResults] = useState<FabricCostCalculationResult[]>([]);
   // Costing mode selector - determines which fabric costing data to pull
   const [costingMode, setCostingMode] = useState<'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'>('COSTING');
 
@@ -135,7 +135,7 @@ const CostSheetForm = () => {
       try {
         const response = await customerService.getAllCustomers({ page: 1, limit: 100 });
         setCustomers(response.data);
-      } catch (error: unknown) {
+      } catch {
         notify.error('Failed to load customers');
       }
     };
@@ -430,6 +430,7 @@ const CostSheetForm = () => {
       }
     };
     loadCostSheet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode, initialDataLoaded, navigate]);
 
   // Set customer in edit mode once customers and selectedStyle are loaded
@@ -484,6 +485,7 @@ const CostSheetForm = () => {
     };
 
     loadPreselectedStyle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedStyleId, isEditMode, customers.length]);
 
   // Set pending styleId once styles are loaded
@@ -536,6 +538,7 @@ const CostSheetForm = () => {
       }
     };
     fetchStyles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomerId, customers]);
 
   // Fetch costing runs when style and costingMode are selected
@@ -624,7 +627,7 @@ const CostSheetForm = () => {
           // Auto-populate fabric details from style components
           if (styleDetails.components && styleDetails.components.length > 0) {
             const fabricDetailsFromStyle: FabricDetail[] = [];
-            const widthComparisonsMap = new Map<string, any>();
+            const widthComparisonsMap = new Map<string, unknown>();
 
             // First, fetch approved fabric costing for this style (filtered by selected mode)
             let costingOptions: Record<string, CostingOption[]> = {};
@@ -1151,6 +1154,7 @@ const CostSheetForm = () => {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStyleId, isEditMode, costingMode]); // Re-fetch when costingMode changes
 
   // Fetch budget suggestions from style data

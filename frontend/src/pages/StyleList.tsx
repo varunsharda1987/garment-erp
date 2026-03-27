@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { styleService, type DeactivationCheck } from '@/services/style.service';
 import type { Style } from '@/types/style.types';
@@ -22,7 +22,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { CADStatusBadge } from '@/components/cad/CADStatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
-import { Shirt, Archive, RotateCcw, Trash2, AlertTriangle, FileEdit } from 'lucide-react';
+import { Shirt, Archive, RotateCcw, Trash2, AlertTriangle, FileEdit, Send } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 
 // Local type definition to avoid import issues
@@ -93,6 +93,11 @@ export default function StyleList() {
   const [deactivationCheck, setDeactivationCheck] = useState<DeactivationCheck | null>(null);
   const [checkingDeactivation, setCheckingDeactivation] = useState(false);
 
+  // Publish dialog state
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [styleToPublish, setStyleToPublish] = useState<{ id: string; styleCode: string } | null>(null);
+  const [publishing, setPublishing] = useState(false);
+
   // Permission checks
   const canCreateEdit = currentUser?.role === 'ADMIN' || currentUser?.role === 'MERCHANDISER';
   const isAdmin = currentUser?.role === 'ADMIN';
@@ -102,12 +107,7 @@ export default function StyleList() {
     setCurrentPage(1);
   }, [location.pathname, stageFilter]);
 
-  // ✅ FIX: Add location.key to refetch when navigating back (e.g., after CAD changes)
-  useEffect(() => {
-    fetchStyles();
-  }, [currentPage, pageSize, searchQuery, stageFilter, location.key]);
-
-  const fetchStyles = async () => {
+  const fetchStyles = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -129,7 +129,12 @@ export default function StyleList() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentPage, pageSize, searchQuery, stageFilter]);
+
+  // ✅ FIX: Add location.key to refetch when navigating back (e.g., after CAD changes)
+  useEffect(() => {
+    fetchStyles();
+  }, [fetchStyles, location.key]);
 
   const handleDeleteClick = async (id: string, styleCode: string) => {
     setStyleToDelete({ id, styleCode });
@@ -169,8 +174,34 @@ export default function StyleList() {
     }
   };
 
+  const handlePublishClick = (id: string, styleCode: string) => {
+    setStyleToPublish({ id, styleCode });
+    setPublishDialogOpen(true);
+  };
+
+  const confirmPublish = async () => {
+    if (!styleToPublish) return;
+
+    setPublishing(true);
+    try {
+      await styleService.publishDraft(styleToPublish.id);
+      handleApiSuccess(
+        'Style published',
+        `Style ${styleToPublish.styleCode} has been published and is now available for orders.`
+      );
+      fetchStyles();
+      fetchDraftStyles();
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to publish style');
+    } finally {
+      setPublishing(false);
+      setStyleToPublish(null);
+      setPublishDialogOpen(false);
+    }
+  };
+
   // Fetch deleted styles
-  const fetchDeletedStyles = async () => {
+  const fetchDeletedStyles = useCallback(async () => {
     try {
       setIsLoadingDeleted(true);
       setErrorDeleted(null);
@@ -188,10 +219,10 @@ export default function StyleList() {
     } finally {
       setIsLoadingDeleted(false);
     }
-  };
+  }, [deletedCurrentPage, pageSize, deletedSearchQuery]);
 
   // Fetch draft styles
-  const fetchDraftStyles = async () => {
+  const fetchDraftStyles = useCallback(async () => {
     try {
       setIsLoadingDrafts(true);
       setErrorDrafts(null);
@@ -213,19 +244,19 @@ export default function StyleList() {
     } finally {
       setIsLoadingDrafts(false);
     }
-  };
+  }, [draftCurrentPage, pageSize, draftSearchQuery]);
 
   // Fetch draft count on mount, and full data when tab is active
   useEffect(() => {
     fetchDraftStyles();
-  }, [draftCurrentPage, pageSize, draftSearchQuery]);
+  }, [fetchDraftStyles]);
 
   // Load deleted styles when tab changes or pagination/search changes
   useEffect(() => {
     if (activeTab === 'deleted') {
       fetchDeletedStyles();
     }
-  }, [activeTab, deletedCurrentPage, pageSize, deletedSearchQuery]);
+  }, [activeTab, fetchDeletedStyles]);
 
   // Handle restore click
   const handleRestoreClick = (id: string, styleCode: string) => {
@@ -298,7 +329,7 @@ export default function StyleList() {
 
   // Helper function to get cost
   const getCost = (style: Style): string => {
-    const cost = style.costPerPiece || style.styleCosting?.totalCostPerPiece || style.costing?.totalCostPerPiece;
+    const cost = style.costPerPiece || style.costing?.totalCostPerPiece;
     if (!cost) return '-';
     return `₹${cost.toFixed(2)}`;
   };
@@ -388,7 +419,12 @@ export default function StyleList() {
     {
       key: 'cadStatus',
       header: 'CAD Status',
-      render: (style) => <CADStatusBadge status={(style as any).effectiveCadStatus || style.cadStatus} size="sm" />,
+      render: (style) => (
+        <CADStatusBadge
+          status={(style as Style & { effectiveCadStatus?: string }).effectiveCadStatus || style.cadStatus}
+          size="sm"
+        />
+      ),
     },
     {
       key: 'cost',
@@ -422,6 +458,70 @@ export default function StyleList() {
               }}
             >
               Edit
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={checkingDeactivation}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteClick(style.id, style.styleCode);
+              }}
+            >
+              {checkingDeactivation && styleToDelete?.id === style.id ? 'Checking...' : 'Archive'}
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  // Define columns for Drafts DataTable (adds Publish button)
+  const draftColumns: Column<Style>[] = [
+    ...columns.slice(0, -1),
+    {
+      key: 'actions',
+      header: 'Actions',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (style) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/styles/${style.id}`);
+            }}
+          >
+            View
+          </Button>
+          {canCreateEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/styles/${style.id}/edit`);
+              }}
+            >
+              Edit
+            </Button>
+          )}
+          {canCreateEdit && (
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePublishClick(style.id, style.styleCode);
+              }}
+              disabled={publishing}
+              className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Send className="h-3 w-3" />
+              Publish
             </Button>
           )}
           {isAdmin && (
@@ -684,7 +784,7 @@ export default function StyleList() {
               {/* Drafts DataTable */}
               <DataTable
                 data={draftStyles}
-                columns={columns}
+                columns={draftColumns}
                 keyExtractor={(style) => style.id}
                 loading={isLoadingDrafts}
                 error={errorDrafts}
@@ -786,6 +886,21 @@ export default function StyleList() {
         cancelText="Cancel"
         onConfirm={confirmPermanentDelete}
         variant="destructive"
+      />
+
+      {/* Publish Confirmation Dialog */}
+      <ConfirmDialog
+        open={publishDialogOpen}
+        onOpenChange={(open) => {
+          setPublishDialogOpen(open);
+          if (!open) setStyleToPublish(null);
+        }}
+        title="Publish Style"
+        description={`Are you sure you want to publish style ${styleToPublish?.styleCode}? Once published, it will be available for orders and production planning.`}
+        confirmText={publishing ? 'Publishing...' : 'Publish'}
+        cancelText="Cancel"
+        onConfirm={confirmPublish}
+        variant="default"
       />
 
       {/* Blocked Deactivation Dialog */}

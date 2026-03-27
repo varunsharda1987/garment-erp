@@ -104,6 +104,7 @@ export default function StitchingForm() {
     if (transferSlipIdParam && pendingTransferSlips.length > 0) {
       handleSlipToggle(transferSlipIdParam, true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transferSlipIdParam, pendingTransferSlips]);
 
   const loadInitialData = async () => {

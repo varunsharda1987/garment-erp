@@ -51,6 +51,7 @@ export default function FabricList() {
 
   useEffect(() => {
     fetchFabrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, filterActive, searchTerm]);
 
   const fetchFabrics = async () => {

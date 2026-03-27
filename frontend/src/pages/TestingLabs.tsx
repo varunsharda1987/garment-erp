@@ -20,6 +20,7 @@ export default function TestingLabs() {
 
   useEffect(() => {
     fetchLabs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search]);
 
   const fetchLabs = async () => {

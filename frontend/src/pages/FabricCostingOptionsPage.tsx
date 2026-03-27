@@ -73,7 +73,7 @@ export default function FabricCostingOptionsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [unapprovingId, setUnapprovingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [_promotingId, setPromotingId] = useState<string | null>(null);
+  const [, setPromotingId] = useState<string | null>(null);
 
   // Collapsed/expanded state per style
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set());
@@ -94,7 +94,7 @@ export default function FabricCostingOptionsPage() {
         ]);
         setCustomers(customersRes.data);
         setProcessors(processorsRes);
-      } catch (error) {
+      } catch {
         notify.error('Failed to load filter options');
       } finally {
         setIsLoadingFilters(false);
@@ -144,11 +144,12 @@ export default function FabricCostingOptionsPage() {
           'ACTIVE' // status - only show published styles
         );
         setStyles(response.data);
-      } catch (error) {
+      } catch {
         notify.error('Failed to load styles');
       }
     };
     fetchStyles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.customerId]);
 
   // Fetch costing options
@@ -166,7 +167,7 @@ export default function FabricCostingOptionsPage() {
 
       // Expand all styles by default
       setExpandedStyles(new Set(Object.keys(response.data)));
-    } catch (error) {
+    } catch {
       notify.error('Failed to load costing options');
     } finally {
       setIsLoading(false);
@@ -218,7 +219,7 @@ export default function FabricCostingOptionsPage() {
       await fabricCostingService.approveCostingOption(optionId);
       notify.success('Option approved successfully');
       fetchCostingOptions(); // Refresh data
-    } catch (error) {
+    } catch {
       notify.error('Failed to approve option');
     } finally {
       setApprovingId(null);
@@ -232,7 +233,7 @@ export default function FabricCostingOptionsPage() {
       await fabricCostingService.unapproveCostingOption(optionId);
       notify.success('Option unapproved');
       fetchCostingOptions(); // Refresh data
-    } catch (error) {
+    } catch {
       notify.error('Failed to unapprove option');
     } finally {
       setUnapprovingId(null);
@@ -254,7 +255,7 @@ export default function FabricCostingOptionsPage() {
       await fabricCostingService.deleteCostingOption(optionToDelete.id);
       notify.success('Option deleted successfully');
       fetchCostingOptions(); // Refresh data
-    } catch (error) {
+    } catch {
       notify.error('Failed to delete option');
     } finally {
       setDeletingId(null);
@@ -263,7 +264,7 @@ export default function FabricCostingOptionsPage() {
   };
 
   // Handle promote to next workflow stage (temporarily unused - can be re-enabled when needed)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const handlePromote = async (optionId: string, targetPurpose: 'COSTING' | 'PRODUCTION') => {
     setPromotingId(optionId);
     try {
@@ -271,7 +272,7 @@ export default function FabricCostingOptionsPage() {
       const displayLabel = targetPurpose === 'COSTING' ? 'Costing' : 'Production';
       notify.success(`Promoted to ${displayLabel} successfully`);
       fetchCostingOptions(); // Refresh data
-    } catch (error) {
+    } catch {
       notify.error('Failed to promote option');
     } finally {
       setPromotingId(null);
@@ -433,7 +434,10 @@ export default function FabricCostingOptionsPage() {
           />
 
           {/* Status Filter */}
-          <Select value={filters.status || 'ALL'} onValueChange={(val) => handleFilterChange('status', val as any)}>
+          <Select
+            value={filters.status || 'ALL'}
+            onValueChange={(val) => handleFilterChange('status', val as CostingOptionsFilters['status'])}
+          >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>

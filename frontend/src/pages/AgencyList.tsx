@@ -44,8 +44,9 @@ export default function AgencyList() {
       toast.success('Agency created successfully');
       setDialogOpen(false);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create agency');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to create agency');
     },
   });
 
@@ -58,8 +59,9 @@ export default function AgencyList() {
       setDialogOpen(false);
       setSelectedAgency(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to update agency');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to update agency');
     },
   });
 
@@ -72,8 +74,9 @@ export default function AgencyList() {
       setDeleteDialogOpen(false);
       setAgencyToDelete(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to delete agency');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to delete agency');
     },
   });
 

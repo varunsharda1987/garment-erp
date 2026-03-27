@@ -99,6 +99,7 @@ export default function CuttingForm() {
     if (isEditing && id) {
       fetchBatch();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // When work order changes, fetch its breakup and fabric stock
@@ -157,14 +158,21 @@ export default function CuttingForm() {
     try {
       const response = await api.get<{
         data: {
-          breakup: any[];
+          breakup: Array<{
+            colorId: string | null;
+            sizeId: string;
+            plannedQuantity: number;
+            completedQuantity?: number;
+            colors?: { colorName: string };
+            sizes?: { sizeName: string };
+          }>;
         };
       }>(`/work-orders/${workOrderId}`);
 
       // Serializer maps: workOrderBreakup→breakup, colorOptions→colors, sizeOptions→sizes
       const breakup = response.data.data.breakup || [];
       setWorkOrderBreakup(
-        breakup.map((b: any) => ({
+        breakup.map((b) => ({
           colorId: b.colorId,
           colorName: b.colors?.colorName || 'No Color',
           sizeId: b.sizeId,

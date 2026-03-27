@@ -68,7 +68,7 @@ export default function OrderDetail() {
     data: order,
     isLoading,
     error: orderError,
-    refetch: _refetchOrder,
+    refetch: _refetchOrder, // eslint-disable-line @typescript-eslint/no-unused-vars
   } = useDetailQuery<Order>(
     queryKeys.orders.detail(id || ''),
     () => getOrderById(id!),
@@ -110,7 +110,7 @@ export default function OrderDetail() {
   const {
     data: mrpSummary,
     isLoading: mrpLoading,
-    refetch: _refetchMRPSummary,
+    refetch: _refetchMRPSummary, // eslint-disable-line @typescript-eslint/no-unused-vars
   } = useDetailQuery<OrderRequirementsSummary | null>(
     [...queryKeys.mrp.all, 'order-summary', id || ''],
     async () => {
@@ -130,7 +130,7 @@ export default function OrderDetail() {
   const {
     data: serviceSummary,
     isLoading: serviceLoading,
-    refetch: _refetchServiceSummary,
+    refetch: _refetchServiceSummary, // eslint-disable-line @typescript-eslint/no-unused-vars
   } = useDetailQuery<OrderServiceRequirementsSummary | null>(
     ['service-requirements', 'order-summary', id || ''],
     async () => {
@@ -957,7 +957,7 @@ export default function OrderDetail() {
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
-                          {wo.styles?.styleCode} - {wo.styles?.styleName}
+                          {wo.style?.styleCode} - {wo.style?.styleName}
                         </div>
                       </div>
                       <div className="flex gap-2">

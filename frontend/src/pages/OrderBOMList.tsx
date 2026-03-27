@@ -48,6 +48,7 @@ const OrderBOMList = () => {
 
   useEffect(() => {
     fetchBOMs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, statusFilter]);
 
   return (

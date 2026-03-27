@@ -61,6 +61,7 @@ export default function MaterialList() {
 
   useEffect(() => {
     fetchMaterials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, categoryFilter, unitFilter]);
 
   const fetchCategories = async () => {

@@ -186,11 +186,7 @@ const getSeverityConfig = (severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW') => 
   }
 };
 
-const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({
-  blocker,
-  orderItemId: _orderItemId,
-  onResolve: _onResolve,
-}) => {
+const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({ blocker }) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
 

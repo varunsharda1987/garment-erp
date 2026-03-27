@@ -41,6 +41,7 @@ export default function WarehouseList() {
 
   useEffect(() => {
     loadWarehouses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter, activeFilter, searchTerm]);
 
   const loadWarehouses = async () => {

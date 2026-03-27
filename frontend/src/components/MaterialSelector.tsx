@@ -42,6 +42,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
     } else {
       setMaterials([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedType, searchQuery]);
 
   const loadMaterials = async () => {

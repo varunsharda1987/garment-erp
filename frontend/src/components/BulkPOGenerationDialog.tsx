@@ -93,6 +93,7 @@ export default function BulkPOGenerationDialog({
     if (open && requirementIds.length > 0) {
       loadGroupedData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, requirementIds]);
 
   const loadGroupedData = async () => {
@@ -245,7 +246,7 @@ export default function BulkPOGenerationDialog({
         priceRequired: price <= 0,
       };
     },
-    [editedPrices]
+    [editedPrices, editedQuantities]
   );
 
   // Check if any group has zero price items
@@ -431,10 +432,9 @@ export default function BulkPOGenerationDialog({
                                   </span>
                                 </div>
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
-                                  {(r as any).componentName && (
+                                  {r.componentName && (
                                     <span>
-                                      Component:{' '}
-                                      <span className="text-foreground font-medium">{(r as any).componentName}</span>
+                                      Component: <span className="text-foreground font-medium">{r.componentName}</span>
                                     </span>
                                   )}
                                   {r.orderItem?.styleCode && (
@@ -446,9 +446,9 @@ export default function BulkPOGenerationDialog({
                                       </span>
                                     </span>
                                   )}
-                                  {(r as any).colorName && (
+                                  {r.colorName && (
                                     <span>
-                                      Color: <span className="text-foreground">{(r as any).colorName}</span>
+                                      Color: <span className="text-foreground">{r.colorName}</span>
                                     </span>
                                   )}
                                   {r.order?.orderNumber && (

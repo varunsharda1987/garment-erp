@@ -25,6 +25,7 @@ export default function PackagingDetail() {
     if (id) {
       fetchPackagingDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchPackagingDetails = async () => {

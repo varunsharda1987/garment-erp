@@ -22,6 +22,7 @@ export default function GarmentPhysicalTests() {
 
   useEffect(() => {
     fetchTests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search, statusFilter]);
 
   const fetchTests = async () => {

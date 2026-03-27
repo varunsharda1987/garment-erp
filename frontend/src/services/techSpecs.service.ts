@@ -3,6 +3,7 @@
  * API service for style technical specifications
  */
 
+import axios from 'axios';
 import api from '../lib/api';
 import type {
   TechSpecs,
@@ -19,8 +20,8 @@ export const techSpecsService = {
     try {
       const response = await api.get<TechSpecsResponse>(`/styles/${styleId}/tech-specs`);
       return response.data.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
         return null;
       }
       throw error;

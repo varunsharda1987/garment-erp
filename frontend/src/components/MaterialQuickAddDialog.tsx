@@ -97,9 +97,10 @@ export const MaterialQuickAddDialog: React.FC<MaterialQuickAddDialogProps> = ({
       resetState();
 
       notify.success(`${newMaterial.name} created and added successfully`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create material:', error);
-      const errorMessage = error?.response?.data?.message || 'Failed to create item';
+      const err = error as { response?: { data?: { message?: string } } };
+      const errorMessage = err?.response?.data?.message || 'Failed to create item';
       notify.error(errorMessage);
     } finally {
       setSaving(false);

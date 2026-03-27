@@ -85,7 +85,7 @@ export interface CreateColorRequest {
 /**
  * Update color request
  */
-export interface UpdateColorRequest extends Partial<CreateColorRequest> {}
+export type UpdateColorRequest = Partial<CreateColorRequest>;
 
 // ============================================
 // Query Types

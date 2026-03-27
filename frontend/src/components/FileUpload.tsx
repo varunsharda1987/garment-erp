@@ -108,7 +108,8 @@ export default function FileUpload({
         onFilesSelect(validFiles);
       }
     },
-    [uploadedFiles, maxFiles, disabled, onFilesSelect, validateFile]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [uploadedFiles, maxFiles, disabled, onFilesSelect]
   );
 
   const handleDragEnter = useCallback(

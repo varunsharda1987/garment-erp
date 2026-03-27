@@ -255,7 +255,7 @@ export default function StockInForm() {
       labelResponse.data.forEach((label: LabelType) => {
         // If label has size variants with materials, add each variant's material
         if (label.sizeVariants && label.sizeVariants.length > 0) {
-          label.sizeVariants.forEach((variant: any) => {
+          label.sizeVariants.forEach((variant: NonNullable<LabelType['sizeVariants']>[number]) => {
             if (variant.material) {
               // Add as material entry (not polymorphic) since they have material records
               unified.push({

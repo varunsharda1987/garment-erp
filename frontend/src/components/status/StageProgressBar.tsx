@@ -87,7 +87,6 @@ const FULL_STAGE_ORDER: StageItem[] = [
 
 export default function StageProgressBar({
   currentStage,
-  stageBreakdown: _stageBreakdown,
   overallProgress,
   sampleStatus,
   inspectionStatus,
@@ -158,6 +157,7 @@ export default function StageProgressBar({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getStageIcon = (status: string, _type: StageType) => {
     const size = 'h-5 w-5';
     switch (status) {

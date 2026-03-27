@@ -39,6 +39,7 @@ export default function ThreadDetail() {
     if (id) {
       fetchThreadDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchThreadDetails = async () => {

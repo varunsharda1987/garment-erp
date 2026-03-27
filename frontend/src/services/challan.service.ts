@@ -88,19 +88,19 @@ export const challanService = {
     Object.entries(params).forEach(([key, value]) => {
       if (value) searchParams.append(key, value);
     });
-    const { data } = await api.get(`/api/po-rates/resolve?${searchParams.toString()}`);
+    const { data } = await api.get(`/po-rates/resolve?${searchParams.toString()}`);
     return data.data;
   },
 
   // Split production run
   async splitProductionRun(
     id: string,
-    splits: { quantity: number; fabricLotInfo?: Record<string, any>; remarks?: string }[]
+    splits: { quantity: number; fabricLotInfo?: Record<string, unknown>; remarks?: string }[]
   ): Promise<{
     parent: { id: string; workOrderNumber: string; status: string; totalQuantity: number };
-    children: { id: string; workOrderNumber: string; totalQuantity: number; fabricLotInfo?: any }[];
+    children: { id: string; workOrderNumber: string; totalQuantity: number; fabricLotInfo?: Record<string, unknown> }[];
   }> {
-    const { data } = await api.post(`/api/production-runs/${id}/split`, { splits });
+    const { data } = await api.post(`/production-runs/${id}/split`, { splits });
     return data.data;
   },
 };

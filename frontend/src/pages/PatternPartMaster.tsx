@@ -57,8 +57,9 @@ export default function PatternPartMaster() {
         limit: 100,
       });
       setPatternParts(response.data);
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to load pattern parts');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      notify.error(err.response?.data?.message || 'Failed to load pattern parts');
     } finally {
       setLoading(false);
     }
@@ -73,7 +74,7 @@ export default function PatternPartMaster() {
         isActive: true,
       });
       setComponentGroups(response.data);
-    } catch (error: any) {
+    } catch {
       notify.error('Failed to load component groups');
     }
   };
@@ -81,6 +82,7 @@ export default function PatternPartMaster() {
   useEffect(() => {
     loadPatternParts();
     loadComponentGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   // Handle create/update
@@ -98,8 +100,9 @@ export default function PatternPartMaster() {
       setIsDialogOpen(false);
       resetForm();
       loadPatternParts();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to save pattern part');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      notify.error(err.response?.data?.message || 'Failed to save pattern part');
     }
   };
 
@@ -117,8 +120,9 @@ export default function PatternPartMaster() {
       await deletePatternPart(patternPartToDelete.id);
       notify.success('Pattern part deleted successfully');
       loadPatternParts();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to delete pattern part');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      notify.error(err.response?.data?.message || 'Failed to delete pattern part');
     } finally {
       setPatternPartToDelete(null);
     }

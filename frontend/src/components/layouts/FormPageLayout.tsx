@@ -79,7 +79,6 @@ export function FormPageLayout({
   children,
   loading = false,
   loadingMessage = 'Loading...',
-  isDirty: _isDirty,
   footerPosition = 'right',
   stickyFooter = false,
   useCard = false,

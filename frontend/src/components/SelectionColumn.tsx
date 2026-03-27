@@ -35,11 +35,12 @@ export interface SelectionColumnOptions<T = Record<string, unknown>> {
 /**
  * Creates a selection column configuration for DataTable
  */
-export function createSelectionColumn<T extends Record<string, any>>(
+// eslint-disable-next-line react-refresh/only-export-components
+export function createSelectionColumn<T extends Record<string, unknown>>(
   selection: UseRowSelectionReturn,
   options: SelectionColumnOptions = {}
 ): Column<T> {
-  const { idKey = 'id', headerLabel: _headerLabel = 'Select all rows', rowLabel = () => 'Select row' } = options;
+  const { idKey = 'id', rowLabel = () => 'Select row' } = options;
 
   return {
     key: '__selection__',
@@ -74,7 +75,7 @@ export function SelectionHeader({ selection, label = 'Select all' }: SelectionHe
   return (
     <Checkbox
       checked={selection.isAllSelected}
-      // @ts-ignore - indeterminate is a valid prop but types may not include it
+      // @ts-expect-error - indeterminate is a valid prop but types may not include it
       indeterminate={selection.isIndeterminate}
       onCheckedChange={selection.toggleAll}
       aria-label={label}
@@ -100,4 +101,5 @@ export function SelectionCell({ selection, id, label = 'Select row' }: Selection
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export default createSelectionColumn;

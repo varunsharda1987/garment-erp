@@ -39,6 +39,7 @@ export default function ZipperDetail() {
     if (id) {
       fetchZipperDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchZipperDetails = async () => {

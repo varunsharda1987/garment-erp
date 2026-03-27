@@ -30,12 +30,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<ZipperSupplierInput[]>([]);
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors: _errors },
-  } = useForm<ZipperFormData>();
+  const { register, handleSubmit, setValue } = useForm<ZipperFormData>();
 
   const isNewZipper = mode === 'create' || !id;
 

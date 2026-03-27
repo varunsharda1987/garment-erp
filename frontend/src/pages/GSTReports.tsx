@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import api from '@/lib/api';
-import { FileText, Download, Calendar } from 'lucide-react';
+import { FileText, Calendar } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Types

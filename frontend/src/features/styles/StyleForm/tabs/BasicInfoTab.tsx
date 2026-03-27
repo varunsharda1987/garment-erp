@@ -37,7 +37,6 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
     availableCategories,
     brandName,
     brandCategoryId,
-    season: _season,
     seasonId,
     numberOfComponents,
     componentCategories,
@@ -56,7 +55,6 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
     description,
     bulletPoints,
     remarks,
-    isEditMode: _isEditMode,
     styleId,
   } = state;
 

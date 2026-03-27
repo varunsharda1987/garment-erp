@@ -147,7 +147,7 @@ export default function PurchaseOrderList() {
 
   const purchaseOrders = poResponse?.data || [];
   const pagination = poResponse?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
-  const suppliers: Supplier[] = (suppliersResponse as any)?.data || [];
+  const suppliers: Supplier[] = (suppliersResponse as { data?: Supplier[] })?.data || [];
 
   // ─── Computed Stats ────────────────────────────────────────
 

@@ -96,7 +96,7 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
         }));
 
       setThreads(threadOptions);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch threads:', err);
       setThreads([]);
     } finally {

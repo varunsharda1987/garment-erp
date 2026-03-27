@@ -62,9 +62,10 @@ export default function StockDashboard() {
       setTrimValue(valuationData.totalValue);
       setFabricSummary(fabricData);
       setGreigeSummary(greigeData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logError('Dashboard error:', err);
-      setError(err?.response?.data?.message || 'Failed to load dashboard data');
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error?.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }

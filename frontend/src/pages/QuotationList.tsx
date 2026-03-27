@@ -60,6 +60,7 @@ export default function QuotationList() {
 
   useEffect(() => {
     fetchQuotations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter]);
 
   const fetchCustomers = async () => {

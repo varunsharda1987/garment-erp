@@ -182,6 +182,7 @@ export interface FlatFabricInput {
 export interface CreateStyleRequest {
   styleCode: string;
   styleName: string;
+  status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
   customerName?: string;
   brandName?: string;
   brandCategoryId?: string | null;

@@ -67,8 +67,9 @@ export default function SaleOrderDetail() {
       toast.success('Sale Order confirmed');
       setConfirmDialogOpen(false);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to confirm');
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to confirm');
     },
   });
 
@@ -83,8 +84,9 @@ export default function SaleOrderDetail() {
       setAllocateQty('');
       setSelectedFgStockId('');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to allocate stock');
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to allocate stock');
     },
   });
 

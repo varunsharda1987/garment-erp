@@ -75,6 +75,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
 
   const loadData = async () => {
@@ -163,9 +164,10 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
       }
 
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save preset:', error);
-      const message = error.response?.data?.error || 'Failed to save preset';
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      const message = axiosErr.response?.data?.error || 'Failed to save preset';
       notify.error(message);
     } finally {
       setSaving(false);
@@ -197,9 +199,10 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
       setEditingPreset(null);
       setCloneName('');
       loadData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to clone preset:', error);
-      const message = error.response?.data?.error || 'Failed to clone preset';
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      const message = axiosErr.response?.data?.error || 'Failed to clone preset';
       notify.error(message);
     }
   };

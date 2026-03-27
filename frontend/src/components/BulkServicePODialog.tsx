@@ -63,6 +63,7 @@ export default function BulkServicePODialog({
     if (open && requirementIds.length > 0) {
       loadGroupedData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, requirementIds]);
 
   const loadGroupedData = async () => {

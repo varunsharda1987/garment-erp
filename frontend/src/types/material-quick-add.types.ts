@@ -27,7 +27,7 @@ export interface MaterialTypeConfig {
   codeField: string;
   nameField: string;
   fields: MaterialFieldConfig[];
-  createService: (data: MaterialFormData) => Promise<any>;
+  createService: (data: MaterialFormData) => Promise<MaterialCreateResult>;
 }
 
 // Category configuration
@@ -42,7 +42,13 @@ export interface MaterialFormData {
   name?: string;
   color?: string;
   _nameManuallyEdited?: boolean; // Internal flag to track manual edits
-  [key: string]: any;
+  [key: string]: string | number | boolean | undefined;
+}
+
+// Raw result from material create API - has id plus dynamic type-specific fields
+export interface MaterialCreateResult {
+  id: string;
+  [key: string]: unknown;
 }
 
 // Created material response
@@ -51,5 +57,5 @@ export interface CreatedMaterial {
   code: string;
   name: string;
   color?: string | null;
-  [key: string]: any;
+  [key: string]: unknown;
 }

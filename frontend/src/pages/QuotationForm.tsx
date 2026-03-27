@@ -53,6 +53,7 @@ export default function QuotationForm() {
     if (isEditMode && id) {
       fetchQuotation(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
 
   const fetchCustomers = async () => {
@@ -130,7 +131,7 @@ export default function QuotationForm() {
     setItems(items.filter((item) => item.tempId !== tempId));
   };
 
-  const handleItemChange = (tempId: string, field: keyof QuotationItemInput, value: any) => {
+  const handleItemChange = (tempId: string, field: keyof QuotationItemInput, value: string | number) => {
     setItems(items.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item)));
   };
 

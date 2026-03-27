@@ -98,6 +98,7 @@ export default function LaceStockList() {
 
   useEffect(() => {
     fetchStocks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, statusFilter, stockTypeFilter, qualityFilter]);
 
   const handleSearch = () => {

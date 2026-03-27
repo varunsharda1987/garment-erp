@@ -64,8 +64,9 @@ export default function TaxMasterList() {
       toast.success('Tax master created successfully');
       closeDialog();
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create tax master');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to create tax master');
     },
   });
 
@@ -76,8 +77,9 @@ export default function TaxMasterList() {
       toast.success('Tax master updated successfully');
       closeDialog();
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to update tax master');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to update tax master');
     },
   });
 
@@ -89,8 +91,9 @@ export default function TaxMasterList() {
       setDeleteDialogOpen(false);
       setItemToDelete(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to delete tax master');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to delete tax master');
     },
   });
 

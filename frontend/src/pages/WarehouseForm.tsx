@@ -61,6 +61,7 @@ export default function WarehouseForm() {
     if (isEdit && id) {
       loadWarehouse();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadWarehouse = async () => {

@@ -1,6 +1,7 @@
 // Work Order Detail Page - View production run details
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import {
   ArrowLeft,
   Edit,
@@ -99,6 +100,7 @@ export default function WorkOrderDetail() {
       loadMaterialReadiness();
       loadServiceRequirements();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadWorkOrder = async () => {
@@ -132,23 +134,26 @@ export default function WorkOrderDetail() {
 
       // Calculate cutting progress
       const cuttingBatches = cuttingRes.data || [];
-      const totalCut = cuttingBatches.reduce((sum: number, b: any) => {
-        const skuTotal = b.skuBreakdown?.reduce((s: number, sku: any) => s + (sku.cutQty || 0), 0) || 0;
+      const totalCut = cuttingBatches.reduce((sum: number, b: Record<string, unknown>) => {
+        const skuBreakdown = b.skuBreakdown as Array<{ cutQty?: number }> | undefined;
+        const skuTotal = skuBreakdown?.reduce((s: number, sku) => s + (sku.cutQty || 0), 0) || 0;
         return sum + skuTotal;
       }, 0);
 
       // Calculate stitching progress
       const stitchingIssues = stitchingRes.data || [];
-      const totalStitched = stitchingIssues.reduce((sum: number, i: any) => {
-        const outputs = i.dailyOutputs?.flatMap((o: any) => o.skuOutputs || []) || [];
-        return sum + outputs.reduce((s: number, o: any) => s + (o.goodQty || 0), 0);
+      const totalStitched = stitchingIssues.reduce((sum: number, i: Record<string, unknown>) => {
+        const dailyOutputs = i.dailyOutputs as Array<{ skuOutputs?: Array<{ goodQty?: number }> }> | undefined;
+        const outputs = dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
+        return sum + outputs.reduce((s: number, o) => s + (o.goodQty || 0), 0);
       }, 0);
 
       // Calculate finishing progress
       const finishingIssues = finishingRes.data || [];
-      const totalFinished = finishingIssues.reduce((sum: number, i: any) => {
-        const outputs = i.dailyOutputs?.flatMap((o: any) => o.skuOutputs || []) || [];
-        return sum + outputs.reduce((s: number, o: any) => s + (o.finishedQty || 0), 0);
+      const totalFinished = finishingIssues.reduce((sum: number, i: Record<string, unknown>) => {
+        const dailyOutputs = i.dailyOutputs as Array<{ skuOutputs?: Array<{ finishedQty?: number }> }> | undefined;
+        const outputs = dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
+        return sum + outputs.reduce((s: number, o) => s + (o.finishedQty || 0), 0);
       }, 0);
 
       setManufacturingProgress({
@@ -197,7 +202,7 @@ export default function WorkOrderDetail() {
       await calculateServices(id, userId);
       await loadServiceRequirements();
       handleApiSuccess('Services Calculated', 'Service requirements have been calculated successfully');
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to calculate services');
     } finally {
       setIsCalculatingServices(false);
@@ -222,9 +227,10 @@ export default function WorkOrderDetail() {
       setIsPushingToCutting(true);
       await workOrderService.pushToCutting(id);
       navigate(`/manufacturing/cutting/new?workOrderId=${id}`);
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.message || err?.message || 'Failed to push to cutting';
-      const blockers = err?.response?.data?.blockers;
+    } catch (err: unknown) {
+      const responseData = isAxiosError(err) ? err.response?.data : undefined;
+      const errorMsg = responseData?.message || (err instanceof Error ? err.message : 'Failed to push to cutting');
+      const blockers = responseData?.blockers as string[] | undefined;
 
       if (blockers && blockers.length > 0) {
         // Show override modal with server-returned blockers so admin can override
@@ -247,7 +253,7 @@ export default function WorkOrderDetail() {
       await workOrderService.pushToCutting(id, true, reason);
       notify.success('Work order pushed to cutting (override applied)');
       navigate(`/manufacturing/cutting/new?workOrderId=${id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       handleApiError(err, 'Failed to push to cutting');
     } finally {
       setIsPushingToCutting(false);
@@ -895,7 +901,7 @@ export default function WorkOrderDetail() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Customer</span>
-                <span className="font-medium">{workOrder.orders?.customers?.name || '-'}</span>
+                <span className="font-medium">{workOrder.orders?.customer?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Style Code</span>

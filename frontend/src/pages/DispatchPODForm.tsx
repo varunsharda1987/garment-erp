@@ -44,6 +44,7 @@ export default function DispatchPODForm() {
     if (id) {
       fetchDeliveryNote(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchDeliveryNote = async (noteId: string) => {

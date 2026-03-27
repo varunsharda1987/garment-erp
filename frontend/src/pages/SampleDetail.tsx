@@ -8,8 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { sampleService } from '@/services/sample.service';
-import type { Sample, SampleStatus } from '@/types/sample.types';
+import type { Sample, SampleStatus, SampleType } from '@/types/sample.types';
 import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
+
+interface RelatedSample {
+  id: string;
+  sampleNumber: string;
+  sampleType: SampleType;
+  status: string;
+}
+type SampleWithRelated = Sample & { relatedSamples?: RelatedSample[] };
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   TestTube,
@@ -71,6 +79,7 @@ export default function SampleDetail() {
     if (id) {
       fetchSample();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchSample = async () => {
@@ -552,14 +561,14 @@ export default function SampleDetail() {
           </Card>
 
           {/* Related Samples */}
-          {(sample as any).relatedSamples && (sample as any).relatedSamples.length > 0 && (
+          {(sample as SampleWithRelated).relatedSamples && (sample as SampleWithRelated).relatedSamples!.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Related Samples</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {(sample as any).relatedSamples.map((rel: any) => (
+                  {(sample as SampleWithRelated).relatedSamples!.map((rel) => (
                     <button
                       key={rel.id}
                       onClick={() => navigate(`/samples/${rel.id}`)}
@@ -567,9 +576,7 @@ export default function SampleDetail() {
                     >
                       <div>
                         <span className="font-medium text-sm">{rel.sampleNumber}</span>
-                        <span className="text-xs text-gray-500 ml-2">
-                          {SampleTypeLabels[rel.sampleType as keyof typeof SampleTypeLabels]}
-                        </span>
+                        <span className="text-xs text-gray-500 ml-2">{SampleTypeLabels[rel.sampleType]}</span>
                       </div>
                       <Badge variant="outline" className="text-xs">
                         {rel.status}

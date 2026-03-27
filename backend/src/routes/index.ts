@@ -8,6 +8,7 @@
 import { Router } from 'express';
 
 // Import all route modules
+import healthRoutes from './health.routes';
 import authRoutes from './auth.routes';
 import userRoutes from './user.routes';
 import styleRoutes from './style.routes';
@@ -139,6 +140,9 @@ import moodBoardRoutes from './mood-board.routes';
  */
 export function createApiRouter(): Router {
   const router = Router();
+
+  // Health checks (no auth required)
+  router.use('/health', healthRoutes);
 
   // Core routes
   router.use('/auth', authRoutes);

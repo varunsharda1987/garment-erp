@@ -35,6 +35,7 @@ export default function GreigeDetail() {
     if (id) {
       fetchGreigeDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Update document title when greige data is loaded

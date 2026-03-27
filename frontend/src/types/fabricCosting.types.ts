@@ -245,6 +245,10 @@ export interface FabricForCosting {
   readyFabricCostSource: 'STOCK' | 'FABRIC_MASTER';
   // Stock availability in meters
   stockAvailable: number | null;
+  // Cost input mode (from saved costing data)
+  costInputMode?: CostInputMode | null;
+  // Processing batch group color ID (for combined rate slab lookup)
+  processingBatchGroupColorId?: string | null;
   // Available width options with their costing data
   widthOptions: FabricWidthOption[];
   // Order quantity used for rate slab lookup (from saved costing)

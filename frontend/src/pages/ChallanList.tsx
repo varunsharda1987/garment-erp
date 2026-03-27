@@ -27,6 +27,7 @@ export default function ChallanList() {
 
   useEffect(() => {
     loadChallans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter, statusFilter, page, search]);
 
   async function loadChallans() {
@@ -36,8 +37,8 @@ export default function ChallanList() {
         limit: pageSize,
         offset: (page - 1) * pageSize,
       };
-      if (typeFilter !== 'all') filters.challanType = typeFilter as any;
-      if (statusFilter !== 'all') filters.status = statusFilter as any;
+      if (typeFilter !== 'all') filters.challanType = typeFilter as ChallanFilters['challanType'];
+      if (statusFilter !== 'all') filters.status = statusFilter as ChallanFilters['status'];
       if (search) filters.search = search;
 
       const result = await challanService.getChallans(filters);

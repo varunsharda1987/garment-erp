@@ -140,7 +140,9 @@ export const finishingSummaryService = {
       role: string;
     }>
   > => {
-    const response = await api.get<{ data: Array<any> }>(`${BASE_URL}/available-managers`);
+    const response = await api.get<{ data: Array<{ id: string; name: string; email: string; role: string }> }>(
+      `${BASE_URL}/available-managers`
+    );
     return response.data.data;
   },
 };

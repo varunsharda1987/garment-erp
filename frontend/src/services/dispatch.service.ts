@@ -186,7 +186,16 @@ export const dispatchSummaryService = {
     }>
   > => {
     const url = orderId ? `${BASE_URL}/available-cartons?orderId=${orderId}` : `${BASE_URL}/available-cartons`;
-    const response = await api.get<{ data: Array<any> }>(url);
+    const response = await api.get<{
+      data: Array<{
+        id: string;
+        cartonNumber: string;
+        workOrderNumber: string;
+        styleName: string;
+        totalPieces: number;
+        packedDate: string;
+      }>;
+    }>(url);
     return response.data.data;
   },
 
@@ -201,7 +210,16 @@ export const dispatchSummaryService = {
       dispatchedPieces: number;
     }>
   > => {
-    const response = await api.get<{ data: Array<any> }>(`${BASE_URL}/orders-ready`);
+    const response = await api.get<{
+      data: Array<{
+        id: string;
+        orderNumber: string;
+        customerName: string;
+        totalPieces: number;
+        packedPieces: number;
+        dispatchedPieces: number;
+      }>;
+    }>(`${BASE_URL}/orders-ready`);
     return response.data.data;
   },
 };

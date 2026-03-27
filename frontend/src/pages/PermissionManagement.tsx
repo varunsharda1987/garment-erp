@@ -151,7 +151,7 @@ export default function PermissionManagement() {
     try {
       await togglePermission({ role, permissionKey, allowed: newValue });
       toast.success(`${newValue ? 'Enabled' : 'Disabled'} ${permissionKey} for ${ROLE_CONFIG[role]?.name || role}`);
-    } catch (error) {
+    } catch {
       // Rollback on error
       setMatrix((prev) => {
         if (!prev) return prev;
@@ -175,7 +175,7 @@ export default function PermissionManagement() {
       const result = await resetToDefaults();
       toast.success(`Reset ${result.reset} permissions to defaults`);
       await loadMatrix();
-    } catch (error) {
+    } catch {
       toast.error('Failed to reset permissions');
     } finally {
       setResetting(false);

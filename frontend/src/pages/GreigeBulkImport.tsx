@@ -406,7 +406,7 @@ export default function GreigeBulkImport() {
                   <p className="text-sm text-blue-800">
                     <strong>Note:</strong> Greige Code and Greige Name will be auto-generated.
                     <br />
-                    Format: GRG-XXXX and "{'{Generic Name} {Yarn Count} / {Construction} / {Width}\"'}"
+                    Format: GRG-XXXX and "{'{Generic Name} {Yarn Count} / {Construction} / {Width}"'}"
                   </p>
                 </div>
               </div>

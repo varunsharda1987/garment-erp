@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Truck,
@@ -50,7 +50,7 @@ export default function DispatchList() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchDeliveryNotes = async () => {
+  const fetchDeliveryNotes = useCallback(async () => {
     try {
       const response = await deliveryNoteService.getAll({
         page: dnPage,
@@ -64,9 +64,9 @@ export default function DispatchList() {
       console.error('Error fetching delivery notes:', error);
       handleApiError(error, 'Failed to load delivery notes');
     }
-  };
+  }, [dnPage, dnSearch, dnStatusFilter]);
 
-  const fetchASNApplications = async () => {
+  const fetchASNApplications = useCallback(async () => {
     try {
       const response = await asnService.getAll({
         page: asnPage,
@@ -80,26 +80,26 @@ export default function DispatchList() {
       console.error('Error fetching ASN applications:', error);
       handleApiError(error, 'Failed to load ASN applications');
     }
-  };
+  }, [asnPage, asnSearch, asnStatusFilter]);
 
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     try {
       const summaryData = await dispatchSummaryService.getSummary();
       setSummary(summaryData);
     } catch (error) {
       console.error('Error fetching summary:', error);
     }
-  };
+  }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     await Promise.all([fetchDeliveryNotes(), fetchASNApplications(), fetchSummary()]);
     setLoading(false);
-  };
+  }, [fetchDeliveryNotes, fetchASNApplications, fetchSummary]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -112,11 +112,11 @@ export default function DispatchList() {
 
   useEffect(() => {
     fetchDeliveryNotes();
-  }, [dnPage, dnStatusFilter]);
+  }, [fetchDeliveryNotes]);
 
   useEffect(() => {
     fetchASNApplications();
-  }, [asnPage, asnStatusFilter]);
+  }, [fetchASNApplications]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

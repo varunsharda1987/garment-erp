@@ -132,7 +132,9 @@ export const stitchingSummaryService = {
   getAvailableManagers: async (): Promise<
     Array<{ id: string; code: string; name: string; contactPerson: string | null; phone: string | null }>
   > => {
-    const response = await api.get<{ data: Array<any> }>(`${BASE_URL}/available-managers`);
+    const response = await api.get<{
+      data: Array<{ id: string; code: string; name: string; contactPerson: string | null; phone: string | null }>;
+    }>(`${BASE_URL}/available-managers`);
     return response.data.data;
   },
 };

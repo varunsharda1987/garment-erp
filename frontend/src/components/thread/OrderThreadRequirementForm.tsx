@@ -107,6 +107,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
   // Load existing requirements
   useEffect(() => {
     loadRequirements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
   const loadThreadOptions = async () => {
@@ -126,7 +127,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
         }));
 
       setThreadOptions(options);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load thread options:', err);
       // Don't show error to user - form can still work with empty options
     }
@@ -158,9 +159,9 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
       }));
 
       setRows(loadedRows);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load requirements:', err);
-      setError(err.message || 'Failed to load thread requirements');
+      setError(err instanceof Error ? err.message : 'Failed to load thread requirements');
     } finally {
       setLoading(false);
     }
@@ -187,8 +188,8 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
       try {
         await deleteThreadRequirement(orderId, row.id);
         toast.success('Thread requirement deleted');
-      } catch (err: any) {
-        toast.error(err.message || 'Failed to delete requirement');
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : 'Failed to delete requirement');
         return;
       }
     }
@@ -257,10 +258,11 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
         onSave();
       }
       loadRequirements(); // Reload to get updated data
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Save error:', err);
-      setError(err.message || 'Failed to save thread requirements');
-      toast.error(err.message || 'Failed to save thread requirements');
+      const message = err instanceof Error ? err.message : 'Failed to save thread requirements';
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

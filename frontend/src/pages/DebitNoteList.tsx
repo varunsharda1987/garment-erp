@@ -196,7 +196,7 @@ export default function DebitNoteList() {
         });
         const list = res.data ?? res ?? [];
         setPOOptions(
-          list.map((po: any) => ({
+          list.map((po: { id: string; poNumber: string; totalAmount: number }) => ({
             id: po.id,
             poNumber: po.poNumber,
             totalAmount: po.totalAmount,

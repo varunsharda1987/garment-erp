@@ -100,6 +100,7 @@ export default function CostSheetPOGenerationPage() {
     if (costSheetId) {
       loadInitialData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [costSheetId]);
 
   const loadInitialData = async () => {

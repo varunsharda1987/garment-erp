@@ -167,10 +167,12 @@ export default function CADPlanningPage() {
           approvedCadDate: tableData.style.approvedCadDate ?? undefined,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load CAD table data:', error);
       setTableDataError(true);
-      notify.error(error.response?.data?.message || 'Failed to load CAD spreadsheet data');
+      const errMsg = error instanceof Error ? error.message : 'Failed to load CAD spreadsheet data';
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || errMsg);
     } finally {
       setLoadingTableData(false);
       setLoading(false);
@@ -186,10 +188,11 @@ export default function CADPlanningPage() {
       if (response.success) {
         setCadHistory(response.data);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load CAD history:', error);
       setHistoryError(true);
-      notify.error(error.response?.data?.message || 'Failed to load CAD history');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to load CAD history');
     } finally {
       setLoadingHistory(false);
     }
@@ -211,6 +214,15 @@ export default function CADPlanningPage() {
   // ============================================
   const handleApproveCAD = async () => {
     if (!cadTableData) return;
+
+    // Check if all rows have Part assigned
+    const rowsWithoutPart = cadTableData.cadRows.filter((row) => !row.partId);
+    if (rowsWithoutPart.length > 0) {
+      notify.error(
+        `Please select a Part for all rows (${rowsWithoutPart.length} row${rowsWithoutPart.length > 1 ? 's' : ''} missing Part)`
+      );
+      return;
+    }
 
     // Check if all rows have CAD values
     const incompleteRows = cadTableData.cadRows.filter((row) => !row.cadAverage || row.cadAverage <= 0);
@@ -264,9 +276,10 @@ export default function CADPlanningPage() {
       notify.success('CAD plan approved! You can now generate cost sheet.', { duration: 5000 });
       setShowApproveDialog(false);
       navigate('/cad-planning');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to approve CAD:', error);
-      notify.error(error.response?.data?.message || 'Failed to approve CAD plan');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to approve CAD plan');
     } finally {
       setSaving(false);
     }
@@ -293,17 +306,17 @@ export default function CADPlanningPage() {
       const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : purpose || 'Costing';
       notify.success(`${purposeLabel} row added successfully`);
       await loadCADTableData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to add row:', error);
-      notify.error(error.response?.data?.message || 'Failed to add row');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to add row');
       throw error;
     }
   };
 
   const handleSpreadsheetAddCombinedRow = async (
     styleFabricIds: string[],
-    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION',
-    _fabricStockId?: string
+    purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'
   ) => {
     if (!id) return;
     try {
@@ -311,9 +324,10 @@ export default function CADPlanningPage() {
       const purposeLabel = purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : purpose || 'Costing';
       notify.success(`Combined ${purposeLabel} row added successfully`);
       await loadCADTableData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to add combined row:', error);
-      notify.error(error.response?.data?.message || 'Failed to add combined row');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to add combined row');
       throw error;
     }
   };
@@ -327,9 +341,10 @@ export default function CADPlanningPage() {
       await cadPlanningService.updateCADTableRow(id, rowId, data);
       // Refresh data to get updated calculations from backend
       await loadCADTableData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update row:', error);
-      notify.error(error.response?.data?.message || 'Failed to update row');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to update row');
       throw error;
     }
   };
@@ -346,26 +361,36 @@ export default function CADPlanningPage() {
           cadRows: cadTableData.cadRows.filter((row) => row.id !== rowId),
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete row:', error);
-      notify.error(error.response?.data?.message || 'Failed to delete row');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to delete row');
       throw error;
     }
   };
 
   // Handler for creating PRODUCTION CAD from stock (called from StockSummaryBanner)
-  const handleCreateProductionCADFromStock = async (stockId: string, _fabricId: string, greigeId: string) => {
+  const handleCreateProductionCADFromStock = async (
+    stockId: string,
+    _fabricId: string,
+    greigeId: string,
+    styleFabricId?: string | null,
+    componentId?: string | null
+  ) => {
     if (!id) return;
     try {
       await cadPlanningService.createProductionCADFromStock(id, {
         fabricStockId: stockId,
         greigeId,
+        styleFabricId: styleFabricId || undefined,
+        componentId: componentId || undefined,
       });
       notify.success('PRODUCTION CAD created from stock');
       await loadCADTableData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create PRODUCTION CAD from stock:', error);
-      notify.error(error.response?.data?.message || 'Failed to create PRODUCTION CAD');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to create PRODUCTION CAD');
       throw error;
     }
   };
@@ -387,9 +412,10 @@ export default function CADPlanningPage() {
       const status = await fabricCostingService.checkCADCostingStatus(id, cadRowIds);
       setPushStatus(status);
       setShowPushModal(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to check CAD costing status:', error);
-      notify.error(error.response?.data?.message || 'Failed to check costing status');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to check costing status');
     } finally {
       setLoadingPushStatus(false);
     }
@@ -413,9 +439,10 @@ export default function CADPlanningPage() {
       setShowPushModal(false);
       // Navigate to fabric costing page
       navigate(`/fabric-costing?styleId=${id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to push CAD to fabric costing:', error);
-      notify.error(error.response?.data?.message || 'Failed to create fabric costing records');
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to create fabric costing records');
     } finally {
       setIsPushing(false);
     }
@@ -570,7 +597,7 @@ export default function CADPlanningPage() {
                 rows={cadTableData.cadRows}
                 components={cadTableData.components}
                 availableGreiges={cadTableData.availableGreiges}
-                sizeOptions={cadTableData.sizeOptions || cadTableData.sizes || []}
+                sizeOptions={cadTableData.sizeOptions || []}
                 onAddRow={handleSpreadsheetAddRow}
                 onAddCombinedRow={handleSpreadsheetAddCombinedRow}
                 onUpdateRow={handleSpreadsheetUpdateRow}

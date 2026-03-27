@@ -83,8 +83,9 @@ export default function SaleOrderList() {
       resetForm();
       navigate(`/sale-orders/${created.id}`);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create sale order');
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to create sale order');
     },
   });
 
@@ -96,8 +97,9 @@ export default function SaleOrderList() {
       setDeleteDialogOpen(false);
       setSoToDelete(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to delete sale order');
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to delete sale order');
     },
   });
 
@@ -308,7 +310,7 @@ export default function SaleOrderList() {
               />
               {customerSearch.length >= 2 && !selectedCustomerId && customerResults && (
                 <div className="border rounded-md max-h-40 overflow-y-auto">
-                  {(customerResults as any[]).map((c: any) => (
+                  {(customerResults as Array<{ id: string; code: string; name: string }>).map((c) => (
                     <div
                       key={c.id}
                       className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"

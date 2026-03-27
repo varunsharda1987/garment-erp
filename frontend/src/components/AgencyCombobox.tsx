@@ -25,6 +25,7 @@ export function AgencyCombobox({
   // Load initial agencies
   useEffect(() => {
     loadAgencies('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAgencies = useCallback(async (search: string) => {
@@ -43,9 +44,9 @@ export function AgencyCombobox({
 
       setAgencies(agencyOptions);
       setInitialLoaded(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load agencies:', error);
-      toast.error(error?.message || 'Failed to load agencies');
+      toast.error(error instanceof Error ? error.message : 'Failed to load agencies');
     } finally {
       setIsLoading(false);
     }

@@ -47,7 +47,6 @@ const PRODUCTION_STAGES = [
 const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> = ({
   workOrderId,
   currentStage,
-  orderItemId: _orderItemId,
   totalQuantity,
   onSuccess,
   onCancel,
@@ -58,7 +57,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
   const [quantityCompleted, setQuantityCompleted] = useState<number>(0);
   const [remarks, setRemarks] = useState<string>('');
   const [validationBlockers, setValidationBlockers] = useState<BlockerInfo[]>([]);
-  const [_canProceed, setCanProceed] = useState<boolean>(true);
+  const [, setCanProceed] = useState<boolean>(true);
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [showOverrideModal, setShowOverrideModal] = useState<boolean>(false);
@@ -75,6 +74,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
       setValidationBlockers([]);
       setCanProceed(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStage]);
 
   const validateStageTransition = async (targetStage: string) => {
@@ -95,7 +95,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
           duration: 7000,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Validation error:', error);
       toast.error('Validation Failed', {
         description: 'Unable to validate stage transition. Please try again.',
@@ -175,10 +175,11 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
 
       setShowOverrideModal(false);
       onSuccess(); // Refresh parent data
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to update stage:', error);
+      const axiosErr = error as { response?: { data?: { message?: string } }; message?: string };
       toast.error('Failed to update stage', {
-        description: error.response?.data?.message || error.message,
+        description: axiosErr.response?.data?.message || axiosErr.message,
       });
     } finally {
       setIsSaving(false);

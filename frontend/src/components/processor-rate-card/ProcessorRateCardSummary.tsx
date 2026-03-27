@@ -38,8 +38,8 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
       setError(null);
       const data = await processorRateCardV2Service.getSummary();
       setSummary(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load summary');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load summary');
     } finally {
       setLoading(false);
     }

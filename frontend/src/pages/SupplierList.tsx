@@ -65,6 +65,7 @@ export default function SupplierList() {
 
   useEffect(() => {
     fetchSuppliers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, ratingFilter, categoryFilter]);
 
   const fetchSuppliers = async () => {

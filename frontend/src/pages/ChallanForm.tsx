@@ -38,7 +38,7 @@ export default function ChallanForm() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function updateItem(index: number, field: keyof CreateChallanItemInput, value: any) {
+  function updateItem(index: number, field: keyof CreateChallanItemInput, value: string | number | undefined) {
     setForm((prev) => ({
       ...prev,
       items: prev.items.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
@@ -113,7 +113,10 @@ export default function ChallanForm() {
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label>Challan Type *</Label>
-              <Select value={form.challanType} onValueChange={(v) => updateField('challanType', v as any)}>
+              <Select
+                value={form.challanType}
+                onValueChange={(v) => updateField('challanType', v as CreateChallanInput['challanType'])}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

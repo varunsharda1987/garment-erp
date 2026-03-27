@@ -48,6 +48,7 @@ export default function GSTNumberInput({
     if (autoValidate && value.gstNumber && value.stateCode) {
       validateGSTNumber();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.gstNumber, value.stateCode]);
 
   const fetchStates = async () => {

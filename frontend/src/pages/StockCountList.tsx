@@ -35,6 +35,7 @@ export default function StockCountList() {
 
   useEffect(() => {
     loadCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, typeFilter]);
 
   const loadCounts = async () => {

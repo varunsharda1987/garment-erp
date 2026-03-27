@@ -50,6 +50,7 @@ export default function ProcessingAssignDialog({
       loadSuggestions();
       loadProcessors();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, requirementIds]);
 
   const loadSuggestions = async () => {

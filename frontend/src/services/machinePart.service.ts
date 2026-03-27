@@ -32,7 +32,11 @@ export const getMachinePartById = async (id: string): Promise<MachinePart> => {
  */
 export const createMachinePart = async (
   data: CreateMachinePartRequest
-): Promise<{ machinePart: MachinePart; material: any; message: string }> => {
+): Promise<{
+  machinePart: MachinePart;
+  material: { id: number; materialType: string; code: string; name: string };
+  message: string;
+}> => {
   const response = await api.post('/materials/machine-part', data);
   return response.data;
 };
@@ -58,7 +62,10 @@ export const deleteMachinePart = async (id: string): Promise<void> => {
 /**
  * Bulk import machine parts from Excel
  */
-export const bulkImportMachineParts = async (data: { data: any[]; createStock?: boolean }): Promise<any> => {
+export const bulkImportMachineParts = async (data: {
+  data: Record<string, unknown>[];
+  createStock?: boolean;
+}): Promise<{ imported: number; errors: string[] }> => {
   const response = await api.post('/materials/machine-part/bulk-import', data);
   return response.data;
 };
@@ -66,7 +73,10 @@ export const bulkImportMachineParts = async (data: { data: any[]; createStock?: 
 /**
  * Download Excel template for bulk import
  */
-export const downloadMachinePartTemplate = async (): Promise<any> => {
+export const downloadMachinePartTemplate = async (): Promise<{
+  columns: string[];
+  sampleData: Record<string, unknown>[];
+}> => {
   const response = await api.get('/materials/machine-part/template');
   return response.data;
 };

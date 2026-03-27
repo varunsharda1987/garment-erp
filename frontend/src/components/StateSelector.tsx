@@ -32,6 +32,7 @@ export default function StateSelector({
 
   useEffect(() => {
     fetchStates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateType]);
 
   const fetchStates = async () => {

@@ -188,7 +188,7 @@ export interface WorkOrder {
 
   // Split support
   parentRunId?: string | null;
-  fabricLotInfo?: Record<string, any> | null;
+  fabricLotInfo?: Record<string, unknown> | null;
   splitReason?: string | null;
   parentRun?: {
     id: string;
@@ -202,7 +202,7 @@ export interface WorkOrder {
     totalQuantity: number;
     completedQuantity: number;
     status: OrderStatus;
-    fabricLotInfo?: Record<string, any> | null;
+    fabricLotInfo?: Record<string, unknown> | null;
     splitReason?: string | null;
   }>;
 }

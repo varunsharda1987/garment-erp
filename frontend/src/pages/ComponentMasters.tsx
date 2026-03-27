@@ -1,6 +1,5 @@
 // Component Masters Management Page
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -29,7 +28,6 @@ import type { ComponentMaster, ComponentMasterFormData } from '../types/componen
 import type { ComponentGroup } from '../types/componentGroup.types';
 
 export default function ComponentMasters() {
-  useNavigate(); // Reserved for future navigation needs
   const [components, setComponents] = useState<ComponentMaster[]>([]);
   const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,8 +57,9 @@ export default function ComponentMasters() {
         limit: 100,
       });
       setComponents(response.data);
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to load component masters');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      notify.error(err.response?.data?.message || 'Failed to load component masters');
     } finally {
       setLoading(false);
     }
@@ -75,7 +74,7 @@ export default function ComponentMasters() {
         isActive: true,
       });
       setComponentGroups(response.data);
-    } catch (error: any) {
+    } catch {
       notify.error('Failed to load component groups');
     }
   };
@@ -83,6 +82,7 @@ export default function ComponentMasters() {
   useEffect(() => {
     loadComponents();
     loadComponentGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   // Handle create/update
@@ -106,8 +106,9 @@ export default function ComponentMasters() {
       setIsDialogOpen(false);
       resetForm();
       loadComponents();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to save component master');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      notify.error(err.response?.data?.message || 'Failed to save component master');
     }
   };
 
@@ -125,8 +126,9 @@ export default function ComponentMasters() {
       await deleteComponentMaster(componentToDelete.id);
       notify.success('Component master deleted successfully');
       loadComponents();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to delete component master');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      notify.error(err.response?.data?.message || 'Failed to delete component master');
     } finally {
       setComponentToDelete(null);
     }

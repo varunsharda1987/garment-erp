@@ -79,6 +79,7 @@ export const CADStatusBadge: React.FC<CADStatusBadgeProps> = ({ status, showIcon
 /**
  * Utility function to check if CAD is approved for workflow guards
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const isCADApproved = (status: CADStatus): boolean => {
   return status === 'APPROVED';
 };
@@ -86,6 +87,7 @@ export const isCADApproved = (status: CADStatus): boolean => {
 /**
  * Utility function to get workflow message based on CAD status
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const getCADWorkflowMessage = (status: CADStatus): string => {
   switch (status) {
     case 'APPROVED':

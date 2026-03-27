@@ -36,6 +36,7 @@ export default function WorkOrderList() {
 
   useEffect(() => {
     loadWorkOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, priorityFilter, searchQuery]);
 
   const loadWorkOrders = async () => {
@@ -116,7 +117,7 @@ export default function WorkOrderList() {
           {wo.orders ? (
             <>
               <div className="font-medium text-gray-900">{wo.orders.orderNumber}</div>
-              <div className="text-xs text-gray-500">{wo.orders.customers?.name || '-'}</div>
+              <div className="text-xs text-gray-500">{wo.orders.customer?.name || '-'}</div>
             </>
           ) : wo.stockProductionOrderId ? (
             <>

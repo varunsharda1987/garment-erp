@@ -29,6 +29,7 @@ export default function ChallanDetail() {
 
   useEffect(() => {
     if (id) loadChallan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function loadChallan() {

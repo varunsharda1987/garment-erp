@@ -230,11 +230,11 @@ export const dyeProcessPOService = {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/send`, data);
     return response.data.data;
   },
-  async receiveFromMill(id: string, data: any): Promise<ProcessPO> {
+  async receiveFromMill(id: string, data: ReceiveFromMillRequest): Promise<ProcessPO> {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/receive`, data);
     return response.data.data;
   },
-  async qualityCheck(id: string, data: any): Promise<ProcessPO> {
+  async qualityCheck(id: string, data: QualityCheckRequest): Promise<ProcessPO> {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/quality-check`, data);
     return response.data.data;
   },

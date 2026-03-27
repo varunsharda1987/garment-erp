@@ -12,13 +12,7 @@ import type { Style } from '../types/style.types';
 import { getStyleById } from '../services/style.service';
 import { CheckCircle, XCircle, Package } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
-
-const FABRIC_FINISH_TYPES = [
-  { value: 'DYED', label: 'Dyed' },
-  { value: 'PRINTED', label: 'Printed' },
-  { value: 'YARN_DYED', label: 'Yarn Dyed' },
-  { value: 'RAW', label: 'Raw/Unfinished' },
-] as const;
+import { FABRIC_FINISH_TYPES } from '@/constants/fabric-finish-types';
 
 interface StockFormData {
   fabricId: string;
@@ -50,6 +44,7 @@ export default function StyleStockEntry() {
     if (styleId) {
       loadStyleData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styleId]);
 
   const loadStyleData = async () => {
@@ -69,14 +64,14 @@ export default function StyleStockEntry() {
           initialEntries[fabric.fabricId] = {
             fabricId: fabric.fabricId,
             quantity: '',
-            finishedWidth: '',
-            cutableWidth: '',
+            finishedWidth: fabric.actualWidth ? String(fabric.actualWidth) : '',
+            cutableWidth: fabric.cutableWidth ? String(fabric.cutableWidth) : '',
             rollNumbers: '',
             warehouseLocation: '',
             qualityGrade: 'A',
             purchaseCost: '',
             receivedDate: new Date().toISOString().split('T')[0],
-            patternPartId: '',
+            patternPartId: fabric.allocatedPatternParts?.[0]?.id || '',
             fabricFinishType: fabric.fabricFinishType || '',
           };
         });
@@ -153,8 +148,9 @@ export default function StyleStockEntry() {
       setTimeout(() => {
         navigate(`/styles/${styleId}`);
       }, 2000);
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to save stock entries';
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to save stock entries';
       setError(errorMessage);
     } finally {
       setIsSaving(false);
@@ -292,6 +288,7 @@ export default function StyleStockEntry() {
                             <Select
                               value={entry.patternPartId}
                               onValueChange={(value) => handleFieldChange(fabric.fabricId, 'patternPartId', value)}
+                              disabled={!!fabric.allocatedPatternParts?.length}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select part" />
@@ -317,6 +314,7 @@ export default function StyleStockEntry() {
                             <Select
                               value={entry.fabricFinishType}
                               onValueChange={(value) => handleFieldChange(fabric.fabricId, 'fabricFinishType', value)}
+                              disabled={!!fabric.fabricFinishType}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Select finish" />
@@ -339,6 +337,7 @@ export default function StyleStockEntry() {
                               value={entry.finishedWidth}
                               onChange={(e) => handleFieldChange(fabric.fabricId, 'finishedWidth', e.target.value)}
                               placeholder="Finished width"
+                              disabled={!!fabric.actualWidth}
                             />
                           </div>
 
@@ -350,6 +349,7 @@ export default function StyleStockEntry() {
                               value={entry.cutableWidth}
                               onChange={(e) => handleFieldChange(fabric.fabricId, 'cutableWidth', e.target.value)}
                               placeholder="Cutable width"
+                              disabled={!!fabric.cutableWidth}
                             />
                           </div>
 

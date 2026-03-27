@@ -48,7 +48,7 @@ export async function allocateStock(data: {
   saleOrderItemId: string;
   fgStockId: string;
   quantity: number;
-}): Promise<any> {
+}): Promise<unknown> {
   const response = await api.post(`${BASE_URL}/allocate-stock`, data);
   return response.data;
 }

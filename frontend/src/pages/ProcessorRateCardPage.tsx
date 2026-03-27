@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -91,7 +92,7 @@ export default function ProcessorRateCardPage() {
   const [slabToDelete, setSlabToDelete] = useState<{ index: number; slab: SlabInput } | null>(null);
 
   // Track original state for change detection
-  const originalStateRef = useRef<{ slabs: SlabInput[]; greiges: GreigeRow[] } | null>(null);
+  const originalStateRef = useRef<{ slabs: SlabInput[]; greiges: GreigeRow[]; laces?: LaceRow[] } | null>(null);
 
   // Load processors and available materials on mount and when material type changes
   useEffect(() => {
@@ -119,6 +120,7 @@ export default function ProcessorRateCardPage() {
       setDeletedLaceIds([]);
       setHasUnsavedChanges(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProcessorId, processingType, printingType, materialType]);
 
   // Detect unsaved changes
@@ -135,7 +137,7 @@ export default function ProcessorRateCardPage() {
       const hasDeletedGreiges = deletedGreigeIds.length > 0;
       setHasUnsavedChanges(hasSlabChanges || hasGreigeChanges || hasDeletedGreiges);
     } else {
-      const hasLaceChanges = JSON.stringify(laces) !== JSON.stringify((originalStateRef.current as any).laces || []);
+      const hasLaceChanges = JSON.stringify(laces) !== JSON.stringify(originalStateRef.current.laces || []);
       const hasDeletedLaces = deletedLaceIds.length > 0;
       setHasUnsavedChanges(hasSlabChanges || hasLaceChanges || hasDeletedLaces);
     }
@@ -153,8 +155,9 @@ export default function ProcessorRateCardPage() {
       } else {
         setProcessors(data);
       }
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to load processors');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.error : undefined;
+      notify.error(msg || 'Failed to load processors');
     }
   };
 
@@ -162,8 +165,9 @@ export default function ProcessorRateCardPage() {
     try {
       const data = await processorRateCardV2Service.getGreigeFabrics();
       setAvailableGreiges(data);
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to load greiges');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.error : undefined;
+      notify.error(msg || 'Failed to load greiges');
     }
   };
 
@@ -171,8 +175,9 @@ export default function ProcessorRateCardPage() {
     try {
       const data = await processorRateCardV2Service.getGreigeLaces();
       setAvailableLaces(data);
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to load greige laces');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.error : undefined;
+      notify.error(msg || 'Failed to load greige laces');
     }
   };
 
@@ -206,8 +211,9 @@ export default function ProcessorRateCardPage() {
         slabs: JSON.parse(JSON.stringify(sortedSlabs)),
         greiges: JSON.parse(JSON.stringify(matrix.greiges)),
       };
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to load rate matrix');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.error : undefined;
+      notify.error(msg || 'Failed to load rate matrix');
     } finally {
       setLoading(false);
     }
@@ -238,9 +244,10 @@ export default function ProcessorRateCardPage() {
         slabs: JSON.parse(JSON.stringify(sortedSlabs)),
         greiges: [], // Not used for lace mode
         laces: JSON.parse(JSON.stringify(matrix.laces)),
-      } as any;
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to load lace rate matrix');
+      };
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.error : undefined;
+      notify.error(msg || 'Failed to load lace rate matrix');
     } finally {
       setLoading(false);
     }
@@ -325,8 +332,9 @@ export default function ProcessorRateCardPage() {
         notify.success('Lace rate matrix saved successfully');
         await loadLaceMatrix();
       }
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to save rate matrix');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.error : undefined;
+      notify.error(msg || 'Failed to save rate matrix');
     } finally {
       setSaving(false);
     }
@@ -339,7 +347,7 @@ export default function ProcessorRateCardPage() {
         setGreiges(JSON.parse(JSON.stringify(originalStateRef.current.greiges)));
         setDeletedGreigeIds([]);
       } else {
-        setLaces(JSON.parse(JSON.stringify((originalStateRef.current as any).laces || [])));
+        setLaces(JSON.parse(JSON.stringify(originalStateRef.current.laces || [])));
         setDeletedLaceIds([]);
       }
     }
@@ -463,7 +471,14 @@ export default function ProcessorRateCardPage() {
 
   const handleLaceDeleteClick = (lace: LaceRow) => {
     // Reuse greige delete confirmation for lace
-    setGreigeToDelete({ id: lace.laceId, greigeName: lace.laceName } as any);
+    setGreigeToDelete({
+      id: lace.laceId,
+      greigeCode: '',
+      greigeName: lace.laceName,
+      genericGreigeName: '',
+      rates: {},
+      shrinkagePercent: null,
+    });
     setDeleteConfirmOpen(true);
   };
 
@@ -535,8 +550,9 @@ export default function ProcessorRateCardPage() {
       setIsCopyModalOpen(false);
       setCopyTargetProcessorId('');
       setCopyRatesFlag(false);
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to copy rates');
+    } catch (error: unknown) {
+      const msg = isAxiosError(error) ? error.response?.data?.error : undefined;
+      notify.error(msg || 'Failed to copy rates');
     } finally {
       setSaving(false);
     }

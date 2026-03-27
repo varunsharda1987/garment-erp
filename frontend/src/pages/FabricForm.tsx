@@ -28,6 +28,7 @@ import type { Embroidery } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
 import { notify } from '../lib/notify';
 import { API_URL } from '../config/api.config';
+import { FABRIC_FINISH_TYPES, getFinishTypeLabel } from '../constants/fabric-finish-types';
 import ColorPicker from '../components/ColorPicker';
 import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
 import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
@@ -77,7 +78,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [greigeMasters, setGreigeMasters] = useState<GreigeMaster[]>([]);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; code: string; name: string }[]>([]);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
 
   // New state for fabric source and styles
@@ -109,7 +110,6 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [allocationModalOpen, setAllocationModalOpen] = useState(false);
   const [quickCreateGreigeOpen, setQuickCreateGreigeOpen] = useState(false);
   const [autoCreateGreigeConfirmOpen, setAutoCreateGreigeConfirmOpen] = useState(false);
-  const [_pendingSubmit, _setPendingSubmit] = useState(false); // Flag to proceed after greige creation
 
   const [formData, setFormData] = useState<FabricMasterFormData>({
     fabricCode: '',
@@ -121,7 +121,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     composition: '',
     colorName: '',
     colorCode: '',
-    finishType: 'solid',
+    finishType: 'DYED',
     printDesign: '',
     actualWidth: 0,
     cutableWidth: 0,
@@ -284,18 +284,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
   // Helper to get finish type display text
   const getFinishTypeDisplay = (finishType: string): string => {
-    switch (finishType) {
-      case 'solid':
-      case 'reactive':
-      case 'pigment':
-        return 'Dyed';
-      case 'printed':
-        return 'Printed';
-      case 'yarn_dyed':
-        return 'Yarn Dyed';
-      default:
-        return '';
-    }
+    return getFinishTypeLabel(finishType);
   };
 
   // Load style allocations for this fabric (edit mode only)
@@ -322,6 +311,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     loadGreigeMasters();
     loadSuppliers();
     loadStyles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, id, loadAllocations]);
 
   // Auto-generate fabric code when source or style changes (create mode only)
@@ -424,7 +414,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         composition: fabric.composition || '',
         colorName: fabric.colorName || '',
         colorCode: fabric.colorCode || '',
-        finishType: fabric.finishType || 'solid',
+        finishType: fabric.finishType || 'DYED',
         printDesign: fabric.printDesign || '',
         actualWidth: fabric.actualWidth,
         cutableWidth: fabric.cutableWidth || fabric.actualWidth - 2,
@@ -588,18 +578,18 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
     if (!componentId || !selectedStyleId) return;
 
-    // Auto-populate genericGreigeName from the selected component's style_fabrics
-    // The serializer maps 'styleFabrics' to 'fabrics', so check both
+    // Auto-populate genericGreigeName from the selected component's fabrics
     const component = selectedStyle?.components?.find((c) => c.id === componentId);
-    const componentFabrics = component?.fabrics || component?.styleFabrics;
+    const componentFabrics = component?.fabrics;
     if (componentFabrics && componentFabrics.length > 0) {
       const firstFabric = componentFabrics[0];
       const fabricGenericName = firstFabric.genericGreigeName || firstFabric.fabricName;
-      if (fabricGenericName && !formData.genericGreigeName) {
-        // Only auto-populate if genericGreigeName is not already set
+      const styleFinishType = firstFabric.fabricFinishType;
+      if (fabricGenericName || styleFinishType) {
         setFormData((prev) => ({
           ...prev,
-          genericGreigeName: fabricGenericName,
+          ...(fabricGenericName && !prev.genericGreigeName ? { genericGreigeName: fabricGenericName } : {}),
+          ...(styleFinishType ? { finishType: styleFinishType } : {}),
         }));
       }
 
@@ -621,17 +611,20 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         await fabricService.getCADPatternPartsForComponent(selectedStyleId, componentId);
       setCadPatternParts(cadParts);
       setMasterPatternParts(masterParts);
+
+      // If no CAD or component master parts found, load all available pattern parts as fallback
+      if (cadParts.length === 0 && masterParts.length === 0) {
+        const allParts = await fabricService.getAllPatternParts();
+        setMasterPatternParts(allParts);
+      }
     } catch (error) {
       logError('Error loading pattern parts:', error);
-      // Fallback to old behavior - load from component master only
-      const componentMasterId = component?.componentMaster?.id;
-      if (componentMasterId) {
-        try {
-          const parts = await fabricService.getPatternPartsForComponent(componentMasterId);
-          setMasterPatternParts(parts);
-        } catch (fallbackError) {
-          logError('Error loading fallback pattern parts:', fallbackError);
-        }
+      // Fallback: load all available pattern parts so user can always select
+      try {
+        const allParts = await fabricService.getAllPatternParts();
+        setMasterPatternParts(allParts);
+      } catch (fallbackError) {
+        logError('Error loading fallback pattern parts:', fallbackError);
       }
     } finally {
       setLoadingPatternParts(false);
@@ -790,7 +783,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       navigate('/fabric');
     } catch (error: unknown) {
       logError('Error saving fabric:', error);
-      notify.error((error as any).response?.data?.error || 'Failed to save fabric master');
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      notify.error(axiosErr.response?.data?.error || 'Failed to save fabric master');
     } finally {
       setSaving(false);
     }
@@ -1111,17 +1105,16 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               required
             >
-              <option value="solid">Solid/Dyed</option>
-              <option value="printed">Printed</option>
-              <option value="yarn_dyed">Yarn Dyed</option>
-              <option value="reactive">Reactive</option>
-              <option value="pigment">Pigment</option>
-              <option value="other">Other</option>
+              {FABRIC_FINISH_TYPES.map((ft) => (
+                <option key={ft.value} value={ft.value}>
+                  {ft.label}
+                </option>
+              ))}
             </select>
           </div>
 
           {/* Print Design - only when printed */}
-          {formData.finishType === 'printed' && (
+          {formData.finishType === 'PRINTED' && (
             <div className="col-span-6 sm:col-span-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">Print Design</label>
               <Input
@@ -1136,7 +1129,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           )}
 
           {/* Color - single row, no family filter to keep compact */}
-          <div className={`col-span-12 ${formData.finishType === 'printed' ? 'sm:col-span-4' : 'sm:col-span-6'}`}>
+          <div className={`col-span-12 ${formData.finishType === 'PRINTED' ? 'sm:col-span-4' : 'sm:col-span-6'}`}>
             <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
             <ColorPicker
               value={selectedColorId}
@@ -1162,7 +1155,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           </div>
 
           {/* Active checkbox - aligned with other fields */}
-          <div className={`col-span-6 ${formData.finishType === 'printed' ? 'sm:col-span-2' : 'sm:col-span-3'}`}>
+          <div className={`col-span-6 ${formData.finishType === 'PRINTED' ? 'sm:col-span-2' : 'sm:col-span-3'}`}>
             <label className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md bg-white cursor-pointer hover:bg-gray-50">
               <input
                 type="checkbox"

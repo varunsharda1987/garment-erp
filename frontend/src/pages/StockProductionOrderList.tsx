@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Search, Warehouse, Eye, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Search, Warehouse, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -28,7 +28,18 @@ import type {
   StockProductionOrder,
   StockProductionOrderStatus,
   CreateSPORequest,
+  Priority,
 } from '@/types/stockProductionOrder.types';
+
+interface ApiError {
+  response?: { data?: { message?: string } };
+}
+
+interface StyleSearchResult {
+  id: string;
+  styleCode: string;
+  styleName: string;
+}
 
 const STATUS_COLORS: Record<StockProductionOrderStatus, string> = {
   DRAFT: 'bg-gray-100 text-gray-800',
@@ -86,8 +97,8 @@ export default function StockProductionOrderList() {
       resetForm();
       navigate(`/stock-production-orders/${created.id}`);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create SPO');
+    onError: (error: unknown) => {
+      toast.error((error as ApiError)?.response?.data?.message || 'Failed to create SPO');
     },
   });
 
@@ -99,8 +110,8 @@ export default function StockProductionOrderList() {
       setDeleteDialogOpen(false);
       setSpoToDelete(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to delete SPO');
+    onError: (error: unknown) => {
+      toast.error((error as ApiError)?.response?.data?.message || 'Failed to delete SPO');
     },
   });
 
@@ -128,7 +139,7 @@ export default function StockProductionOrderList() {
       styleId: selectedStyleId,
       totalQuantity: parseInt(totalQuantity),
       targetDate: targetDate || undefined,
-      priority: priority as any,
+      priority: priority as Priority,
       remarks: remarks || undefined,
       items: [], // Items will be added in detail page
     };
@@ -323,7 +334,7 @@ export default function StockProductionOrderList() {
               />
               {styleSearch.length >= 2 && !selectedStyleId && styleResults && (
                 <div className="border rounded-md max-h-40 overflow-y-auto">
-                  {(styleResults as any[]).map((style: any) => (
+                  {(styleResults as StyleSearchResult[]).map((style) => (
                     <div
                       key={style.id}
                       className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"

@@ -100,6 +100,7 @@ const CostSheetList = () => {
 
   useEffect(() => {
     fetchCostSheets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, search, approvedFilter]);
 
   const handleDeleteClick = (id: string, styleCode: string) => {

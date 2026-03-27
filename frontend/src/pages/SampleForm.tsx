@@ -56,7 +56,9 @@ export default function SampleForm() {
   // Admin override state
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [pendingSampleData, setPendingSampleData] = useState<CreateSampleRequest | null>(null);
-  const [validationBlockers, setValidationBlockers] = useState<any[]>([]);
+  const [validationBlockers, setValidationBlockers] = useState<
+    Array<{ type: string; message: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' }>
+  >([]);
 
   // Form state
   const [formData, setFormData] = useState<{
@@ -101,6 +103,7 @@ export default function SampleForm() {
         requiredDate: defaultDate.toISOString().split('T')[0],
       }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Fetch styles when customer changes
@@ -110,6 +113,7 @@ export default function SampleForm() {
     } else {
       setStyles([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.customerId]);
 
   // Fetch style details when style changes
@@ -146,7 +150,7 @@ export default function SampleForm() {
   const fetchStyleDetails = async (styleId: string) => {
     try {
       const style = await styleService.getStyleById(styleId);
-      setSelectedStyle(style as any);
+      setSelectedStyle(style as unknown as Style);
     } catch (err) {
       console.error('Failed to fetch style details:', err);
     }
@@ -308,7 +312,7 @@ export default function SampleForm() {
         ...requestData,
         adminOverride,
         overrideReason: overrideReason || undefined,
-      } as any);
+      } as CreateSampleRequest & { adminOverride?: boolean; overrideReason?: string });
       handleApiSuccess('Sample created', `Sample ${sample.sampleNumber} has been created.`);
       navigate(`/samples/${sample.id}`);
     }
@@ -338,7 +342,7 @@ export default function SampleForm() {
     setMeasurements(measurements.filter((_, i) => i !== index));
   };
 
-  const updateMeasurement = (index: number, field: string, value: any) => {
+  const updateMeasurement = (index: number, field: string, value: string | number) => {
     setMeasurements(measurements.map((m, i) => (i === index ? { ...m, [field]: value } : m)));
   };
 
@@ -351,7 +355,7 @@ export default function SampleForm() {
     setColorways(colorways.filter((_, i) => i !== index));
   };
 
-  const updateColorway = (index: number, field: string, value: any) => {
+  const updateColorway = (index: number, field: string, value: string | number) => {
     setColorways(colorways.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
   };
 
@@ -364,7 +368,7 @@ export default function SampleForm() {
     setSizeSets(sizeSets.filter((_, i) => i !== index));
   };
 
-  const updateSizeSet = (index: number, field: string, value: any) => {
+  const updateSizeSet = (index: number, field: string, value: string | number) => {
     setSizeSets(sizeSets.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 

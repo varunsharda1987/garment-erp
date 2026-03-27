@@ -124,8 +124,9 @@ export default function LaceDefectForm() {
       await laceDefectService.logDefect(form);
       notify.success('Defect logged successfully');
       navigate('/lace-defects');
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to log defect');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      notify.error(err.response?.data?.error || 'Failed to log defect');
     } finally {
       setSubmitting(false);
     }

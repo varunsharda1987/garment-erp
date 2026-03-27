@@ -23,8 +23,10 @@ export default function StockCountForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [warehouses, setWarehouses] = useState<any[]>([]);
-  const [availableMaterials, setAvailableMaterials] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<{ id: string; warehouseCode: string; warehouseName: string }[]>([]);
+  const [availableMaterials, setAvailableMaterials] = useState<
+    { id: string; materialId: string; quantity: number; unit: string; materials?: { code: string; name: string } }[]
+  >([]);
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({

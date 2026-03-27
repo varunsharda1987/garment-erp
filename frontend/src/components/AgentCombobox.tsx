@@ -27,6 +27,7 @@ export function AgentCombobox({
   // Load agents when agencyId changes
   useEffect(() => {
     loadAgents('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agencyId]);
 
   const loadAgents = useCallback(
@@ -47,9 +48,9 @@ export function AgentCombobox({
 
         setAgents(agentOptions);
         setInitialLoaded(true);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Failed to load agents:', error);
-        toast.error(error?.message || 'Failed to load agents');
+        toast.error(error instanceof Error ? error.message : 'Failed to load agents');
       } finally {
         setIsLoading(false);
       }

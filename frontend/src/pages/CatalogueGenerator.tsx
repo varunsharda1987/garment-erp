@@ -150,7 +150,7 @@ export default function CatalogueGenerator() {
         undefined,
         'ACTIVE'
       );
-      const newStyles = (response.data || []).map((style: any) => ({
+      const newStyles = (response.data || []).map((style: Record<string, unknown>) => ({
         id: style.id as string,
         styleCode: style.styleCode as string,
         styleName: (style.styleName as string) || '',
@@ -454,7 +454,7 @@ export default function CatalogueGenerator() {
   const handleShareWhatsApp = async () => {
     if (!storedCatalogueId || !phoneNumber.trim()) return;
 
-    const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    const cleanPhone = phoneNumber.replace(/[\s\-()]/g, '');
     if (cleanPhone.length < 10) {
       handleApiError(new Error('Please enter a valid phone number'), 'Invalid Phone');
       return;

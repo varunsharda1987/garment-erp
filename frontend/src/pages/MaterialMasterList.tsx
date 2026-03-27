@@ -30,6 +30,7 @@ export default function MaterialMasterList() {
 
   useEffect(() => {
     loadMaterials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedType, activeOnly]);
 
   const loadMaterials = async () => {
@@ -42,8 +43,8 @@ export default function MaterialMasterList() {
         search: searchTerm || undefined,
       });
       setMaterials(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load materials');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load materials');
       console.error('Error loading materials:', err);
     } finally {
       setLoading(false);
@@ -51,7 +52,7 @@ export default function MaterialMasterList() {
   };
 
   const handleSearch = () => {
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (selectedType) params.type = selectedType;
     if (searchTerm) params.search = searchTerm;
     if (!activeOnly) params.active = 'false';
@@ -60,7 +61,7 @@ export default function MaterialMasterList() {
   };
 
   const handleTypeChange = (type: MaterialType | null) => {
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (type) params.type = type;
     if (searchTerm) params.search = searchTerm;
     if (!activeOnly) params.active = 'false';
@@ -82,8 +83,8 @@ export default function MaterialMasterList() {
     try {
       await materialMasterService.delete(id);
       loadMaterials();
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete material');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to delete material');
     }
   };
 

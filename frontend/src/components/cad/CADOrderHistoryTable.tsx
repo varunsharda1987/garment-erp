@@ -80,6 +80,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styleId]);
 
   const loadData = async () => {

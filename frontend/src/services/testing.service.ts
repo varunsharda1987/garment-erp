@@ -1,6 +1,7 @@
 import api from '@/lib/api';
 import type {
   TestingLab,
+  TestingLabStats,
   CreateTestingLabInput,
   UpdateTestingLabInput,
   TestTemplate,
@@ -21,7 +22,7 @@ import type {
 // ============================================================================
 
 export const testingLabsService = {
-  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<TestingLab>> => {
+  getAll: async (params?: Record<string, string | number | boolean>): Promise<PaginatedResponse<TestingLab>> => {
     const { data } = await api.get('/testing-labs', { params });
     return data;
   },
@@ -31,7 +32,7 @@ export const testingLabsService = {
     return data;
   },
 
-  getStats: async (id: string): Promise<ApiResponse<any>> => {
+  getStats: async (id: string): Promise<ApiResponse<TestingLabStats>> => {
     const { data } = await api.get(`/testing-labs/${id}/stats`);
     return data;
   },
@@ -56,7 +57,7 @@ export const testingLabsService = {
 // ============================================================================
 
 export const testTemplatesService = {
-  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<TestTemplate>> => {
+  getAll: async (params?: Record<string, string | number | boolean>): Promise<PaginatedResponse<TestTemplate>> => {
     const { data } = await api.get('/test-templates', { params });
     return data;
   },
@@ -86,7 +87,9 @@ export const testTemplatesService = {
 // ============================================================================
 
 export const fabricPhysicalTestsService = {
-  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<FabricPhysicalTest>> => {
+  getAll: async (
+    params?: Record<string, string | number | boolean>
+  ): Promise<PaginatedResponse<FabricPhysicalTest>> => {
     const { data } = await api.get('/fabric-physical-tests', { params });
     return data;
   },
@@ -135,7 +138,9 @@ export const fabricPhysicalTestsService = {
 // ============================================================================
 
 export const garmentPhysicalTestsService = {
-  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<GarmentPhysicalTest>> => {
+  getAll: async (
+    params?: Record<string, string | number | boolean>
+  ): Promise<PaginatedResponse<GarmentPhysicalTest>> => {
     const { data } = await api.get('/garment-physical-tests', { params });
     return data;
   },

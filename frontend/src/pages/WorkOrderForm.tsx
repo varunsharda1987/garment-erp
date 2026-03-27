@@ -56,6 +56,7 @@ export default function WorkOrderForm() {
       // No ID means trying to create - redirect to list
       navigate('/production/work-orders');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadData = async () => {
@@ -196,7 +197,7 @@ export default function WorkOrderForm() {
                 </div>
                 <div>
                   <Label className="text-gray-500">Customer</Label>
-                  <div className="font-medium mt-1">{workOrder.orders?.customers?.name || '-'}</div>
+                  <div className="font-medium mt-1">{workOrder.orders?.customer?.name || '-'}</div>
                 </div>
                 <div>
                   <Label className="text-gray-500">Style</Label>

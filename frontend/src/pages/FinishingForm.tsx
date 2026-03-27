@@ -66,6 +66,7 @@ export default function FinishingForm() {
       setSelectedTransferSlipId(transferSlipIdParam);
       handleTransferSlipSelect(transferSlipIdParam);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transferSlipIdParam, pendingTransferSlips]);
 
   const loadInitialData = async () => {

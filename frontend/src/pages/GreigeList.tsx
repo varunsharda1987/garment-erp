@@ -52,6 +52,7 @@ export default function GreigeList() {
 
   useEffect(() => {
     fetchGreigeMasters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, filterActive, searchTerm]);
 
   const fetchGreigeMasters = async () => {

@@ -44,8 +44,9 @@ export default function AgentList() {
       toast.success('Agent created successfully');
       setDialogOpen(false);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create agent');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to create agent');
     },
   });
 
@@ -58,8 +59,9 @@ export default function AgentList() {
       setDialogOpen(false);
       setSelectedAgent(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to update agent');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to update agent');
     },
   });
 
@@ -72,8 +74,9 @@ export default function AgentList() {
       setDeleteDialogOpen(false);
       setAgentToDelete(null);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to delete agent');
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Failed to delete agent');
     },
   });
 

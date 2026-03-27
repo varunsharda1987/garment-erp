@@ -273,11 +273,25 @@ export const fabricService = {
         cadPatternParts: PatternPartForAllocation[];
         masterPatternParts: PatternPartForAllocation[];
       };
-    }>(`${API_BASE_URL}/styles/${styleId}/components/${componentId}/cad-pattern-parts`, getAuthHeaders());
+    }>(`${API_BASE_URL}/cad-planning/${styleId}/components/${componentId}/pattern-parts`, getAuthHeaders());
     return {
       cadPatternParts: response.data.data?.cadPatternParts || [],
       masterPatternParts: response.data.data?.masterPatternParts || [],
     };
+  },
+
+  // Get all pattern parts from pattern_part_master (fallback when no CAD/component parts exist)
+  async getAllPatternParts(): Promise<PatternPartForAllocation[]> {
+    const response = await axios.get<{
+      success: boolean;
+      data: Array<{ id: string; code: string; name: string; isActive: boolean }>;
+    }>(`${API_BASE_URL}/pattern-parts?isActive=true&limit=200`, getAuthHeaders());
+    const items = response.data.data || [];
+    return items.map((p) => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+    }));
   },
 };
 

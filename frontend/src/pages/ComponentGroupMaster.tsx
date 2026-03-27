@@ -57,8 +57,9 @@ export default function ComponentGroupMaster() {
         limit: 100,
       });
       setComponentGroups(response.data);
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to load component groups');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      notify.error(axiosErr.response?.data?.message || 'Failed to load component groups');
     } finally {
       setLoading(false);
     }
@@ -66,6 +67,7 @@ export default function ComponentGroupMaster() {
 
   useEffect(() => {
     loadComponentGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm]);
 
   // Handle create/update
@@ -89,8 +91,9 @@ export default function ComponentGroupMaster() {
       setIsDialogOpen(false);
       resetForm();
       loadComponentGroups();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to save component group');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      notify.error(axiosErr.response?.data?.message || 'Failed to save component group');
     }
   };
 
@@ -108,8 +111,9 @@ export default function ComponentGroupMaster() {
       await componentGroupService.delete(groupToDelete.id);
       notify.success('Component group deleted successfully');
       loadComponentGroups();
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to delete component group');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      notify.error(axiosErr.response?.data?.message || 'Failed to delete component group');
     } finally {
       setGroupToDelete(null);
     }
@@ -168,8 +172,9 @@ export default function ComponentGroupMaster() {
       await componentGroupService.reorder({ orders });
       setComponentGroups(newGroups);
       notify.success('Order updated successfully');
-    } catch (error: any) {
-      notify.error(error.response?.data?.message || 'Failed to update order');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      notify.error(axiosErr.response?.data?.message || 'Failed to update order');
       loadComponentGroups(); // Reload on error
     }
   };

@@ -136,7 +136,7 @@ export default function SplitProductionModal({
               <div>
                 <span className="text-gray-500">Style:</span>{' '}
                 <span className="font-medium">
-                  {workOrder.styles?.styleCode} - {workOrder.styles?.styleName}
+                  {workOrder.style?.styleCode} - {workOrder.style?.styleName}
                 </span>
               </div>
               <div>

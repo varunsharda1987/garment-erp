@@ -25,6 +25,51 @@ import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Send, CheckCircle, XCircle, PackageOpen } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
+// Extended types for PO relations not yet in the base PurchaseOrder type
+interface POSourceLink {
+  id: string;
+  sourceType: string;
+  materialRequirement?: {
+    requirementNumber?: string;
+    orderItems?: {
+      styles?: { id: string; styleCode: string };
+    };
+  };
+  serviceRequirement?: {
+    serviceType?: string;
+    workOrder?: {
+      styles?: { id: string; styleCode: string };
+    };
+  };
+  productionRun?: {
+    workOrderNumber?: string;
+    styles?: { id: string; styleCode: string };
+  };
+}
+
+interface RequirementPOLink {
+  materialRequirements?: {
+    orderItems?: {
+      styles?: { id: string; styleCode: string };
+    };
+  };
+}
+
+interface ExtendedPurchaseOrder extends PurchaseOrder {
+  requirementPoLinks?: RequirementPOLink[];
+  poSourceLinks?: POSourceLink[];
+}
+
+interface ExtendedPOItem {
+  componentName?: string;
+  colorName?: string;
+  fabricWidth?: number;
+}
+
+interface GRNItem {
+  receivedQuantity: number;
+}
+
 export default function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -41,6 +86,7 @@ export default function PurchaseOrderDetail() {
     if (id) {
       fetchPurchaseOrder();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchPurchaseOrder = async () => {
@@ -130,7 +176,7 @@ export default function PurchaseOrderDetail() {
   const linkedStyles = useMemo(() => {
     if (!purchaseOrder) return [];
     const styles = new Map<string, string>();
-    const po = purchaseOrder as any;
+    const po = purchaseOrder as ExtendedPurchaseOrder;
     // MRP path: requirement_po_links → material_requirements → order_items → styles
     const reqLinks = po.requirementPoLinks || [];
     for (const link of reqLinks) {
@@ -302,21 +348,22 @@ export default function PurchaseOrderDetail() {
                   </div>
                 </div>
               )}
-              {(purchaseOrder as any).poSourceLinks?.length > 0 && (
-                <div>
-                  <div className="text-xs text-gray-500 mb-1">Linked To</div>
-                  <div className="flex gap-1">
-                    {(purchaseOrder as any).poSourceLinks.map((link: any) => (
-                      <Badge key={link.id} variant="secondary" className="text-xs">
-                        {link.materialRequirement?.requirementNumber ||
-                          link.serviceRequirement?.serviceType ||
-                          link.productionRun?.workOrderNumber ||
-                          link.sourceType}
-                      </Badge>
-                    ))}
+              {(purchaseOrder as ExtendedPurchaseOrder).poSourceLinks?.length &&
+                (purchaseOrder as ExtendedPurchaseOrder).poSourceLinks!.length > 0 && (
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Linked To</div>
+                    <div className="flex gap-1">
+                      {(purchaseOrder as ExtendedPurchaseOrder).poSourceLinks!.map((link) => (
+                        <Badge key={link.id} variant="secondary" className="text-xs">
+                          {link.materialRequirement?.requirementNumber ||
+                            link.serviceRequirement?.serviceType ||
+                            link.productionRun?.workOrderNumber ||
+                            link.sourceType}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           </CardContent>
         </Card>
@@ -416,10 +463,14 @@ export default function PurchaseOrderDetail() {
                       </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
-                    <TableCell className="text-sm">{(item as any).componentName || '-'}</TableCell>
-                    <TableCell className="text-sm">{(item as any).colorName || '-'}</TableCell>
                     <TableCell className="text-sm">
-                      {(item as any).fabricWidth ? `${(item as any).fabricWidth}"` : '-'}
+                      {(item as unknown as ExtendedPOItem).componentName || '-'}
+                    </TableCell>
+                    <TableCell className="text-sm">{(item as unknown as ExtendedPOItem).colorName || '-'}</TableCell>
+                    <TableCell className="text-sm">
+                      {(item as unknown as ExtendedPOItem).fabricWidth
+                        ? `${(item as unknown as ExtendedPOItem).fabricWidth}"`
+                        : '-'}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(item.orderedQuantity).toLocaleString()}
@@ -516,8 +567,9 @@ export default function PurchaseOrderDetail() {
               </TableHeader>
               <TableBody>
                 {purchaseOrder.goodsReceivingNotes.map((grn) => {
+                  const grnItems = (grn as { items?: GRNItem[] }).items;
                   const totalReceived =
-                    (grn as any).items?.reduce((sum: number, item: any) => sum + Number(item.receivedQuantity), 0) || 0;
+                    grnItems?.reduce((sum: number, grnItem: GRNItem) => sum + Number(grnItem.receivedQuantity), 0) || 0;
 
                   return (
                     <TableRow key={grn.id}>

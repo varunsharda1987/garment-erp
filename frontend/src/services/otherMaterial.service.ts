@@ -33,7 +33,11 @@ export const getOtherMaterialById = async (id: string): Promise<OtherMaterial> =
  */
 export const createOtherMaterial = async (
   data: CreateOtherMaterialRequest
-): Promise<{ otherMaterial: OtherMaterial; material: any; message: string }> => {
+): Promise<{
+  otherMaterial: OtherMaterial;
+  material: { id: number; materialType: string; code: string; name: string };
+  message: string;
+}> => {
   const response = await api.post('/materials/other', data);
   return response.data;
 };
@@ -59,7 +63,10 @@ export const deleteOtherMaterial = async (id: string): Promise<void> => {
 /**
  * Bulk import other materials from Excel
  */
-export const bulkImportOtherMaterials = async (data: { data: any[]; createStock?: boolean }): Promise<any> => {
+export const bulkImportOtherMaterials = async (data: {
+  data: Record<string, unknown>[];
+  createStock?: boolean;
+}): Promise<{ imported: number; errors: string[] }> => {
   const response = await api.post('/materials/other/bulk-import', data);
   return response.data;
 };
@@ -67,7 +74,10 @@ export const bulkImportOtherMaterials = async (data: { data: any[]; createStock?
 /**
  * Download Excel template for bulk import
  */
-export const downloadOtherMaterialTemplate = async (): Promise<any> => {
+export const downloadOtherMaterialTemplate = async (): Promise<{
+  columns: string[];
+  sampleData: Record<string, unknown>[];
+}> => {
   const response = await api.get('/materials/other/template');
   return response.data;
 };

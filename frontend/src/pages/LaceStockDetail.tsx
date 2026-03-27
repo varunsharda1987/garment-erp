@@ -90,6 +90,7 @@ export default function LaceStockDetail() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const formatCurrency = (value: number) => {
@@ -145,8 +146,9 @@ export default function LaceStockDetail() {
       setShowTransferModal(false);
       setTransferForm({ toStyleId: '', toOrderId: '', quantity: 0, transferNotes: '' });
       fetchData();
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to transfer stock');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      notify.error(err.response?.data?.error || 'Failed to transfer stock');
     } finally {
       setProcessing(false);
     }
@@ -166,8 +168,9 @@ export default function LaceStockDetail() {
       setShowReturnModal(false);
       setReturnForm({ quantity: 0, notes: '' });
       fetchData();
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to return stock');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      notify.error(err.response?.data?.error || 'Failed to return stock');
     } finally {
       setProcessing(false);
     }
@@ -191,8 +194,9 @@ export default function LaceStockDetail() {
       setShowDowngradeModal(false);
       setDowngradeForm({ newGrade: 'B', quantity: 0, reason: '' });
       fetchData();
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to downgrade quality');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      notify.error(err.response?.data?.error || 'Failed to downgrade quality');
     } finally {
       setProcessing(false);
     }

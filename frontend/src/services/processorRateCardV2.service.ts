@@ -200,8 +200,9 @@ export const processorRateCardV2Service = {
         }>
       >(`${BASE_URL}/lookup`, body, { headers: getAuthHeader() });
       return response.data.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { status?: number } };
+      if (axiosErr.response?.status === 404) {
         return null;
       }
       throw error;
@@ -286,8 +287,9 @@ export const processorRateCardV2Service = {
         }>
       >(`${BASE_URL}/lookup-lace`, { processorId, laceId, quantityMeters }, { headers: getAuthHeader() });
       return response.data.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { status?: number } };
+      if (axiosErr.response?.status === 404) {
         return null;
       }
       throw error;

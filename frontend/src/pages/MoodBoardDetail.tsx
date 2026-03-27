@@ -267,7 +267,7 @@ export function MoodBoardDetail() {
   };
 
   // Update item position/size
-  const handleItemUpdate = async (itemId: string, updates: Record<string, any>) => {
+  const handleItemUpdate = async (itemId: string, updates: Record<string, unknown>) => {
     if (!moodBoard) return;
 
     // Update local state immediately

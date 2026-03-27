@@ -65,7 +65,14 @@ export default function Register() {
     setError('');
 
     try {
-      const { confirmPassword, ...registerData } = data;
+      const registerData = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        role: data.role,
+        password: data.password,
+      };
       const response = await authService.register(registerData);
 
       // Registration successful - show pending approval message

@@ -41,6 +41,7 @@ export default function LabelDetail() {
     if (id) {
       fetchLabelDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchLabelDetails = async () => {

@@ -36,7 +36,7 @@ import {
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
-import type { GreigeForRateCard } from '@/types/processorRateCardV2.types';
+import type { GreigeForRateCard, PrintingTypeV2 } from '@/types/processorRateCardV2.types';
 import { Trash2, Plus, Send, Save, ArrowLeft } from 'lucide-react';
 
 // ============================================
@@ -212,6 +212,7 @@ export default function PurchaseOrderForm() {
     if (isEditMode && id) {
       fetchPurchaseOrder(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
 
   // Fetch materials when supplier changes (for material POs)
@@ -252,8 +253,8 @@ export default function PurchaseOrderForm() {
       const po = await getPurchaseOrderById(poId);
 
       // Set category from loaded PO
-      if ((po as any).poCategory) {
-        setPoCategory((po as any).poCategory);
+      if (po.poCategory) {
+        setPoCategory(po.poCategory);
       }
 
       setSupplierId(po.supplierId);
@@ -265,7 +266,7 @@ export default function PurchaseOrderForm() {
       setRemarks(po.remarks || '');
 
       if (po.items && po.items.length > 0) {
-        const loadedItems: POItemForm[] = po.items.map((item: any, index: number) => ({
+        const loadedItems: POItemForm[] = po.items.map((item, index) => ({
           tempId: `existing-${item.id}-${index}`,
           materialId: item.materialId || undefined,
           materialCode: item.materials?.code || '',
@@ -425,7 +426,7 @@ export default function PurchaseOrderForm() {
         processingType,
         greigeId,
         quantity,
-        processingType === 'PRINTING' ? (printingType as any) : undefined
+        processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined
       );
       if (result) {
         setItems((prev) =>

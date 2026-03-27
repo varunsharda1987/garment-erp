@@ -41,6 +41,7 @@ export default function StyleFabricReport() {
 
   useEffect(() => {
     applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterBuyer, filterSeason, filterStockStatus, styles]);
 
   const loadStyles = async () => {

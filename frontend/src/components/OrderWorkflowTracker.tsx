@@ -152,6 +152,7 @@ export interface OrderWorkflowData {
   generatedPOs?: number;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function buildWorkflowSteps(
   data: OrderWorkflowData,
   handlers: {

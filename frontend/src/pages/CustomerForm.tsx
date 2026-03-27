@@ -188,8 +188,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
         // Separate FPT and GPT templates
         const templates = templatesResponse.data || [];
-        setFptTemplates(templates.filter((t: any) => t.templateType === 'FPT'));
-        setGptTemplates(templates.filter((t: any) => t.templateType === 'GPT'));
+        setFptTemplates(templates.filter((t: { templateType?: string }) => t.templateType === 'FPT'));
+        setGptTemplates(templates.filter((t: { templateType?: string }) => t.templateType === 'GPT'));
       } catch (error) {
         console.error('Failed to load testing data:', error);
       }
@@ -261,7 +261,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
           const formattedNumber = nextNumber.toString().padStart(3, '0');
           return `${prefix}${formattedNumber}`;
-        } catch (error) {
+        } catch {
           // Fallback to simple numbering
           const businessTypeCode = watchBusinessType;
           const marketCode = watchMarket === MarketType.INTERNATIONAL ? 'INT' : 'DOM';
@@ -653,11 +653,15 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       }
 
       navigate('/customers', { replace: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Customer update error:', error);
-      console.error('Error response:', JSON.stringify(error.response?.data, null, 2));
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to save customer';
-      const errorDetails = error.response?.data?.details ? JSON.stringify(error.response.data.details, null, 2) : '';
+      const axiosErr = error as { response?: { data?: { message?: string; error?: string; details?: unknown } } };
+      console.error('Error response:', JSON.stringify(axiosErr.response?.data, null, 2));
+      const errorMessage =
+        axiosErr.response?.data?.message || axiosErr.response?.data?.error || 'Failed to save customer';
+      const errorDetails = axiosErr.response?.data?.details
+        ? JSON.stringify(axiosErr.response.data.details, null, 2)
+        : '';
       const fullErrorMessage = errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage;
       setSubmitError(fullErrorMessage);
       notify.error('Error', { description: fullErrorMessage });
@@ -1184,7 +1188,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   <div className="mt-4">
                     <Label htmlFor="defaultTestingLabId">Default Testing Lab</Label>
                     <Combobox
-                      options={testingLabs.map((lab: any) => ({
+                      options={testingLabs.map((lab) => ({
                         value: lab.id,
                         label: `${lab.labCode} - ${lab.labName}`,
                         searchText: `${lab.labCode} ${lab.labName}`,

@@ -61,6 +61,7 @@ export default function SeasonMasterList() {
 
   useEffect(() => {
     fetchSeasons();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, yearFilter, typeFilter]);
 
   const fetchSeasons = async () => {

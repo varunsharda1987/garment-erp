@@ -50,6 +50,7 @@ export default function GenericTrimList() {
     if (trimType && config) {
       fetchItems();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimType, currentPage, pageSize, searchQuery]);
 
   const fetchItems = async () => {
@@ -94,8 +95,8 @@ export default function GenericTrimList() {
   };
 
   // Get the value from item using dynamic field name
-  const getFieldValue = (item: GenericTrimItem, field: string): any => {
-    return (item as any)[field];
+  const getFieldValue = (item: GenericTrimItem, field: string): unknown => {
+    return (item as Record<string, unknown>)[field];
   };
 
   if (!trimType || !config) {

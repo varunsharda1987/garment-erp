@@ -34,12 +34,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
   const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
   const [originalButtonName, setOriginalButtonName] = useState<string>('');
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors: _errors },
-  } = useForm<ButtonFormData>();
+  const { register, handleSubmit, setValue } = useForm<ButtonFormData>();
 
   const isNewButton = mode === 'create' || !id;
 

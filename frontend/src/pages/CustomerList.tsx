@@ -84,6 +84,7 @@ export default function CustomerList() {
 
   useEffect(() => {
     fetchCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, searchQuery, categoryFilter]);
 
   // Handle search

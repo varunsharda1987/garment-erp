@@ -351,6 +351,9 @@ export interface FabricStockSummaryItem {
   finishedWidth: number;
   quantityAvailable: number;
   qualityGrade: string;
+  // Style fabric linkage (resolved from fabricId -> style_fabrics)
+  styleFabricId?: string | null;
+  componentId?: string | null;
   // PRODUCTION CAD tracking
   hasProductionCad?: boolean;
   productionCadId?: string | null;

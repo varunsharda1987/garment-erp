@@ -216,8 +216,8 @@ export interface ProcessingStage {
   quantityReceived: number;
   quantityInProcess: number;
   processSpecifications?: string;
-  expectedOutputSpecs?: any;
-  actualOutputSpecs?: any;
+  expectedOutputSpecs?: Record<string, unknown>;
+  actualOutputSpecs?: Record<string, unknown>;
   status: StageStatus;
   sentDate?: Date | string;
   expectedCompletionDate?: Date | string;
@@ -259,7 +259,7 @@ export interface CreateProcessingStageDTO {
   quantitySent: number;
   quantityInProcess: number;
   processSpecifications?: string;
-  expectedOutputSpecs?: any;
+  expectedOutputSpecs?: Record<string, unknown>;
   processingCost: number;
   sentDate?: Date | string;
   expectedCompletionDate?: Date | string;
@@ -268,7 +268,7 @@ export interface CreateProcessingStageDTO {
 export interface UpdateProcessingStageDTO {
   quantityReceived?: number;
   quantityInProcess?: number;
-  actualOutputSpecs?: any;
+  actualOutputSpecs?: Record<string, unknown>;
   status?: StageStatus;
   actualCompletionDate?: Date | string;
   processingCost?: number;
@@ -314,7 +314,7 @@ export interface ProcessingMovement {
   expectedDeliveryDate?: Date | string;
   actualDeliveryDate?: Date | string;
   challanNumber?: string;
-  documents?: any;
+  documents?: Record<string, unknown> | string[];
   performedById: string;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -356,7 +356,7 @@ export interface CreateProcessingMovementDTO {
   dispatchDate: Date | string;
   expectedDeliveryDate?: Date | string;
   challanNumber?: string;
-  documents?: any;
+  documents?: Record<string, unknown> | string[];
 }
 
 export interface UpdateProcessingMovementDTO {
@@ -366,7 +366,7 @@ export interface UpdateProcessingMovementDTO {
   driverName?: string;
   lrNumber?: string;
   challanNumber?: string;
-  documents?: any;
+  documents?: Record<string, unknown> | string[];
 }
 
 export interface ProcessingMovementFilters {
@@ -411,7 +411,7 @@ export interface ProcessingDelivery {
   acceptanceDate?: Date | string;
   invoiceNumber?: string;
   challanNumber?: string;
-  documents?: any;
+  documents?: Record<string, unknown> | string[];
   receivedById: string;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -452,7 +452,7 @@ export interface CreateProcessingDeliveryDTO {
   nextStageId?: string;
   challanNumber?: string;
   invoiceNumber?: string;
-  documents?: any;
+  documents?: Record<string, unknown> | string[];
 }
 
 export interface UpdateProcessingDeliveryDTO {

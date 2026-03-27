@@ -25,6 +25,7 @@ export const PageLoader = () => (
  * Higher-order component that wraps a lazy component with Suspense
  * Provides fallback loading state and error boundary
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function withSuspense<P extends object>(
   LazyComponent: React.LazyExoticComponent<React.ComponentType<P>>
 ): React.FC<P> {

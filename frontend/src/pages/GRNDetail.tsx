@@ -46,6 +46,7 @@ export default function GRNDetail() {
       fetchGRN();
       fetchWarehouses();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Pre-populate warehouse from loaded GRN

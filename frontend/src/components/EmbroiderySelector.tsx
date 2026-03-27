@@ -44,6 +44,7 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
       searchEmbroidery();
       setSelectedId(currentEmbroideryId || null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentEmbroideryId]);
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
       }
     }, 300);
     return () => clearTimeout(debounce);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const searchEmbroidery = async () => {

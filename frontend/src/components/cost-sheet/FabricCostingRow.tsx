@@ -72,15 +72,16 @@ export default function FabricCostingRow({
 
       setFabricCostData(result);
       setIsModalOpen(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error calculating fabric cost:', err);
-      setError(err.response?.data?.error || 'Failed to calculate fabric cost');
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setError(axiosErr.response?.data?.error || 'Failed to calculate fabric cost');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSelectStrategy = (strategy: any) => {
+  const handleSelectStrategy = (strategy: Parameters<FabricCostingRowProps['onStrategyChange']>[0]) => {
     onStrategyChange(strategy);
     setIsModalOpen(false);
   };

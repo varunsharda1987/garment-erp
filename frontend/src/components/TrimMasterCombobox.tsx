@@ -34,63 +34,100 @@ interface TrimMasterComboboxProps {
   customerId?: string; // For customer-specific label/packaging filtering
 }
 
+/** Common shape for trim master items across all material types */
+interface TrimMasterItem {
+  id: string;
+  [key: string]: unknown;
+}
+
+/** Query params for trim master fetch functions */
+interface TrimMasterQueryParams {
+  limit?: number;
+  search?: string;
+  customerId?: string;
+}
+
+/** Response shape from trim master fetch functions */
+interface TrimMasterResponse {
+  data: TrimMasterItem[];
+}
+
+// Helper to safely extract a string field from a trim master item
+const getStringField = (item: TrimMasterItem, ...fields: string[]): string => {
+  for (const field of fields) {
+    const val = item[field];
+    if (typeof val === 'string' && val) return val;
+  }
+  return '';
+};
+
+// Helper to safely extract a numeric field from a trim master item
+const getNumericField = (item: TrimMasterItem, field: string): number | undefined => {
+  const val = item[field];
+  if (val !== null && val !== undefined) {
+    const num = Number(val);
+    return isNaN(num) ? undefined : num;
+  }
+  return undefined;
+};
+
 // Map materialType → service function + name/code field extractors
 const MASTER_CONFIG: Record<
   string,
   {
-    fetch: (params: any) => Promise<any>;
-    getName: (item: any) => string;
-    getCode: (item: any) => string;
-    getPrice: (item: any) => number | undefined;
+    fetch: (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>;
+    getName: (item: TrimMasterItem) => string;
+    getCode: (item: TrimMasterItem) => string;
+    getPrice: (item: TrimMasterItem) => number | undefined;
     getUnit: () => string;
     idField: keyof TrimMasterSelection;
   }
 > = {
   THREAD: {
-    fetch: getAllThreads,
-    getName: (item) => item.threadName || item.name || '',
-    getCode: (item) => item.threadCode || item.code || '',
-    getPrice: (item) => (item.pricePerCone ? Number(item.pricePerCone) : undefined),
+    fetch: getAllThreads as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    getName: (item) => getStringField(item, 'threadName', 'name'),
+    getCode: (item) => getStringField(item, 'threadCode', 'code'),
+    getPrice: (item) => getNumericField(item, 'pricePerCone'),
     getUnit: () => 'LOT',
     idField: 'threadId',
   },
   BUTTON: {
-    fetch: getAllButtons,
-    getName: (item) => item.buttonName || item.name || '',
-    getCode: (item) => item.buttonCode || item.code || '',
-    getPrice: (item) => (item.pricePerPiece ? Number(item.pricePerPiece) : undefined),
+    fetch: getAllButtons as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    getName: (item) => getStringField(item, 'buttonName', 'name'),
+    getCode: (item) => getStringField(item, 'buttonCode', 'code'),
+    getPrice: (item) => getNumericField(item, 'pricePerPiece'),
     getUnit: () => 'PCS',
     idField: 'buttonId',
   },
   ZIPPER: {
-    fetch: getAllZippers,
-    getName: (item) => item.zipperName || item.name || '',
-    getCode: (item) => item.zipperCode || item.code || '',
-    getPrice: (item) => (item.pricePerPiece ? Number(item.pricePerPiece) : undefined),
+    fetch: getAllZippers as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    getName: (item) => getStringField(item, 'zipperName', 'name'),
+    getCode: (item) => getStringField(item, 'zipperCode', 'code'),
+    getPrice: (item) => getNumericField(item, 'pricePerPiece'),
     getUnit: () => 'PCS',
     idField: 'zipperId',
   },
   ELASTIC: {
-    fetch: getAllElastics,
-    getName: (item) => item.elasticName || item.name || '',
-    getCode: (item) => item.elasticCode || item.code || '',
-    getPrice: (item) => (item.pricePerMeter ? Number(item.pricePerMeter) : undefined),
+    fetch: getAllElastics as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    getName: (item) => getStringField(item, 'elasticName', 'name'),
+    getCode: (item) => getStringField(item, 'elasticCode', 'code'),
+    getPrice: (item) => getNumericField(item, 'pricePerMeter'),
     getUnit: () => 'MTR',
     idField: 'elasticId',
   },
   LABEL: {
-    fetch: getAllLabels,
-    getName: (item) => item.labelName || item.name || '',
-    getCode: (item) => item.labelCode || item.code || '',
-    getPrice: (item) => (item.pricePerPiece ? Number(item.pricePerPiece) : undefined),
+    fetch: getAllLabels as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    getName: (item) => getStringField(item, 'labelName', 'name'),
+    getCode: (item) => getStringField(item, 'labelCode', 'code'),
+    getPrice: (item) => getNumericField(item, 'pricePerPiece'),
     getUnit: () => 'PCS',
     idField: 'labelId',
   },
   PACKAGING: {
-    fetch: getAllPackaging,
-    getName: (item) => item.packagingName || item.name || '',
-    getCode: (item) => item.packagingCode || item.code || '',
-    getPrice: (item) => (item.pricePerPiece ? Number(item.pricePerPiece) : undefined),
+    fetch: getAllPackaging as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    getName: (item) => getStringField(item, 'packagingName', 'name'),
+    getCode: (item) => getStringField(item, 'packagingCode', 'code'),
+    getPrice: (item) => getNumericField(item, 'pricePerPiece'),
     getUnit: () => 'PCS',
     idField: 'packagingId',
   },
@@ -106,7 +143,7 @@ export function TrimMasterCombobox({
   customerId,
 }: TrimMasterComboboxProps) {
   const [options, setOptions] = useState<ComboboxOption[]>([]);
-  const [rawItems, setRawItems] = useState<any[]>([]);
+  const [rawItems, setRawItems] = useState<TrimMasterItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
 
@@ -117,7 +154,7 @@ export function TrimMasterCombobox({
       if (!config) return;
       try {
         setIsLoading(true);
-        const params: any = { limit: 50, search: search || undefined };
+        const params: TrimMasterQueryParams = { limit: 50, search: search || undefined };
         // Label and Packaging support customer filtering
         if ((materialType === 'LABEL' || materialType === 'PACKAGING') && customerId) {
           params.customerId = customerId;
@@ -126,7 +163,7 @@ export function TrimMasterCombobox({
         const items = response.data || [];
         setRawItems(items);
 
-        const comboboxOptions: ComboboxOption[] = items.map((item: any) => ({
+        const comboboxOptions: ComboboxOption[] = items.map((item) => ({
           value: item.id,
           label: `${config.getCode(item)} - ${config.getName(item)}`,
           searchText: `${config.getCode(item)} ${config.getName(item)}`,
@@ -151,6 +188,7 @@ export function TrimMasterCombobox({
       setRawItems([]);
       setInitialLoaded(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [materialType, customerId]);
 
   const handleValueChange = (selectedId: string) => {
@@ -158,7 +196,7 @@ export function TrimMasterCombobox({
       onSelect(null);
       return;
     }
-    const item = rawItems.find((i: any) => i.id === selectedId);
+    const item = rawItems.find((i) => i.id === selectedId);
     if (!item) {
       onSelect(null);
       return;
@@ -171,9 +209,9 @@ export function TrimMasterCombobox({
       materialType,
       unitPrice: config.getPrice(item),
       unit: config.getUnit(),
+      // Set the specific FK field
+      [config.idField]: selectedId,
     };
-    // Set the specific FK field
-    (selection as any)[config.idField] = selectedId;
 
     onSelect(selection);
   };

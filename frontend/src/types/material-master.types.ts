@@ -61,7 +61,7 @@ export interface MaterialMaster {
   };
 
   // Type-specific attributes stored as JSON
-  specifications?: Record<string, any>;
+  specifications?: Record<string, unknown>;
 
   // Standard fields
   isActive: boolean;
@@ -132,7 +132,7 @@ export interface CreateMaterialMasterDto {
   currencyId?: number;
 
   // Type-specific attributes
-  specifications?: Record<string, any>;
+  specifications?: Record<string, unknown>;
 
   // Standard fields
   isActive?: boolean;
@@ -153,7 +153,7 @@ export interface UpdateMaterialMasterDto {
 
   currencyId?: number;
 
-  specifications?: Record<string, any>;
+  specifications?: Record<string, unknown>;
 
   isActive?: boolean;
   hsnCode?: string;
@@ -257,7 +257,7 @@ export type MaterialSpecifications =
   | LabelSpecifications
   | PackagingSpecifications
   | MachinePartSpecifications
-  | Record<string, any>;
+  | Record<string, unknown>;
 
 // Helper type for material type labels
 export const MaterialTypeLabels: Record<MaterialType, string> = {

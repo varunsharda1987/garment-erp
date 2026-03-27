@@ -41,6 +41,7 @@ export default function TemplateManager() {
       fetchTemplates();
       fetchAvailableColumns();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModule]);
 
   const fetchModules = async () => {

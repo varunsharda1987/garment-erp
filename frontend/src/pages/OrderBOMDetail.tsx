@@ -64,6 +64,7 @@ const OrderBOMDetail = () => {
       return;
     }
     fetchBOM();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate]);
 
   const fetchBOM = async () => {
@@ -248,13 +249,13 @@ const OrderBOMDetail = () => {
         labelId: item.labelId || undefined,
         packagingId: item.packagingId || undefined,
         fabricId: item.fabricId || undefined,
-        greigeId: (item as any).greigeId || undefined,
-        sourcingStrategy: (item as any).sourcingStrategy || undefined,
-        processorId: (item as any).processorId || undefined,
-        greigeCost: (item as any).greigeCost ? Number((item as any).greigeCost) : undefined,
-        processingCost: (item as any).processingCost ? Number((item as any).processingCost) : undefined,
-        rateCardId: (item as any).rateCardId || undefined,
-        colorName: (item as any).colorName || undefined,
+        greigeId: item.greigeId || undefined,
+        sourcingStrategy: item.sourcingStrategy || undefined,
+        processorId: item.processorId || undefined,
+        greigeCost: item.greigeCost ? Number(item.greigeCost) : undefined,
+        processingCost: item.processingCost ? Number(item.processingCost) : undefined,
+        rateCardId: item.rateCardId || undefined,
+        colorName: item.colorName || undefined,
         quantityPerGarment: Number(item.quantityPerGarment),
         orderQuantity: Number(item.orderQuantity),
         wastagePercent: item.id === itemId ? clamped : Number(item.wastagePercent ?? 0),
@@ -272,6 +273,7 @@ const OrderBOMDetail = () => {
         handleApiError(err, 'Failed to update wastage');
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [bom]
   );
 
@@ -446,17 +448,17 @@ const OrderBOMDetail = () => {
       {bom.items &&
         (() => {
           const unlinked = bom.items.filter((item: OrderBOMItem) => {
-            const hasMaterial = !!(item as any).materialId;
-            const hasFabric = item.materialType === 'FABRIC' && !!(item as any).fabricId;
-            const hasLace = item.materialType === 'LACE' && !!(item as any).laceId;
-            const hasGreige = !!(item as any).greigeId; // greigeId = linked regardless of strategy (covers landed price)
+            const hasMaterial = !!item.materialId;
+            const hasFabric = item.materialType === 'FABRIC' && !!item.fabricId;
+            const hasLace = item.materialType === 'LACE' && !!item.laceId;
+            const hasGreige = !!item.greigeId; // greigeId = linked regardless of strategy (covers landed price)
             const hasTrimMaster = !!(
-              (item as any).buttonId ||
-              (item as any).threadId ||
-              (item as any).zipperId ||
-              (item as any).elasticId ||
-              (item as any).labelId ||
-              (item as any).packagingId
+              item.buttonId ||
+              item.threadId ||
+              item.zipperId ||
+              item.elasticId ||
+              item.labelId ||
+              item.packagingId
             );
             return !hasMaterial && !hasFabric && !hasLace && !hasGreige && !hasTrimMaster;
           });

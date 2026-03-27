@@ -10,7 +10,6 @@ import {
   Eye,
   Play,
   CheckCircle,
-  Package,
   RefreshCw,
   ClipboardCheck,
   ArrowDownToLine,
@@ -120,6 +119,7 @@ export default function StitchingList() {
 
   useEffect(() => {
     fetchIssuesData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, statusFilter]);
 
   // Fetch tab data when tab changes

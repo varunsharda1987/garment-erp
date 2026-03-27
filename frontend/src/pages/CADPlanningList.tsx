@@ -90,17 +90,21 @@ export default function CADPlanningList() {
       return { styles: [], totalPages: 1, totalStyles: 0 };
     }
 
-    const stylesArray = (stylesResponse.data as any)?.styles || (stylesResponse.data as any)?.style;
+    const responseData = stylesResponse.data as Record<string, unknown>;
+    const stylesArray = (responseData?.styles ?? responseData?.style) as CADPlanningStyle[] | undefined;
     if (!Array.isArray(stylesArray)) {
       return { styles: [], totalPages: 1, totalStyles: 0 };
     }
 
     // Ensure cadDetails is always an array; use effectiveCadStatus for display consistency
-    const stylesWithDefaults = stylesArray.map((style: any) => ({
-      ...style,
-      cadDetails: style.cadDetails || [],
-      cadStatus: style.effectiveCadStatus || style.cadStatus,
-    }));
+    const stylesWithDefaults = stylesArray.map((style: CADPlanningStyle) => {
+      const rawStyle = style as CADPlanningStyle & { effectiveCadStatus?: string };
+      return {
+        ...style,
+        cadDetails: style.cadDetails || [],
+        cadStatus: rawStyle.effectiveCadStatus || style.cadStatus,
+      };
+    });
 
     return {
       styles: stylesWithDefaults as Array<CADPlanningStyle & { cadDetails: CADWidthDetail[] }>,

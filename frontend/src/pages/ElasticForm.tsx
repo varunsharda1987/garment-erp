@@ -30,12 +30,7 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<ElasticSupplierInput[]>([]);
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors: _errors },
-  } = useForm<ElasticFormData>();
+  const { register, handleSubmit, setValue } = useForm<ElasticFormData>();
 
   const isNewElastic = mode === 'create' || !id;
 

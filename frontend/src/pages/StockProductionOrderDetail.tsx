@@ -25,6 +25,28 @@ import { getSPOById, updateSPO, approveSPO, generateWorkOrders } from '@/service
 import { styleService } from '@/services/style.service';
 import type { StockProductionOrderStatus } from '@/types/stockProductionOrder.types';
 
+// Extended style detail with color/size options (returned by API but not in base Style type)
+interface StyleColorOption {
+  id: string;
+  colorName: string;
+  colorCode?: string;
+}
+
+interface StyleSizeOption {
+  id: string;
+  sizeName: string;
+  sizeCode?: string;
+}
+
+interface StyleDetailWithOptions {
+  colorOptions?: StyleColorOption[];
+  sizeOptions?: StyleSizeOption[];
+}
+
+interface ApiError {
+  response?: { data?: { message?: string } };
+}
+
 const STATUS_COLORS: Record<StockProductionOrderStatus, string> = {
   DRAFT: 'bg-gray-100 text-gray-800',
   APPROVED: 'bg-blue-100 text-blue-800',
@@ -66,8 +88,8 @@ export default function StockProductionOrderDetail() {
       toast.success('SPO approved');
       setApproveDialogOpen(false);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to approve');
+    onError: (error: unknown) => {
+      toast.error((error as ApiError)?.response?.data?.message || 'Failed to approve');
     },
   });
 
@@ -78,8 +100,8 @@ export default function StockProductionOrderDetail() {
       toast.success('Work orders generated');
       setGenerateDialogOpen(false);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to generate work orders');
+    onError: (error: unknown) => {
+      toast.error((error as ApiError)?.response?.data?.message || 'Failed to generate work orders');
     },
   });
 
@@ -109,8 +131,8 @@ export default function StockProductionOrderDetail() {
       setNewItemSizeId('');
       setNewItemQuantity('');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to add item');
+    onError: (error: unknown) => {
+      toast.error((error as ApiError)?.response?.data?.message || 'Failed to add item');
     },
   });
 
@@ -133,8 +155,8 @@ export default function StockProductionOrderDetail() {
       queryClient.invalidateQueries({ queryKey: ['stock-production-order', id] });
       toast.success('Item removed');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to remove item');
+    onError: (error: unknown) => {
+      toast.error((error as ApiError)?.response?.data?.message || 'Failed to remove item');
     },
   });
 
@@ -148,8 +170,9 @@ export default function StockProductionOrderDetail() {
 
   const isDraft = spo.status === 'DRAFT';
   const isApproved = spo.status === 'APPROVED';
-  const colors = (styleDetail as any)?.colorOptions || [];
-  const sizes = (styleDetail as any)?.sizeOptions || [];
+  const styleWithOptions = styleDetail as StyleDetailWithOptions | undefined;
+  const colors: StyleColorOption[] = styleWithOptions?.colorOptions || [];
+  const sizes: StyleSizeOption[] = styleWithOptions?.sizeOptions || [];
 
   return (
     <div className="p-6 space-y-6">
@@ -372,7 +395,7 @@ export default function StockProductionOrderDetail() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No specific color</SelectItem>
-                  {colors.map((c: any) => (
+                  {colors.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.colorName}
                     </SelectItem>
@@ -387,7 +410,7 @@ export default function StockProductionOrderDetail() {
                   <SelectValue placeholder="Select size" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sizes.map((s: any) => (
+                  {sizes.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.sizeName}
                     </SelectItem>

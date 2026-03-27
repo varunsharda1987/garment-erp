@@ -75,7 +75,7 @@ function getAuthToken(): string {
       throw new Error('Authentication token not found. Please log in again.');
     }
     return token;
-  } catch (error) {
+  } catch {
     throw new Error('Failed to parse authentication data. Please log in again.');
   }
 }

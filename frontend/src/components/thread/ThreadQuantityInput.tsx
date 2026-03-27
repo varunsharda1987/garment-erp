@@ -65,9 +65,9 @@ const ThreadQuantityInput: React.FC<ThreadQuantityInputProps> = ({
       try {
         const result = await convertThreadQuantity(ply, packagingType, debouncedInputType, debouncedValue);
         setConversion(result);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Conversion error:', err);
-        setConversionError(err.message || 'Failed to convert quantity');
+        setConversionError(err instanceof Error ? err.message : 'Failed to convert quantity');
         setConversion(null);
       } finally {
         setLoading(false);

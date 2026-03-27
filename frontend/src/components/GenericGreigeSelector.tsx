@@ -107,6 +107,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
       setSearchQuery(value);
       setHighlightedIndex(0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

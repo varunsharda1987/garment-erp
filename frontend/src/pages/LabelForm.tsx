@@ -196,6 +196,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
       };
       fetchLabel();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isNewLabel, setValue]);
 
   // Customer change handler - resets brand when customer changes

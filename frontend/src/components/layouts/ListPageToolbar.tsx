@@ -34,7 +34,7 @@ export interface ListPageToolbarProps {
   /** Export module name (enables export button) */
   exportModule?: string;
   /** Export filters */
-  exportFilters?: Record<string, any>;
+  exportFilters?: Record<string, unknown>;
   /** Import module name (enables import button) */
   importModule?: string;
   /** Import success callback */

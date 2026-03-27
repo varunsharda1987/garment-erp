@@ -16,6 +16,9 @@ interface StockSummaryItem {
   finishedWidth: number;
   quantityAvailable: number;
   qualityGrade: string;
+  // Style fabric linkage
+  styleFabricId?: string | null;
+  componentId?: string | null;
   // PRODUCTION CAD tracking
   hasProductionCad?: boolean;
   productionCadId?: string | null;
@@ -26,10 +29,16 @@ interface StockSummaryItem {
 interface Props {
   stockSummary: StockSummaryItem[];
   styleId?: string;
-  onCreateProductionCAD?: (stockId: string, fabricId: string, greigeId: string) => Promise<void>;
+  onCreateProductionCAD?: (
+    stockId: string,
+    fabricId: string,
+    greigeId: string,
+    styleFabricId?: string | null,
+    componentId?: string | null
+  ) => Promise<void>;
 }
 
-export function StockSummaryBanner({ stockSummary, styleId: _styleId, onCreateProductionCAD }: Props) {
+export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Props) {
   const [creatingCadFor, setCreatingCadFor] = useState<string | null>(null);
 
   if (!stockSummary || stockSummary.length === 0) return null;
@@ -56,7 +65,7 @@ export function StockSummaryBanner({ stockSummary, styleId: _styleId, onCreatePr
     if (!onCreateProductionCAD || creatingCadFor) return;
     setCreatingCadFor(item.id);
     try {
-      await onCreateProductionCAD(item.id, item.fabricId, item.greigeId);
+      await onCreateProductionCAD(item.id, item.fabricId, item.greigeId, item.styleFabricId, item.componentId);
     } finally {
       setCreatingCadFor(null);
     }
@@ -129,12 +138,12 @@ export function StockSummaryBanner({ stockSummary, styleId: _styleId, onCreatePr
             </Badge>
           )}
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-2">
           {Object.entries(byGreige).map(([greige, items]) => (
-            <div key={greige} className="flex items-center gap-1.5 text-sm flex-wrap">
-              <span className="font-medium text-gray-700">{greige}:</span>
+            <div key={greige} className="space-y-1.5">
+              <span className="font-medium text-sm text-gray-700">{greige}:</span>
               {items.map((item) => (
-                <div key={item.id} className="flex items-center gap-1" title={getTooltipText(item)}>
+                <div key={item.id} className="flex items-center gap-2 pl-2" title={getTooltipText(item)}>
                   <Badge
                     variant="secondary"
                     className={`cursor-help ${
@@ -149,21 +158,22 @@ export function StockSummaryBanner({ stockSummary, styleId: _styleId, onCreatePr
                     )}
                     {getStatusBadge(item)}
                   </Badge>
+                  <div className="flex-1" />
                   {!item.hasProductionCad && onCreateProductionCAD && (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-6 px-2 text-xs bg-white hover:bg-green-50 border-green-300"
+                      className="h-8 px-3 text-sm font-medium bg-white hover:bg-green-50 border-green-400 text-green-700"
                       onClick={() => handleCreateCAD(item)}
                       disabled={creatingCadFor === item.id}
                       title="Create PRODUCTION CAD from this stock"
                     >
                       {creatingCadFor === item.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <Plus className="h-3 w-3 mr-0.5" />
-                          CAD
+                          <Plus className="h-4 w-4 mr-1" />
+                          Create CAD
                         </>
                       )}
                     </Button>

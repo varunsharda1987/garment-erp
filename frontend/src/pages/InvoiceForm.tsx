@@ -54,6 +54,7 @@ export default function InvoiceForm() {
     if (isEditMode && id) {
       fetchInvoice(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
 
   useEffect(() => {
@@ -201,6 +202,7 @@ export default function InvoiceForm() {
       dueDate,
       subtotal,
       remarks: remarks.trim() || undefined,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       items: validItems.map(({ _key, ...rest }) => rest),
     };
 

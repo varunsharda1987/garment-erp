@@ -41,6 +41,7 @@ export default function EmbroideryList() {
 
   useEffect(() => {
     fetchEmbroideryItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery]);
 
   const fetchEmbroideryItems = async () => {

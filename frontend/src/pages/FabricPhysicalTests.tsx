@@ -21,12 +21,13 @@ export default function FabricPhysicalTests() {
 
   useEffect(() => {
     fetchTests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search, filterStatus]);
 
   const fetchTests = async () => {
     try {
       setLoading(true);
-      const params: any = { page, limit: 20 };
+      const params: Record<string, unknown> = { page, limit: 20 };
       if (search) params.search = search;
       if (filterStatus !== 'all') params.overallTestResult = filterStatus;
 

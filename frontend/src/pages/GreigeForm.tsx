@@ -19,7 +19,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; code: string; name: string }[]>([]);
 
   const [formData, setFormData] = useState<GreigeMasterFormData>({
     greigeCode: '',
@@ -50,6 +50,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       generateGreigeCode();
     }
     loadSuppliers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, id]);
 
   // Auto-generate greige name when relevant fields change (both create and edit mode)
@@ -235,7 +236,8 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
       navigate('/greige');
     } catch (error: unknown) {
       logError('Error saving greige:', error);
-      notify.error((error as any).response?.data?.error || 'Failed to save greige master');
+      const axiosErr = error as { response?: { data?: { error?: string } } };
+      notify.error(axiosErr.response?.data?.error || 'Failed to save greige master');
     } finally {
       setSaving(false);
     }

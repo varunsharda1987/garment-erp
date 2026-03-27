@@ -59,10 +59,19 @@ export default function FabricStockEntry() {
   };
 
   const handleFabricChange = (fabricId: string) => {
-    setSelectedFabricId(fabricId);
     const selectedFabric = fabricList.find((f) => f.id === fabricId);
+
+    // If fabric is style-linked, redirect to style stock entry page
+    const styleId = (selectedFabric as { fabrics?: Array<{ components?: { style?: { id?: string } } }> })?.fabrics?.[0]
+      ?.components?.style?.id;
+    if (styleId) {
+      navigate(`/styles/${styleId}/stock-entry`);
+      return;
+    }
+
+    // Generic fabric - stay on this page
+    setSelectedFabricId(fabricId);
     if (selectedFabric) {
-      // Auto-fill width with actual width
       setFormData((prev) => ({
         ...prev,
         width: selectedFabric.actualWidth.toString(),

@@ -60,7 +60,7 @@ export default function CuttingDetail() {
 
   // Lays (daily production input)
   const [lays, setLays] = useState<CuttingLay[]>([]);
-  const [isLoadingLays, setIsLoadingLays] = useState(false);
+  const [, setIsLoadingLays] = useState(false);
 
   // Lay input form
   const [layDate, setLayDate] = useState(new Date().toISOString().split('T')[0]);
@@ -70,7 +70,7 @@ export default function CuttingDetail() {
   const [layRemarks, setLayRemarks] = useState('');
   const [layPieces, setLayPieces] = useState<Record<string, number>>({}); // piecesPerLayer per size
   const [layChecked, setLayChecked] = useState<Record<string, boolean>>({});
-  const [layFabricId, setLayFabricId] = useState<string>(''); // legacy
+  const [, setLayFabricId] = useState<string>(''); // legacy
   const [isSavingLay, setIsSavingLay] = useState(false);
 
   // Issue to stitching
@@ -91,12 +91,14 @@ export default function CuttingDetail() {
       fetchBatch();
       fetchLays();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
     if (batch && batch.skuOutputs && batch.skuOutputs.some((s) => s.goodPcs > 0)) {
       fetchStitchingIssues();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batch]);
 
   const fetchBatch = async () => {

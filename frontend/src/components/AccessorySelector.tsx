@@ -89,6 +89,7 @@ export function AccessorySelector({
     if (browseModalOpen) {
       loadAllAccessories();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [browseModalOpen, customerId]);
 
   const loadAllAccessories = async () => {
@@ -167,6 +168,7 @@ export function AccessorySelector({
         item.code.toLowerCase().includes(query) ||
         item.subType?.toLowerCase().includes(query)
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, searchQuery, labels, packaging]);
 
   // Check if item is selected

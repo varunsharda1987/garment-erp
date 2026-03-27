@@ -269,7 +269,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         gstRate: data.gstRate ? Number(data.gstRate) : undefined,
         categoryData:
           Object.keys(categoryData).length > 0
-            ? (Object.fromEntries(Object.entries(categoryData).filter(([_, v]) => v !== undefined)) as Record<
+            ? (Object.fromEntries(Object.entries(categoryData).filter(([, v]) => v !== undefined)) as Record<
                 string,
                 string | number | boolean | null
               >)

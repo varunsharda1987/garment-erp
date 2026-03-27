@@ -39,6 +39,7 @@ export default function ButtonDetail() {
     if (id) {
       fetchButtonDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchButtonDetails = async () => {

@@ -29,7 +29,7 @@ export default function GenericTrimForm() {
   const config = trimType ? TRIM_TYPE_CONFIGS[trimType] : null;
 
   // Form state - dynamic based on config
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, string | number | boolean | null>>({});
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditMode);
@@ -56,11 +56,12 @@ export default function GenericTrimForm() {
           setIsFetching(true);
           const item = await genericTrimService.getById(trimType, id);
           // Convert to form data
-          const data: Record<string, any> = {};
+          const data: Record<string, string | number | boolean | null> = {};
           if (config) {
-            data[config.nameField] = (item as any)[config.nameField];
+            const itemRecord = item as unknown as Record<string, string | number | boolean | null>;
+            data[config.nameField] = itemRecord[config.nameField];
             config.fields.forEach((field) => {
-              data[field.name] = (item as any)[field.name];
+              data[field.name] = itemRecord[field.name];
             });
           }
           data.supplierId = item.supplierId || '';
@@ -77,7 +78,7 @@ export default function GenericTrimForm() {
       fetchItem();
     } else if (config) {
       // Initialize with defaults for new item
-      const initial: Record<string, any> = {};
+      const initial: Record<string, string | number | boolean | null> = {};
       initial[config.nameField] = '';
       config.fields.forEach((field) => {
         if (field.type === 'boolean') {
@@ -91,9 +92,10 @@ export default function GenericTrimForm() {
       initial.isActive = true;
       setFormData(initial);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, trimType, id, config]);
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | boolean | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -113,7 +115,7 @@ export default function GenericTrimForm() {
 
     try {
       // Prepare data - convert empty strings to null for optional fields
-      const submitData: Record<string, any> = {};
+      const submitData: Record<string, string | number | boolean | null> = {};
       submitData[config.nameField] = name.trim();
 
       config.fields.forEach((field) => {

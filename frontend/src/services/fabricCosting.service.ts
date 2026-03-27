@@ -67,9 +67,10 @@ export const fabricCostingService = {
     try {
       const response = await api.post<ApiResponse<ProcessorRateLookup>>(`${BASE_URL}/lookup-rate`, params);
       return response.data.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Return null if no rate found (404)
-      if (error.response?.status === 404) {
+      const err = error as { response?: { status?: number } };
+      if (err.response?.status === 404) {
         return null;
       }
       throw error;

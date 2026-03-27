@@ -145,6 +145,7 @@ export default function OrderForm() {
       }
     };
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
 
   // Handle pre-fill from Cost Sheet page (query params: styleId, costSheetId, fromCostSheet)
@@ -756,7 +757,7 @@ export default function OrderForm() {
 
     // Sum of floor quantities
     const sumFloor = calculations.reduce((sum, c) => sum + c.floorQty, 0);
-    let remaining = total - sumFloor;
+    const remaining = total - sumFloor;
 
     // Sort by remainder descending to distribute remaining units fairly
     const sortedByRemainder = [...calculations].sort((a, b) => b.remainder - a.remainder);

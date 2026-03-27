@@ -51,13 +51,14 @@ export default function ElasticList() {
   useEffect(() => {
     fetchElasticItems();
     fetchStockCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery]);
 
   const fetchStockCount = async () => {
     try {
       const stockLevels = await stockLevelService.getByMaterialType('ELASTIC');
       setStockCount(stockLevels.length);
-    } catch (err) {
+    } catch {
       // Silently fail - stock count is not critical
       setStockCount(undefined);
     }

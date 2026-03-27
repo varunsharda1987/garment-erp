@@ -79,6 +79,7 @@ export default function LaceLabDipList() {
 
   useEffect(() => {
     fetchLabDips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, statusFilter]);
 
   const handleDelete = async (id: string) => {
@@ -90,8 +91,9 @@ export default function LaceLabDipList() {
       await laceLabDipService.deleteLabDip(id);
       notify.success('Lab dip deleted successfully');
       fetchLabDips();
-    } catch (error: any) {
-      notify.error(error.response?.data?.error || 'Failed to delete lab dip');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      notify.error(err.response?.data?.error || 'Failed to delete lab dip');
     }
   };
 

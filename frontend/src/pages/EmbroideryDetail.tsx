@@ -36,6 +36,7 @@ export default function EmbroideryDetail() {
     if (id) {
       fetchEmbroideryDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchEmbroideryDetails = async () => {

@@ -45,6 +45,7 @@ export default function InvoiceDetail() {
     if (id) {
       fetchInvoice(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchInvoice = async (invoiceId: string) => {

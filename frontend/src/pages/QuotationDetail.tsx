@@ -35,6 +35,7 @@ export default function QuotationDetail() {
     if (id) {
       fetchQuotation(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchQuotation = async (quotationId: string) => {

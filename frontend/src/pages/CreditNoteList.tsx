@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -450,7 +451,9 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
       setInvoiceLoading(true);
       const { data } = await api.get('/invoices', { params: { search: q, limit: 20 } });
       setInvoiceResults(data.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[CreditNoteList] Invoice search failed:', err);
+      toast.error('Failed to search invoices');
       setInvoiceResults([]);
     } finally {
       setInvoiceLoading(false);

@@ -558,7 +558,7 @@ const OrderBOMDetail = () => {
                             min={0}
                             max={100}
                             step={0.1}
-                            defaultValue={Number(item.wastagePercent ?? 5)}
+                            defaultValue={Number(item.wastagePercent ?? 0)}
                             onBlur={(e) => handleWastageChange(item.id, Number(e.target.value))}
                             key={`${item.id}-${item.wastagePercent}`}
                           />

@@ -214,12 +214,15 @@ export interface CreateOrderRequest {
 }
 
 export interface UpdateOrderRequest {
+  customerId?: string;
   orderDate?: string;
   expectedDeliveryDate?: string;
   priority?: Priority;
+  totalQuantity?: number;
   paymentTerms?: string;
   shippingAddress?: string;
   remarks?: string;
+  items?: CreateOrderItem[];
 }
 
 export interface UpdateOrderStatusRequest {

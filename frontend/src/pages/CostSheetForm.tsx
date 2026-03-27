@@ -84,6 +84,7 @@ const CostSheetForm = () => {
     finishingCost: 0,
     buttonAttachmentCost: 0,
     handworkCost: 0,
+    smockingCost: 0,
   });
 
   // Embroidery Details (Dynamic)
@@ -167,6 +168,7 @@ const CostSheetForm = () => {
           finishingCost: costSheet.finishingCost || 0,
           buttonAttachmentCost: costSheet.buttonAttachmentCost || 0,
           handworkCost: costSheet.handworkCmtCost || 0,
+          smockingCost: costSheet.smockingCost || 0,
         });
         if (costSheet.embroideryDetails && costSheet.embroideryDetails.length > 0) {
           setEmbroideryDetails(costSheet.embroideryDetails);
@@ -2502,6 +2504,16 @@ const CostSheetForm = () => {
                 placeholder="0.00"
                 value={cmtCosts.handworkCost || ''}
                 onChange={(e) => setCmtCosts({ ...cmtCosts, handworkCost: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Smocking</label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={cmtCosts.smockingCost || ''}
+                onChange={(e) => setCmtCosts({ ...cmtCosts, smockingCost: parseFloat(e.target.value) || 0 })}
               />
             </div>
           </div>

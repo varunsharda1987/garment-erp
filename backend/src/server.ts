@@ -6,6 +6,7 @@ import { logInfo, logError } from './utils/logger';
 import { cleanupOldTempFiles } from './middleware/upload.middleware';
 import { initializeCache, closeCache } from './lib/cache';
 import { PermissionService } from './services/permission.service';
+import { systemSettingsService } from './services/system-settings.service';
 
 const PORT = process.env.PORT || 5000;
 
@@ -36,6 +37,9 @@ async function startServer() {
 
     // Ensure permissions are seeded (auto-recovers if deleted)
     await PermissionService.ensureSeeded();
+
+    // Load system settings and seed defaults if missing
+    await systemSettingsService.preloadDefaults();
 
     // Initialize Redis cache (optional - falls back gracefully if unavailable)
     const cacheEnabled = await initializeCache();

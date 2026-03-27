@@ -189,7 +189,7 @@ class FabricStockService {
         where: {
           greigeId: data.greigeId,
           colorName: 'RAW', // Raw/unfinished greige
-          finishType: 'GREIGE',
+          finishType: 'RAW',
         },
       });
 
@@ -202,7 +202,7 @@ class FabricStockService {
             fabricName: `${greige.greigeName} (Raw)`,
             greigeId: data.greigeId,
             colorName: 'RAW',
-            finishType: 'GREIGE',
+            finishType: 'RAW',
             actualWidth: new Prisma.Decimal(data.width),
             isGeneric: true,
             isActive: true,
@@ -443,6 +443,13 @@ class FabricStockService {
                   },
                 },
               },
+              stylePatternParts: {
+                include: {
+                  patternPart: {
+                    select: { id: true, code: true, name: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -466,7 +473,14 @@ class FabricStockService {
           greige: sf.fabric?.greige,
           widthCADs: sf.fabric?.widthCADs,
           quantityNeeded: sf.quantityNeeded ? Number(sf.quantityNeeded) : 0,
-          fabricFinishType: sf.fabricFinishType || null,
+          fabricFinishType: sf.fabric?.finishType || sf.fabricFinishType || null,
+          actualWidth: sf.fabric?.actualWidth ? Number(sf.fabric.actualWidth) : null,
+          cutableWidth: sf.fabric?.cutableWidth ? Number(sf.fabric.cutableWidth) : null,
+          allocatedPatternParts: ((sf as any).stylePatternParts || []).map((spp: any) => ({
+            id: spp.patternPart.id,
+            code: spp.patternPart.code,
+            name: spp.patternPart.name,
+          })),
         })),
       }));
     } catch (error: unknown) {

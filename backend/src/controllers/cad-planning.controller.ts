@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma, FabricFinishType } from '@prisma/client';
 import prisma from '../config/database';
 import { logError, logInfo } from '../utils/logger';
+import { systemSettingsService } from '../services/system-settings.service';
 import { cachedQuery, cacheKeys, cacheTTL } from '../lib/cache';
 import {
   ALL_PARTS_CODE,
@@ -220,7 +221,7 @@ export async function generateCADOptions(req: Request, res: Response) {
             costingStyleId: styleId, // Link to style for cost sheet discovery
             cutableWidth: cutableWidth,
             widthUnit: 'inches',
-            cadWastagePercent: 5, // Default 5% wastage
+            cadWastagePercent: await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0),
             layerMarginMeters: 0.05, // Default 5cm layer margin
             greigeId: greigeId || null,
             componentName: componentName || null,
@@ -836,7 +837,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
               fabricId: fabricMaster.id,
               cutableWidth: defaultWidth,
               widthUnit: 'inches',
-              cadWastagePercent: 5,
+              cadWastagePercent: await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0),
               layerMarginMeters: 0.05,
               isPreferred: true,
               createdById: req.user?.userId || 'system',
@@ -1252,7 +1253,7 @@ export async function addCADWidth(req: Request, res: Response) {
       costingStyleId: styleId, // Link to style for cost sheet discovery
       cutableWidth,
       widthUnit: 'inches',
-      cadWastagePercent: 5,
+      cadWastagePercent: await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0),
       layerMarginMeters: 0.05,
       greigeId: greigeId || null,
       componentName: componentName || null,
@@ -2092,6 +2093,16 @@ export async function getCADTableData(req: Request, res: Response) {
 
   // fabricStock already fetched in parallel query above
 
+  // Build fabricId -> styleFabricId map for linking stock to style fabrics
+  const fabricIdToStyleFabric = new Map<string, { styleFabricId: string; componentId: string }>();
+  style.style_components.forEach((comp: any) => {
+    comp.style_fabrics?.forEach((sf: any) => {
+      if (sf.fabricId && !fabricIdToStyleFabric.has(sf.fabricId)) {
+        fabricIdToStyleFabric.set(sf.fabricId, { styleFabricId: sf.id, componentId: comp.id });
+      }
+    });
+  });
+
   // Build stock widths map by fabricId for CAD row matching
   const stockByFabricId = new Map<
     string,
@@ -2120,11 +2131,7 @@ export async function getCADTableData(req: Request, res: Response) {
   const stockIds = fabricStock.map((s) => s.id);
   const productionCads = await prisma.fabric_width_cad.findMany({
     where: {
-      styleFabric: {
-        style_components: {
-          styleId,
-        },
-      },
+      OR: [{ styleFabric: { style_components: { styleId } } }, { styleFabricId: null }],
       purpose: 'PRODUCTION',
       fabricStockId: { in: stockIds },
     },
@@ -2149,6 +2156,7 @@ export async function getCADTableData(req: Request, res: Response) {
   // Build stock summary for banner display with PRODUCTION CAD info
   const stockSummary = fabricStock.map((stock) => {
     const productionCad = productionCadByStock.get(stock.id);
+    const styleFabricMatch = fabricIdToStyleFabric.get(stock.fabricId);
     return {
       id: stock.id,
       fabricId: stock.fabricId,
@@ -2161,6 +2169,8 @@ export async function getCADTableData(req: Request, res: Response) {
       quantityAvailable: Number(stock.quantityAvailable),
       qualityGrade: stock.qualityGrade || 'A',
       stockLotNumber: stock.id.substring(0, 8), // Use first 8 chars of ID as lot identifier
+      styleFabricId: styleFabricMatch?.styleFabricId || null,
+      componentId: styleFabricMatch?.componentId || null,
       hasProductionCad: !!productionCad,
       productionCadId: productionCad?.id || null,
       productionCadStatus: productionCad?.approvalStatus || null,
@@ -2359,6 +2369,129 @@ export async function getCADTableData(req: Request, res: Response) {
       });
     });
   });
+
+  // Include orphaned PRODUCTION CADs (styleFabricId = null) linked to this style's stock
+  // These were created before the auto-resolve fix and need to be recovered
+  if (stockIds.length > 0) {
+    const existingCadIds = new Set(cadRows.map((r) => r.id));
+    const orphanedProductionCads = await prisma.fabric_width_cad.findMany({
+      where: {
+        styleFabricId: null,
+        purpose: 'PRODUCTION',
+        fabricStockId: { in: stockIds },
+      },
+      include: {
+        sizeBreakdowns: true,
+        greige: true,
+        patternPart: true,
+        fabricStock: { include: { fabricMaster: { include: { greige: true } } } },
+      },
+    });
+
+    for (const cad of orphanedProductionCads) {
+      if (existingCadIds.has(cad.id)) continue;
+
+      const stockFabricId = cad.fabricStock?.fabricId || '';
+      const match = fabricIdToStyleFabric.get(stockFabricId);
+
+      // Auto-fix: permanently link orphaned CAD to the correct style fabric
+      if (match) {
+        await prisma.fabric_width_cad.update({
+          where: { id: cad.id },
+          data: { styleFabricId: match.styleFabricId },
+        });
+      }
+
+      // Find the matching component and style fabric for display info
+      let componentName = cad.componentName || 'Unknown';
+      let componentId = match?.componentId || '';
+      let fabricFinishType: string | null = null;
+      let genericGreigeName: string | null = null;
+      let readyFabricId: string | null = null;
+      let readyFabricName: string | null = null;
+      let readyFabricCode: string | null = null;
+      const matchedStyleFabricId = match?.styleFabricId || cad.id; // fallback to cad.id for display
+
+      if (match) {
+        const comp = style.style_components.find((c: any) => c.id === match.componentId);
+        if (comp) {
+          componentName = cad.isCombinedCutting && cad.combinedComponents ? cad.combinedComponents : comp.componentName;
+          const sf = comp.style_fabrics.find((sf: any) => sf.id === match.styleFabricId);
+          if (sf) {
+            fabricFinishType = sf.fabricFinishType;
+            genericGreigeName = sf.genericGreigeName || sf.fabric?.genericGreigeName || null;
+            readyFabricId = sf.fabricId || null;
+            readyFabricName = sf.fabric?.fabricName || null;
+            readyFabricCode = sf.fabric?.fabricCode || null;
+          }
+        }
+      }
+
+      const greige = cad.greige;
+      const availableWidths: number[] = [];
+      if (greige) {
+        const minWidth = greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 36;
+        const maxWidth = greige.expectedFinishedWidthMax
+          ? Number(greige.expectedFinishedWidthMax)
+          : Number(greige.greigeWidth) || 60;
+        for (let w = minWidth; w <= maxWidth; w += 1) availableWidths.push(w);
+      }
+
+      const sizeBreakdowns = cad.sizeBreakdowns.map((sb: any) => ({
+        sizeName: sb.sizeName,
+        sizeId: sb.sizeId,
+        quantity: sb.quantity,
+      }));
+      const totalPieces = sizeBreakdowns.reduce((sum: number, sb: any) => sum + sb.quantity, 0);
+      const layerLength = cad.cadMeters ? Number(cad.cadMeters) : null;
+      const layerMargin = cad.layerMarginMeters
+        ? Number(cad.layerMarginMeters)
+        : layerLength
+          ? getDefaultLayerMargin(layerLength)
+          : 0;
+      const cadAverage = layerLength && totalPieces > 0 ? (layerLength + layerMargin) / totalPieces : null;
+      const isAllParts = cad.patternPart?.code === ALL_PARTS_CODE || cad.componentName === ALL_PARTS_LEGACY_MARKER;
+      const stockEntries = stockFabricId ? stockByFabricId.get(stockFabricId) || [] : [];
+      const stockWidths = [...new Set(stockEntries.map((s) => s.width))];
+
+      cadRows.push({
+        id: cad.id,
+        purpose: cad.purpose,
+        componentId,
+        componentName,
+        styleFabricId: matchedStyleFabricId,
+        partId: cad.patternPartId,
+        partCode: cad.patternPart?.code || (isAllParts ? ALL_PARTS_CODE : null),
+        partName: cad.patternPart?.name || (isAllParts ? 'All Parts' : null),
+        fabricFinishType,
+        isEmbroidery: cad.isEmbroidery,
+        genericGreigeName,
+        readyFabricId,
+        readyFabricName,
+        readyFabricCode,
+        greigeId: cad.greigeId,
+        greigeName: greige?.greigeName || null,
+        cutableWidth: cad.cutableWidth ? Number(cad.cutableWidth) : null,
+        availableWidths,
+        stockWidths,
+        hasStockMatch: stockWidths.length > 0,
+        printDirection: cad.printDirection,
+        sizeBreakdowns,
+        piecesPerMarker: cad.piecesPerMarker,
+        layerMarginMeters: layerMargin,
+        layerLengthMeters: layerLength,
+        cadAverage,
+        isCombinedCutting: cad.isCombinedCutting || false,
+        combinedFabricIds: null,
+        combinedComponents: cad.combinedComponents || null,
+        orderCount: 0,
+        stockLotNumber: cad.fabricStock?.id ? cad.fabricStock.id.substring(0, 8) : null,
+        approvalStatus: cad.approvalStatus,
+        isLocked: cad.isLocked || false,
+        fabricStockId: cad.fabricStockId || null,
+      });
+    }
+  }
 
   // Build components list for dropdown
   const components = style.style_components.map((comp: any) => {

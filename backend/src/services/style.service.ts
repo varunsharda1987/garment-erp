@@ -1362,6 +1362,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   async publishDraft(id: string): Promise<styles> {
     const draft = await this.prisma.styles.findFirst({
       where: { id, status: 'DRAFT' },
+      include: {
+        style_components: {
+          include: { style_fabrics: true },
+        },
+      },
     });
 
     if (!draft) {
@@ -1370,6 +1375,17 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     if (!draft.customerName) {
       throw new ValidationError('Customer name is required before publishing a style');
+    }
+
+    if (!draft.brandName && !draft.brandCategoryId) {
+      throw new ValidationError('Brand or brand category is required before publishing a style');
+    }
+
+    const hasFabric = draft.style_components?.some((comp) => comp.style_fabrics && comp.style_fabrics.length > 0);
+    if (!hasFabric) {
+      throw new ValidationError(
+        'At least one fabric must be defined before publishing a style. Add fabrics in the style form.'
+      );
     }
 
     const publishedStyle = await this.prisma.styles.update({
@@ -1691,7 +1707,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     const cadIds = fabricCADMappings.map((m) => m.fabricCADId);
     const cadRecords = await this.prisma.fabric_width_cad.findMany({
       where: { id: { in: cadIds } },
-      select: { id: true, cadAverage: true },
+      select: { id: true, cadAverage: true, patternPartId: true },
     });
 
     const cadMap = new Map(cadRecords.map((c) => [c.id, c]));
@@ -1703,6 +1719,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     if (invalidMappings.length > 0) {
       throw new ValidationError(
         `Cannot approve: ${invalidMappings.length} CAD record(s) have no calculated CAD average. Please complete all CAD entries before approving.`
+      );
+    }
+
+    // Validate all CAD records have a pattern part assigned
+    const rowsWithoutPart = cadRecords.filter((c) => !c.patternPartId);
+    if (rowsWithoutPart.length > 0) {
+      throw new ValidationError(
+        `Cannot approve: ${rowsWithoutPart.length} CAD row(s) are missing a Part. Please select a Part for all rows before approving.`
       );
     }
 

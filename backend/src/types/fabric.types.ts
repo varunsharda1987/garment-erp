@@ -2,6 +2,7 @@
  * Fabric Types
  * Type definitions for fabric-related operations
  */
+import { FabricFinishType } from '@prisma/client';
 
 // ============================================
 // Supplier Types for Fabric
@@ -33,7 +34,7 @@ export interface CreateFabricMasterRequest {
   genericGreigeName?: string | null;
   colorName?: string | null;
   colorCode?: string | null;
-  finishType?: string | null;
+  finishType?: FabricFinishType | null;
   printDesign?: string | null;
   actualWidth?: number | string | null;
   cutableWidth?: number | string | null;
@@ -90,7 +91,7 @@ export interface FabricWhereClause {
     };
   };
   colorName?: { contains: string; mode: 'insensitive' };
-  finishType?: string;
+  finishType?: FabricFinishType;
 }
 
 // ============================================
@@ -108,7 +109,7 @@ export interface FabricUpdateData {
   genericGreigeName?: string | null;
   colorName?: string | null;
   colorCode?: string | null;
-  finishType?: string | null;
+  finishType?: FabricFinishType | null;
   printDesign?: string | null;
   actualWidth?: number | null;
   cutableWidth?: number | null;

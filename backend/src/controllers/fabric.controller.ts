@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { normalizeId, isUUID } from '../utils/id-helper';
+import { FabricFinishType } from '@prisma/client';
 import { FabricSupplierInput, FabricWhereClause, FabricUpdateData } from '../types/fabric.types';
 import { materialService } from '../services/material.service';
 import { ValidationError, NotFoundError } from '../errors';
@@ -67,7 +68,7 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
 
   // Finish type filter
   if (finishType) {
-    where.finishType = finishType as string;
+    where.finishType = finishType as FabricFinishType;
   }
 
   // Get total count

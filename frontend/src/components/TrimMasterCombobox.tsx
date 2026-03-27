@@ -160,7 +160,7 @@ export function TrimMasterCombobox({
           params.customerId = customerId;
         }
         const response = await config.fetch(params);
-        const items = response.data || [];
+        const items = response.data ?? [];
         setRawItems(items);
 
         const comboboxOptions: ComboboxOption[] = items.map((item) => ({

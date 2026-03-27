@@ -399,7 +399,7 @@ export const listStock = async (req: Request, res: Response) => {
  * Returns stock entries where originStyleId matches or procurement was ordered for this style
  */
 export const getStockForStyle = async (req: Request, res: Response) => {
-  const { styleId } = req.params;
+  const styleId = req.params.styleId || req.params.id;
   const { fabricId, status, qualityGrade, embroideryId } = req.query;
 
   logInfo(`Getting fabric stock for style ${styleId}, embroideryId filter: ${embroideryId}`);

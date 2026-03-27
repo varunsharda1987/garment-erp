@@ -37,7 +37,7 @@ export function MaterialCombobox({
           supplierId: supplierId || undefined,
         });
 
-        const materialOptions: ComboboxOption[] = (response.data || []).map(
+        const materialOptions: ComboboxOption[] = (response.data ?? []).map(
           (material: { id: string; code: string; name: string; category?: string; description?: string }) => ({
             value: material.id,
             label: `${material.code} - ${material.name}`,

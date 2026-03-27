@@ -49,6 +49,7 @@ export interface CMTCosts {
   finishingCost: number;
   buttonAttachmentCost: number;
   handworkCost: number;
+  smockingCost: number;
 }
 
 export interface CreateCostSheetDTO {
@@ -156,6 +157,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         finishingCost: data.cmtCosts.finishingCost,
         buttonAttachmentCost: data.cmtCosts.buttonAttachmentCost,
         handworkCmtCost: data.cmtCosts.handworkCost,
+        smockingCost: data.cmtCosts.smockingCost,
         cmtTotal: calculations.cmtTotal,
         embroideryDetails: JSON.parse(JSON.stringify(data.embroideryDetails || [])),
         embroideryTotal: calculations.embroideryTotal,
@@ -285,6 +287,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         finishingCost: data.cmtCosts.finishingCost,
         buttonAttachmentCost: data.cmtCosts.buttonAttachmentCost,
         handworkCmtCost: data.cmtCosts.handworkCost,
+        smockingCost: data.cmtCosts.smockingCost,
       }),
       cmtTotal: calculations.cmtTotal,
       ...(data.embroideryDetails && {
@@ -530,27 +533,36 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     };
   }
 
+  /** Convert nullable Prisma Decimal to number, using the provided default for NULL values */
+  private decimalToNum(value: unknown, defaultValue = 0): number {
+    if (value == null) return defaultValue;
+    const num = Number(value);
+    if (Number.isNaN(num)) return defaultValue;
+    return num;
+  }
+
   private mergeWithExisting(existing: style_costing, updates: UpdateCostSheetDTO): CreateCostSheetDTO {
     return {
       styleId: existing.styleId,
       numberOfComponents: updates.numberOfComponents ?? existing.numberOfComponents ?? undefined,
       category: updates.category ?? existing.category ?? undefined,
       subCategory: updates.subCategory ?? existing.subCategory ?? undefined,
-      fabricDetails: updates.fabricDetails || (existing.fabricDetails as unknown as FabricDetail[]) || [],
-      trimsDetails: updates.trimsDetails || (existing.trimsDetails as unknown as TrimDetail[]) || [],
-      cmtCosts: updates.cmtCosts || {
-        cuttingCost: Number(existing.cuttingCost) || 0,
-        stitchingCost: Number(existing.stitchingCost) || 0,
-        finishingCost: Number(existing.finishingCost) || 0,
-        buttonAttachmentCost: Number(existing.buttonAttachmentCost) || 0,
-        handworkCost: Number(existing.handworkCmtCost) || 0,
+      fabricDetails: updates.fabricDetails ?? (existing.fabricDetails as unknown as FabricDetail[]) ?? [],
+      trimsDetails: updates.trimsDetails ?? (existing.trimsDetails as unknown as TrimDetail[]) ?? [],
+      cmtCosts: updates.cmtCosts ?? {
+        cuttingCost: this.decimalToNum(existing.cuttingCost),
+        stitchingCost: this.decimalToNum(existing.stitchingCost),
+        finishingCost: this.decimalToNum(existing.finishingCost),
+        buttonAttachmentCost: this.decimalToNum(existing.buttonAttachmentCost),
+        handworkCost: this.decimalToNum(existing.handworkCmtCost),
+        smockingCost: this.decimalToNum(existing.smockingCost),
       },
       embroideryDetails:
-        updates.embroideryDetails || (existing.embroideryDetails as unknown as EmbroideryDetail[]) || [],
+        updates.embroideryDetails ?? (existing.embroideryDetails as unknown as EmbroideryDetail[]) ?? [],
       accessoriesDetails:
-        updates.accessoriesDetails || (existing.accessoriesDetails as unknown as AccessoryDetail[]) || [],
-      valueLossPercent: updates.valueLossPercent ?? Number(existing.valueLossPercent) ?? 2,
-      markupPercent: updates.markupPercent ?? Number(existing.markupPercent) ?? 15,
+        updates.accessoriesDetails ?? (existing.accessoriesDetails as unknown as AccessoryDetail[]) ?? [],
+      valueLossPercent: updates.valueLossPercent ?? this.decimalToNum(existing.valueLossPercent, 2),
+      markupPercent: updates.markupPercent ?? this.decimalToNum(existing.markupPercent, 15),
       notes: updates.notes ?? existing.notes ?? undefined,
     };
   }

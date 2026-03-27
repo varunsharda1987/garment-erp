@@ -180,12 +180,15 @@ export default function TDSList() {
 
   function handleSectionChange(sectionCode: string) {
     const section = TDS_SECTIONS.find((s) => s.code === sectionCode);
-    const rate = section?.rate ?? 0;
-    const tdsAmount = (formData.grossAmount * rate) / 100;
+    if (!section) {
+      toast.error(`Invalid TDS section code: ${sectionCode}`);
+      return;
+    }
+    const tdsAmount = (formData.grossAmount * section.rate) / 100;
     setFormData((prev) => ({
       ...prev,
       tdsSection: sectionCode,
-      tdsRate: rate,
+      tdsRate: section.rate,
       tdsAmount: Math.round(tdsAmount * 100) / 100,
       netAmount: Math.round((prev.grossAmount - tdsAmount) * 100) / 100,
     }));

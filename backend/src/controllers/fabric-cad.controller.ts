@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logInfo, logDebug } from '../utils/logger';
 import { ValidationError, NotFoundError } from '../errors';
+import { systemSettingsService } from '../services/system-settings.service';
 
 /**
  * Fabric Width CAD Controller
@@ -76,7 +77,7 @@ export const createCAD = async (req: Request, res: Response) => {
     widthUnit = 'inches',
     cadMeters,
     cadYards,
-    cadWastagePercent = 5,
+    cadWastagePercent,
     markerEfficiency,
     isPreferred = false,
     supplierAvailability,
@@ -86,6 +87,12 @@ export const createCAD = async (req: Request, res: Response) => {
     piecesPerMarker,
     notes,
   } = req.body;
+
+  // Resolve wastage default from system settings if not provided
+  const resolvedCadWastagePercent =
+    cadWastagePercent != null
+      ? Number(cadWastagePercent)
+      : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
 
   // Validate required fields
   if (!fabricId || !cutableWidth) {
@@ -138,7 +145,7 @@ export const createCAD = async (req: Request, res: Response) => {
       widthUnit,
       cadMeters: cadMeters ? parseFloat(cadMeters) : null,
       cadYards: cadYards ? parseFloat(cadYards) : null,
-      cadWastagePercent: parseFloat(cadWastagePercent),
+      cadWastagePercent: resolvedCadWastagePercent,
       markerEfficiency: markerEfficiency ? parseFloat(markerEfficiency) : null,
       isPreferred,
       supplierAvailability,

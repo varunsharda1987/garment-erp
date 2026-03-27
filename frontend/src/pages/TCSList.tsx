@@ -174,12 +174,15 @@ export default function TCSList() {
 
   function handleSectionChange(sectionCode: string) {
     const section = TCS_SECTIONS.find((s) => s.code === sectionCode);
-    const rate = section?.rate ?? 0;
-    const tcsAmount = (formData.saleAmount * rate) / 100;
+    if (!section) {
+      toast.error(`Invalid TCS section code: ${sectionCode}`);
+      return;
+    }
+    const tcsAmount = (formData.saleAmount * section.rate) / 100;
     setFormData((prev) => ({
       ...prev,
       tcsSection: sectionCode,
-      tcsRate: rate,
+      tcsRate: section.rate,
       tcsAmount: Math.round(tcsAmount * 100) / 100,
     }));
   }

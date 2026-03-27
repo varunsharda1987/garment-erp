@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { logInfo, logError, logWarn } from '../utils/logger';
+import { systemSettingsService } from '../services/system-settings.service';
 import {
   StyleCostingWhereInput,
   FabricDetail,
@@ -272,7 +273,10 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
 
         const cadAvg = jsonFabric.fabricAverage || 0;
         const cadRate = jsonFabric.fabricRate || 0;
-        const wastage = Number(cad.cadWastagePercent) || 5;
+        const wastage =
+          cad.cadWastagePercent != null
+            ? Number(cad.cadWastagePercent)
+            : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
         const effectiveCad = cadAvg * (1 + wastage / 100);
 
         fabricItemsToCreate.push({
@@ -836,7 +840,10 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
 
         const cadAvg = jsonFabric.fabricAverage || 0;
         const cadRate = jsonFabric.fabricRate || 0;
-        const wastage = Number(cad.cadWastagePercent) || 5;
+        const wastage =
+          cad.cadWastagePercent != null
+            ? Number(cad.cadWastagePercent)
+            : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
         const effectiveCad = cadAvg * (1 + wastage / 100);
 
         fabricItemsToCreate.push({

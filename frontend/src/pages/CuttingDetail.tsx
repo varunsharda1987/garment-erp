@@ -389,16 +389,17 @@ export default function CuttingDetail() {
     <Badge className={CuttingBatchStatusColors[status]}>{CuttingBatchStatusLabels[status]}</Badge>
   );
 
-  const totalToCut = batch?.skuOutputs?.reduce((sum, s) => sum + s.toCut, 0) || 0;
-  const totalCut = batch?.skuOutputs?.reduce((sum, s) => sum + (s.cutQty || 0), 0) || 0;
-  const totalGood = batch?.skuOutputs?.reduce((sum, s) => sum + (s.goodPcs || 0), 0) || 0;
+  const skuOutputs = batch?.skuOutputs ?? [];
+  const totalToCut = skuOutputs.reduce((sum, s) => sum + s.toCut, 0);
+  const totalCut = skuOutputs.reduce((sum, s) => sum + (s.cutQty ?? 0), 0);
+  const totalGood = skuOutputs.reduce((sum, s) => sum + (s.goodPcs ?? 0), 0);
   const totalRemaining = totalToCut - totalCut;
   const progressPercent = totalToCut > 0 ? Math.min(100, Math.round((totalCut / totalToCut) * 100)) : 0;
 
   // Sort SKU outputs by size sortOrder
   const sortedSkus = useMemo(() => {
-    return [...(batch?.skuOutputs || [])].sort((a, b) => (a.size?.sortOrder || 0) - (b.size?.sortOrder || 0));
-  }, [batch?.skuOutputs]);
+    return [...skuOutputs].sort((a, b) => (a.size?.sortOrder ?? 0) - (b.size?.sortOrder ?? 0));
+  }, [skuOutputs]);
 
   const hasGoodPcs = totalGood > 0;
   const isInProgress = batch?.status === 'IN_PROGRESS';

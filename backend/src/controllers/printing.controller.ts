@@ -872,7 +872,7 @@ export const sendToMill = async (req: Request, res: Response, next: NextFunction
   const colorName = existing.labDip?.targetColor?.colorName || existing.labDip?.colorReference || 'Unknown';
   const colorCode = existing.labDip?.targetColor?.colorCode || null;
   const greigeId = existing.labDip?.fabric?.greigeId || null;
-  const finishType = 'Printed';
+  const finishType = 'PRINTED';
 
   // Check if a matching fabric_master already exists
   if (greigeId) {
@@ -1713,7 +1713,7 @@ export const sendProcessPO = async (req: Request, res: Response, next: NextFunct
   const colorName = job.labDip?.targetColor?.colorName || job.labDip?.colorReference || 'Unknown';
   const colorCode = job.labDip?.targetColor?.colorCode || null;
   const greigeId = job.labDip?.fabric?.greigeId || null;
-  const finishType = 'Printed';
+  const finishType = 'PRINTED';
 
   // Check if a matching fabric_master already exists
   if (greigeId) {

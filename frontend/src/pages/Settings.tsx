@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
 import { userService } from '@/services/user.service';
+import { getSystemSettingsDefaults, updateSystemSetting } from '@/services/system-settings.service';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { Lock, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Lock, Loader2, Eye, EyeOff, AlertCircle, Settings2, Save } from 'lucide-react';
 
 export default function Settings() {
   const { user: currentUser } = useAuthStore();
@@ -232,9 +234,154 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Additional Settings sections can be added here */}
-        {/* For example: Notifications, Preferences, etc. */}
+        {/* Default Wastage Settings Card */}
+        <WastageDefaultsCard />
       </div>
     </div>
+  );
+}
+
+const WASTAGE_SETTINGS = [
+  {
+    key: 'FABRIC_DEFAULT_WASTAGE_PERCENT',
+    label: 'Fabric Wastage %',
+    description: 'Default wastage for fabric materials in CAD and BOM',
+  },
+  {
+    key: 'GREIGE_DEFAULT_WASTAGE_PERCENT',
+    label: 'Greige Wastage %',
+    description: 'Default wastage for greige materials in CAD and BOM',
+  },
+  { key: 'LACE_DEFAULT_WASTAGE_PERCENT', label: 'Lace Wastage %', description: 'Default wastage for lace materials' },
+  {
+    key: 'LABEL_DEFAULT_EXTRA_PERCENT',
+    label: 'Label Extra %',
+    description: 'Default extra percentage for label materials',
+  },
+];
+
+function WastageDefaultsCard() {
+  const queryClient = useQueryClient();
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [hasChanges, setHasChanges] = useState(false);
+
+  const { data: defaults, isLoading } = useQuery({
+    queryKey: ['system-settings', 'defaults'],
+    queryFn: getSystemSettingsDefaults,
+  });
+
+  // Sync loaded defaults into edit state
+  useEffect(() => {
+    if (defaults) {
+      const values: Record<string, string> = {};
+      WASTAGE_SETTINGS.forEach(({ key }) => {
+        values[key] = defaults[key] ?? '';
+      });
+      setEditValues(values);
+      setHasChanges(false);
+    }
+  }, [defaults]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const promises = WASTAGE_SETTINGS.map(({ key }) => {
+        const newValue = editValues[key];
+        const oldValue = defaults?.[key];
+        if (newValue !== oldValue) {
+          return updateSystemSetting(key, newValue, 'NUMBER');
+        }
+        return Promise.resolve(null);
+      });
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-settings'] });
+      handleApiSuccess('Settings saved', 'Default wastage settings have been updated.');
+      setHasChanges(false);
+    },
+    onError: (error) => {
+      handleApiError(error, 'Failed to save settings');
+    },
+  });
+
+  const handleValueChange = (key: string, value: string) => {
+    setEditValues((prev) => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Settings2 className="h-5 w-5" />
+          Default Wastage Settings
+        </CardTitle>
+        <CardDescription>
+          Configure default wastage percentages for different material types. These defaults are used when creating new
+          CAD entries and BOM items.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {WASTAGE_SETTINGS.map(({ key, label, description }) => (
+            <div key={key}>
+              <Label htmlFor={key}>{label}</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  id={key}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={editValues[key] ?? ''}
+                  onChange={(e) => handleValueChange(key, e.target.value)}
+                  className="w-24"
+                />
+                <span className="text-sm text-gray-500">%</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{description}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!hasChanges || saveMutation.isPending}
+            onClick={() => {
+              if (defaults) {
+                const values: Record<string, string> = {};
+                WASTAGE_SETTINGS.forEach(({ key }) => {
+                  values[key] = defaults[key] ?? '';
+                });
+                setEditValues(values);
+                setHasChanges(false);
+              }
+            }}
+          >
+            Reset
+          </Button>
+          <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending}>
+            {saveMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save Defaults
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

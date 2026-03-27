@@ -286,7 +286,7 @@ export const fabricService = {
       success: boolean;
       data: Array<{ id: string; code: string; name: string; isActive: boolean }>;
     }>(`${API_BASE_URL}/pattern-parts?isActive=true&limit=200`, getAuthHeaders());
-    const items = response.data.data || [];
+    const items = response.data.data;
     return items.map((p) => ({
       id: p.id,
       code: p.code,

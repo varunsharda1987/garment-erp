@@ -53,8 +53,7 @@ export interface CADPlanningStyle {
 export interface CADPlanningListResponse {
   success: boolean;
   data: {
-    styles?: CADPlanningStyle[]; // Backend may send as 'styles' (before serializer)
-    style?: CADPlanningStyle[]; // Or 'style' (after serializer transformation)
+    style: CADPlanningStyle[]; // Serializer maps 'styles' → 'style' (RELATION_MAPPINGS)
     pagination: {
       page: number;
       limit: number;
@@ -161,13 +160,7 @@ export const cadPlanningService = {
     if (params.searchAll) queryParams.append('searchAll', 'true');
 
     const response = await api.get<CADPlanningListResponse>(`/cad-planning/styles?${queryParams.toString()}`);
-
-    // Defensive: Ensure response.data exists and has expected structure
-    const data = response.data || {
-      success: false,
-      data: { styles: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } },
-    };
-    return data;
+    return response.data;
   },
 
   /**

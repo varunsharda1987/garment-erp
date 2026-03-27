@@ -4,7 +4,7 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { fabric_master, Prisma } from '@prisma/client';
+import { fabric_master, FabricFinishType, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
@@ -63,6 +63,16 @@ export interface BulkImportResult {
   updated: number;
   failed: number;
   errors: Array<{ row: number; error: string }>;
+}
+
+const VALID_FINISH_TYPES = new Set<string>(Object.values(FabricFinishType));
+
+/** Coerce a string to FabricFinishType enum, or return null/undefined if invalid */
+function toFinishType(value: string | null | undefined): FabricFinishType | null | undefined {
+  if (value === undefined) return undefined;
+  if (!value) return null;
+  if (VALID_FINISH_TYPES.has(value)) return value as FabricFinishType;
+  throw new ValidationError(`Invalid finishType: "${value}". Must be one of: ${[...VALID_FINISH_TYPES].join(', ')}`);
 }
 
 // ============================================
@@ -138,7 +148,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         composition: data.composition || null,
         colorName: data.colorName || null,
         colorCode: data.colorCode || null,
-        finishType: data.finishType || null,
+        finishType: toFinishType(data.finishType),
         printDesign: data.printDesign || null,
         actualWidth: data.actualWidth,
         cutableWidth: data.cutableWidth || data.actualWidth - 2,
@@ -249,7 +259,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
     }
 
     if (filters.finishType) {
-      where.finishType = filters.finishType;
+      where.finishType = filters.finishType as FabricFinishType;
     }
 
     const [fabrics, total] = await Promise.all([
@@ -491,7 +501,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         composition: data.composition,
         colorName: data.colorName,
         colorCode: data.colorCode,
-        finishType: data.finishType,
+        finishType: toFinishType(data.finishType),
         printDesign: data.printDesign,
         actualWidth: data.actualWidth,
         cutableWidth: data.cutableWidth,
@@ -776,7 +786,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
               composition: (fabric.composition as string) || null,
               colorName: (fabric.colorName as string) || null,
               colorCode: (fabric.colorCode as string) || null,
-              finishType: fabric.finishType as string,
+              finishType: toFinishType(fabric.finishType as string) ?? null,
               printDesign: (fabric.printDesign as string) || null,
               actualWidth,
               cutableWidth,
@@ -804,7 +814,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
               composition: (fabric.composition as string) || null,
               colorName: (fabric.colorName as string) || null,
               colorCode: (fabric.colorCode as string) || null,
-              finishType: fabric.finishType as string,
+              finishType: toFinishType(fabric.finishType as string) ?? null,
               printDesign: (fabric.printDesign as string) || null,
               actualWidth,
               cutableWidth,

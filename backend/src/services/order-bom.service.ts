@@ -10,6 +10,7 @@ import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from '
 import { Prisma, order_bom, OrderBOMStatus } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
+import { systemSettingsService } from './system-settings.service';
 import { SearchFilter } from '../types/prisma.types';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -594,9 +595,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           }
         }
 
-        const quantityPerGarment = Number(fabricItem.effectiveCad) || Number(fabricItem.cadMeters) || 0;
+        const quantityPerGarment = Number(fabricItem.cadMeters) || 0;
         const totalQuantity = quantityPerGarment * orderQuantity;
-        const wastagePercent = Number(fabricItem.cadWastagePercent) || 5;
+        const wastagePercent = fabricItem.cadWastagePercent != null ? Number(fabricItem.cadWastagePercent) : 0;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
         // For GREIGE_PROCESSED: use greige rate only (processing is a separate service)
         const unitPrice =
@@ -771,7 +772,10 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       const laceItem = laceItems[i];
       const quantityPerGarment = Number(laceItem.quantityPerGarment) || 0;
       const totalQuantity = quantityPerGarment * orderQuantity;
-      const wastagePercent = Number(laceItem.wastagePercent) || 5;
+      const wastagePercent =
+        laceItem.wastagePercent != null
+          ? Number(laceItem.wastagePercent)
+          : await systemSettingsService.getNumber('LACE_DEFAULT_WASTAGE_PERCENT', 5);
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
       const unitPrice = Number(laceItem.costPerMeter) || 0;
       const totalCost = totalWithWastage * unitPrice;

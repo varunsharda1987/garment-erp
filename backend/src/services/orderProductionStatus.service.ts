@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { Prisma, ProductionStage, CADStatus, SampleStatus, OrderStatus } from '@prisma/client';
 import { InternalError } from '../errors';
+import { systemSettingsService } from './system-settings.service';
 
 // Types for order production status
 interface OrderProductionStatusQueryOptions {
@@ -502,11 +503,13 @@ class OrderProductionStatusService {
   /**
    * Get available CAD widths from style's fabric components
    */
-  private getAvailableCadWidths(style: any, selectedCadId: string | null): CadWidthOption[] {
+  private async getAvailableCadWidths(style: any, selectedCadId: string | null): Promise<CadWidthOption[]> {
     const cadWidths: CadWidthOption[] = [];
     const seenIds = new Set<string>();
 
     if (!style?.style_components) return cadWidths;
+
+    const defaultWastage = await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
 
     style.style_components.forEach((comp: any) => {
       if (!comp.style_fabrics) return;
@@ -519,7 +522,7 @@ class OrderProductionStatusService {
             id: sf.fabricCAD.id,
             cutableWidth: Number(sf.fabricCAD.cutableWidth),
             cadMeters: sf.fabricCAD.cadMeters ? Number(sf.fabricCAD.cadMeters) : null,
-            cadWastagePercent: Number(sf.fabricCAD.cadWastagePercent || 5),
+            cadWastagePercent: Number(sf.fabricCAD.cadWastagePercent ?? defaultWastage),
             isSelected: sf.fabricCAD.id === selectedCadId,
             isPreferred: sf.fabricCAD.isPreferred || false,
           });
@@ -534,7 +537,7 @@ class OrderProductionStatusService {
                 id: cad.id,
                 cutableWidth: Number(cad.cutableWidth),
                 cadMeters: cad.cadMeters ? Number(cad.cadMeters) : null,
-                cadWastagePercent: Number(cad.cadWastagePercent || 5),
+                cadWastagePercent: Number(cad.cadWastagePercent ?? defaultWastage),
                 isSelected: cad.id === selectedCadId,
                 isPreferred: cad.isPreferred || false,
               });

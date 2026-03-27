@@ -87,6 +87,7 @@ import embroideryStockRoutes from './embroidery-stock.routes';
 import colorRoutes from './color.routes';
 import seasonRoutes from './season.routes';
 import lookupRoutes from './lookup.routes';
+import systemSettingsRoutes from './system-settings.routes';
 import trimDashboardRoutes from './trim-dashboard.routes';
 import genericTrimRoutes from './generic-trim.routes';
 import masterDataDashboardRoutes from './masterDataDashboard.routes';
@@ -315,6 +316,9 @@ export function createApiRouter(): Router {
 
   // Lookup Values (Configurable Dropdowns)
   router.use('/lookups', lookupRoutes);
+
+  // System Settings (Configurable Defaults)
+  router.use('/system-settings', systemSettingsRoutes);
 
   // Trim Masters Dashboard
   router.use('/trims', trimDashboardRoutes);

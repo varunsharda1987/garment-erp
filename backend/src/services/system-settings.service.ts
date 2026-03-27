@@ -1,0 +1,242 @@
+import prisma from '../config/database';
+import { logInfo, logError } from '../utils/logger';
+
+interface CachedSetting {
+  value: string;
+  dataType: string;
+  expiresAt: number;
+}
+
+interface SystemSettingInput {
+  value: string;
+  dataType?: string;
+  category?: string;
+  description?: string;
+  isSystem?: boolean;
+}
+
+interface QueryParams {
+  category?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Default settings seeded on startup
+const DEFAULT_SETTINGS: Array<{
+  key: string;
+  value: string;
+  dataType: string;
+  category: string;
+  description: string;
+  isSystem: boolean;
+}> = [
+  {
+    key: 'FABRIC_DEFAULT_WASTAGE_PERCENT',
+    value: '0',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    description: 'Default wastage % for fabric materials in CAD and BOM',
+    isSystem: true,
+  },
+  {
+    key: 'GREIGE_DEFAULT_WASTAGE_PERCENT',
+    value: '0',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    description: 'Default wastage % for greige materials in CAD and BOM',
+    isSystem: true,
+  },
+  {
+    key: 'LACE_DEFAULT_WASTAGE_PERCENT',
+    value: '5',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    description: 'Default wastage % for lace materials',
+    isSystem: true,
+  },
+  {
+    key: 'LABEL_DEFAULT_EXTRA_PERCENT',
+    value: '5',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    description: 'Default extra % for label materials',
+    isSystem: true,
+  },
+];
+
+class SystemSettingsService {
+  private cache: Map<string, CachedSetting> = new Map();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  /**
+   * Get a setting by key. Checks cache first, then DB.
+   */
+  async getByKey(key: string): Promise<{ key: string; value: string; dataType: string } | null> {
+    // Check cache
+    const cached = this.cache.get(key);
+    if (cached && Date.now() < cached.expiresAt) {
+      return { key, value: cached.value, dataType: cached.dataType };
+    }
+
+    // Query DB
+    const setting = await prisma.system_settings.findUnique({ where: { key } });
+    if (!setting) return null;
+
+    // Update cache
+    this.cache.set(key, {
+      value: setting.value,
+      dataType: setting.dataType,
+      expiresAt: Date.now() + this.CACHE_TTL_MS,
+    });
+
+    return { key: setting.key, value: setting.value, dataType: setting.dataType };
+  }
+
+  /**
+   * Get a numeric setting with fallback.
+   */
+  async getNumber(key: string, fallback: number): Promise<number> {
+    const setting = await this.getByKey(key);
+    if (!setting) return fallback;
+    const num = Number(setting.value);
+    return isNaN(num) ? fallback : num;
+  }
+
+  /**
+   * Get a string setting with fallback.
+   */
+  async getString(key: string, fallback: string): Promise<string> {
+    const setting = await this.getByKey(key);
+    return setting?.value ?? fallback;
+  }
+
+  /**
+   * List all settings with optional filtering and pagination.
+   */
+  async getAll(params: QueryParams = {}) {
+    const { category, search, page = 1, limit = 50 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = {};
+    if (category) where.category = category;
+    if (search) {
+      where.OR = [
+        { key: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.system_settings.findMany({
+        where,
+        orderBy: [{ category: 'asc' }, { key: 'asc' }],
+        skip,
+        take: limit,
+      }),
+      prisma.system_settings.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get all settings in DEFAULTS category (convenience).
+   */
+  async getDefaults() {
+    const settings = await prisma.system_settings.findMany({
+      where: { category: 'DEFAULTS' },
+      orderBy: { key: 'asc' },
+    });
+
+    // Return as key-value map for easy frontend consumption
+    const map: Record<string, string> = {};
+    for (const s of settings) {
+      map[s.key] = s.value;
+    }
+    return map;
+  }
+
+  /**
+   * Create or update a setting.
+   */
+  async upsert(key: string, input: SystemSettingInput) {
+    const setting = await prisma.system_settings.upsert({
+      where: { key },
+      create: {
+        key,
+        value: input.value,
+        dataType: input.dataType || 'STRING',
+        category: input.category || 'GENERAL',
+        description: input.description || null,
+        isSystem: input.isSystem || false,
+      },
+      update: {
+        value: input.value,
+        ...(input.dataType && { dataType: input.dataType }),
+        ...(input.category && { category: input.category }),
+        ...(input.description !== undefined && { description: input.description }),
+      },
+    });
+
+    // Invalidate cache
+    this.invalidateCache(key);
+
+    return setting;
+  }
+
+  /**
+   * Delete a setting. Blocks deletion of system settings.
+   */
+  async delete(key: string) {
+    const existing = await prisma.system_settings.findUnique({ where: { key } });
+    if (!existing) {
+      throw new Error(`Setting '${key}' not found`);
+    }
+    if (existing.isSystem) {
+      throw new Error(`Cannot delete system setting '${key}'`);
+    }
+
+    await prisma.system_settings.delete({ where: { key } });
+    this.invalidateCache(key);
+  }
+
+  /**
+   * Seed default settings if they don't exist. Called at app startup.
+   */
+  async preloadDefaults(): Promise<void> {
+    let seeded = 0;
+    for (const def of DEFAULT_SETTINGS) {
+      const existing = await prisma.system_settings.findUnique({ where: { key: def.key } });
+      if (!existing) {
+        await prisma.system_settings.create({ data: def });
+        seeded++;
+      }
+      // Pre-warm cache
+      const setting = existing || def;
+      this.cache.set(def.key, {
+        value: setting.value,
+        dataType: setting.dataType,
+        expiresAt: Date.now() + this.CACHE_TTL_MS,
+      });
+    }
+    if (seeded > 0) {
+      logInfo(`Seeded ${seeded} default system settings`);
+    }
+    logInfo(`System settings loaded: ${this.cache.size} cached`);
+  }
+
+  private invalidateCache(key: string): void {
+    this.cache.delete(key);
+  }
+}
+
+export const systemSettingsService = new SystemSettingsService();

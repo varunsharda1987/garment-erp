@@ -84,32 +84,32 @@ export default function CADPlanningList() {
     }
   );
 
-  // Process styles data with defaults
+  // Process styles data — serializer maps 'styles' → 'style' via RELATION_MAPPINGS
   const { styles, totalPages, totalStyles } = useMemo(() => {
     if (!stylesResponse?.success || !stylesResponse.data) {
       return { styles: [], totalPages: 1, totalStyles: 0 };
     }
 
-    const responseData = stylesResponse.data as Record<string, unknown>;
-    const stylesArray = (responseData?.styles ?? responseData?.style) as CADPlanningStyle[] | undefined;
+    const stylesArray = stylesResponse.data.style;
     if (!Array.isArray(stylesArray)) {
+      console.error('[CADPlanningList] Expected data.style to be an array, got:', typeof stylesArray);
       return { styles: [], totalPages: 1, totalStyles: 0 };
     }
 
-    // Ensure cadDetails is always an array; use effectiveCadStatus for display consistency
+    // Use effectiveCadStatus for display consistency (reflects actual state)
     const stylesWithDefaults = stylesArray.map((style: CADPlanningStyle) => {
       const rawStyle = style as CADPlanningStyle & { effectiveCadStatus?: string };
       return {
         ...style,
-        cadDetails: style.cadDetails || [],
-        cadStatus: rawStyle.effectiveCadStatus || style.cadStatus,
+        cadDetails: style.cadDetails ?? [],
+        cadStatus: rawStyle.effectiveCadStatus ?? style.cadStatus,
       };
     });
 
     return {
       styles: stylesWithDefaults as Array<CADPlanningStyle & { cadDetails: CADWidthDetail[] }>,
-      totalPages: stylesResponse.data.pagination?.totalPages || 1,
-      totalStyles: stylesResponse.data.pagination?.total || 0,
+      totalPages: stylesResponse.data.pagination?.totalPages ?? 1,
+      totalStyles: stylesResponse.data.pagination?.total ?? 0,
     };
   }, [stylesResponse]);
 

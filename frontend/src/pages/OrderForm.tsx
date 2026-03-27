@@ -36,10 +36,10 @@ import {
 
 // Extended Style type with color and size options from API
 // Note: Serializer automatically converts snake_case to camelCase
+// size_options → sizeOptions, color_options → colorOptions
 interface StyleWithOptions extends Style {
-  colors?: ColorOption[];
-  sizes?: SizeOption[];
-  styleVariants?: StyleVariantOption[];
+  colorOptions?: ColorOption[];
+  sizeOptions?: SizeOption[];
   image?: string;
   customerId?: string;
 }
@@ -54,14 +54,6 @@ interface SizeOption {
   id: string;
   sizeName: string;
   sizeCode: string;
-}
-
-interface StyleVariantOption {
-  id: string;
-  sizeName?: string;
-  size?: string;
-  sku: string;
-  isActive: boolean;
 }
 
 export default function OrderForm() {
@@ -107,6 +99,7 @@ export default function OrderForm() {
   const [styleSearch, setStyleSearch] = useState('');
   const [searchingStyles, setSearchingStyles] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLoadingOrderRef = useRef(false); // Prevents handleStyleSelect from resetting state during fetchOrder
 
   // Cost sheet selection for pricing
   const [costSheetDialogOpen, setCostSheetDialogOpen] = useState(false);
@@ -188,29 +181,9 @@ export default function OrderForm() {
           }
         }
 
-        // Set colors and sizes from style
-        const styleColors = fullStyle.colors || [];
-        setColors(styleColors);
-
-        let styleSizes = fullStyle.sizes || [];
-        const variants = fullStyle.styleVariants || [];
-        if (styleSizes.length === 0 && variants.length > 0) {
-          const uniqueSizes = new Map<string, SizeOption>();
-          variants
-            .filter((v) => v.isActive)
-            .forEach((variant) => {
-              const sizeName = variant.sizeName || variant.size || '';
-              if (sizeName && !uniqueSizes.has(sizeName)) {
-                uniqueSizes.set(sizeName, {
-                  id: sizeName,
-                  sizeName: sizeName,
-                  sizeCode: sizeName,
-                });
-              }
-            });
-          styleSizes = Array.from(uniqueSizes.values());
-        }
-        setSizes(styleSizes);
+        // Serializer converts color_options → colorOptions, size_options → sizeOptions
+        setColors(fullStyle.colorOptions ?? []);
+        setSizes(fullStyle.sizeOptions ?? []);
 
         // Load cost sheets for this style and pre-select the one from params
         // Filter to only approved cost sheets with valid purpose for orders
@@ -292,6 +265,7 @@ export default function OrderForm() {
   const fetchOrder = async (orderId: string) => {
     try {
       setIsLoading(true);
+      isLoadingOrderRef.current = true;
       const order = await getOrderById(orderId);
 
       setCustomerId(order.customerId);
@@ -317,37 +291,16 @@ export default function OrderForm() {
         const fullStyle = (await styleService.getStyleById(item.styleId)) as StyleWithOptions;
         setSelectedStyle(fullStyle);
 
-        // Get colors from style (serializer converts to camelCase)
-        const styleColors = fullStyle.colors || [];
-        setColors(styleColors);
+        // Always move selected style to front so it's in filteredStyles (first 20)
+        setStyles((prev) => {
+          const withoutStyle = prev.filter((s) => s.id !== fullStyle.id);
+          return [fullStyle as Style, ...withoutStyle];
+        });
 
-        // Get sizes - fallback to variants if no sizes
-        let styleSizes = fullStyle.sizes || [];
-        const variants = fullStyle.styleVariants || [];
-        if (styleSizes.length === 0 && variants.length > 0) {
-          const uniqueSizes = new Map<string, SizeOption>();
-          variants
-            .filter((v) => v.isActive)
-            .forEach((variant) => {
-              const sizeName = variant.sizeName || variant.size || '';
-              if (sizeName && !uniqueSizes.has(sizeName)) {
-                uniqueSizes.set(sizeName, {
-                  id: variant.id,
-                  sizeName: sizeName,
-                  sizeCode: sizeName,
-                });
-              }
-            });
-          const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', '4XL', '5XL'];
-          styleSizes = Array.from(uniqueSizes.values()).sort((a, b) => {
-            const aIdx = sizeOrder.indexOf(a.sizeName);
-            const bIdx = sizeOrder.indexOf(b.sizeName);
-            if (aIdx === -1 && bIdx === -1) return a.sizeName.localeCompare(b.sizeName);
-            if (aIdx === -1) return 1;
-            if (bIdx === -1) return -1;
-            return aIdx - bIdx;
-          });
-        }
+        // Serializer converts color_options → colorOptions, size_options → sizeOptions
+        const styleColors = fullStyle.colorOptions ?? [];
+        const styleSizes = fullStyle.sizeOptions ?? [];
+        setColors(styleColors);
         setSizes(styleSizes);
 
         // Load breakup from order - map existing quantities to size grid
@@ -402,6 +355,21 @@ export default function OrderForm() {
 
         // Set total quantity from order
         setTotalForDistribution(item.totalQuantity.toString());
+
+        // Validate cost sheet for this style (needed for form validation)
+        try {
+          const sheets = await getCostSheetVersionsByStyle(item.styleId);
+          const sheetsArray = Array.isArray(sheets) ? sheets : [];
+          const approvedSheets = sheetsArray.filter(
+            (s: CostSheet) =>
+              (s.approvalStatus === 'APPROVED' || s.isApproved) &&
+              (s.purpose === 'RAW_MATERIAL_CALCULATION' || s.purpose === 'PRODUCTION')
+          );
+          setHasApprovedCostSheet(approvedSheets.length > 0);
+          setCostSheets(approvedSheets);
+        } catch {
+          setHasApprovedCostSheet(false);
+        }
       }
 
       // Show additional details if any are filled
@@ -413,22 +381,34 @@ export default function OrderForm() {
       setError(errorObj.response?.data?.message || 'Failed to fetch order');
     } finally {
       setIsLoading(false);
+      isLoadingOrderRef.current = false;
     }
   };
 
-  // Filter styles based on search
+  // Filter styles based on search — always include selected style for Radix Select display
   const filteredStyles = useMemo(() => {
-    if (!styleSearch) return styles.slice(0, 20); // Show first 20 by default
-    const search = styleSearch.toLowerCase();
-    return styles
-      .filter(
-        (style) => style.styleCode.toLowerCase().includes(search) || style.styleName.toLowerCase().includes(search)
-      )
-      .slice(0, 20);
-  }, [styles, styleSearch]);
+    let list: Style[];
+    if (!styleSearch) {
+      list = styles.slice(0, 20);
+    } else {
+      const search = styleSearch.toLowerCase();
+      list = styles
+        .filter(
+          (style) => style.styleCode.toLowerCase().includes(search) || style.styleName.toLowerCase().includes(search)
+        )
+        .slice(0, 20);
+    }
+    // Always include selected style so Radix Select can resolve display text
+    if (selectedStyleId && !list.some((s) => s.id === selectedStyleId)) {
+      const selected = styles.find((s) => s.id === selectedStyleId);
+      if (selected) list = [selected, ...list];
+    }
+    return list;
+  }, [styles, styleSearch, selectedStyleId]);
 
   // Handle style selection
   const handleStyleSelect = async (styleId: string) => {
+    if (isLoadingOrderRef.current) return; // Skip during fetchOrder — it handles its own state
     if (styleId === selectedStyleId) return;
 
     setSelectedStyleId(styleId);
@@ -485,36 +465,9 @@ export default function OrderForm() {
         setCostSheetValidationLoading(false);
       }
 
-      // Get style options (serializer converts to camelCase)
-      const styleColors = fullStyle.colors || [];
-      let styleSizes = fullStyle.sizes || [];
-      const variants = fullStyle.styleVariants || [];
-
-      // Fallback: If no sizes, extract from styleVariants
-      if (styleSizes.length === 0 && variants.length > 0) {
-        const uniqueSizes = new Map<string, SizeOption>();
-        variants
-          .filter((v) => v.isActive)
-          .forEach((variant) => {
-            const sizeName = variant.sizeName || variant.size || '';
-            if (sizeName && !uniqueSizes.has(sizeName)) {
-              uniqueSizes.set(sizeName, {
-                id: variant.id,
-                sizeName: sizeName,
-                sizeCode: sizeName,
-              });
-            }
-          });
-        const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', '4XL', '5XL'];
-        styleSizes = Array.from(uniqueSizes.values()).sort((a, b) => {
-          const aIdx = sizeOrder.indexOf(a.sizeName);
-          const bIdx = sizeOrder.indexOf(b.sizeName);
-          if (aIdx === -1 && bIdx === -1) return a.sizeName.localeCompare(b.sizeName);
-          if (aIdx === -1) return 1;
-          if (bIdx === -1) return -1;
-          return aIdx - bIdx;
-        });
-      }
+      // Serializer converts color_options → colorOptions, size_options → sizeOptions
+      const styleColors = fullStyle.colorOptions ?? [];
+      const styleSizes = fullStyle.sizeOptions ?? [];
 
       setColors(styleColors);
       setSizes(styleSizes);
@@ -602,7 +555,7 @@ export default function OrderForm() {
       setSelectedSizePresetId('');
       setSizeOverrideActive(false);
       if (selectedStyle) {
-        const styleSizes = selectedStyle.sizes || [];
+        const styleSizes = selectedStyle.sizeOptions ?? [];
         setSizes(styleSizes);
         regenerateBreakupWithNewSizes(styleSizes);
       }
@@ -613,11 +566,14 @@ export default function OrderForm() {
     if (!preset || !preset.sizeCategory.sizes) return;
 
     // Convert preset sizes to SizeOption format
-    const presetSizes: SizeOption[] = preset.sizeCategory.sizes.map((size, idx) => ({
-      id: `preset-${idx}-${size}`,
-      sizeName: size,
-      sizeCode: size,
-    }));
+    // Match preset size names to style's existing size_options by name to preserve real DB IDs
+    const styleSizes = selectedStyle?.sizeOptions ?? [];
+    const presetSizes: SizeOption[] = preset.sizeCategory.sizes.map((size, idx) => {
+      const matchedSize = styleSizes.find(
+        (s) => s.sizeName.toUpperCase() === size.toUpperCase() || s.sizeCode?.toUpperCase() === size.toUpperCase()
+      );
+      return matchedSize ? { ...matchedSize } : { id: `preset-${idx}-${size}`, sizeName: size, sizeCode: size };
+    });
 
     setSelectedSizePresetId(presetId);
     setSizeOverrideActive(true);
@@ -946,7 +902,8 @@ export default function OrderForm() {
       }
 
       // Size distribution is optional - filter to valid entries but allow empty array
-      const validBreakup = breakup.filter((b) => b.quantity > 0);
+      // Also filter out entries with synthetic preset IDs (no matching size_options in DB)
+      const validBreakup = breakup.filter((b) => b.quantity > 0 && !b.sizeId.startsWith('preset-'));
 
       const orderData = {
         customerId,
@@ -968,14 +925,7 @@ export default function OrderForm() {
       };
 
       if (isEditMode && id) {
-        await updateOrder(id, {
-          orderDate,
-          expectedDeliveryDate,
-          priority,
-          paymentTerms: paymentTerms || undefined,
-          shippingAddress: shippingAddress || undefined,
-          remarks: remarks || undefined,
-        });
+        await updateOrder(id, orderData);
         navigate('/orders');
       } else {
         await createOrder(orderData);
@@ -1055,31 +1005,14 @@ export default function OrderForm() {
                           onClick={(e) => e.stopPropagation()}
                         />
                       </div>
-                      {filteredStyles.map((style) => {
-                        const styleImage = (style as Style & { image?: string }).image;
-                        return (
-                          <SelectItem key={style.id} value={style.id}>
-                            <div className="flex items-center gap-2">
-                              {styleImage ? (
-                                <img
-                                  src={
-                                    styleImage.startsWith('http')
-                                      ? styleImage
-                                      : `${import.meta.env.VITE_API_URL || ''}/${styleImage}`
-                                  }
-                                  alt={style.styleName}
-                                  className="w-6 h-6 object-cover rounded"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <Package className="h-4 w-4 text-gray-400" />
-                              )}
-                              <span className="font-medium">{style.styleCode}</span>
-                              <span className="text-gray-500 text-xs">{style.styleName}</span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
+                      {filteredStyles.map((style) => (
+                        <SelectItem key={style.id} value={style.id}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{style.styleCode}</span>
+                            <span className="text-gray-500 text-xs">{style.styleName}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                       {filteredStyles.length === 0 && (
                         <div className="py-4 text-center text-sm text-gray-500">
                           {searchingStyles ? 'Searching...' : styleSearch ? 'No styles found' : 'Type to search styles'}
@@ -1149,38 +1082,6 @@ export default function OrderForm() {
                 </div>
               )}
             </div>
-
-            {/* Selected Style Info */}
-            {selectedStyle && (
-              <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                {selectedStyle.image ? (
-                  <img
-                    src={
-                      selectedStyle.image.startsWith('http')
-                        ? selectedStyle.image
-                        : `${import.meta.env.VITE_API_URL || ''}/${selectedStyle.image}`
-                    }
-                    alt={selectedStyle.styleName}
-                    className="w-10 h-10 object-cover rounded-lg"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Package className="h-5 w-5 text-blue-500" />
-                  </div>
-                )}
-                <div>
-                  <p className="font-semibold text-sm text-blue-900">{selectedStyle.styleCode}</p>
-                  <p className="text-xs text-blue-700">{selectedStyle.styleName}</p>
-                </div>
-                {sizes.length > 0 && (
-                  <div className="ml-auto text-xs text-blue-600">
-                    {colors.length > 0 ? `${colors.length} colors × ` : ''}
-                    {sizes.length} sizes
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Cost Sheet Validation Warning */}
             {selectedStyleId && hasApprovedCostSheet === false && !costSheetValidationLoading && (
@@ -1714,84 +1615,6 @@ export default function OrderForm() {
                     </div>
                   </>
                 )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Additional Details Section */}
-        <div className="bg-white rounded-xl border shadow-sm mb-6 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => toggleSection('additionalDetails')}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 text-gray-600">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900">Additional Details</h3>
-                <p className="text-sm text-gray-500">Optional information</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Optional</span>
-              {expandedSections.additionalDetails ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </div>
-          </button>
-
-          {expandedSections.additionalDetails && (
-            <div className="px-6 pb-6 border-t">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">Payment Terms</Label>
-                  <Input
-                    value={paymentTerms}
-                    onChange={(e) => setPaymentTerms(e.target.value)}
-                    placeholder="e.g., Net 30 Days"
-                    className="mt-1.5"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">Priority</Label>
-                  <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(PriorityLabels).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="md:col-span-2">
-                  <Label className="text-sm font-medium text-gray-700">Shipping Address</Label>
-                  <Textarea
-                    value={shippingAddress}
-                    onChange={(e) => setShippingAddress(e.target.value)}
-                    rows={2}
-                    className="mt-1.5"
-                    placeholder="Enter shipping address..."
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label className="text-sm font-medium text-gray-700">Remarks</Label>
-                  <Textarea
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    rows={2}
-                    className="mt-1.5"
-                    placeholder="Any additional notes..."
-                  />
-                </div>
               </div>
             </div>
           )}

@@ -6,6 +6,7 @@
  */
 
 import prisma from '../config/database';
+import { FabricFinishType } from '@prisma/client';
 
 export interface FabricMatchResult {
   styleFabricId: string;
@@ -58,7 +59,7 @@ async function matchSingleFabric(styleFabric: StyleFabricToMatch): Promise<Fabri
     }
 
     if (fabricType) {
-      whereClause.finishType = fabricType;
+      whereClause.finishType = fabricType as FabricFinishType;
     }
 
     const partialMatch = await prisma.fabric_master.findFirst({
@@ -193,7 +194,7 @@ export async function createPlaceholderFabrics(
           fabricName: styleFabric.fabricName || styleFabric.genericGreigeName || 'Unknown Fabric',
           genericGreigeName: styleFabric.genericGreigeName,
           colorName: styleFabric.fabricColor,
-          finishType: (styleFabric.fabricType as any) || 'RAW',
+          finishType: (styleFabric.fabricType as FabricFinishType) || FabricFinishType.RAW,
           actualGSM: styleFabric.fabricGSM ? parseFloat(styleFabric.fabricGSM) : null,
           isActive: true,
           createdById,

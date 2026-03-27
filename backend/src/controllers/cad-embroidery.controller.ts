@@ -7,6 +7,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logError, logInfo } from '../utils/logger';
+import { systemSettingsService } from '../services/system-settings.service';
 import { getDefaultLayerMargin } from './cad-planning.utils';
 
 // ============================================================================
@@ -193,7 +194,10 @@ export async function createOrUpdateEmbroideryCad(req: Request, res: Response) {
     embroideryId: embroideryId || null,
     cadMeters: cadMeters !== undefined ? cadMeters : null,
     cadYards: cadYards !== undefined ? cadYards : null,
-    cadWastagePercent: cadWastagePercent !== undefined ? cadWastagePercent : 5,
+    cadWastagePercent:
+      cadWastagePercent !== undefined
+        ? cadWastagePercent
+        : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0),
     layerMarginMeters:
       layerMarginMeters !== undefined ? layerMarginMeters : cadMeters ? getDefaultLayerMargin(cadMeters) : null,
     piecesPerMarker: calculatedPiecesPerMarker || null,
@@ -384,11 +388,12 @@ export async function getTotalFabricCad(req: Request, res: Response) {
 
   // Calculate totals
   const mainCadMeters = mainCad?.cadMeters ? Number(mainCad.cadMeters) : 0;
-  const mainWastage = mainCad?.cadWastagePercent ? Number(mainCad.cadWastagePercent) : 5;
+  const defaultWastage = await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+  const mainWastage = mainCad?.cadWastagePercent ? Number(mainCad.cadWastagePercent) : defaultWastage;
   const mainEffective = mainCadMeters * (1 + mainWastage / 100);
 
   const embroideryCadMeters = embroideryCad?.cadMeters ? Number(embroideryCad.cadMeters) : 0;
-  const embroideryWastage = embroideryCad?.cadWastagePercent ? Number(embroideryCad.cadWastagePercent) : 5;
+  const embroideryWastage = embroideryCad?.cadWastagePercent ? Number(embroideryCad.cadWastagePercent) : defaultWastage;
   const embroideryEffective = embroideryCadMeters * (1 + embroideryWastage / 100);
 
   const totalCadMeters = mainCadMeters + embroideryCadMeters;
@@ -467,6 +472,21 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
     });
   }
 
+  // 1b. Auto-resolve styleFabricId if not provided (match stock's fabricId to style's fabrics)
+  let resolvedStyleFabricId = styleFabricId;
+  if (!resolvedStyleFabricId) {
+    const matchingStyleFabric = await prisma.style_fabrics.findFirst({
+      where: {
+        style_components: { styleId },
+        fabricId: fabricStock.fabricId,
+      },
+      select: { id: true },
+    });
+    if (matchingStyleFabric) {
+      resolvedStyleFabricId = matchingStyleFabric.id;
+    }
+  }
+
   // 2. Find source CAD to copy from (COSTING or existing PRODUCTION)
   let sourceCAD: any = null;
 
@@ -475,22 +495,34 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
     sourceCAD = await prisma.fabric_width_cad.findUnique({
       where: { id: basedOnPlanningCadId },
     });
-  } else if (styleFabricId) {
+  } else if (resolvedStyleFabricId) {
     // Find the latest approved COSTING CAD for this style-fabric (renamed from PLANNING)
     sourceCAD = await prisma.fabric_width_cad.findFirst({
       where: {
-        styleFabricId,
+        styleFabricId: resolvedStyleFabricId,
         purpose: 'COSTING', // Renamed from PLANNING
         approvalStatus: 'APPROVED',
       },
       orderBy: [{ version: 'desc' }, { approvedAt: 'desc' }],
     });
 
-    // If no COSTING CAD, try to find any approved PRODUCTION CAD
+    // If no COSTING CAD, try RAW_MATERIAL_CALCULATION (common source for production)
     if (!sourceCAD) {
       sourceCAD = await prisma.fabric_width_cad.findFirst({
         where: {
-          styleFabricId,
+          styleFabricId: resolvedStyleFabricId,
+          purpose: 'RAW_MATERIAL_CALCULATION',
+          approvalStatus: 'APPROVED',
+        },
+        orderBy: [{ version: 'desc' }, { approvedAt: 'desc' }],
+      });
+    }
+
+    // If still no source, try any approved PRODUCTION CAD
+    if (!sourceCAD) {
+      sourceCAD = await prisma.fabric_width_cad.findFirst({
+        where: {
+          styleFabricId: resolvedStyleFabricId,
           purpose: 'PRODUCTION',
           approvalStatus: 'APPROVED',
         },
@@ -515,7 +547,7 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
   // 5. Determine greige and pattern part
   const finalGreigeId = greigeId || sourceCAD?.greigeId || fabricStock.fabricMaster?.greigeId;
   const finalPatternPartId = patternPartId || sourceCAD?.patternPartId;
-  const finalStyleFabricId = styleFabricId || sourceCAD?.styleFabricId;
+  const finalStyleFabricId = resolvedStyleFabricId || sourceCAD?.styleFabricId;
 
   // 6. Create new PRODUCTION CAD
   const newCAD = await prisma.fabric_width_cad.create({
@@ -534,7 +566,8 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
       // Copy CAD metrics from source if available
       cadMeters: sourceCAD?.cadMeters || null,
       cadYards: sourceCAD?.cadYards || null,
-      cadWastagePercent: sourceCAD?.cadWastagePercent || 5,
+      cadWastagePercent:
+        sourceCAD?.cadWastagePercent ?? (await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0)),
       layerMarginMeters: sourceCAD?.layerMarginMeters || null,
       markerEfficiency: sourceCAD?.markerEfficiency || null,
       printDirection: sourceCAD?.printDirection || 'TWO_WAY',

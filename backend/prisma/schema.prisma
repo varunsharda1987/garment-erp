@@ -1722,7 +1722,7 @@ model style_costing_fabric_items {
   colorName          String?
   width              Decimal              @default(0) @db.Decimal(10, 2)
   cadMeters          Decimal              @default(0) @db.Decimal(10, 4)
-  cadWastagePercent  Decimal              @default(5) @db.Decimal(5, 2)
+  cadWastagePercent  Decimal              @default(0) @db.Decimal(5, 2)
   effectiveCad       Decimal              @default(0) @db.Decimal(10, 4)
   costPerMeter       Decimal              @default(0) @db.Decimal(10, 2)
   totalCost          Decimal              @default(0) @db.Decimal(10, 2)
@@ -3670,7 +3670,7 @@ model fabric_master {
   genericGreigeName     String?
   colorName             String?
   colorCode             String?
-  finishType            String?
+  finishType            FabricFinishType?
   printDesign           String?
   actualWidth           Decimal?                     @db.Decimal(10, 2)
   cutableWidth          Decimal?                     @db.Decimal(10, 2)
@@ -3745,7 +3745,7 @@ model fabric_width_cad {
   widthUnit                   String                       @default("inches")
   cadMeters                   Decimal?                     @db.Decimal(10, 4)
   cadYards                    Decimal?                     @db.Decimal(10, 4)
-  cadWastagePercent           Decimal                      @default(5) @db.Decimal(5, 2)
+  cadWastagePercent           Decimal                      @default(0) @db.Decimal(5, 2)
   markerEfficiency            Decimal?                     @db.Decimal(5, 2)
   actualCad                   Decimal?                     @db.Decimal(10, 4)
   cadVariancePercent          Decimal?                     @db.Decimal(5, 2)
@@ -5047,6 +5047,23 @@ model lookup_values {
   @@unique([category, value])
   @@index([category])
   @@index([isActive])
+}
+
+/// System Settings - Generic key-value configuration store
+/// Used for configurable defaults across the system (e.g., wastage percentages)
+/// Keys use SCREAMING_SNAKE_CASE convention (e.g., FABRIC_DEFAULT_WASTAGE_PERCENT)
+model system_settings {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  dataType    String   @default("NUMBER") // STRING, NUMBER, BOOLEAN
+  category    String   @default("DEFAULTS") // DEFAULTS, GENERAL, COSTING, PRODUCTION
+  description String?
+  isSystem    Boolean  @default(false) // System settings cannot be deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
 }
 
 /// Junction table: Lace to Suppliers (Many-to-Many)
@@ -6774,7 +6791,7 @@ model embroidery_part_cad {
   embroideryId      String?                         @map("embroidery_id")
   cadMeters         Decimal?                        @db.Decimal(10, 4)
   cadYards          Decimal?                        @db.Decimal(10, 4)
-  cadWastagePercent Decimal                         @default(5) @db.Decimal(5, 2)
+  cadWastagePercent Decimal                         @default(0) @db.Decimal(5, 2)
   layerMarginMeters Decimal?                        @db.Decimal(10, 4)
   piecesPerMarker   Int?
   markerEfficiency  Decimal?                        @db.Decimal(5, 2)

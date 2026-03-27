@@ -522,7 +522,9 @@ export default function CADPlanningPage() {
             <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
             <div className="text-sm">
               <span className="font-medium text-green-900">CAD Plan Approved</span>
-              <span className="text-green-700 ml-2">on {new Date(style.approvedCadDate!).toLocaleDateString()}</span>
+              {style.approvedCadDate && (
+                <span className="text-green-700 ml-2">on {new Date(style.approvedCadDate).toLocaleDateString()}</span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">

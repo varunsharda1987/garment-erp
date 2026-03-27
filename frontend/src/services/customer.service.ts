@@ -54,12 +54,12 @@ export const customerService = {
   // Accessory Presets
   getAccessoryPresets: async (customerId: string): Promise<AccessoryPreset[]> => {
     const response = await api.get(`/customers/${customerId}/accessory-presets?_t=${Date.now()}`);
-    return response.data.data || [];
+    return response.data.data;
   },
 
   getDefaultAccessoryPreset: async (customerId: string): Promise<AccessoryPreset | null> => {
     const response = await api.get(`/customers/${customerId}/accessory-presets/default`);
-    return response.data.data || null;
+    return response.data.data;
   },
 
   getAccessoryPresetById: async (customerId: string, presetId: string): Promise<AccessoryPreset> => {

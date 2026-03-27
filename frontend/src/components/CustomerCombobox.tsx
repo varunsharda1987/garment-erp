@@ -37,7 +37,7 @@ export function CustomerCombobox({
         search: search || undefined,
       });
 
-      const customerOptions: ComboboxOption[] = (response.data || []).map(
+      const customerOptions: ComboboxOption[] = (response.data ?? []).map(
         (customer: { id: string; code: string; name: string; brandNames?: string; billingName?: string }) => ({
           value: customer.id,
           label: `${customer.code} - ${customer.name}`,

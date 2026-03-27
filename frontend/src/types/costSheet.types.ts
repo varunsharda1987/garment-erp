@@ -95,6 +95,7 @@ export type CMTCosts = {
   finishingCost: number;
   buttonAttachmentCost: number;
   handworkCost: number;
+  smockingCost: number;
 };
 
 // ============================================
@@ -182,6 +183,7 @@ export type CostSheet = {
   finishingCost: number;
   buttonAttachmentCost: number;
   handworkCmtCost: number;
+  smockingCost: number;
   cmtTotal: number;
 
   // Embroidery Details

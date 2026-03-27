@@ -68,14 +68,14 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
       suppliers: {
         create: (suppliers as SupplierInput[]).map((s) => ({
           supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
+          isPreferred: s.isPreferred ?? false,
+          isActive: s.isActive ?? true,
+          notes: s.notes ?? null,
           supplierPrice: s.supplierPrice ?? null,
           leadTimeDays: s.leadTimeDays ?? null,
           moq: s.moq ?? null,
-          moqUnit: s.moqUnit || null,
-          isPrimary: s.isPrimary || false,
+          moqUnit: s.moqUnit ?? null,
+          isPrimary: s.isPrimary ?? false,
         })),
       },
     },
@@ -500,14 +500,14 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
     updateData.suppliers = {
       create: (suppliers as SupplierInput[]).map((s) => ({
         supplierId: s.supplierId,
-        isPreferred: s.isPreferred || false,
-        isActive: s.isActive !== undefined ? s.isActive : true,
-        notes: s.notes || null,
+        isPreferred: s.isPreferred ?? false,
+        isActive: s.isActive ?? true,
+        notes: s.notes ?? null,
         supplierPrice: s.supplierPrice ?? null,
         leadTimeDays: s.leadTimeDays ?? null,
         moq: s.moq ?? null,
-        moqUnit: s.moqUnit || null,
-        isPrimary: s.isPrimary || false,
+        moqUnit: s.moqUnit ?? null,
+        isPrimary: s.isPrimary ?? false,
       })),
     };
   }

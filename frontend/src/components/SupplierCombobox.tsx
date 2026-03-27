@@ -41,7 +41,7 @@ export function SupplierCombobox({
           category: categoryFilter || undefined,
         });
 
-        const supplierOptions: ComboboxOption[] = (response.data || []).map((supplier) => ({
+        const supplierOptions: ComboboxOption[] = (response.data ?? []).map((supplier) => ({
           value: supplier.id,
           label: `${supplier.code} - ${supplier.name}`,
           searchText: `${supplier.code} ${supplier.name} ${supplier.contactPerson || ''} ${Array.isArray(supplier.supplierCategories) ? supplier.supplierCategories.map((c) => (typeof c === 'string' ? c : String(c))).join(' ') : ''}`,

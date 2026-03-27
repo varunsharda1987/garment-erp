@@ -169,14 +169,14 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
           ? {
               create: data.suppliers.map((s) => ({
                 supplierId: s.supplierId,
-                isPreferred: s.isPreferred || false,
-                isActive: s.isActive !== undefined ? s.isActive : true,
-                notes: s.notes || null,
+                isPreferred: s.isPreferred ?? false,
+                isActive: s.isActive ?? true,
+                notes: s.notes ?? null,
                 supplierPrice: s.supplierPrice ?? null,
                 leadTimeDays: s.leadTimeDays ?? null,
                 moq: s.moq ?? null,
-                moqUnit: s.moqUnit || null,
-                isPrimary: s.isPrimary || false,
+                moqUnit: s.moqUnit ?? null,
+                isPrimary: s.isPrimary ?? false,
               })),
             }
           : undefined,
@@ -407,14 +407,14 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       updateData.suppliers = {
         create: data.suppliers.map((s) => ({
           supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
+          isPreferred: s.isPreferred ?? false,
+          isActive: s.isActive ?? true,
+          notes: s.notes ?? null,
           supplierPrice: s.supplierPrice ?? null,
           leadTimeDays: s.leadTimeDays ?? null,
           moq: s.moq ?? null,
-          moqUnit: s.moqUnit || null,
-          isPrimary: s.isPrimary || false,
+          moqUnit: s.moqUnit ?? null,
+          isPrimary: s.isPrimary ?? false,
         })),
       };
     }

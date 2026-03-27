@@ -701,18 +701,134 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
  */
 export const updateOrder = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { orderDate, expectedDeliveryDate, priority, paymentTerms, shippingAddress, remarks } = req.body;
+  const {
+    customerId,
+    orderDate,
+    expectedDeliveryDate,
+    priority,
+    paymentTerms,
+    shippingAddress,
+    remarks,
+    items,
+    totalQuantity,
+  } = req.body;
+
+  // Build order-level update data
+  const updateData: Record<string, unknown> = {
+    orderDate: orderDate ? new Date(orderDate) : undefined,
+    expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
+    priority,
+    paymentTerms,
+    shippingAddress,
+    remarks,
+  };
+
+  if (customerId) {
+    updateData.customerId = customerId;
+  }
+
+  // If items are provided, recalculate totals and replace order items
+  if (items && Array.isArray(items) && items.length > 0) {
+    let calcTotalQuantity = 0;
+    let calcTotalAmount = 0;
+
+    const orderItemsData = (items as OrderItem[]).map((item) => {
+      const breakupQty = item.breakup.reduce((sum: number, b) => sum + b.quantity, 0);
+      const itemTotalQty = breakupQty > 0 ? breakupQty : item.totalQuantity || 0;
+      const parsedUnitPrice = parseFloat(String(item.unitPrice)) || 0;
+      const itemTotal = itemTotalQty * parsedUnitPrice;
+
+      calcTotalQuantity += itemTotalQty;
+      calcTotalAmount += itemTotal;
+
+      return {
+        id: randomUUID(),
+        styleId: item.styleId,
+        itemDescription: item.itemDescription || null,
+        totalQuantity: itemTotalQty,
+        unitPrice: parsedUnitPrice,
+        totalPrice: itemTotal,
+        deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
+        remarks: item.remarks || null,
+        order_item_breakup: {
+          create: item.breakup.map((b) => ({
+            id: randomUUID(),
+            colorId: b.colorId && b.colorId !== '' ? b.colorId : null,
+            sizeId: b.sizeId,
+            quantity: b.quantity,
+          })),
+        },
+      };
+    });
+
+    updateData.totalQuantity = calcTotalQuantity;
+    updateData.totalAmount = calcTotalAmount;
+
+    // Delete existing order items and breakup, then create new ones
+    await prisma.order_item_breakup.deleteMany({
+      where: { order_items: { orderId: id } },
+    });
+    await prisma.order_items.deleteMany({
+      where: { orderId: id },
+    });
+
+    // Create new order items
+    for (const itemData of orderItemsData) {
+      await prisma.order_items.create({
+        data: {
+          ...itemData,
+          orderId: id,
+        } as any,
+      });
+    }
+
+    // Auto-sync PENDING work orders with updated order items
+    const pendingWorkOrders = await prisma.work_orders.findMany({
+      where: { orderId: id, status: 'PENDING' },
+    });
+
+    for (const wo of pendingWorkOrders) {
+      const matchingNewItem = await prisma.order_items.findFirst({
+        where: { orderId: id, styleId: wo.styleId },
+        include: { order_item_breakup: true },
+      });
+
+      if (matchingNewItem) {
+        await prisma.work_order_breakup.deleteMany({
+          where: { workOrderId: wo.id },
+        });
+
+        await prisma.work_orders.update({
+          where: { id: wo.id },
+          data: {
+            orderItemId: matchingNewItem.id,
+            totalQuantity: matchingNewItem.totalQuantity,
+          },
+        });
+
+        for (const b of matchingNewItem.order_item_breakup) {
+          await prisma.work_order_breakup.create({
+            data: {
+              id: randomUUID(),
+              workOrderId: wo.id,
+              colorId: b.colorId,
+              sizeId: b.sizeId,
+              plannedQuantity: b.quantity,
+            },
+          });
+        }
+
+        logInfo(`[updateOrder] Synced work order ${wo.workOrderNumber} with updated order items`);
+      }
+    }
+  } else if (totalQuantity !== undefined) {
+    // Just update total quantity without changing items
+    updateData.totalQuantity = totalQuantity;
+  }
 
   const order = await prisma.orders.update({
     where: { id },
-    data: {
-      orderDate: orderDate ? new Date(orderDate) : undefined,
-      expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : undefined,
-      priority,
-      paymentTerms,
-      shippingAddress,
-      remarks,
-    },
+    data: updateData as any,
     include: {
       customers: {
         select: {
@@ -728,6 +844,12 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
               id: true,
               styleCode: true,
               styleName: true,
+            },
+          },
+          order_item_breakup: {
+            include: {
+              color_options: true,
+              size_options: true,
             },
           },
         },

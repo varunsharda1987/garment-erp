@@ -3118,6 +3118,23 @@ From ${COMPANY_CONFIG.name}
           dy
         );
         dy += 16;
+        // Max Cutable Qty based on available fabric stock
+        doc.font('Helvetica').fontSize(8).fillColor('#666').text('Max Cutable:', detailX, dy);
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(9)
+          .fillColor('#15803D')
+          .text(`${chartData.maxCuttablePcs.toLocaleString()} pcs`, detailX + 70, dy);
+        doc.fillColor('#000');
+        if (chartData.bottleneckFabric) {
+          doc
+            .font('Helvetica')
+            .fontSize(7)
+            .fillColor('#999')
+            .text(`(limited by ${chartData.bottleneckFabric})`, col2X, dy + 1);
+          doc.fillColor('#000');
+        }
+        dy += 16;
 
         y = Math.max(headerY + imgH + 15, dy + 10);
         doc
@@ -3385,13 +3402,20 @@ From ${COMPANY_CONFIG.name}
         }
 
         // ═══════════════════════════════════════════
-        // FOOTER
+        // FOOTER (placed after content, not at fixed page bottom)
         // ═══════════════════════════════════════════
+        y += 10;
+        doc
+          .moveTo(mL, y)
+          .lineTo(pageWidth - 30, y)
+          .lineWidth(0.5)
+          .stroke('#DDD');
+        y += 6;
         doc.fontSize(7).font('Helvetica').fillColor('#999');
         doc.text(
           `Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | ${COMPANY_CONFIG.name}`,
           mL,
-          pageHeight - 35,
+          y,
           { align: 'center', width: cW }
         );
 

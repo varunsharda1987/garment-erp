@@ -332,6 +332,32 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
     include: deliveryNoteIncludeOptions,
   });
 
+  // Deduct from finished_goods_stock for each dispatched item
+  if (items?.length > 0) {
+    for (const item of items) {
+      if (!item.styleId || !item.sizeId || !item.quantity) continue;
+      // Find FG stock matching this SKU (any location)
+      const fgStock = await prisma.finished_goods_stock.findFirst({
+        where: {
+          styleId: item.styleId,
+          colorId: item.colorId || undefined,
+          sizeId: item.sizeId,
+          quantity: { gte: item.quantity },
+        },
+      });
+      if (fgStock) {
+        await prisma.finished_goods_stock.update({
+          where: { id: fgStock.id },
+          data: {
+            quantity: fgStock.quantity - item.quantity,
+            lastUpdated: new Date(),
+          },
+        });
+      }
+      // If no FG stock found, still allow dispatch (backward compat for existing orders without FG stock)
+    }
+  }
+
   res.status(201).json({ data: transformDeliveryNote(note) });
 };
 
@@ -470,6 +496,32 @@ export const dispatchDeliveryNote = async (req: Request, res: Response) => {
 
   if (existing.status !== 'PENDING') {
     throw new ValidationError('Can only dispatch pending delivery notes');
+  }
+
+  // QC gate: check if customer requires GPT approval before dispatch
+  const deliveryNote = await prisma.delivery_notes.findUnique({
+    where: { id },
+    include: {
+      orders: { include: { customers: { select: { gptBlocksShipment: true } } } },
+      delivery_note_items: { select: { styleId: true } },
+    },
+  });
+
+  if (deliveryNote?.orders?.customers?.gptBlocksShipment) {
+    const styleIds = [...new Set(deliveryNote.delivery_note_items.map((i) => i.styleId))];
+    for (const styleId of styleIds) {
+      const gptResult = await prisma.garment_physical_tests.findFirst({
+        where: {
+          styleId,
+          overallTestResult: 'PASS',
+        },
+      });
+      if (!gptResult) {
+        throw new ValidationError(
+          `GPT (Garment Physical Test) has not passed for style ${styleId}. This customer requires GPT approval before dispatch.`
+        );
+      }
+    }
   }
 
   const note = await prisma.delivery_notes.update({

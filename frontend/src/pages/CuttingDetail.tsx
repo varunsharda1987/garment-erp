@@ -245,20 +245,24 @@ export default function CuttingDetail() {
       return;
     }
 
-    const hasMultipleFabrics = batch.additionalFabrics && batch.additionalFabrics.length > 1;
+    const hasMultipleFabrics = dedupedFabrics.length > 1;
 
-    // Build per-fabric lengths
+    // Build per-fabric lengths (map deduped inputs back to all original cutting_batch_fabrics IDs)
     let fabricLengths: { cuttingBatchFabricId: string; layerLength: number }[] | undefined;
     if (hasMultipleFabrics) {
       fabricLengths = [];
-      for (const af of batch.additionalFabrics!) {
+      for (const af of dedupedFabrics) {
         const len = parseFloat(fabricLayerLengths[af.id] || '');
         if (!len || len <= 0) {
           const name = af.fabricStock?.fabricMaster?.fabricName || 'Fabric';
           handleApiError(null, `Please enter layer length for ${name}`);
           return;
         }
-        fabricLengths.push({ cuttingBatchFabricId: af.id, layerLength: len });
+        // Apply same length to all original af records that were merged into this deduped entry
+        const originalIds = dedupedToOriginalIds.get(af.id) || [af.id];
+        for (const origId of originalIds) {
+          fabricLengths.push({ cuttingBatchFabricId: origId, layerLength: len });
+        }
       }
     } else {
       const length = parseFloat(layerLength);
@@ -396,6 +400,33 @@ export default function CuttingDetail() {
   const totalRemaining = totalToCut - totalCut;
   const progressPercent = totalToCut > 0 ? Math.min(100, Math.round((totalCut / totalToCut) * 100)) : 0;
 
+  // Deduplicate additionalFabrics — same fabric_master may appear as separate cutting_batch_fabrics records
+  // Also build a map from deduped af.id → all original af.ids (for lay creation)
+  const { dedupedFabrics, dedupedToOriginalIds } = useMemo(() => {
+    const afs = batch?.additionalFabrics;
+    if (!afs || afs.length <= 1)
+      return { dedupedFabrics: afs || [], dedupedToOriginalIds: new Map<string, string[]>() };
+    const seen = new Map<string, (typeof afs)[0]>();
+    const idMap = new Map<string, string[]>(); // deduped af.id → [original af.ids]
+    const result: typeof afs = [];
+    for (const af of afs) {
+      const key = af.fabricStock?.fabricMaster?.fabricName || af.id;
+      const existing = seen.get(key);
+      if (existing) {
+        // Merge: sum consumed, keep best cadAvg
+        existing.fabricConsumed = (Number(existing.fabricConsumed) || 0) + (Number(af.fabricConsumed) || 0);
+        if (!existing.cadAvgUsed && af.cadAvgUsed) existing.cadAvgUsed = af.cadAvgUsed;
+        idMap.get(existing.id)!.push(af.id);
+        continue;
+      }
+      const clone = { ...af };
+      seen.set(key, clone);
+      idMap.set(clone.id, [clone.id]);
+      result.push(clone);
+    }
+    return { dedupedFabrics: result, dedupedToOriginalIds: idMap };
+  }, [batch?.additionalFabrics]);
+
   // Sort SKU outputs by size sortOrder
   const sortedSkus = useMemo(() => {
     return [...skuOutputs].sort((a, b) => (a.size?.sortOrder ?? 0) - (b.size?.sortOrder ?? 0));
@@ -518,11 +549,11 @@ export default function CuttingDetail() {
                 {batch.workOrder?.workOrderNumber}
               </p>
             </div>
-            {batch.additionalFabrics && batch.additionalFabrics.length > 0 ? (
+            {dedupedFabrics.length > 0 ? (
               <div className="col-span-2">
                 <Label className="text-gray-500 text-xs uppercase mb-2 block">Fabrics & CAD Averages</Label>
                 <div className="space-y-1">
-                  {batch.additionalFabrics.map((af) => (
+                  {dedupedFabrics.map((af) => (
                     <div key={af.id} className="flex items-center gap-4 text-sm">
                       <span className="font-medium min-w-[120px]">
                         {af.fabricStock?.fabricMaster?.fabricName || af.fabricStock?.rollNumbers || 'Fabric'}
@@ -557,9 +588,9 @@ export default function CuttingDetail() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Cutting Progress</CardTitle>
             <div className="flex items-center gap-4 text-sm">
-              {batch.additionalFabrics && batch.additionalFabrics.length > 1 ? (
+              {dedupedFabrics.length > 1 ? (
                 <div className="flex flex-col items-end text-xs gap-0.5">
-                  {batch.additionalFabrics.map((af) => (
+                  {dedupedFabrics.map((af) => (
                     <span key={af.id} className="text-gray-500">
                       {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
                       <span className="font-semibold text-gray-900">{(af.fabricConsumed || 0).toFixed(2)} m</span>
@@ -668,7 +699,7 @@ export default function CuttingDetail() {
                 />
               </div>
               {/* Single-fabric: show single layer length */}
-              {(!batch.additionalFabrics || batch.additionalFabrics.length <= 1) && (
+              {dedupedFabrics.length <= 1 && (
                 <div className="space-y-1">
                   <Label className="text-sm">Layer Length (meters)</Label>
                   <Input
@@ -691,13 +722,13 @@ export default function CuttingDetail() {
             </div>
 
             {/* Multi-fabric: per-fabric layer lengths */}
-            {batch.additionalFabrics && batch.additionalFabrics.length > 1 && (
+            {dedupedFabrics.length > 1 && (
               <>
                 <Separator />
                 <div>
                   <Label className="text-sm font-medium mb-2 block">Per-Fabric Layer Lengths</Label>
                   <div className="space-y-2">
-                    {batch.additionalFabrics.map((af) => {
+                    {dedupedFabrics.map((af) => {
                       const fabLen = parseFloat(fabricLayerLengths[af.id] || '') || 0;
                       const layersNum = parseInt(numberOfLayers) || 0;
                       const consumed = fabLen * layersNum;
@@ -1098,9 +1129,9 @@ export default function CuttingDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <Label className="text-gray-500">CAD Average</Label>
-                {batch.additionalFabrics && batch.additionalFabrics.length > 0 ? (
+                {dedupedFabrics.length > 0 ? (
                   <div className="space-y-0.5">
-                    {batch.additionalFabrics.map((af) => (
+                    {dedupedFabrics.map((af) => (
                       <p key={af.id} className="font-semibold text-xs">
                         {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
                         {af.cadAvgUsed != null ? `${Number(af.cadAvgUsed).toFixed(3)} m/pc` : '-'}

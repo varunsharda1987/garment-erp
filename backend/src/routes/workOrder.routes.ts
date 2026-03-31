@@ -18,6 +18,11 @@ router.get('/dashboard/summary', asyncHandler(workOrderController.getProductionD
 router.get('/', asyncHandler(workOrderController.getAllWorkOrders));
 router.get('/order/:orderId', asyncHandler(workOrderController.getWorkOrdersByOrderId));
 router.get('/:id/material-readiness', asyncHandler(workOrderController.checkMaterialReadiness));
+router.get('/:id/fabric-issuance-data', asyncHandler(workOrderController.getFabricIssuanceData));
+router.get('/:id/trim-issuance-data', asyncHandler(workOrderController.getTrimIssuanceData));
+router.get('/:id/packaging-issuance-data', asyncHandler(workOrderController.getPackagingIssuanceData));
+router.get('/:id/thread-issuance-data', asyncHandler(workOrderController.getThreadIssuanceData));
+router.get('/:id/wip-summary', asyncHandler(workOrderController.getWipSummary));
 router.get('/:id', asyncHandler(workOrderController.getWorkOrderById));
 
 // POST routes
@@ -25,6 +30,10 @@ router.post('/', validateBody(createWorkOrderSchema), asyncHandler(workOrderCont
 router.post('/:id/tracking', asyncHandler(workOrderController.addProductionTracking));
 router.post('/:id/split', asyncHandler(workOrderController.splitWorkOrder));
 router.post('/:id/push-to-cutting', asyncHandler(workOrderController.pushToCutting));
+router.post('/:id/issue-fabric', asyncHandler(workOrderController.issueFabric));
+router.post('/:id/issue-trims', asyncHandler(workOrderController.issueTrims));
+router.post('/:id/issue-packaging', asyncHandler(workOrderController.issuePackaging));
+router.post('/:id/issue-thread', asyncHandler(workOrderController.issueThread));
 
 // PUT routes
 router.put('/:id', validateBody(updateWorkOrderSchema), asyncHandler(workOrderController.updateWorkOrder));

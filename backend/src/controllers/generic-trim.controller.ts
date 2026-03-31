@@ -185,6 +185,26 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
   },
 };
 
+// Mapping from trim type key to FK field name on materials/style_material_bom tables
+const TRIM_TYPE_FK_MAP: Record<string, string> = {
+  hook_eye: 'hookEyeId',
+  snap_button: 'snapButtonId',
+  buckle: 'buckleId',
+  belt: 'beltId',
+  velcro: 'velcroId',
+  drawstring: 'drawstringId',
+  ribbon: 'ribbonId',
+  sequin: 'sequinId',
+  bead: 'beadId',
+  motif: 'motifId',
+  interlining: 'interliningId',
+  padding: 'paddingId',
+  other_fastener: 'otherFastenerId',
+  other_tape: 'otherTapeId',
+  other_decorative: 'otherDecorativeId',
+  other_functional: 'otherFunctionalId',
+};
+
 // Helper to get Prisma model dynamically
 const getPrismaModel = (modelName: string) => {
   return (prisma as any)[modelName];
@@ -347,6 +367,33 @@ export const create = async (req: Request, res: Response) => {
       },
     },
   });
+
+  // Create corresponding material entry (same pattern as button.controller.ts)
+  const fkField = TRIM_TYPE_FK_MAP[trimType];
+  if (fkField) {
+    try {
+      const category = await prisma.material_categories.findFirst({
+        where: { name: config.categoryName },
+      });
+      if (category) {
+        const materialId = `mat-${code.toLowerCase()}`;
+        await prisma.materials.create({
+          data: {
+            id: materialId,
+            code: code,
+            name: finalName.trim(),
+            materialType: config.materialType as any,
+            [fkField]: item.id,
+            categoryId: category.id,
+            unit: config.defaultUnit as any,
+            isActive: true,
+          },
+        });
+      }
+    } catch (err) {
+      logWarn(`Failed to create materials entry for ${config.displayName} ${code}: ${err}`);
+    }
+  }
 
   res.status(201).json({
     data: item,

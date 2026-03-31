@@ -55,7 +55,7 @@ import { EmbroiderySelector } from '../components/EmbroiderySelector';
 import SeasonSelector from '../components/SeasonSelector';
 import type { SeasonSearchResult } from '../types/season.types';
 import { TrimSelector } from '../components/TrimSelector';
-import type { StyleTrim } from '../components/TrimSelector';
+import type { StyleTrim, TrimType } from '../components/TrimSelector';
 import { AccessorySelector } from '../components/AccessorySelector';
 import type { StyleAccessory } from '../components/AccessorySelector';
 import { CADGroupPreview } from '../components/CADGroupPreview';
@@ -132,14 +132,14 @@ interface FabricMasterSelectorProps {
   fabricId: string | null;
   fabricCode: string | null;
   fabricName: string | null;
-  onSelect: (id: string, code: string, name: string) => void;
+  onSelect: (id: string, code: string, name: string, finishType?: string) => void;
   onClear: () => void;
 }
 
 function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onClear }: FabricMasterSelectorProps) {
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<
-    Array<{ id: string; fabricCode: string; fabricName: string; colorName?: string }>
+    Array<{ id: string; fabricCode: string; fabricName: string; colorName?: string; finishType?: string }>
   >([]);
   const [loading, setLoading] = React.useState(false);
   const [open, setOpen] = React.useState(false);
@@ -220,7 +220,7 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
                   key={f.id}
                   type="button"
                   onClick={() => {
-                    onSelect(f.id, f.fabricCode, f.fabricName);
+                    onSelect(f.id, f.fabricCode, f.fabricName, f.finishType);
                     setOpen(false);
                     setQuery('');
                   }}
@@ -1101,7 +1101,7 @@ export default function StyleFormRedesigned() {
         embroideryId?: string;
         embroidery?: { designName?: string; embroideryCode?: string };
         fabricId?: string;
-        fabric?: { id?: string; fabricCode?: string; fabricName?: string };
+        fabric?: { id?: string; fabricCode?: string; fabricName?: string; finishType?: string };
       }>;
       if (fabricsData.length > 0) {
         // Map component names to indices based on loaded components
@@ -1130,7 +1130,7 @@ export default function StyleFormRedesigned() {
               fabricId,
               fabricCode: sf.fabric?.fabricCode || null,
               fabricName: sf.fabric?.fabricName || null,
-              fabricFinishType: (sf.fabricFinishType || '') as FabricFinishType | '',
+              fabricFinishType: (sf.fabricFinishType || sf.fabric?.finishType || '') as FabricFinishType | '',
               // Embroidery support
               hasEmbroidery: sf.hasEmbroidery || false,
               embroideryId: sf.embroideryId || null,
@@ -1157,6 +1157,23 @@ export default function StyleFormRedesigned() {
             { key: 'elasticMaster', nameField: 'elasticName', codeField: 'elasticCode' },
             { key: 'labelMaster', nameField: 'labelName', codeField: 'labelCode' },
             { key: 'packagingMaster', nameField: 'packagingName', codeField: 'packagingCode' },
+            // Generic trim masters
+            { key: 'hookEyeMaster', nameField: 'hookEyeName', codeField: 'hookEyeCode' },
+            { key: 'snapButtonMaster', nameField: 'snapButtonName', codeField: 'snapButtonCode' },
+            { key: 'buckleMaster', nameField: 'buckleName', codeField: 'buckleCode' },
+            { key: 'beltMaster', nameField: 'beltName', codeField: 'beltCode' },
+            { key: 'velcroMaster', nameField: 'velcroName', codeField: 'velcroCode' },
+            { key: 'drawstringMaster', nameField: 'drawstringName', codeField: 'drawstringCode' },
+            { key: 'ribbonMaster', nameField: 'ribbonName', codeField: 'ribbonCode' },
+            { key: 'sequinMaster', nameField: 'sequinName', codeField: 'sequinCode' },
+            { key: 'beadMaster', nameField: 'beadName', codeField: 'beadCode' },
+            { key: 'motifMaster', nameField: 'motifName', codeField: 'motifCode' },
+            { key: 'interliningMaster', nameField: 'interliningName', codeField: 'interliningCode' },
+            { key: 'paddingMaster', nameField: 'paddingName', codeField: 'paddingCode' },
+            { key: 'otherFastenerMaster', nameField: 'otherFastenerName', codeField: 'otherFastenerCode' },
+            { key: 'otherTapeMaster', nameField: 'otherTapeName', codeField: 'otherTapeCode' },
+            { key: 'otherDecorativeMaster', nameField: 'otherDecorativeName', codeField: 'otherDecorativeCode' },
+            { key: 'otherFunctionalMaster', nameField: 'otherFunctionalName', codeField: 'otherFunctionalCode' },
           ];
 
           for (const master of masters) {
@@ -1252,28 +1269,66 @@ export default function StyleFormRedesigned() {
         );
         setSelectedAccessories(uniqueAccessories);
 
-        // Load trims (BUTTON, THREAD, ZIPPER, ELASTIC, LACE types with GARMENT_TRIM usage)
-        const trimTypes = ['BUTTON', 'THREAD', 'ZIPPER', 'ELASTIC', 'LACE'];
+        // Load trims (all 21 trim types with GARMENT_TRIM usage)
+        const ALL_TRIM_TYPES = [
+          'BUTTON',
+          'THREAD',
+          'ZIPPER',
+          'ELASTIC',
+          'LACE',
+          'HOOK_EYE',
+          'SNAP_BUTTON',
+          'BUCKLE',
+          'BELT',
+          'VELCRO',
+          'OTHER_FASTENER',
+          'DRAWSTRING',
+          'RIBBON',
+          'OTHER_TAPE',
+          'SEQUIN',
+          'BEAD',
+          'MOTIF',
+          'OTHER_DECORATIVE',
+          'INTERLINING',
+          'PADDING',
+          'OTHER_FUNCTIONAL',
+        ];
         const loadedTrims = style.styleMaterialBom
           .filter(
             (bom: { usageCategory?: string; materialType?: string }) =>
-              bom.usageCategory === 'GARMENT_TRIM' && trimTypes.includes(bom.materialType || '')
+              bom.usageCategory === 'GARMENT_TRIM' && ALL_TRIM_TYPES.includes(bom.materialType || '')
           )
           .map((bom) => {
             const bomRecord = bom as unknown as Record<string, unknown>;
             const materialDetails = getMaterialDetails(bomRecord);
-            // Get the masterId from the appropriate FK field
+            // Get the masterId from the appropriate FK field (legacy + generic trims)
             const masterId = (bomRecord.buttonId ||
               bomRecord.threadId ||
               bomRecord.zipperId ||
               bomRecord.elasticId ||
               bomRecord.laceId ||
+              bomRecord.hookEyeId ||
+              bomRecord.snapButtonId ||
+              bomRecord.buckleId ||
+              bomRecord.beltId ||
+              bomRecord.velcroId ||
+              bomRecord.drawstringId ||
+              bomRecord.ribbonId ||
+              bomRecord.sequinId ||
+              bomRecord.beadId ||
+              bomRecord.motifId ||
+              bomRecord.interliningId ||
+              bomRecord.paddingId ||
+              bomRecord.otherFastenerId ||
+              bomRecord.otherTapeId ||
+              bomRecord.otherDecorativeId ||
+              bomRecord.otherFunctionalId ||
               '') as string;
             return {
-              trimType: bom.materialType as 'BUTTON' | 'THREAD' | 'ZIPPER' | 'ELASTIC' | 'LACE',
+              trimType: bom.materialType as TrimType,
               masterId: masterId,
               masterCode: materialDetails.code,
-              masterName: materialDetails.name,
+              masterName: materialDetails.name || (bomRecord.componentName as string) || '',
               color: null,
             };
           });
@@ -2138,7 +2193,7 @@ export default function StyleFormRedesigned() {
           </TabsList>
 
           {/* TAB 1: BASIC INFO */}
-          <TabsContent value="basic" className="space-y-6">
+          <TabsContent value="basic" forceMount className="space-y-6 data-[state=inactive]:hidden">
             <Card className="p-6">
               <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
 
@@ -2902,7 +2957,7 @@ export default function StyleFormRedesigned() {
           </TabsContent>
 
           {/* TAB 2: FABRICS & TRIMS */}
-          <TabsContent value="fabrics" className="space-y-6">
+          <TabsContent value="fabrics" forceMount className="space-y-6 data-[state=inactive]:hidden">
             {/* Fabrics Section - Grouped by Component */}
             <Card className="p-6">
               <div className="mb-4">
@@ -3058,10 +3113,12 @@ export default function StyleFormRedesigned() {
                                           fabricId={fabric.fabricId || null}
                                           fabricCode={fabric.fabricCode || null}
                                           fabricName={fabric.fabricName || null}
-                                          onSelect={(id, code, name) => {
+                                          onSelect={(id, code, name, finishType) => {
                                             handleUpdateFabric(fabric.id, 'fabricId', id);
                                             handleUpdateFabric(fabric.id, 'fabricCode', code);
                                             handleUpdateFabric(fabric.id, 'fabricName', name);
+                                            if (finishType)
+                                              handleUpdateFabric(fabric.id, 'fabricFinishType', finishType);
                                           }}
                                           onClear={() => {
                                             handleUpdateFabric(fabric.id, 'fabricId', null);
@@ -3071,7 +3128,7 @@ export default function StyleFormRedesigned() {
                                         />
                                       )}
                                     </div>
-                                    <div>
+                                    <div className="space-y-1">
                                       <Label>Fabric Finish Type *</Label>
                                       <Select
                                         key={`finish-${fabric.id}-${fabric.fabricFinishType}`}
@@ -3195,7 +3252,7 @@ export default function StyleFormRedesigned() {
           </TabsContent>
 
           {/* TAB 3: TRIMS & MATERIALS */}
-          <TabsContent value="trims" className="space-y-6">
+          <TabsContent value="trims" forceMount className="space-y-6 data-[state=inactive]:hidden">
             <Card className="p-6">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold">Trims & Materials</h2>
@@ -3218,7 +3275,7 @@ export default function StyleFormRedesigned() {
           </TabsContent>
 
           {/* TAB 4: ACCESSORIES */}
-          <TabsContent value="accessories" className="space-y-6">
+          <TabsContent value="accessories" forceMount className="space-y-6 data-[state=inactive]:hidden">
             {/* Customer Preset Section */}
             {customerAccessoryPresets.length > 0 && (
               <Card className="p-6 bg-purple-50/50 border-purple-200">

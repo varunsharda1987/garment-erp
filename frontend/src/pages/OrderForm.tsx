@@ -101,6 +101,9 @@ export default function OrderForm() {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoadingOrderRef = useRef(false); // Prevents handleStyleSelect from resetting state during fetchOrder
 
+  // Downstream dependency lock — prevents item editing when BOM/MRP exists
+  const [hasDownstreamDeps, setHasDownstreamDeps] = useState(false);
+
   // Cost sheet selection for pricing
   const [costSheetDialogOpen, setCostSheetDialogOpen] = useState(false);
   const [costSheets, setCostSheets] = useState<CostSheet[]>([]);
@@ -371,6 +374,13 @@ export default function OrderForm() {
           setHasApprovedCostSheet(false);
         }
       }
+
+      // Check for downstream dependencies (approved BOMs or active MRP requirements)
+      const hasApprovedBoms = (order as any).orderBoms?.some(
+        (b: any) => b.status === 'APPROVED' || b.status === 'LOCKED'
+      );
+      const hasActiveRequirements = ((order as any).materialRequirements?.length || 0) > 0;
+      setHasDownstreamDeps(hasApprovedBoms || hasActiveRequirements);
 
       // Show additional details if any are filled
       if (order.paymentTerms || order.shippingAddress || order.remarks) {
@@ -905,7 +915,7 @@ export default function OrderForm() {
       // Also filter out entries with synthetic preset IDs (no matching size_options in DB)
       const validBreakup = breakup.filter((b) => b.quantity > 0 && !b.sizeId.startsWith('preset-'));
 
-      const orderData = {
+      const orderData: Record<string, unknown> = {
         customerId,
         orderDate,
         expectedDeliveryDate,
@@ -914,21 +924,36 @@ export default function OrderForm() {
         paymentTerms: paymentTerms || undefined,
         shippingAddress: shippingAddress || undefined,
         remarks: remarks || undefined,
-        items: [
+      };
+
+      // Only send items when there are no downstream dependencies (BOM/MRP)
+      if (!hasDownstreamDeps) {
+        orderData.items = [
           {
             styleId: selectedStyleId,
             unitPrice,
-            totalQuantity: enteredTotalQty, // Pass total quantity at item level too
-            breakup: validBreakup, // Can be empty if no size distribution
+            totalQuantity: enteredTotalQty,
+            breakup: validBreakup,
           },
-        ],
-      };
+        ];
+      }
 
       if (isEditMode && id) {
-        await updateOrder(id, orderData);
+        await updateOrder(id, orderData as any);
         navigate('/orders');
       } else {
-        await createOrder(orderData);
+        // New orders always include items
+        if (!orderData.items) {
+          orderData.items = [
+            {
+              styleId: selectedStyleId,
+              unitPrice,
+              totalQuantity: enteredTotalQty,
+              breakup: validBreakup,
+            },
+          ];
+        }
+        await createOrder(orderData as any);
         navigate('/orders');
       }
     } catch (err: unknown) {
@@ -965,6 +990,19 @@ export default function OrderForm() {
         </div>
       )}
 
+      {/* Downstream dependency warning */}
+      {isEditMode && hasDownstreamDeps && (
+        <div className="mb-6">
+          <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800">
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <p className="text-sm">
+              This order has approved BOMs or active material requirements. Style, quantity, and size breakdown cannot
+              be changed. Cancel the BOM/MRP first to edit these fields.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <form onSubmit={handleSubmit}>
         {/* Order Basics Card - All inline */}
@@ -991,7 +1029,11 @@ export default function OrderForm() {
                 </Label>
                 <div className="relative mt-1.5">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
-                  <Select value={selectedStyleId} onValueChange={(value) => handleStyleSelect(value)}>
+                  <Select
+                    value={selectedStyleId}
+                    onValueChange={(value) => handleStyleSelect(value)}
+                    disabled={hasDownstreamDeps}
+                  >
                     <SelectTrigger className="pl-10">
                       <SelectValue placeholder="Search & select style..." />
                     </SelectTrigger>
@@ -1035,6 +1077,7 @@ export default function OrderForm() {
                   onChange={(e) => handleTotalQtyChange(e.target.value)}
                   placeholder="0"
                   className="mt-1.5 text-center font-semibold"
+                  disabled={hasDownstreamDeps}
                 />
               </div>
 

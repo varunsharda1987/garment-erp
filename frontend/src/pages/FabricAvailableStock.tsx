@@ -271,7 +271,7 @@ export default function FabricAvailableStock() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="mx-auto py-8 px-4 max-w-[1600px]">
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-gray-600">
         <Link to="/" className="hover:text-blue-600">
@@ -419,35 +419,40 @@ export default function FabricAvailableStock() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[1400px]">
                 <thead className="bg-gray-100 border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Fabric Code</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Fabric Name</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Color</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Construction</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Greige Base</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Style / Component</th>
-                    <th className="px-4 py-3 text-right font-medium text-gray-700">Quantity</th>
-                    <th className="px-4 py-3 text-center font-medium text-gray-700">Width</th>
-                    <th className="px-4 py-3 text-center font-medium text-gray-700">Quality</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Location</th>
-                    <th className="px-4 py-3 text-right font-medium text-gray-700">Price/Meter</th>
-                    <th className="px-4 py-3 text-right font-medium text-gray-700">Total Value</th>
-                    <th className="px-4 py-3 text-center font-medium text-gray-700">Age</th>
-                    <th className="px-4 py-3 text-center font-medium text-gray-700">Actions</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Fabric Code</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Fabric Name</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Color</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Construction</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Greige Base</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">
+                      Style / Component
+                    </th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Quantity</th>
+                    <th className="px-3 py-3 text-center font-medium text-gray-700 whitespace-nowrap">Width</th>
+                    <th className="px-3 py-3 text-center font-medium text-gray-700 whitespace-nowrap">Quality</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Location</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Price/Meter</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Total Value</th>
+                    <th className="px-3 py-3 text-center font-medium text-gray-700 whitespace-nowrap">Age</th>
+                    <th className="px-3 py-3 text-center font-medium text-gray-700 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredStock.map((stock) => (
                     <tr key={stock.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <Link to={`/fabric/${stock.fabricId}`} className="text-blue-600 hover:underline font-medium">
+                      <td className="px-3 py-3">
+                        <Link
+                          to={`/fabric/${stock.fabricId}`}
+                          className="text-blue-600 hover:underline font-medium whitespace-nowrap"
+                        >
                           {stock.fabric?.fabricCode}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="max-w-xs">
+                      <td className="px-3 py-3">
+                        <div>
                           <div className="font-medium text-gray-900">{stock.fabric?.fabricName}</div>
                           {stock.fabric?.valueAddition && (
                             <div className="text-xs text-purple-600 flex items-center gap-1 mt-1">
@@ -456,19 +461,19 @@ export default function FabricAvailableStock() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{stock.fabric?.colorName || '-'}</td>
-                      <td className="px-4 py-3 text-gray-700">{stock.fabric?.finishedConstruction || '-'}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3 text-gray-700">{stock.fabric?.colorName || '-'}</td>
+                      <td className="px-3 py-3 text-gray-700">{stock.fabric?.finishedConstruction || '-'}</td>
+                      <td className="px-3 py-3">
                         {stock.fabric?.greige && (
                           <Link
                             to={`/greige/${stock.fabric.greige.greigeCode}`}
-                            className="text-blue-600 hover:underline text-xs"
+                            className="text-blue-600 hover:underline text-xs whitespace-nowrap"
                           >
                             {stock.fabric.greige.greigeCode}
                           </Link>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
                         {stock.fabric?.styleReference ? (
                           <div className="text-xs">
                             <div className="font-medium text-gray-900">{stock.fabric.styleReference}</div>
@@ -487,26 +492,30 @@ export default function FabricAvailableStock() {
                           <span className="text-gray-400 text-xs">Generic</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium">{stock.quantityAvailable.toFixed(2)} m</td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
+                        {stock.quantityAvailable.toFixed(2)} m
+                      </td>
+                      <td className="px-3 py-3 text-center">
                         <div className="text-gray-900">{stock.width}"</div>
                         {stock.fabric?.cutableWidth && (
-                          <div className="text-xs text-gray-500">({stock.fabric.cutableWidth}" cut)</div>
+                          <div className="text-xs text-gray-500 whitespace-nowrap">
+                            ({stock.fabric.cutableWidth}" cut)
+                          </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">{getQualityBadge(stock.qualityGrade)}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3 text-center">{getQualityBadge(stock.qualityGrade)}</td>
+                      <td className="px-3 py-3">
                         <div className="text-gray-900">{stock.warehouseLocation || '-'}</div>
                         {stock.rackNumber && <div className="text-xs text-gray-500">{stock.rackNumber}</div>}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-gray-900">
+                      <td className="px-3 py-3 text-right font-medium text-gray-900 whitespace-nowrap">
                         {stock.purchaseCost ? formatCurrency(stock.purchaseCost) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-gray-900">
+                      <td className="px-3 py-3 text-right font-medium text-gray-900 whitespace-nowrap">
                         {stock.purchaseCost ? formatCurrency(stock.quantityAvailable * stock.purchaseCost) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-center">{getAgingBadge(stock.agingDays)}</td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 py-3 text-center">{getAgingBadge(stock.agingDays)}</td>
+                      <td className="px-3 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <Button variant="ghost" size="sm" onClick={() => setEditingStock(stock)} title="Edit stock">
                             <Pencil className="h-4 w-4" />

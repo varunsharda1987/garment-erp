@@ -163,6 +163,23 @@ model order_bom_items {
   fabricWidthInches  Decimal? @db.Decimal(10, 2)
   selectedCadId      String?
   sourcingStrategy   String? // STOCK_REUSE | READY_FABRIC | GREIGE_PROCESSED
+  // Generic trim FK fields
+  hookEyeId          String?
+  snapButtonId       String?
+  buckleId           String?
+  beltId             String?
+  velcroId           String?
+  drawstringId       String?
+  ribbonId           String?
+  sequinId           String?
+  beadId             String?
+  motifId            String?
+  interliningId      String?
+  paddingId          String?
+  otherFastenerId    String?
+  otherTapeId        String?
+  otherDecorativeId  String?
+  otherFunctionalId  String?
 
   // NEW: Sourcing Strategy fields for GREIGE_PROCESSED workflow
   greigeId       String? // FK to greige_master (for greige variant)
@@ -183,6 +200,23 @@ model order_bom_items {
   selectedCad      fabric_width_cad? @relation("order_bom_item_cad", fields: [selectedCadId], references: [id])
   thread_master    thread_master?    @relation(fields: [threadId], references: [id])
   zipper_master    zipper_master?    @relation(fields: [zipperId], references: [id])
+  // Generic trim master relations
+  hook_eye_master         hook_eye_master?         @relation(fields: [hookEyeId], references: [id])
+  snap_button_master      snap_button_master?      @relation(fields: [snapButtonId], references: [id])
+  buckle_master           buckle_master?           @relation(fields: [buckleId], references: [id])
+  belt_master             belt_master?             @relation(fields: [beltId], references: [id])
+  velcro_master           velcro_master?           @relation(fields: [velcroId], references: [id])
+  drawstring_master       drawstring_master?       @relation(fields: [drawstringId], references: [id])
+  ribbon_master           ribbon_master?           @relation(fields: [ribbonId], references: [id])
+  sequin_master           sequin_master?           @relation(fields: [sequinId], references: [id])
+  bead_master             bead_master?             @relation(fields: [beadId], references: [id])
+  motif_master            motif_master?            @relation(fields: [motifId], references: [id])
+  interlining_master      interlining_master?      @relation(fields: [interliningId], references: [id])
+  padding_master          padding_master?          @relation(fields: [paddingId], references: [id])
+  other_fastener_master   other_fastener_master?   @relation(fields: [otherFastenerId], references: [id])
+  other_tape_master       other_tape_master?       @relation(fields: [otherTapeId], references: [id])
+  other_decorative_master other_decorative_master? @relation(fields: [otherDecorativeId], references: [id])
+  other_functional_master other_functional_master? @relation(fields: [otherFunctionalId], references: [id])
 
   // NEW: Relations for sourcing strategy fields
   greige    greige_master?       @relation("bom_item_greige", fields: [greigeId], references: [id])
@@ -899,6 +933,22 @@ model materials {
   sizeVariantId                   String?                             @unique
   machinePartId                   String?
   otherMaterialId                 String?
+  hookEyeId                       String?
+  snapButtonId                    String?
+  buckleId                        String?
+  beltId                          String?
+  velcroId                        String?
+  drawstringId                    String?
+  ribbonId                        String?
+  sequinId                        String?
+  beadId                          String?
+  motifId                         String?
+  interliningId                   String?
+  paddingId                       String?
+  otherFastenerId                 String?
+  otherTapeId                     String?
+  otherDecorativeId               String?
+  otherFunctionalId               String?
   customer_accessory_preset_items customer_accessories_preset_items[] @relation("PresetMaterials")
   grn_items                       grn_items[]
   inventory_stock                 inventory_stock[]
@@ -918,6 +968,22 @@ model materials {
   label_size_variant              label_size_variants?                @relation(fields: [sizeVariantId], references: [id])
   thread_master                   thread_master?                      @relation(fields: [threadId], references: [id])
   zipper_master                   zipper_master?                      @relation(fields: [zipperId], references: [id])
+  hook_eye_master                 hook_eye_master?                    @relation(fields: [hookEyeId], references: [id])
+  snap_button_master              snap_button_master?                 @relation(fields: [snapButtonId], references: [id])
+  buckle_master                   buckle_master?                      @relation(fields: [buckleId], references: [id])
+  belt_master                     belt_master?                        @relation(fields: [beltId], references: [id])
+  velcro_master                   velcro_master?                      @relation(fields: [velcroId], references: [id])
+  drawstring_master               drawstring_master?                  @relation(fields: [drawstringId], references: [id])
+  ribbon_master                   ribbon_master?                      @relation(fields: [ribbonId], references: [id])
+  sequin_master                   sequin_master?                      @relation(fields: [sequinId], references: [id])
+  bead_master                     bead_master?                        @relation(fields: [beadId], references: [id])
+  motif_master                    motif_master?                       @relation(fields: [motifId], references: [id])
+  interlining_master              interlining_master?                 @relation(fields: [interliningId], references: [id])
+  padding_master                  padding_master?                     @relation(fields: [paddingId], references: [id])
+  other_fastener_master           other_fastener_master?              @relation(fields: [otherFastenerId], references: [id])
+  other_tape_master               other_tape_master?                  @relation(fields: [otherTapeId], references: [id])
+  other_decorative_master         other_decorative_master?            @relation(fields: [otherDecorativeId], references: [id])
+  other_functional_master         other_functional_master?            @relation(fields: [otherFunctionalId], references: [id])
   order_bom_items                 order_bom_items[]
   purchase_order_items            purchase_order_items[]
   stock_count_items               stock_count_items[]
@@ -1154,6 +1220,7 @@ model purchase_order_items {
   requirement_po_links         requirement_po_links[]
   service_requirement_po_links service_requirement_po_links[] @relation("ServiceRequirementPOLink")
   po_source_links              po_source_links[]
+  threadRequirements           order_thread_requirements[] @relation("thread_requirement_po_item")
 
   @@index([materialId])
   @@index([poId])
@@ -2054,6 +2121,22 @@ model style_material_bom {
   updatedAt             DateTime                  @updatedAt
   machinePartId         String?
   otherMaterialId       String?
+  hookEyeId             String?
+  snapButtonId          String?
+  buckleId              String?
+  beltId                String?
+  velcroId              String?
+  drawstringId          String?
+  ribbonId              String?
+  sequinId              String?
+  beadId                String?
+  motifId               String?
+  interliningId         String?
+  paddingId             String?
+  otherFastenerId       String?
+  otherTapeId           String?
+  otherDecorativeId     String?
+  otherFunctionalId     String?
   extraPercentage       Decimal?                  @default(5) @db.Decimal(5, 2)
   orderLabelOverrides   order_label_override[]
   labelSizeConfigs      style_label_size_config[]
@@ -2068,6 +2151,22 @@ model style_material_bom {
   styles                styles                    @relation(fields: [styleId], references: [id], onDelete: Cascade)
   thread_master         thread_master?            @relation(fields: [threadId], references: [id])
   zipper_master         zipper_master?            @relation(fields: [zipperId], references: [id])
+  hook_eye_master       hook_eye_master?          @relation(fields: [hookEyeId], references: [id])
+  snap_button_master    snap_button_master?       @relation(fields: [snapButtonId], references: [id])
+  buckle_master         buckle_master?            @relation(fields: [buckleId], references: [id])
+  belt_master           belt_master?              @relation(fields: [beltId], references: [id])
+  velcro_master         velcro_master?            @relation(fields: [velcroId], references: [id])
+  drawstring_master     drawstring_master?        @relation(fields: [drawstringId], references: [id])
+  ribbon_master         ribbon_master?            @relation(fields: [ribbonId], references: [id])
+  sequin_master         sequin_master?            @relation(fields: [sequinId], references: [id])
+  bead_master           bead_master?              @relation(fields: [beadId], references: [id])
+  motif_master          motif_master?             @relation(fields: [motifId], references: [id])
+  interlining_master    interlining_master?       @relation(fields: [interliningId], references: [id])
+  padding_master        padding_master?           @relation(fields: [paddingId], references: [id])
+  other_fastener_master other_fastener_master?    @relation(fields: [otherFastenerId], references: [id])
+  other_tape_master     other_tape_master?        @relation(fields: [otherTapeId], references: [id])
+  other_decorative_master other_decorative_master? @relation(fields: [otherDecorativeId], references: [id])
+  other_functional_master other_functional_master? @relation(fields: [otherFunctionalId], references: [id])
 
   @@index([styleId])
   @@index([materialId])
@@ -2273,6 +2372,7 @@ model suppliers {
   shipping_state                          indian_states?                    @relation("supplier_shipping_state", fields: [shippingStateId], references: [id])
   thread_master                           thread_master[]
   threadSuppliers                         thread_suppliers[]
+  threadRequirements                      order_thread_requirements[] @relation("thread_requirement_supplier")
   velcro_master                           velcro_master[]
   zipper_master                           zipper_master[]
   zipperSuppliers                         zipper_suppliers[]
@@ -2566,6 +2666,8 @@ model users {
   laceStockCreated                                                lace_stock[]                      @relation("lace_stock_creator")
   laceStockAllocationCreated                                      lace_stock_allocation[]           @relation("lace_allocation_creator")
   laceStockTransactionCreated                                     lace_stock_transaction[]          @relation("lace_transaction_performer")
+  threadStockCreated                                              thread_stock[]                    @relation("thread_stock_creator")
+  threadStockTransactionCreated                                   thread_stock_transaction[]        @relation("thread_transaction_performer")
   laceLabDipsCreated                                              lace_lab_dip[]                    @relation("lace_lab_dip_creator")
   laceDefectsDiscovered                                           lace_defect_log[]                 @relation("lace_defect_discoverer")
   laceIssueNotesCreated                                           lace_issue_note[]                 @relation("lace_issue_creator")
@@ -4454,6 +4556,7 @@ model thread_master {
   colorMaster               color_master?                @relation(fields: [colorId], references: [id])
   costingItems              style_costing_thread_items[]
   orderThreadRequirements   order_thread_requirements[]
+  threadStock               thread_stock[]
 
   @@index([threadCode])
   @@index([supplierId])
@@ -4532,17 +4635,26 @@ model order_thread_requirements {
   unitPrice Decimal? @db.Decimal(10, 2)
   totalCost Decimal? @db.Decimal(10, 2)
 
+  // Procurement workflow
+  status     ThreadRequirementStatus @default(PENDING)
+  supplierId String? // Assigned supplier from thread_suppliers
+  poItemId   String? // Link to generated PO item
+
   notes     String?
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  order       orders        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  thread      thread_master @relation(fields: [threadId], references: [id])
-  colorMaster color_master  @relation(fields: [colorId], references: [id])
+  order       orders               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  thread      thread_master        @relation(fields: [threadId], references: [id])
+  colorMaster color_master         @relation(fields: [colorId], references: [id])
+  supplier    suppliers?           @relation("thread_requirement_supplier", fields: [supplierId], references: [id])
+  poItem      purchase_order_items? @relation("thread_requirement_po_item", fields: [poItemId], references: [id])
 
   @@index([orderId])
   @@index([threadId])
+  @@index([status])
+  @@index([supplierId])
 }
 
 model lace_style_associations {
@@ -6273,8 +6385,11 @@ model hook_eye_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([hookEyeCode])
   @@index([supplierId])
@@ -6297,8 +6412,11 @@ model snap_button_master {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   createdById    String?
-  createdBy      users?     @relation(fields: [createdById], references: [id])
-  supplier       suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([snapButtonCode])
   @@index([supplierId])
@@ -6321,8 +6439,11 @@ model buckle_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([buckleCode])
   @@index([supplierId])
@@ -6345,8 +6466,11 @@ model belt_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([beltCode])
   @@index([supplierId])
@@ -6367,8 +6491,11 @@ model velcro_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([velcroCode])
   @@index([supplierId])
@@ -6390,8 +6517,11 @@ model drawstring_master {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   createdById    String?
-  createdBy      users?     @relation(fields: [createdById], references: [id])
-  supplier       suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([drawstringCode])
   @@index([supplierId])
@@ -6413,8 +6543,11 @@ model ribbon_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([ribbonCode])
   @@index([supplierId])
@@ -6438,8 +6571,11 @@ model sequin_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([sequinCode])
   @@index([supplierId])
@@ -6462,8 +6598,11 @@ model bead_master {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   createdById  String?
-  createdBy    users?     @relation(fields: [createdById], references: [id])
-  supplier     suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([beadCode])
   @@index([supplierId])
@@ -6485,8 +6624,11 @@ model motif_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([motifCode])
   @@index([supplierId])
@@ -6509,8 +6651,11 @@ model interlining_master {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   createdById     String?
-  createdBy       users?     @relation(fields: [createdById], references: [id])
-  supplier        suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([interliningCode])
   @@index([supplierId])
@@ -6534,8 +6679,11 @@ model padding_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([paddingCode])
   @@index([supplierId])
@@ -6557,8 +6705,11 @@ model other_fastener_master {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   createdById       String?
-  createdBy         users?     @relation(fields: [createdById], references: [id])
-  supplier          suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([otherFastenerCode])
   @@index([supplierId])
@@ -6580,8 +6731,11 @@ model other_tape_master {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   createdById   String?
-  createdBy     users?     @relation(fields: [createdById], references: [id])
-  supplier      suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([otherTapeCode])
   @@index([supplierId])
@@ -6603,8 +6757,11 @@ model other_decorative_master {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
   createdById         String?
-  createdBy           users?     @relation(fields: [createdById], references: [id])
-  supplier            suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([otherDecorativeCode])
   @@index([supplierId])
@@ -6626,8 +6783,11 @@ model other_functional_master {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
   createdById         String?
-  createdBy           users?     @relation(fields: [createdById], references: [id])
-  supplier            suppliers? @relation(fields: [supplierId], references: [id])
+  createdBy          users?              @relation(fields: [createdById], references: [id])
+  supplier           suppliers?          @relation(fields: [supplierId], references: [id])
+  materials          materials[]
+  style_material_bom style_material_bom[]
+  order_bom_items    order_bom_items[]
 
   @@index([otherFunctionalCode])
   @@index([supplierId])
@@ -6985,6 +7145,93 @@ model lace_stock_transaction {
   // Relations
   stock       lace_stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
   performedBy users      @relation("lace_transaction_performer", fields: [performedById], references: [id])
+
+  @@index([stockId])
+  @@index([transactionType])
+  @@index([transactionDate])
+}
+
+/// Thread Stock - Dedicated stock tracking for thread cones/spools
+model thread_stock {
+  id String @id @default(uuid())
+
+  // Core identification
+  threadId String // FK to thread_master
+
+  // Source tracking
+  procurementId    String? // Purchase order reference
+  supplierLotNumber String? // Supplier batch/lot number
+
+  // Quantity tracking (primary unit: spools or cones)
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("SPOOL") // SPOOL | CONE | CONE_5K | CONE_10K
+
+  // Derived quantities (auto-calculated from packaging specs)
+  boxesAvailable Decimal? @db.Decimal(10, 2) // qty / unitsPerBox
+  metersAvailable Decimal? @db.Decimal(10, 2) // qty * metersPerUnit
+
+  // Cost tracking
+  purchaseCost    Decimal @db.Decimal(10, 2) // Original cost per unit
+  weightedAvgCost Decimal @db.Decimal(10, 2) // WAC for valuation
+
+  // Thread-specific attributes (snapshots from thread_master)
+  ply                 ThreadPly?
+  packagingType       ThreadPackagingType?
+  materialComposition ThreadMaterial?
+  colorName           String? // Snapshot for display
+
+  // Location
+  warehouseLocation String?
+  rackNumber        String?
+
+  // Quality & Status
+  qualityGrade String @default("A") // A | B | DEFECT
+  status       String @default("AVAILABLE") // AVAILABLE | RESERVED | ISSUED
+  stockType    String @default("PLANNED_STOCK") // PLANNED_STOCK | EXCESS | RETURNED
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  threadMaster thread_master @relation(fields: [threadId], references: [id])
+  createdBy    users?        @relation("thread_stock_creator", fields: [createdById], references: [id])
+  transactions thread_stock_transaction[]
+  challanItems challan_items[]
+
+  @@unique([threadId, procurementId, packagingType, ply])
+  @@index([threadId, status])
+  @@index([status])
+  @@index([packagingType, ply])
+  @@index([receivedDate])
+}
+
+/// Thread Stock Transaction - Audit trail for thread stock movements
+model thread_stock_transaction {
+  id              String @id @default(uuid())
+  stockId         String
+  transactionType String // STOCK_IN | ALLOCATION | CONSUMPTION | RETURN | ADJUSTMENT
+
+  quantity     Decimal @db.Decimal(10, 2)
+  balanceAfter Decimal @db.Decimal(10, 2)
+
+  referenceType String? // GRN | ORDER | MANUAL
+  referenceId   String?
+  notes         String?
+
+  transactionDate DateTime @default(now())
+  performedById   String
+
+  // Relations
+  stock       thread_stock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  performedBy users        @relation("thread_transaction_performer", fields: [performedById], references: [id])
 
   @@index([stockId])
   @@index([transactionType])
@@ -7366,6 +7613,7 @@ model challan_items {
   greigeStockId         String? // FK to greige_stock (for OUTWARD greige challan auto-deduction)
   fabricStockId         String? // FK to fabric_stock (for fabric challan auto-deduction)
   laceStockId           String? // FK to lace_stock (for lace challan auto-deduction)
+  threadStockId         String? // FK to thread_stock (for thread issuance challan auto-deduction)
   materialRequirementId String? // FK to material_requirements (MRP traceability)
   serviceRequirementId  String? // FK to work_order_service_requirements (process/service traceability)
 
@@ -7375,6 +7623,7 @@ model challan_items {
   greigeStock         greige_stock?                    @relation(fields: [greigeStockId], references: [id])
   fabricStock         fabric_stock?                    @relation(fields: [fabricStockId], references: [id])
   laceStock           lace_stock?                      @relation(fields: [laceStockId], references: [id])
+  threadStock         thread_stock?                    @relation(fields: [threadStockId], references: [id])
   materialRequirement material_requirements?           @relation(fields: [materialRequirementId], references: [id])
   serviceRequirement  work_order_service_requirements? @relation(fields: [serviceRequirementId], references: [id])
 
@@ -7383,6 +7632,7 @@ model challan_items {
   @@index([greigeStockId])
   @@index([fabricStockId])
   @@index([laceStockId])
+  @@index([threadStockId])
   @@index([materialRequirementId])
   @@index([serviceRequirementId])
   @@map("challan_items")
@@ -7661,6 +7911,7 @@ enum POCategory {
   GREIGE
   PROCESSING
   TRIMS
+  THREAD // Thread procurement (cones/spools)
   LACE // Ready lace procurement
   GREIGE_LACE // Greige lace procurement
   LACE_PROCESSING // Lace dyeing processing
@@ -7878,6 +8129,14 @@ enum ThreadMaterial {
 enum ThreadQuantityInput {
   UNITS // User entered spools/cones
   BOXES // User entered boxes
+}
+
+enum ThreadRequirementStatus {
+  PENDING
+  PO_GENERATED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
 }
 
 enum LabelCategory {

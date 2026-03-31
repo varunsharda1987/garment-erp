@@ -348,3 +348,192 @@ export interface OrderItemForWorkOrder {
     quantity: number;
   }>;
 }
+
+// ============================================
+// Fabric Issuance Types
+// ============================================
+
+export interface FabricIssuanceLot {
+  lotId: string;
+  lotNumber: number;
+  rollNumbers: string;
+  actualWidth: number;
+  quantityAvailable: number;
+  qualityGrade: string | null;
+}
+
+export interface FabricIssuanceFabric {
+  part: string;
+  fabricId: string | null;
+  fabricName: string;
+  fabricCode: string;
+  fabricColor: string | null;
+  costingAverage: number | null;
+  rawMatCalcAverage: number | null;
+  productionAverage: number | null;
+  lots: FabricIssuanceLot[];
+}
+
+export interface FabricIssuanceAnalysis {
+  part: string;
+  fabricId: string | null;
+  fabricName: string;
+  cadAverage: number;
+  cadSet: boolean;
+  availableStock: number;
+  maxPcsFromStock: number | null;
+  requiredForOrder: number;
+  shortfallMeters: number;
+}
+
+export interface IssuedChallanItem {
+  id: string;
+  fabricStockId: string | null;
+  fabricId: string | null;
+  quantity: number;
+  description: string;
+  unit: string;
+  fabricStock?: {
+    id: string;
+    fabricId: string;
+    rollNumbers: string | null;
+    quantityAvailable: number;
+    fabricMaster: { id: string; fabricName: string; fabricCode: string };
+  };
+}
+
+export interface IssuedChallan {
+  id: string;
+  challanNumber: string;
+  status: string;
+  challanDate: string;
+  items: IssuedChallanItem[];
+}
+
+export interface FabricIssuanceData {
+  fabrics: FabricIssuanceFabric[];
+  fabricDetails: Array<{
+    part: string;
+    fabric: string;
+    fabricId: string | null;
+    fabricOrdered: number;
+    fabricReceived: number;
+    cutableQty: number;
+    extraShortage: number;
+  }>;
+  fabricAnalysis: FabricIssuanceAnalysis[];
+  maxCuttablePcs: number;
+  bottleneckFabric: string | null;
+  totalOrderQty: number;
+  issuedChallans: IssuedChallan[];
+}
+
+export interface IssueFabricRequest {
+  lots: Array<{
+    fabricStockId: string;
+    fabricId: string;
+    quantity: number;
+    description: string;
+  }>;
+  remarks?: string;
+}
+
+// ============================================
+// Trim & Packaging Issuance Types
+// ============================================
+
+export interface MaterialIssuanceItem {
+  bomItemId: string;
+  materialId: string | null;
+  materialCode: string;
+  materialName: string;
+  materialType: string;
+  componentName: string;
+  unit: string;
+  qtyPerPiece: number;
+  orderQty: number;
+  wastagePercent: number;
+  requiredQty: number;
+  availableStock: number;
+  shortage: number;
+  alreadyIssued: number;
+}
+
+export interface MaterialIssuanceData {
+  items: MaterialIssuanceItem[];
+  issuedChallans: IssuedChallan[];
+}
+
+export interface IssueMaterialsRequest {
+  items: Array<{
+    materialId: string;
+    quantity: number;
+    unit: string;
+    description: string;
+  }>;
+  remarks?: string;
+}
+
+// ============================================
+// Thread Issuance Types
+// ============================================
+
+export interface ThreadIssuanceItem {
+  threadStockId: string;
+  threadId: string;
+  threadCode: string;
+  threadName: string;
+  colorName: string;
+  ply: string;
+  packagingType: string;
+  materialComposition: string;
+  unit: string;
+  quantityAvailable: number;
+  metersAvailable: number;
+  boxesAvailable: number;
+  purchaseCost: number;
+  receivedDate: string;
+}
+
+export interface ThreadIssuanceData {
+  items: ThreadIssuanceItem[];
+  issuedChallans: IssuedChallan[];
+}
+
+export interface IssueThreadRequest {
+  items: Array<{
+    threadStockId: string;
+    quantity: number;
+    unit: string;
+    description: string;
+  }>;
+  remarks?: string;
+}
+
+// ============================================
+// WIP Summary Types
+// ============================================
+
+export interface WipStageData {
+  planned?: number;
+  received?: number;
+  completed?: number;
+  produced?: number;
+  defects: number;
+  wip: number;
+}
+
+export interface WipTransferData {
+  issued: number;
+  pending: number;
+}
+
+export interface WipSummary {
+  orderQty: number;
+  cutting: WipStageData & { planned: number; completed: number };
+  cuttingToStitching: WipTransferData;
+  stitching: WipStageData & { received: number; produced: number };
+  stitchingToFinishing: WipTransferData;
+  finishing: WipStageData & { received: number; produced: number };
+  finishingToDispatch: WipTransferData;
+}

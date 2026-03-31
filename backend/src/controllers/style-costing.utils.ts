@@ -29,6 +29,35 @@ export interface TrimDetail {
   trimRate: number;
   trimTotal: number;
   isNotApplicable?: boolean;
+  // Metadata
+  materialType?: string;
+  unit?: string;
+  bomId?: string;
+  // Master FK fields (legacy)
+  materialId?: string;
+  threadId?: string;
+  buttonId?: string;
+  zipperId?: string;
+  elasticId?: string;
+  labelId?: string;
+  packagingId?: string;
+  // Generic trim FK fields
+  hookEyeId?: string;
+  snapButtonId?: string;
+  buckleId?: string;
+  beltId?: string;
+  velcroId?: string;
+  drawstringId?: string;
+  ribbonId?: string;
+  sequinId?: string;
+  beadId?: string;
+  motifId?: string;
+  interliningId?: string;
+  paddingId?: string;
+  otherFastenerId?: string;
+  otherTapeId?: string;
+  otherDecorativeId?: string;
+  otherFunctionalId?: string;
 }
 
 export interface EmbroideryDetail {

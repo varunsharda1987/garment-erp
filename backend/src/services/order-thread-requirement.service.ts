@@ -8,8 +8,20 @@
  * - Style-specific SKU generation
  */
 
-import { PrismaClient, ThreadPly, ThreadMaterial, ThreadPackagingType, ThreadQuantityInput } from '@prisma/client';
+import {
+  PrismaClient,
+  ThreadPly,
+  ThreadMaterial,
+  ThreadPackagingType,
+  ThreadQuantityInput,
+  ThreadRequirementStatus,
+  Unit,
+  POCategory,
+  POSource,
+} from '@prisma/client';
 import { processThreadQuantityInput, calculateReorderQuantity } from './thread-conversion.service';
+import { createUnifiedPO, UnifiedPOCreationInput } from './unified-po-creation.service';
+import { materialService } from './material.service';
 
 const prisma = new PrismaClient();
 
@@ -41,6 +53,7 @@ export interface OrderThreadRequirement {
   orderId: string;
   threadId: string;
   threadName: string;
+  threadCode: string;
   ply: ThreadPly;
   materialComposition: ThreadMaterial;
   colorId: string;
@@ -54,10 +67,31 @@ export interface OrderThreadRequirement {
   totalMeters: number;
   unitPrice?: number;
   totalCost?: number;
+  status: ThreadRequirementStatus;
+  supplierId?: string;
+  supplierName?: string;
+  poItemId?: string;
+  orderNumber?: string;
   notes?: string;
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface GenerateThreadPOInput {
+  requirementIds: string[];
+  supplierId: string;
+  expectedDeliveryDate: Date;
+  createdById: string;
+  remarks?: string;
+}
+
+export interface ThreadRequirementQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: ThreadRequirementStatus;
+  orderId?: string;
 }
 
 export interface ThreadShortage {
@@ -439,6 +473,259 @@ export async function generateStyleSpecificSKU(threadId: string, orderId: string
   return `THR-${styleCode}-${plyLabel}-${materialLabel}-${colorCode}`;
 }
 
+// ==================== CROSS-ORDER QUERIES ====================
+
+/**
+ * Get all thread requirements across orders (for UnifiedRequirementsPage)
+ */
+export async function getAllRequirements(params: ThreadRequirementQueryParams) {
+  const page = params.page || 1;
+  const limit = params.limit || 50;
+  const skip = (page - 1) * limit;
+
+  const where: any = {};
+
+  if (params.status) {
+    where.status = params.status;
+  }
+
+  if (params.orderId) {
+    where.orderId = params.orderId;
+  }
+
+  if (params.search) {
+    where.OR = [
+      { thread: { threadCode: { contains: params.search, mode: 'insensitive' } } },
+      { thread: { threadName: { contains: params.search, mode: 'insensitive' } } },
+      { colorName: { contains: params.search, mode: 'insensitive' } },
+      { order: { orderNumber: { contains: params.search, mode: 'insensitive' } } },
+    ];
+  }
+
+  const [requirements, total] = await Promise.all([
+    prisma.order_thread_requirements.findMany({
+      where,
+      include: {
+        thread: true,
+        colorMaster: true,
+        order: { select: { id: true, orderNumber: true } },
+        supplier: { select: { id: true, name: true } },
+        poItem: { select: { id: true, poId: true } },
+      },
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      skip,
+      take: limit,
+    }),
+    prisma.order_thread_requirements.count({ where }),
+  ]);
+
+  return {
+    data: requirements.map(mapToOrderThreadRequirement),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+/**
+ * Get dashboard stats for thread requirements
+ */
+export async function getStats() {
+  const [total, pending, poGenerated, received, cancelled] = await Promise.all([
+    prisma.order_thread_requirements.count(),
+    prisma.order_thread_requirements.count({ where: { status: 'PENDING' } }),
+    prisma.order_thread_requirements.count({ where: { status: 'PO_GENERATED' } }),
+    prisma.order_thread_requirements.count({ where: { status: 'RECEIVED' } }),
+    prisma.order_thread_requirements.count({ where: { status: 'CANCELLED' } }),
+  ]);
+
+  return { total, pending, poGenerated, received, cancelled };
+}
+
+// ==================== PO GENERATION ====================
+
+/**
+ * Ensure a materials record exists for a thread_master entry (for PO linking)
+ */
+async function ensureMaterialForThread(threadId: string): Promise<string | null> {
+  const existing = await prisma.materials.findFirst({ where: { threadId } });
+  if (existing) return existing.id;
+
+  const thread = await prisma.thread_master.findUnique({
+    where: { id: threadId },
+    select: { id: true, threadCode: true, threadName: true, supplierId: true },
+  });
+  if (!thread) return null;
+
+  const material = await materialService.createFromMaster(
+    { id: thread.id, code: thread.threadCode, name: thread.threadName },
+    'THREAD'
+  );
+
+  return material.id;
+}
+
+/**
+ * Map ThreadPackagingType to Unit enum for PO items
+ */
+function packagingTypeToUnit(packagingType: ThreadPackagingType): Unit {
+  switch (packagingType) {
+    case 'SPOOL':
+      return 'SPOOL' as Unit;
+    case 'CONE':
+    case 'CONE_5K':
+    case 'CONE_10K':
+      return 'CONE' as Unit;
+    case 'TUBE':
+      return 'TUBE' as Unit;
+    default:
+      return 'PIECE' as Unit;
+  }
+}
+
+/**
+ * Generate PO from selected thread requirements
+ * Each requirement row becomes one PO item
+ */
+export async function generatePOFromRequirements(input: GenerateThreadPOInput) {
+  // Fetch all selected requirements
+  const requirements = await prisma.order_thread_requirements.findMany({
+    where: {
+      id: { in: input.requirementIds },
+      status: 'PENDING',
+    },
+    include: {
+      thread: { include: { threadSuppliers: true } },
+      order: { select: { orderNumber: true } },
+    },
+  });
+
+  if (requirements.length === 0) {
+    throw new Error('No pending thread requirements found for the given IDs');
+  }
+
+  // Validate supplier is valid for these threads
+  const supplier = await prisma.suppliers.findUnique({
+    where: { id: input.supplierId },
+    select: { id: true, name: true, isActive: true },
+  });
+
+  if (!supplier || !supplier.isActive) {
+    throw new Error('Supplier not found or inactive');
+  }
+
+  // Check supplier is linked to each thread via thread_suppliers
+  for (const req of requirements) {
+    const isLinked = req.thread.threadSuppliers.some((ts) => ts.supplierId === input.supplierId && ts.isActive);
+    if (!isLinked) {
+      throw new Error(
+        `Supplier "${supplier.name}" is not linked to thread "${req.thread.threadCode}". ` +
+          `Please add this supplier in the Thread Master first.`
+      );
+    }
+  }
+
+  // Build PO items — one per requirement row
+  const poItems = [];
+  for (const req of requirements) {
+    const materialId = await ensureMaterialForThread(req.threadId);
+    if (!materialId) {
+      throw new Error(`Failed to resolve material for thread: ${req.thread.threadCode}`);
+    }
+
+    // Get supplier-specific price if available, otherwise use requirement's unitPrice
+    const threadSupplier = req.thread.threadSuppliers.find((ts) => ts.supplierId === input.supplierId);
+    const unitPrice =
+      parseFloat(req.unitPrice?.toString() || '0') ||
+      parseFloat(threadSupplier?.pricePerCone?.toString() || '0') ||
+      parseFloat(req.thread.pricePerCone?.toString() || '0');
+
+    const orderedQuantity = parseFloat(req.totalUnits.toString());
+    const unit = packagingTypeToUnit(req.packagingType);
+
+    poItems.push({
+      materialId,
+      orderedQuantity,
+      unit,
+      unitPrice,
+      remarks:
+        `${req.thread.threadCode} - ${req.colorName} ${req.ply} ${req.materialComposition} (${req.packagingType})` +
+        (req.notes ? ` | ${req.notes}` : ''),
+    });
+  }
+
+  // Create PO via unified service
+  const poInput: UnifiedPOCreationInput = {
+    supplierId: input.supplierId,
+    expectedDeliveryDate: input.expectedDeliveryDate,
+    createdById: input.createdById,
+    source: 'MRP' as POSource,
+    poCategory: 'THREAD' as POCategory,
+    items: poItems,
+    remarks:
+      input.remarks || `Thread PO for orders: ${[...new Set(requirements.map((r) => r.order.orderNumber))].join(', ')}`,
+  };
+
+  const result = await createUnifiedPO(poInput);
+
+  // Update requirement statuses and link PO items
+  const poItemIds = result.purchaseOrder.purchase_order_items.map((item) => item.id);
+  for (let i = 0; i < requirements.length; i++) {
+    await prisma.order_thread_requirements.update({
+      where: { id: requirements[i].id },
+      data: {
+        status: 'PO_GENERATED',
+        supplierId: input.supplierId,
+        poItemId: poItemIds[i] || null,
+      },
+    });
+  }
+
+  return {
+    purchaseOrder: result.purchaseOrder,
+    updatedRequirements: requirements.length,
+  };
+}
+
+/**
+ * Get suppliers available for a set of thread requirements
+ * Returns suppliers that are linked to ALL threads in the selection
+ */
+export async function getAvailableSuppliers(requirementIds: string[]) {
+  const requirements = await prisma.order_thread_requirements.findMany({
+    where: { id: { in: requirementIds } },
+    select: { threadId: true },
+  });
+
+  const threadIds = [...new Set(requirements.map((r) => r.threadId))];
+
+  // Find suppliers linked to ALL threads
+  const supplierCounts = await prisma.thread_suppliers.groupBy({
+    by: ['supplierId'],
+    where: {
+      threadId: { in: threadIds },
+      isActive: true,
+    },
+    _count: { supplierId: true },
+    having: {
+      supplierId: { _count: { equals: threadIds.length } },
+    },
+  });
+
+  const supplierIds = supplierCounts.map((s) => s.supplierId);
+
+  const suppliers = await prisma.suppliers.findMany({
+    where: { id: { in: supplierIds }, isActive: true },
+    select: { id: true, name: true, code: true },
+    orderBy: { name: 'asc' },
+  });
+
+  return suppliers;
+}
+
 // ==================== HELPER FUNCTIONS ====================
 
 function mapToOrderThreadRequirement(data: any): OrderThreadRequirement {
@@ -446,7 +733,8 @@ function mapToOrderThreadRequirement(data: any): OrderThreadRequirement {
     id: data.id,
     orderId: data.orderId,
     threadId: data.threadId,
-    threadName: data.thread.threadName,
+    threadName: data.thread?.threadName || '',
+    threadCode: data.thread?.threadCode || '',
     ply: data.ply,
     materialComposition: data.materialComposition,
     colorId: data.colorId,
@@ -460,6 +748,11 @@ function mapToOrderThreadRequirement(data: any): OrderThreadRequirement {
     totalMeters: parseFloat(data.totalMeters.toString()),
     unitPrice: data.unitPrice ? parseFloat(data.unitPrice.toString()) : undefined,
     totalCost: data.totalCost ? parseFloat(data.totalCost.toString()) : undefined,
+    status: data.status,
+    supplierId: data.supplierId || undefined,
+    supplierName: data.supplier?.name || undefined,
+    poItemId: data.poItemId || undefined,
+    orderNumber: data.order?.orderNumber || undefined,
     notes: data.notes,
     sortOrder: data.sortOrder,
     createdAt: data.createdAt,
@@ -477,4 +770,8 @@ export default {
   deleteThreadRequirement,
   checkShortages,
   generateStyleSpecificSKU,
+  getAllRequirements,
+  getStats,
+  generatePOFromRequirements,
+  getAvailableSuppliers,
 };

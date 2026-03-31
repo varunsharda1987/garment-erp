@@ -47,6 +47,23 @@ export type TrimDetail = {
   elasticId?: string;
   labelId?: string;
   packagingId?: string;
+  // Generic trim master FK fields
+  hookEyeId?: string;
+  snapButtonId?: string;
+  buckleId?: string;
+  beltId?: string;
+  velcroId?: string;
+  drawstringId?: string;
+  ribbonId?: string;
+  sequinId?: string;
+  beadId?: string;
+  motifId?: string;
+  interliningId?: string;
+  paddingId?: string;
+  otherFastenerId?: string;
+  otherTapeId?: string;
+  otherDecorativeId?: string;
+  otherFunctionalId?: string;
   materialId?: string; // FK to unified materials table
 };
 

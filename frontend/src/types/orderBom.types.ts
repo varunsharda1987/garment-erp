@@ -42,6 +42,23 @@ export interface OrderBOMItem {
   elasticId?: string | null;
   labelId?: string | null;
   packagingId?: string | null;
+  // Generic trim FK fields
+  hookEyeId?: string | null;
+  snapButtonId?: string | null;
+  buckleId?: string | null;
+  beltId?: string | null;
+  velcroId?: string | null;
+  drawstringId?: string | null;
+  ribbonId?: string | null;
+  sequinId?: string | null;
+  beadId?: string | null;
+  motifId?: string | null;
+  interliningId?: string | null;
+  paddingId?: string | null;
+  otherFastenerId?: string | null;
+  otherTapeId?: string | null;
+  otherDecorativeId?: string | null;
+  otherFunctionalId?: string | null;
   fabricId?: string | null;
   selectedCadId?: string | null;
   fabricWidthInches?: number | null;

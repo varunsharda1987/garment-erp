@@ -11,6 +11,7 @@ import {
   getBudgetSuggestions,
 } from '../services/costSheet.service';
 import type { BudgetSuggestions } from '../types/costSheet.types';
+import { ALL_TRIM_TYPES, TRIM_TYPE_REGISTRY } from '../config/trimTypeRegistry';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 // Traditional BOM removed - Order BOM is now created from Cost Sheet
@@ -256,52 +257,59 @@ const CostSheetForm = () => {
                 return unitMapping[materialType] || 'pcs';
               };
 
+              // Data-driven master extraction config (legacy + generic trims)
+              const masterExtractors: Array<{ masterKey: string; nameField: string; priceField: string }> = [
+                { masterKey: 'laceMaster', nameField: 'laceName', priceField: 'pricePerMeter' },
+                { masterKey: 'buttonMaster', nameField: 'buttonName', priceField: 'pricePerPiece' },
+                { masterKey: 'threadMaster', nameField: 'threadName', priceField: 'pricePerCone' },
+                { masterKey: 'zipperMaster', nameField: 'zipperName', priceField: 'pricePerPiece' },
+                { masterKey: 'elasticMaster', nameField: 'elasticName', priceField: 'pricePerMeter' },
+                { masterKey: 'labelMaster', nameField: 'labelName', priceField: 'pricePerPiece' },
+                { masterKey: 'packagingMaster', nameField: 'packagingName', priceField: 'pricePerPiece' },
+                { masterKey: 'machinePartMaster', nameField: 'partName', priceField: 'costPerPiece' },
+                { masterKey: 'otherMaterialMaster', nameField: 'materialName', priceField: 'costPerUnit' },
+                // Generic trim masters
+                { masterKey: 'hookEyeMaster', nameField: 'hookEyeName', priceField: 'pricePerPair' },
+                { masterKey: 'snapButtonMaster', nameField: 'snapButtonName', priceField: 'pricePerPiece' },
+                { masterKey: 'buckleMaster', nameField: 'buckleName', priceField: 'pricePerPiece' },
+                { masterKey: 'beltMaster', nameField: 'beltName', priceField: 'pricePerPiece' },
+                { masterKey: 'velcroMaster', nameField: 'velcroName', priceField: 'pricePerMeter' },
+                { masterKey: 'drawstringMaster', nameField: 'drawstringName', priceField: 'pricePerMeter' },
+                { masterKey: 'ribbonMaster', nameField: 'ribbonName', priceField: 'pricePerMeter' },
+                { masterKey: 'sequinMaster', nameField: 'sequinName', priceField: 'pricePerMeter' },
+                { masterKey: 'beadMaster', nameField: 'beadName', priceField: 'pricePerPack' },
+                { masterKey: 'motifMaster', nameField: 'motifName', priceField: 'pricePerPiece' },
+                { masterKey: 'interliningMaster', nameField: 'interliningName', priceField: 'pricePerMeter' },
+                { masterKey: 'paddingMaster', nameField: 'paddingName', priceField: 'pricePerPair' },
+                { masterKey: 'otherFastenerMaster', nameField: 'otherFastenerName', priceField: 'pricePerPiece' },
+                { masterKey: 'otherTapeMaster', nameField: 'otherTapeName', priceField: 'pricePerMeter' },
+                { masterKey: 'otherDecorativeMaster', nameField: 'otherDecorativeName', priceField: 'pricePerPiece' },
+                { masterKey: 'otherFunctionalMaster', nameField: 'otherFunctionalName', priceField: 'pricePerPiece' },
+              ];
+
               for (const bom of fullStyleDetails.styleMaterialBom) {
                 // Type assertion for flexible property access
                 const bomAny = bom as unknown as Record<string, unknown>;
 
-                // Get master relations (camelCase from serializer)
+                // Data-driven: find the first populated master relation
+                let materialName: string = (bom.componentName as string) || (bom.materialType as string) || 'Unknown';
+                let masterPrice: number | unknown = 0;
+
+                for (const ext of masterExtractors) {
+                  const master = bomAny[ext.masterKey] as Record<string, unknown> | undefined;
+                  if (master) {
+                    materialName = String(master[ext.nameField] || materialName);
+                    masterPrice = master[ext.priceField] || 0;
+                    break;
+                  }
+                }
+
+                // Keep legacy variable for LACE special handling below
                 const laceMaster = bomAny.laceMaster as Record<string, unknown> | undefined;
-                const buttonMaster = bomAny.buttonMaster as Record<string, unknown> | undefined;
-                const threadMaster = bomAny.threadMaster as Record<string, unknown> | undefined;
-                const zipperMaster = bomAny.zipperMaster as Record<string, unknown> | undefined;
-                const elasticMaster = bomAny.elasticMaster as Record<string, unknown> | undefined;
-                const labelMaster = bomAny.labelMaster as Record<string, unknown> | undefined;
-                const packagingMaster = bomAny.packagingMaster as Record<string, unknown> | undefined;
-                const machinePartMaster = bomAny.machinePartMaster as Record<string, unknown> | undefined;
-                const otherMaterialMaster = bomAny.otherMaterialMaster as Record<string, unknown> | undefined;
-
-                // Get material name from appropriate master
-                const materialName =
-                  laceMaster?.laceName ||
-                  buttonMaster?.buttonName ||
-                  threadMaster?.threadName ||
-                  zipperMaster?.zipperName ||
-                  elasticMaster?.elasticName ||
-                  labelMaster?.labelName ||
-                  packagingMaster?.packagingName ||
-                  machinePartMaster?.partName ||
-                  otherMaterialMaster?.materialName ||
-                  bom.componentName ||
-                  bom.materialType ||
-                  'Unknown';
-
-                // Get price from BOM or fallback to master price
-                const masterPrice =
-                  laceMaster?.pricePerMeter ||
-                  buttonMaster?.pricePerPiece ||
-                  threadMaster?.pricePerCone ||
-                  zipperMaster?.pricePerPiece ||
-                  elasticMaster?.pricePerMeter ||
-                  labelMaster?.pricePerPiece ||
-                  packagingMaster?.pricePerPiece ||
-                  machinePartMaster?.costPerPiece ||
-                  otherMaterialMaster?.costPerUnit ||
-                  0;
 
                 const materialType = (bom.materialType as string) || 'UNKNOWN';
                 const quantity = bom.quantityPerGarment || 0;
-                const rate = bom.unitPrice || (masterPrice as number) || 0;
+                const rate = bom.unitPrice || Number(masterPrice) || 0;
                 const total = quantity * rate;
                 const unit = (bom.unit as string) || getUnitForMaterialType(materialType);
                 const bomId = bom.id as string;
@@ -350,7 +358,7 @@ const CostSheetForm = () => {
                     unit,
                     bomId,
                     materialType,
-                    // Preserve master IDs from style_material_bom
+                    // Preserve master IDs from style_material_bom (legacy)
                     threadId: bomAny.threadId as string | undefined,
                     buttonId: bomAny.buttonId as string | undefined,
                     zipperId: bomAny.zipperId as string | undefined,
@@ -358,6 +366,23 @@ const CostSheetForm = () => {
                     labelId: bomAny.labelId as string | undefined,
                     packagingId: bomAny.packagingId as string | undefined,
                     materialId: bomAny.materialId as string | undefined,
+                    // Generic trim FK IDs
+                    hookEyeId: bomAny.hookEyeId as string | undefined,
+                    snapButtonId: bomAny.snapButtonId as string | undefined,
+                    buckleId: bomAny.buckleId as string | undefined,
+                    beltId: bomAny.beltId as string | undefined,
+                    velcroId: bomAny.velcroId as string | undefined,
+                    drawstringId: bomAny.drawstringId as string | undefined,
+                    ribbonId: bomAny.ribbonId as string | undefined,
+                    sequinId: bomAny.sequinId as string | undefined,
+                    beadId: bomAny.beadId as string | undefined,
+                    motifId: bomAny.motifId as string | undefined,
+                    interliningId: bomAny.interliningId as string | undefined,
+                    paddingId: bomAny.paddingId as string | undefined,
+                    otherFastenerId: bomAny.otherFastenerId as string | undefined,
+                    otherTapeId: bomAny.otherTapeId as string | undefined,
+                    otherDecorativeId: bomAny.otherDecorativeId as string | undefined,
+                    otherFunctionalId: bomAny.otherFunctionalId as string | undefined,
                   });
                 } else if (bom.usageCategory === 'PACKAGING') {
                   extractedAccessories.push({
@@ -1366,27 +1391,22 @@ const CostSheetForm = () => {
     setTrimsDetails(updated);
   };
 
-  // Handle master selection from TrimMasterCombobox
+  // Handle master selection from TrimMasterCombobox (data-driven via registry)
   const handleTrimMasterSelect = (index: number, selection: TrimMasterSelection | null) => {
     const updated = [...trimsDetails];
-    // Clear all master IDs first
-    updated[index].threadId = undefined;
-    updated[index].buttonId = undefined;
-    updated[index].zipperId = undefined;
-    updated[index].elasticId = undefined;
-    updated[index].labelId = undefined;
-    updated[index].packagingId = undefined;
+    // Clear all master ID fields using the registry
+    for (const entry of ALL_TRIM_TYPES) {
+      (updated[index] as Record<string, unknown>)[entry.idField] = undefined;
+    }
     updated[index].materialId = undefined;
 
     if (selection) {
       updated[index].trimName = selection.masterName;
-      // Set the specific FK field
-      if (selection.threadId) updated[index].threadId = selection.threadId;
-      if (selection.buttonId) updated[index].buttonId = selection.buttonId;
-      if (selection.zipperId) updated[index].zipperId = selection.zipperId;
-      if (selection.elasticId) updated[index].elasticId = selection.elasticId;
-      if (selection.labelId) updated[index].labelId = selection.labelId;
-      if (selection.packagingId) updated[index].packagingId = selection.packagingId;
+      // Set the specific FK field from the selection
+      const config = TRIM_TYPE_REGISTRY[selection.materialType];
+      if (config) {
+        (updated[index] as Record<string, unknown>)[config.idField] = selection.masterId;
+      }
       // Set unit and rate from master if available
       if (selection.unit) updated[index].unit = selection.unit;
       if (selection.unitPrice && !updated[index].trimRate) {
@@ -1399,37 +1419,19 @@ const CostSheetForm = () => {
     setTrimsDetails(updated);
   };
 
-  // Check if a trim has a linked master record
+  // Check if a trim has a linked master record (data-driven via registry)
   const hasTrimMasterLink = (trim: TrimDetail): boolean => {
-    return !!(
-      trim.threadId ||
-      trim.buttonId ||
-      trim.zipperId ||
-      trim.elasticId ||
-      trim.labelId ||
-      trim.packagingId ||
-      trim.materialId
-    );
+    if (trim.materialId) return true;
+    const config = TRIM_TYPE_REGISTRY[trim.materialType || ''];
+    if (config) return !!trim[config.idField as keyof TrimDetail];
+    return false;
   };
 
-  // Get the master ID value for a trim based on its materialType
+  // Get the master ID value for a trim based on its materialType (data-driven via registry)
   const getTrimMasterId = (trim: TrimDetail): string | undefined => {
-    switch (trim.materialType) {
-      case 'THREAD':
-        return trim.threadId;
-      case 'BUTTON':
-        return trim.buttonId;
-      case 'ZIPPER':
-        return trim.zipperId;
-      case 'ELASTIC':
-        return trim.elasticId;
-      case 'LABEL':
-        return trim.labelId;
-      case 'PACKAGING':
-        return trim.packagingId;
-      default:
-        return undefined;
-    }
+    const config = TRIM_TYPE_REGISTRY[trim.materialType || ''];
+    if (config) return trim[config.idField as keyof TrimDetail] as string | undefined;
+    return undefined;
   };
 
   // Add new embroidery row
@@ -2350,12 +2352,11 @@ const CostSheetForm = () => {
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="THREAD">Thread</SelectItem>
-                      <SelectItem value="BUTTON">Button</SelectItem>
-                      <SelectItem value="ZIPPER">Zipper</SelectItem>
-                      <SelectItem value="ELASTIC">Elastic</SelectItem>
-                      <SelectItem value="LABEL">Label</SelectItem>
-                      <SelectItem value="PACKAGING">Packaging</SelectItem>
+                      {ALL_TRIM_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
                       <SelectItem value="OTHER">Other</SelectItem>
                     </SelectContent>
                   </Select>

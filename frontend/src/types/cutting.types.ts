@@ -381,8 +381,26 @@ export interface CuttingChartData {
   // Fabrics & CAD with lots
   fabrics: CuttingChartFabric[];
 
+  // Fabric Stock Analysis — per-fabric max cuttable pcs
+  fabricAnalysis: CuttingFabricAnalysis[];
+  maxCuttablePcs: number;
+  bottleneckFabric: string | null;
+  pendingCutQty: number;
+
   // Existing batches
   existingBatches: CuttingChartExistingBatch[];
+}
+
+export interface CuttingFabricAnalysis {
+  part: string;
+  fabricId: string | null;
+  fabricName: string;
+  cadAverage: number;
+  cadSet: boolean;
+  availableStock: number;
+  maxPcsFromStock: number | null;
+  requiredForOrder: number;
+  shortfallMeters: number;
 }
 
 // ============================================

@@ -279,22 +279,22 @@ export interface StyleProductionTracking {
 
 export interface DashboardSummary {
   preProduction: {
-    ordersReceived: { styles: number; pieces: number };
-    pendingCosting: { styles: number; pieces: number };
-    pendingGreige: { styles: number; pieces: number };
-    trimsNotOrdered: { styles: number; pieces: number };
+    ordersReceived: { styleCount: number; pieces: number };
+    pendingCosting: { styleCount: number; pieces: number };
+    pendingGreige: { styleCount: number; pieces: number };
+    trimsNotOrdered: { styleCount: number; pieces: number };
   };
   processing: {
-    inPrinting: { styles: number; pieces: number };
-    inDying: { styles: number; pieces: number };
-    inEmbroidery: { styles: number; pieces: number };
-    inHandwork: { styles: number; pieces: number };
+    inPrinting: { styleCount: number; pieces: number };
+    inDying: { styleCount: number; pieces: number };
+    inEmbroidery: { styleCount: number; pieces: number };
+    inHandwork: { styleCount: number; pieces: number };
   };
   production: {
-    inCutting: { styles: number; pieces: number };
-    inStitching: { styles: number; pieces: number };
-    inFinishing: { styles: number; pieces: number };
-    readyToShip: { styles: number; pieces: number };
+    inCutting: { styleCount: number; pieces: number };
+    inStitching: { styleCount: number; pieces: number };
+    inFinishing: { styleCount: number; pieces: number };
+    readyToShip: { styleCount: number; pieces: number };
   };
 }
 

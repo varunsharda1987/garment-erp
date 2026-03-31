@@ -37,11 +37,22 @@ export interface ThreadQuantityConversion {
   totalMeters: number;
 }
 
+export type ThreadRequirementStatus = 'PENDING' | 'PO_GENERATED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED';
+
+export const THREAD_REQUIREMENT_STATUS_LABELS: Record<ThreadRequirementStatus, string> = {
+  PENDING: 'Pending',
+  PO_GENERATED: 'PO Generated',
+  PARTIALLY_RECEIVED: 'Partially Received',
+  RECEIVED: 'Received',
+  CANCELLED: 'Cancelled',
+};
+
 export interface OrderThreadRequirement {
   id: string;
   orderId: string;
   threadId: string;
   threadName: string;
+  threadCode: string;
   ply: ThreadPly;
   materialComposition: ThreadMaterial;
   colorName: string;
@@ -54,6 +65,54 @@ export interface OrderThreadRequirement {
   totalMeters: number;
   unitPrice?: number;
   totalCost?: number;
+  status: ThreadRequirementStatus;
+  supplierId?: string;
+  supplierName?: string;
+  poItemId?: string;
+  orderNumber?: string;
+  notes?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ThreadRequirementQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: ThreadRequirementStatus;
+  orderId?: string;
+}
+
+export interface PaginatedThreadRequirements {
+  data: OrderThreadRequirement[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface ThreadRequirementStats {
+  total: number;
+  pending: number;
+  poGenerated: number;
+  received: number;
+  cancelled: number;
+}
+
+export interface GenerateThreadPOInput {
+  requirementIds: string[];
+  supplierId: string;
+  expectedDeliveryDate: string;
+  remarks?: string;
+}
+
+export interface ThreadPOSupplier {
+  id: string;
+  name: string;
+  code: string;
 }
 
 /**

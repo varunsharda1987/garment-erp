@@ -38,6 +38,7 @@ import {
   Grid3X3,
   ClipboardList,
   FileSpreadsheet,
+  XCircle,
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
@@ -125,6 +126,8 @@ export default function CADPlanningPage() {
   const [saving, setSaving] = useState(false);
   const [style, setStyle] = useState<StyleInfo | null>(null);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
   // CAD History state
   const [activeTab, setActiveTab] = useState<'spreadsheet' | 'history' | 'orders'>('spreadsheet');
@@ -282,6 +285,26 @@ export default function CADPlanningPage() {
       notify.error(axiosMsg || 'Failed to approve CAD plan');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ============================================
+  // REJECT CAD PLAN
+  // ============================================
+  const handleRejectCAD = async () => {
+    if (!id) return;
+    try {
+      setRejecting(true);
+      await cadPlanningService.rejectCADPlan(id);
+      notify.success('CAD plan rejected. All rows reset to PENDING.', { duration: 5000 });
+      setShowRejectDialog(false);
+      // loadCADTableData also refreshes style info (cadStatus, approvedCadDate)
+      await loadCADTableData();
+    } catch (error: unknown) {
+      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      notify.error(axiosMsg || 'Failed to reject CAD plan');
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -539,6 +562,10 @@ export default function CADPlanningPage() {
             <Button size="sm" variant="outline" onClick={() => navigate(`/fabric-costing?styleId=${id}`)}>
               View Fabric Costing →
             </Button>
+            <Button size="sm" variant="destructive" onClick={() => setShowRejectDialog(true)} disabled={rejecting}>
+              {rejecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Reject CAD Plan
+            </Button>
           </div>
         </div>
       )}
@@ -661,6 +688,18 @@ export default function CADPlanningPage() {
         cancelText="Cancel"
         onConfirm={handleApproveCAD}
         variant="default"
+      />
+
+      {/* Reject CAD Plan Confirmation Dialog */}
+      <ConfirmDialog
+        open={showRejectDialog}
+        onOpenChange={setShowRejectDialog}
+        title="Reject CAD Plan?"
+        description="This will revert the CAD plan status to PENDING and reset all row approvals. You will be able to edit all CAD entries again. Any linked fabric costing data will NOT be affected."
+        confirmText={rejecting ? 'Rejecting...' : 'Reject & Unlock'}
+        cancelText="Cancel"
+        onConfirm={handleRejectCAD}
+        variant="destructive"
       />
 
       {/* Push to Fabric Costing Modal */}

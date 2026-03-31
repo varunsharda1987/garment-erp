@@ -22,6 +22,7 @@ import {
   getStyleSizeSummary,
   getAvailableTransferSlips,
   getAvailableManagers,
+  disposeDefects,
 } from '../controllers/stitching.controller';
 
 const router = Router();
@@ -57,5 +58,6 @@ router.post('/issues/:id/daily-output', asyncHandler(recordDailyOutput));
 router.post('/issues/:id/complete', asyncHandler(completeStitchingIssue));
 router.post('/issues/:id/reopen', asyncHandler(reopenStitchingIssue));
 router.post('/issues/:id/generate-transfer-slip', asyncHandler(generateTransferSlip));
+router.post('/issues/:id/dispose-defects', asyncHandler(disposeDefects));
 
 export default router;

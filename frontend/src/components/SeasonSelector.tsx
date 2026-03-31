@@ -121,12 +121,14 @@ export default function SeasonSelector({
 
       <Select value={value || undefined} onValueChange={handleValueChange} disabled={disabled || loading}>
         <SelectTrigger className={`w-full ${error ? 'border-red-500' : ''}`}>
-          <SelectValue placeholder={loading ? 'Loading...' : placeholder}>
+          <SelectValue placeholder={placeholder}>
             {selectedSeason ? (
               <span className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 {formatSeasonDisplay(selectedSeason)}
               </span>
+            ) : value ? (
+              <span className="text-muted-foreground">Loading season...</span>
             ) : (
               placeholder
             )}

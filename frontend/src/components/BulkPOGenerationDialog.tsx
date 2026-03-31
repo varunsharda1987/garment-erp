@@ -34,11 +34,16 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { groupRequirementsBySupplier, bulkGeneratePOs, previewPOs } from '@/services/mrp.service';
 import type { MaterialRequirement, POPreviewGroup, POPreviewItem } from '@/types/mrp.types';
 
+interface POGenerationResult {
+  totalPOs: number;
+  errors: Array<{ supplierId: string; error: string }>;
+}
+
 interface BulkPOGenerationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requirementIds: string[];
-  onComplete?: () => void;
+  onComplete?: (result?: POGenerationResult) => void;
 }
 
 interface SupplierGroup {
@@ -321,7 +326,7 @@ export default function BulkPOGenerationDialog({
       }
 
       onOpenChange(false);
-      onComplete?.();
+      onComplete?.(result);
     } catch (err) {
       handleApiError(err, 'Failed to generate purchase orders');
     } finally {

@@ -10,6 +10,7 @@ import {
   GreigeUpdateData,
 } from '../types/greige.types';
 import { ValidationError, NotFoundError } from '../errors';
+import { generateCode } from '../utils/code-generator';
 
 /**
  * Greige Master Controller
@@ -223,14 +224,20 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     isActive = true,
   } = req.body;
 
-  // Validate required fields
-  if (!greigeCode || !greigeName || !composition || !greigeWidth) {
-    throw new ValidationError('Missing required fields: greigeCode, greigeName, composition, greigeWidth');
+  // Auto-generate greigeCode if not provided
+  let finalGreigeCode = greigeCode;
+  if (!greigeCode) {
+    finalGreigeCode = await generateCode('GRG', 'greige_master', 'greigeCode');
+  }
+
+  // Validate remaining required fields
+  if (!greigeName || !composition || !greigeWidth) {
+    throw new ValidationError('Missing required fields: greigeName, composition, greigeWidth');
   }
 
   // Check if greige code already exists
   const existingGreige = await prisma.greige_master.findFirst({
-    where: { greigeCode, isActive: true },
+    where: { greigeCode: finalGreigeCode, isActive: true },
   });
 
   if (existingGreige) {
@@ -239,7 +246,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
 
   const greigeMaster = await prisma.greige_master.create({
     data: {
-      greigeCode,
+      greigeCode: finalGreigeCode,
       greigeName,
       genericGreigeName: genericGreigeName || null,
       yarnCount,
@@ -723,11 +730,6 @@ export const getGenericGreigeNames = async (req: Request, res: Response) => {
 
 // Get next auto-generated greige code
 export const getNextGreigeCode = async (req: Request, res: Response) => {
-  const lastGreige = await prisma.greige_master.findFirst({
-    orderBy: { greigeCode: 'desc' },
-    select: { greigeCode: true },
-  });
-  const lastNumber = lastGreige ? parseInt(lastGreige.greigeCode.replace('GRG-', ''), 10) || 0 : 0;
-  const nextCode = `GRG-${String(lastNumber + 1).padStart(4, '0')}`;
+  const nextCode = await generateCode('GRG', 'greige_master', 'greigeCode');
   return res.json({ code: nextCode });
 };

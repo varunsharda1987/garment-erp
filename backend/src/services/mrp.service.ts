@@ -563,7 +563,7 @@ function determinePOCategoryFromMaterials(materials: Array<{ materialType: strin
     GREIGE_LACE: POCategory.GREIGE_LACE,
     // Trim types (all map to TRIMS)
     BUTTON: POCategory.TRIMS,
-    THREAD: POCategory.TRIMS,
+    THREAD: POCategory.THREAD,
     ELASTIC: POCategory.TRIMS,
     LABEL: POCategory.TRIMS,
     ZIPPER: POCategory.TRIMS,

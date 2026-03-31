@@ -49,8 +49,26 @@ import {
   generateServicePO,
   getDashboardStats as getServiceDashboardStats,
 } from '@/services/serviceRequirement.service';
+import {
+  getAllThreadRequirements,
+  getThreadRequirementStats,
+  generateThreadPO,
+  getAvailableSuppliers as getThreadSuppliers,
+} from '@/services/threadRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { Supplier } from '@/types/supplier.types';
+import type {
+  OrderThreadRequirement,
+  ThreadRequirementStatus,
+  ThreadRequirementStats,
+  PaginatedThreadRequirements,
+} from '@/types/thread.types';
+import {
+  THREAD_REQUIREMENT_STATUS_LABELS,
+  THREAD_PLY_LABELS,
+  THREAD_MATERIAL_LABELS,
+  THREAD_PACKAGING_LABELS,
+} from '@/types/thread.types';
 import api from '@/lib/api';
 
 // Types
@@ -72,6 +90,7 @@ import type { ServiceDashboardStats } from '@/types/serviceRequirement.types';
 // Utilities
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   FileText,
   RefreshCw,
@@ -83,9 +102,13 @@ import {
   IndianRupee,
   ChevronLeft,
   ChevronRight,
+  CheckCircle2,
+  ArrowRight,
+  X,
+  Scissors,
 } from 'lucide-react';
 
-type RequirementTab = 'material' | 'outsourced';
+type RequirementTab = 'material' | 'outsourced' | 'thread';
 
 export default function UnifiedRequirementsPage() {
   const navigate = useNavigate();
@@ -107,6 +130,12 @@ export default function UnifiedRequirementsPage() {
     getServiceDashboardStats,
     { staleTime: 60 * 1000 }
   );
+
+  const { data: threadStats } = useQuery<ThreadRequirementStats>({
+    queryKey: ['thread-requirements', 'stats'],
+    queryFn: getThreadRequirementStats,
+    staleTime: 60 * 1000,
+  });
 
   // Combined stats
   const totalRequirements =
@@ -246,7 +275,7 @@ export default function UnifiedRequirementsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="material" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             Material Requirements
@@ -263,12 +292,21 @@ export default function UnifiedRequirementsPage() {
               {(mrpStats?.processingRequirementsCount || 0) + (serviceStats?.totalServices || 0)}
             </Badge>
           </TabsTrigger>
+          <TabsTrigger value="thread" className="flex items-center gap-2">
+            <Scissors className="h-4 w-4" />
+            Thread Requirements
+            <Badge variant="secondary" className="ml-1 text-xs">
+              {(threadStats?.pending || 0) + (threadStats?.poGenerated || 0)}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
       {/* Tab Content */}
       {activeTab === 'material' ? (
         <MaterialRequirementsTab searchParams={searchParams} updateURLParams={updateURLParams} />
+      ) : activeTab === 'thread' ? (
+        <ThreadRequirementsTab searchParams={searchParams} updateURLParams={updateURLParams} />
       ) : (
         <OutsourcedWorkTab searchParams={searchParams} updateURLParams={updateURLParams} />
       )}
@@ -293,6 +331,9 @@ function MaterialRequirementsTab({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showVendorAllocation, setShowVendorAllocation] = useState(false);
   const [showBulkPOGeneration, setShowBulkPOGeneration] = useState(false);
+
+  // PO generation success banner
+  const [poGeneratedCount, setPOGeneratedCount] = useState<number | null>(null);
   const [showGeneratePO, setShowGeneratePO] = useState(false);
   const [poSupplierId, setPOSupplierId] = useState('');
   const [poDeliveryDate, setPODeliveryDate] = useState('');
@@ -502,6 +543,31 @@ function MaterialRequirementsTab({
 
   return (
     <>
+      {/* PO Generation Success Banner */}
+      {poGeneratedCount !== null && (
+        <Alert className="mb-4 bg-green-50 border-green-200">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-green-800">
+              <strong>{poGeneratedCount} Purchase Order(s) Generated</strong> — View and download from Purchase Orders.
+            </span>
+            <div className="flex gap-2 ml-4 flex-shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-green-400 text-green-700 hover:bg-green-50"
+                onClick={() => navigate('/procurement/purchase-orders')}
+              >
+                View Purchase Orders <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setPOGeneratedCount(null)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Action Bar */}
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
@@ -788,7 +854,10 @@ function MaterialRequirementsTab({
         open={showBulkPOGeneration}
         onOpenChange={setShowBulkPOGeneration}
         requirementIds={selectedIds}
-        onComplete={refreshData}
+        onComplete={(result) => {
+          refreshData();
+          if (result?.totalPOs) setPOGeneratedCount(result.totalPOs);
+        }}
       />
 
       <ConfirmDialog
@@ -968,6 +1037,347 @@ interface OutsourcedRow {
   originalProcessing?: MaterialRequirement;
   originalService?: ServiceRequirement;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Thread Requirements Tab
+// ─────────────────────────────────────────────────────────────
+
+function ThreadRequirementsTab({
+  searchParams,
+  updateURLParams,
+}: {
+  searchParams: URLSearchParams;
+  updateURLParams: (updates: Record<string, string | undefined>) => void;
+}) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  // Filters from URL
+  const search = searchParams.get('search') || '';
+  const statusFilter = searchParams.get('status') || '';
+  const page = parseInt(searchParams.get('page') || '1');
+
+  // Fetch thread requirements
+  const { data: threadData, isLoading } = useQuery<PaginatedThreadRequirements>({
+    queryKey: ['thread-requirements', { page, search, status: statusFilter }],
+    queryFn: () =>
+      getAllThreadRequirements({
+        page,
+        limit: 25,
+        search: search || undefined,
+        status: (statusFilter || undefined) as ThreadRequirementStatus | undefined,
+      }),
+    staleTime: 30 * 1000,
+  });
+
+  const requirements = threadData?.data || [];
+  const pagination = threadData?.pagination;
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [poDialogOpen, setPODialogOpen] = useState(false);
+  const [poSupplierId, setPOSupplierId] = useState('');
+  const [poDeliveryDate, setPODeliveryDate] = useState('');
+  const [poRemarks, setPORemarks] = useState('');
+  const [poGenerating, setPOGenerating] = useState(false);
+  const [availableSuppliers, setAvailableSuppliers] = useState<{ id: string; name: string; code: string }[]>([]);
+
+  // Only pending items can be selected
+  const selectableIds = requirements.filter((r) => r.status === 'PENDING').map((r) => r.id);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === selectableIds.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(selectableIds);
+    }
+  };
+
+  // Open PO dialog — fetch available suppliers
+  const handleOpenPODialog = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      const suppliers = await getThreadSuppliers(selectedIds);
+      setAvailableSuppliers(suppliers);
+      setPODialogOpen(true);
+    } catch (err: any) {
+      handleApiError(err, 'Failed to fetch suppliers');
+    }
+  };
+
+  // Generate PO
+  const handleGeneratePO = async () => {
+    if (!poSupplierId || !poDeliveryDate) return;
+    setPOGenerating(true);
+    try {
+      const result = await generateThreadPO({
+        requirementIds: selectedIds,
+        supplierId: poSupplierId,
+        expectedDeliveryDate: poDeliveryDate,
+        remarks: poRemarks || undefined,
+      });
+      handleApiSuccess('Thread PO Created', `PO created with ${result.updatedRequirements} items`);
+      setPODialogOpen(false);
+      setSelectedIds([]);
+      setPOSupplierId('');
+      setPODeliveryDate('');
+      setPORemarks('');
+      queryClient.invalidateQueries({ queryKey: ['thread-requirements'] });
+    } catch (err: any) {
+      handleApiError(err, 'Failed to generate thread PO');
+    } finally {
+      setPOGenerating(false);
+    }
+  };
+
+  const getStatusBadge = (status: ThreadRequirementStatus) => {
+    const colorMap: Record<ThreadRequirementStatus, string> = {
+      PENDING: 'bg-yellow-100 text-yellow-800',
+      PO_GENERATED: 'bg-blue-100 text-blue-800',
+      PARTIALLY_RECEIVED: 'bg-purple-100 text-purple-800',
+      RECEIVED: 'bg-green-100 text-green-800',
+      CANCELLED: 'bg-gray-100 text-gray-800',
+    };
+    return (
+      <Badge className={colorMap[status] || 'bg-gray-100 text-gray-800'}>
+        {THREAD_REQUIREMENT_STATUS_LABELS[status] || status}
+      </Badge>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Filters & Actions */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              placeholder="Search thread, order..."
+              value={search}
+              onChange={(e) => updateURLParams({ search: e.target.value || undefined, page: undefined })}
+              className="w-64"
+            />
+            <Select
+              value={statusFilter || 'all'}
+              onValueChange={(v) => updateURLParams({ status: v === 'all' ? undefined : v, page: undefined })}
+            >
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="PO_GENERATED">PO Generated</SelectItem>
+                <SelectItem value="PARTIALLY_RECEIVED">Partially Received</SelectItem>
+                <SelectItem value="RECEIVED">Received</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <div className="ml-auto flex items-center gap-2">
+              {selectedIds.length > 0 && (
+                <Button onClick={handleOpenPODialog} size="sm">
+                  <FileText className="h-4 w-4 mr-1" />
+                  Generate PO ({selectedIds.length})
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={selectableIds.length > 0 && selectedIds.length === selectableIds.length}
+                    onCheckedChange={toggleSelectAll}
+                    disabled={selectableIds.length === 0}
+                  />
+                </TableHead>
+                <TableHead>Order</TableHead>
+                <TableHead>Thread</TableHead>
+                <TableHead>Ply / Material</TableHead>
+                <TableHead>Color</TableHead>
+                <TableHead>Packaging</TableHead>
+                <TableHead className="text-right">Qty (Units)</TableHead>
+                <TableHead className="text-right">Boxes</TableHead>
+                <TableHead className="text-right">Meters</TableHead>
+                <TableHead className="text-right">Unit Price</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Supplier</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : requirements.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    No thread requirements found. Add thread requirements from the Order Detail page.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                requirements.map((req) => (
+                  <TableRow key={req.id} className={selectedIds.includes(req.id) ? 'bg-blue-50' : ''}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.includes(req.id)}
+                        onCheckedChange={() => toggleSelect(req.id)}
+                        disabled={req.status !== 'PENDING'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        className="text-blue-600 hover:underline text-sm font-medium"
+                        onClick={() => navigate(`/orders/${req.orderId}`)}
+                      >
+                        {req.orderNumber || req.orderId.slice(0, 8)}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm font-medium">{req.threadCode}</div>
+                      <div className="text-xs text-muted-foreground">{req.threadName}</div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {THREAD_PLY_LABELS[req.ply]} / {THREAD_MATERIAL_LABELS[req.materialComposition]}
+                    </TableCell>
+                    <TableCell className="text-sm">{req.colorName}</TableCell>
+                    <TableCell className="text-sm">
+                      {THREAD_PACKAGING_LABELS[req.packagingType] || req.packagingType}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm">{req.totalUnits}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{req.totalBoxes}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{req.totalMeters.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">
+                      {req.unitPrice ? formatCurrency(req.unitPrice) : '-'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm">
+                      {req.totalCost ? formatCurrency(req.totalCost) : '-'}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(req.status)}</TableCell>
+                    <TableCell className="text-sm">{req.supplierName || '-'}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Pagination */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            Showing {(pagination.page - 1) * pagination.limit + 1}-
+            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page <= 1}
+              onClick={() => updateURLParams({ page: String(pagination.page - 1) })}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => updateURLParams({ page: String(pagination.page + 1) })}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Generate PO Dialog */}
+      <Dialog open={poDialogOpen} onOpenChange={setPODialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate Thread Purchase Order</DialogTitle>
+            <DialogDescription>Create a PO for {selectedIds.length} selected thread requirement(s).</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Supplier</Label>
+              {availableSuppliers.length === 0 ? (
+                <Alert className="mt-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    No common supplier found for all selected threads. Ensure each thread has the supplier linked in
+                    Thread Master.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Select value={poSupplierId} onValueChange={setPOSupplierId}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSuppliers.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.code} - {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div>
+              <Label>Expected Delivery Date</Label>
+              <Input
+                type="date"
+                value={poDeliveryDate}
+                onChange={(e) => setPODeliveryDate(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Remarks (optional)</Label>
+              <Textarea
+                value={poRemarks}
+                onChange={(e) => setPORemarks(e.target.value)}
+                placeholder="Additional notes..."
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPODialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGeneratePO} disabled={!poSupplierId || !poDeliveryDate || poGenerating}>
+              {poGenerating ? 'Generating...' : 'Generate PO'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Outsourced Work Tab
+// ─────────────────────────────────────────────────────────────
 
 function OutsourcedWorkTab({
   searchParams,

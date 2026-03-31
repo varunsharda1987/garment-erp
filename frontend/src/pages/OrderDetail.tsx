@@ -544,6 +544,7 @@ export default function OrderDetail() {
             onReviewBOM: handleReviewBOM,
             onCalculateMRP: handleCalculateMRP,
             onViewMRP: handleViewMRP,
+            onViewPOs: () => navigate(`/procurement/purchase-orders?orderId=${order.id}`),
           },
           {
             bom: creatingBom,

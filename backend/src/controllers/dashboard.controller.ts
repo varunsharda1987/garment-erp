@@ -2,51 +2,212 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ProductionStage } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { logError } from '../utils/logger';
 
 /**
  * Get dashboard summary with real production counts
+ * Queries actual operational tables instead of the placeholder style_production_tracking table.
  * GET /api/dashboard/summary
  */
 export const getDashboardSummary = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Single query to get counts for all stages using groupBy
-    const stageCounts = await prisma.style_production_tracking.groupBy({
-      by: ['currentStage'],
-      _sum: { piecesInStage: true },
-      _count: { id: true },
-    });
+    const activeOrderFilter = {
+      status: { notIn: ['COMPLETED' as const, 'CANCELLED' as const, 'DISPATCHED' as const] },
+    };
 
-    // Create a map for easy lookup
-    const stageMap = new Map<string, { styles: number; pieces: number }>();
-    for (const stage of stageCounts) {
-      stageMap.set(stage.currentStage, {
-        styles: stage._count.id,
-        pieces: stage._sum.piecesInStage || 0,
+    const [
+      // Pre-production
+      pendingOrders,
+      pendingCostingItems,
+      pendingGreigeReqs,
+      pendingTrimsReqs,
+      // Processing — single groupBy for all 4 service types
+      processingServices,
+      // Production — styles counts (distinct work orders)
+      cuttingWOs,
+      stitchingWOs,
+      finishingWOs,
+      // Production — pieces counts
+      cuttingPieces,
+      stitchingPieces,
+      finishingPieces,
+      // Ready to ship
+      readyToShipStock,
+    ] = await Promise.all([
+      // ── Pre-Production ──────────────────────────────────────
+
+      // 1. Orders Received: PENDING orders
+      prisma.orders.aggregate({
+        where: { status: 'PENDING' },
+        _count: { id: true },
+        _sum: { totalQuantity: true },
+      }),
+
+      // 2. Pending Costing: active order items whose style has no approved cost sheet
+      prisma.order_items.findMany({
+        where: {
+          orders: activeOrderFilter,
+          styles: { style_costing: { none: { isApproved: true } } },
+        },
+        select: { styleId: true, totalQuantity: true },
+      }),
+
+      // 3. Pending Greige: material requirements for greige/fabric that still need POs
+      prisma.material_requirements.findMany({
+        where: {
+          requirementType: 'MATERIAL',
+          status: { in: ['PENDING', 'PO_REQUIRED'] },
+          materials: { materialType: { in: ['GREIGE_FABRIC', 'GREIGE', 'FABRIC'] } },
+          orders: activeOrderFilter,
+        },
+        select: { orderId: true, totalRequired: true },
+      }),
+
+      // 4. Trims Not Ordered: material requirements for trims that still need POs
+      prisma.material_requirements.findMany({
+        where: {
+          requirementType: 'MATERIAL',
+          status: { in: ['PENDING', 'PO_REQUIRED'] },
+          materials: { materialType: { notIn: ['GREIGE_FABRIC', 'GREIGE', 'FABRIC', 'FINISHED_FABRIC', 'SERVICE'] } },
+          orders: activeOrderFilter,
+        },
+        select: { orderId: true, totalRequired: true },
+      }),
+
+      // ── Processing Stages ───────────────────────────────────
+
+      // 5. All processing service requirements in one query
+      prisma.work_order_service_requirements.groupBy({
+        by: ['serviceType'],
+        where: {
+          serviceType: { in: ['PRINTING', 'DYEING', 'EMBROIDERY', 'HANDWORK'] },
+          status: 'IN_PROGRESS',
+        },
+        _count: { id: true },
+        _sum: { quantityRequired: true },
+      }),
+
+      // ── Production Stages (styles = distinct work orders) ──
+
+      // 6. Cutting — distinct work orders
+      prisma.cutting_batches.findMany({
+        where: { status: 'IN_PROGRESS' },
+        select: { workOrderId: true },
+        distinct: ['workOrderId'],
+      }),
+
+      // 7. Stitching — distinct work orders
+      prisma.stitching_issues.findMany({
+        where: { status: 'IN_PROGRESS' },
+        select: { workOrderId: true },
+        distinct: ['workOrderId'],
+      }),
+
+      // 8. Finishing — distinct work orders
+      prisma.finishing_issues.findMany({
+        where: { status: { in: ['IN_PROGRESS', 'PACKING'] } },
+        select: { workOrderId: true },
+        distinct: ['workOrderId'],
+      }),
+
+      // ── Production Stages (pieces) ─────────────────────────
+
+      // 9. Cutting pieces
+      prisma.cutting_batch_skus.aggregate({
+        where: { cuttingBatch: { status: 'IN_PROGRESS' } },
+        _sum: { toCut: true },
+      }),
+
+      // 10. Stitching pieces
+      prisma.stitching_issue_skus.aggregate({
+        where: { stitchingIssue: { status: 'IN_PROGRESS' } },
+        _sum: { issuedQty: true },
+      }),
+
+      // 11. Finishing pieces
+      prisma.finishing_issue_skus.aggregate({
+        where: { finishingIssue: { status: { in: ['IN_PROGRESS', 'PACKING'] } } },
+        _sum: { issuedQty: true },
+      }),
+
+      // 12. Ready to ship — finished goods with stock
+      prisma.finished_goods_stock.groupBy({
+        by: ['styleId'],
+        where: { quantity: { gt: 0 } },
+        _sum: { quantity: true },
+      }),
+    ]);
+
+    // ── Build response ──────────────────────────────────────
+
+    // Pre-production: compute distinct counts from raw rows
+    const distinctStyles = (items: { styleId: string; totalQuantity: number }[]) => {
+      const seen = new Set<string>();
+      let pieces = 0;
+      for (const item of items) {
+        seen.add(item.styleId);
+        pieces += item.totalQuantity;
+      }
+      return { styleCount: seen.size, pieces };
+    };
+
+    const distinctOrders = (reqs: { orderId: string | null; totalRequired: Decimal | null }[]) => {
+      const seen = new Set<string>();
+      let pieces = 0;
+      for (const req of reqs) {
+        if (req.orderId) seen.add(req.orderId);
+        pieces += req.totalRequired ? Number(req.totalRequired) : 0;
+      }
+      return { styleCount: seen.size, pieces: Math.round(pieces) };
+    };
+
+    // Processing: build lookup from groupBy result
+    const procMap = new Map<string, { styleCount: number; pieces: number }>();
+    for (const row of processingServices) {
+      procMap.set(row.serviceType, {
+        styleCount: row._count.id,
+        pieces: Math.round(Number(row._sum.quantityRequired || 0)),
       });
     }
+    const getProc = (type: string) => procMap.get(type) || { styleCount: 0, pieces: 0 };
 
-    // Helper to get stage data with defaults
-    const getStageData = (stage: ProductionStage) => stageMap.get(stage) || { styles: 0, pieces: 0 };
+    // Ready to ship totals
+    const readyToShipPieces = readyToShipStock.reduce((acc, row) => acc + (row._sum.quantity || 0), 0);
 
     const summary = {
       preProduction: {
-        ordersReceived: getStageData(ProductionStage.ORDER_RECEIVED),
-        pendingCosting: getStageData(ProductionStage.PENDING_COSTING),
-        pendingGreige: getStageData(ProductionStage.PENDING_GREIGE_ORDER),
-        trimsNotOrdered: getStageData(ProductionStage.TRIMS_NOT_ORDERED),
+        ordersReceived: {
+          styleCount: pendingOrders._count.id,
+          pieces: pendingOrders._sum.totalQuantity || 0,
+        },
+        pendingCosting: distinctStyles(pendingCostingItems),
+        pendingGreige: distinctOrders(pendingGreigeReqs),
+        trimsNotOrdered: distinctOrders(pendingTrimsReqs),
       },
       processing: {
-        inPrinting: getStageData(ProductionStage.IN_PRINTING),
-        inDying: getStageData(ProductionStage.IN_DYING),
-        inEmbroidery: getStageData(ProductionStage.IN_EMBROIDERY),
-        inHandwork: getStageData(ProductionStage.IN_HANDWORK),
+        inPrinting: getProc('PRINTING'),
+        inDying: getProc('DYEING'),
+        inEmbroidery: getProc('EMBROIDERY'),
+        inHandwork: getProc('HANDWORK'),
       },
       production: {
-        inCutting: getStageData(ProductionStage.IN_CUTTING),
-        inStitching: getStageData(ProductionStage.IN_STITCHING),
-        inFinishing: getStageData(ProductionStage.IN_FINISHING),
-        readyToShip: getStageData(ProductionStage.READY_TO_SHIP),
+        inCutting: {
+          styleCount: cuttingWOs.length,
+          pieces: cuttingPieces._sum.toCut || 0,
+        },
+        inStitching: {
+          styleCount: stitchingWOs.length,
+          pieces: stitchingPieces._sum.issuedQty || 0,
+        },
+        inFinishing: {
+          styleCount: finishingWOs.length,
+          pieces: finishingPieces._sum.issuedQty || 0,
+        },
+        readyToShip: {
+          styleCount: readyToShipStock.length,
+          pieces: readyToShipPieces,
+        },
       },
     };
 
@@ -62,6 +223,7 @@ export const getDashboardSummary = async (req: Request, res: Response): Promise<
 
 /**
  * Get styles in a specific production stage (for drill-down)
+ * Queries real operational tables based on the stage parameter.
  * GET /api/dashboard/stage/:stage
  */
 export const getStylesByStage = async (req: Request, res: Response): Promise<void> => {
@@ -77,30 +239,169 @@ export const getStylesByStage = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const trackingRecords = await prisma.style_production_tracking.findMany({
-      where: {
-        currentStage: stage as ProductionStage,
-        piecesInStage: { gt: 0 },
-      },
-      include: {
-        styles: {
-          include: {
-            style_components: true,
-            style_processes: true,
-            style_costing: true,
-          },
-        },
-      },
-    });
+    const styleInclude = {
+      style_components: true,
+      style_processes: true,
+      style_costing: true,
+    } as const;
 
-    const styles = trackingRecords.map((record) => ({
-      ...record.styles,
-      productionInfo: {
-        piecesInStage: record.piecesInStage,
-        sizeName: record.sizeName,
-        lastUpdated: record.lastUpdatedDate,
-      },
-    }));
+    const activeOrderFilter = {
+      status: { notIn: ['COMPLETED' as const, 'CANCELLED' as const, 'DISPATCHED' as const] },
+    };
+
+    let styles: unknown[] = [];
+
+    switch (stage as ProductionStage) {
+      case ProductionStage.ORDER_RECEIVED: {
+        const items = await prisma.order_items.findMany({
+          where: { orders: { status: 'PENDING' } },
+          include: {
+            styles: { include: styleInclude },
+            orders: { select: { orderNumber: true, totalQuantity: true } },
+          },
+        });
+        styles = items.map((item) => ({
+          ...item.styles,
+          productionInfo: { piecesInStage: item.totalQuantity, orderNumber: item.orders.orderNumber },
+        }));
+        break;
+      }
+
+      case ProductionStage.PENDING_COSTING: {
+        const items = await prisma.order_items.findMany({
+          where: {
+            orders: activeOrderFilter,
+            styles: { style_costing: { none: { isApproved: true } } },
+          },
+          include: { styles: { include: styleInclude } },
+        });
+        styles = items.map((item) => ({
+          ...item.styles,
+          productionInfo: { piecesInStage: item.totalQuantity },
+        }));
+        break;
+      }
+
+      case ProductionStage.PENDING_GREIGE_ORDER: {
+        const reqs = await prisma.material_requirements.findMany({
+          where: {
+            requirementType: 'MATERIAL',
+            status: { in: ['PENDING', 'PO_REQUIRED'] },
+            materials: { materialType: { in: ['GREIGE_FABRIC', 'GREIGE', 'FABRIC'] } },
+            orders: activeOrderFilter,
+          },
+          include: { orders: { include: { order_items: { include: { styles: { include: styleInclude } } } } } },
+        });
+        styles = reqs
+          .filter((r) => r.orders?.order_items?.[0]?.styles)
+          .map((r) => ({
+            ...r.orders!.order_items[0].styles,
+            productionInfo: { piecesInStage: Number(r.totalRequired) },
+          }));
+        break;
+      }
+
+      case ProductionStage.TRIMS_NOT_ORDERED: {
+        const reqs = await prisma.material_requirements.findMany({
+          where: {
+            requirementType: 'MATERIAL',
+            status: { in: ['PENDING', 'PO_REQUIRED'] },
+            materials: { materialType: { notIn: ['GREIGE_FABRIC', 'GREIGE', 'FABRIC', 'FINISHED_FABRIC', 'SERVICE'] } },
+            orders: activeOrderFilter,
+          },
+          include: { orders: { include: { order_items: { include: { styles: { include: styleInclude } } } } } },
+        });
+        styles = reqs
+          .filter((r) => r.orders?.order_items?.[0]?.styles)
+          .map((r) => ({
+            ...r.orders!.order_items[0].styles,
+            productionInfo: { piecesInStage: Number(r.totalRequired) },
+          }));
+        break;
+      }
+
+      case ProductionStage.IN_PRINTING:
+      case ProductionStage.IN_DYING:
+      case ProductionStage.IN_EMBROIDERY:
+      case ProductionStage.IN_HANDWORK: {
+        const serviceTypeMap: Record<string, string> = {
+          IN_PRINTING: 'PRINTING',
+          IN_DYING: 'DYEING',
+          IN_EMBROIDERY: 'EMBROIDERY',
+          IN_HANDWORK: 'HANDWORK',
+        };
+        const serviceType = serviceTypeMap[stage];
+        const reqs = await prisma.work_order_service_requirements.findMany({
+          where: { serviceType: serviceType as never, status: 'IN_PROGRESS' },
+          include: { workOrder: { include: { styles: { include: styleInclude } } } },
+        });
+        styles = reqs.map((r) => ({
+          ...r.workOrder.styles,
+          productionInfo: { piecesInStage: Number(r.quantityRequired) },
+        }));
+        break;
+      }
+
+      case ProductionStage.IN_CUTTING: {
+        const batches = await prisma.cutting_batches.findMany({
+          where: { status: 'IN_PROGRESS' },
+          include: {
+            workOrder: { include: { styles: { include: styleInclude } } },
+            skuOutputs: { select: { toCut: true } },
+          },
+        });
+        styles = batches.map((b) => ({
+          ...b.workOrder.styles,
+          productionInfo: { piecesInStage: b.skuOutputs.reduce((sum, s) => sum + s.toCut, 0) },
+        }));
+        break;
+      }
+
+      case ProductionStage.IN_STITCHING: {
+        const issues = await prisma.stitching_issues.findMany({
+          where: { status: 'IN_PROGRESS' },
+          include: {
+            workOrder: { include: { styles: { include: styleInclude } } },
+            skuBreakdown: { select: { issuedQty: true } },
+          },
+        });
+        styles = issues.map((i) => ({
+          ...i.workOrder.styles,
+          productionInfo: { piecesInStage: i.skuBreakdown.reduce((sum, s) => sum + s.issuedQty, 0) },
+        }));
+        break;
+      }
+
+      case ProductionStage.IN_FINISHING: {
+        const issues = await prisma.finishing_issues.findMany({
+          where: { status: { in: ['IN_PROGRESS', 'PACKING'] } },
+          include: {
+            workOrder: { include: { styles: { include: styleInclude } } },
+            skuBreakdown: { select: { issuedQty: true } },
+          },
+        });
+        styles = issues.map((i) => ({
+          ...i.workOrder.styles,
+          productionInfo: { piecesInStage: i.skuBreakdown.reduce((sum, s) => sum + s.issuedQty, 0) },
+        }));
+        break;
+      }
+
+      case ProductionStage.READY_TO_SHIP: {
+        const stock = await prisma.finished_goods_stock.findMany({
+          where: { quantity: { gt: 0 } },
+          include: { styles: { include: styleInclude } },
+        });
+        styles = stock.map((s) => ({
+          ...s.styles,
+          productionInfo: { piecesInStage: s.quantity },
+        }));
+        break;
+      }
+
+      default:
+        styles = [];
+    }
 
     res.status(200).json({ data: styles });
   } catch (error) {

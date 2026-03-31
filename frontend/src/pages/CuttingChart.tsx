@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,7 +14,8 @@ import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.s
 import type { CuttingChartData, CuttingChartFabric, CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getUploadUrl } from '@/config/api.config';
-import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 
 interface AvailableWorkOrder {
   id: string;
@@ -48,8 +49,11 @@ export default function CuttingChart() {
   // Cutting parameters (editable)
   const [extraPercent, setExtraPercent] = useState(1);
   const [cuttingDate, setCuttingDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedLots, setSelectedLots] = useState<Record<string, string>>({});
+  const [selectedLots, setSelectedLots] = useState<Record<string, string[]>>({});
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+
+  // Manual cut qty per size (user can override calculated quantities)
+  const [manualCutQty, setManualCutQty] = useState<Record<string, number>>({});
 
   // Load available work orders
   useEffect(() => {
@@ -83,16 +87,38 @@ export default function CuttingChart() {
     }
   };
 
-  // Calculate cut quantities with extra %
+  // Calculate cut quantities — use manual override if set, else extra%
   const sizesWithCutQty = useMemo(() => {
     if (!chartData) return [];
     return chartData.sizes.map((s) => ({
       ...s,
-      cutQty: Math.ceil(s.orderQty * (1 + extraPercent / 100)),
+      cutQty: manualCutQty[s.sizeId] ?? Math.ceil(s.orderQty * (1 + extraPercent / 100)),
     }));
-  }, [chartData, extraPercent]);
+  }, [chartData, extraPercent, manualCutQty]);
 
   const totalCutQty = sizesWithCutQty.reduce((sum, s) => sum + s.cutQty, 0);
+
+  // Whether total cut exceeds max cuttable
+  const exceedsMaxCuttable = chartData ? totalCutQty > chartData.maxCuttablePcs : false;
+
+  // Auto-fill cut qty proportionally to max cuttable
+  const fillProportionalToMax = () => {
+    if (!chartData) return;
+    const maxPcs = chartData.maxCuttablePcs;
+    const newManual: Record<string, number> = {};
+    let distributed = 0;
+    chartData.sizes.forEach((s, idx) => {
+      if (idx < chartData.sizes.length - 1) {
+        const qty = Math.floor((s.ratio / 100) * maxPcs);
+        newManual[s.sizeId] = qty;
+        distributed += qty;
+      } else {
+        // Last size gets remainder to avoid rounding gaps
+        newManual[s.sizeId] = maxPcs - distributed;
+      }
+    });
+    setManualCutQty(newManual);
+  };
 
   // Check if all fabrics have PRODUCTION CAD (width + average)
   const fabricsMissingCAD = useMemo(() => {
@@ -101,6 +127,16 @@ export default function CuttingChart() {
   }, [chartData]);
   const hasProductionCAD = fabricsMissingCAD.length === 0;
 
+  // Check if fabrics have stock issues (no lots or shortage)
+  const fabricsWithNoStock = useMemo(() => {
+    if (!chartData?.fabrics) return [];
+    return chartData.fabrics.filter((f) => f.lots.length === 0);
+  }, [chartData]);
+  const fabricsWithShortage = useMemo(() => {
+    if (!chartData?.fabricDetails) return [];
+    return chartData.fabricDetails.filter((fd) => fd.extraShortage < 0);
+  }, [chartData]);
+
   // Handle batch creation — one batch per selected fabric lot
   const handleCreateBatch = async () => {
     if (!chartData) return;
@@ -108,10 +144,10 @@ export default function CuttingChart() {
     const fabricsWithLots = chartData.fabrics.filter((f) => f.lots.length > 0);
     const getFabricKey = (f: CuttingChartFabric) => f.fabricId || f.part;
 
-    // Validate all fabrics with lots have a selection
-    const missing = fabricsWithLots.filter((f) => !selectedLots[getFabricKey(f)]);
+    // Validate all fabrics with lots have at least one selection
+    const missing = fabricsWithLots.filter((f) => !selectedLots[getFabricKey(f)]?.length);
     if (fabricsWithLots.length > 0 && missing.length > 0) {
-      handleApiError(null, `Please select a lot for: ${missing.map((f) => f.part).join(', ')}`);
+      handleApiError(null, `Please select at least one lot for: ${missing.map((f) => f.part).join(', ')}`);
       return;
     }
     if (fabricsWithLots.length === 0) {
@@ -127,7 +163,8 @@ export default function CuttingChart() {
 
       // Primary fabric (first one) drives the main batch fields
       const primaryFabric = fabricsWithLots[0];
-      const primaryLotId = selectedLots[getFabricKey(primaryFabric)];
+      const primaryLotIds = selectedLots[getFabricKey(primaryFabric)] || [];
+      const primaryLotId = primaryLotIds[0];
       const primaryLot = primaryFabric.lots.find((l) => l.lotId === primaryLotId);
       const primaryCadAvg =
         primaryFabric.productionAverage || primaryFabric.rawMatCalcAverage || primaryFabric.costingAverage || 0;
@@ -150,16 +187,18 @@ export default function CuttingChart() {
             sizeId: s.sizeId,
             plannedQty: s.cutQty,
           })),
-        // All fabrics (including primary) stored in junction table
-        fabricStocks: fabricsWithLots.map((fabric) => {
-          const lotId = selectedLots[getFabricKey(fabric)];
-          const lot = fabric.lots.find((l) => l.lotId === lotId);
-          return {
-            fabricStockId: lotId,
-            cadAvgUsed: fabric.productionAverage || fabric.rawMatCalcAverage || fabric.costingAverage || 0,
-            cadWidthUsed: fabric.productionWidth || fabric.rawMatCalcWidth || fabric.costingWidth || 0,
-            actualWidth: lot?.actualWidth || 0,
-          };
+        // All selected lots across all fabrics stored in junction table
+        fabricStocks: fabricsWithLots.flatMap((fabric) => {
+          const lotIds = selectedLots[getFabricKey(fabric)] || [];
+          return lotIds.map((lotId) => {
+            const lot = fabric.lots.find((l) => l.lotId === lotId);
+            return {
+              fabricStockId: lotId,
+              cadAvgUsed: fabric.productionAverage || fabric.rawMatCalcAverage || fabric.costingAverage || 0,
+              cadWidthUsed: fabric.productionWidth || fabric.rawMatCalcWidth || fabric.costingWidth || 0,
+              actualWidth: lot?.actualWidth || 0,
+            };
+          });
         }),
       };
 
@@ -366,15 +405,25 @@ export default function CuttingChart() {
           <Card>
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Size Breakup</CardTitle>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-normal text-gray-500">Extra %:</Label>
-                <Input
-                  type="number"
-                  className="w-20 h-8"
-                  step="0.5"
-                  value={extraPercent}
-                  onChange={(e) => setExtraPercent(parseFloat(e.target.value) || 0)}
-                />
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-normal text-gray-500">Extra %:</Label>
+                  <Input
+                    type="number"
+                    className="w-20 h-8"
+                    step="0.5"
+                    value={extraPercent}
+                    onChange={(e) => {
+                      setExtraPercent(parseFloat(e.target.value) || 0);
+                      setManualCutQty({}); // Reset manual overrides when extra% changes
+                    }}
+                  />
+                </div>
+                {chartData && chartData.maxCuttablePcs < chartData.totalOrderQty && (
+                  <Button size="sm" variant="outline" onClick={fillProportionalToMax}>
+                    Fill to Max ({chartData.maxCuttablePcs})
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -420,12 +469,26 @@ export default function CuttingChart() {
                       <TableRow className="bg-orange-50">
                         <TableCell className="font-semibold text-orange-700">Cut Qty</TableCell>
                         {sizesWithCutQty.map((s) => (
-                          <TableCell key={s.sizeId} className="text-center font-semibold text-orange-700">
-                            {s.cutQty}
+                          <TableCell key={s.sizeId} className="text-center p-1">
+                            <Input
+                              type="number"
+                              min={0}
+                              className="w-16 h-7 text-center font-semibold text-orange-700 mx-auto"
+                              value={s.cutQty}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setManualCutQty((prev) => ({ ...prev, [s.sizeId]: val }));
+                              }}
+                            />
                           </TableCell>
                         ))}
-                        <TableCell className="text-center font-bold text-orange-700">
+                        <TableCell
+                          className={`text-center font-bold ${exceedsMaxCuttable ? 'text-red-600' : 'text-orange-700'}`}
+                        >
                           {totalCutQty.toLocaleString()}
+                          {exceedsMaxCuttable && chartData && (
+                            <div className="text-xs font-normal">max: {chartData.maxCuttablePcs}</div>
+                          )}
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -434,6 +497,119 @@ export default function CuttingChart() {
               )}
             </CardContent>
           </Card>
+
+          {/* Fabric Stock Analysis Panel */}
+          {chartData.fabricAnalysis && chartData.fabricAnalysis.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <span>Fabric Stock Analysis</span>
+                  <div className="flex items-center gap-4 text-sm font-normal">
+                    <span className="text-gray-500">
+                      Order: <strong className="text-gray-900">{chartData.totalOrderQty} pcs</strong>
+                    </span>
+                    <span className="text-gray-500">
+                      Pending: <strong className="text-gray-900">{chartData.pendingCutQty} pcs</strong>
+                    </span>
+                    <span
+                      className={
+                        chartData.maxCuttablePcs >= chartData.pendingCutQty ? 'text-green-700' : 'text-amber-700'
+                      }
+                    >
+                      Max Cuttable: <strong>{chartData.maxCuttablePcs} pcs</strong>
+                      {chartData.bottleneckFabric && chartData.maxCuttablePcs < chartData.pendingCutQty && (
+                        <span className="text-xs ml-1">(limited by {chartData.bottleneckFabric})</span>
+                      )}
+                    </span>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Part</TableHead>
+                      <TableHead>Fabric</TableHead>
+                      <TableHead className="text-right">CAD Avg (m)</TableHead>
+                      <TableHead className="text-right">Stock (m)</TableHead>
+                      <TableHead className="text-right">Max Pcs</TableHead>
+                      <TableHead className="text-right">Need (m)</TableHead>
+                      <TableHead className="text-right">Short (m)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {chartData.fabricAnalysis.map((fa, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{fa.part}</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={fa.fabricName}>
+                          {fa.fabricName || '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {fa.cadSet ? (
+                            fa.cadAverage.toFixed(2)
+                          ) : (
+                            <span className="text-amber-600 text-xs">CAD not set</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">{fa.availableStock.toFixed(1)}</TableCell>
+                        <TableCell
+                          className={`text-right font-medium ${
+                            fa.maxPcsFromStock !== null && fa.maxPcsFromStock < chartData.pendingCutQty
+                              ? 'text-red-600'
+                              : 'text-green-600'
+                          }`}
+                        >
+                          {fa.maxPcsFromStock !== null ? fa.maxPcsFromStock.toLocaleString() : '—'}
+                          {fa.part === chartData.bottleneckFabric && <span className="ml-1 text-xs">⚠</span>}
+                        </TableCell>
+                        <TableCell className="text-right">{fa.requiredForOrder.toFixed(1)}</TableCell>
+                        <TableCell
+                          className={`text-right font-medium ${fa.shortfallMeters > 0 ? 'text-red-600' : 'text-green-600'}`}
+                        >
+                          {fa.shortfallMeters > 0 ? fa.shortfallMeters.toFixed(1) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No fabric issued warning */}
+          {chartData.fabrics.length > 0 && chartData.fabrics.every((f) => f.lots.length === 0) && (
+            <Alert className="bg-blue-50 border-blue-200">
+              <AlertTriangle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                No fabric has been issued to cutting for this work order. Please issue fabric from the{' '}
+                <strong>Production Run</strong> page first.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Fabric Stock Warning */}
+          {(fabricsWithNoStock.length > 0 || fabricsWithShortage.length > 0) && (
+            <Alert className="bg-amber-50 border-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                {fabricsWithNoStock.length > 0 && (
+                  <span>
+                    <strong>No fabric stock available</strong> for: {fabricsWithNoStock.map((f) => f.part).join(', ')}
+                    .{' '}
+                  </span>
+                )}
+                {fabricsWithShortage.length > 0 && (
+                  <span>
+                    <strong>Fabric shortage</strong> for:{' '}
+                    {fabricsWithShortage.map((fd) => `${fd.part} (${fd.extraShortage.toFixed(1)}m)`).join(', ')}.{' '}
+                  </span>
+                )}
+                <span className="text-amber-700">
+                  Ensure fabric is available via stock entry or GRN before cutting.
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Fabric Details */}
           {chartData.fabricDetails.length > 0 ? (
@@ -574,30 +750,36 @@ export default function CuttingChart() {
                             <Separator className="mb-3" />
                           </>
                         )}
-                        <RadioGroup
-                          value={selectedLots[fabricKey] || ''}
-                          onValueChange={(lotId) => setSelectedLots((prev) => ({ ...prev, [fabricKey]: lotId }))}
-                        >
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-10"></TableHead>
-                                <TableHead>Lot #</TableHead>
-                                <TableHead>Roll Numbers</TableHead>
-                                <TableHead className="text-center">Prod Width</TableHead>
-                                <TableHead className="text-right">Available (m)</TableHead>
-                                <TableHead>Grade</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {fabric.lots.map((lot) => (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-10"></TableHead>
+                              <TableHead>Lot #</TableHead>
+                              <TableHead>Roll Numbers</TableHead>
+                              <TableHead className="text-center">Prod Width</TableHead>
+                              <TableHead className="text-right">Available (m)</TableHead>
+                              <TableHead>Grade</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {fabric.lots.map((lot) => {
+                              const isSelected = (selectedLots[fabricKey] || []).includes(lot.lotId);
+                              return (
                                 <TableRow
                                   key={lot.lotId}
-                                  className={`cursor-pointer ${selectedLots[fabricKey] === lot.lotId ? 'bg-orange-50' : ''}`}
-                                  onClick={() => setSelectedLots((prev) => ({ ...prev, [fabricKey]: lot.lotId }))}
+                                  className={`cursor-pointer ${isSelected ? 'bg-orange-50' : ''}`}
+                                  onClick={() =>
+                                    setSelectedLots((prev) => {
+                                      const current = prev[fabricKey] || [];
+                                      const updated = current.includes(lot.lotId)
+                                        ? current.filter((id) => id !== lot.lotId)
+                                        : [...current, lot.lotId];
+                                      return { ...prev, [fabricKey]: updated };
+                                    })
+                                  }
                                 >
                                   <TableCell>
-                                    <RadioGroupItem value={lot.lotId} />
+                                    <Checkbox checked={isSelected} />
                                   </TableCell>
                                   <TableCell className="font-medium">Lot {lot.lotNumber}</TableCell>
                                   <TableCell>{lot.rollNumbers || '-'}</TableCell>
@@ -611,10 +793,10 @@ export default function CuttingChart() {
                                     </Badge>
                                   </TableCell>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </RadioGroup>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
                       </div>
                     );
                   })}

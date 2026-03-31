@@ -139,6 +139,94 @@ export async function generateStyleSpecificSKU(req: Request, res: Response) {
   });
 }
 
+// ==================== CROSS-ORDER ENDPOINTS ====================
+
+/**
+ * GET /api/thread-requirements
+ * Get all thread requirements across orders (for UnifiedRequirementsPage)
+ */
+export async function getAllRequirements(req: Request, res: Response) {
+  const { page, limit, search, status, orderId } = req.query;
+
+  const result = await orderThreadRequirementService.getAllRequirements({
+    page: page ? parseInt(page as string) : undefined,
+    limit: limit ? parseInt(limit as string) : undefined,
+    search: search as string,
+    status: status as any,
+    orderId: orderId as string,
+  });
+
+  res.json({
+    success: true,
+    ...result,
+  });
+}
+
+/**
+ * GET /api/thread-requirements/stats
+ * Get dashboard stats for thread requirements
+ */
+export async function getStats(req: Request, res: Response) {
+  const stats = await orderThreadRequirementService.getStats();
+
+  res.json({
+    success: true,
+    data: stats,
+  });
+}
+
+/**
+ * POST /api/thread-requirements/generate-po
+ * Generate PO from selected thread requirements
+ */
+export async function generatePO(req: Request, res: Response) {
+  const { requirementIds, supplierId, expectedDeliveryDate, remarks } = req.body;
+  const createdById = (req as any).user?.id || 'system';
+
+  if (!requirementIds?.length || !supplierId || !expectedDeliveryDate) {
+    return res.status(400).json({
+      success: false,
+      message: 'requirementIds, supplierId, and expectedDeliveryDate are required',
+    });
+  }
+
+  const result = await orderThreadRequirementService.generatePOFromRequirements({
+    requirementIds,
+    supplierId,
+    expectedDeliveryDate: new Date(expectedDeliveryDate),
+    createdById,
+    remarks,
+  });
+
+  res.status(201).json({
+    success: true,
+    data: result,
+    message: `Thread PO created with ${result.updatedRequirements} items`,
+  });
+}
+
+/**
+ * POST /api/thread-requirements/available-suppliers
+ * Get suppliers available for a set of thread requirements
+ */
+export async function getAvailableSuppliers(req: Request, res: Response) {
+  const { requirementIds } = req.body;
+
+  if (!requirementIds?.length) {
+    return res.status(400).json({
+      success: false,
+      message: 'requirementIds is required',
+    });
+  }
+
+  const suppliers = await orderThreadRequirementService.getAvailableSuppliers(requirementIds);
+
+  res.json({
+    success: true,
+    data: suppliers,
+  });
+}
+
 export default {
   createThreadRequirement,
   getThreadRequirements,
@@ -147,4 +235,8 @@ export default {
   deleteThreadRequirement,
   checkShortages,
   generateStyleSpecificSKU,
+  getAllRequirements,
+  getStats,
+  generatePO,
+  getAvailableSuppliers,
 };

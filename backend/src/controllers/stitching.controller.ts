@@ -1053,3 +1053,63 @@ export const getAvailableManagers = async (req: Request, res: Response) => {
 
   res.json({ data: contractors });
 };
+
+/**
+ * @route POST /api/stitching/issues/:id/dispose-defects
+ * @desc Record defect disposition (REWORK or SCRAP) for defective pieces
+ */
+export const disposeDefects = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+  const { disposition, remarks } = req.body as {
+    disposition: 'REWORK' | 'SCRAP';
+    remarks?: string;
+  };
+
+  if (!disposition || !['REWORK', 'SCRAP'].includes(disposition)) {
+    throw new ValidationError('Disposition must be REWORK or SCRAP');
+  }
+
+  const issue = await prisma.stitching_issues.findUnique({
+    where: { id },
+    include: {
+      dailyOutputs: {
+        include: { skuOutputs: true },
+      },
+    },
+  });
+  if (!issue) throw new NotFoundError('Stitching issue', id);
+
+  // Calculate total defects
+  let totalDefects = 0;
+  for (const output of issue.dailyOutputs) {
+    for (const sku of output.skuOutputs) {
+      totalDefects += sku.defectQty;
+    }
+  }
+
+  if (totalDefects === 0) {
+    throw new ValidationError('No defects to dispose');
+  }
+
+  // Update issue remarks with disposition record
+  const dispositionNote = `[${new Date().toISOString().split('T')[0]}] ${totalDefects} defective pcs marked as ${disposition}. ${remarks || ''}`;
+  const existingRemarks = issue.remarks || '';
+
+  await prisma.stitching_issues.update({
+    where: { id },
+    data: {
+      remarks: existingRemarks ? `${existingRemarks}\n${dispositionNote}` : dispositionNote,
+    },
+  });
+
+  res.json({
+    data: {
+      disposition,
+      totalDefects,
+      message: `${totalDefects} defective pieces marked as ${disposition}`,
+    },
+  });
+};

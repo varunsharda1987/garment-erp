@@ -99,7 +99,7 @@ export function OrderWorkflowTracker({ steps, className }: OrderWorkflowTrackerP
                   </div>
                   <span className={cn('mt-2 text-sm font-medium', styles.text)}>{step.label}</span>
                   <span className="text-xs text-gray-500 text-center mt-1 max-w-[100px]">{step.description}</span>
-                  {step.action && step.status !== 'blocked' && step.status !== 'completed' && (
+                  {step.action && step.status !== 'blocked' && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -160,6 +160,7 @@ export function buildWorkflowSteps(
     onReviewBOM?: () => void;
     onCalculateMRP?: () => void;
     onViewMRP?: () => void;
+    onViewPOs?: () => void;
   },
   loading?: {
     bom?: boolean;
@@ -273,6 +274,8 @@ export function buildWorkflowSteps(
       label: 'Purchase Orders',
       description: generatedPOs > 0 ? `${generatedPOs} POs created` : 'All materials in stock',
       status: 'completed',
+      action: generatedPOs > 0 ? handlers.onViewPOs : undefined,
+      actionLabel: 'View POs',
     };
   }
 

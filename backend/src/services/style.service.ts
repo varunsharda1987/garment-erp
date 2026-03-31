@@ -26,6 +26,37 @@ import {
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 
 // ============================================
+// Generic Trim FK Mapping
+// ============================================
+const GENERIC_TRIM_FK_MAP: Record<string, string> = {
+  HOOK_EYE: 'hookEyeId',
+  SNAP_BUTTON: 'snapButtonId',
+  BUCKLE: 'buckleId',
+  BELT: 'beltId',
+  VELCRO: 'velcroId',
+  DRAWSTRING: 'drawstringId',
+  RIBBON: 'ribbonId',
+  SEQUIN: 'sequinId',
+  BEAD: 'beadId',
+  MOTIF: 'motifId',
+  INTERLINING: 'interliningId',
+  PADDING: 'paddingId',
+  OTHER_FASTENER: 'otherFastenerId',
+  OTHER_TAPE: 'otherTapeId',
+  OTHER_DECORATIVE: 'otherDecorativeId',
+  OTHER_FUNCTIONAL: 'otherFunctionalId',
+};
+
+// Helper to build generic trim FK fields for a BOM entry (all null except matching type)
+function buildGenericTrimFkFields(materialType: string, materialId: string | null): Record<string, string | null> {
+  const fields: Record<string, string | null> = {};
+  for (const [type, field] of Object.entries(GENERIC_TRIM_FK_MAP)) {
+    fields[field] = materialType === type && materialId ? materialId : null;
+  }
+  return fields;
+}
+
+// ============================================
 // Types
 // ============================================
 
@@ -347,6 +378,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
               labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
               packagingId: bom.materialType === 'PACKAGING' && bom.materialId ? bom.materialId : null,
+              // Generic trim FK fields (DRAWSTRING, HOOK_EYE, SNAP_BUTTON, etc.)
+              ...buildGenericTrimFkFields(bom.materialType, bom.materialId || null),
               componentName: bom.componentName || null,
               quantityPerGarment:
                 Number(bom.quantityPerGarment || 0) > 0
@@ -622,6 +655,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     fabricName: true,
                     colorName: true,
                     genericGreigeName: true,
+                    finishType: true,
                   },
                 },
                 stylePatternParts: {
@@ -670,6 +704,23 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             packaging_master: true,
             machine_part_master: true,
             other_material_master: true,
+            // Generic trim masters
+            hook_eye_master: true,
+            snap_button_master: true,
+            buckle_master: true,
+            belt_master: true,
+            velcro_master: true,
+            drawstring_master: true,
+            ribbon_master: true,
+            sequin_master: true,
+            bead_master: true,
+            motif_master: true,
+            interlining_master: true,
+            padding_master: true,
+            other_fastener_master: true,
+            other_tape_master: true,
+            other_decorative_master: true,
+            other_functional_master: true,
           },
           orderBy: { sortOrder: 'asc' },
         },
@@ -1187,6 +1238,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
                 labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
                 packagingId: resolvedPackagingId,
+                // Generic trim FK fields (DRAWSTRING, HOOK_EYE, SNAP_BUTTON, etc.)
+                ...buildGenericTrimFkFields(bom.materialType, bom.materialId || null),
                 componentName: bom.componentName || null,
                 quantityPerGarment:
                   Number(bom.quantityPerGarment || 0) > 0
@@ -1748,6 +1801,64 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     });
 
     logInfo('CAD plan approved', { styleId });
+    return updatedStyle;
+  }
+
+  /**
+   * Reject/Unapprove CAD plan - revert to PENDING status
+   */
+  async rejectCADPlan(styleId: string): Promise<styles> {
+    // Verify style exists and is approved
+    const style = await this.prisma.styles.findUnique({
+      where: { id: styleId },
+      select: { id: true, cadStatus: true },
+    });
+
+    if (!style) {
+      throw new ValidationError('Style not found');
+    }
+
+    if (style.cadStatus !== 'APPROVED') {
+      throw new ValidationError('CAD plan is not approved. Current status: ' + style.cadStatus);
+    }
+
+    // Get all style_fabrics for this style
+    const styleFabrics = await this.prisma.style_fabrics.findMany({
+      where: { style_components: { styleId } },
+      select: { id: true },
+    });
+
+    const styleFabricIds = styleFabrics.map((sf) => sf.id);
+
+    // Reset all CAD rows linked to these style_fabrics to PENDING
+    if (styleFabricIds.length > 0) {
+      await this.prisma.fabric_width_cad.updateMany({
+        where: { styleFabricId: { in: styleFabricIds } },
+        data: {
+          approvalStatus: 'PENDING',
+          approvedBy: null,
+          approvedAt: null,
+          approvalNotes: null,
+        },
+      });
+
+      // Clear fabricCADId links on style_fabrics
+      await this.prisma.style_fabrics.updateMany({
+        where: { id: { in: styleFabricIds } },
+        data: { fabricCADId: null },
+      });
+    }
+
+    // Reset style cadStatus to PENDING
+    const updatedStyle = await this.prisma.styles.update({
+      where: { id: styleId },
+      data: {
+        cadStatus: 'PENDING',
+        approvedCadDate: null,
+      },
+    });
+
+    logInfo('CAD plan rejected', { styleId });
     return updatedStyle;
   }
 

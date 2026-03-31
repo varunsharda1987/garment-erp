@@ -8,7 +8,14 @@ import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
-// CRUD routes
+// Cross-order endpoints (for UnifiedRequirementsPage)
+// These MUST come before /orders/:orderId to avoid route conflicts
+router.get('/thread-requirements/stats', asyncHandler(controller.getStats));
+router.get('/thread-requirements', asyncHandler(controller.getAllRequirements));
+router.post('/thread-requirements/generate-po', asyncHandler(controller.generatePO));
+router.post('/thread-requirements/available-suppliers', asyncHandler(controller.getAvailableSuppliers));
+
+// Order-specific CRUD routes
 router.post('/orders/:orderId/thread-requirements', asyncHandler(controller.createThreadRequirement));
 router.get('/orders/:orderId/thread-requirements', asyncHandler(controller.getThreadRequirements));
 router.get('/orders/:orderId/thread-requirements/:id', asyncHandler(controller.getThreadRequirement));

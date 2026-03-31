@@ -25,6 +25,7 @@ export interface CreateChallanItemInput {
   greigeStockId?: string;
   fabricStockId?: string;
   laceStockId?: string;
+  threadStockId?: string;
   materialRequirementId?: string;
   serviceRequirementId?: string;
 }
@@ -162,6 +163,7 @@ export async function createChallan(input: CreateChallanInput) {
             greigeStockId: item.greigeStockId,
             fabricStockId: item.fabricStockId,
             laceStockId: item.laceStockId,
+            threadStockId: item.threadStockId,
             materialRequirementId: item.materialRequirementId,
             serviceRequirementId: item.serviceRequirementId,
             componentName: (item as any).componentName || null,
@@ -193,8 +195,8 @@ export async function issueChallan(id: string, userId?: string) {
     if (!existing) throw new Error('Challan not found');
     if (existing.status !== 'DRAFT') throw new Error('Only DRAFT challans can be issued');
 
-    // Auto-deduct stock for OUTWARD challans based on stock type
-    if (existing.challanType === 'OUTWARD') {
+    // Auto-deduct stock for OUTWARD and INTERNAL challans based on stock type
+    if (existing.challanType === 'OUTWARD' || existing.challanType === 'INTERNAL') {
       const effectiveUserId = userId || existing.issuedById;
 
       for (const item of existing.items) {
@@ -263,8 +265,58 @@ export async function issueChallan(id: string, userId?: string) {
           });
         }
 
-        // 4. General material (trims/accessories) — deduct via stock_movements + stock_levels
-        if (item.materialId && !item.greigeStockId && !item.fabricStockId && !item.laceStockId) {
+        // 4. Thread stock deduction
+        if (item.threadStockId) {
+          const threadStock = await tx.thread_stock.findUnique({
+            where: { id: item.threadStockId },
+          });
+          if (!threadStock) throw new Error(`Thread stock ${item.threadStockId} not found`);
+          const newAvailable = Number(threadStock.quantityAvailable) - qty;
+          if (newAvailable < 0)
+            throw new Error(
+              `Insufficient thread stock. Available: ${threadStock.quantityAvailable}, Requested: ${qty}`
+            );
+
+          // Recalculate derived quantities from packaging specs
+          const spec = await tx.thread_packaging_specs.findFirst({
+            where: {
+              ply: threadStock.ply || undefined,
+              packagingType: threadStock.packagingType || undefined,
+              isActive: true,
+            },
+          });
+          const newMeters = spec ? newAvailable * Number(spec.metersPerUnit) : null;
+          const newBoxes = spec && spec.unitsPerBox > 0 ? newAvailable / spec.unitsPerBox : null;
+
+          await tx.thread_stock.update({
+            where: { id: item.threadStockId },
+            data: {
+              quantityAvailable: new Prisma.Decimal(newAvailable),
+              quantityConsumed: new Prisma.Decimal(Number(threadStock.quantityConsumed) + qty),
+              metersAvailable: newMeters !== null ? new Prisma.Decimal(newMeters) : null,
+              boxesAvailable: newBoxes !== null ? new Prisma.Decimal(newBoxes) : null,
+              lastConsumedDate: new Date(),
+              status: newAvailable <= 0 ? 'ISSUED' : 'AVAILABLE',
+            },
+          });
+
+          // Audit trail
+          await tx.thread_stock_transaction.create({
+            data: {
+              stockId: item.threadStockId,
+              transactionType: 'CONSUMPTION',
+              quantity: -qty,
+              balanceAfter: newAvailable,
+              referenceType: 'CHALLAN',
+              referenceId: existing.id,
+              notes: `Issued via challan ${existing.challanNumber}`,
+              performedById: effectiveUserId,
+            },
+          });
+        }
+
+        // 5. General material (trims/accessories) — deduct via stock_movements + stock_levels
+        if (item.materialId && !item.greigeStockId && !item.fabricStockId && !item.laceStockId && !item.threadStockId) {
           // Find default warehouse
           const warehouse = await tx.warehouses.findFirst({
             where: { isActive: true },
@@ -287,7 +339,11 @@ export async function issueChallan(id: string, userId?: string) {
                 performedById: effectiveUserId,
               });
             } catch (err: any) {
-              // Stock might not exist yet for this material — log but don't block challan
+              // For INTERNAL challans (production issuance), stock deduction failure should block
+              // For OUTWARD challans (vendor shipments), allow with warning for backward compat
+              if (existing.challanType === 'INTERNAL') {
+                throw new Error(`Stock deduction failed for material ${item.materialId}: ${err.message}`);
+              }
               console.warn(`Stock deduction skipped for material ${item.materialId}: ${err.message}`);
             }
           }

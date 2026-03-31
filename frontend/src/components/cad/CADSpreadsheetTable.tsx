@@ -539,7 +539,8 @@ export function CADSpreadsheetTable({
     styleFabricId: string,
     currentRowId: string,
     currentWidth: number | null, // Width of the row being edited
-    currentGreigeId: string | null // Greige of the row being edited
+    currentGreigeId: string | null, // Greige of the row being edited
+    currentPurpose: string | null // Purpose of the row being edited
   ): Set<string> => {
     const usedParts = new Set<string>();
     rows.forEach((row) => {
@@ -552,9 +553,11 @@ export function CADSpreadsheetTable({
         // Check if same greige - different greiges are allowed
         const rowGreigeId = row.greigeId || null;
         const sameGreige = currentGreigeId !== null && rowGreigeId !== null && currentGreigeId === rowGreigeId;
+        // Check if same purpose - different purposes can reuse the same part
+        const samePurpose = currentPurpose !== null && row.purpose === currentPurpose;
         // Don't count "All Parts" as a used part (it's a special grouping)
-        // Only mark as used if SAME width AND SAME greige
-        if (row.partId && row.partCode !== ALL_PARTS_CODE && sameWidth && sameGreige) {
+        // Only mark as used if SAME width AND SAME greige AND SAME purpose
+        if (row.partId && row.partCode !== ALL_PARTS_CODE && sameWidth && sameGreige && samePurpose) {
           usedParts.add(row.partId);
         }
       }
@@ -569,7 +572,8 @@ export function CADSpreadsheetTable({
     currentRowId: string,
     currentPartCode: string | null,
     currentWidth: number | null, // Width of the row being edited
-    currentGreigeId: string | null // Greige of the row being edited
+    currentGreigeId: string | null, // Greige of the row being edited
+    currentPurpose: string | null // Purpose of the row being edited
   ): boolean => {
     const currWidth = currentWidth != null ? Number(currentWidth) : null;
     return (
@@ -580,13 +584,15 @@ export function CADSpreadsheetTable({
           row.styleFabricId === styleFabricId &&
           row.id !== currentRowId &&
           row.partCode === ALL_PARTS_CODE &&
-          // Only consider "All Parts" as used if at SAME width AND SAME greige
+          // Only consider "All Parts" as used if at SAME width AND SAME greige AND SAME purpose
           currWidth !== null &&
           rowWidth !== null &&
           currWidth === rowWidth &&
           currentGreigeId !== null &&
           rowGreigeId !== null &&
-          currentGreigeId === rowGreigeId
+          currentGreigeId === rowGreigeId &&
+          currentPurpose !== null &&
+          row.purpose === currentPurpose
         );
       }) && currentPartCode !== ALL_PARTS_CODE
     );
@@ -600,16 +606,18 @@ export function CADSpreadsheetTable({
     currentPartId: string | null,
     currentPartCode: string | null,
     currentWidth: number | null, // Width of the row being edited
-    currentGreigeId: string | null // Greige of the row being edited
+    currentGreigeId: string | null, // Greige of the row being edited
+    currentPurpose: string | null // Purpose of the row being edited
   ) => {
     const allParts = getPatternParts(componentId);
-    const usedPartIds = getUsedPartIds(styleFabricId, currentRowId, currentWidth, currentGreigeId);
+    const usedPartIds = getUsedPartIds(styleFabricId, currentRowId, currentWidth, currentGreigeId, currentPurpose);
     const allPartsAlreadyUsed = isAllPartsUsed(
       styleFabricId,
       currentRowId,
       currentPartCode,
       currentWidth,
-      currentGreigeId
+      currentGreigeId,
+      currentPurpose
     );
 
     return {
@@ -1293,7 +1301,8 @@ export function CADSpreadsheetTable({
                       currentPartId,
                       currentPartCode,
                       currentWidth, // Pass current width to allow same part at different widths
-                      currentGreigeId // Pass current greige to allow same part at different greiges
+                      currentGreigeId, // Pass current greige to allow same part at different greiges
+                      row.purpose // Pass purpose to allow same part across different purposes
                     );
                     const totalPcs = row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
 
@@ -1840,8 +1849,9 @@ export function CADSpreadsheetTable({
                                     )}
                                   </Button>
                                 )}
-                                {/* Reject button - show only for PENDING status with actual data (not blank rows) */}
-                                {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' &&
+                                {/* Reject button - show for PENDING and APPROVED status with actual data (not blank rows) */}
+                                {((row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' ||
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED') &&
                                   (row.cadAverage || row.greigeId) && (
                                     <Button
                                       variant="ghost"

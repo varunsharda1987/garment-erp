@@ -702,6 +702,29 @@ class GRNService {
             }
           }
         }
+
+        // Track rejected quantities as audit trail
+        const rejectedQty = Number(item.rejectedQuantity || 0);
+        if (rejectedQty > 0) {
+          await tx.stock_movements.create({
+            data: {
+              id: randomUUID(),
+              movementType: MovementType.ADJUSTMENT_OUT,
+              materialId: item.materialId,
+              warehouseId: targetWarehouseId,
+              quantity: rejectedQty,
+              unit: item.unit,
+              referenceType: 'GRN_REJECTION',
+              referenceId: grn.id,
+              referenceNumber: grn.grnNumber,
+              rate: item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0,
+              value: rejectedQty * (item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0),
+              remarks: `Rejected during GRN ${grn.grnNumber} — pending supplier return/credit`,
+              performedById: userId,
+              movementDate: new Date(),
+            },
+          });
+        }
       }
 
       return approved;
@@ -829,6 +852,178 @@ class GRNService {
           } catch (fabricErr) {
             // Non-critical: log but don't fail GRN approval
             logError(`Failed to auto-create fabric_stock for GRN item ${item.id}`, fabricErr);
+          }
+        }
+      }
+      // Auto-create lace_stock for LACE PO GRNs
+      if (po?.poCategory === 'LACE' || po?.poCategory === 'GREIGE_LACE') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              select: {
+                laceId: true,
+                lace_master: {
+                  select: { id: true, laceCode: true },
+                },
+              },
+            });
+
+            if (!material?.laceId || !material.lace_master) {
+              logInfo(
+                `GRN item ${item.id}: material ${item.materialId} has no lace link, skipping lace_stock creation`
+              );
+              continue;
+            }
+
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            await prisma.lace_stock.create({
+              data: {
+                laceId: material.lace_master.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: 'meters',
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                qualityGrade: 'A',
+                weightedAvgCost: unitPrice,
+                purchaseCost: unitPrice,
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseLocation: grn.warehouseId || undefined,
+                procurementId: grn.poId || undefined,
+                createdById: userId,
+              },
+            });
+
+            logInfo(
+              `Auto-created lace_stock from LACE GRN ${grn.grnNumber}: ${acceptedQty}m of laceId=${material.lace_master.id}`,
+              { grnId: id, laceId: material.lace_master.id, quantity: acceptedQty }
+            );
+          } catch (laceErr) {
+            logError(`Failed to auto-create lace_stock for GRN item ${item.id}`, laceErr);
+          }
+        }
+      }
+
+      // Auto-create thread_stock for THREAD PO GRNs
+      if (po?.poCategory === 'THREAD') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              select: {
+                threadId: true,
+                thread_master: {
+                  select: {
+                    id: true,
+                    threadCode: true,
+                    threadName: true,
+                    ply: true,
+                    packagingType: true,
+                    materialComposition: true,
+                    color: true,
+                    colorId: true,
+                    colorMaster: { select: { colorName: true } },
+                  },
+                },
+              },
+            });
+
+            if (!material?.threadId || !material.thread_master) {
+              logInfo(
+                `GRN item ${item.id}: material ${item.materialId} has no thread link, skipping thread_stock creation`
+              );
+              continue;
+            }
+
+            const thread = material.thread_master;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            // Determine unit from PO item or thread master
+            const poUnit = item.purchase_order_items?.unit || 'SPOOL';
+            const packagingType = thread.packagingType || 'SPOOL';
+
+            // Calculate derived quantities from packaging specs
+            let metersAvailable: number | null = null;
+            let boxesAvailable: number | null = null;
+
+            const spec = await prisma.thread_packaging_specs.findFirst({
+              where: { ply: thread.ply || undefined, packagingType: packagingType, isActive: true },
+            });
+
+            if (spec) {
+              metersAvailable = acceptedQty * Number(spec.metersPerUnit);
+              boxesAvailable = spec.unitsPerBox > 0 ? acceptedQty / spec.unitsPerBox : null;
+            }
+
+            await prisma.thread_stock.create({
+              data: {
+                threadId: thread.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: poUnit,
+                metersAvailable,
+                boxesAvailable,
+                purchaseCost: unitPrice,
+                weightedAvgCost: unitPrice,
+                ply: thread.ply,
+                packagingType: thread.packagingType,
+                materialComposition: thread.materialComposition,
+                colorName: thread.colorMaster?.colorName || thread.color || null,
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                qualityGrade: 'A',
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseLocation: grn.warehouseId || undefined,
+                procurementId: grn.poId || undefined,
+                createdById: userId,
+              },
+            });
+
+            // Create stock transaction
+            const stockEntry = await prisma.thread_stock.findFirst({
+              where: { threadId: thread.id, procurementId: grn.poId },
+              orderBy: { createdAt: 'desc' },
+            });
+
+            if (stockEntry) {
+              await prisma.thread_stock_transaction.create({
+                data: {
+                  stockId: stockEntry.id,
+                  transactionType: 'STOCK_IN',
+                  quantity: acceptedQty,
+                  balanceAfter: acceptedQty,
+                  referenceType: 'GRN',
+                  referenceId: id,
+                  notes: `GRN ${grn.grnNumber} - ${thread.threadCode}`,
+                  performedById: userId,
+                },
+              });
+            }
+
+            // Update linked thread requirements status to RECEIVED
+            if (item.purchase_order_items?.id) {
+              await prisma.order_thread_requirements.updateMany({
+                where: { poItemId: item.purchase_order_items.id },
+                data: { status: 'RECEIVED' },
+              });
+            }
+
+            logInfo(
+              `Auto-created thread_stock from THREAD GRN ${grn.grnNumber}: ${acceptedQty} ${poUnit} of threadId=${thread.id}`,
+              { grnId: id, threadId: thread.id, quantity: acceptedQty, meters: metersAvailable }
+            );
+          } catch (threadErr) {
+            logError(`Failed to auto-create thread_stock for GRN item ${item.id}`, threadErr);
           }
         }
       }

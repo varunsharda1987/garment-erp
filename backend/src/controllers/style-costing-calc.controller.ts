@@ -53,6 +53,23 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
             packaging_master: true,
             machine_part_master: true,
             other_material_master: true,
+            // Generic trim masters
+            hook_eye_master: true,
+            snap_button_master: true,
+            buckle_master: true,
+            belt_master: true,
+            velcro_master: true,
+            drawstring_master: true,
+            ribbon_master: true,
+            sequin_master: true,
+            bead_master: true,
+            motif_master: true,
+            interlining_master: true,
+            padding_master: true,
+            other_fastener_master: true,
+            other_tape_master: true,
+            other_decorative_master: true,
+            other_functional_master: true,
           },
         },
         style_processes: true,
@@ -300,31 +317,45 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     for (const bom of style.style_material_bom) {
       const quantity = parseFloat(bom.quantityPerGarment.toString());
 
-      // Get material name and price from appropriate master table
-      let materialName = 'Unknown';
+      // Get material name and price from appropriate master table (data-driven)
+      let materialName = bom.componentName || 'Unknown';
       let masterPrice = 0;
 
-      if (bom.lace_master) {
-        materialName = bom.lace_master.laceName;
-        masterPrice = parseFloat(bom.lace_master.pricePerMeter?.toString() || '0');
-      } else if (bom.button_master) {
-        materialName = bom.button_master.buttonName;
-        masterPrice = parseFloat(bom.button_master.pricePerPiece?.toString() || '0');
-      } else if (bom.thread_master) {
-        materialName = bom.thread_master.threadName;
-        masterPrice = parseFloat(bom.thread_master.pricePerCone?.toString() || '0');
-      } else if (bom.zipper_master) {
-        materialName = bom.zipper_master.zipperName;
-        masterPrice = parseFloat(bom.zipper_master.pricePerPiece?.toString() || '0');
-      } else if (bom.elastic_master) {
-        materialName = bom.elastic_master.elasticName;
-        masterPrice = parseFloat(bom.elastic_master.pricePerMeter?.toString() || '0');
-      } else if (bom.label_master) {
-        materialName = bom.label_master.labelName;
-        masterPrice = parseFloat(bom.label_master.pricePerPiece?.toString() || '0');
-      } else if (bom.packaging_master) {
-        materialName = bom.packaging_master.packagingName;
-        masterPrice = parseFloat(bom.packaging_master.pricePerPiece?.toString() || '0');
+      // Master relation → name/price field mapping (legacy + generic trims)
+      const masterExtractors: Array<{ key: string; nameField: string; priceField: string }> = [
+        { key: 'lace_master', nameField: 'laceName', priceField: 'pricePerMeter' },
+        { key: 'button_master', nameField: 'buttonName', priceField: 'pricePerPiece' },
+        { key: 'thread_master', nameField: 'threadName', priceField: 'pricePerCone' },
+        { key: 'zipper_master', nameField: 'zipperName', priceField: 'pricePerPiece' },
+        { key: 'elastic_master', nameField: 'elasticName', priceField: 'pricePerMeter' },
+        { key: 'label_master', nameField: 'labelName', priceField: 'pricePerPiece' },
+        { key: 'packaging_master', nameField: 'packagingName', priceField: 'pricePerPiece' },
+        // Generic trim masters
+        { key: 'hook_eye_master', nameField: 'hookEyeName', priceField: 'pricePerPair' },
+        { key: 'snap_button_master', nameField: 'snapButtonName', priceField: 'pricePerPiece' },
+        { key: 'buckle_master', nameField: 'buckleName', priceField: 'pricePerPiece' },
+        { key: 'belt_master', nameField: 'beltName', priceField: 'pricePerPiece' },
+        { key: 'velcro_master', nameField: 'velcroName', priceField: 'pricePerMeter' },
+        { key: 'drawstring_master', nameField: 'drawstringName', priceField: 'pricePerMeter' },
+        { key: 'ribbon_master', nameField: 'ribbonName', priceField: 'pricePerMeter' },
+        { key: 'sequin_master', nameField: 'sequinName', priceField: 'pricePerMeter' },
+        { key: 'bead_master', nameField: 'beadName', priceField: 'pricePerPack' },
+        { key: 'motif_master', nameField: 'motifName', priceField: 'pricePerPiece' },
+        { key: 'interlining_master', nameField: 'interliningName', priceField: 'pricePerMeter' },
+        { key: 'padding_master', nameField: 'paddingName', priceField: 'pricePerPair' },
+        { key: 'other_fastener_master', nameField: 'otherFastenerName', priceField: 'pricePerPiece' },
+        { key: 'other_tape_master', nameField: 'otherTapeName', priceField: 'pricePerMeter' },
+        { key: 'other_decorative_master', nameField: 'otherDecorativeName', priceField: 'pricePerPiece' },
+        { key: 'other_functional_master', nameField: 'otherFunctionalName', priceField: 'pricePerPiece' },
+      ];
+
+      for (const ext of masterExtractors) {
+        const master = (bom as any)[ext.key];
+        if (master) {
+          materialName = master[ext.nameField] || materialName;
+          masterPrice = parseFloat(master[ext.priceField]?.toString() || '0');
+          break;
+        }
       }
 
       // Use BOM unitPrice if set, otherwise fallback to master price
@@ -347,6 +378,32 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
           trimQuantity: quantity,
           trimRate: unitPrice,
           trimTotal: total,
+          materialType: bom.materialType,
+          unit: bom.unit,
+          // Pass through all FK IDs from style_material_bom
+          materialId: bom.materialId || undefined,
+          threadId: bom.threadId || undefined,
+          buttonId: bom.buttonId || undefined,
+          zipperId: bom.zipperId || undefined,
+          elasticId: bom.elasticId || undefined,
+          labelId: bom.labelId || undefined,
+          packagingId: bom.packagingId || undefined,
+          hookEyeId: bom.hookEyeId || undefined,
+          snapButtonId: bom.snapButtonId || undefined,
+          buckleId: bom.buckleId || undefined,
+          beltId: bom.beltId || undefined,
+          velcroId: bom.velcroId || undefined,
+          drawstringId: bom.drawstringId || undefined,
+          ribbonId: bom.ribbonId || undefined,
+          sequinId: bom.sequinId || undefined,
+          beadId: bom.beadId || undefined,
+          motifId: bom.motifId || undefined,
+          interliningId: bom.interliningId || undefined,
+          paddingId: bom.paddingId || undefined,
+          otherFastenerId: bom.otherFastenerId || undefined,
+          otherTapeId: bom.otherTapeId || undefined,
+          otherDecorativeId: bom.otherDecorativeId || undefined,
+          otherFunctionalId: bom.otherFunctionalId || undefined,
         });
         totalTrimsCost += total;
       } else if (bom.usageCategory === 'PACKAGING') {
@@ -374,6 +431,31 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
           trimQuantity: quantity,
           trimRate: unitPrice,
           trimTotal: total,
+          materialType: bom.materialType,
+          unit: bom.unit,
+          materialId: bom.materialId || undefined,
+          threadId: bom.threadId || undefined,
+          buttonId: bom.buttonId || undefined,
+          zipperId: bom.zipperId || undefined,
+          elasticId: bom.elasticId || undefined,
+          labelId: bom.labelId || undefined,
+          packagingId: bom.packagingId || undefined,
+          hookEyeId: bom.hookEyeId || undefined,
+          snapButtonId: bom.snapButtonId || undefined,
+          buckleId: bom.buckleId || undefined,
+          beltId: bom.beltId || undefined,
+          velcroId: bom.velcroId || undefined,
+          drawstringId: bom.drawstringId || undefined,
+          ribbonId: bom.ribbonId || undefined,
+          sequinId: bom.sequinId || undefined,
+          beadId: bom.beadId || undefined,
+          motifId: bom.motifId || undefined,
+          interliningId: bom.interliningId || undefined,
+          paddingId: bom.paddingId || undefined,
+          otherFastenerId: bom.otherFastenerId || undefined,
+          otherTapeId: bom.otherTapeId || undefined,
+          otherDecorativeId: bom.otherDecorativeId || undefined,
+          otherFunctionalId: bom.otherFunctionalId || undefined,
         });
         totalTrimsCost += total;
       }

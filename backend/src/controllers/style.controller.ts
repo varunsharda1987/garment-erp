@@ -427,6 +427,26 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
 };
 
 /**
+ * Reject/Unapprove CAD plan - revert to PENDING status
+ * PUT /api/cad-planning/:styleId/reject-cad
+ */
+export const rejectCADPlan = async (req: Request, res: Response): Promise<void> => {
+  const styleId = req.params.styleId || req.params.id;
+
+  if (!styleId) {
+    throw new ValidationError('Style ID is required');
+  }
+
+  const updatedStyle = await styleService.rejectCADPlan(styleId);
+
+  res.status(200).json({
+    success: true,
+    data: updatedStyle,
+    message: 'CAD plan rejected. All rows reset to PENDING.',
+  });
+};
+
+/**
  * Check if style can be deactivated
  * GET /api/styles/:id/can-deactivate
  */

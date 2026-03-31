@@ -79,7 +79,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">Orders Received</CardDescription>
               <CardTitle className="text-2xl">
-                {loading ? '...' : summary?.preProduction.ordersReceived.styles || 0}
+                {loading ? '...' : summary?.preProduction.ordersReceived.styleCount || 0}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -96,7 +96,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">Pending Costing</CardDescription>
               <CardTitle className="text-2xl">
-                {loading ? '...' : summary?.preProduction.pendingCosting.styles || 0}
+                {loading ? '...' : summary?.preProduction.pendingCosting.styleCount || 0}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -113,7 +113,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">Pending Greige Order</CardDescription>
               <CardTitle className="text-2xl">
-                {loading ? '...' : summary?.preProduction.pendingGreige.styles || 0}
+                {loading ? '...' : summary?.preProduction.pendingGreige.styleCount || 0}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -130,7 +130,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">Trims Not Ordered</CardDescription>
               <CardTitle className="text-2xl">
-                {loading ? '...' : summary?.preProduction.trimsNotOrdered.styles || 0}
+                {loading ? '...' : summary?.preProduction.trimsNotOrdered.styleCount || 0}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -155,7 +155,9 @@ export default function Dashboard() {
           >
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">In Printing</CardDescription>
-              <CardTitle className="text-2xl">{loading ? '...' : summary?.processing.inPrinting.styles || 0}</CardTitle>
+              <CardTitle className="text-2xl">
+                {loading ? '...' : summary?.processing.inPrinting.styleCount || 0}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-gray-500">
@@ -170,7 +172,9 @@ export default function Dashboard() {
           >
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">In Dying</CardDescription>
-              <CardTitle className="text-2xl">{loading ? '...' : summary?.processing.inDying.styles || 0}</CardTitle>
+              <CardTitle className="text-2xl">
+                {loading ? '...' : summary?.processing.inDying.styleCount || 0}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-gray-500">
@@ -186,7 +190,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">In Embroidery</CardDescription>
               <CardTitle className="text-2xl">
-                {loading ? '...' : summary?.processing.inEmbroidery.styles || 0}
+                {loading ? '...' : summary?.processing.inEmbroidery.styleCount || 0}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -202,7 +206,9 @@ export default function Dashboard() {
           >
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">In Handwork</CardDescription>
-              <CardTitle className="text-2xl">{loading ? '...' : summary?.processing.inHandwork.styles || 0}</CardTitle>
+              <CardTitle className="text-2xl">
+                {loading ? '...' : summary?.processing.inHandwork.styleCount || 0}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-gray-500">
@@ -226,7 +232,9 @@ export default function Dashboard() {
           >
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">In Cutting</CardDescription>
-              <CardTitle className="text-2xl">{loading ? '...' : summary?.production.inCutting.styles || 0}</CardTitle>
+              <CardTitle className="text-2xl">
+                {loading ? '...' : summary?.production.inCutting.styleCount || 0}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-gray-500">
@@ -242,7 +250,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">In Stitching</CardDescription>
               <CardTitle className="text-2xl">
-                {loading ? '...' : summary?.production.inStitching.styles || 0}
+                {loading ? '...' : summary?.production.inStitching.styleCount || 0}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -259,7 +267,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">In Finishing</CardDescription>
               <CardTitle className="text-2xl">
-                {loading ? '...' : summary?.production.inFinishing.styles || 0}
+                {loading ? '...' : summary?.production.inFinishing.styleCount || 0}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -276,7 +284,7 @@ export default function Dashboard() {
             <CardHeader className="pb-2">
               <CardDescription className="text-xs">Ready to Ship</CardDescription>
               <CardTitle className="text-2xl">
-                {loading ? '...' : summary?.production.readyToShip.styles || 0}
+                {loading ? '...' : summary?.production.readyToShip.styleCount || 0}
               </CardTitle>
             </CardHeader>
             <CardContent>

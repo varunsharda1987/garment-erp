@@ -10,6 +10,11 @@ import type {
   ThreadShortage,
   ThreadPly,
   ThreadPackagingType,
+  ThreadRequirementQueryParams,
+  PaginatedThreadRequirements,
+  ThreadRequirementStats,
+  GenerateThreadPOInput,
+  ThreadPOSupplier,
 } from '../types/thread.types';
 
 const BASE_URL = '';
@@ -86,6 +91,37 @@ export const checkThreadShortages = async (
   };
 };
 
+// ==================== CROSS-ORDER (Unified Requirements Page) ====================
+
+export const getAllThreadRequirements = async (
+  params: ThreadRequirementQueryParams = {}
+): Promise<PaginatedThreadRequirements> => {
+  const response = await api.get(`${BASE_URL}/thread-requirements`, { params });
+  return {
+    data: response.data.data,
+    pagination: response.data.pagination,
+  };
+};
+
+export const getThreadRequirementStats = async (): Promise<ThreadRequirementStats> => {
+  const response = await api.get(`${BASE_URL}/thread-requirements/stats`);
+  return response.data.data;
+};
+
+export const generateThreadPO = async (
+  data: GenerateThreadPOInput
+): Promise<{ purchaseOrder: any; updatedRequirements: number }> => {
+  const response = await api.post(`${BASE_URL}/thread-requirements/generate-po`, data);
+  return response.data.data;
+};
+
+export const getAvailableSuppliers = async (requirementIds: string[]): Promise<ThreadPOSupplier[]> => {
+  const response = await api.post(`${BASE_URL}/thread-requirements/available-suppliers`, {
+    requirementIds,
+  });
+  return response.data.data;
+};
+
 export default {
   createThreadRequirement,
   getThreadRequirements,
@@ -93,4 +129,8 @@ export default {
   deleteThreadRequirement,
   convertThreadQuantity,
   checkThreadShortages,
+  getAllThreadRequirements,
+  getThreadRequirementStats,
+  generateThreadPO,
+  getAvailableSuppliers,
 };

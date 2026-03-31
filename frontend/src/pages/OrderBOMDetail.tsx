@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  ArrowRight,
   CheckCircle,
   Lock,
   Calculator,
@@ -11,8 +12,10 @@ import {
   Wrench,
   AlertTriangle,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
@@ -49,6 +52,10 @@ const OrderBOMDetail = () => {
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+
+  // Next-step banners (shown after approve/lock actions)
+  const [justApprovedMsg, setJustApprovedMsg] = useState<string | null>(null);
+  const [justLocked, setJustLocked] = useState(false);
 
   // Change Width modal state
   const [widthModalOpen, setWidthModalOpen] = useState(false);
@@ -106,6 +113,7 @@ const OrderBOMDetail = () => {
         details.length > 0 ? details.join(', ') : 'Order BOM approved successfully'
       );
       setApproveDialogOpen(false);
+      setJustApprovedMsg(details.length > 0 ? details.join('. ') : 'BOM approved successfully');
       await fetchBOM();
 
       // Show warnings for skipped items (most common issue)
@@ -194,6 +202,7 @@ const OrderBOMDetail = () => {
       await lockOrderBOM(bom.orderId, bom.style?.id);
       handleApiSuccess('Order BOM Locked', 'The Order BOM has been locked for production.');
       setLockDialogOpen(false);
+      setJustLocked(true);
       fetchBOM();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to lock Order BOM');
@@ -387,6 +396,66 @@ const OrderBOMDetail = () => {
         </div>
       </PageHeader>
 
+      {/* Next-step banner after BOM approval */}
+      {justApprovedMsg && isApproved && (
+        <Alert className="mb-6 bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-green-800">
+              <strong>BOM Approved & MRP Calculated</strong> — {justApprovedMsg}
+            </span>
+            <div className="flex gap-2 ml-4 flex-shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-purple-400 text-purple-600 hover:bg-purple-50"
+                onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${bom.orderId}`)}
+              >
+                View Requirements <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setLockDialogOpen(true)}>
+                Lock for Production <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setJustApprovedMsg(null)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Next-step banner after BOM lock */}
+      {justLocked && isLocked && (
+        <Alert className="mb-6 bg-blue-50 border-blue-200">
+          <Lock className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-blue-800">
+              <strong>BOM Locked for Production</strong> — Ready for procurement and cutting.
+            </span>
+            <div className="flex gap-2 ml-4 flex-shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-purple-400 text-purple-600 hover:bg-purple-50"
+                onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${bom.orderId}`)}
+              >
+                View Requirements <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/production/work-orders?orderId=${bom.orderId}`)}
+              >
+                View Work Orders <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setJustLocked(false)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header Card */}
       <Card className="mb-6">
         <CardContent className="pt-6">
@@ -458,7 +527,23 @@ const OrderBOMDetail = () => {
               item.zipperId ||
               item.elasticId ||
               item.labelId ||
-              item.packagingId
+              item.packagingId ||
+              item.hookEyeId ||
+              item.snapButtonId ||
+              item.buckleId ||
+              item.beltId ||
+              item.velcroId ||
+              item.drawstringId ||
+              item.ribbonId ||
+              item.sequinId ||
+              item.beadId ||
+              item.motifId ||
+              item.interliningId ||
+              item.paddingId ||
+              item.otherFastenerId ||
+              item.otherTapeId ||
+              item.otherDecorativeId ||
+              item.otherFunctionalId
             );
             return !hasMaterial && !hasFabric && !hasLace && !hasGreige && !hasTrimMaster;
           });

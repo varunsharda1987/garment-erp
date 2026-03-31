@@ -21,6 +21,9 @@ import {
   getAvailableTransferSlips,
   getAvailableManagers,
   getStyleSizeSummary,
+  // Packing endpoints
+  createPolybagEntry,
+  createCartonPacking,
 } from '../controllers/finishing.controller';
 
 const router = Router();
@@ -55,5 +58,9 @@ router.post('/issues/:id/record-output', asyncHandler(recordDailyOutput));
 router.post('/issues/:id/move-to-packing', asyncHandler(moveToPackingFinishingIssue));
 router.post('/issues/:id/complete', asyncHandler(completeFinishingIssue));
 router.post('/issues/:id/generate-transfer-slip', asyncHandler(generateTransferSlip));
+
+// Packing
+router.post('/issues/:id/polybag-entry', asyncHandler(createPolybagEntry));
+router.post('/issues/:id/carton-packing', asyncHandler(createCartonPacking));
 
 export default router;

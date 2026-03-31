@@ -13,6 +13,13 @@ import type {
   ProductionTrackingResponse,
   ProductionTracking,
   SplitWorkOrderDTO,
+  FabricIssuanceData,
+  IssueFabricRequest,
+  MaterialIssuanceData,
+  IssueMaterialsRequest,
+  ThreadIssuanceData,
+  IssueThreadRequest,
+  WipSummary,
 } from '../types/production.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -176,6 +183,73 @@ export const workOrderService = {
       { headers: getAuthHeader() }
     );
     if (!response.data.data) throw new Error('Failed to push to cutting');
+    return response.data.data;
+  },
+
+  async getFabricIssuanceData(id: string): Promise<FabricIssuanceData> {
+    const response = await axios.get<{ success: boolean; data: FabricIssuanceData }>(
+      `${BASE_URL}/${id}/fabric-issuance-data`,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  async issueFabric(id: string, data: IssueFabricRequest) {
+    const response = await axios.post(`${BASE_URL}/${id}/issue-fabric`, data, {
+      headers: getAuthHeader(),
+    });
+    return response.data.data;
+  },
+
+  async getTrimIssuanceData(id: string): Promise<MaterialIssuanceData> {
+    const response = await axios.get<{ success: boolean; data: MaterialIssuanceData }>(
+      `${BASE_URL}/${id}/trim-issuance-data`,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  async issueTrims(id: string, data: IssueMaterialsRequest) {
+    const response = await axios.post(`${BASE_URL}/${id}/issue-trims`, data, {
+      headers: getAuthHeader(),
+    });
+    return response.data.data;
+  },
+
+  async getPackagingIssuanceData(id: string): Promise<MaterialIssuanceData> {
+    const response = await axios.get<{ success: boolean; data: MaterialIssuanceData }>(
+      `${BASE_URL}/${id}/packaging-issuance-data`,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  async issuePackaging(id: string, data: IssueMaterialsRequest) {
+    const response = await axios.post(`${BASE_URL}/${id}/issue-packaging`, data, {
+      headers: getAuthHeader(),
+    });
+    return response.data.data;
+  },
+
+  async getThreadIssuanceData(id: string): Promise<ThreadIssuanceData> {
+    const response = await axios.get<{ success: boolean; data: ThreadIssuanceData }>(
+      `${BASE_URL}/${id}/thread-issuance-data`,
+      { headers: getAuthHeader() }
+    );
+    return response.data.data;
+  },
+
+  async issueThread(id: string, data: IssueThreadRequest) {
+    const response = await axios.post(`${BASE_URL}/${id}/issue-thread`, data, {
+      headers: getAuthHeader(),
+    });
+    return response.data.data;
+  },
+
+  async getWipSummary(id: string): Promise<WipSummary> {
+    const response = await axios.get<{ success: boolean; data: WipSummary }>(`${BASE_URL}/${id}/wip-summary`, {
+      headers: getAuthHeader(),
+    });
     return response.data.data;
   },
 };

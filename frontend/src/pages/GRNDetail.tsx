@@ -15,7 +15,9 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CheckCircle, XCircle, Printer, FileText } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArrowLeft, CheckCircle, XCircle, Printer, FileText, Scissors, ArrowRight, X } from 'lucide-react';
+import type { PendingCuttingInfo } from '@/services/grn.service';
 
 export default function GRNDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +25,9 @@ export default function GRNDetail() {
   const [grn, setGRN] = useState<GRN | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Pending cutting notification (shown after GRN approval)
+  const [pendingCutting, setPendingCutting] = useState<PendingCuttingInfo[] | null>(null);
 
   // Warehouse state
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -96,8 +101,11 @@ export default function GRNDetail() {
             remarks: qcRemarks || undefined,
           }
         : undefined;
-      await approveGRN(id!, wId, qcData);
+      const result = await approveGRN(id!, wId, qcData);
       handleApiSuccess('GRN approved', 'The goods have been accepted and stock has been updated.');
+      if (result.pendingCutting && result.pendingCutting.length > 0) {
+        setPendingCutting(result.pendingCutting);
+      }
       fetchGRN();
     } catch (err) {
       handleApiError(err, 'Failed to approve GRN');
@@ -176,6 +184,43 @@ export default function GRNDetail() {
 
   return (
     <div className="space-y-6">
+      {/* Pending Cutting Notification (shown after GRN approval) */}
+      {pendingCutting && pendingCutting.length > 0 && (
+        <Alert className="bg-blue-50 border-blue-200">
+          <Scissors className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-blue-800">
+              <strong>Fabric received for pending production</strong> —{' '}
+              {pendingCutting.map((pc) => `${pc.workOrderNumber} (${pc.pendingQty} pcs pending)`).join(', ')}
+            </span>
+            <div className="flex gap-2 ml-4 flex-shrink-0">
+              {pendingCutting.length === 1 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-400 text-blue-700 hover:bg-blue-50"
+                  onClick={() => navigate(`/manufacturing/cutting/new?workOrderId=${pendingCutting[0].workOrderId}`)}
+                >
+                  Go to Cutting Chart <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-400 text-blue-700 hover:bg-blue-50"
+                  onClick={() => navigate('/manufacturing/cutting')}
+                >
+                  View Cutting <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => setPendingCutting(null)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

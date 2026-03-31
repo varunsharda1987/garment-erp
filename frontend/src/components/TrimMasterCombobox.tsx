@@ -6,13 +6,15 @@ import { getAllZippers } from '@/services/zipper.service';
 import { getAllElastics } from '@/services/elastic.service';
 import { getAllLabels } from '@/services/label.service';
 import { getAllPackaging } from '@/services/packaging.service';
+import { getAll as getGenericTrims } from '@/services/genericTrim.service';
+import { TRIM_TYPE_REGISTRY } from '@/config/trimTypeRegistry';
 
 export interface TrimMasterSelection {
   masterId: string;
   masterName: string;
   masterCode?: string;
   materialType: string;
-  // Specific FK field for this type
+  // Specific FK field for this type (legacy)
   threadId?: string;
   buttonId?: string;
   zipperId?: string;
@@ -22,6 +24,8 @@ export interface TrimMasterSelection {
   // Price from master record
   unitPrice?: number;
   unit?: string;
+  // Generic — the idField is set dynamically via [config.idField]
+  [key: string]: string | number | undefined;
 }
 
 interface TrimMasterComboboxProps {
@@ -131,6 +135,25 @@ const MASTER_CONFIG: Record<
     getUnit: () => 'PCS',
     idField: 'packagingId',
   },
+  // Generic trim types — auto-generated from registry
+  ...Object.fromEntries(
+    Object.values(TRIM_TYPE_REGISTRY)
+      .filter((entry) => entry.isGeneric && entry.apiKey)
+      .map((entry) => [
+        entry.value,
+        {
+          fetch: ((params: TrimMasterQueryParams) =>
+            getGenericTrims(entry.apiKey!, { limit: params.limit, search: params.search })) as (
+            params: TrimMasterQueryParams
+          ) => Promise<TrimMasterResponse>,
+          getName: (item: TrimMasterItem) => getStringField(item, entry.nameField!, 'name'),
+          getCode: (item: TrimMasterItem) => getStringField(item, entry.codeField!, 'code'),
+          getPrice: (item: TrimMasterItem) => getNumericField(item, entry.priceField!),
+          getUnit: () => entry.defaultUnit || 'PCS',
+          idField: entry.idField as keyof TrimMasterSelection,
+        },
+      ])
+  ),
 };
 
 export function TrimMasterCombobox({

@@ -287,10 +287,74 @@ export const approveGRN = async (req: Request, res: Response) => {
   }
   // ==========================================
 
+  // ==========================================
+  // Check for pending cutting work orders that use the received fabrics
+  // ==========================================
+  let pendingCuttingInfo: Array<{ workOrderNumber: string; workOrderId: string; pendingQty: number }> = [];
+  try {
+    // Get fabricIds from this GRN's items (via material → fabricId)
+    const grnItems = await prisma.grn_items.findMany({
+      where: { grnId: id },
+      select: { materialId: true },
+    });
+    const materialIds = grnItems.map((gi) => gi.materialId).filter(Boolean) as string[];
+
+    if (materialIds.length > 0) {
+      const materials = await prisma.materials.findMany({
+        where: { id: { in: materialIds }, fabricId: { not: null } },
+        select: { fabricId: true },
+      });
+      const fabricIds = materials.map((m) => m.fabricId).filter(Boolean) as string[];
+
+      if (fabricIds.length > 0) {
+        // Find work orders that use these fabrics (via BOM items)
+        const workOrders = await prisma.work_orders.findMany({
+          where: {
+            status: { in: ['PENDING', 'IN_PRODUCTION'] },
+            orders: {
+              orderBoms: {
+                some: {
+                  status: { in: ['APPROVED', 'LOCKED'] },
+                  items: { some: { fabricId: { in: fabricIds } } },
+                },
+              },
+            },
+          },
+          select: {
+            id: true,
+            workOrderNumber: true,
+            totalQuantity: true,
+            cutting_batches: {
+              select: {
+                skuOutputs: { select: { cutQty: true } },
+              },
+            },
+          },
+          take: 5, // Limit to avoid heavy queries
+        });
+
+        pendingCuttingInfo = workOrders
+          .map((wo) => {
+            const alreadyCut = wo.cutting_batches.reduce(
+              (sum, b) => sum + b.skuOutputs.reduce((s, sku) => s + sku.cutQty, 0),
+              0
+            );
+            const pendingQty = wo.totalQuantity - alreadyCut;
+            return { workOrderNumber: wo.workOrderNumber, workOrderId: wo.id, pendingQty };
+          })
+          .filter((wo) => wo.pendingQty > 0);
+      }
+    }
+  } catch (error) {
+    logError('Failed to check pending cutting work orders after GRN', error);
+  }
+  // ==========================================
+
   res.json({
     success: true,
     data: grn,
     message: 'GRN approved successfully. Stock levels updated.',
+    pendingCutting: pendingCuttingInfo.length > 0 ? pendingCuttingInfo : undefined,
   });
 };
 

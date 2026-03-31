@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError } from '../errors';
 
 // ============================================
@@ -607,6 +608,62 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     },
   });
 
+  // Auto-populate finished_goods_stock from finished output
+  // Get or create a default FG location
+  let fgLocation = await prisma.locations.findFirst({
+    where: { locationType: 'WAREHOUSE', isActive: true },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (!fgLocation) {
+    fgLocation = await prisma.locations.create({
+      data: {
+        id: randomUUID(),
+        locationCode: 'FG-WAREHOUSE',
+        locationName: 'Finished Goods Warehouse',
+        locationType: 'WAREHOUSE',
+        isActive: true,
+      },
+    });
+  }
+
+  // Upsert finished_goods_stock per SKU
+  for (const sku of skuBreakdownForSlip) {
+    const existing = await prisma.finished_goods_stock.findUnique({
+      where: {
+        styleId_colorId_sizeId_locationId: {
+          styleId: issue.workOrder.styleId,
+          colorId: sku.colorId,
+          sizeId: sku.sizeId,
+          locationId: fgLocation.id,
+        },
+      },
+    });
+
+    if (existing) {
+      await prisma.finished_goods_stock.update({
+        where: { id: existing.id },
+        data: {
+          quantity: existing.quantity + sku.finishedQty,
+          lastUpdated: new Date(),
+        },
+      });
+    } else {
+      await prisma.finished_goods_stock.create({
+        data: {
+          id: randomUUID(),
+          styleId: issue.workOrder.styleId,
+          colorId: sku.colorId,
+          sizeId: sku.sizeId,
+          quantity: sku.finishedQty,
+          locationId: fgLocation.id,
+          workOrderId: issue.workOrderId,
+          receivedDate: new Date(),
+        },
+      });
+    }
+  }
+
   res.json({
     data: {
       transferSlipId: transferSlip.id,
@@ -991,4 +1048,116 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
 
   res.json({ data });
   // end getStyleSizeSummary
+};
+
+// ============================================
+// Packing Endpoints (Polybag + Carton)
+// ============================================
+
+/**
+ * @route POST /api/finishing/issues/:id/polybag-entry
+ * @desc Record polybag packing for a finishing issue
+ */
+export const createPolybagEntry = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+  const { packingDate, skuBreakdown, remarks } = req.body as {
+    packingDate?: string;
+    skuBreakdown: Array<{ colorId: string; sizeId: string; packedQty: number }>;
+    remarks?: string;
+  };
+
+  if (!skuBreakdown || skuBreakdown.length === 0) {
+    throw new ValidationError('At least one SKU must be included');
+  }
+
+  const issue = await prisma.finishing_issues.findUnique({ where: { id } });
+  if (!issue) throw new NotFoundError('Finishing issue', id);
+  if (issue.status !== 'PACKING' && issue.status !== 'IN_PROGRESS') {
+    throw new ValidationError('Can only add polybag entries for in-progress or packing issues');
+  }
+
+  const totalPolybags = skuBreakdown.reduce((sum, s) => sum + s.packedQty, 0);
+
+  const entry = await prisma.polybag_entries.create({
+    data: {
+      finishingIssueId: id,
+      packingDate: packingDate ? new Date(packingDate) : new Date(),
+      totalPolybags,
+      remarks,
+      createdById: userId,
+      skuBreakdown: {
+        create: skuBreakdown.map((s) => ({
+          colorId: s.colorId,
+          sizeId: s.sizeId,
+          packedQty: s.packedQty,
+        })),
+      },
+    },
+    include: { skuBreakdown: true },
+  });
+
+  res.status(201).json({ data: entry });
+};
+
+/**
+ * @route POST /api/finishing/issues/:id/carton-packing
+ * @desc Record carton packing for a finishing issue
+ */
+export const createCartonPacking = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+
+  const { cartonNumber, cartonDate, packingType, cartonDimensions, grossWeight, netWeight, skuBreakdown, remarks } =
+    req.body as {
+      cartonNumber: string;
+      cartonDate?: string;
+      packingType?: string;
+      cartonDimensions?: string;
+      grossWeight?: number;
+      netWeight?: number;
+      skuBreakdown: Array<{ colorId: string; sizeId: string; quantity: number }>;
+      remarks?: string;
+    };
+
+  if (!cartonNumber || !skuBreakdown || skuBreakdown.length === 0) {
+    throw new ValidationError('Carton number and at least one SKU are required');
+  }
+
+  const issue = await prisma.finishing_issues.findUnique({
+    where: { id },
+    select: { id: true, workOrderId: true, status: true },
+  });
+  if (!issue) throw new NotFoundError('Finishing issue', id);
+
+  const pcsPerCarton = skuBreakdown.reduce((sum, s) => sum + s.quantity, 0);
+
+  const carton = await prisma.carton_packings.create({
+    data: {
+      cartonNumber,
+      workOrderId: issue.workOrderId,
+      finishingIssueId: id,
+      cartonDate: cartonDate ? new Date(cartonDate) : new Date(),
+      packingType: (packingType as any) || 'SOLID',
+      pcsPerCarton,
+      cartonDimensions,
+      grossWeight,
+      netWeight,
+      createdById: userId,
+      remarks,
+      skuBreakdown: {
+        create: skuBreakdown.map((s) => ({
+          colorId: s.colorId,
+          sizeId: s.sizeId,
+          quantity: s.quantity,
+        })),
+      },
+    },
+    include: { skuBreakdown: true },
+  });
+
+  res.status(201).json({ data: carton });
 };

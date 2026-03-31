@@ -473,19 +473,19 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
           },
         },
       },
+      orderBoms: {
+        select: { id: true, status: true, styleId: true },
+      },
+      material_requirements: {
+        where: { status: { notIn: ['CANCELLED'] } },
+        select: { id: true },
+        take: 1, // Only need to know if any exist
+      },
     },
   });
 
   if (!order) {
     throw new NotFoundError('Order', id);
-  }
-
-  // Debug logging
-  logInfo('[getOrderById] Order found:', order.orderNumber);
-  logInfo('[getOrderById] Order items count:', order.order_items?.length || 0);
-  if (order.order_items && order.order_items.length > 0) {
-    logInfo('[getOrderById] First item breakup count:', order.order_items[0].order_item_breakup?.length || 0);
-    logInfo('[getOrderById] First breakup sample:', JSON.stringify(order.order_items[0].order_item_breakup?.[0]));
   }
 
   res.json({ data: order });
@@ -725,6 +725,27 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
 
   if (customerId) {
     updateData.customerId = customerId;
+  }
+
+  // If items are provided, check for downstream dependencies before replacing
+  if (items && Array.isArray(items) && items.length > 0) {
+    const [approvedBoms, activeRequirements] = await Promise.all([
+      prisma.order_bom.count({
+        where: { orderId: id, status: { in: ['APPROVED', 'LOCKED'] } },
+      }),
+      prisma.material_requirements.count({
+        where: { orderId: id, status: { notIn: ['CANCELLED'] } },
+      }),
+    ]);
+
+    if (approvedBoms > 0 || activeRequirements > 0) {
+      res.status(400).json({
+        success: false,
+        message:
+          'Cannot modify order items: this order has approved BOMs or active material requirements. Cancel the BOM/MRP first, then edit the order.',
+      });
+      return;
+    }
   }
 
   // If items are provided, recalculate totals and replace order items

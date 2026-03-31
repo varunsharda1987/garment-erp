@@ -7,6 +7,7 @@
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
 import { logInfo, logError, logDebug } from '../utils/logger';
+import { createChallan } from './challan.service';
 
 // ============================================
 // Types
@@ -68,7 +69,7 @@ class EmbroideryStockService {
       quantity: data.quantitySent,
     });
 
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Verify source stock exists and has enough quantity
       const sourceStock = await tx.fabric_stock.findUnique({
         where: { id: data.sourceFabricStockId },
@@ -171,6 +172,36 @@ class EmbroideryStockService {
 
       return sendOut;
     });
+
+    // Create OUTWARD challan for document trail OUTSIDE transaction
+    // Stock was already deducted above — challan is for audit/traceability only
+    try {
+      const challan = await createChallan({
+        challanType: 'OUTWARD' as any,
+        challanDate: data.sendDate,
+        orderId: data.forOrderId || undefined,
+        fromType: 'WAREHOUSE',
+        fromName: 'Fabric Store',
+        toType: 'VENDOR',
+        toId: data.supplierId,
+        toName: result.supplier?.name || 'Embroidery Vendor',
+        remarks: `Embroidery send-out: ${result.embroidery?.designName || 'Design'} (${data.quantitySent}m)`,
+        issuedById: data.createdById,
+        items: [
+          {
+            itemType: 'FABRIC',
+            quantity: data.quantitySent,
+            unit: 'MTR',
+            description: `Fabric for embroidery — ${result.embroidery?.designName || 'Design'}`,
+          },
+        ],
+      });
+      logInfo('Created embroidery outward challan', { challanId: challan.id, sendOutId: result.id });
+    } catch (challanErr) {
+      logError('Failed to create embroidery outward challan (non-critical)', challanErr);
+    }
+
+    return result;
   }
 
   /**

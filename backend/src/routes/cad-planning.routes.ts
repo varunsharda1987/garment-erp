@@ -33,6 +33,7 @@ import {
   updateCADValuesWithBreakdown,
   setPreferredCAD,
   getCADGroupDetails,
+  syncBomFabricFromCAD,
 } from '../controllers/cad-planning.controller';
 import {
   approveCAD,
@@ -60,7 +61,7 @@ import {
   approveProductionVariance,
   getPendingVarianceApprovals,
 } from '../controllers/cad-embroidery.controller';
-import { approveCADPlan } from '../controllers/style.controller';
+import { approveCADPlan, rejectCADPlan } from '../controllers/style.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 
@@ -220,6 +221,17 @@ router.post(
 );
 
 /**
+ * @route   POST /api/cad-planning/:styleId/sync-bom-fabric
+ * @desc    Sync BOM items' fabricId from existing PRODUCTION CAD rows (fixes stale data)
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ */
+router.post(
+  '/:styleId/sync-bom-fabric',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  asyncHandler(syncBomFabricFromCAD)
+);
+
+/**
  * @route   PUT /api/cad-planning/:styleId/row/:rowId
  * @desc    Update a CAD row in the spreadsheet table
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
@@ -347,6 +359,13 @@ router.post('/:styleId/link-stock', authorize('ADMIN', 'MERCHANDISER'), asyncHan
  * @access  ADMIN, MERCHANDISER
  */
 router.put('/:styleId/approve-cad', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(approveCADPlan));
+
+/**
+ * @route   PUT /api/cad-planning/:styleId/reject-cad
+ * @desc    Reject/Unapprove CAD plan - revert to PENDING status
+ * @access  ADMIN, MERCHANDISER
+ */
+router.put('/:styleId/reject-cad', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(rejectCADPlan));
 
 // ============================================
 // PRODUCTION CAD FROM STOCK

@@ -3,6 +3,10 @@ import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { transformCuttingBatch, generateBatchNumber, batchIncludeOptions } from './cutting.utils';
+import { syncBomFabricId } from '../services/order-bom.service';
+import { calculateCadAverage } from './cad-planning.utils';
+import { createChallan, issueChallan } from '../services/challan.service';
+import { logInfo } from '../utils/logger';
 
 // Re-export sub-controllers so existing imports from routes continue to work
 export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.controller';
@@ -120,10 +124,10 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     fabricStocks, // array of { fabricStockId, cadAvgUsed, cadWidthUsed, actualWidth }
   } = req.body;
 
-  // Get work order to generate batch number
+  // Get work order to generate batch number and check status
   const workOrder = await prisma.work_orders.findUnique({
     where: { id: workOrderId },
-    select: { workOrderNumber: true },
+    select: { id: true, workOrderNumber: true, status: true, orderId: true },
   });
 
   if (!workOrder) {
@@ -207,6 +211,86 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       })),
       skipDuplicates: true,
     });
+  }
+
+  // Update work order status to IN_PRODUCTION if still PENDING
+  if (workOrder.status === 'PENDING') {
+    await prisma.work_orders.update({
+      where: { id: workOrder.id },
+      data: {
+        status: 'IN_PRODUCTION',
+        actualStartDate: new Date(),
+      },
+    });
+  }
+
+  // Auto-issue fabric: create INTERNAL challan for fabric lots used in this batch
+  try {
+    const allStockIds: Array<{ stockId: string; cadAvg: number | null }> = [];
+    if (fabricStockId) {
+      allStockIds.push({ stockId: fabricStockId, cadAvg: cadAverageUsed ? Number(cadAverageUsed) : null });
+    }
+    if (fabricStocks?.length > 0) {
+      for (const fs of fabricStocks as Array<{ fabricStockId: string; cadAvgUsed?: number }>) {
+        if (fs.fabricStockId && fs.fabricStockId !== fabricStockId) {
+          allStockIds.push({ stockId: fs.fabricStockId, cadAvg: fs.cadAvgUsed ? Number(fs.cadAvgUsed) : null });
+        }
+      }
+    }
+
+    const totalPieces = (skuOutputs as Array<{ cutQuantity?: number }>).reduce(
+      (sum, s) => sum + (Number(s.cutQuantity) || 0),
+      0
+    );
+
+    const challanItems = [];
+    for (const { stockId, cadAvg } of allStockIds) {
+      const stock = await prisma.fabric_stock.findUnique({
+        where: { id: stockId },
+        select: {
+          id: true,
+          fabricId: true,
+          quantityAvailable: true,
+          fabricMaster: { select: { fabricCode: true, fabricName: true } },
+        },
+      });
+      if (stock && Number(stock.quantityAvailable) > 0) {
+        const fabricNeeded = cadAvg && totalPieces > 0 ? totalPieces * cadAvg : Number(stock.quantityAvailable);
+        const issueQty = Math.min(fabricNeeded, Number(stock.quantityAvailable));
+        const desc =
+          `${stock.fabricMaster?.fabricCode || ''} ${stock.fabricMaster?.fabricName || ''} - Batch ${batch.batchNumber}`.trim();
+
+        challanItems.push({
+          itemType: 'FABRIC',
+          fabricStockId: stock.id,
+          fabricId: stock.fabricId,
+          quantity: Math.round(issueQty * 100) / 100, // Round to 2 decimals
+          unit: 'MTR',
+          description: desc,
+        });
+      }
+    }
+
+    if (challanItems.length > 0) {
+      const challan = await createChallan({
+        challanType: 'INTERNAL',
+        challanDate: new Date(),
+        orderId: workOrder.orderId || undefined,
+        productionRunId: workOrderId,
+        fromType: 'DEPARTMENT',
+        fromName: 'Fabric Store',
+        toType: 'DEPARTMENT',
+        toName: 'Cutting',
+        remarks: `Auto-issued for cutting batch ${batch.batchNumber}`,
+        issuedById: userId,
+        items: challanItems,
+      });
+      await issueChallan(challan.id, userId);
+      logInfo(`Auto-issued fabric challan ${challan.challanNumber} for cutting batch ${batch.batchNumber}`);
+    }
+  } catch (challanError) {
+    // Don't fail batch creation if challan fails — log and continue
+    logInfo(`Warning: Auto-issue challan failed for batch ${batch.batchNumber}: ${(challanError as Error).message}`);
   }
 
   res.status(201).json({ data: transformCuttingBatch(batch) });
@@ -407,6 +491,32 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
     variancePercent = (varianceFromCad / Number(existing.cadAverageUsed)) * 100;
   }
 
+  // Calculate fabric wastage: issued (from challans) minus consumed (from lays)
+  let wastageMeters: number | null = null;
+  let wastagePercent: number | null = null;
+  const fabricConsumed = Number(existing.fabricConsumed);
+
+  if (fabricConsumed > 0) {
+    // Sum issued fabric from INTERNAL challans for this work order
+    const issuedChallans = await prisma.challan_items.aggregate({
+      _sum: { quantity: true },
+      where: {
+        challan: {
+          productionRunId: existing.workOrderId,
+          challanType: 'INTERNAL',
+          toName: 'Cutting',
+          status: { in: ['ISSUED', 'RECEIVED'] },
+        },
+        fabricStockId: { not: null },
+      },
+    });
+    const totalIssued = Number(issuedChallans._sum.quantity || 0);
+    if (totalIssued > 0) {
+      wastageMeters = Math.max(0, totalIssued - fabricConsumed);
+      wastagePercent = (wastageMeters / totalIssued) * 100;
+    }
+  }
+
   const batch = await prisma.cutting_batches.update({
     where: { id },
     data: {
@@ -414,6 +524,8 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
       actualAverage: calcActualAverage,
       varianceFromCad,
       variancePercent,
+      wastageMeters,
+      wastagePercent,
       remarks: remarks || existing.remarks,
     },
     include: batchIncludeOptions,
@@ -947,6 +1059,8 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
       cutableWidth: true,
       cadMeters: true,
       cadAverage: true,
+      piecesPerMarker: true,
+      layerMarginMeters: true,
       fabricId: true,
       fabric: {
         select: { id: true, fabricCode: true, fabricName: true },
@@ -975,6 +1089,70 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     },
   });
 
+  // 3-fix. Auto-heal existing data BEFORE grouping:
+  // Backfill styleFabricId on PRODUCTION CADs missing it (match by greigeId),
+  // backfill cadAverage if null but computable, sync BOM fabricId
+  for (const cad of cadRows) {
+    const cadPurpose = cad.purposeEnum || cad.purpose;
+
+    // Backfill styleFabricId if missing
+    if (cadPurpose === 'PRODUCTION' && !cad.styleFabric && cad.fabricId) {
+      const fabric = await prisma.fabric_master.findUnique({
+        where: { id: cad.fabricId },
+        select: { greigeId: true },
+      });
+      if (fabric?.greigeId) {
+        const matchingSf = await prisma.style_fabrics.findFirst({
+          where: {
+            style_components: { styleId: workOrder.styleId },
+            fabric: { greigeId: fabric.greigeId },
+          },
+          select: {
+            id: true,
+            fabricId: true,
+            fabricName: true,
+            fabricColor: true,
+            cutableWidth: true,
+            style_components: { select: { componentName: true } },
+          },
+        });
+        if (matchingSf) {
+          await prisma.fabric_width_cad.update({
+            where: { id: cad.id },
+            data: { styleFabricId: matchingSf.id },
+          });
+          (cad as any).styleFabric = matchingSf;
+        }
+      }
+    }
+
+    // Sync BOM fabricId
+    if (
+      cadPurpose === 'PRODUCTION' &&
+      cad.fabricId &&
+      (cad as any).styleFabric?.fabricId &&
+      cad.fabricId !== (cad as any).styleFabric.fabricId
+    ) {
+      await syncBomFabricId(workOrder.styleId, (cad as any).styleFabric.fabricId, cad.fabricId);
+    }
+
+    // Backfill cadAverage if missing but computable
+    if (!cad.cadAverage && cad.cadMeters && cad.piecesPerMarker) {
+      const computed = calculateCadAverage(
+        Number(cad.cadMeters),
+        cad.layerMarginMeters ? Number(cad.layerMarginMeters) : null,
+        Number(cad.piecesPerMarker)
+      );
+      if (computed !== null) {
+        await prisma.fabric_width_cad.update({
+          where: { id: cad.id },
+          data: { cadAverage: computed },
+        });
+        (cad as any).cadAverage = computed;
+      }
+    }
+  }
+
   // Group CAD rows by componentName (= "Part")
   const partMap = new Map<
     string,
@@ -997,7 +1175,8 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     // Resolve fabricId: direct -> styleFabric fallback
     const resolvedFabricId = cad.fabricId || cad.styleFabric?.fabricId || null;
     // Display name: component name for the UI "Part" column
-    const displayName = cad.styleFabric?.style_components?.componentName || cad.componentName || 'Main';
+    const displayName = cad.styleFabric?.style_components?.componentName || cad.componentName;
+    if (!displayName) continue; // Skip orphan CAD rows with no component linkage
     // Key by fabricId to prevent collision when two fabrics share the same componentName
     const partKey = resolvedFabricId || displayName;
     const resolvedFabricName = cad.fabric?.fabricName || cad.styleFabric?.fabricName || '';
@@ -1093,21 +1272,11 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         }
 
         if (!matched) {
-          // No fabricId match — try enriching "Main" entry if it has no fabricId
-          const mainEntry = partMap.get('Main');
-          if (mainEntry && !mainEntry.fabricId) {
-            mainEntry.fabricId = bomItem.fabricId;
-            mainEntry.fabricName = bomItem.fabric_master?.fabricName || '';
-            mainEntry.fabricCode = bomItem.fabric_master?.fabricCode || '';
-            matched = true;
-          }
-        }
-
-        if (!matched) {
           // Only add new entry if this fabricId doesn't exist anywhere in partMap
           const fabricIdExists = Array.from(partMap.values()).some((e) => e.fabricId === bomItem.fabricId);
           if (!fabricIdExists) {
-            const baseKey = bomItem.componentName || 'Main';
+            const baseKey = bomItem.componentName;
+            if (!baseKey) continue; // Skip BOM items with no component name
             // Avoid overwriting an existing entry — use fabricCode or incremented key if needed
             const partKey = partMap.has(baseKey)
               ? bomItem.fabric_master?.fabricCode || `${baseKey}-${partMap.size + 1}`
@@ -1159,21 +1328,11 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
       }
 
       if (!matched) {
-        // Try enriching "Main" entry if it has no fabricId
-        const mainEntry = partMap.get('Main');
-        if (mainEntry && !mainEntry.fabricId) {
-          mainEntry.fabricId = sf.fabricId;
-          mainEntry.fabricName = sf.fabricName || '';
-          if (!mainEntry.fabricColor) mainEntry.fabricColor = sf.fabricColor || null;
-          matched = true;
-        }
-      }
-
-      if (!matched) {
         // Only add if this fabricId doesn't exist anywhere in partMap
         const fabricIdExists = Array.from(partMap.values()).some((e) => e.fabricId === sf.fabricId);
         if (!fabricIdExists) {
-          const displayName = sf.style_components?.componentName || 'Main';
+          const displayName = sf.style_components?.componentName;
+          if (!displayName) continue; // Skip style fabrics with no component linkage
           const partKey = sf.fabricId || displayName; // key by fabricId for uniqueness
           partMap.set(partKey, {
             part: displayName,
@@ -1193,7 +1352,67 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     }
   }
 
-  const fabrics = Array.from(partMap.values());
+  // --- Deduplicate entries that share the same fabric (by fabricId OR fabricName) ---
+  const allEntries = Array.from(partMap.values());
+  const seenFabricIds = new Map<string, (typeof allEntries)[0]>();
+  const seenFabricNames = new Map<string, (typeof allEntries)[0]>();
+  const fabrics: typeof allEntries = [];
+
+  const mergeCadFields = (target: (typeof allEntries)[0], source: (typeof allEntries)[0]) => {
+    if (!target.fabricName && source.fabricName) target.fabricName = source.fabricName;
+    if (!target.fabricCode && source.fabricCode) target.fabricCode = source.fabricCode;
+    if (!target.fabricColor && source.fabricColor) target.fabricColor = source.fabricColor;
+    if (source.costingWidth !== null && target.costingWidth === null) {
+      target.costingWidth = source.costingWidth;
+      target.costingAverage = source.costingAverage;
+    }
+    if (source.rawMatCalcWidth !== null && target.rawMatCalcWidth === null) {
+      target.rawMatCalcWidth = source.rawMatCalcWidth;
+      target.rawMatCalcAverage = source.rawMatCalcAverage;
+    }
+    if (source.productionWidth !== null && target.productionWidth === null) {
+      target.productionWidth = source.productionWidth;
+      target.productionAverage = source.productionAverage;
+    }
+  };
+
+  for (const f of allEntries) {
+    if (f.fabricId) {
+      // Dedup by fabricId
+      const existing = seenFabricIds.get(f.fabricId);
+      if (existing) {
+        mergeCadFields(existing, f);
+        continue;
+      }
+      // Check if a null-fabricId entry with same fabricName already exists — merge into it
+      if (f.fabricName) {
+        const byName = seenFabricNames.get(f.fabricName);
+        if (byName && !byName.fabricId) {
+          byName.fabricId = f.fabricId;
+          mergeCadFields(byName, f);
+          seenFabricIds.set(f.fabricId, byName);
+          continue;
+        }
+      }
+      seenFabricIds.set(f.fabricId, f);
+    } else if (f.fabricName) {
+      // No fabricId — dedup by fabricName
+      const byName = seenFabricNames.get(f.fabricName);
+      if (byName) {
+        mergeCadFields(byName, f);
+        continue;
+      }
+      // Check if any fabricId entry already has this name
+      const byId = Array.from(seenFabricIds.values()).find((e) => e.fabricName === f.fabricName);
+      if (byId) {
+        mergeCadFields(byId, f);
+        continue;
+      }
+    }
+
+    if (f.fabricName) seenFabricNames.set(f.fabricName, f);
+    fabrics.push(f);
+  }
 
   // 4. For each unique fabricId, get PO ordered qty, GRN received qty, and fabric stock lots
   const uniqueFabricIds = [...new Set(fabrics.map((f) => f.fabricId).filter(Boolean))] as string[];
@@ -1233,24 +1452,53 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     fabricReceivedMap.set(mat.fabricId, (fabricReceivedMap.get(mat.fabricId) || 0) + received);
   }
 
-  // Get fabric stock lots for each fabricId
-  const fabricStockRecords = await prisma.fabric_stock.findMany({
+  // Check for issued INTERNAL challans (fabric issuance from store to cutting)
+  const issuedChallanItems = await prisma.challan_items.findMany({
     where: {
-      fabricId: { in: uniqueFabricIds },
-      quantityAvailable: { gt: 0 },
+      challan: {
+        productionRunId: workOrderId,
+        challanType: 'INTERNAL',
+        status: { in: ['ISSUED', 'IN_TRANSIT', 'RECEIVED', 'PARTIALLY_RECEIVED'] },
+      },
+      fabricStockId: { not: null },
     },
-    select: {
-      id: true,
-      fabricId: true,
-      rollNumbers: true,
-      cutableWidth: true,
-      quantityAvailable: true,
-      qualityGrade: true,
-      plannedCad: true,
-      actualCad: true,
-    },
-    orderBy: { receivedDate: 'desc' },
+    select: { fabricStockId: true, fabricId: true, quantity: true },
   });
+
+  // Build issued qty map: fabricStockId → issued meters
+  const issuedQtyMap = new Map<string, number>();
+  for (const ci of issuedChallanItems) {
+    if (ci.fabricStockId) {
+      issuedQtyMap.set(ci.fabricStockId, (issuedQtyMap.get(ci.fabricStockId) || 0) + Number(ci.quantity));
+    }
+  }
+  const issuedStockIds = [...issuedQtyMap.keys()];
+  const hasIssuedFabric = issuedStockIds.length > 0;
+
+  // If fabric has been issued via challan → only show issued lots
+  // Otherwise fallback to all available stock (backward compat for existing work orders)
+  const stockSelect = {
+    id: true,
+    fabricId: true,
+    rollNumbers: true,
+    cutableWidth: true,
+    quantityAvailable: true,
+    qualityGrade: true,
+    plannedCad: true,
+    actualCad: true,
+  } as const;
+
+  const fabricStockRecords = hasIssuedFabric
+    ? await prisma.fabric_stock.findMany({
+        where: { id: { in: issuedStockIds } },
+        select: stockSelect,
+        orderBy: { receivedDate: 'desc' },
+      })
+    : await prisma.fabric_stock.findMany({
+        where: { fabricId: { in: uniqueFabricIds }, quantityAvailable: { gt: 0 } },
+        select: stockSelect,
+        orderBy: { receivedDate: 'desc' },
+      });
 
   const fabricStockMap = new Map<string, typeof fabricStockRecords>();
   for (const fs of fabricStockRecords) {
@@ -1279,6 +1527,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
   });
 
   // 6. Build fabrics with lot details
+  // For issued lots, show the issued quantity (not current quantityAvailable which may be 0 after deduction)
   const fabricsWithLots = fabrics.map((f) => {
     const stocks = f.fabricId ? fabricStockMap.get(f.fabricId) || [] : [];
     return {
@@ -1288,11 +1537,48 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         lotNumber: idx + 1,
         rollNumbers: s.rollNumbers || '',
         actualWidth: Number(s.cutableWidth),
-        quantityAvailable: Number(s.quantityAvailable),
+        quantityAvailable: hasIssuedFabric
+          ? issuedQtyMap.get(s.id) || Number(s.quantityAvailable)
+          : Number(s.quantityAvailable),
         qualityGrade: s.qualityGrade,
       })),
     };
   });
+
+  // 6b. Per-fabric stock analysis — calculate max cuttable pcs (Production CAD only)
+  const fabricAnalysis = fabrics.map((f) => {
+    const stocks = f.fabricId ? fabricStockMap.get(f.fabricId) || [] : [];
+    const availableStock = hasIssuedFabric
+      ? stocks.reduce((sum, s) => sum + (issuedQtyMap.get(s.id) || Number(s.quantityAvailable)), 0)
+      : stocks.reduce((sum, s) => sum + Number(s.quantityAvailable), 0);
+    const cadAvg = f.productionAverage ? Number(f.productionAverage) : 0; // Production CAD only
+    const cadSet = cadAvg > 0;
+    const maxPcs = cadSet ? Math.floor(availableStock / cadAvg) : null;
+    const requiredMeters = totalOrderQty * cadAvg;
+    const shortfallMeters = cadSet ? Math.max(0, requiredMeters - availableStock) : 0;
+    return {
+      part: f.part,
+      fabricId: f.fabricId,
+      fabricName: f.fabricName,
+      cadAverage: cadAvg,
+      cadSet,
+      availableStock,
+      maxPcsFromStock: maxPcs,
+      requiredForOrder: requiredMeters,
+      shortfallMeters,
+    };
+  });
+
+  // Max cuttable = min across all fabrics with Production CAD set
+  const fabricsWithCad = fabricAnalysis.filter((fa) => fa.cadSet && fa.maxPcsFromStock !== null);
+  const maxCuttablePcs =
+    fabricsWithCad.length > 0 ? Math.min(...fabricsWithCad.map((fa) => fa.maxPcsFromStock!)) : totalOrderQty;
+
+  // Identify the bottleneck fabric (lowest max pcs)
+  const bottleneckFabric =
+    fabricsWithCad.length > 0
+      ? fabricsWithCad.reduce((min, fa) => (fa.maxPcsFromStock! < min.maxPcsFromStock! ? fa : min)).part
+      : null;
 
   // 7. Existing batches for this WO (optionally filter by color)
   let existingBatches = workOrder.cutting_batches.map((b) => {
@@ -1304,6 +1590,10 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
       totalCut,
     };
   });
+
+  // Calculate already-cut and pending quantities (exclude ON_HOLD as they may resume)
+  const alreadyCutQty = existingBatches.reduce((sum, b) => sum + b.totalCut, 0);
+  const pendingCutQty = Math.max(0, totalOrderQty - alreadyCutQty);
 
   // Get selected color name
   const selectedColor = colorId ? uniqueColors.find((c) => c.id === colorId) : null;
@@ -1339,6 +1629,12 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
 
     // Fabrics & CAD (per part with lot details)
     fabrics: fabricsWithLots,
+
+    // Fabric Stock Analysis (per part — max cuttable pcs)
+    fabricAnalysis,
+    maxCuttablePcs,
+    bottleneckFabric,
+    pendingCutQty,
 
     // Existing batches
     existingBatches,

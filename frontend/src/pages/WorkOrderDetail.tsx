@@ -45,6 +45,11 @@ import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types'
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import SplitProductionModal from '@/components/SplitProductionModal';
 import AdminOverrideModal from '@/components/AdminOverrideModal';
+import FabricIssuanceSection from '@/components/FabricIssuanceSection';
+import TrimIssuanceSection from '@/components/TrimIssuanceSection';
+import ThreadIssuanceSection from '@/components/ThreadIssuanceSection';
+import PackagingIssuanceSection from '@/components/PackagingIssuanceSection';
+import WipSummarySection from '@/components/WipSummarySection';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
@@ -353,17 +358,22 @@ export default function WorkOrderDetail() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to List
           </Button>
-          {workOrder.status === 'PENDING' && (
-            <Button
-              onClick={handlePushToCuttingClick}
-              disabled={isPushingToCutting}
-              className={materialReadiness?.isReady ? 'bg-green-600 hover:bg-green-700' : ''}
-              variant={materialReadiness?.isReady ? 'default' : 'outline'}
-            >
-              <Scissors className="mr-2 h-4 w-4" />
-              {isPushingToCutting ? 'Pushing...' : 'Push to Cutting'}
-            </Button>
-          )}
+          {workOrder.status === 'PENDING' &&
+            (!manufacturingProgress || manufacturingProgress.cutting.batches === 0) && (
+              <Button
+                onClick={handlePushToCuttingClick}
+                disabled={isPushingToCutting}
+                className={materialReadiness?.isReady ? 'bg-green-600 hover:bg-green-700' : ''}
+                variant={materialReadiness?.isReady ? 'default' : 'outline'}
+              >
+                <Scissors className="mr-2 h-4 w-4" />
+                {isPushingToCutting
+                  ? 'Pushing...'
+                  : materialReadiness && !materialReadiness.isReady
+                    ? 'Push to Cutting (Partial Stock)'
+                    : 'Push to Cutting'}
+              </Button>
+            )}
           {workOrder.status === 'PENDING' && materialReadiness?.isReady && (
             <Button
               onClick={handleCalculateServices}
@@ -532,10 +542,11 @@ export default function WorkOrderDetail() {
                           </div>
                         ))}
                       </div>
-                      <Alert className="mt-4 bg-white border-amber-300">
-                        <AlertCircle className="h-4 w-4 text-amber-600" />
-                        <AlertDescription className="text-amber-900">
-                          Cannot push to cutting until all fabrics are received and in stock.
+                      <Alert className="mt-4 bg-blue-50 border-blue-300">
+                        <AlertCircle className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-blue-900">
+                          Some fabrics are short. You can still push to cutting for a partial quantity based on
+                          available stock. The cutting chart will show the maximum cuttable pieces.
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -743,6 +754,17 @@ export default function WorkOrderDetail() {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* WIP Pipeline + Material Issuance — visible when IN_PRODUCTION */}
+        {workOrder.status === 'IN_PRODUCTION' && (
+          <>
+            <WipSummarySection workOrderId={id!} />
+            <FabricIssuanceSection workOrderId={id!} workOrderNumber={workOrder.workOrderNumber} />
+            <TrimIssuanceSection workOrderId={id!} />
+            <ThreadIssuanceSection workOrderId={id!} />
+            <PackagingIssuanceSection workOrderId={id!} />
+          </>
         )}
 
         {/* Manufacturing Progress */}

@@ -280,7 +280,7 @@ export default function CuttingList() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>{batch.component?.componentName || 'Main'}</TableCell>
+                        <TableCell>{batch.component?.componentName || '—'}</TableCell>
                         <TableCell>{format(new Date(batch.cuttingDate), 'dd MMM yyyy')}</TableCell>
                         <TableCell className="text-right">
                           {batch.layersPerLay} × {batch.numberOfLays}

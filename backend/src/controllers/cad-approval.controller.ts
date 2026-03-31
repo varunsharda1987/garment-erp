@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logInfo } from '../utils/logger';
+import { calculateCadAverage } from './cad-planning.utils';
 
 /**
  * Approve a specific CAD option for a style
@@ -184,6 +185,22 @@ export async function approveCADPurpose(req: Request, res: Response) {
       },
     },
   });
+
+  // Ensure cadAverage is persisted — it may be null if only computed on-the-fly by getCADTableData
+  if (updated.cadAverage === null && updated.cadMeters && updated.piecesPerMarker) {
+    const cadAvg = calculateCadAverage(
+      Number(updated.cadMeters),
+      updated.layerMarginMeters ? Number(updated.layerMarginMeters) : null,
+      Number(updated.piecesPerMarker)
+    );
+    if (cadAvg !== null) {
+      await prisma.fabric_width_cad.update({
+        where: { id: rowId },
+        data: { cadAverage: cadAvg },
+      });
+      logInfo(`Backfilled cadAverage=${cadAvg.toFixed(4)} for CAD row ${rowId} during approval`);
+    }
+  }
 
   // If PRODUCTION CAD, reserve stock
   if (updated.purpose === 'PRODUCTION' && updated.fabricStockId) {

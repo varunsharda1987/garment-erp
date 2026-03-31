@@ -8,7 +8,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import { systemSettingsService } from '../services/system-settings.service';
-import { getDefaultLayerMargin } from './cad-planning.utils';
+import { ALL_PARTS_CODE, getDefaultLayerMargin } from './cad-planning.utils';
 
 // ============================================================================
 // EMBROIDERY CAD API ENDPOINTS
@@ -472,18 +472,33 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
     });
   }
 
-  // 1b. Auto-resolve styleFabricId if not provided (match stock's fabricId to style's fabrics)
+  // 1b. Auto-resolve styleFabricId if not provided
   let resolvedStyleFabricId = styleFabricId;
   if (!resolvedStyleFabricId) {
-    const matchingStyleFabric = await prisma.style_fabrics.findFirst({
+    // Try matching stock's fabricId to style_fabrics.fabricId (works for ready fabric path)
+    const matchByFabricId = await prisma.style_fabrics.findFirst({
       where: {
         style_components: { styleId },
         fabricId: fabricStock.fabricId,
       },
       select: { id: true },
     });
-    if (matchingStyleFabric) {
-      resolvedStyleFabricId = matchingStyleFabric.id;
+    if (matchByFabricId) {
+      resolvedStyleFabricId = matchByFabricId.id;
+    }
+  }
+  // Fallback: match by greigeId (greige→processing path creates a different fabric_master,
+  // but both the planning and finished fabrics share the same greigeId)
+  if (!resolvedStyleFabricId && fabricStock.fabricMaster?.greigeId) {
+    const matchByGreige = await prisma.style_fabrics.findFirst({
+      where: {
+        style_components: { styleId },
+        fabric: { greigeId: fabricStock.fabricMaster.greigeId },
+      },
+      select: { id: true },
+    });
+    if (matchByGreige) {
+      resolvedStyleFabricId = matchByGreige.id;
     }
   }
 
@@ -546,8 +561,29 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
 
   // 5. Determine greige and pattern part
   const finalGreigeId = greigeId || sourceCAD?.greigeId || fabricStock.fabricMaster?.greigeId;
-  const finalPatternPartId = patternPartId || sourceCAD?.patternPartId;
   const finalStyleFabricId = resolvedStyleFabricId || sourceCAD?.styleFabricId;
+
+  // Auto-populate pattern part (same logic as addCADTableRow in cad-planning.controller.ts)
+  let finalPatternPartId = patternPartId || sourceCAD?.patternPartId;
+  if (!finalPatternPartId && finalStyleFabricId) {
+    const assignedParts = await prisma.style_pattern_parts.findMany({
+      where: { styleFabricId: finalStyleFabricId },
+      include: { patternPart: true },
+    });
+
+    if (assignedParts.length === 1) {
+      finalPatternPartId = assignedParts[0].patternPartId;
+      logInfo(`Auto-populated pattern part ${assignedParts[0].patternPart.name} for stock CAD`);
+    } else if (assignedParts.length === 0) {
+      const allParts = await prisma.pattern_part_master.findFirst({
+        where: { code: ALL_PARTS_CODE },
+      });
+      if (allParts) {
+        finalPatternPartId = allParts.id;
+        logInfo(`Auto-populated "All Parts" for stock CAD (no parts assigned)`);
+      }
+    }
+  }
 
   // 6. Create new PRODUCTION CAD
   const newCAD = await prisma.fabric_width_cad.create({

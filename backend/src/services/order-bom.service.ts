@@ -248,6 +248,22 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           labelId?: string;
           packagingId?: string;
           materialId?: string;
+          hookEyeId?: string;
+          snapButtonId?: string;
+          buckleId?: string;
+          beltId?: string;
+          velcroId?: string;
+          drawstringId?: string;
+          ribbonId?: string;
+          sequinId?: string;
+          beadId?: string;
+          motifId?: string;
+          interliningId?: string;
+          paddingId?: string;
+          otherFastenerId?: string;
+          otherTapeId?: string;
+          otherDecorativeId?: string;
+          otherFunctionalId?: string;
         }>) || [];
       const csAccessories =
         (costSheet.accessoriesDetails as unknown as Array<{
@@ -294,6 +310,23 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               labelId: trim.labelId || undefined,
               packagingId: trim.packagingId || undefined,
               materialId: trim.materialId || undefined,
+              // Generic trim FK IDs
+              hookEyeId: trim.hookEyeId || undefined,
+              snapButtonId: trim.snapButtonId || undefined,
+              buckleId: trim.buckleId || undefined,
+              beltId: trim.beltId || undefined,
+              velcroId: trim.velcroId || undefined,
+              drawstringId: trim.drawstringId || undefined,
+              ribbonId: trim.ribbonId || undefined,
+              sequinId: trim.sequinId || undefined,
+              beadId: trim.beadId || undefined,
+              motifId: trim.motifId || undefined,
+              interliningId: trim.interliningId || undefined,
+              paddingId: trim.paddingId || undefined,
+              otherFastenerId: trim.otherFastenerId || undefined,
+              otherTapeId: trim.otherTapeId || undefined,
+              otherDecorativeId: trim.otherDecorativeId || undefined,
+              otherFunctionalId: trim.otherFunctionalId || undefined,
             },
           });
         }
@@ -390,6 +423,22 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         labelId?: string;
         packagingId?: string;
         materialId?: string;
+        hookEyeId?: string;
+        snapButtonId?: string;
+        buckleId?: string;
+        beltId?: string;
+        velcroId?: string;
+        drawstringId?: string;
+        ribbonId?: string;
+        sequinId?: string;
+        beadId?: string;
+        motifId?: string;
+        interliningId?: string;
+        paddingId?: string;
+        otherFastenerId?: string;
+        otherTapeId?: string;
+        otherDecorativeId?: string;
+        otherFunctionalId?: string;
       }>) || [];
 
     const accessoriesDetails =
@@ -455,6 +504,23 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         elasticId: material.elasticId,
         labelId: material.labelId,
         packagingId: material.packagingId,
+        // Generic trim FK IDs
+        hookEyeId: material.hookEyeId,
+        snapButtonId: material.snapButtonId,
+        buckleId: material.buckleId,
+        beltId: material.beltId,
+        velcroId: material.velcroId,
+        drawstringId: material.drawstringId,
+        ribbonId: material.ribbonId,
+        sequinId: material.sequinId,
+        beadId: material.beadId,
+        motifId: material.motifId,
+        interliningId: material.interliningId,
+        paddingId: material.paddingId,
+        otherFastenerId: material.otherFastenerId,
+        otherTapeId: material.otherTapeId,
+        otherDecorativeId: material.otherDecorativeId,
+        otherFunctionalId: material.otherFunctionalId,
         quantityPerGarment,
         orderQuantity,
         totalQuantity,
@@ -515,6 +581,23 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           labelId: trim.labelId || null,
           packagingId: trim.packagingId || null,
           materialId: trim.materialId || null,
+          // Generic trim FK IDs
+          hookEyeId: trim.hookEyeId || null,
+          snapButtonId: trim.snapButtonId || null,
+          buckleId: trim.buckleId || null,
+          beltId: trim.beltId || null,
+          velcroId: trim.velcroId || null,
+          drawstringId: trim.drawstringId || null,
+          ribbonId: trim.ribbonId || null,
+          sequinId: trim.sequinId || null,
+          beadId: trim.beadId || null,
+          motifId: trim.motifId || null,
+          interliningId: trim.interliningId || null,
+          paddingId: trim.paddingId || null,
+          otherFastenerId: trim.otherFastenerId || null,
+          otherTapeId: trim.otherTapeId || null,
+          otherDecorativeId: trim.otherDecorativeId || null,
+          otherFunctionalId: trim.otherFunctionalId || null,
         });
       }
 
@@ -2011,3 +2094,30 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
 // Export singleton instance
 export const orderBomService = new OrderBOMServiceClass();
+
+/**
+ * Sync BOM items' fabricId when a real fabric replaces a generic/planning one.
+ * Called when PRODUCTION CAD links to stock with a different fabricId than
+ * the planning fabric stored in style_fabrics.
+ *
+ * Updates ALL active BOMs for the style (covers repeat orders).
+ * Safe: POs reference materialId (not fabricId), MRP uses quantities.
+ */
+export async function syncBomFabricId(styleId: string, genericFabricId: string, realFabricId: string): Promise<number> {
+  if (genericFabricId === realFabricId) return 0;
+
+  const prismaClient = orderBomService['prisma'];
+  const result = await prismaClient.order_bom_items.updateMany({
+    where: {
+      fabricId: genericFabricId,
+      materialType: { in: ['GREIGE', 'FABRIC'] },
+      orderBom: { styleId, isActive: true },
+    },
+    data: { fabricId: realFabricId },
+  });
+
+  if (result.count > 0) {
+    logInfo(`Synced ${result.count} BOM item(s) fabricId: ${genericFabricId} → ${realFabricId} for style ${styleId}`);
+  }
+  return result.count;
+}

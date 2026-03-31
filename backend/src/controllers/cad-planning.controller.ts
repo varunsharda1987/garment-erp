@@ -18,6 +18,7 @@ import {
   CADOption,
   CADCostResult,
 } from './cad-planning.utils';
+import { syncBomFabricId } from '../services/order-bom.service';
 
 /**
  * Get all styles pending CAD approval
@@ -2583,11 +2584,12 @@ export async function addCADTableRow(req: Request, res: Response) {
     purpose = 'COSTING', // Default to COSTING mode (no stock required) - renamed from PLANNING
     componentId,
     styleFabricId,
-    partId,
+    partId: requestPartId,
     fabricStockId, // Required for PRODUCTION purpose only
     // Note: isEmbroidery is intentionally NOT used from request body
     // We inherit embroidery status from the linked style_fabrics record
   } = req.body;
+  let partId = requestPartId;
 
   // ===================================================================
   // PRODUCTION PURPOSE: Require fabric stock selection
@@ -2684,6 +2686,30 @@ export async function addCADTableRow(req: Request, res: Response) {
     });
   }
 
+  // Auto-populate pattern part from style_pattern_parts if not provided
+  if (!partId) {
+    const assignedParts = await prisma.style_pattern_parts.findMany({
+      where: { styleFabricId },
+      include: { patternPart: true },
+    });
+
+    if (assignedParts.length === 1) {
+      // Single part assigned → auto-set it
+      partId = assignedParts[0].patternPartId;
+      logInfo(`Auto-populated pattern part ${assignedParts[0].patternPart.name} for style fabric ${styleFabricId}`);
+    } else if (assignedParts.length === 0) {
+      // No parts assigned → default to "All Parts"
+      const allParts = await prisma.pattern_part_master.findFirst({
+        where: { code: ALL_PARTS_CODE },
+      });
+      if (allParts) {
+        partId = allParts.id;
+        logInfo(`Auto-populated "All Parts" for style fabric ${styleFabricId} (no parts assigned)`);
+      }
+    }
+    // Multiple parts → leave blank, user selects manually after row creation
+  }
+
   // Check if this is an "All Parts" selection (either legacy marker or we need to check the actual pattern part)
   // Since "All Parts" is now a real pattern part in the database, we check if the partId refers to it
   let isAllParts = partId === ALL_PARTS_LEGACY_MARKER;
@@ -2754,6 +2780,16 @@ export async function addCADTableRow(req: Request, res: Response) {
   })) as any;
 
   logInfo(`Created new CAD row ${newCad.id} for style ${styleId}${isAllParts ? ' (All Parts)' : ''}`);
+
+  // Sync BOM: replace generic planning fabricId with real stock fabricId
+  if (
+    purpose === 'PRODUCTION' &&
+    validatedStock?.fabricId &&
+    styleFabric.fabricId &&
+    validatedStock.fabricId !== styleFabric.fabricId
+  ) {
+    await syncBomFabricId(styleId, styleFabric.fabricId, validatedStock.fabricId);
+  }
 
   // Check if the linked pattern part is "All Parts"
   const responseIsAllParts =
@@ -2994,6 +3030,15 @@ export async function addCombinedCADRow(req: Request, res: Response) {
   logInfo(
     `Created combined CAD row ${newCad.id} for style ${styleId} with ${styleFabrics.length} fabrics: ${combinedComponents}`
   );
+
+  // Sync BOM: replace generic planning fabricId with real stock fabricId for all combined fabrics
+  if (purpose === 'PRODUCTION' && validatedStock?.fabricId) {
+    for (const sf of styleFabrics) {
+      if (sf.fabricId && sf.fabricId !== validatedStock.fabricId) {
+        await syncBomFabricId(styleId, sf.fabricId, validatedStock.fabricId);
+      }
+    }
+  }
 
   return res.status(201).json({
     success: true,
@@ -4134,5 +4179,41 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
         totalPages: Math.ceil(total / limitNum),
       },
     },
+  });
+}
+
+/**
+ * Sync BOM items' fabricId for a style based on existing PRODUCTION CAD rows.
+ * Use this to fix existing data where PRODUCTION CAD was created before the sync logic.
+ * POST /api/cad-planning/:styleId/sync-bom-fabric
+ */
+export async function syncBomFabricFromCAD(req: Request, res: Response) {
+  const { styleId } = req.params;
+
+  const productionCads = await prisma.fabric_width_cad.findMany({
+    where: {
+      purpose: 'PRODUCTION',
+      OR: [{ costingStyleId: styleId }, { styleFabric: { style_components: { styleId } } }],
+    },
+    include: {
+      styleFabric: { select: { fabricId: true } },
+      fabricStock: { select: { fabricId: true } },
+    },
+  });
+
+  let totalSynced = 0;
+  for (const cad of productionCads) {
+    const genericId = cad.styleFabric?.fabricId;
+    const realId = cad.fabricId || cad.fabricStock?.fabricId;
+    if (genericId && realId && genericId !== realId) {
+      totalSynced += await syncBomFabricId(styleId, genericId, realId);
+    }
+  }
+
+  return res.json({
+    success: true,
+    message: `Synced ${totalSynced} BOM item(s)`,
+    syncedCount: totalSynced,
+    productionCadsChecked: productionCads.length,
   });
 }

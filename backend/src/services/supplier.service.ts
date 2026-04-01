@@ -10,6 +10,7 @@ import { ConflictError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { gstService } from './gst.service';
+import warehouseService from './warehouse.service';
 
 // ============================================
 // Types
@@ -218,6 +219,27 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       include: this.getDefaultIncludes(),
     });
 
+    // Auto-create JOB_WORK warehouse for DYEING_PRINTING processors
+    if (data.supplierCategories?.includes('DYEING_PRINTING')) {
+      try {
+        const warehouseCode = await warehouseService.generateWarehouseCode('JOB_WORK');
+        await warehouseService.createWarehouse({
+          warehouseCode,
+          warehouseName: `${data.name} - Processing Unit`,
+          warehouseType: 'JOB_WORK',
+          address: data.address || undefined,
+          contactPerson: data.contactPerson || undefined,
+          contactPhone: data.phone || undefined,
+          isActive: true,
+          supplierId: supplierId,
+          createdById: userId,
+        });
+        logInfo('Auto-created JOB_WORK warehouse for processor', { supplierId, warehouseCode });
+      } catch (err) {
+        logError('Failed to auto-create warehouse for processor', { supplierId, error: err });
+      }
+    }
+
     logInfo('Supplier created successfully', { id: supplierId });
     return supplierWithGst!;
   }
@@ -288,6 +310,30 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       where: { id },
       include: this.getDefaultIncludes(),
     });
+
+    // Auto-create JOB_WORK warehouse if DYEING_PRINTING was added and no warehouse exists
+    if (data.supplierCategories?.includes('DYEING_PRINTING')) {
+      const existingWarehouse = await this.prisma.warehouses.findFirst({
+        where: { supplierId: id },
+      });
+      if (!existingWarehouse) {
+        try {
+          const warehouseCode = await warehouseService.generateWarehouseCode('JOB_WORK');
+          const supplierName = supplierWithGst?.name || data.name || 'Unknown Processor';
+          await warehouseService.createWarehouse({
+            warehouseCode,
+            warehouseName: `${supplierName} - Processing Unit`,
+            warehouseType: 'JOB_WORK',
+            isActive: true,
+            supplierId: id,
+            createdById: supplierWithGst?.createdById || '',
+          });
+          logInfo('Auto-created JOB_WORK warehouse for updated processor', { supplierId: id, warehouseCode });
+        } catch (err) {
+          logError('Failed to auto-create warehouse for processor', { supplierId: id, error: err });
+        }
+      }
+    }
 
     logInfo('Supplier updated successfully', { id });
     return supplierWithGst!;

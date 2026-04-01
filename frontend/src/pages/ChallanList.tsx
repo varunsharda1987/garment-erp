@@ -206,7 +206,13 @@ export default function ChallanList() {
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable data={challans} columns={columns} isLoading={isLoading} emptyMessage="No challans found" />
+          <DataTable
+            data={challans}
+            columns={columns}
+            keyExtractor={(c) => c.id}
+            loading={isLoading}
+            emptyState={{ title: 'No challans found' }}
+          />
           {total > pageSize && (
             <div className="flex items-center justify-between mt-4">
               <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>

@@ -99,6 +99,8 @@ export interface ServiceRequirementResponse {
   status: ServiceRequirementStatus;
   purchaseOrderId?: string;
   purchaseOrder?: any;
+  workOrder?: any;
+  styleProcess?: any;
   source: RequirementSource;
   notes?: string;
   createdAt: Date;
@@ -224,6 +226,8 @@ function mapToResponse(requirement: any): ServiceRequirementResponse {
     status: requirement.status,
     purchaseOrderId: requirement.purchaseOrderId || undefined,
     purchaseOrder: requirement.purchaseOrder || undefined,
+    workOrder: requirement.workOrder || undefined,
+    styleProcess: requirement.styleProcess || undefined,
     source: requirement.source,
     notes: requirement.notes || undefined,
     createdAt: requirement.createdAt,

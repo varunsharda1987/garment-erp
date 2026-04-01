@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { transformCuttingBatch, generateBatchNumber, batchIncludeOptions } from './cutting.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
-import { createChallan, issueChallan } from '../services/challan.service';
+import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
 import { logInfo } from '../utils/logger';
 
 // Re-export sub-controllers so existing imports from routes continue to work
@@ -381,7 +381,7 @@ export const startCuttingBatch = async (req: Request, res: Response) => {
 
   const batch = await prisma.cutting_batches.update({
     where: { id },
-    data: { status: 'IN_PROGRESS' },
+    data: { status: 'IN_PROGRESS', startedAt: new Date() },
     include: batchIncludeOptions,
   });
 
@@ -457,12 +457,19 @@ export const recordCuttingOutput = async (req: Request, res: Response) => {
 // Complete cutting batch (IN_PROGRESS -> COMPLETED)
 export const completeCuttingBatch = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { actualAverage, remarks } = req.body;
+  const { actualAverage, remarks, fabricReturns } = req.body;
 
   const existing = await prisma.cutting_batches.findUnique({
     where: { id },
     include: {
       skuOutputs: true,
+      additionalFabrics: {
+        include: {
+          fabricStock: {
+            include: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } },
+          },
+        },
+      },
     },
   });
 
@@ -477,13 +484,96 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   // Calculate total cut quantity
   const totalCut = existing.skuOutputs.reduce((sum: number, sku) => sum + sku.cutQty, 0);
 
-  // Calculate actual average if not provided
-  let calcActualAverage = actualAverage;
-  if (!calcActualAverage && totalCut > 0 && Number(existing.fabricConsumed) > 0) {
-    calcActualAverage = Number(existing.fabricConsumed) / totalCut;
+  // Query per-fabric issued quantities from INTERNAL challans to Cutting
+  const issuedItems = await prisma.challan_items.groupBy({
+    by: ['fabricStockId'],
+    _sum: { quantity: true },
+    where: {
+      challan: {
+        productionRunId: existing.workOrderId,
+        challanType: 'INTERNAL',
+        toName: 'Cutting',
+        status: { in: ['ISSUED', 'RECEIVED'] },
+      },
+      fabricStockId: { not: null },
+    },
+  });
+
+  // Build a map of fabricStockId -> issued quantity
+  const issuedMap = new Map<string, number>();
+  for (const item of issuedItems) {
+    if (item.fabricStockId) {
+      issuedMap.set(item.fabricStockId, Number(item._sum.quantity || 0));
+    }
   }
 
-  // Calculate variance
+  // Build a map of fabricStockId -> returned quantity from request
+  const returnMap = new Map<string, number>();
+  if (fabricReturns && Array.isArray(fabricReturns)) {
+    for (const ret of fabricReturns) {
+      if (ret.fabricStockId && ret.returnedQuantity > 0) {
+        returnMap.set(ret.fabricStockId, ret.returnedQuantity);
+      }
+    }
+  }
+
+  // Create return challan if any fabric is being returned
+  let returnChallanId: string | null = null;
+  if (returnMap.size > 0) {
+    const returnItems = Array.from(returnMap.entries()).map(([fabricStockId, quantity]) => {
+      const batchFabric = existing.additionalFabrics.find((f) => f.fabricStockId === fabricStockId);
+      const fabricName = batchFabric?.fabricStock?.fabricMaster?.fabricName || 'Fabric';
+      return {
+        fabricStockId,
+        quantity,
+        description: `Return: ${fabricName} from batch ${existing.batchNumber}`,
+      };
+    });
+
+    const returnChallan = await createFabricReturnChallan({
+      workOrderId: existing.workOrderId,
+      issuedById: (req as any).user?.id || existing.createdById,
+      items: returnItems,
+      remarks: `Fabric return from cutting batch ${existing.batchNumber} completion`,
+    });
+    returnChallanId = returnChallan.id;
+  }
+
+  // Calculate per-fabric actual consumption and update cutting_batch_fabrics
+  let totalFabricIssued = 0;
+  let totalFabricReturned = 0;
+
+  for (const batchFabric of existing.additionalFabrics) {
+    const issued = issuedMap.get(batchFabric.fabricStockId) || 0;
+    const returned = returnMap.get(batchFabric.fabricStockId) || 0;
+    const actualCons = Math.max(0, issued - returned);
+
+    totalFabricIssued += issued;
+    totalFabricReturned += returned;
+
+    await prisma.cutting_batch_fabrics.update({
+      where: { id: batchFabric.id },
+      data: {
+        fabricIssued: issued,
+        fabricReturned: returned,
+        actualConsumption: actualCons,
+      },
+    });
+  }
+
+  // Total actual consumption
+  const totalActualConsumption = Math.max(0, totalFabricIssued - totalFabricReturned);
+
+  // If no challans found (legacy), fall back to lay-based fabricConsumed
+  const consumptionForAvg = totalFabricIssued > 0 ? totalActualConsumption : Number(existing.fabricConsumed);
+
+  // Calculate actual average
+  let calcActualAverage = actualAverage;
+  if (!calcActualAverage && totalCut > 0 && consumptionForAvg > 0) {
+    calcActualAverage = consumptionForAvg / totalCut;
+  }
+
+  // Calculate variance from CAD
   let varianceFromCad: number | null = null;
   let variancePercent: number | null = null;
   if (calcActualAverage && Number(existing.cadAverageUsed) > 0) {
@@ -491,36 +581,23 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
     variancePercent = (varianceFromCad / Number(existing.cadAverageUsed)) * 100;
   }
 
-  // Calculate fabric wastage: issued (from challans) minus consumed (from lays)
+  // Calculate wastage: issued - actual consumption
   let wastageMeters: number | null = null;
   let wastagePercent: number | null = null;
-  const fabricConsumed = Number(existing.fabricConsumed);
-
-  if (fabricConsumed > 0) {
-    // Sum issued fabric from INTERNAL challans for this work order
-    const issuedChallans = await prisma.challan_items.aggregate({
-      _sum: { quantity: true },
-      where: {
-        challan: {
-          productionRunId: existing.workOrderId,
-          challanType: 'INTERNAL',
-          toName: 'Cutting',
-          status: { in: ['ISSUED', 'RECEIVED'] },
-        },
-        fabricStockId: { not: null },
-      },
-    });
-    const totalIssued = Number(issuedChallans._sum.quantity || 0);
-    if (totalIssued > 0) {
-      wastageMeters = Math.max(0, totalIssued - fabricConsumed);
-      wastagePercent = (wastageMeters / totalIssued) * 100;
-    }
+  if (totalFabricIssued > 0 && consumptionForAvg > 0) {
+    wastageMeters = Math.max(0, totalFabricIssued - consumptionForAvg);
+    wastagePercent = (wastageMeters / totalFabricIssued) * 100;
   }
 
   const batch = await prisma.cutting_batches.update({
     where: { id },
     data: {
       status: 'COMPLETED',
+      completedAt: new Date(),
+      fabricIssued: totalFabricIssued || null,
+      fabricReturned: totalFabricReturned || null,
+      actualConsumption: totalFabricIssued > 0 ? totalActualConsumption : null,
+      returnChallanId,
       actualAverage: calcActualAverage,
       varianceFromCad,
       variancePercent,
@@ -532,6 +609,67 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   });
 
   res.json({ data: transformCuttingBatch(batch) });
+};
+
+// Get issued fabric for a cutting batch (for completion dialog)
+export const getIssuedFabric = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const batch = await prisma.cutting_batches.findUnique({
+    where: { id },
+    include: {
+      additionalFabrics: {
+        include: {
+          fabricStock: {
+            include: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } },
+          },
+        },
+      },
+    },
+  });
+
+  if (!batch) {
+    throw new NotFoundError('CuttingBatch', id);
+  }
+
+  // Query issued fabric from INTERNAL challans to Cutting for this work order
+  const issuedItems = await prisma.challan_items.groupBy({
+    by: ['fabricStockId'],
+    _sum: { quantity: true },
+    where: {
+      challan: {
+        productionRunId: batch.workOrderId,
+        challanType: 'INTERNAL',
+        toName: 'Cutting',
+        status: { in: ['ISSUED', 'RECEIVED'] },
+      },
+      fabricStockId: { not: null },
+    },
+  });
+
+  const issuedMap = new Map<string, number>();
+  for (const item of issuedItems) {
+    if (item.fabricStockId) {
+      issuedMap.set(item.fabricStockId, Number(item._sum.quantity || 0));
+    }
+  }
+
+  const result = batch.additionalFabrics.map((bf) => {
+    const issuedQty = issuedMap.get(bf.fabricStockId) || 0;
+    const consumedInLays = Number(bf.fabricConsumed) || 0;
+    return {
+      fabricStockId: bf.fabricStockId,
+      cuttingBatchFabricId: bf.id,
+      fabricName: bf.fabricStock?.fabricMaster?.fabricName || 'Unknown',
+      fabricCode: bf.fabricStock?.fabricMaster?.fabricCode || '',
+      rollNumbers: (bf.fabricStock as any)?.rollNumbers || '',
+      issuedQty,
+      consumedInLays,
+      balance: Math.max(0, issuedQty - consumedInLays),
+    };
+  });
+
+  res.json({ data: result });
 };
 
 // Put batch on hold

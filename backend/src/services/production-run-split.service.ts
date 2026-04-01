@@ -1,7 +1,6 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-
-const prisma = new PrismaClient();
+import prisma from '../config/database';
 
 // ============================================
 // TYPES

@@ -1523,11 +1523,11 @@ function OutsourcedWorkTab({
           id: req.id,
           rowKey: `svc-${req.id}`,
           source: 'SERVICE',
-          style: req.workOrder?.styles?.styleCode || req.workOrder?.styles?.styleName || '-',
+          style: req.workOrder?.style?.styleCode || req.workOrder?.style?.styleName || '-',
           workType: ServiceTypeLabels[req.serviceType] || req.serviceType,
           reference: req.workOrder?.workOrderNumber || '-',
           referenceLink: req.workOrderId ? `/work-orders/${req.workOrderId}` : undefined,
-          processor: req.assignedProcessor?.supplierName || req.preferredProcessor?.supplierName || 'Not Assigned',
+          processor: req.assignedProcessor?.name || req.preferredProcessor?.name || 'Not Assigned',
           processorAssigned: !!(req.assignedProcessorId || req.preferredProcessorId),
           quantity: `${req.quantityRequired} ${req.unit}`,
           cost: req.estimatedTotal ?? null,
@@ -1831,13 +1831,13 @@ function OutsourcedWorkTab({
                 </TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Style</TableHead>
-                <TableHead>Component</TableHead>
-                <TableHead>Color</TableHead>
-                <TableHead>Width</TableHead>
+                {sourceFilter !== 'service' && <TableHead>Component</TableHead>}
+                {sourceFilter !== 'service' && <TableHead>Color</TableHead>}
+                {sourceFilter !== 'service' && <TableHead>Width</TableHead>}
                 <TableHead>Work Type</TableHead>
-                <TableHead>Printing Type</TableHead>
+                {sourceFilter !== 'service' && <TableHead>Printing Type</TableHead>}
                 <TableHead>Reference</TableHead>
-                <TableHead>Processor / Vendor</TableHead>
+                {sourceFilter !== 'service' && <TableHead>Processor / Vendor</TableHead>}
                 <TableHead className="text-right">Quantity</TableHead>
                 <TableHead className="text-right">Est. Cost</TableHead>
                 <TableHead>Status</TableHead>
@@ -1847,13 +1847,19 @@ function OutsourcedWorkTab({
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center py-12 text-muted-foreground">
+                  <TableCell
+                    colSpan={sourceFilter === 'service' ? 9 : 14}
+                    className="text-center py-12 text-muted-foreground"
+                  >
                     Loading outsourced work items...
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={14} className="text-center py-12 text-muted-foreground">
+                  <TableCell
+                    colSpan={sourceFilter === 'service' ? 9 : 14}
+                    className="text-center py-12 text-muted-foreground"
+                  >
                     No outsourced work items found
                   </TableCell>
                 </TableRow>
@@ -1883,27 +1889,35 @@ function OutsourcedWorkTab({
                     <TableCell>
                       <span className="text-sm font-medium">{row.style}</span>
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{row.componentName || '-'}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{row.colorName || '-'}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">{row.fabricWidth ? `${row.fabricWidth}"` : '-'}</span>
-                    </TableCell>
+                    {sourceFilter !== 'service' && (
+                      <TableCell>
+                        <span className="text-sm">{row.componentName || '-'}</span>
+                      </TableCell>
+                    )}
+                    {sourceFilter !== 'service' && (
+                      <TableCell>
+                        <span className="text-sm">{row.colorName || '-'}</span>
+                      </TableCell>
+                    )}
+                    {sourceFilter !== 'service' && (
+                      <TableCell>
+                        <span className="text-sm">{row.fabricWidth ? `${row.fabricWidth}"` : '-'}</span>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <span className="text-sm font-medium">{row.workType}</span>
                     </TableCell>
-                    <TableCell>
-                      {row.printingType ? (
-                        <span className="text-sm font-semibold text-purple-700">
-                          {row.printingType.replace('_', ' ')}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
+                    {sourceFilter !== 'service' && (
+                      <TableCell>
+                        {row.printingType ? (
+                          <span className="text-sm font-semibold text-purple-700">
+                            {row.printingType.replace('_', ' ')}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       {row.referenceLink ? (
                         <button
@@ -1916,11 +1930,13 @@ function OutsourcedWorkTab({
                         <span className="text-sm">{row.reference}</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <span className={`text-sm ${row.processorAssigned ? '' : 'text-orange-600'}`}>
-                        {row.processor}
-                      </span>
-                    </TableCell>
+                    {sourceFilter !== 'service' && (
+                      <TableCell>
+                        <span className={`text-sm ${row.processorAssigned ? '' : 'text-orange-600'}`}>
+                          {row.processor}
+                        </span>
+                      </TableCell>
+                    )}
                     <TableCell className="text-right text-sm">{row.quantity}</TableCell>
                     <TableCell className="text-right">
                       <span className="text-sm font-medium text-purple-700">

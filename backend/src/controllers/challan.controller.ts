@@ -8,6 +8,7 @@ import {
   cancelChallan,
   getChallanStats,
   createGreigeOutwardChallan,
+  quickIssueChallan,
 } from '../services/challan.service';
 import { resolveRate } from '../services/po-rate-resolver.service';
 import { NotFoundError, ValidationError } from '../errors';
@@ -118,6 +119,24 @@ export async function getChallanStatsController(req: Request, res: Response) {
     productionRunId: productionRunId as string,
   });
   return res.json({ success: true, data: stats });
+}
+
+/**
+ * POST /api/challans/quick-issue
+ * Creates a challan and immediately issues it (stock deduction in one step)
+ */
+export async function quickIssueChallanController(req: Request, res: Response) {
+  const userId = (req as any).user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
+  }
+
+  const challan = await quickIssueChallan({
+    ...req.body,
+    issuedById: userId,
+  });
+
+  return res.status(201).json({ success: true, data: challan });
 }
 
 /**

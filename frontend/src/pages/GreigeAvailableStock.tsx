@@ -1,12 +1,79 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { Label } from '../components/ui/label';
 import { getGenericGreigeStock } from '../services/style-stock.service';
-import type { GenericGreigeStock } from '../types/style-stock.types';
-import { Search, Package2, Plus, ArrowLeft } from 'lucide-react';
+import { greigeStockService } from '../services/greigeStock.service';
+import type { GenericGreigeStock, GreigeStockDetail, UpdateGreigeStockData } from '../types/style-stock.types';
+import type { GreigeStockSummary } from '../types/greigeStock.types';
+import {
+  Search,
+  Package2,
+  Plus,
+  ArrowLeft,
+  ChevronRight,
+  ChevronDown,
+  Download,
+  Pencil,
+  Trash2,
+  IndianRupee,
+  AlertTriangle,
+  Layers,
+  Warehouse,
+} from 'lucide-react';
 import { logError } from '../lib/logger';
+import { toast } from 'sonner';
+
+const PAGE_SIZE = 25;
+
+function getAgeBadge(days: number) {
+  if (days >= 180) return <Badge variant="destructive">Old ({days}d)</Badge>;
+  if (days >= 90)
+    return (
+      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+        Aging ({days}d)
+      </Badge>
+    );
+  return (
+    <Badge variant="secondary" className="bg-green-100 text-green-800">
+      Fresh ({days}d)
+    </Badge>
+  );
+}
+
+function getQualityBadge(grade: string) {
+  switch (grade) {
+    case 'A':
+      return <Badge className="bg-green-100 text-green-800 border-green-200">A</Badge>;
+    case 'B':
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">B</Badge>;
+    case 'DEFECT':
+      return <Badge variant="destructive">Defect</Badge>;
+    default:
+      return <Badge variant="outline">{grade}</Badge>;
+  }
+}
+
+function formatCurrency(value: number | null | undefined) {
+  if (value == null || isNaN(value)) return '-';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+}
 
 export default function GreigeAvailableStock() {
   const navigate = useNavigate();
@@ -14,50 +81,215 @@ export default function GreigeAvailableStock() {
   const [filteredStock, setFilteredStock] = useState<GenericGreigeStock[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [qualityFilter, setQualityFilter] = useState('all');
+  const [warehouseFilter, setWarehouseFilter] = useState('all');
+  const [showAgedOnly, setShowAgedOnly] = useState(false);
+  const [summary, setSummary] = useState<GreigeStockSummary | null>(null);
+  const [page, setPage] = useState(1);
+
+  // Expandable rows
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [expandedRowData, setExpandedRowData] = useState<Record<string, GreigeStockDetail[]>>({});
+  const [loadingExpanded, setLoadingExpanded] = useState<Set<string>>(new Set());
+
+  // Edit dialog
+  const [editingEntry, setEditingEntry] = useState<GreigeStockDetail | null>(null);
+  const [editForm, setEditForm] = useState<UpdateGreigeStockData>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Delete dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [stockToDelete, setStockToDelete] = useState<GreigeStockDetail | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    loadGreigeStock();
+    loadData();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, greigeStock]);
-
-  const loadGreigeStock = async () => {
+  const loadData = async () => {
     try {
       setIsLoading(true);
-      const data = await getGenericGreigeStock();
-      setGreigeStock(data);
+      const [stockData, summaryData] = await Promise.all([getGenericGreigeStock(), greigeStockService.getSummary()]);
+      setGreigeStock(stockData);
+      setSummary(summaryData);
     } catch (err) {
       logError('Failed to load greige stock:', err);
+      toast.error('Failed to load greige stock');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...greigeStock];
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        (stock) =>
-          stock.greigeCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          stock.greigeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          stock.composition?.toLowerCase().includes(searchTerm.toLowerCase())
+        (s) =>
+          s.greigeCode?.toLowerCase().includes(term) ||
+          s.greigeName?.toLowerCase().includes(term) ||
+          s.composition?.toLowerCase().includes(term)
       );
     }
 
-    // showAgedOnly filter not applicable for GenericGreigeStock (no aging data)
+    if (qualityFilter !== 'all') {
+      filtered = filtered.filter((s) => s.qualityGrades?.includes(qualityFilter));
+    }
+
+    if (warehouseFilter !== 'all') {
+      filtered = filtered.filter((s) => s.warehouses?.includes(warehouseFilter));
+    }
+
+    if (showAgedOnly) {
+      filtered = filtered.filter((s) => s.maxAgingDays >= 180);
+    }
+
     setFilteredStock(filtered);
+    setPage(1);
+  }, [greigeStock, searchTerm, qualityFilter, warehouseFilter, showAgedOnly]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
+
+  // Derived data
+  const totalPages = Math.ceil(filteredStock.length / PAGE_SIZE);
+  const paginatedStock = filteredStock.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const uniqueWarehouses = [...new Set(greigeStock.flatMap((s) => s.warehouses || []))].filter(Boolean).sort();
+
+  const getTotalStock = () => filteredStock.reduce((sum, s) => sum + (s.totalStock || 0), 0);
+  const getTotalValue = () => filteredStock.reduce((sum, s) => sum + (s.totalValue || 0), 0);
+  const getAgedCount = () => filteredStock.filter((s) => s.maxAgingDays >= 180).length;
+
+  // Expandable row handling
+  const toggleRowExpand = async (greigeId: string) => {
+    const next = new Set(expandedRows);
+    if (next.has(greigeId)) {
+      next.delete(greigeId);
+      setExpandedRows(next);
+      return;
+    }
+    next.add(greigeId);
+    setExpandedRows(next);
+
+    if (!expandedRowData[greigeId]) {
+      setLoadingExpanded((prev) => new Set(prev).add(greigeId));
+      try {
+        const entries = await greigeStockService.getStockEntriesByGreige(greigeId);
+        setExpandedRowData((prev) => ({ ...prev, [greigeId]: entries }));
+      } catch (err) {
+        logError('Failed to load stock entries:', err);
+        toast.error('Failed to load stock entries');
+      } finally {
+        setLoadingExpanded((prev) => {
+          const n = new Set(prev);
+          n.delete(greigeId);
+          return n;
+        });
+      }
+    }
   };
 
-  const getTotalStock = () => {
-    return filteredStock.reduce((sum, stock) => sum + (stock.totalStock || 0), 0);
+  const refreshExpandedRow = async (greigeId: string) => {
+    try {
+      const entries = await greigeStockService.getStockEntriesByGreige(greigeId);
+      setExpandedRowData((prev) => ({ ...prev, [greigeId]: entries }));
+    } catch {
+      // silent
+    }
+  };
+
+  // Edit
+  const openEdit = (entry: GreigeStockDetail) => {
+    setEditingEntry(entry);
+    setEditForm({
+      purchaseCost: entry.purchaseCost ?? undefined,
+      qualityGrade: entry.qualityGrade,
+      warehouseLocation: entry.warehouseLocation ?? undefined,
+      rollNumbers: entry.rollNumbers ?? undefined,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEntry) return;
+    setIsSaving(true);
+    try {
+      await greigeStockService.updateStock(editingEntry.id, editForm);
+      toast.success('Stock entry updated');
+      setEditingEntry(null);
+      await refreshExpandedRow(editingEntry.greigeId);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Delete
+  const handleDelete = async () => {
+    if (!stockToDelete) return;
+    setIsDeleting(true);
+    try {
+      await greigeStockService.deleteStock(stockToDelete.id);
+      toast.success('Stock entry deleted');
+      setDeleteDialogOpen(false);
+      setStockToDelete(null);
+      await refreshExpandedRow(stockToDelete.greigeId);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to delete');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // CSV Export
+  const handleExport = () => {
+    const headers = [
+      'Greige Code',
+      'Name',
+      'Composition',
+      'Width',
+      'Cutable Width',
+      'Total Stock',
+      'Quality Grades',
+      'Warehouses',
+      'Suppliers',
+      'Total Value',
+      'Max Age (days)',
+      'Entry Count',
+    ];
+    const rows = filteredStock.map((s) => [
+      s.greigeCode,
+      s.greigeName,
+      s.composition,
+      s.greigeWidth ?? '',
+      s.cutableWidth ?? '',
+      s.totalStock.toFixed(2),
+      (s.qualityGrades || []).join('; '),
+      (s.warehouses || []).join('; '),
+      (s.suppliers || []).map((sp) => sp.name).join('; '),
+      (s.totalValue || 0).toFixed(2),
+      s.maxAgingDays,
+      s.entryCount,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `greige-stock-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exported to CSV');
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="mx-auto py-8 px-4 max-w-[1600px]">
       {/* Breadcrumb */}
       <div className="mb-4 text-sm text-gray-600">
         <Link to="/" className="hover:text-blue-600">
@@ -91,40 +323,100 @@ export default function GreigeAvailableStock() {
                 Available greige fabric stock that can be allocated to any future style
               </p>
             </div>
-            <Button onClick={() => navigate('/greige-stock-entry')}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add Greige Stock
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleExport} disabled={filteredStock.length === 0}>
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
+              <Button onClick={() => navigate('/greige-stock-entry')}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Greige Stock
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {/* Summary Panel */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-sm text-blue-600 font-medium">Total Greige Types</div>
+              <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
+                <Layers className="h-4 w-4" />
+                Total Greige Types
+              </div>
               <div className="text-2xl font-bold text-blue-900">{filteredStock.length}</div>
             </div>
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-sm text-green-600 font-medium">Total Stock</div>
-              <div className="text-2xl font-bold text-green-900">{getTotalStock().toFixed(2)}</div>
+              <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+                <Package2 className="h-4 w-4" />
+                Total Stock
+              </div>
+              <div className="text-2xl font-bold text-green-900">{getTotalStock().toFixed(2)} m</div>
+            </div>
+            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                <IndianRupee className="h-4 w-4" />
+                Total Value
+              </div>
+              <div className="text-2xl font-bold text-purple-900">{formatCurrency(getTotalValue())}</div>
+            </div>
+            <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <div className="flex items-center gap-2 text-sm text-orange-600 font-medium">
+                <AlertTriangle className="h-4 w-4" />
+                Aged Stock (&gt;180d)
+              </div>
+              <div className="text-2xl font-bold text-orange-900">{getAgedCount()}</div>
             </div>
           </div>
 
           {/* Filters */}
-          <div className="mb-6 flex gap-4">
-            <div className="relative flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder="Search greige..."
+                placeholder="Search greige code, name, composition..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
+            <Select value={qualityFilter} onValueChange={setQualityFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Qualities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Qualities</SelectItem>
+                <SelectItem value="A">Grade A</SelectItem>
+                <SelectItem value="B">Grade B</SelectItem>
+                <SelectItem value="DEFECT">Defect</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Warehouses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Warehouses</SelectItem>
+                {uniqueWarehouses.map((wh) => (
+                  <SelectItem key={wh} value={wh}>
+                    {wh}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2 px-3">
+              <Checkbox
+                id="aged-only"
+                checked={showAgedOnly}
+                onCheckedChange={(checked) => setShowAgedOnly(checked === true)}
+              />
+              <label htmlFor="aged-only" className="text-sm cursor-pointer">
+                Show aged only (&gt;180d)
+              </label>
+            </div>
           </div>
 
-          {/* Greige Stock List */}
+          {/* Table */}
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
               <div className="text-lg">Loading greige stock...</div>
@@ -138,55 +430,328 @@ export default function GreigeAvailableStock() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Greige Code</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Composition</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Stock</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredStock.map((stock) => (
-                    <tr key={stock.greigeId} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium">
-                        <Link
-                          to={`/greige/${stock.greigeId}`}
-                          className="text-blue-600 hover:text-blue-800 hover:underline"
-                        >
-                          {stock.greigeCode}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{stock.greigeName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{stock.composition}</td>
-                      <td className="px-4 py-3 text-sm text-right">
-                        <span className="font-semibold text-green-600">{(stock.totalStock || 0).toFixed(2)}</span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{stock.unit || 'meters'}</td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-[1400px] w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="w-10 px-2 py-3"></th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Greige Code</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Composition</th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Width</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Stock</th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Quality</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Warehouse</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Value</th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Age</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Entries</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedStock.map((stock) => (
+                      <>
+                        {/* Aggregated row */}
+                        <tr
+                          key={stock.greigeId}
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => toggleRowExpand(stock.greigeId)}
+                        >
+                          <td className="px-2 py-3 text-center">
+                            {expandedRows.has(stock.greigeId) ? (
+                              <ChevronDown className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-gray-500" />
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium">
+                            <Link
+                              to={`/greige/${stock.greigeId}`}
+                              className="text-blue-600 hover:text-blue-800 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {stock.greigeCode}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{stock.greigeName}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{stock.composition}</td>
+                          <td className="px-3 py-3 text-sm text-center">
+                            {stock.greigeWidth != null ? (
+                              <div>
+                                <span className="font-medium">{stock.greigeWidth}"</span>
+                                {stock.cutableWidth != null && (
+                                  <div className="text-xs text-gray-400">Cut: {stock.cutableWidth}"</div>
+                                )}
+                              </div>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            <span className="font-semibold text-green-600">{stock.totalStock.toFixed(2)}</span>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <div className="flex gap-1 justify-center flex-wrap">
+                              {(stock.qualityGrades || []).map((g) => (
+                                <span key={g}>{getQualityBadge(g)}</span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {(stock.warehouses || []).length > 0 ? (
+                              <div className="flex items-center gap-1">
+                                <Warehouse className="h-3 w-3 text-gray-400" />
+                                <span>{stock.warehouses.join(', ')}</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium">
+                            {formatCurrency(stock.totalValue)}
+                          </td>
+                          <td className="px-3 py-3 text-center">{getAgeBadge(stock.maxAgingDays)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {(stock.suppliers || []).length > 0 ? (
+                              stock.suppliers.length === 1 ? (
+                                stock.suppliers[0].name
+                              ) : (
+                                `${stock.suppliers[0].name} +${stock.suppliers.length - 1}`
+                              )
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-center">
+                            <Badge variant="outline">{stock.entryCount}</Badge>
+                          </td>
+                        </tr>
 
-          {/* Info Panel */}
-          {filteredStock.length > 0 && (
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h3 className="font-medium text-blue-900 mb-2">About Generic Greige Stock</h3>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• This greige is not allocated to any specific style</li>
-                <li>• Can be processed (dyed/printed) when you receive orders for new styles</li>
-                <li>• Monitor aged stock (6+ months) and consider using it soon</li>
-                <li>• Remaining greige after style allocation stays in generic pool</li>
-              </ul>
-            </div>
+                        {/* Expanded sub-table */}
+                        {expandedRows.has(stock.greigeId) && (
+                          <tr key={`${stock.greigeId}-expanded`}>
+                            <td colSpan={12} className="px-0 py-0">
+                              <div className="bg-gray-50 border-t border-b border-gray-200 px-8 py-4">
+                                {loadingExpanded.has(stock.greigeId) ? (
+                                  <div className="text-center py-4 text-gray-500">Loading entries...</div>
+                                ) : (expandedRowData[stock.greigeId] || []).length === 0 ? (
+                                  <div className="text-center py-4 text-gray-500">No individual entries found</div>
+                                ) : (
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="text-xs text-gray-500 uppercase border-b">
+                                        <th className="px-3 py-2 text-right">Qty Avail</th>
+                                        <th className="px-3 py-2 text-right">Qty Reserved</th>
+                                        <th className="px-3 py-2 text-center">Width</th>
+                                        <th className="px-3 py-2 text-right">Cost/m</th>
+                                        <th className="px-3 py-2 text-left">Warehouse</th>
+                                        <th className="px-3 py-2 text-left">Roll Numbers</th>
+                                        <th className="px-3 py-2 text-center">Quality</th>
+                                        <th className="px-3 py-2 text-left">Received</th>
+                                        <th className="px-3 py-2 text-center">Age</th>
+                                        <th className="px-3 py-2 text-center">Status</th>
+                                        <th className="px-3 py-2 text-left">Supplier</th>
+                                        <th className="px-3 py-2 text-center">Actions</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                      {(expandedRowData[stock.greigeId] || []).map((entry) => (
+                                        <tr key={entry.id} className="hover:bg-white">
+                                          <td className="px-3 py-2 text-right font-medium text-green-600">
+                                            {entry.quantityAvailable.toFixed(2)}
+                                          </td>
+                                          <td className="px-3 py-2 text-right text-orange-600">
+                                            {entry.quantityReserved > 0 ? entry.quantityReserved.toFixed(2) : '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-center">
+                                            {entry.greigeWidth}"
+                                            {entry.cutableWidth != null && (
+                                              <span className="text-xs text-gray-400 ml-1">
+                                                ({entry.cutableWidth}")
+                                              </span>
+                                            )}
+                                          </td>
+                                          <td className="px-3 py-2 text-right">
+                                            {entry.purchaseCost != null ? formatCurrency(entry.purchaseCost) : '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-gray-600">{entry.warehouseLocation || '-'}</td>
+                                          <td
+                                            className="px-3 py-2 text-gray-600 max-w-[150px] truncate"
+                                            title={entry.rollNumbers || ''}
+                                          >
+                                            {entry.rollNumbers || '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-center">
+                                            {getQualityBadge(entry.qualityGrade)}
+                                          </td>
+                                          <td className="px-3 py-2 text-gray-600">
+                                            {entry.receivedDate
+                                              ? new Date(entry.receivedDate).toLocaleDateString('en-IN')
+                                              : '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-center">{getAgeBadge(entry.agingDays)}</td>
+                                          <td className="px-3 py-2 text-center">
+                                            <Badge variant={entry.status === 'AVAILABLE' ? 'outline' : 'secondary'}>
+                                              {entry.status}
+                                            </Badge>
+                                          </td>
+                                          <td className="px-3 py-2 text-gray-600 text-xs">
+                                            {entry.supplier?.name || '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-center">
+                                            <div className="flex gap-1 justify-center">
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 w-7 p-0"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  openEdit(entry);
+                                                }}
+                                              >
+                                                <Pencil className="h-3 w-3" />
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setStockToDelete(entry);
+                                                  setDeleteDialogOpen(true);
+                                                }}
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 px-2">
+                  <div className="text-sm text-gray-500">
+                    Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filteredStock.length)} of{' '}
+                    {filteredStock.length}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                      Previous
+                    </Button>
+                    <span className="flex items-center px-3 text-sm">
+                      Page {page} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Greige Stock Entry</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Purchase Cost (per meter)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editForm.purchaseCost ?? ''}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, purchaseCost: e.target.value ? parseFloat(e.target.value) : undefined })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Quality Grade</Label>
+                <Select
+                  value={editForm.qualityGrade || 'A'}
+                  onValueChange={(v) => setEditForm({ ...editForm, qualityGrade: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A">Grade A</SelectItem>
+                    <SelectItem value="B">Grade B</SelectItem>
+                    <SelectItem value="DEFECT">Defect</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Warehouse Location</Label>
+              <Input
+                value={editForm.warehouseLocation ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, warehouseLocation: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Roll Numbers</Label>
+              <Input
+                value={editForm.rollNumbers ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, rollNumbers: e.target.value })}
+                placeholder="Comma-separated roll numbers"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingEntry(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Stock Entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this greige stock entry ({stockToDelete?.quantityAvailable.toFixed(2)}{' '}
+              meters). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700" disabled={isDeleting}>
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

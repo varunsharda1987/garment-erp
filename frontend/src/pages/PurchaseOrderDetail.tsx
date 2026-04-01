@@ -190,8 +190,8 @@ export default function PurchaseOrderDetail() {
       if (style?.styleCode) styles.set(style.id, style.styleCode);
       const pStyle = link.productionRun?.styles;
       if (pStyle?.styleCode) styles.set(pStyle.id, pStyle.styleCode);
-      // Service requirement path: serviceRequirement → workOrder → styles
-      const svcStyle = link.serviceRequirement?.workOrder?.styles;
+      // Service requirement path: serviceRequirement → workOrder → style
+      const svcStyle = link.serviceRequirement?.workOrder?.style;
       if (svcStyle?.styleCode) styles.set(svcStyle.id, svcStyle.styleCode);
     }
     return [...styles.values()];

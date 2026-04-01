@@ -330,7 +330,21 @@
       "Bash(npx prettier:*)",
       "Bash(mkdir -p prisma/migrations/20260322_add_unique_constraints_and_code_sequences)",
       "Bash(prisma/migrations/20260322_add_unique_constraints_and_code_sequences/migration.sql:*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(find /c/Users/NEW/garment-erp/backend/src -type f \\\\\\(-name *.test.ts -o -name *.spec.ts \\\\\\))",
+      "Bash(find /c/Users/NEW/garment-erp/frontend/src -type f \\\\\\(-name *.test.ts -o -name *.spec.ts -o -name *.test.tsx -o -name *.spec.tsx \\\\\\))",
+      "Read(//tmp/**)",
+      "Bash(python3 -c \":*)",
+      "Read(//c/Users/NEW/garment-erp/frontend/**)",
+      "Bash(sed 's/.routes.ts//')",
+      "Bash(do grep:*)",
+      "Bash(git show:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZmRlZmJkOC1iNGM2LTQ5NGItOTJhNy00NDIxYWNiZjMzMzMiLCJlbWFpbCI6ImFkbWluQGthc2hheWEuY29tIiwicm9sZSI6IkFETUlOIiwiaWF0IjoxNzc0NjgwODM4LCJleHAiOjE3NzUyODU2Mzh9._TRXYkvjkjJC1GcFlj3Y9kPgKk35XasuTLHI1iIsEY0\")",
+      "Bash(grep -n \"''Main''\" backend/src/controllers/cutting.controller.ts)",
+      "Bash(grep -E \"\\\\.\\(ts\\)$\")",
+      "Bash(winpty npx:*)",
+      "Bash(script -qec \"npx prisma migrate dev --name add_fabric_return_tracking\" /dev/null)",
+      "Bash(2)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",
@@ -344,7 +358,8 @@
       "c:\\tmp",
       "c:\\Users\\NEW\\garment-erp\\backend\\scripts",
       "C:\\Users\\NEW\\garment-erp\\backend\\src\\services",
-      "C:\\Users\\NEW\\.claude\\plans"
+      "C:\\Users\\NEW\\.claude\\plans",
+      "c:\\Users\\NEW\\garment-erp\\backend\\src\\controllers"
     ]
   },
   "model": "claude-opus-4-5-20251101"

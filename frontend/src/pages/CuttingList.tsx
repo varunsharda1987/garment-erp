@@ -31,7 +31,7 @@ import type {
 } from '@/types/cutting.types';
 import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 
 export default function CuttingList() {
   const [batches, setBatches] = useState<CuttingBatch[]>([]);
@@ -260,9 +260,12 @@ export default function CuttingList() {
                       <TableHead>Work Order</TableHead>
                       <TableHead>Style</TableHead>
                       <TableHead>Component</TableHead>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Start Date</TableHead>
+                      <TableHead>End Date</TableHead>
+                      <TableHead className="text-center">Days</TableHead>
                       <TableHead className="text-right">Layers</TableHead>
                       <TableHead className="text-right">Fabric (m)</TableHead>
+                      <TableHead className="text-right">Actual Avg</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -281,11 +284,43 @@ export default function CuttingList() {
                           </div>
                         </TableCell>
                         <TableCell>{batch.component?.componentName || '—'}</TableCell>
-                        <TableCell>{format(new Date(batch.cuttingDate), 'dd MMM yyyy')}</TableCell>
+                        <TableCell>
+                          {batch.startedAt ? format(new Date(batch.startedAt), 'dd MMM yyyy') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {batch.completedAt ? format(new Date(batch.completedAt), 'dd MMM yyyy') : '—'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {batch.startedAt && batch.completedAt
+                            ? Math.max(
+                                1,
+                                differenceInCalendarDays(new Date(batch.completedAt), new Date(batch.startedAt))
+                              )
+                            : batch.startedAt
+                              ? `${Math.max(1, differenceInCalendarDays(new Date(), new Date(batch.startedAt)))}...`
+                              : '—'}
+                        </TableCell>
                         <TableCell className="text-right">
                           {batch.layersPerLay} × {batch.numberOfLays}
                         </TableCell>
                         <TableCell className="text-right">{batch.fabricConsumed?.toFixed(2) || '0.00'}</TableCell>
+                        <TableCell className="text-right">
+                          {batch.status === 'COMPLETED' && batch.actualAverage ? (
+                            <span
+                              className={
+                                batch.variancePercent != null && batch.variancePercent > 0
+                                  ? 'text-red-600 font-medium'
+                                  : batch.variancePercent != null && batch.variancePercent < 0
+                                    ? 'text-green-600 font-medium'
+                                    : 'font-medium'
+                              }
+                            >
+                              {batch.actualAverage.toFixed(4)}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
                         <TableCell>{getStatusBadge(batch.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

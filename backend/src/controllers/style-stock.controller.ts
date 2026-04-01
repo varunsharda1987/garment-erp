@@ -204,7 +204,7 @@ class StyleStockController {
       // Use new GreigeStockService with dedicated greige_stock table
       const rawStock = await GreigeStockService.getGreigeStock();
 
-      // Aggregate by greigeId — frontend expects one row per greige type with totalStock
+      // Aggregate by greigeId with enriched data
       const aggregated = new Map<
         string,
         {
@@ -214,13 +214,35 @@ class StyleStockController {
           composition: string;
           totalStock: number;
           unit: string;
+          totalValue: number;
+          maxAgingDays: number;
+          greigeWidth: number | null;
+          cutableWidth: number | null;
+          qualityGrades: Set<string>;
+          warehouses: Set<string>;
+          suppliers: Map<string, { id: string; name: string; code: string }>;
+          statuses: Set<string>;
+          entryCount: number;
         }
       >();
+
       for (const item of rawStock) {
         const existing = aggregated.get(item.greigeId);
+        const itemValue = item.quantityAvailable * (item.weightedAvgCost || item.purchaseCost || 0);
+
         if (existing) {
           existing.totalStock += item.quantityAvailable;
+          existing.totalValue += itemValue;
+          existing.maxAgingDays = Math.max(existing.maxAgingDays, item.agingDays);
+          existing.qualityGrades.add(item.qualityGrade);
+          if (item.warehouseLocation) existing.warehouses.add(item.warehouseLocation);
+          if (item.supplier) existing.suppliers.set(item.supplier.id, item.supplier);
+          existing.statuses.add(item.status);
+          existing.entryCount++;
         } else {
+          const supplierMap = new Map<string, { id: string; name: string; code: string }>();
+          if (item.supplier) supplierMap.set(item.supplier.id, item.supplier);
+
           aggregated.set(item.greigeId, {
             greigeId: item.greigeId,
             greigeCode: (item.greige as any)?.greigeCode || '',
@@ -228,13 +250,41 @@ class StyleStockController {
             composition: (item.greige as any)?.composition || '',
             totalStock: item.quantityAvailable,
             unit: 'meters',
+            totalValue: itemValue,
+            maxAgingDays: item.agingDays,
+            greigeWidth: item.greigeWidth,
+            cutableWidth: item.cutableWidth ?? null,
+            qualityGrades: new Set([item.qualityGrade]),
+            warehouses: item.warehouseLocation ? new Set([item.warehouseLocation]) : new Set(),
+            suppliers: supplierMap,
+            statuses: new Set([item.status]),
+            entryCount: 1,
           });
         }
       }
 
+      // Convert Sets/Maps to arrays for JSON response
+      const data = Array.from(aggregated.values()).map((item) => ({
+        greigeId: item.greigeId,
+        greigeCode: item.greigeCode,
+        greigeName: item.greigeName,
+        composition: item.composition,
+        totalStock: Math.round(item.totalStock * 100) / 100,
+        unit: item.unit,
+        totalValue: Math.round(item.totalValue * 100) / 100,
+        maxAgingDays: item.maxAgingDays,
+        greigeWidth: item.greigeWidth,
+        cutableWidth: item.cutableWidth,
+        qualityGrades: Array.from(item.qualityGrades),
+        warehouses: Array.from(item.warehouses),
+        suppliers: Array.from(item.suppliers.values()),
+        statuses: Array.from(item.statuses),
+        entryCount: item.entryCount,
+      }));
+
       return res.status(200).json({
         success: true,
-        data: Array.from(aggregated.values()),
+        data,
       });
     } catch (error: unknown) {
       logError('Get generic greige stock error:', error);
@@ -242,6 +292,58 @@ class StyleStockController {
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get greige stock',
       });
+    }
+  }
+
+  /**
+   * Get individual stock entries for a specific greige type (for expandable rows)
+   * GET /api/greige/stock-entries/:greigeId
+   */
+  async getGreigeStockByGreigeId(req: Request, res: Response) {
+    try {
+      const { greigeId } = req.params;
+      const stocks = await GreigeStockService.getGreigeStock({ greigeId, minQuantity: 0 });
+      return res.status(200).json({ success: true, data: stocks });
+    } catch (error: unknown) {
+      logError('Get greige stock by greigeId error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get greige stock entries',
+      });
+    }
+  }
+
+  /**
+   * Update a greige stock entry
+   * PATCH /api/greige/stock/:stockId
+   */
+  async updateGreigeStockEntry(req: Request, res: Response) {
+    try {
+      const { stockId } = req.params;
+      const updated = await GreigeStockService.updateGreigeStock(stockId, req.body);
+      return res.status(200).json({ success: true, data: updated, message: 'Greige stock updated' });
+    } catch (error: unknown) {
+      logError('Update greige stock error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to update greige stock';
+      const status = message.includes('not found') ? 404 : 500;
+      return res.status(status).json({ success: false, message });
+    }
+  }
+
+  /**
+   * Delete a greige stock entry
+   * DELETE /api/greige/stock/:stockId
+   */
+  async deleteGreigeStockEntry(req: Request, res: Response) {
+    try {
+      const { stockId } = req.params;
+      await GreigeStockService.deleteGreigeStock(stockId);
+      return res.status(200).json({ success: true, message: 'Greige stock entry deleted' });
+    } catch (error: unknown) {
+      logError('Delete greige stock error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to delete greige stock';
+      const status = message.includes('not found') ? 404 : message.includes('Cannot delete') ? 409 : 500;
+      return res.status(status).json({ success: false, message });
     }
   }
 
@@ -264,6 +366,30 @@ class StyleStockController {
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get greige stock summary',
+      });
+    }
+  }
+
+  /**
+   * Get individual greige stock entries (available, with IDs for challan issuance)
+   * GET /api/greige/stock
+   */
+  async getAvailableGreigeStock(req: Request, res: Response) {
+    try {
+      const stocks = await GreigeStockService.getGreigeStock({
+        status: 'AVAILABLE',
+        minQuantity: 0.01,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: stocks,
+      });
+    } catch (error: unknown) {
+      logError('Get available greige stock error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get available greige stock',
       });
     }
   }

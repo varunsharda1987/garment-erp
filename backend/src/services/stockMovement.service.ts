@@ -51,6 +51,100 @@ export interface MovementFilters {
 
 class StockMovementService {
   /**
+   * Helper: Increase stock level inside a transaction
+   * All stock level operations MUST use tx to ensure atomicity
+   */
+  private async increaseStockInTx(
+    tx: Prisma.TransactionClient,
+    materialId: string,
+    warehouseId: string,
+    quantity: Decimal,
+    unit: Unit,
+    rate?: Decimal
+  ) {
+    const existing = await tx.stock_levels.findFirst({
+      where: { materialId, warehouseId },
+    });
+
+    if (existing) {
+      const newQuantity = new Decimal(existing.quantity.toString()).add(quantity.toString());
+      let newValuationRate = existing.valuationRate;
+      let newStockValue = existing.stockValue;
+
+      if (rate) {
+        const oldValue = existing.stockValue ? new Decimal(existing.stockValue.toString()) : new Decimal(0);
+        const newValue = new Decimal(quantity.toString()).mul(rate.toString());
+        const totalValue = oldValue.add(newValue);
+        newValuationRate = totalValue.div(newQuantity);
+        newStockValue = totalValue;
+      }
+
+      return tx.stock_levels.update({
+        where: { id: existing.id },
+        data: {
+          quantity: newQuantity,
+          valuationRate: newValuationRate,
+          stockValue: newStockValue,
+          lastUpdated: new Date(),
+        },
+      });
+    } else {
+      const stockValue = rate ? new Decimal(quantity.toString()).mul(rate.toString()) : null;
+      return tx.stock_levels.create({
+        data: {
+          materialId,
+          warehouseId,
+          quantity,
+          unit,
+          valuationRate: rate,
+          stockValue,
+        },
+      });
+    }
+  }
+
+  /**
+   * Helper: Decrease stock level inside a transaction
+   * All stock level operations MUST use tx to ensure atomicity
+   */
+  private async decreaseStockInTx(
+    tx: Prisma.TransactionClient,
+    materialId: string,
+    warehouseId: string,
+    quantity: Decimal
+  ) {
+    const existing = await tx.stock_levels.findFirst({
+      where: { materialId, warehouseId },
+    });
+
+    if (!existing) {
+      throw new Error('Stock level not found. Cannot decrease stock.');
+    }
+
+    const currentQty = new Decimal(existing.quantity.toString());
+    const decreaseQty = new Decimal(quantity.toString());
+
+    if (currentQty.lt(decreaseQty)) {
+      throw new Error(`Insufficient stock. Available: ${currentQty}, Requested: ${decreaseQty}`);
+    }
+
+    const newQuantity = currentQty.sub(decreaseQty);
+    let newStockValue = existing.stockValue;
+    if (existing.stockValue && existing.valuationRate) {
+      newStockValue = new Decimal(newQuantity.toString()).mul(existing.valuationRate.toString());
+    }
+
+    return tx.stock_levels.update({
+      where: { id: existing.id },
+      data: {
+        quantity: newQuantity,
+        stockValue: newStockValue,
+        lastUpdated: new Date(),
+      },
+    });
+  }
+
+  /**
    * Create stock in movement (GRN, Purchase, etc.)
    */
   async createStockIn(data: CreateStockMovementDTO) {
@@ -98,7 +192,7 @@ class StockMovementService {
             unit: data.unit,
             rate: data.rate,
             value: new Decimal(data.quantity.toString()).mul(data.rate.toString()),
-            balanceQuantity: data.quantity, // Will be updated by trigger or separate calculation
+            balanceQuantity: data.quantity,
             balanceValue: new Decimal(data.quantity.toString()).mul(data.rate.toString()),
             referenceType: data.referenceType,
             referenceId: data.referenceId,
@@ -107,8 +201,8 @@ class StockMovementService {
         });
       }
 
-      // Update stock level (using service to handle weighted average)
-      await stockLevelService.increaseStock(data.materialId, data.warehouseId, data.quantity, data.unit, data.rate);
+      // Update stock level inside transaction for atomicity
+      await this.increaseStockInTx(tx, data.materialId, data.warehouseId, data.quantity, data.unit, data.rate);
 
       return movement;
     });
@@ -119,8 +213,10 @@ class StockMovementService {
    */
   async createStockOut(data: CreateStockMovementDTO) {
     return await prisma.$transaction(async (tx) => {
-      // Check if sufficient stock available
-      const stockLevel = await stockLevelService.getStockLevel(data.materialId, data.warehouseId);
+      // Check stock availability inside transaction for atomicity
+      const stockLevel = await tx.stock_levels.findFirst({
+        where: { materialId: data.materialId, warehouseId: data.warehouseId },
+      });
 
       if (!stockLevel) {
         throw new Error('Material not available in this warehouse');
@@ -191,8 +287,8 @@ class StockMovementService {
         });
       }
 
-      // Update stock level (decrease)
-      await stockLevelService.decreaseStock(data.materialId, data.warehouseId, data.quantity);
+      // Decrease stock inside transaction for atomicity
+      await this.decreaseStockInTx(tx, data.materialId, data.warehouseId, data.quantity);
 
       return movement;
     });
@@ -203,8 +299,10 @@ class StockMovementService {
    */
   async createStockTransfer(data: StockTransferDTO) {
     return await prisma.$transaction(async (tx) => {
-      // Check source warehouse stock
-      const sourceStock = await stockLevelService.getStockLevel(data.materialId, data.fromWarehouseId);
+      // Check source warehouse stock inside transaction for atomicity
+      const sourceStock = await tx.stock_levels.findFirst({
+        where: { materialId: data.materialId, warehouseId: data.fromWarehouseId },
+      });
 
       if (!sourceStock) {
         throw new Error('Material not available in source warehouse');
@@ -254,11 +352,12 @@ class StockMovementService {
         },
       });
 
-      // Update source warehouse stock (decrease)
-      await stockLevelService.decreaseStock(data.materialId, data.fromWarehouseId, data.quantity);
+      // Decrease source warehouse stock inside transaction
+      await this.decreaseStockInTx(tx, data.materialId, data.fromWarehouseId, data.quantity);
 
-      // Update destination warehouse stock (increase)
-      await stockLevelService.increaseStock(
+      // Increase destination warehouse stock inside transaction
+      await this.increaseStockInTx(
+        tx,
         data.materialId,
         data.toWarehouseId,
         data.quantity,
@@ -303,8 +402,8 @@ class StockMovementService {
           },
         });
 
-        // Increase stock
-        await stockLevelService.increaseStock(data.materialId, data.warehouseId, absoluteQty, data.unit);
+        // Increase stock inside transaction
+        await this.increaseStockInTx(tx, data.materialId, data.warehouseId, absoluteQty, data.unit);
       } else {
         // Adjustment OUT
         movement = await tx.stock_movements.create({
@@ -324,8 +423,8 @@ class StockMovementService {
           },
         });
 
-        // Decrease stock
-        await stockLevelService.decreaseStock(data.materialId, data.warehouseId, absoluteQty);
+        // Decrease stock inside transaction
+        await this.decreaseStockInTx(tx, data.materialId, data.warehouseId, absoluteQty);
       }
 
       return movement;

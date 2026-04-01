@@ -100,7 +100,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
     );
   }
 
-  if (!data || data.items.length === 0) return null;
+  if (!data || (data.items.length === 0 && data.issuedChallans.length === 0)) return null;
 
   const hasIssuedChallans = data.issuedChallans.length > 0;
   const itemsWithStock = data.items.filter((i) => i.availableStock > 0);
@@ -258,7 +258,11 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
                       {challan.items.map((i) => i.description).join(', ')}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => navigate(`/procurement/challans/${challan.id}`)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/manufacturing/challans/${challan.id}`)}
+                      >
                         <ExternalLink className="h-3 w-3" />
                       </Button>
                     </TableCell>

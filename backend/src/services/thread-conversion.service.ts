@@ -9,9 +9,8 @@
  * This is the BRAIN of the Thread Material module.
  */
 
-import { PrismaClient, ThreadPly, ThreadPackagingType } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { ThreadPly, ThreadPackagingType } from '@prisma/client';
+import prisma from '../config/database';
 
 // ==================== TYPES ====================
 

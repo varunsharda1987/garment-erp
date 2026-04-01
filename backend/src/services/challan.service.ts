@@ -1,11 +1,10 @@
-import { PrismaClient, ChallanType, ChallanStatus, Prisma, MovementType, Unit } from '@prisma/client';
+import { ChallanType, ChallanStatus, Prisma, MovementType, Unit } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
+import prisma from '../config/database';
 import greigeStockService from './greige-stock.service';
 import fabricStockService from './fabric-stock.service';
 import stockMovementService from './stockMovement.service';
-
-const prisma = new PrismaClient();
 
 // ============================================
 // TYPES
@@ -339,12 +338,9 @@ export async function issueChallan(id: string, userId?: string) {
                 performedById: effectiveUserId,
               });
             } catch (err: any) {
-              // For INTERNAL challans (production issuance), stock deduction failure should block
-              // For OUTWARD challans (vendor shipments), allow with warning for backward compat
-              if (existing.challanType === 'INTERNAL') {
-                throw new Error(`Stock deduction failed for material ${item.materialId}: ${err.message}`);
-              }
-              console.warn(`Stock deduction skipped for material ${item.materialId}: ${err.message}`);
+              // Stock deduction failure must block challan issuance for ALL types
+              // to prevent data inconsistency (challan ISSUED but stock not deducted)
+              throw new Error(`Stock deduction failed for material ${item.materialId}: ${err.message}`);
             }
           }
         }
@@ -392,8 +388,22 @@ export async function getChallanById(id: string) {
     where: { id },
     include: {
       items: true,
-      order: { select: { id: true, orderNumber: true } },
-      productionRun: { select: { id: true, workOrderNumber: true } },
+      order: {
+        select: {
+          id: true,
+          orderNumber: true,
+          totalQuantity: true,
+          customers: { select: { id: true, name: true } },
+        },
+      },
+      productionRun: {
+        select: {
+          id: true,
+          workOrderNumber: true,
+          totalQuantity: true,
+          styles: { select: { id: true, styleCode: true, styleName: true } },
+        },
+      },
       purchaseOrder: {
         select: {
           id: true,
@@ -436,8 +446,22 @@ export async function getChallans(filters: ChallanFilters) {
       where,
       include: {
         items: true,
-        order: { select: { id: true, orderNumber: true } },
-        productionRun: { select: { id: true, workOrderNumber: true } },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+            totalQuantity: true,
+            customers: { select: { id: true, name: true } },
+          },
+        },
+        productionRun: {
+          select: {
+            id: true,
+            workOrderNumber: true,
+            totalQuantity: true,
+            styles: { select: { id: true, styleCode: true, styleName: true } },
+          },
+        },
         purchaseOrder: { select: { id: true, poNumber: true } },
         issuedBy: { select: { id: true, firstName: true, lastName: true } },
         receivedBy: { select: { id: true, firstName: true, lastName: true } },
@@ -558,7 +582,9 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
                 performedById: input.receivedById,
               });
             } catch (err: any) {
-              console.warn(`Stock credit skipped for material ${item.materialId}: ${err.message}`);
+              // Stock credit failure must block challan reception
+              // to prevent data inconsistency (challan RECEIVED but stock not credited)
+              throw new Error(`Stock credit failed for material ${item.materialId}: ${err.message}`);
             }
           }
         }
@@ -811,6 +837,96 @@ export async function createGreigeOutwardChallan(input: CreateGreigeOutwardChall
 
     return challan;
   });
+}
+
+// ============================================
+// FABRIC RETURN CHALLAN (Cutting → Fabric Store)
+// ============================================
+
+export interface FabricReturnItem {
+  fabricStockId: string;
+  quantity: number;
+  description: string;
+}
+
+export interface CreateFabricReturnInput {
+  workOrderId: string;
+  issuedById: string;
+  items: FabricReturnItem[];
+  remarks?: string;
+}
+
+/**
+ * Creates a return challan for fabric going back from Cutting to Fabric Store.
+ * The challan is created directly as RECEIVED and fabric stock is credited back.
+ */
+export async function createFabricReturnChallan(input: CreateFabricReturnInput) {
+  return prisma.$transaction(async (tx) => {
+    const challanNumber = await generateChallanNumber(tx);
+    const totalQuantity = input.items.reduce((sum, item) => sum + item.quantity, 0);
+
+    const challan = await tx.challans.create({
+      data: {
+        id: randomUUID(),
+        challanNumber,
+        challanType: 'INTERNAL',
+        challanDate: new Date(),
+        productionRunId: input.workOrderId,
+        fromType: 'DEPARTMENT',
+        fromName: 'Cutting',
+        toType: 'DEPARTMENT',
+        toName: 'Fabric Store',
+        status: 'RECEIVED',
+        issuedDate: new Date(),
+        receivedDate: new Date(),
+        totalItems: input.items.length,
+        totalQuantity,
+        receivedQuantity: totalQuantity,
+        unit: 'MTR',
+        remarks: input.remarks || 'Fabric return from cutting batch completion',
+        issuedById: input.issuedById,
+        receivedById: input.issuedById,
+        items: {
+          create: input.items.map((item) => ({
+            id: randomUUID(),
+            itemType: 'FABRIC',
+            description: item.description,
+            quantity: item.quantity,
+            receivedQty: item.quantity,
+            unit: 'MTR',
+            fabricStockId: item.fabricStockId,
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    // Credit fabric stock for each returned item
+    for (const item of input.items) {
+      await tx.fabric_stock.update({
+        where: { id: item.fabricStockId },
+        data: {
+          quantityAvailable: { increment: item.quantity },
+          quantityConsumed: { decrement: item.quantity },
+          status: 'AVAILABLE',
+        },
+      });
+    }
+
+    return challan;
+  });
+}
+
+// ============================================
+// QUICK ISSUE (Create + Issue in one step)
+// ============================================
+
+export async function quickIssueChallan(input: CreateChallanInput) {
+  // Step 1: Create challan as DRAFT
+  const challan = await createChallan(input);
+  // Step 2: Immediately issue it (triggers stock deduction via issueChallan)
+  const issuedChallan = await issueChallan(challan.id, input.issuedById);
+  return issuedChallan;
 }
 
 // ============================================

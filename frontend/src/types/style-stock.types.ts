@@ -116,4 +116,48 @@ export interface GenericGreigeStock {
   composition: string;
   totalStock: number;
   unit: string;
+  totalValue: number;
+  maxAgingDays: number;
+  greigeWidth: number | null;
+  cutableWidth: number | null;
+  qualityGrades: string[];
+  warehouses: string[];
+  suppliers: Array<{ id: string; name: string; code: string }>;
+  statuses: string[];
+  entryCount: number;
+}
+
+export interface GreigeStockDetail {
+  id: string;
+  greigeId: string;
+  greige: {
+    id: string;
+    greigeCode: string;
+    greigeName: string;
+    composition: string;
+  };
+  quantityAvailable: number;
+  quantityReserved: number;
+  quantityConsumed: number;
+  greigeWidth: number;
+  cutableWidth: number | null;
+  purchaseCost: number | null;
+  weightedAvgCost: number | null;
+  warehouseLocation: string | null;
+  rollNumbers: string | null;
+  qualityGrade: string;
+  receivedDate: string;
+  agingDays: number;
+  status: string;
+  stockType: string;
+  supplierId: string | null;
+  supplier: { id: string; name: string; code: string } | null;
+}
+
+export interface UpdateGreigeStockData {
+  purchaseCost?: number;
+  weightedAvgCost?: number;
+  qualityGrade?: string;
+  warehouseLocation?: string;
+  rollNumbers?: string;
 }

@@ -12,6 +12,10 @@ import { logError } from '@/lib/logger';
 import { getUploadUrl } from '../config/api.config';
 import { getStyleStock } from '@/services/style-stock.service';
 import type { StyleStockAvailability } from '@/types/style-stock.types';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import type { StyleActualConsumption } from '@/types/cutting.types';
+import api from '@/lib/api';
 
 export default function StyleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -24,11 +28,14 @@ export default function StyleDetail() {
   const [pendingStage, setPendingStage] = useState<ProductionStage | null>(null);
   const [fabricStock, setFabricStock] = useState<StyleStockAvailability | null>(null);
   const [fabricStockLoading, setFabricStockLoading] = useState(false);
+  const [actualConsumption, setActualConsumption] = useState<StyleActualConsumption[]>([]);
+  const [consumptionLoading, setConsumptionLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadStyleData(id);
       loadFabricStock(id);
+      loadActualConsumption(id);
     }
   }, [id]);
 
@@ -42,6 +49,18 @@ export default function StyleDetail() {
       // Don't show error for stock - just leave it null
     } finally {
       setFabricStockLoading(false);
+    }
+  };
+
+  const loadActualConsumption = async (styleId: string) => {
+    try {
+      setConsumptionLoading(true);
+      const response = await api.get<{ data: StyleActualConsumption[] }>(`/styles/${styleId}/actual-consumption`);
+      setActualConsumption(response.data.data);
+    } catch {
+      // Silently fail - no consumption data yet
+    } finally {
+      setConsumptionLoading(false);
     }
   };
 
@@ -139,11 +158,12 @@ export default function StyleDetail() {
 
         {/* Main Content with Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="bom">Bill of Materials</TabsTrigger>
             <TabsTrigger value="fabric-stock">Fabric Stock</TabsTrigger>
             <TabsTrigger value="production">Production</TabsTrigger>
+            <TabsTrigger value="actual-consumption">Actual Consumption</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Overview */}
@@ -846,6 +866,75 @@ export default function StyleDetail() {
                   <div className="text-center py-8">
                     <p className="text-gray-500">No production tracking data available</p>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab 5: Actual Consumption */}
+          <TabsContent value="actual-consumption">
+            <Card>
+              <CardHeader>
+                <CardTitle>Actual Fabric Consumption</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Actual consumption per fabric/component from completed cutting batches (Issued - Returned = Actual)
+                </p>
+              </CardHeader>
+              <CardContent>
+                {consumptionLoading ? (
+                  <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                ) : actualConsumption.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No completed cutting batches with consumption data yet</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Component</TableHead>
+                        <TableHead>Fabric</TableHead>
+                        <TableHead className="text-right">CAD Avg (m/pc)</TableHead>
+                        <TableHead className="text-right">Actual Avg (m/pc)</TableHead>
+                        <TableHead className="text-right">Variance</TableHead>
+                        <TableHead className="text-right">Total Consumed (m)</TableHead>
+                        <TableHead className="text-right">Pieces Cut</TableHead>
+                        <TableHead className="text-right">Work Orders</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {actualConsumption.map((row, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium">{row.componentName}</TableCell>
+                          <TableCell>
+                            <div>{row.fabricName}</div>
+                            {row.fabricCode && <div className="text-xs text-muted-foreground">{row.fabricCode}</div>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {row.cadAverage > 0 ? row.cadAverage.toFixed(4) : '—'}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">{row.actualAverage.toFixed(4)}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge
+                              variant="outline"
+                              className={
+                                row.variancePercent > 2
+                                  ? 'text-red-600 border-red-200'
+                                  : row.variancePercent < -2
+                                    ? 'text-green-600 border-green-200'
+                                    : ''
+                              }
+                            >
+                              {row.variancePercent > 0 ? '+' : ''}
+                              {row.variancePercent.toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{row.totalConsumed.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{row.totalPiecesCut}</TableCell>
+                          <TableCell className="text-right">{row.workOrderCount}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 )}
               </CardContent>
             </Card>

@@ -11,9 +11,8 @@
  * to all PO sources (MRP, Service Requirements).
  */
 
-import { PrismaClient, PurchaseOrderStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PurchaseOrderStatus } from '@prisma/client';
+import prisma from '../config/database';
 
 // ============================================
 // Types & Interfaces

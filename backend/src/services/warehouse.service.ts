@@ -15,6 +15,7 @@ export interface CreateWarehouseDTO {
   capacity?: number;
   isActive?: boolean;
   createdById: string;
+  supplierId?: string;
 }
 
 export interface UpdateWarehouseDTO {
@@ -28,6 +29,7 @@ export interface UpdateWarehouseDTO {
   contactPhone?: string;
   capacity?: number;
   isActive?: boolean;
+  supplierId?: string | null;
 }
 
 export interface WarehouseFilters {
@@ -64,6 +66,7 @@ class WarehouseService {
         capacity: data.capacity,
         isActive: data.isActive ?? true,
         createdById: data.createdById,
+        supplierId: data.supplierId || null,
       },
       include: {
         users: {
@@ -72,6 +75,13 @@ class WarehouseService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        supplier: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
           },
         },
       },
@@ -113,6 +123,13 @@ class WarehouseService {
             email: true,
           },
         },
+        supplier: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
         _count: {
           select: {
             stock_levels: true,
@@ -139,6 +156,13 @@ class WarehouseService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        supplier: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
           },
         },
         _count: {
@@ -209,6 +233,7 @@ class WarehouseService {
         contactPhone: data.contactPhone,
         capacity: data.capacity,
         isActive: data.isActive,
+        ...(data.supplierId !== undefined && { supplierId: data.supplierId }),
       },
       include: {
         users: {
@@ -217,6 +242,13 @@ class WarehouseService {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        supplier: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
           },
         },
       },
@@ -373,6 +405,8 @@ class WarehouseService {
         return 'WH-GEN-';
       case 'TRANSIT':
         return 'WH-TRN-';
+      case 'JOB_WORK':
+        return 'WH-JW-';
       default:
         return 'WH-';
     }

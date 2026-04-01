@@ -15,6 +15,7 @@ import type {
   IssueToStitchingRequest,
   StitchingIssueSummary,
   CuttingStyleSizeSummaryItem,
+  IssuedFabricItem,
 } from '../types/cutting.types';
 
 const BASE_URL = '/cutting';
@@ -130,6 +131,12 @@ export const cuttingBatchService = {
 
   getStitchingIssues: async (batchId: string): Promise<StitchingIssueSummary> => {
     const response = await api.get<{ data: StitchingIssueSummary }>(`${BASE_URL}/batches/${batchId}/stitching-issues`);
+    return response.data.data;
+  },
+
+  // Get issued fabric data for completion dialog
+  getIssuedFabric: async (batchId: string): Promise<IssuedFabricItem[]> => {
+    const response = await api.get<{ data: IssuedFabricItem[] }>(`${BASE_URL}/batches/${batchId}/issued-fabric`);
     return response.data.data;
   },
 };

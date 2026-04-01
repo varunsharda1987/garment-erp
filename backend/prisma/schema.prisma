@@ -2379,6 +2379,7 @@ model suppliers {
   serviceRequirementsAsPreferredProcessor work_order_service_requirements[] @relation("ServiceRequirementPreferredProcessor")
   serviceRequirementsAsAssignedProcessor  work_order_service_requirements[] @relation("ServiceRequirementAssignedProcessor")
   greigeStock                             greige_stock[]                    @relation("GreigeStockSupplier")
+  warehouses                              warehouses[]                      @relation("WarehouseSupplier")
   debit_notes                             debit_notes[]
   transfer_slips_issued_to                transfer_slips[]                  @relation("TransferIssuedTo")
   stitching_issues_contractor             stitching_issues[]                @relation("StitchingContractor")
@@ -3043,6 +3044,7 @@ model warehouses {
   contactEmail          String?
   country               String?
   isVirtual             Boolean                 @default(false)
+  supplierId            String?                 @db.VarChar(50)
   goods_receiving_notes goods_receiving_notes[]
   stock_counts          stock_counts[]
   stock_levels          stock_levels[]
@@ -3050,10 +3052,12 @@ model warehouses {
   stock_reservations    stock_reservations[]
   work_orders           work_orders[]
   users                 users                   @relation(fields: [createdById], references: [id])
+  supplier              suppliers?              @relation("WarehouseSupplier", fields: [supplierId], references: [id])
 
   @@index([warehouseCode])
   @@index([warehouseType])
   @@index([createdById])
+  @@index([supplierId])
 }
 
 /// Stock Levels - Current stock balance per material per warehouse
@@ -5367,11 +5371,17 @@ model cutting_batches {
   cuttingTableId    String?
   cuttingOperatorId String?
   status            CuttingBatchStatus      @default(PENDING)
+  startedAt         DateTime?
+  completedAt       DateTime?
   actualAverage     Decimal?                @db.Decimal(10, 4)
   varianceFromCad   Decimal?                @db.Decimal(10, 4)
   variancePercent   Decimal?                @db.Decimal(5, 2)
   wastageMeters     Decimal?                @db.Decimal(10, 2)
   wastagePercent    Decimal?                @db.Decimal(5, 2)
+  fabricIssued      Decimal?                @db.Decimal(10, 2)
+  fabricReturned    Decimal?                @db.Decimal(10, 2)
+  actualConsumption Decimal?                @db.Decimal(10, 2)
+  returnChallanId   String?                 @unique
   remarks           String?
   createdById       String
   createdAt         DateTime                @default(now())
@@ -5384,6 +5394,7 @@ model cutting_batches {
   createdBy         users                   @relation("CuttingBatchCreator", fields: [createdById], references: [id])
   cuttingOperator   users?                  @relation("CuttingOperator", fields: [cuttingOperatorId], references: [id])
   fabricStock       fabric_stock            @relation(fields: [fabricStockId], references: [id])
+  returnChallan     challans?               @relation("CuttingReturnChallan", fields: [returnChallanId], references: [id])
   workOrder         work_orders             @relation(fields: [workOrderId], references: [id])
   transferSlips     transfer_slips[]
   additionalFabrics cutting_batch_fabrics[]
@@ -5405,9 +5416,12 @@ model cutting_batch_fabrics {
   cadAvgUsed     Decimal?              @db.Decimal(10, 4)
   cadWidthUsed   Decimal?              @db.Decimal(10, 2)
   actualWidth    Decimal?              @db.Decimal(10, 2)
-  fabricConsumed Decimal               @default(0) @db.Decimal(10, 2)
-  createdAt      DateTime              @default(now())
-  batch          cutting_batches       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  fabricConsumed    Decimal               @default(0) @db.Decimal(10, 2)
+  fabricIssued      Decimal?              @db.Decimal(10, 2)
+  fabricReturned    Decimal?              @db.Decimal(10, 2)
+  actualConsumption Decimal?              @db.Decimal(10, 2)
+  createdAt         DateTime              @default(now())
+  batch             cutting_batches       @relation(fields: [batchId], references: [id], onDelete: Cascade)
   fabricStock    fabric_stock          @relation(fields: [fabricStockId], references: [id])
   lays           cutting_lays[]        @relation("LegacyLayFabric")
   layFabrics     cutting_lay_fabrics[]
@@ -7570,6 +7584,7 @@ model challans {
   jobWorkInward        job_work_orders[]     @relation("JobWorkInwardChallan")
   processingMovements  processing_movement[]
   processingDeliveries processing_delivery[]
+  cuttingBatchReturn   cutting_batches?      @relation("CuttingReturnChallan")
 
   @@index([orderId])
   @@index([productionRunId])

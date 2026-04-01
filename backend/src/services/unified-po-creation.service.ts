@@ -15,11 +15,10 @@
  * - Transaction-safe operations
  */
 
-import { PrismaClient, POCategory, POSource, PurchaseOrderStatus, ServiceType, Unit, Prisma } from '@prisma/client';
+import { POCategory, POSource, PurchaseOrderStatus, ServiceType, Unit, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import prisma from '../config/database';
 import { generateUnifiedPONumberInTransaction } from '../utils/po-number-generator';
-
-const prisma = new PrismaClient();
 
 // ============================================
 // Types & Interfaces

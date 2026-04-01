@@ -8,6 +8,7 @@ import {
   cancelChallanController,
   getChallanStatsController,
   createGreigeOutwardChallanController,
+  quickIssueChallanController,
   resolveRateController,
   splitProductionRunController,
 } from '../controllers/challan.controller';
@@ -20,6 +21,7 @@ const router = Router();
 // Challan routes
 router.get('/challans/stats', asyncHandler(getChallanStatsController));
 router.post('/challans/greige-outward', asyncHandler(createGreigeOutwardChallanController));
+router.post('/challans/quick-issue', asyncHandler(quickIssueChallanController));
 router.get('/challans', asyncHandler(getChallansController));
 router.post('/challans', validateBody(createChallanSchema), asyncHandler(createChallanController));
 router.get('/challans/:id', asyncHandler(getChallanByIdController));

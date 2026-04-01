@@ -31,6 +31,8 @@ import {
   getStyleSizeSummary,
   // Chart data
   getCuttingChartData,
+  // Issued fabric (for completion dialog)
+  getIssuedFabric,
 } from '../controllers/cutting.controller';
 
 const router = Router();
@@ -58,6 +60,9 @@ router.get('/batches/:id', asyncHandler(getCuttingBatchById));
 router.post('/batches', asyncHandler(createCuttingBatch));
 router.put('/batches/:id', asyncHandler(updateCuttingBatch));
 router.delete('/batches/:id', asyncHandler(deleteCuttingBatch));
+
+// Fabric issuance data (for completion dialog)
+router.get('/batches/:id/issued-fabric', asyncHandler(getIssuedFabric));
 
 // Workflow actions
 router.post('/batches/:id/start', asyncHandler(startCuttingBatch));

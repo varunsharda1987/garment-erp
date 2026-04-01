@@ -9,7 +9,6 @@
  */
 
 import {
-  PrismaClient,
   ThreadPly,
   ThreadMaterial,
   ThreadPackagingType,
@@ -19,11 +18,10 @@ import {
   POCategory,
   POSource,
 } from '@prisma/client';
+import prisma from '../config/database';
 import { processThreadQuantityInput, calculateReorderQuantity } from './thread-conversion.service';
 import { createUnifiedPO, UnifiedPOCreationInput } from './unified-po-creation.service';
 import { materialService } from './material.service';
-
-const prisma = new PrismaClient();
 
 // ==================== TYPES ====================
 

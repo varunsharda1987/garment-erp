@@ -452,14 +452,14 @@ export default function ServiceRequirementsList() {
                     <TableCell>
                       {req.assignedProcessor ? (
                         <div>
-                          <div className="font-medium">{req.assignedProcessor.supplierCode}</div>
+                          <div className="font-medium">{req.assignedProcessor.code}</div>
                           <div className="text-sm text-muted-foreground truncate max-w-[150px]">
-                            {req.assignedProcessor.supplierName}
+                            {req.assignedProcessor.name}
                           </div>
                         </div>
                       ) : req.preferredProcessor ? (
                         <div>
-                          <div className="font-medium text-orange-600">{req.preferredProcessor.supplierCode}</div>
+                          <div className="font-medium text-orange-600">{req.preferredProcessor.code}</div>
                           <div className="text-xs text-muted-foreground">(Suggested)</div>
                         </div>
                       ) : (

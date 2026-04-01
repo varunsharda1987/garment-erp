@@ -80,9 +80,7 @@ export default function BulkServicePODialog({
       const groups: ProcessorGroup[] = Object.entries(result.groups).map(([processorId, requirements]) => ({
         processorId,
         processorName:
-          requirements[0]?.assignedProcessor?.supplierName ||
-          requirements[0]?.preferredProcessor?.supplierName ||
-          'Unknown Processor',
+          requirements[0]?.assignedProcessor?.name || requirements[0]?.preferredProcessor?.name || 'Unknown Processor',
         requirements,
         deliveryDate: dateString,
         remarks: '',

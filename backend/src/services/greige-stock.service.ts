@@ -43,6 +43,16 @@ export interface GreigeStockItem {
   agingDays: number;
   status: string;
   stockType: string;
+  supplierId?: string | null;
+  supplier?: { id: string; name: string; code: string } | null;
+}
+
+export interface UpdateGreigeStockDTO {
+  purchaseCost?: number;
+  weightedAvgCost?: number;
+  qualityGrade?: string;
+  warehouseLocation?: string;
+  rollNumbers?: string;
 }
 
 export interface GreigeStockSummary {
@@ -193,6 +203,13 @@ class GreigeStockService {
               weaveType: true,
             },
           },
+          supplier: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
         },
         orderBy: { receivedDate: 'desc' },
       });
@@ -220,6 +237,8 @@ class GreigeStockService {
           agingDays,
           status: stock.status,
           stockType: stock.stockType,
+          supplierId: stock.supplierId,
+          supplier: stock.supplier,
         };
       });
     } catch (error: unknown) {
@@ -463,6 +482,66 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error updating aging days:', error);
     }
+  }
+
+  /**
+   * Update a greige stock entry
+   */
+  async updateGreigeStock(stockId: string, data: UpdateGreigeStockDTO) {
+    const existing = await prisma.greige_stock.findUnique({ where: { id: stockId } });
+    if (!existing) {
+      throw new Error(`Greige stock with ID ${stockId} not found`);
+    }
+
+    const updateData: Prisma.greige_stockUpdateInput = {};
+    if (data.purchaseCost !== undefined) updateData.purchaseCost = new Prisma.Decimal(data.purchaseCost);
+    if (data.weightedAvgCost !== undefined) updateData.weightedAvgCost = new Prisma.Decimal(data.weightedAvgCost);
+    if (data.qualityGrade !== undefined) updateData.qualityGrade = data.qualityGrade;
+    if (data.warehouseLocation !== undefined) updateData.warehouseLocation = data.warehouseLocation;
+    if (data.rollNumbers !== undefined) updateData.rollNumbers = data.rollNumbers;
+
+    const updated = await prisma.greige_stock.update({
+      where: { id: stockId },
+      data: updateData,
+      include: {
+        greige: {
+          select: { id: true, greigeCode: true, greigeName: true, composition: true },
+        },
+        supplier: {
+          select: { id: true, name: true, code: true },
+        },
+      },
+    });
+
+    logInfo(`Updated greige stock ${stockId}`);
+    return updated;
+  }
+
+  /**
+   * Delete a greige stock entry (checks dependencies first)
+   */
+  async deleteGreigeStock(stockId: string) {
+    const existing = await prisma.greige_stock.findUnique({
+      where: { id: stockId },
+      include: {
+        _count: {
+          select: {
+            challanItems: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new Error(`Greige stock with ID ${stockId} not found`);
+    }
+
+    if (existing._count.challanItems > 0) {
+      throw new Error(`Cannot delete: ${existing._count.challanItems} challan item(s) reference this stock entry`);
+    }
+
+    await prisma.greige_stock.delete({ where: { id: stockId } });
+    logInfo(`Deleted greige stock ${stockId}`);
   }
 }
 

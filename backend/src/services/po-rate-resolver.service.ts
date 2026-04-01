@@ -1,6 +1,5 @@
-import { PrismaClient, POCategory } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { POCategory } from '@prisma/client';
+import prisma from '../config/database';
 
 // ============================================
 // TYPES

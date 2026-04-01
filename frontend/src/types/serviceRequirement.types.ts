@@ -84,7 +84,7 @@ export interface WorkOrderSummary {
   workOrderNumber: string;
   orderId: string;
   status: string;
-  styles?: {
+  style?: {
     id: string;
     styleCode: string;
     styleName: string;
@@ -99,8 +99,8 @@ export interface StyleProcessSummary {
 
 export interface ProcessorSummary {
   id: string;
-  supplierCode: string;
-  supplierName: string;
+  code: string;
+  name: string;
 }
 
 export interface UserSummary {

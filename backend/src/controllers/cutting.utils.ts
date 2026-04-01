@@ -15,6 +15,10 @@ export const transformCuttingBatch = (batch: any) => ({
   variancePercent: batch.variancePercent ? Number(batch.variancePercent) : null,
   wastageMeters: batch.wastageMeters ? Number(batch.wastageMeters) : null,
   wastagePercent: batch.wastagePercent ? Number(batch.wastagePercent) : null,
+  fabricIssued: batch.fabricIssued ? Number(batch.fabricIssued) : null,
+  fabricReturned: batch.fabricReturned ? Number(batch.fabricReturned) : null,
+  actualConsumption: batch.actualConsumption ? Number(batch.actualConsumption) : null,
+  returnChallanId: batch.returnChallanId || null,
   workOrder: batch.workOrder
     ? {
         id: batch.workOrder.id,

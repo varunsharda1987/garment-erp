@@ -104,8 +104,18 @@ export interface Challan {
   createdAt: string;
   updatedAt: string;
   // Relations (camelCase from serializer)
-  order?: { id: string; orderNumber: string };
-  productionRun?: { id: string; workOrderNumber: string };
+  order?: {
+    id: string;
+    orderNumber: string;
+    totalQuantity?: number;
+    customer?: { id: string; name: string };
+  };
+  productionRun?: {
+    id: string;
+    workOrderNumber: string;
+    totalQuantity?: number;
+    style?: { id: string; styleCode: string; styleName: string };
+  };
   purchaseOrder?: { id: string; poNumber: string; suppliers?: { id: string; name: string } };
   issuedBy?: { id: string; firstName: string; lastName: string };
   receivedBy?: { id: string; firstName: string; lastName: string };
@@ -120,6 +130,10 @@ export interface CreateChallanItemInput {
   itemType: string;
   materialId?: string;
   fabricId?: string;
+  greigeStockId?: string;
+  fabricStockId?: string;
+  laceStockId?: string;
+  threadStockId?: string;
   description: string;
   quantity: number;
   unit?: string;

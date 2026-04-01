@@ -313,6 +313,115 @@ router.put('/processes/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), a
 router.delete('/processes/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(deleteProcess));
 
 // ============================================
+// ACTUAL CONSUMPTION (computed from cutting batches)
+// ============================================
+
+router.get(
+  '/:id/actual-consumption',
+  asyncHandler(async (req, res) => {
+    const { id: styleId } = req.params;
+    const prisma = (await import('../config/database')).default;
+
+    // Find all completed cutting batches for this style's work orders
+    const batchFabrics = await prisma.cutting_batch_fabrics.findMany({
+      where: {
+        batch: {
+          status: 'COMPLETED',
+          actualConsumption: { not: null },
+          workOrder: { styleId },
+        },
+      },
+      include: {
+        batch: {
+          select: {
+            id: true,
+            batchNumber: true,
+            componentId: true,
+            workOrderId: true,
+            cadAverageUsed: true,
+            skuOutputs: { select: { cutQty: true } },
+            workOrder: { select: { workOrderNumber: true } },
+            component: { select: { id: true, componentName: true } },
+          },
+        },
+        fabricStock: {
+          include: {
+            fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } },
+          },
+        },
+      },
+    });
+
+    // Group by componentId + fabricId
+    const groupMap = new Map<
+      string,
+      {
+        componentId: string | null;
+        componentName: string;
+        fabricId: string | null;
+        fabricName: string;
+        fabricCode: string;
+        cadAverage: number;
+        totalConsumed: number;
+        totalPiecesCut: number;
+        workOrders: Set<string>;
+      }
+    >();
+
+    for (const bf of batchFabrics) {
+      const componentId = bf.batch.componentId || 'default';
+      const fabricId = bf.fabricStock?.fabricMaster?.id || 'unknown';
+      const key = `${componentId}__${fabricId}`;
+
+      const totalCut = bf.batch.skuOutputs.reduce((sum, s) => sum + s.cutQty, 0);
+
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          componentId: bf.batch.componentId,
+          componentName: bf.batch.component?.componentName || 'Default',
+          fabricId: bf.fabricStock?.fabricMaster?.id || null,
+          fabricName: bf.fabricStock?.fabricMaster?.fabricName || 'Unknown',
+          fabricCode: bf.fabricStock?.fabricMaster?.fabricCode || '',
+          cadAverage: Number(bf.batch.cadAverageUsed) || 0,
+          totalConsumed: 0,
+          totalPiecesCut: 0,
+          workOrders: new Set(),
+        });
+      }
+
+      const group = groupMap.get(key)!;
+      group.totalConsumed += Number(bf.actualConsumption) || 0;
+      group.totalPiecesCut += totalCut;
+      group.workOrders.add(bf.batch.workOrderId);
+      // Use the latest CAD average
+      if (Number(bf.batch.cadAverageUsed) > 0) {
+        group.cadAverage = Number(bf.batch.cadAverageUsed);
+      }
+    }
+
+    const result = Array.from(groupMap.values()).map((g) => {
+      const actualAverage = g.totalPiecesCut > 0 ? g.totalConsumed / g.totalPiecesCut : 0;
+      const variancePercent = g.cadAverage > 0 ? ((actualAverage - g.cadAverage) / g.cadAverage) * 100 : 0;
+      return {
+        componentId: g.componentId,
+        componentName: g.componentName,
+        fabricId: g.fabricId,
+        fabricName: g.fabricName,
+        fabricCode: g.fabricCode,
+        cadAverage: g.cadAverage,
+        actualAverage: Number(actualAverage.toFixed(4)),
+        variancePercent: Number(variancePercent.toFixed(2)),
+        totalConsumed: Number(g.totalConsumed.toFixed(2)),
+        totalPiecesCut: g.totalPiecesCut,
+        workOrderCount: g.workOrders.size,
+      };
+    });
+
+    res.json({ data: result });
+  })
+);
+
+// ============================================
 // COSTING ROUTES
 // ============================================
 

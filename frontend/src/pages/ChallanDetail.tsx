@@ -228,6 +228,23 @@ export default function ChallanDetail() {
                 <span className="text-muted-foreground">PO:</span> {challan.purchaseOrder.poNumber}
               </div>
             )}
+            {challan.productionRun?.style && (
+              <div>
+                <span className="text-muted-foreground">Style:</span> {challan.productionRun.style.styleCode} -{' '}
+                {challan.productionRun.style.styleName}
+              </div>
+            )}
+            {challan.order?.customer && (
+              <div>
+                <span className="text-muted-foreground">Customer:</span> {challan.order.customer.name}
+              </div>
+            )}
+            {(challan.productionRun?.totalQuantity || challan.order?.totalQuantity) && (
+              <div>
+                <span className="text-muted-foreground">Total Pieces:</span>{' '}
+                {(challan.productionRun?.totalQuantity || challan.order?.totalQuantity)?.toLocaleString()}
+              </div>
+            )}
             {challan.vehicleNumber && (
               <div>
                 <span className="text-muted-foreground">Vehicle:</span> {challan.vehicleNumber}

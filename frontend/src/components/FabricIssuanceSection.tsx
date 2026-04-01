@@ -255,6 +255,13 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
                 </Alert>
               )}
             </div>
+          ) : hasIssuedChallans ? (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                All fabric has been issued to the cutting department via challans below.
+              </AlertDescription>
+            </Alert>
           ) : (
             <Alert className="bg-amber-50 border-amber-200">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -315,7 +322,7 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/procurement/challans/${challan.id}`)}
+                          onClick={() => navigate(`/manufacturing/challans/${challan.id}`)}
                         >
                           <ExternalLink className="h-3 w-3" />
                         </Button>

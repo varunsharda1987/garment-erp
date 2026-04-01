@@ -20,6 +20,17 @@ router.post(
 );
 
 /**
+ * @route   GET /api/greige/stock
+ * @desc    Get individual greige stock entries (available, with IDs for challan issuance)
+ * @access  Protected - All authenticated users
+ */
+router.get(
+  '/stock',
+  authenticateToken,
+  asyncHandler((req: Request, res: Response) => StyleStockController.getAvailableGreigeStock(req, res))
+);
+
+/**
  * @route   GET /api/greige/generic-stock
  * @desc    Get generic greige stock (not tied to any style)
  * @access  Protected - All authenticated users
@@ -31,6 +42,17 @@ router.get(
 );
 
 /**
+ * @route   GET /api/greige/stock-entries/:greigeId
+ * @desc    Get individual stock entries for a specific greige type (expandable rows)
+ * @access  Protected - All authenticated users
+ */
+router.get(
+  '/stock-entries/:greigeId',
+  authenticateToken,
+  asyncHandler((req: Request, res: Response) => StyleStockController.getGreigeStockByGreigeId(req, res))
+);
+
+/**
  * @route   GET /api/greige/summary
  * @desc    Get greige stock summary for unified dashboard
  * @access  Protected - All authenticated users
@@ -39,6 +61,30 @@ router.get(
   '/summary',
   authenticateToken,
   asyncHandler((req: Request, res: Response) => StyleStockController.getGreigeStockSummary(req, res))
+);
+
+/**
+ * @route   PATCH /api/greige/stock/:stockId
+ * @desc    Update a greige stock entry
+ * @access  Protected - Admin, Inventory
+ */
+router.patch(
+  '/stock/:stockId',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  asyncHandler((req: Request, res: Response) => StyleStockController.updateGreigeStockEntry(req, res))
+);
+
+/**
+ * @route   DELETE /api/greige/stock/:stockId
+ * @desc    Delete a greige stock entry
+ * @access  Protected - Admin, Inventory
+ */
+router.delete(
+  '/stock/:stockId',
+  authenticateToken,
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  asyncHandler((req: Request, res: Response) => StyleStockController.deleteGreigeStockEntry(req, res))
 );
 
 export default router;

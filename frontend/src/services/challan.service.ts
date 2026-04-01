@@ -7,7 +7,7 @@ import type {
   ReceiveChallanInput,
 } from '@/types/challan.types';
 
-const BASE_URL = '/api/challans';
+const BASE_URL = '/challans';
 
 export const challanService = {
   // List challans with filters
@@ -36,6 +36,12 @@ export const challanService = {
   // Create new challan
   async createChallan(input: CreateChallanInput): Promise<Challan> {
     const { data } = await api.post(BASE_URL, input);
+    return data.data;
+  },
+
+  // Quick issue: Create + Issue challan in one step
+  async quickIssueChallan(input: CreateChallanInput): Promise<Challan> {
+    const { data } = await api.post(`${BASE_URL}/quick-issue`, input);
     return data.data;
   },
 

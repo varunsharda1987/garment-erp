@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cuttingBatchService } from '@/services/cutting.service';
+import type { IssuedFabricItem } from '@/types/cutting.types';
 import * as supplierService from '@/services/supplier.service';
 import type {
   CuttingBatch,
@@ -85,6 +86,9 @@ export default function CuttingDetail() {
 
   // Confirm complete dialog
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [issuedFabrics, setIssuedFabrics] = useState<IssuedFabricItem[]>([]);
+  const [returnQtys, setReturnQtys] = useState<Record<string, number>>({});
+  const [loadingIssued, setLoadingIssued] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -161,11 +165,37 @@ export default function CuttingDetail() {
     }
   };
 
+  const handleOpenCompleteDialog = async () => {
+    setShowCompleteDialog(true);
+    setLoadingIssued(true);
+    try {
+      const data = await cuttingBatchService.getIssuedFabric(id!);
+      setIssuedFabrics(data);
+      // Pre-fill return quantities with balance (issued - consumed in lays)
+      const defaults: Record<string, number> = {};
+      for (const f of data) {
+        defaults[f.fabricStockId] = f.balance;
+      }
+      setReturnQtys(defaults);
+    } catch (err) {
+      setIssuedFabrics([]);
+      setReturnQtys({});
+    } finally {
+      setLoadingIssued(false);
+    }
+  };
+
   const handleComplete = async () => {
     try {
       setIsActioning(true);
-      await cuttingBatchService.complete(id!);
-      handleApiSuccess('Batch Completed', 'Cutting batch has been completed.');
+      const fabricReturns = issuedFabrics
+        .filter((f) => (returnQtys[f.fabricStockId] || 0) > 0)
+        .map((f) => ({
+          fabricStockId: f.fabricStockId,
+          returnedQuantity: returnQtys[f.fabricStockId] || 0,
+        }));
+      await cuttingBatchService.complete(id!, { fabricReturns });
+      handleApiSuccess('Batch Completed', 'Cutting batch completed. Fabric returns processed.');
       setShowCompleteDialog(false);
       fetchBatch();
     } catch (err) {
@@ -517,7 +547,7 @@ export default function CuttingDetail() {
                 <PauseCircle className="h-4 w-4 mr-2" />
                 Hold
               </Button>
-              <Button onClick={() => setShowCompleteDialog(true)} disabled={isActioning || totalCut === 0}>
+              <Button onClick={handleOpenCompleteDialog} disabled={isActioning || totalCut === 0}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Complete
               </Button>
@@ -1165,26 +1195,141 @@ export default function CuttingDetail() {
 
       {/* Complete Cutting Batch Dialog */}
       <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Complete Cutting Batch</DialogTitle>
             <DialogDescription>
-              Mark this batch as completed? The actual average and variance will be calculated automatically.
+              Review fabric consumption and confirm balance fabric to return to store.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Total Cut:</span>
-              <span className="font-semibold">{totalCut} pcs</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Fabric Consumed:</span>
-              <span className="font-semibold">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
-            </div>
-            {totalCut > 0 && batch.fabricConsumed > 0 && (
+          <div className="py-4 space-y-4">
+            {/* Summary */}
+            <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Actual Average:</span>
-                <span className="font-semibold">{(batch.fabricConsumed / totalCut).toFixed(4)} m/pc</span>
+                <span className="text-gray-500">Total Cut:</span>
+                <span className="font-semibold">{totalCut} pcs</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Consumed in Lays:</span>
+                <span className="font-semibold">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
+              </div>
+            </div>
+
+            {/* Per-fabric return table */}
+            {loadingIssued ? (
+              <div className="text-center py-4 text-muted-foreground">Loading issued fabric data...</div>
+            ) : issuedFabrics.length > 0 ? (
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fabric</TableHead>
+                      <TableHead className="text-right">Issued (m)</TableHead>
+                      <TableHead className="text-right">Used in Lays (m)</TableHead>
+                      <TableHead className="text-right w-[140px]">Return to Store (m)</TableHead>
+                      <TableHead className="text-right">Actual Consumption (m)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {issuedFabrics.map((f) => {
+                      const returnQty = returnQtys[f.fabricStockId] || 0;
+                      const actualCons = Math.max(0, f.issuedQty - returnQty);
+                      return (
+                        <TableRow key={f.fabricStockId}>
+                          <TableCell>
+                            <div className="font-medium text-sm">{f.fabricName}</div>
+                            {f.rollNumbers && <div className="text-xs text-muted-foreground">{f.rollNumbers}</div>}
+                          </TableCell>
+                          <TableCell className="text-right">{f.issuedQty.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{f.consumedInLays.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max={f.issuedQty}
+                              value={returnQty}
+                              onChange={(e) =>
+                                setReturnQtys((prev) => ({
+                                  ...prev,
+                                  [f.fabricStockId]: Math.min(Number(e.target.value) || 0, f.issuedQty),
+                                }))
+                              }
+                              className="w-[120px] text-right ml-auto"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">{actualCons.toFixed(2)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {/* Totals row */}
+                    <TableRow className="font-bold border-t-2">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">
+                        {issuedFabrics.reduce((s, f) => s + f.issuedQty, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {issuedFabrics.reduce((s, f) => s + f.consumedInLays, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {Object.values(returnQtys)
+                          .reduce((s, v) => s + v, 0)
+                          .toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(() => {
+                          const totalIssued = issuedFabrics.reduce((s, f) => s + f.issuedQty, 0);
+                          const totalReturn = Object.values(returnQtys).reduce((s, v) => s + v, 0);
+                          return Math.max(0, totalIssued - totalReturn).toFixed(2);
+                        })()}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No fabric issuance challans found. Actual consumption will be calculated from lay records.
+              </div>
+            )}
+
+            {/* Calculated actual average */}
+            {totalCut > 0 && (
+              <div className="bg-muted/50 rounded-md p-3 space-y-1 text-sm">
+                {(() => {
+                  const totalIssued = issuedFabrics.reduce((s, f) => s + f.issuedQty, 0);
+                  const totalReturn = Object.values(returnQtys).reduce((s, v) => s + v, 0);
+                  const actualCons =
+                    totalIssued > 0 ? Math.max(0, totalIssued - totalReturn) : batch.fabricConsumed || 0;
+                  const actualAvg = actualCons / totalCut;
+                  const cadAvg = batch.cadAverageUsed || 0;
+                  const variance = cadAvg > 0 ? ((actualAvg - cadAvg) / cadAvg) * 100 : 0;
+                  return (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Actual Average:</span>
+                        <span className="font-semibold">{actualAvg.toFixed(4)} m/pc</span>
+                      </div>
+                      {cadAvg > 0 && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">CAD Average:</span>
+                            <span>{cadAvg.toFixed(4)} m/pc</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Variance:</span>
+                            <span
+                              className={variance > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}
+                            >
+                              {variance > 0 ? '+' : ''}
+                              {variance.toFixed(2)}%
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>

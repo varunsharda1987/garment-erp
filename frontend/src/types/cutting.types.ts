@@ -80,11 +80,17 @@ export interface CuttingBatch {
   cuttingTableId?: string;
   cuttingOperatorId?: string;
 
-  // Status
+  // Status & Timestamps
   status: CuttingBatchStatus;
+  startedAt?: string;
+  completedAt?: string;
 
-  // Calculated Fields
+  // Calculated Fields (consumption & averages)
   actualAverage?: number;
+  fabricIssued?: number;
+  fabricReturned?: number;
+  actualConsumption?: number;
+  returnChallanId?: string;
   varianceFromCad?: number;
   variancePercent?: number;
   wastageMeters?: number;
@@ -220,6 +226,37 @@ export interface RecordCuttingOutputRequest {
 export interface CompleteCuttingBatchRequest {
   actualAverage?: number;
   remarks?: string;
+  fabricReturns?: Array<{
+    fabricStockId: string;
+    returnedQuantity: number;
+  }>;
+}
+
+// Issued fabric data for completion dialog
+export interface IssuedFabricItem {
+  fabricStockId: string;
+  cuttingBatchFabricId: string;
+  fabricName: string;
+  fabricCode: string;
+  rollNumbers: string;
+  issuedQty: number;
+  consumedInLays: number;
+  balance: number;
+}
+
+// Style actual consumption (computed from cutting batches)
+export interface StyleActualConsumption {
+  componentId: string | null;
+  componentName: string;
+  fabricId: string | null;
+  fabricName: string;
+  fabricCode: string;
+  cadAverage: number;
+  actualAverage: number;
+  variancePercent: number;
+  totalConsumed: number;
+  totalPiecesCut: number;
+  workOrderCount: number;
 }
 
 // ============================================

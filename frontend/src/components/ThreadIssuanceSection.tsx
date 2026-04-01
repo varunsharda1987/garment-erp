@@ -231,7 +231,7 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
                     variant="ghost"
                     size="sm"
                     className="h-6 text-xs"
-                    onClick={() => navigate(`/challans/${challan.id}`)}
+                    onClick={() => navigate(`/manufacturing/challans/${challan.id}`)}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     View

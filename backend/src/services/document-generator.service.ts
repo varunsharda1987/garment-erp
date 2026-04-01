@@ -3695,8 +3695,20 @@ From ${COMPANY_CONFIG.name}
       where: { id: challanId },
       include: {
         items: true,
-        order: { select: { orderNumber: true } },
-        productionRun: { select: { workOrderNumber: true } },
+        order: {
+          select: {
+            orderNumber: true,
+            totalQuantity: true,
+            customers: { select: { name: true } },
+          },
+        },
+        productionRun: {
+          select: {
+            workOrderNumber: true,
+            totalQuantity: true,
+            styles: { select: { styleCode: true, styleName: true } },
+          },
+        },
         purchaseOrder: {
           select: {
             poNumber: true,
@@ -3792,6 +3804,19 @@ From ${COMPANY_CONFIG.name}
     if (refs.length > 0) {
       doc.text(refs.join('  |  '), marginRight - 300, y, { width: 300, align: 'right' });
     }
+    y += 14;
+
+    // Style, Customer, Pieces
+    const details: string[] = [];
+    const style = (challan.productionRun as any)?.styles;
+    if (style) details.push(`Style: ${style.styleCode} - ${style.styleName}`);
+    const customer = (challan.order as any)?.customers;
+    if (customer) details.push(`Customer: ${customer.name}`);
+    const totalPcs = challan.productionRun?.totalQuantity || challan.order?.totalQuantity;
+    if (totalPcs) details.push(`Pcs: ${Number(totalPcs).toLocaleString()}`);
+    if (details.length > 0) {
+      doc.text(details.join('  |  '), marginLeft, y, { width: availableWidth });
+    }
     y += 18;
 
     // ── Horizontal Line ──
@@ -3878,7 +3903,9 @@ From ${COMPANY_CONFIG.name}
     let totalAmount = 0;
 
     challan.items.forEach((item: any, idx: number) => {
-      const rowHeight = 16;
+      const descText = item.description || '—';
+      const descHeight = doc.heightOfString(descText, { width: colWidths.description - 6 });
+      const rowHeight = Math.max(20, descHeight + 8);
       const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
       doc.rect(marginLeft, y, availableWidth, rowHeight).fillAndStroke(bgColor, '#CCC');
       doc.fillColor('#000');
@@ -3893,7 +3920,7 @@ From ${COMPANY_CONFIG.name}
       xPos += colWidths.sno;
       doc.text(item.itemType, xPos + 3, y + 4, { width: colWidths.type - 6 });
       xPos += colWidths.type;
-      doc.text(item.description || '—', xPos + 3, y + 4, { width: colWidths.description - 6, ellipsis: true });
+      doc.text(descText, xPos + 3, y + 4, { width: colWidths.description - 6 });
       xPos += colWidths.description;
       doc.text(qty.toString(), xPos + 3, y + 4, { width: colWidths.qty - 6, align: 'center' });
       xPos += colWidths.qty;

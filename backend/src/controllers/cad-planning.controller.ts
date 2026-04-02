@@ -1995,7 +1995,7 @@ export async function getCADTableData(req: Request, res: Response) {
 
   // Performance optimization: Run style query and fabric stock query in parallel
   // Both only depend on styleId, so they can execute concurrently
-  const [style, fabricStock] = await Promise.all([
+  const [style, initialFabricStock] = await Promise.all([
     // Get style with all related data
     prisma.styles.findUnique({
       where: { id: styleId },
@@ -2054,6 +2054,7 @@ export async function getCADTableData(req: Request, res: Response) {
           include: { greige: true },
         },
         procurement: true,
+        patternPart: { select: { name: true, code: true } },
       },
       orderBy: { receivedDate: 'asc' },
     }),
@@ -2064,6 +2065,39 @@ export async function getCADTableData(req: Request, res: Response) {
       success: false,
       message: 'Style not found',
     });
+  }
+
+  // Also find stock by fabricId for fabrics used by this style
+  // This catches stock where originStyleId/procurement aren't set (e.g., manual stock entry)
+  const styleFabricIds = new Set<string>();
+  style.style_components.forEach((comp: any) => {
+    comp.style_fabrics?.forEach((sf: any) => {
+      if (sf.fabricId) {
+        styleFabricIds.add(sf.fabricId);
+      }
+    });
+  });
+
+  let fabricStock = [...initialFabricStock];
+  if (styleFabricIds.size > 0) {
+    const existingStockIds = new Set(initialFabricStock.map((s) => s.id));
+    const fabricIdStock = await prisma.fabric_stock.findMany({
+      where: {
+        fabricId: { in: Array.from(styleFabricIds) },
+        status: 'AVAILABLE',
+        quantityAvailable: { gt: 0 },
+        id: { notIn: Array.from(existingStockIds) },
+      },
+      include: {
+        fabricMaster: {
+          include: { greige: true },
+        },
+        procurement: true,
+        patternPart: { select: { name: true, code: true } },
+      },
+      orderBy: { receivedDate: 'asc' },
+    });
+    fabricStock.push(...fabricIdStock);
   }
 
   // Get available greiges for the style's fabrics
@@ -2175,6 +2209,8 @@ export async function getCADTableData(req: Request, res: Response) {
       hasProductionCad: !!productionCad,
       productionCadId: productionCad?.id || null,
       productionCadStatus: productionCad?.approvalStatus || null,
+      patternPartName: (stock as any).patternPart?.name || null,
+      fabricFinishType: stock.fabricFinishType || null,
     };
   });
 

@@ -644,7 +644,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
       const unitPrice = parseFloat(bom.unitPrice?.toString() || '0');
       const total = quantity * unitPrice;
 
-      // Get material name
+      // Get material name — needed before logging
       let materialName = 'Unknown';
       if (bom.lace_master) materialName = bom.lace_master.laceName;
       else if (bom.button_master) materialName = bom.button_master.buttonName;
@@ -653,6 +653,12 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
       else if (bom.elastic_master) materialName = bom.elastic_master.elasticName;
       else if (bom.label_master) materialName = bom.label_master.labelName;
       else if (bom.packaging_master) materialName = bom.packaging_master.packagingName;
+
+      if (unitPrice === 0 && bom.unitPrice === null) {
+        logWarn(
+          `[Costing] Material '${materialName}' (${bom.usageCategory}) has no unitPrice in style_material_bom. Cost sheet rate will be ₹0.`
+        );
+      }
 
       if (bom.usageCategory === 'GARMENT_TRIM') {
         trimsDetails.push({
@@ -838,6 +844,15 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         const greigeCost = Number(cad.greigeCostPerMeter) || 0;
         const processingCost = Number(cad.processingPricePerMeter) || 0;
         const consumption = Number(cad.cadMeters) || 0;
+        if (greigeCost === 0) {
+          logWarn(`[Costing] CAD row has ₹0 greige cost — fabric budget will be understated.`);
+        }
+        if (processingCost === 0) {
+          logWarn(`[Costing] CAD row has ₹0 processing cost — fabric budget will be understated.`);
+        }
+        if (consumption === 0) {
+          logWarn(`[Costing] CAD row has 0 meters consumption — fabric budget will be ₹0.`);
+        }
         fabricBudget += (greigeCost + processingCost) * consumption;
       }
       fabricSource = `Calculated from ${cadRows.length} CAD row(s)`;
@@ -883,12 +898,23 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
       const rateMap = new Map<string, number>();
       for (const card of rateCards) {
         if (!rateMap.has(card.processingType)) {
-          rateMap.set(card.processingType, Number(card.ratePerMeter) || 0);
+          const rateValue = Number(card.ratePerMeter) || 0;
+          if (rateValue === 0) {
+            logWarn(
+              `[Costing] Rate card for '${card.processingType}' has ₹0 rate — processing budget will be understated.`
+            );
+          }
+          rateMap.set(card.processingType, rateValue);
         }
       }
 
       for (const process of style.style_processes as any[]) {
         const rate = rateMap.get(process.processType) || Number(process.estimatedCost) || 0;
+        if (rate === 0) {
+          logWarn(
+            `[Costing] Process '${process.processType}' has ₹0 rate (no rate card, no estimate) — CMT budget will be understated.`
+          );
+        }
         cmtBudget += rate;
       }
 

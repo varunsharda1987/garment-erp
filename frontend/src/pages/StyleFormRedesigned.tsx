@@ -1946,6 +1946,8 @@ export default function StyleFormRedesigned() {
               fabricFinishType: f.fabricFinishType || null,
               hasEmbroidery: f.hasEmbroidery || false,
               embroideryId: f.embroideryId || null,
+              // Pass pattern part IDs so style_pattern_parts are created
+              patternPartIds: f.patternParts?.map((pp) => pp.patternPartId).filter(Boolean) || [],
             }));
 
           return {

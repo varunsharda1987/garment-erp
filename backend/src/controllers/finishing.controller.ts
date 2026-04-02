@@ -263,12 +263,20 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
             }
           : undefined,
       skuBreakdown: {
-        create: skuBreakdown.map((sku: any) => ({
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          availableQty: sku.availableQty || sku.issuedQty || 0,
-          issuedQty: sku.issuedQty || 0,
-        })),
+        create: skuBreakdown.map((sku: any) => {
+          const availableQty = sku.availableQty ?? sku.issuedQty;
+          if (availableQty === undefined || availableQty === null) {
+            throw new Error(
+              `Available quantity is required for SKU (color: ${sku.colorId}, size: ${sku.sizeId}). Must come from stitching output.`
+            );
+          }
+          return {
+            colorId: sku.colorId,
+            sizeId: sku.sizeId,
+            availableQty: Number(availableQty),
+            issuedQty: Number(sku.issuedQty ?? availableQty),
+          };
+        }),
       },
     },
     include: issueIncludeOptions,
@@ -444,12 +452,24 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
       remarks,
       createdById: userId,
       skuOutputs: {
-        create: skuOutputs.map((sku: any) => ({
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          finishedQty: sku.finishedQty || 0,
-          defectQty: sku.defectQty || 0,
-        })),
+        create: skuOutputs.map((sku: any) => {
+          if (sku.finishedQty === undefined || sku.finishedQty === null) {
+            throw new Error(
+              `Finished quantity is required for each SKU output (color: ${sku.colorId}, size: ${sku.sizeId})`
+            );
+          }
+          if (sku.defectQty === undefined || sku.defectQty === null) {
+            throw new Error(
+              `Defect quantity is required for each SKU output (color: ${sku.colorId}, size: ${sku.sizeId}). Enter 0 if no defects.`
+            );
+          }
+          return {
+            colorId: sku.colorId,
+            sizeId: sku.sizeId,
+            finishedQty: Number(sku.finishedQty),
+            defectQty: Number(sku.defectQty),
+          };
+        }),
       },
     },
     include: {

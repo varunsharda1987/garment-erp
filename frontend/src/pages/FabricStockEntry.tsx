@@ -62,6 +62,7 @@ export default function FabricStockEntry() {
     const selectedFabric = fabricList.find((f) => f.id === fabricId);
 
     // If fabric is style-linked, redirect to style stock entry page
+    // Serialized path: styleFabrics → fabrics, styleComponents → components, styles → style
     const styleId = (selectedFabric as { fabrics?: Array<{ components?: { style?: { id?: string } } }> })?.fabrics?.[0]
       ?.components?.style?.id;
     if (styleId) {

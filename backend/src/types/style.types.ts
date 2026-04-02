@@ -38,6 +38,8 @@ export interface StyleFabricInput {
   totalCostPerMeter?: number | string | null;
   // CAD control
   allowCombinedCutting?: boolean;
+  // Pattern part association
+  patternPartIds?: string[];
 }
 
 /**

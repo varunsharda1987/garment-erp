@@ -114,6 +114,8 @@ export interface GenericGreigeStock {
   greigeCode: string;
   greigeName: string;
   composition: string;
+  greigeQuality: string | null;
+  weaver: string | null;
   totalStock: number;
   unit: string;
   totalValue: number;

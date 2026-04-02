@@ -4,6 +4,7 @@
 import { Request, Response } from 'express';
 import FabricStockService, { CreateStyleStockDTO } from '../services/fabric-stock.service';
 import GreigeStockService from '../services/greige-stock.service';
+import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
 // ============================================
@@ -201,19 +202,29 @@ class StyleStockController {
    */
   async getGenericGreigeStock(req: Request, res: Response) {
     try {
-      // Use new GreigeStockService with dedicated greige_stock table
+      // Step 1: Fetch ALL active greige masters
+      const allGreige = await prisma.greige_master.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          greigeCode: true,
+          greigeName: true,
+          composition: true,
+          greigeQuality: true,
+          weaver: true,
+          greigeWidth: true,
+          defaultCutableWidth: true,
+        },
+        orderBy: { greigeCode: 'asc' },
+      });
+
+      // Step 2: Fetch stock data and aggregate by greigeId
       const rawStock = await GreigeStockService.getGreigeStock();
 
-      // Aggregate by greigeId with enriched data
-      const aggregated = new Map<
+      const stockMap = new Map<
         string,
         {
-          greigeId: string;
-          greigeCode: string;
-          greigeName: string;
-          composition: string;
           totalStock: number;
-          unit: string;
           totalValue: number;
           maxAgingDays: number;
           greigeWidth: number | null;
@@ -227,7 +238,7 @@ class StyleStockController {
       >();
 
       for (const item of rawStock) {
-        const existing = aggregated.get(item.greigeId);
+        const existing = stockMap.get(item.greigeId);
         const itemValue = item.quantityAvailable * (item.weightedAvgCost || item.purchaseCost || 0);
 
         if (existing) {
@@ -243,13 +254,8 @@ class StyleStockController {
           const supplierMap = new Map<string, { id: string; name: string; code: string }>();
           if (item.supplier) supplierMap.set(item.supplier.id, item.supplier);
 
-          aggregated.set(item.greigeId, {
-            greigeId: item.greigeId,
-            greigeCode: (item.greige as any)?.greigeCode || '',
-            greigeName: (item.greige as any)?.greigeName || '',
-            composition: (item.greige as any)?.composition || '',
+          stockMap.set(item.greigeId, {
             totalStock: item.quantityAvailable,
-            unit: 'meters',
             totalValue: itemValue,
             maxAgingDays: item.agingDays,
             greigeWidth: item.greigeWidth,
@@ -263,24 +269,29 @@ class StyleStockController {
         }
       }
 
-      // Convert Sets/Maps to arrays for JSON response
-      const data = Array.from(aggregated.values()).map((item) => ({
-        greigeId: item.greigeId,
-        greigeCode: item.greigeCode,
-        greigeName: item.greigeName,
-        composition: item.composition,
-        totalStock: Math.round(item.totalStock * 100) / 100,
-        unit: item.unit,
-        totalValue: Math.round(item.totalValue * 100) / 100,
-        maxAgingDays: item.maxAgingDays,
-        greigeWidth: item.greigeWidth,
-        cutableWidth: item.cutableWidth,
-        qualityGrades: Array.from(item.qualityGrades),
-        warehouses: Array.from(item.warehouses),
-        suppliers: Array.from(item.suppliers.values()),
-        statuses: Array.from(item.statuses),
-        entryCount: item.entryCount,
-      }));
+      // Step 3: Merge — every greige master appears, enriched with stock data if available
+      const data = allGreige.map((greige) => {
+        const stock = stockMap.get(greige.id);
+        return {
+          greigeId: greige.id,
+          greigeCode: greige.greigeCode,
+          greigeName: greige.greigeName,
+          composition: greige.composition,
+          greigeQuality: greige.greigeQuality || null,
+          weaver: greige.weaver || null,
+          totalStock: stock ? Math.round(stock.totalStock * 100) / 100 : 0,
+          unit: 'meters',
+          totalValue: stock ? Math.round(stock.totalValue * 100) / 100 : 0,
+          maxAgingDays: stock?.maxAgingDays ?? 0,
+          greigeWidth: stock?.greigeWidth ?? (greige.greigeWidth ? Number(greige.greigeWidth) : null),
+          cutableWidth: stock?.cutableWidth ?? (greige.defaultCutableWidth ? Number(greige.defaultCutableWidth) : null),
+          qualityGrades: stock ? Array.from(stock.qualityGrades) : [],
+          warehouses: stock ? Array.from(stock.warehouses) : [],
+          suppliers: stock ? Array.from(stock.suppliers.values()) : [],
+          statuses: stock ? Array.from(stock.statuses) : [],
+          entryCount: stock?.entryCount ?? 0,
+        };
+      });
 
       return res.status(200).json({
         success: true,
@@ -343,6 +354,34 @@ class StyleStockController {
       logError('Delete greige stock error:', error);
       const message = error instanceof Error ? error.message : 'Failed to delete greige stock';
       const status = message.includes('not found') ? 404 : message.includes('Cannot delete') ? 409 : 500;
+      return res.status(status).json({ success: false, message });
+    }
+  }
+
+  /**
+   * Adjust a greige stock entry (increase/decrease with reason)
+   * POST /api/greige/stock/:stockId/adjust
+   */
+  async adjustGreigeStockEntry(req: Request, res: Response) {
+    try {
+      const { stockId } = req.params;
+      const userId = req.user?.userId || 'system';
+      const { adjustmentType, quantity, reason, remarks } = req.body;
+
+      if (!adjustmentType || !quantity || !reason) {
+        return res.status(400).json({ success: false, message: 'adjustmentType, quantity, and reason are required' });
+      }
+
+      const result = await GreigeStockService.adjustGreigeStock(
+        stockId,
+        { adjustmentType, quantity, reason, remarks },
+        userId
+      );
+      return res.status(200).json({ success: true, data: result, message: 'Stock adjusted successfully' });
+    } catch (error: unknown) {
+      logError('Adjust greige stock error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to adjust greige stock';
+      const status = message.includes('not found') ? 404 : message.includes('Cannot decrease') ? 400 : 500;
       return res.status(status).json({ success: false, message });
     }
   }

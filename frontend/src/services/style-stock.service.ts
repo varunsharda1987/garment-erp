@@ -79,6 +79,7 @@ export async function createGreigeStock(data: {
   warehouseLocation?: string;
   purchaseCost?: number;
   receivedDate?: Date;
+  supplierId?: string;
 }): Promise<GreigeStockCreateResponse> {
   const response = await api.post(`/greige/stock-entry`, data);
   return response.data;

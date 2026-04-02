@@ -76,15 +76,15 @@ router.patch(
 );
 
 /**
- * @route   DELETE /api/greige/stock/:stockId
- * @desc    Delete a greige stock entry
+ * @route   POST /api/greige/stock/:stockId/adjust
+ * @desc    Adjust greige stock quantity (increase/decrease with reason)
  * @access  Protected - Admin, Inventory
  */
-router.delete(
-  '/stock/:stockId',
+router.post(
+  '/stock/:stockId/adjust',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.INVENTORY),
-  asyncHandler((req: Request, res: Response) => StyleStockController.deleteGreigeStockEntry(req, res))
+  asyncHandler((req: Request, res: Response) => StyleStockController.adjustGreigeStockEntry(req, res))
 );
 
 export default router;

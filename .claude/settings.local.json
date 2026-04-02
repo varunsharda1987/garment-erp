@@ -344,7 +344,10 @@
       "Bash(grep -E \"\\\\.\\(ts\\)$\")",
       "Bash(winpty npx:*)",
       "Bash(script -qec \"npx prisma migrate dev --name add_fabric_return_tracking\" /dev/null)",
-      "Bash(2)"
+      "Bash(2)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx tsc --noEmit)",
+      "Bash(find /c/Users/NEW/garment-erp/backend/src -type f \\\\\\(-name *fabric-stock* -o -name *greige* -o -name *laceStock* -o -name *stock* -o -name *WeightedAverage* -o -name *fabric-cost* -o -name *laceCostingCalculation* -o -name *processingBatch* -o -name *quality* -o -name *testing* -o -name *fpt* -o -name *gpt* \\\\\\))",
+      "Read(//c/Users/NEW/AppData/Local/Temp/claude/c--Users-NEW-garment-erp/99f268da-4008-4c58-a6e4-2f490fd5b80c/tasks/**)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",

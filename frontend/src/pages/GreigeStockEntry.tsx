@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Combobox, type ComboboxOption } from '../components/ui/combobox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { createGreigeStock } from '../services/style-stock.service';
 import { greigeService } from '../services/fabricGreigeService';
+import { warehouseService } from '../services/warehouse.service';
+import api from '../lib/api';
 import { CheckCircle, XCircle, Package2, ArrowLeft } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 
@@ -19,14 +23,21 @@ interface GreigeMaster {
   yarnCount?: string;
   construction?: string;
   weaveType?: string;
+  greigeQuality?: string;
+  weaver?: string;
   greigeWidth: number;
 }
 
 export default function GreigeStockEntry() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedGreigeId = searchParams.get('greigeId') || '';
 
   const [greigeList, setGreigeList] = useState<GreigeMaster[]>([]);
+  const [suppliers, setSuppliers] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; warehouseCode: string; warehouseName: string }>>([]);
   const [selectedGreigeId, setSelectedGreigeId] = useState<string>('');
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [formData, setFormData] = useState({
     quantity: '',
     width: '',
@@ -40,6 +51,7 @@ export default function GreigeStockEntry() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     loadGreigeList();
@@ -48,11 +60,27 @@ export default function GreigeStockEntry() {
   const loadGreigeList = async () => {
     try {
       setIsLoading(true);
-      const response = await greigeService.getAll({ limit: 100 });
-      setGreigeList(response.data || []);
+      const [greigeResponse, warehouseData, suppliersResponse] = await Promise.all([
+        greigeService.getAll({ limit: 500 }),
+        warehouseService.getAll({ isActive: true }),
+        api.get('/suppliers', { params: { limit: 200, category: 'GREIGE_SUPPLIER' } }),
+      ]);
+      const loadedList = greigeResponse.data || [];
+      setGreigeList(loadedList);
+      setWarehouses(warehouseData);
+      setSuppliers(suppliersResponse.data?.data || []);
+
+      // Auto-select greige if passed via URL query param
+      if (preselectedGreigeId && loadedList.length > 0) {
+        const match = loadedList.find((g: GreigeMaster) => g.id === preselectedGreigeId);
+        if (match) {
+          setSelectedGreigeId(preselectedGreigeId);
+          setFormData((prev) => ({ ...prev, width: match.greigeWidth.toString() }));
+        }
+      }
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || 'Failed to load greige list');
+      setError(error.response?.data?.message || 'Failed to load data');
     } finally {
       setIsLoading(false);
     }
@@ -76,21 +104,24 @@ export default function GreigeStockEntry() {
     }));
   };
 
+  const handleReview = () => {
+    setError(null);
+    if (!selectedGreigeId) {
+      setError('Please select a greige fabric');
+      return;
+    }
+    if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
+      setError('Please enter a valid quantity');
+      return;
+    }
+    setShowConfirm(true);
+  };
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
       setError(null);
       setSuccess(false);
-
-      if (!selectedGreigeId) {
-        setError('Please select a greige fabric');
-        return;
-      }
-
-      if (!formData.quantity || parseFloat(formData.quantity) <= 0) {
-        setError('Please enter a valid quantity');
-        return;
-      }
 
       await createGreigeStock({
         greigeId: selectedGreigeId,
@@ -100,6 +131,7 @@ export default function GreigeStockEntry() {
         warehouseLocation: formData.warehouseLocation || undefined,
         purchaseCost: formData.purchaseCost ? parseFloat(formData.purchaseCost) : undefined,
         receivedDate: formData.receivedDate ? new Date(formData.receivedDate) : undefined,
+        supplierId: selectedSupplierId || undefined,
       });
 
       setSuccess(true);
@@ -237,6 +269,24 @@ export default function GreigeStockEntry() {
                     <span className="text-gray-500">Width:</span>
                     <span className="ml-2 font-medium">{Number(selectedGreige.greigeWidth)}"</span>
                   </div>
+                  {selectedGreige.greigeQuality && (
+                    <div>
+                      <span className="text-gray-500">Greige Quality:</span>
+                      <span className="ml-2 font-medium">
+                        {selectedGreige.greigeQuality === 'SUPER_DYEING'
+                          ? 'Super Dyeing'
+                          : selectedGreige.greigeQuality === 'DYEING'
+                            ? 'Dyeing'
+                            : 'Printing'}
+                      </span>
+                    </div>
+                  )}
+                  {selectedGreige.weaver && (
+                    <div>
+                      <span className="text-gray-500">Weaver:</span>
+                      <span className="ml-2 font-medium">{selectedGreige.weaver}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -298,14 +348,38 @@ export default function GreigeStockEntry() {
                   </div>
 
                   <div>
+                    <Label>Supplier</Label>
+                    <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select supplier (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {suppliers.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.code} - {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
                     <Label>Warehouse Location</Label>
-                    <Input
-                      type="text"
+                    <Select
                       value={formData.warehouseLocation}
-                      onChange={(e) => handleFieldChange('warehouseLocation', e.target.value)}
-                      placeholder="e.g., A-15-B"
-                      className="mt-1"
-                    />
+                      onValueChange={(v) => handleFieldChange('warehouseLocation', v)}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select warehouse (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {warehouses.map((wh) => (
+                          <SelectItem key={wh.id} value={wh.warehouseName}>
+                            {wh.warehouseCode} - {wh.warehouseName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>
@@ -340,12 +414,84 @@ export default function GreigeStockEntry() {
             <Button variant="outline" onClick={() => navigate('/greige-stock')} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={isSaving || !selectedGreigeId}>
-              {isSaving ? 'Saving...' : 'Save Greige Stock Entry'}
+            <Button onClick={handleReview} disabled={isSaving || !selectedGreigeId}>
+              Review & Save
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Stock Entry</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <p className="text-sm text-gray-500">Please review the details before saving:</p>
+            <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Greige:</span>
+                <span className="font-medium">{selectedGreige?.greigeName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Quantity:</span>
+                <span className="font-medium">{formData.quantity} meters</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Width:</span>
+                <span className="font-medium">{formData.width}"</span>
+              </div>
+              {formData.purchaseCost && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Cost/meter:</span>
+                  <span className="font-medium">{formatCurrency(parseFloat(formData.purchaseCost))}</span>
+                </div>
+              )}
+              {formData.purchaseCost && formData.quantity && (
+                <div className="flex justify-between border-t pt-2 mt-2">
+                  <span className="text-gray-500 font-medium">Total Value:</span>
+                  <span className="font-bold text-purple-700">
+                    {formatCurrency(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost))}
+                  </span>
+                </div>
+              )}
+              {formData.warehouseLocation && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Warehouse:</span>
+                  <span className="font-medium">{formData.warehouseLocation}</span>
+                </div>
+              )}
+              {selectedSupplierId && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Supplier:</span>
+                  <span className="font-medium">{suppliers.find((s) => s.id === selectedSupplierId)?.name || '-'}</span>
+                </div>
+              )}
+              {formData.receivedDate && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Received Date:</span>
+                  <span className="font-medium">{new Date(formData.receivedDate).toLocaleDateString('en-IN')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              Go Back
+            </Button>
+            <Button
+              onClick={() => {
+                setShowConfirm(false);
+                handleSave();
+              }}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving...' : 'Confirm & Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

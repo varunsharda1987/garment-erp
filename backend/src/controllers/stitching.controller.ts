@@ -281,12 +281,20 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
             }
           : undefined,
       skuBreakdown: {
-        create: skuBreakdown.map((sku: any) => ({
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          availableQty: sku.availableQty || sku.issuedQty || 0,
-          issuedQty: sku.issuedQty || 0,
-        })),
+        create: skuBreakdown.map((sku: any) => {
+          const availableQty = sku.availableQty ?? sku.issuedQty;
+          if (availableQty === undefined || availableQty === null) {
+            throw new Error(
+              `Available quantity is required for SKU (color: ${sku.colorId}, size: ${sku.sizeId}). Must come from cutting output.`
+            );
+          }
+          return {
+            colorId: sku.colorId,
+            sizeId: sku.sizeId,
+            availableQty: Number(availableQty),
+            issuedQty: Number(sku.issuedQty ?? availableQty),
+          };
+        }),
       },
     },
     include: issueIncludeOptions,
@@ -466,12 +474,26 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
       remarks,
       createdById: userId,
       skuOutputs: {
-        create: skuOutputs.map((sku: any) => ({
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          goodQty: sku.goodQty || sku.passedQty || 0,
-          defectQty: sku.defectQty || sku.rejectedQty || 0,
-        })),
+        create: skuOutputs.map((sku: any) => {
+          const goodQty = sku.goodQty ?? sku.passedQty;
+          const defectQty = sku.defectQty ?? sku.rejectedQty;
+          if (goodQty === undefined && goodQty === null) {
+            throw new Error(
+              `Good/passed quantity is required for each SKU output (color: ${sku.colorId}, size: ${sku.sizeId})`
+            );
+          }
+          if (defectQty === undefined && defectQty === null) {
+            throw new Error(
+              `Defect/rejected quantity is required for each SKU output (color: ${sku.colorId}, size: ${sku.sizeId}). Enter 0 if no defects.`
+            );
+          }
+          return {
+            colorId: sku.colorId,
+            sizeId: sku.sizeId,
+            goodQty: Number(goodQty) || 0,
+            defectQty: Number(defectQty) || 0,
+          };
+        }),
       },
     },
     include: {

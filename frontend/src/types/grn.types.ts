@@ -32,6 +32,8 @@ export const GRNStatusColors: Record<GRNStatus, string> = {
   PARTIALLY_ACCEPTED: 'bg-orange-100 text-orange-800',
 };
 
+export type GRNEntryMode = 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
+
 // ============================================
 // SUMMARY TYPES
 // ============================================
@@ -84,6 +86,28 @@ export interface WarehouseSummary {
 }
 
 // ============================================
+// GRN ITEM DETAIL (than/roll breakdown)
+// ============================================
+
+export interface GRNItemDetail {
+  id: string;
+  grnItemId: string;
+  detailType: 'THAN' | 'ROLL';
+  baleNumber: number | null;
+  sequenceNo: number;
+  meters: number;
+  remarks: string | null;
+}
+
+export interface GRNItemDetailRequest {
+  detailType: 'THAN' | 'ROLL';
+  baleNumber?: number | null;
+  sequenceNo: number;
+  meters: number;
+  remarks?: string | null;
+}
+
+// ============================================
 // GRN ITEM
 // ============================================
 
@@ -98,8 +122,20 @@ export interface GRNItem {
   rejectedQuantity: number;
   unit: Unit;
   remarks: string | null;
+  // Measurement fields
+  foldLengthCm: number | null;
+  receivedWidthInches: number | null;
+  entryMode: GRNEntryMode | null;
+  baleCount: number | null;
+  thanCount: number | null;
+  rollCount: number | null;
+  totalMeters: number | null;
+  isOverReceipt: boolean;
+  overReceiptQty: number | null;
+  // Relations
   materials?: MaterialSummary;
-  purchaseOrderItem?: POItemSummary; // RELATION_MAPPINGS: purchaseOrderItems → items (but nested singular)
+  purchaseOrderItem?: POItemSummary;
+  grnItemDetails?: GRNItemDetail[];
 }
 
 // ============================================
@@ -145,6 +181,11 @@ export interface CreateGRNItemRequest {
   unit: Unit;
   rejectionReason?: string;
   remarks?: string;
+  // Per-item measurement fields (FABRIC & GREIGE)
+  foldLengthCm?: number | null;
+  receivedWidthInches?: number | null;
+  entryMode?: GRNEntryMode | null;
+  details?: GRNItemDetailRequest[];
 }
 
 export interface ProcessingReceiveData {
@@ -236,6 +277,7 @@ export interface PendingPOItem {
 export interface PendingItemsResponse {
   success: boolean;
   data: PendingPOItem[];
+  tolerancePercent?: number;
 }
 
 // ============================================

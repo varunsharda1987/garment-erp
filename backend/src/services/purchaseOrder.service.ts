@@ -7,6 +7,7 @@ import { PurchaseOrderStatus, Prisma, POSource, ServiceType } from '@prisma/clie
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { logWarn } from '../utils/logger';
 import { gstService } from './gst.service';
 import {
   CreatePurchaseOrderDTO,
@@ -49,6 +50,9 @@ class PurchaseOrderService {
     let totalIgst = new Decimal(0);
 
     for (const item of items) {
+      if (!item.totalPrice || Number(item.totalPrice) === 0) {
+        logWarn(`[PurchaseOrder] PO item ${item.id} has ₹0 total price — PO total will be understated.`);
+      }
       subtotal = subtotal.add(item.totalPrice || 0);
       totalCgst = totalCgst.add(item.cgstAmount || 0);
       totalSgst = totalSgst.add(item.sgstAmount || 0);

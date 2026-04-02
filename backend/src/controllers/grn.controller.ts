@@ -10,6 +10,7 @@ import { logInfo, logError } from '../utils/logger';
 import { CreateGRNDTO, GRNFilters, ProcessingQCData } from '../types/grn.types';
 import { NotFoundError, ValidationError } from '../errors';
 import { updateCostSheetActuals } from '../services/costSheet.service';
+import { systemSettingsService } from '../services/system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
 
 /**
@@ -82,11 +83,15 @@ export const getGRNsByPO = async (req: Request, res: Response) => {
 export const getPendingItemsForPO = async (req: Request, res: Response) => {
   const { poId } = req.params;
 
-  const pendingItems = await grnService.getPendingItemsForPO(poId);
+  const [pendingItems, tolerancePercent] = await Promise.all([
+    grnService.getPendingItemsForPO(poId),
+    systemSettingsService.getNumber('GRN_OVER_RECEIPT_TOLERANCE_PERCENT', 10),
+  ]);
 
   res.json({
     success: true,
     data: pendingItems,
+    tolerancePercent,
   });
 };
 

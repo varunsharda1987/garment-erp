@@ -9,6 +9,36 @@ import { GRNStatus, Unit } from '@prisma/client';
 export { GRNStatus };
 
 // ============================================
+// GRN Entry Mode & Detail Types
+// ============================================
+
+export type GRNEntryMode = 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
+
+/**
+ * Detail row for than/roll breakdown within a GRN item
+ */
+export interface GRNItemDetailDTO {
+  detailType: 'THAN' | 'ROLL';
+  baleNumber?: number | null; // For bale-wise grouping (1, 2, 3...)
+  sequenceNo: number;
+  meters: number;
+  remarks?: string | null;
+}
+
+/**
+ * Detail row response (includes id)
+ */
+export interface GRNItemDetailResponse {
+  id: string;
+  grnItemId: string;
+  detailType: string;
+  baleNumber: number | null;
+  sequenceNo: number;
+  meters: number;
+  remarks: string | null;
+}
+
+// ============================================
 // GRN Item Types
 // ============================================
 
@@ -24,6 +54,11 @@ export interface GRNItemDTO {
   unit: Unit;
   rejectionReason?: string | null;
   remarks?: string | null;
+  // Per-item measurement fields
+  foldLengthCm?: number | null;
+  receivedWidthInches?: number | null;
+  entryMode?: GRNEntryMode | null;
+  details?: GRNItemDetailDTO[];
 }
 
 /**
@@ -40,8 +75,20 @@ export interface GRNItemResponse {
   rejectedQuantity: number;
   unit: Unit;
   remarks: string | null;
+  // Measurement fields
+  foldLengthCm: number | null;
+  receivedWidthInches: number | null;
+  entryMode: string | null;
+  baleCount: number | null;
+  thanCount: number | null;
+  rollCount: number | null;
+  totalMeters: number | null;
+  isOverReceipt: boolean;
+  overReceiptQty: number | null;
+  // Relations
   materials?: MaterialSummary;
   purchase_order_items?: POItemSummary;
+  grn_item_details?: GRNItemDetailResponse[];
 }
 
 // ============================================

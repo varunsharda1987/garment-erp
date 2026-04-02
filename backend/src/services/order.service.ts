@@ -6,7 +6,7 @@
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { orders, Prisma, Priority } from '@prisma/client';
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from '../errors';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
 import workOrderService from './workOrder.service';
@@ -127,6 +127,13 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       // Validate: either breakup or direct totalQuantity must provide a quantity
       if (itemTotalQty <= 0) {
         throw new ValidationError('Order item must have quantity (via breakup or totalQuantity)');
+      }
+
+      // Validate: if breakup exists, sum must match totalQuantity (if provided)
+      if (breakupQty > 0 && item.totalQuantity && item.totalQuantity > 0 && breakupQty !== item.totalQuantity) {
+        logWarn(
+          `[Order] Size breakup sum (${breakupQty}) does not match totalQuantity (${item.totalQuantity}) for style ${item.styleId}. Using breakup sum.`
+        );
       }
 
       const unitPriceNum = parseFloat(String(item.unitPrice)) || 0;

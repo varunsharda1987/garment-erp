@@ -209,6 +209,8 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     construction,
     composition,
     weaveType,
+    greigeQuality,
+    weaver,
     greigeWidth,
     expectedFinishedWidthMin,
     expectedFinishedWidthMax,
@@ -244,6 +246,16 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     throw new ValidationError('Greige code already exists');
   }
 
+  // Check for duplicate name + quality combination
+  const duplicateNameQuality = await prisma.greige_master.findFirst({
+    where: { greigeName, greigeQuality: greigeQuality || null, isActive: true },
+  });
+  if (duplicateNameQuality) {
+    throw new ValidationError(
+      `A greige with name "${greigeName}" and quality "${greigeQuality || 'None'}" already exists (${duplicateNameQuality.greigeCode}). Use a different quality or edit the existing entry.`
+    );
+  }
+
   const greigeMaster = await prisma.greige_master.create({
     data: {
       greigeCode: finalGreigeCode,
@@ -253,6 +265,8 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       construction,
       composition,
       weaveType,
+      greigeQuality: greigeQuality || null,
+      weaver: weaver || null,
       greigeWidth: parseFloat(greigeWidth),
       expectedFinishedWidthMin: expectedFinishedWidthMin ? parseFloat(expectedFinishedWidthMin) : null,
       expectedFinishedWidthMax: expectedFinishedWidthMax ? parseFloat(expectedFinishedWidthMax) : null,
@@ -316,6 +330,8 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     construction,
     composition,
     weaveType,
+    greigeQuality,
+    weaver,
     greigeWidth,
     expectedFinishedWidthMin,
     expectedFinishedWidthMax,
@@ -351,6 +367,18 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     }
   }
 
+  // Check for duplicate name + quality combination (exclude current record)
+  const updatedName = greigeName || existingGreige.greigeName;
+  const updatedQuality = greigeQuality !== undefined ? greigeQuality || null : existingGreige.greigeQuality;
+  const duplicateNameQuality = await prisma.greige_master.findFirst({
+    where: { greigeName: updatedName, greigeQuality: updatedQuality, isActive: true, NOT: { id } },
+  });
+  if (duplicateNameQuality) {
+    throw new ValidationError(
+      `A greige with name "${updatedName}" and quality "${updatedQuality || 'None'}" already exists (${duplicateNameQuality.greigeCode}).`
+    );
+  }
+
   // Build update data
   const updateData: GreigeUpdateData = {
     greigeCode,
@@ -360,6 +388,8 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     construction,
     composition,
     weaveType,
+    greigeQuality: greigeQuality !== undefined ? greigeQuality || null : undefined,
+    weaver: weaver !== undefined ? weaver || null : undefined,
     greigeWidth: greigeWidth ? parseFloat(greigeWidth) : undefined,
     expectedFinishedWidthMin: expectedFinishedWidthMin ? parseFloat(expectedFinishedWidthMin) : null,
     expectedFinishedWidthMax: expectedFinishedWidthMax ? parseFloat(expectedFinishedWidthMax) : null,

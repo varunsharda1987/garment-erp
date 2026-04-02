@@ -5,12 +5,20 @@
 
 import { GRNStatus, PurchaseOrderStatus, Prisma, MovementType } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { CreateGRNDTO, GRNFilters, PendingPOItem, ProcessingReceiveData, ProcessingQCData } from '../types/grn.types';
+import {
+  CreateGRNDTO,
+  GRNFilters,
+  PendingPOItem,
+  ProcessingReceiveData,
+  ProcessingQCData,
+  GRNItemDetailDTO,
+} from '../types/grn.types';
 import { createChallan } from './challan.service';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
 import { costSheetPOGenerationService } from './costSheetPOGeneration.service';
 import greigeStockService from './greige-stock.service';
+import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
 import { logInfo, logError } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
@@ -32,7 +40,9 @@ class GRNService {
     const po = await prisma.purchase_orders.findUnique({
       where: { id: data.poId },
       include: {
-        purchase_order_items: true,
+        purchase_order_items: {
+          include: { materials: { select: { id: true, code: true, name: true } } },
+        },
         suppliers: { select: { id: true, name: true, code: true } },
       },
     });
@@ -51,6 +61,9 @@ class GRNService {
       throw new Error(`Cannot receive goods for PO in ${po.status} status`);
     }
 
+    // Fetch over-receipt tolerance from system settings
+    const tolerancePercent = await systemSettingsService.getNumber('GRN_OVER_RECEIPT_TOLERANCE_PERCENT', 10);
+
     // Validate items
     for (const item of data.items) {
       const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
@@ -58,11 +71,16 @@ class GRNService {
         throw new Error(`PO item ${item.poItemId} not found`);
       }
 
-      // Check if receiving more than ordered
-      const pendingQty = Number(poItem.orderedQuantity) - Number(poItem.receivedQuantity);
-      if (item.receivedQuantity > pendingQty) {
+      // Check if receiving more than allowed (ordered + tolerance)
+      const orderedQty = Number(poItem.orderedQuantity);
+      const alreadyReceived = Number(poItem.receivedQuantity);
+      const maxAllowed = orderedQty * (1 + tolerancePercent / 100) - alreadyReceived;
+      if (item.receivedQuantity > maxAllowed) {
+        const materialCode = poItem.materials?.code || item.materialId;
         throw new Error(
-          `Cannot receive ${item.receivedQuantity} units. Only ${pendingQty} pending for item ${item.poItemId}`
+          `Cannot receive ${item.receivedQuantity} units of ${materialCode}. ` +
+            `Maximum allowed (with ${tolerancePercent}% tolerance) is ${maxAllowed.toFixed(3)}. ` +
+            `Ordered: ${orderedQty}, Already received: ${alreadyReceived}.`
         );
       }
 
@@ -103,6 +121,29 @@ class GRNService {
           grn_items: {
             create: data.items.map((item) => {
               const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
+              const orderedQty = Number(poItem?.orderedQuantity || 0);
+              const alreadyReceived = Number(poItem?.receivedQuantity || 0);
+              const pendingQty = orderedQty - alreadyReceived;
+              const isOverReceipt = item.receivedQuantity > pendingQty;
+              const overReceiptQty = isOverReceipt ? item.receivedQuantity - pendingQty : null;
+
+              // Compute counts from details if provided
+              let baleCount: number | null = null;
+              let thanCount: number | null = null;
+              let rollCount: number | null = null;
+              let totalMeters: number | null = null;
+
+              if (item.details && item.details.length > 0) {
+                const thans = item.details.filter((d) => d.detailType === 'THAN');
+                const rolls = item.details.filter((d) => d.detailType === 'ROLL');
+                thanCount = thans.length || null;
+                rollCount = rolls.length || null;
+                totalMeters = item.details.reduce((sum, d) => sum + d.meters, 0);
+                // Count distinct bale numbers for bale count
+                const baleNumbers = new Set(thans.filter((d) => d.baleNumber).map((d) => d.baleNumber));
+                baleCount = baleNumbers.size > 0 ? baleNumbers.size : null;
+              }
+
               return {
                 id: randomUUID(),
                 poItemId: item.poItemId,
@@ -115,12 +156,43 @@ class GRNService {
                 remarks: item.remarks || null,
                 componentName: (poItem as any)?.componentName || null,
                 colorName: (poItem as any)?.colorName || null,
+                // Measurement fields
+                foldLengthCm: item.foldLengthCm || null,
+                receivedWidthInches: item.receivedWidthInches || null,
+                entryMode: item.entryMode || null,
+                baleCount,
+                thanCount,
+                rollCount,
+                totalMeters: totalMeters ?? (item.receivedQuantity || null),
+                isOverReceipt,
+                overReceiptQty,
               };
             }),
           },
         },
         include: this.getFullInclude(),
       });
+
+      // Create grn_item_details for items with breakdown data
+      for (const item of data.items) {
+        if (item.details && item.details.length > 0) {
+          // Find the created grn_item by poItemId match
+          const createdItem = (newGRN as any).grn_items?.find((gi: any) => gi.poItemId === item.poItemId);
+          if (createdItem) {
+            await tx.grn_item_details.createMany({
+              data: item.details.map((detail: GRNItemDetailDTO) => ({
+                id: randomUUID(),
+                grnItemId: createdItem.id,
+                detailType: detail.detailType,
+                baleNumber: detail.baleNumber || null,
+                sequenceNo: detail.sequenceNo,
+                meters: detail.meters,
+                remarks: detail.remarks || null,
+              })),
+            });
+          }
+        }
+      }
 
       // Update PO item received quantities
       for (const item of data.items) {
@@ -448,6 +520,7 @@ class GRNService {
         grn_items: {
           include: {
             purchase_order_items: true,
+            grn_item_details: true,
           },
         },
       },
@@ -767,11 +840,16 @@ class GRNService {
             const greige = material.greige_master;
             const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
+            // Use per-item received width if available, otherwise fall back to greige master width
+            const greigeWidth = item.receivedWidthInches
+              ? Number(item.receivedWidthInches)
+              : Number(greige.greigeWidth || 44);
+
             await greigeStockService.createGreigeStock(
               {
                 greigeId: greige.id,
                 quantity: acceptedQty,
-                width: Number(greige.greigeWidth || 44),
+                width: greigeWidth,
                 purchaseCost: unitPrice,
                 supplierId: grn.supplierId,
                 receivedDate: grn.receivingDate,
@@ -819,7 +897,10 @@ class GRNService {
 
             const fabric = material.fabric_master;
             const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-            const actualWidth = Number(fabric.actualWidth || 0);
+            // Use per-item received width if available, otherwise fall back to fabric master width
+            const actualWidth = item.receivedWidthInches
+              ? Number(item.receivedWidthInches)
+              : Number(fabric.actualWidth || 0);
             const cutableWidth = Number(fabric.cutableWidth || (actualWidth > 2 ? actualWidth - 2 : actualWidth));
 
             await prisma.fabric_stock.create({
@@ -1167,6 +1248,9 @@ class GRNService {
               unit: true,
               unitPrice: true,
             },
+          },
+          grn_item_details: {
+            orderBy: [{ baleNumber: Prisma.SortOrder.asc }, { sequenceNo: Prisma.SortOrder.asc }],
           },
         },
       },

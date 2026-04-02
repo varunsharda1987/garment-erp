@@ -41,6 +41,7 @@ export interface MaterialRequirement {
   availableStock: number;
   shortfall: number;
   unitPrice: number;
+  priceRequired?: boolean;
   supplierId?: string;
   supplierName?: string;
   sourcingStrategy?: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED';
@@ -76,6 +77,7 @@ export interface CalculatedRequirements {
   costSheetId: string;
   styleId: string;
   styleCode: string;
+  hasZeroPriceItems?: boolean;
 }
 
 // ============================================

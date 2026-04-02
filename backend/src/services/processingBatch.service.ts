@@ -655,8 +655,12 @@ class ProcessingBatchService {
         batch: updatedBatch,
         stock: laceStock,
         actualShrinkagePercent,
-        expectedShrinkagePercent: Number(batch.laceMaster?.expectedShrinkagePercent) || 0,
-        shrinkageVariance: actualShrinkagePercent - (Number(batch.laceMaster?.expectedShrinkagePercent) || 0),
+        expectedShrinkagePercent: batch.laceMaster?.expectedShrinkagePercent
+          ? Number(batch.laceMaster.expectedShrinkagePercent)
+          : null,
+        shrinkageVariance: batch.laceMaster?.expectedShrinkagePercent
+          ? actualShrinkagePercent - Number(batch.laceMaster.expectedShrinkagePercent)
+          : null, // null = expected shrinkage not configured, variance cannot be calculated
         finishedCostPerMeter,
       };
     });

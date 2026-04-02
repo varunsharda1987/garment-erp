@@ -16,6 +16,7 @@
  */
 
 import prisma from '../config/database';
+import { logWarn } from '../utils/logger';
 import { lookupLaceRate } from './processor-rate-v2.service';
 import { isLabDipApproved, getApprovedLabDipsForLace } from './laceLabDip.service';
 
@@ -533,8 +534,13 @@ async function calculateGreigeLaceProcessingCost(
     };
   }
 
-  // Get shrinkage percent
-  const shrinkagePercent = greigeLace.expectedShrinkagePercent ? Number(greigeLace.expectedShrinkagePercent) : 5; // Default 5%
+  // Get shrinkage percent — MUST be configured in Lace Master, not guessed
+  if (!greigeLace.expectedShrinkagePercent && greigeLace.expectedShrinkagePercent !== 0) {
+    logWarn(
+      `[LaceCosting] Shrinkage % not configured for greige lace "${greigeLace.laceName || greigeLaceId}". Using 5% default — this may cause over/under-ordering.`
+    );
+  }
+  const shrinkagePercent = greigeLace.expectedShrinkagePercent ? Number(greigeLace.expectedShrinkagePercent) : 5;
 
   const shrinkageFactor = 1 - shrinkagePercent / 100;
   const greigeQuantityNeeded = quantityNeeded / shrinkageFactor;

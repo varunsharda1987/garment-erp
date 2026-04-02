@@ -26,6 +26,8 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     greigeName: '',
     composition: '',
     weaveType: '',
+    greigeQuality: '',
+    weaver: '',
     yarnCount: '',
     construction: '',
     greigeWidth: 0,
@@ -56,10 +58,19 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
   // Auto-generate greige name when relevant fields change (both create and edit mode)
   useEffect(() => {
     if (genericGreigeName && formData.yarnCount && formData.construction && formData.greigeWidth) {
-      const autoName = `${genericGreigeName} ${formData.yarnCount} / ${formData.construction} / ${formData.greigeWidth}"`;
+      const qualityLabel =
+        formData.greigeQuality === 'SUPER_DYEING'
+          ? 'Super Dyeing'
+          : formData.greigeQuality === 'DYEING'
+            ? 'Dyeing'
+            : formData.greigeQuality === 'PRINTING'
+              ? 'Printing'
+              : '';
+      const qualitySuffix = qualityLabel ? ` (${qualityLabel})` : '';
+      const autoName = `${genericGreigeName} ${formData.yarnCount} / ${formData.construction} / ${formData.greigeWidth}"${qualitySuffix}`;
       setFormData((prev) => ({ ...prev, greigeName: autoName }));
     }
-  }, [genericGreigeName, formData.yarnCount, formData.construction, formData.greigeWidth]);
+  }, [genericGreigeName, formData.yarnCount, formData.construction, formData.greigeWidth, formData.greigeQuality]);
 
   const generateGreigeCode = async () => {
     try {
@@ -112,6 +123,8 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         greigeName: greige.greigeName,
         composition: greige.composition,
         weaveType: greige.weaveType || '',
+        greigeQuality: greige.greigeQuality || '',
+        weaver: greige.weaver || '',
         yarnCount: greige.yarnCount || '',
         construction: greige.construction || '',
         greigeWidth: greige.greigeWidth,
@@ -376,6 +389,32 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 <option value="Rib">Rib</option>
                 <option value="Interlock">Interlock</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Greige Quality</label>
+              <select
+                name="greigeQuality"
+                value={formData.greigeQuality || ''}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select...</option>
+                <option value="PRINTING">Printing</option>
+                <option value="DYEING">Dyeing</option>
+                <option value="SUPER_DYEING">Super Dyeing</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Weaver</label>
+              <Input
+                type="text"
+                name="weaver"
+                value={formData.weaver}
+                onChange={handleChange}
+                placeholder="Weaver name"
+              />
             </div>
 
             <div>

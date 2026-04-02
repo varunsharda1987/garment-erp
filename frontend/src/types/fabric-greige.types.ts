@@ -9,6 +9,8 @@ export interface GreigeMaster {
   construction?: string;
   composition: string;
   weaveType?: string;
+  greigeQuality?: 'PRINTING' | 'DYEING' | 'SUPER_DYEING';
+  weaver?: string;
   greigeWidth: number;
   defaultCutableWidth?: number; // Default finished/cutable width for CAD planning
   expectedFinishedWidthMin?: number;
@@ -249,6 +251,8 @@ export interface GreigeMasterFormData {
   construction?: string;
   composition: string;
   weaveType?: string;
+  greigeQuality?: 'PRINTING' | 'DYEING' | 'SUPER_DYEING';
+  weaver?: string;
   greigeWidth: number;
   defaultCutableWidth?: number; // Default finished/cutable width for CAD planning
   expectedFinishedWidthMin?: number;

@@ -2,6 +2,7 @@ import { ChallanType, ChallanStatus, Prisma, MovementType, Unit } from '@prisma/
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { logWarn } from '../utils/logger';
 import greigeStockService from './greige-stock.service';
 import fabricStockService from './fabric-stock.service';
 import stockMovementService from './stockMovement.service';
@@ -501,7 +502,18 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
       where: { challanId: id },
     });
 
-    const totalReceived = allItems.reduce((sum, item) => sum + Number(item.receivedQty || 0), 0);
+    // Warn about items with null receivedQty — these are NOT "received 0", they are "not yet entered"
+    const itemsWithNullReceivedQty = allItems.filter((item) => item.receivedQty === null);
+    if (itemsWithNullReceivedQty.length > 0) {
+      logWarn(
+        `[Challan] ${itemsWithNullReceivedQty.length} item(s) have no receivedQty entered — stock will NOT be credited for these items. This may cause stock discrepancy.`
+      );
+    }
+
+    const totalReceived = allItems.reduce(
+      (sum, item) => sum + (item.receivedQty !== null ? Number(item.receivedQty) : 0),
+      0
+    );
     const totalExpected = allItems.reduce((sum, item) => sum + Number(item.quantity), 0);
 
     // Determine status
@@ -521,7 +533,13 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
     if (existingChallan?.challanType === 'INWARD') {
       // Credit fabric/lace/material stock for each received item
       for (const item of allItems) {
-        const receivedQty = Number(item.receivedQty || 0);
+        if (item.receivedQty === null) {
+          logWarn(
+            `[Challan] Skipping stock credit for item ${item.id} — receivedQty not entered. Stock will NOT be updated.`
+          );
+          continue;
+        }
+        const receivedQty = Number(item.receivedQty);
         if (receivedQty <= 0) continue;
 
         // Fabric stock credit (return to stock)
@@ -633,7 +651,8 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
       if (processing) {
         // Create fabric stock for each received item with fabric
         for (const item of allItems) {
-          const receivedQty = Number(item.receivedQty || 0);
+          if (item.receivedQty === null) continue; // Already warned above
+          const receivedQty = Number(item.receivedQty);
           if (receivedQty > 0 && (item.fabricId || processing.finishedFabricId)) {
             // Find the order's style for stock association (style is on order_items, not orders)
             let styleId: string | null = null;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,20 +7,35 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getReceivablePurchaseOrders, getPendingItemsForPO } from '@/services/purchaseOrder.service';
-import { createGRN, getProcessingContext } from '@/services/grn.service';
+import { getReceivablePurchaseOrders } from '@/services/purchaseOrder.service';
+import { createGRN, getProcessingContext, getPendingItemsForPO } from '@/services/grn.service';
 import { warehouseService } from '@/services/warehouse.service';
-import type { PurchaseOrder, PendingPOItem } from '@/types/purchaseOrder.types';
+import type { PurchaseOrder } from '@/types/purchaseOrder.types';
 import type {
   CreateGRNRequest,
   CreateGRNItemRequest,
   ProcessingContext,
   ProcessingReceiveData,
+  GRNEntryMode,
+  GRNItemDetailRequest,
+  PendingPOItem,
 } from '@/types/grn.types';
 import type { Warehouse } from '@/types/inventory.types';
 import { Badge } from '@/components/ui/badge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { ArrowLeft, Save, PackageOpen } from 'lucide-react';
+import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle } from 'lucide-react';
+
+// ============================================
+// Types
+// ============================================
+
+interface DetailRow {
+  detailType: 'THAN' | 'ROLL';
+  baleNumber: number | null;
+  sequenceNo: number;
+  meters: string;
+  remarks: string;
+}
 
 interface GRNItemForm {
   poItemId: string;
@@ -37,7 +52,35 @@ interface GRNItemForm {
   rejectedQuantity: string;
   rejectionReason: string;
   remarks: string;
+  // Measurement fields (FABRIC & GREIGE only)
+  entryMode: GRNEntryMode;
+  foldLengthCm: string;
+  receivedWidthInches: string;
+  details: DetailRow[];
 }
+
+// ============================================
+// Helpers
+// ============================================
+
+const isFabricOrGreige = (poCategory?: string) => poCategory === 'FABRIC' || poCategory === 'GREIGE';
+
+const computeDetailSum = (details: DetailRow[]): number =>
+  details.reduce((sum, d) => sum + (parseFloat(d.meters) || 0), 0);
+
+const getNextBaleNumber = (details: DetailRow[]): number => {
+  const maxBale = Math.max(0, ...details.filter((d) => d.baleNumber).map((d) => d.baleNumber!));
+  return maxBale + 1;
+};
+
+const getNextSequence = (details: DetailRow[], baleNumber?: number | null): number => {
+  const relevant = baleNumber ? details.filter((d) => d.baleNumber === baleNumber) : details;
+  return relevant.length + 1;
+};
+
+// ============================================
+// Component
+// ============================================
 
 export default function GRNForm() {
   const navigate = useNavigate();
@@ -48,6 +91,7 @@ export default function GRNForm() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [tolerancePercent, setTolerancePercent] = useState(10);
 
   // Form state
   const [selectedPOId, setSelectedPOId] = useState(preselectedPOId || '');
@@ -77,7 +121,6 @@ export default function GRNForm() {
       fetchPendingItems(selectedPOId);
       const po = receivablePOs.find((p) => p.id === selectedPOId);
       setSelectedPO(po || null);
-      // Fetch processing context if this is a PROCESSING PO
       if (po?.poCategory === 'PROCESSING') {
         fetchProcessingContext(po.id);
       } else {
@@ -115,7 +158,6 @@ export default function GRNForm() {
     try {
       const ctx = await getProcessingContext(poId);
       setProcessingContext(ctx);
-      // Pre-populate width from sent width
       setProcReceivedWidthInches(String(ctx.sentWidthInches));
     } catch (err) {
       handleApiError(err, 'Failed to load processing context', false);
@@ -126,7 +168,10 @@ export default function GRNForm() {
   const fetchPendingItems = async (poId: string) => {
     try {
       const response = await getPendingItemsForPO(poId);
-      const pendingItems: GRNItemForm[] = response.data
+      if (response.tolerancePercent !== undefined) {
+        setTolerancePercent(response.tolerancePercent);
+      }
+      const pendingItems: GRNItemForm[] = (response.data || [])
         .filter((item: PendingPOItem) => item.pendingQuantity > 0)
         .map((item: PendingPOItem) => ({
           poItemId: item.poItemId,
@@ -135,7 +180,7 @@ export default function GRNForm() {
           materialName: item.materialName,
           unit: item.unit,
           orderedQuantity: item.orderedQuantity,
-          alreadyReceived: item.receivedQuantity,
+          alreadyReceived: item.totalReceivedQuantity,
           pendingQuantity: item.pendingQuantity,
           unitPrice: item.unitPrice,
           receivedQuantity: '',
@@ -143,6 +188,10 @@ export default function GRNForm() {
           rejectedQuantity: '0',
           rejectionReason: '',
           remarks: '',
+          entryMode: 'TOTAL_METERS' as GRNEntryMode,
+          foldLengthCm: '',
+          receivedWidthInches: '',
+          details: [],
         }));
       setItems(pendingItems);
     } catch (err) {
@@ -150,43 +199,125 @@ export default function GRNForm() {
     }
   };
 
-  const updateItem = (index: number, field: keyof GRNItemForm, value: string) => {
+  // ============================================
+  // Item update handlers
+  // ============================================
+
+  const updateItem = useCallback((index: number, field: keyof GRNItemForm, value: string) => {
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== index) return item;
-
         const updatedItem = { ...item, [field]: value };
 
-        // Auto-calculate accepted quantity when received quantity changes
         if (field === 'receivedQuantity') {
           const received = parseFloat(value) || 0;
           const rejected = parseFloat(updatedItem.rejectedQuantity) || 0;
           updatedItem.acceptedQuantity = String(Math.max(0, received - rejected));
         }
-
-        // Recalculate accepted when rejected changes
         if (field === 'rejectedQuantity') {
           const received = parseFloat(updatedItem.receivedQuantity) || 0;
           const rejected = parseFloat(value) || 0;
           updatedItem.acceptedQuantity = String(Math.max(0, received - rejected));
         }
-
         return updatedItem;
       })
     );
-  };
+  }, []);
+
+  const setItemEntryMode = useCallback((index: number, mode: GRNEntryMode) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        return { ...item, entryMode: mode, details: [] };
+      })
+    );
+  }, []);
+
+  const addDetail = useCallback((itemIndex: number, detailType: 'THAN' | 'ROLL', baleNumber?: number | null) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+        const seq = getNextSequence(item.details, baleNumber);
+        const newDetail: DetailRow = {
+          detailType,
+          baleNumber: baleNumber ?? null,
+          sequenceNo: seq,
+          meters: '',
+          remarks: '',
+        };
+        return { ...item, details: [...item.details, newDetail] };
+      })
+    );
+  }, []);
+
+  const addBale = useCallback((itemIndex: number) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+        const baleNum = getNextBaleNumber(item.details);
+        const newDetail: DetailRow = {
+          detailType: 'THAN',
+          baleNumber: baleNum,
+          sequenceNo: 1,
+          meters: '',
+          remarks: '',
+        };
+        return { ...item, details: [...item.details, newDetail] };
+      })
+    );
+  }, []);
+
+  const updateDetail = useCallback((itemIndex: number, detailIndex: number, field: keyof DetailRow, value: string) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+        const updatedDetails = item.details.map((d, di) => {
+          if (di !== detailIndex) return d;
+          return { ...d, [field]: value };
+        });
+        // Auto-sum details into receivedQuantity
+        const sum = computeDetailSum(updatedDetails);
+        const rejected = parseFloat(item.rejectedQuantity) || 0;
+        return {
+          ...item,
+          details: updatedDetails,
+          receivedQuantity: sum > 0 ? sum.toFixed(3) : '',
+          acceptedQuantity: sum > 0 ? Math.max(0, sum - rejected).toFixed(3) : '',
+        };
+      })
+    );
+  }, []);
+
+  const removeDetail = useCallback((itemIndex: number, detailIndex: number) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+        const updatedDetails = item.details.filter((_, di) => di !== detailIndex);
+        const sum = computeDetailSum(updatedDetails);
+        const rejected = parseFloat(item.rejectedQuantity) || 0;
+        return {
+          ...item,
+          details: updatedDetails,
+          receivedQuantity: sum > 0 ? sum.toFixed(3) : item.receivedQuantity,
+          acceptedQuantity: sum > 0 ? Math.max(0, sum - rejected).toFixed(3) : item.acceptedQuantity,
+        };
+      })
+    );
+  }, []);
+
+  // ============================================
+  // Validation
+  // ============================================
 
   const validateForm = (): boolean => {
     if (!selectedPOId) {
       handleApiError(new Error('Please select a purchase order'), 'Validation Error');
       return false;
     }
-
     if (!warehouseId) {
       handleApiError(new Error('Please select a warehouse'), 'Validation Error');
       return false;
     }
-
     if (!receivingDate) {
       handleApiError(new Error('Please enter receiving date'), 'Validation Error');
       return false;
@@ -198,25 +329,24 @@ export default function GRNForm() {
       return false;
     }
 
-    // Validate each item
     for (const item of items) {
       const received = parseFloat(item.receivedQuantity) || 0;
       if (received > 0) {
-        // Check pending quantity
-        if (received > item.pendingQuantity) {
+        // Tolerance-based check: allow over-receipt up to tolerance %
+        const maxAllowed = item.orderedQuantity * (1 + tolerancePercent / 100) - item.alreadyReceived;
+        if (received > maxAllowed) {
           handleApiError(
             new Error(
-              `Cannot receive ${received} units of ${item.materialCode}. Only ${item.pendingQuantity} pending.`
+              `Cannot receive ${received} of ${item.materialCode}. Max allowed (with ${tolerancePercent}% tolerance): ${maxAllowed.toFixed(3)}.`
             ),
             'Validation Error'
           );
           return false;
         }
 
-        // Check accepted + rejected = received
         const accepted = parseFloat(item.acceptedQuantity) || 0;
         const rejected = parseFloat(item.rejectedQuantity) || 0;
-        if (accepted + rejected !== received) {
+        if (Math.abs(accepted + rejected - received) > 0.001) {
           handleApiError(
             new Error(
               `For ${item.materialCode}: Accepted (${accepted}) + Rejected (${rejected}) must equal Received (${received})`
@@ -231,6 +361,10 @@ export default function GRNForm() {
     return true;
   };
 
+  // ============================================
+  // Save
+  // ============================================
+
   const handleSave = async () => {
     if (!validateForm()) return;
 
@@ -238,16 +372,40 @@ export default function GRNForm() {
     try {
       const grnItems: CreateGRNItemRequest[] = items
         .filter((item) => parseFloat(item.receivedQuantity) > 0)
-        .map((item) => ({
-          poItemId: item.poItemId,
-          materialId: item.materialId,
-          receivedQuantity: parseFloat(item.receivedQuantity),
-          acceptedQuantity: parseFloat(item.acceptedQuantity) || 0,
-          rejectedQuantity: parseFloat(item.rejectedQuantity) || 0,
-          unit: item.unit as CreateGRNItemRequest['unit'],
-          rejectionReason: item.rejectionReason || undefined,
-          remarks: item.remarks || undefined,
-        }));
+        .map((item) => {
+          const base: CreateGRNItemRequest = {
+            poItemId: item.poItemId,
+            materialId: item.materialId,
+            receivedQuantity: parseFloat(item.receivedQuantity),
+            acceptedQuantity: parseFloat(item.acceptedQuantity) || 0,
+            rejectedQuantity: parseFloat(item.rejectedQuantity) || 0,
+            unit: item.unit as CreateGRNItemRequest['unit'],
+            rejectionReason: item.rejectionReason || undefined,
+            remarks: item.remarks || undefined,
+          };
+
+          // Add measurement fields for FABRIC & GREIGE
+          if (isFabricOrGreige(selectedPO?.poCategory)) {
+            base.entryMode = item.entryMode;
+            base.foldLengthCm = item.foldLengthCm ? parseFloat(item.foldLengthCm) : undefined;
+            base.receivedWidthInches = item.receivedWidthInches ? parseFloat(item.receivedWidthInches) : undefined;
+            if (item.details.length > 0) {
+              base.details = item.details
+                .filter((d) => parseFloat(d.meters) > 0)
+                .map(
+                  (d): GRNItemDetailRequest => ({
+                    detailType: d.detailType,
+                    baleNumber: d.baleNumber,
+                    sequenceNo: d.sequenceNo,
+                    meters: parseFloat(d.meters),
+                    remarks: d.remarks || undefined,
+                  })
+                );
+            }
+          }
+
+          return base;
+        });
 
       const data: CreateGRNRequest = {
         poId: selectedPOId,
@@ -279,9 +437,11 @@ export default function GRNForm() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-  };
+  // ============================================
+  // Computed values
+  // ============================================
+
+  const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 
   const filteredPOs = receivablePOs.filter((po) => {
     if (poCategoryFilter !== 'ALL' && po.poCategory !== poCategoryFilter) return false;
@@ -311,6 +471,260 @@ export default function GRNForm() {
     procReceivedWidthInches && processingContext
       ? parseFloat(procReceivedWidthInches) - processingContext.sentWidthInches
       : 0;
+
+  const showMeasurementFields = isFabricOrGreige(selectedPO?.poCategory);
+
+  // ============================================
+  // Render helpers
+  // ============================================
+
+  const renderOverReceiptWarning = (item: GRNItemForm) => {
+    const received = parseFloat(item.receivedQuantity) || 0;
+    if (received <= item.pendingQuantity || received === 0) return null;
+    const excess = received - item.pendingQuantity;
+    const pct = item.orderedQuantity > 0 ? ((excess / item.orderedQuantity) * 100).toFixed(1) : '0';
+    return (
+      <div className="flex items-center gap-1 mt-1">
+        <AlertTriangle className="h-3 w-3 text-amber-600" />
+        <span className="text-xs text-amber-600 font-medium">
+          Over-receipt: +{excess.toFixed(3)} ({pct}%)
+        </span>
+      </div>
+    );
+  };
+
+  const renderDetailSection = (item: GRNItemForm, itemIndex: number) => {
+    if (!showMeasurementFields) return null;
+
+    const detailSum = computeDetailSum(item.details);
+    const manualQty = parseFloat(item.receivedQuantity) || 0;
+    const hasMismatch = item.details.length > 0 && detailSum > 0 && Math.abs(detailSum - manualQty) > 0.001;
+
+    // Group details by bale for BALE_WISE mode
+    const baleGroups: Map<number, DetailRow[]> = new Map();
+    if (item.entryMode === 'BALE_WISE') {
+      item.details.forEach((d, idx) => {
+        const baleNum = d.baleNumber || 0;
+        if (!baleGroups.has(baleNum)) baleGroups.set(baleNum, []);
+        baleGroups.get(baleNum)!.push({ ...d, sequenceNo: idx }); // store original index
+      });
+    }
+
+    return (
+      <div className="mt-3 space-y-3">
+        {/* Entry mode selector + L/Width fields */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Entry Mode</Label>
+            <Select value={item.entryMode} onValueChange={(v) => setItemEntryMode(itemIndex, v as GRNEntryMode)}>
+              <SelectTrigger className="h-8 text-xs w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TOTAL_METERS">Total Meters</SelectItem>
+                <SelectItem value="THAN_WISE">Than-wise</SelectItem>
+                <SelectItem value="BALE_WISE">Bale-wise</SelectItem>
+                <SelectItem value="ROLL_WISE">Roll-wise</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">L / Fold (cm)</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={item.foldLengthCm}
+              onChange={(e) => updateItem(itemIndex, 'foldLengthCm', e.target.value)}
+              className="h-8 w-[100px] text-xs"
+              placeholder="e.g. 97"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Width (inches)</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={item.receivedWidthInches}
+              onChange={(e) => updateItem(itemIndex, 'receivedWidthInches', e.target.value)}
+              className="h-8 w-[100px] text-xs"
+              placeholder="e.g. 44"
+            />
+          </div>
+          {item.details.length > 0 && (
+            <div className="text-xs">
+              <span className="text-muted-foreground">Detail sum:</span>{' '}
+              <span className={`font-medium ${hasMismatch ? 'text-amber-600' : 'text-green-600'}`}>
+                {detailSum.toFixed(3)}m
+              </span>
+              {hasMismatch && (
+                <span className="text-amber-600 ml-1">(differs from received: {manualQty.toFixed(3)}m)</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* THAN_WISE details */}
+        {item.entryMode === 'THAN_WISE' && (
+          <div className="bg-muted/30 rounded-md p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">Thans ({item.details.length})</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => addDetail(itemIndex, 'THAN')}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add Than
+              </Button>
+            </div>
+            {item.details.map((d, di) => (
+              <div key={di} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-8">#{di + 1}</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  value={d.meters}
+                  onChange={(e) => updateDetail(itemIndex, di, 'meters', e.target.value)}
+                  className="h-7 w-[100px] text-xs"
+                  placeholder="Meters"
+                />
+                <span className="text-xs text-muted-foreground">m</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-destructive"
+                  onClick={() => removeDetail(itemIndex, di)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* BALE_WISE details */}
+        {item.entryMode === 'BALE_WISE' && (
+          <div className="bg-muted/30 rounded-md p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">
+                Bales ({new Set(item.details.filter((d) => d.baleNumber).map((d) => d.baleNumber)).size}) &middot; Thans
+                ({item.details.length})
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => addBale(itemIndex)}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add Bale
+              </Button>
+            </div>
+            {Array.from(baleGroups.entries()).map(([baleNum, baleDetails]) => {
+              const baleSum = baleDetails.reduce((s, d) => s + (parseFloat(d.meters) || 0), 0);
+              return (
+                <div key={baleNum} className="border rounded-md p-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium">
+                      Bale {baleNum} ({baleDetails.length} thans, {baleSum.toFixed(3)}m)
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => addDetail(itemIndex, 'THAN', baleNum)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Than
+                    </Button>
+                  </div>
+                  {baleDetails.map((d) => {
+                    // Find original index in item.details
+                    const origIdx = item.details.findIndex((orig, oi) => oi === d.sequenceNo);
+                    return (
+                      <div key={d.sequenceNo} className="flex items-center gap-2 pl-4">
+                        <span className="text-xs text-muted-foreground w-8">T{baleDetails.indexOf(d) + 1}</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={d.meters}
+                          onChange={(e) => updateDetail(itemIndex, origIdx, 'meters', e.target.value)}
+                          className="h-7 w-[100px] text-xs"
+                          placeholder="Meters"
+                        />
+                        <span className="text-xs text-muted-foreground">m</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive"
+                          onClick={() => removeDetail(itemIndex, origIdx)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ROLL_WISE details */}
+        {item.entryMode === 'ROLL_WISE' && (
+          <div className="bg-muted/30 rounded-md p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">Rolls ({item.details.length})</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => addDetail(itemIndex, 'ROLL')}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Add Roll
+              </Button>
+            </div>
+            {item.details.map((d, di) => (
+              <div key={di} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-8">R{di + 1}</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  value={d.meters}
+                  onChange={(e) => updateDetail(itemIndex, di, 'meters', e.target.value)}
+                  className="h-7 w-[100px] text-xs"
+                  placeholder="Meters"
+                />
+                <span className="text-xs text-muted-foreground">m</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-destructive"
+                  onClick={() => removeDetail(itemIndex, di)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ============================================
+  // Render
+  // ============================================
 
   if (isLoading) {
     return (
@@ -351,7 +765,6 @@ export default function GRNForm() {
           <CardTitle>Purchase Order Selection</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* PO Search & Filter */}
           <div className="space-y-2">
             <Label>Purchase Order *</Label>
             <Input
@@ -431,7 +844,6 @@ export default function GRNForm() {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="receivingDate">Receiving Date *</Label>
               <Input
@@ -508,7 +920,6 @@ export default function GRNForm() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Read-only context */}
             <div className="bg-muted/50 p-4 rounded-lg">
               <h4 className="font-medium mb-2 text-sm text-muted-foreground">Sent Details</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -526,12 +937,11 @@ export default function GRNForm() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Width Sent:</span>
-                  <p className="font-medium">{processingContext.sentWidthInches}"</p>
+                  <p className="font-medium">{processingContext.sentWidthInches}&quot;</p>
                 </div>
               </div>
             </div>
 
-            {/* Input fields */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Than Count</Label>
@@ -595,7 +1005,6 @@ export default function GRNForm() {
               </div>
             </div>
 
-            {/* Computed metrics */}
             {procActualMeters > 0 && (
               <div className="flex gap-4 pt-2">
                 <Badge variant={procShrinkage > 5 ? 'destructive' : 'secondary'}>
@@ -603,7 +1012,7 @@ export default function GRNForm() {
                 </Badge>
                 <Badge variant={Math.abs(procWidthVar) > 1 ? 'destructive' : 'secondary'}>
                   Width Variance: {procWidthVar > 0 ? '+' : ''}
-                  {procWidthVar.toFixed(1)}"
+                  {procWidthVar.toFixed(1)}&quot;
                 </Badge>
               </div>
             )}
@@ -615,7 +1024,14 @@ export default function GRNForm() {
       {items.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Items to Receive</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              <span>Items to Receive</span>
+              {showMeasurementFields && (
+                <Badge variant="outline" className="text-xs font-normal">
+                  Tolerance: {tolerancePercent}% over-receipt allowed
+                </Badge>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -623,71 +1039,77 @@ export default function GRNForm() {
                 <TableRow>
                   <TableHead>Material</TableHead>
                   <TableHead className="text-right">Ordered</TableHead>
-                  <TableHead className="text-right">Already Received</TableHead>
+                  <TableHead className="text-right">Already Rcvd</TableHead>
                   <TableHead className="text-right">Pending</TableHead>
-                  <TableHead className="w-[100px]">This Receipt</TableHead>
+                  <TableHead className="w-[120px]">This Receipt</TableHead>
                   <TableHead className="w-[100px]">Accepted</TableHead>
                   <TableHead className="w-[100px]">Rejected</TableHead>
                   <TableHead className="w-[150px]">Remarks</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((item, index) => (
-                  <TableRow key={item.poItemId}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{item.materialCode}</div>
-                        <div className="text-sm text-gray-500">{item.materialName}</div>
-                        <div className="text-xs text-gray-400">{item.unit}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">{item.orderedQuantity.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{item.alreadyReceived.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-medium">{item.pendingQuantity.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        max={item.pendingQuantity}
-                        step="0.001"
-                        value={item.receivedQuantity}
-                        onChange={(e) => updateItem(index, 'receivedQuantity', e.target.value)}
-                        className="w-full"
-                        placeholder="0"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.001"
-                        value={item.acceptedQuantity}
-                        onChange={(e) => updateItem(index, 'acceptedQuantity', e.target.value)}
-                        className="w-full"
-                        placeholder="0"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.001"
-                        value={item.rejectedQuantity}
-                        onChange={(e) => updateItem(index, 'rejectedQuantity', e.target.value)}
-                        className="w-full"
-                        placeholder="0"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.remarks}
-                        onChange={(e) => updateItem(index, 'remarks', e.target.value)}
-                        placeholder="Notes"
-                        className="w-full"
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {items.map((item, index) => {
+                  const received = parseFloat(item.receivedQuantity) || 0;
+                  const isOver = received > item.pendingQuantity && received > 0;
+                  return (
+                    <TableRow key={item.poItemId} className="align-top">
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{item.materialCode}</div>
+                          <div className="text-sm text-gray-500">{item.materialName}</div>
+                          <div className="text-xs text-gray-400">{item.unit}</div>
+                        </div>
+                        {/* Measurement detail section for FABRIC/GREIGE */}
+                        {renderDetailSection(item, index)}
+                      </TableCell>
+                      <TableCell className="text-right">{item.orderedQuantity.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{item.alreadyReceived.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-medium">{item.pendingQuantity.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={item.receivedQuantity}
+                          onChange={(e) => updateItem(index, 'receivedQuantity', e.target.value)}
+                          className={`w-full ${isOver ? 'border-amber-400 bg-amber-50' : ''}`}
+                          placeholder="0"
+                        />
+                        {renderOverReceiptWarning(item)}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={item.acceptedQuantity}
+                          onChange={(e) => updateItem(index, 'acceptedQuantity', e.target.value)}
+                          className="w-full"
+                          placeholder="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={item.rejectedQuantity}
+                          onChange={(e) => updateItem(index, 'rejectedQuantity', e.target.value)}
+                          className="w-full"
+                          placeholder="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={item.remarks}
+                          onChange={(e) => updateItem(index, 'remarks', e.target.value)}
+                          placeholder="Notes"
+                          className="w-full"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

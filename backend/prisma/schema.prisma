@@ -301,7 +301,8 @@ model color_options {
   transfer_slip_skus           transfer_slip_skus[]
   work_order_breakup           work_order_breakup[]
   stock_production_order_items stock_production_order_items[]
-  sale_order_items             sale_order_items[]
+  sale_order_items                     sale_order_items[]
+  external_process_send_out_skus       external_process_send_out_skus[] @relation("ExternalProcessSkuColor")
 
   @@index([styleId])
   @@index([colorMasterId])
@@ -729,12 +730,37 @@ model grn_items {
   remarks               String?
   componentName         String? // Garment component (Top, Shirt) — copied from PO item
   colorName             String? // Dye/processing color — copied from PO item
+  // Measurement fields
+  foldLengthCm          Decimal?              @db.Decimal(5, 2) // "L" - fold length in cm, same for all thans
+  receivedWidthInches   Decimal?              @db.Decimal(5, 2) // Actual width as received
+  entryMode             String?               @db.VarChar(20)   // TOTAL_METERS | THAN_WISE | BALE_WISE | ROLL_WISE
+  baleCount             Int?
+  thanCount             Int?
+  rollCount             Int?
+  totalMeters           Decimal?              @db.Decimal(10, 3) // Sum from details or direct entry
+  isOverReceipt         Boolean               @default(false)
+  overReceiptQty        Decimal?              @db.Decimal(10, 3) // Excess amount beyond PO pending
   goods_receiving_notes goods_receiving_notes @relation(fields: [grnId], references: [id], onDelete: Cascade)
   materials             materials             @relation(fields: [materialId], references: [id])
   purchase_order_items  purchase_order_items  @relation(fields: [poItemId], references: [id], onDelete: Cascade)
+  grn_item_details      grn_item_details[]
 
   @@index([grnId])
   @@index([poItemId])
+}
+
+model grn_item_details {
+  id         String    @id @default(uuid())
+  grnItemId  String
+  detailType String    @db.VarChar(10) // THAN | ROLL
+  baleNumber Int?                      // Which bale (1, 2, 3...) — null for roll-wise or unbaled thans
+  sequenceNo Int                       // Order within bale or overall
+  meters     Decimal   @db.Decimal(10, 3) // Length of this than/roll in meters
+  remarks    String?
+
+  grn_items  grn_items @relation(fields: [grnItemId], references: [id], onDelete: Cascade)
+
+  @@index([grnItemId])
 }
 
 model inventory_stock {
@@ -1123,7 +1149,8 @@ model orders {
   // Thread module relations
   orderThreadRequirements          order_thread_requirements[]
   // Challans linked to this order
-  challans                         challans[]
+  challans                                challans[]
+  external_process_send_outs              external_process_send_outs[] @relation("ExternalProcessOrder")
 
   @@index([customerId])
   @@index([orderNumber])
@@ -1276,6 +1303,7 @@ model purchase_orders {
   debit_notes                               debit_notes[]
   // Job Work Order linked to this PO (1:1 for Process POs)
   jobWorkOrder                              job_work_orders?                  @relation("JobWorkPurchaseOrder")
+  external_process_send_outs                external_process_send_outs[]      @relation("ExternalProcessPO")
 
   @@index([poNumber])
   @@index([supplierId])
@@ -1462,7 +1490,8 @@ model size_options {
   transfer_slip_skus             transfer_slip_skus[]
   work_order_breakup             work_order_breakup[]
   stock_production_order_items   stock_production_order_items[]
-  sale_order_items               sale_order_items[]
+  sale_order_items                     sale_order_items[]
+  external_process_send_out_skus       external_process_send_out_skus[] @relation("ExternalProcessSkuSize")
 
   @@index([styleId])
 }
@@ -1959,8 +1988,9 @@ model embroidery_master {
   supplier                 suppliers?            @relation(fields: [supplierId], references: [id])
   embroideryPartCads       embroidery_part_cad[] @relation("embroidery_part_cad_embroidery")
   embroidery_send_outs     embroidery_send_out[]
-  embroidered_fabric_stock fabric_stock[]
-  style_fabrics            style_fabrics[]
+  embroidered_fabric_stock           fabric_stock[]
+  style_fabrics                      style_fabrics[]
+  external_process_send_outs         external_process_send_outs[] @relation("ExternalProcessEmbroidery")
 
   @@index([embroideryCode])
   @@index([supplierId])
@@ -2063,6 +2093,7 @@ model style_production_tracking {
   piecesInDying         Int              @default(0)
   piecesInEmbroidery    Int              @default(0)
   piecesInHandwork      Int              @default(0)
+  piecesInSmocking      Int              @default(0)
   piecesInCutting       Int              @default(0)
   piecesInStitching     Int              @default(0)
   piecesInFinishing     Int              @default(0)
@@ -2258,7 +2289,8 @@ model styles {
   styleImages                 style_images[]
   styleComments               style_comments[]
   techSpecs                   style_tech_specs?
-  invoice_items               invoice_items[]
+  invoice_items                       invoice_items[]
+  external_process_send_outs          external_process_send_outs[] @relation("ExternalProcessStyle")
 
   @@index([customerName])
   @@index([categoryId])
@@ -2384,6 +2416,7 @@ model suppliers {
   transfer_slips_issued_to                transfer_slips[]                  @relation("TransferIssuedTo")
   stitching_issues_contractor             stitching_issues[]                @relation("StitchingContractor")
   finishing_issues_contractor             finishing_issues[]                @relation("FinishingContractor")
+  external_process_send_outs              external_process_send_outs[]      @relation("ExternalProcessSupplier")
 
   @@index([code])
   @@index([name])
@@ -2690,6 +2723,7 @@ model users {
   soApproved                                                      sale_orders[]                     @relation("so_approvedBy")
   // FG Stock Allocation relations
   fgAllocations                                                   fg_stock_allocations[]            @relation("fg_allocation_allocatedBy")
+  external_process_send_outs_created                              external_process_send_outs[]      @relation("ExternalProcessCreatedBy")
 
   @@index([email])
 }
@@ -2791,6 +2825,7 @@ model work_orders {
   work_order_breakup                    work_order_breakup[]
   work_order_service_requirements       work_order_service_requirements[]
   embroidery_send_outs                  embroidery_send_out[]             @relation("EmbroideryForWorkOrder")
+  external_process_send_outs            external_process_send_outs[]      @relation("ExternalProcessWorkOrder")
   job_work_orders                       job_work_orders[]                 @relation("JobWorkForWorkOrder")
   processing_batches                    processing_batch[]                @relation("ProcessingForWorkOrder")
   users_work_orders_approvedByIdTousers users?                            @relation("work_orders_approvedByIdTousers", fields: [approvedById], references: [id])
@@ -2999,7 +3034,8 @@ model work_order_service_requirements {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   createdById String
-  createdBy   users             @relation("WorkOrderServiceRequirementCreator", fields: [createdById], references: [id])
+  createdBy                      users                          @relation("WorkOrderServiceRequirementCreator", fields: [createdById], references: [id])
+  external_process_send_outs     external_process_send_outs[]   @relation("ExternalProcessServiceReq")
 
   @@index([workOrderId])
   @@index([serviceType])
@@ -3671,6 +3707,8 @@ model greige_master {
   construction             String?
   composition              String
   weaveType                String?
+  greigeQuality            GreigeQuality?
+  weaver                   String?
   greigeWidth              Decimal                      @db.Decimal(10, 2)
   expectedFinishedWidthMin Decimal?                     @db.Decimal(10, 2)
   expectedFinishedWidthMax Decimal?                     @db.Decimal(10, 2)
@@ -4218,7 +4256,8 @@ model fabric_stock {
   job_work_orders              job_work_orders[]
   qualityInspections           quality_inspection[]
   fabricCostingItemsAsStockLot style_costing_fabric_items[] @relation("fabric_costing_stock_lot")
-  challanItems                 challan_items[]
+  challanItems                         challan_items[]
+  external_process_send_outs           external_process_send_outs[] @relation("ExternalProcessFabricStock")
 
   @@unique([fabricId, procurementId, finishedWidth, cutableWidth, qualityGrade, embroideryId])
   @@index([fabricId, finishedWidth, cutableWidth, status])
@@ -5396,8 +5435,9 @@ model cutting_batches {
   fabricStock       fabric_stock            @relation(fields: [fabricStockId], references: [id])
   returnChallan     challans?               @relation("CuttingReturnChallan", fields: [returnChallanId], references: [id])
   workOrder         work_orders             @relation(fields: [workOrderId], references: [id])
-  transferSlips     transfer_slips[]
-  additionalFabrics cutting_batch_fabrics[]
+  transferSlips                  transfer_slips[]
+  additionalFabrics              cutting_batch_fabrics[]
+  external_process_send_outs     external_process_send_outs[] @relation("ExternalProcessCuttingBatch")
 
   @@index([workOrderId])
   @@index([componentId])
@@ -5634,7 +5674,8 @@ model stitching_issues {
   contractor             suppliers?                   @relation("StitchingContractor", fields: [contractorId], references: [id])
   createdBy              users                        @relation("StitchingIssueCreator", fields: [createdById], references: [id])
   manager                users?                       @relation("StitchingManager", fields: [managerId], references: [id])
-  workOrder              work_orders                  @relation(fields: [workOrderId], references: [id])
+  workOrder                      work_orders                      @relation(fields: [workOrderId], references: [id])
+  external_process_send_outs     external_process_send_outs[]     @relation("ExternalProcessStitchingIssue")
 
   @@index([workOrderId])
   @@index([managerId])
@@ -7904,6 +7945,7 @@ enum ProductionStage {
   IN_CUTTING
   IN_STITCHING
   IN_FINISHING
+  IN_SMOCKING
   READY_TO_SHIP
   SHIPPED
   COMPLETED
@@ -8192,6 +8234,12 @@ enum WarehouseType {
   GENERAL
   TRANSIT
   JOB_WORK
+}
+
+enum GreigeQuality {
+  PRINTING
+  DYEING
+  SUPER_DYEING
 }
 
 enum MovementType {
@@ -8648,4 +8696,134 @@ model code_sequences {
   prefix    String   @unique
   lastValue Int      @default(0)
   updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// EXTERNAL PROCESS TRACKING
+// (Smocking, Handwork, Embroidery Piece-Level)
+// ============================================
+
+enum ExternalProcessType {
+  EMBROIDERY_PIECE
+  SMOCKING
+  HANDWORK
+}
+
+enum ExternalProcessSourceType {
+  CUTTING_BATCH
+  FABRIC_STOCK
+  STITCHING_ISSUE
+}
+
+enum ExternalProcessStatus {
+  DRAFT
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+/// External Process Send-Out - Tracks material sent to vendors for smocking, handwork, or piece-level embroidery
+model external_process_send_outs {
+  id          String                    @id @default(uuid())
+  batchNumber String                    @unique
+  processType ExternalProcessType
+  sourceType  ExternalProcessSourceType
+
+  // Context
+  workOrderId String
+  orderId     String?
+  styleId     String?
+
+  // Source references (only one populated per record based on sourceType)
+  cuttingBatchId   String?
+  fabricStockId    String?
+  stitchingIssueId String?
+
+  // Vendor
+  supplierId String
+
+  // Quantities (meters for fabric, pieces for garments)
+  quantitySent     Decimal  @db.Decimal(10, 2)
+  quantityReceived Decimal? @db.Decimal(10, 2)
+  quantityDamaged  Decimal? @db.Decimal(10, 2)
+  quantityGood     Decimal? @db.Decimal(10, 2)
+  unit             String   @default("PCS") // PCS or MTR
+
+  // Rates & Cost
+  agreedRate Decimal  @db.Decimal(10, 2)
+  actualCost Decimal? @db.Decimal(10, 2)
+
+  // Dates
+  sendDate           DateTime
+  expectedReturnDate DateTime?
+  actualReturnDate   DateTime?
+
+  // PO linkage (REQUIRED for every send-out)
+  purchaseOrderId      String?
+  serviceRequirementId String?
+
+  // Challan references (auto-created)
+  outwardChallanId String?
+  inwardChallanId  String?
+
+  // Invoice
+  invoiceNumber String?
+  invoiceDate   DateTime?
+
+  // Status
+  status  ExternalProcessStatus @default(DRAFT)
+  remarks String?
+
+  // Embroidery-specific (only for EMBROIDERY_PIECE)
+  embroideryId String?
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
+
+  // Relations
+  workOrder          work_orders                      @relation("ExternalProcessWorkOrder", fields: [workOrderId], references: [id])
+  order              orders?                          @relation("ExternalProcessOrder", fields: [orderId], references: [id])
+  style              styles?                          @relation("ExternalProcessStyle", fields: [styleId], references: [id])
+  cuttingBatch       cutting_batches?                 @relation("ExternalProcessCuttingBatch", fields: [cuttingBatchId], references: [id])
+  fabricStock        fabric_stock?                    @relation("ExternalProcessFabricStock", fields: [fabricStockId], references: [id])
+  stitchingIssue     stitching_issues?                @relation("ExternalProcessStitchingIssue", fields: [stitchingIssueId], references: [id])
+  supplier           suppliers                        @relation("ExternalProcessSupplier", fields: [supplierId], references: [id])
+  purchaseOrder      purchase_orders?                 @relation("ExternalProcessPO", fields: [purchaseOrderId], references: [id])
+  serviceRequirement work_order_service_requirements? @relation("ExternalProcessServiceReq", fields: [serviceRequirementId], references: [id])
+  embroidery         embroidery_master?               @relation("ExternalProcessEmbroidery", fields: [embroideryId], references: [id])
+  createdBy          users                            @relation("ExternalProcessCreatedBy", fields: [createdById], references: [id])
+  skuBreakdown       external_process_send_out_skus[]
+
+  @@index([processType])
+  @@index([workOrderId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([sendDate])
+  @@index([cuttingBatchId])
+  @@index([stitchingIssueId])
+  @@index([purchaseOrderId])
+  @@index([processType, status])
+}
+
+/// External Process Send-Out SKUs - Per-size/color piece breakdown
+model external_process_send_out_skus {
+  id          String  @id @default(uuid())
+  sendOutId   String
+  colorId     String?
+  sizeId      String
+  sentQty     Int
+  receivedQty Int     @default(0)
+  damagedQty  Int     @default(0)
+  goodQty     Int     @default(0)
+
+  sendOut external_process_send_outs @relation(fields: [sendOutId], references: [id], onDelete: Cascade)
+  color   color_options?             @relation("ExternalProcessSkuColor", fields: [colorId], references: [id])
+  size    size_options               @relation("ExternalProcessSkuSize", fields: [sizeId], references: [id])
+
+  @@unique([sendOutId, colorId, sizeId])
+  @@index([sendOutId])
 }

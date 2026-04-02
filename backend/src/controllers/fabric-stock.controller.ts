@@ -104,6 +104,23 @@ export const createStock = async (req: Request, res: Response) => {
   }
   logInfo('Fabric found:', fabric.fabricCode);
 
+  // Auto-resolve originStyleId from fabric's style_fabrics link if not provided
+  let resolvedOriginStyleId = data.originStyleId || null;
+  if (!resolvedOriginStyleId) {
+    const styleFabricLink = await prisma.style_fabrics.findFirst({
+      where: { fabricId: data.fabricId },
+      select: {
+        style_components: {
+          select: { styleId: true },
+        },
+      },
+    });
+    if (styleFabricLink?.style_components?.styleId) {
+      resolvedOriginStyleId = styleFabricLink.style_components.styleId;
+      logInfo(`Auto-resolved originStyleId=${resolvedOriginStyleId} from fabric ${fabric.fabricCode}`);
+    }
+  }
+
   // Parse receivedDate
   const receivedDate = data.receivedDate
     ? typeof data.receivedDate === 'string'
@@ -125,9 +142,9 @@ export const createStock = async (req: Request, res: Response) => {
           connect: { id: data.procurementId },
         },
       }),
-      ...(data.originStyleId && {
+      ...(resolvedOriginStyleId && {
         originStyle: {
-          connect: { id: data.originStyleId },
+          connect: { id: resolvedOriginStyleId },
         },
       }),
       ...(data.originOrderId && {
@@ -404,16 +421,24 @@ export const getStockForStyle = async (req: Request, res: Response) => {
 
   logInfo(`Getting fabric stock for style ${styleId}, embroideryId filter: ${embroideryId}`);
 
-  // Build the where clause
+  // Get fabricIds linked to this style via style_fabrics
+  const styleFabrics = await prisma.style_fabrics.findMany({
+    where: {
+      style_components: { styleId: styleId },
+      fabricId: { not: null },
+    },
+    select: { fabricId: true },
+  });
+  const styleFabricIds = styleFabrics.map((sf) => sf.fabricId).filter((id): id is string => id !== null);
+
+  // Build the where clause - match by originStyleId, procurement, OR fabricId
+  const orConditions: any[] = [{ originStyleId: styleId }, { procurement: { orderedForStyleId: styleId } }];
+  if (styleFabricIds.length > 0) {
+    orConditions.push({ fabricId: { in: styleFabricIds } });
+  }
+
   const where: any = {
-    OR: [
-      { originStyleId: styleId },
-      {
-        procurement: {
-          orderedForStyleId: styleId,
-        },
-      },
-    ],
+    OR: orConditions,
   };
 
   // Add optional filters

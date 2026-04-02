@@ -529,6 +529,18 @@ export default function CostSheetPOGenerationPage() {
       {/* Requirements & PO Generation */}
       {requirements && (
         <>
+          {/* Zero-price warning */}
+          {requirements.hasZeroPriceItems && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Missing Prices</AlertTitle>
+              <AlertDescription>
+                Some items have ₹0 unit price. Review highlighted items below and update prices in the Cost Sheet or
+                Material Master before generating POs.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Fabric/Greige Selection */}
           {(hasFabricItems || hasGreigeItems) && (
             <Card>
@@ -632,7 +644,11 @@ export default function CostSheetPOGenerationPage() {
                             <TableCell className="text-right font-medium">
                               {calculateAdjustedOrderQty(item).toFixed(2)}
                             </TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                            <TableCell
+                              className={`text-right ${item.unitPrice === 0 ? 'text-red-500 font-semibold' : ''}`}
+                            >
+                              {item.unitPrice === 0 ? '₹0 ⚠' : formatCurrency(item.unitPrice)}
+                            </TableCell>
                             <TableCell className="text-right font-medium">
                               {formatCurrency(calculateAdjustedOrderQty(item) * item.unitPrice)}
                             </TableCell>
@@ -727,7 +743,11 @@ export default function CostSheetPOGenerationPage() {
                             <TableCell className="text-right font-medium">
                               {calculateAdjustedOrderQty(item).toFixed(2)}
                             </TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                            <TableCell
+                              className={`text-right ${item.unitPrice === 0 ? 'text-red-500 font-semibold' : ''}`}
+                            >
+                              {item.unitPrice === 0 ? '₹0 ⚠' : formatCurrency(item.unitPrice)}
+                            </TableCell>
                             <TableCell className="text-right font-medium">
                               {formatCurrency(calculateAdjustedOrderQty(item) * item.unitPrice)}
                             </TableCell>
@@ -873,7 +893,9 @@ export default function CostSheetPOGenerationPage() {
                         <TableCell className="text-right font-medium">
                           {calculateAdjustedOrderQty(item).toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                        <TableCell className={`text-right ${item.unitPrice === 0 ? 'text-red-500 font-semibold' : ''}`}>
+                          {item.unitPrice === 0 ? '₹0 ⚠' : formatCurrency(item.unitPrice)}
+                        </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(calculateAdjustedOrderQty(item) * item.unitPrice)}
                         </TableCell>

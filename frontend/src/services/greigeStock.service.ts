@@ -99,6 +99,19 @@ export const greigeStockService = {
       headers: getAuthHeader(),
     });
   },
+
+  /**
+   * Adjust greige stock (increase/decrease with reason)
+   */
+  async adjustStock(
+    stockId: string,
+    data: { adjustmentType: 'INCREASE' | 'DECREASE'; quantity: number; reason: string; remarks?: string }
+  ): Promise<any> {
+    const response = await axios.post(`${BASE_URL}/stock/${stockId}/adjust`, data, {
+      headers: getAuthHeader(),
+    });
+    return response.data.data;
+  },
 };
 
 export default greigeStockService;

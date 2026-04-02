@@ -18,6 +18,22 @@ export const UnitEnum = z.enum([
 ]);
 
 /**
+ * Entry mode for GRN items (FABRIC & GREIGE)
+ */
+const entryModeEnum = z.enum(['TOTAL_METERS', 'THAN_WISE', 'BALE_WISE', 'ROLL_WISE']);
+
+/**
+ * Detail row schema for than/roll breakdown
+ */
+const grnItemDetailSchema = z.object({
+  detailType: z.enum(['THAN', 'ROLL']),
+  baleNumber: z.number().int().positive().optional().nullable(),
+  sequenceNo: z.number().int().nonnegative(),
+  meters: z.number().positive('Meters must be positive'),
+  remarks: z.string().max(500).trim().optional().nullable(),
+});
+
+/**
  * GRN Item Schema
  */
 const grnItemSchema = z.object({
@@ -29,6 +45,11 @@ const grnItemSchema = z.object({
   unit: UnitEnum,
   rejectionReason: z.string().max(500, 'Rejection reason must not exceed 500 characters').trim().optional().nullable(),
   remarks: z.string().max(500, 'Remarks must not exceed 500 characters').trim().optional().nullable(),
+  // Per-item measurement fields (FABRIC & GREIGE)
+  foldLengthCm: z.number().nonnegative().optional().nullable(),
+  receivedWidthInches: z.number().nonnegative().optional().nullable(),
+  entryMode: entryModeEnum.optional().nullable(),
+  details: z.array(grnItemDetailSchema).optional(),
 });
 
 /**

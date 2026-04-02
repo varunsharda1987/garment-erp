@@ -68,6 +68,7 @@ export interface MaterialRequirement {
   availableStock: number; // Current in-house stock
   shortfall: number; // max(0, requiredQty - availableStock)
   unitPrice: number; // From cost sheet
+  priceRequired: boolean; // True when unitPrice is 0 (missing from cost sheet/master)
   supplierId?: string; // Preferred supplier
   supplierName?: string;
 
@@ -98,6 +99,7 @@ export interface CalculatedRequirements {
   costSheetId: string;
   styleId: string;
   styleCode: string;
+  hasZeroPriceItems: boolean; // True if ANY requirement has priceRequired=true
 }
 
 // ============================================

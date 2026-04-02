@@ -142,44 +142,60 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
           {Object.entries(byGreige).map(([greige, items]) => (
             <div key={greige} className="space-y-1.5">
               <span className="font-medium text-sm text-gray-700">{greige}:</span>
-              {items.map((item) => (
-                <div key={item.id} className="flex items-center gap-2 pl-2" title={getTooltipText(item)}>
-                  <Badge
-                    variant="secondary"
-                    className={`cursor-help ${
-                      item.hasProductionCad
-                        ? 'bg-green-100 text-green-800 border-green-200'
-                        : 'bg-amber-100 text-amber-800 border-amber-200'
-                    }`}
-                  >
-                    {item.cutableWidth}" &bull; {item.quantityAvailable.toLocaleString()}m
-                    {item.qualityGrade && item.qualityGrade !== 'A' && (
-                      <span className="ml-1 text-xs opacity-75">({item.qualityGrade})</span>
-                    )}
-                    {getStatusBadge(item)}
-                  </Badge>
-                  <div className="flex-1" />
-                  {!item.hasProductionCad && onCreateProductionCAD && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-3 text-sm font-medium bg-white hover:bg-green-50 border-green-400 text-green-700"
-                      onClick={() => handleCreateCAD(item)}
-                      disabled={creatingCadFor === item.id}
-                      title="Create PRODUCTION CAD from this stock"
+              {items.map((item) => {
+                // Build a descriptive label: prefer backend fields, fall back to parsing fabricName
+                const finishLabel = item.fabricFinishType
+                  ? item.fabricFinishType.charAt(0) + item.fabricFinishType.slice(1).toLowerCase()
+                  : null;
+                const partLabel = item.patternPartName || null;
+                // Fallback: parse from fabricName format "STYLE - Greige - Finish - Part - Color - Width"
+                const nameParts = item.fabricName?.split(' - ') || [];
+                const fallbackFinish = !finishLabel && nameParts.length > 2 ? nameParts[2] : null;
+                const fallbackPart = !partLabel && nameParts.length > 3 ? nameParts[3] : null;
+                const displayFinish = finishLabel || fallbackFinish;
+                const displayPart = partLabel || fallbackPart;
+                const stockLabel = [displayFinish, displayPart].filter(Boolean).join(' - ');
+
+                return (
+                  <div key={item.id} className="flex items-center gap-2 pl-2" title={getTooltipText(item)}>
+                    {stockLabel && <span className="text-xs text-gray-600 min-w-[120px]">{stockLabel}</span>}
+                    <Badge
+                      variant="secondary"
+                      className={`cursor-help ${
+                        item.hasProductionCad
+                          ? 'bg-green-100 text-green-800 border-green-200'
+                          : 'bg-amber-100 text-amber-800 border-amber-200'
+                      }`}
                     >
-                      {creatingCadFor === item.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 mr-1" />
-                          Create CAD
-                        </>
+                      {item.cutableWidth}" &bull; {item.quantityAvailable.toLocaleString()}m
+                      {item.qualityGrade && item.qualityGrade !== 'A' && (
+                        <span className="ml-1 text-xs opacity-75">({item.qualityGrade})</span>
                       )}
-                    </Button>
-                  )}
-                </div>
-              ))}
+                      {getStatusBadge(item)}
+                    </Badge>
+                    <div className="flex-1" />
+                    {!item.hasProductionCad && onCreateProductionCAD && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-3 text-sm font-medium bg-white hover:bg-green-50 border-green-400 text-green-700"
+                        onClick={() => handleCreateCAD(item)}
+                        disabled={creatingCadFor === item.id}
+                        title="Create PRODUCTION CAD from this stock"
+                      >
+                        {creatingCadFor === item.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="h-4 w-4 mr-1" />
+                            Create CAD
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

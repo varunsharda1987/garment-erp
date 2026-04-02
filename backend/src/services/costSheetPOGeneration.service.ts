@@ -155,6 +155,7 @@ class CostSheetPOGenerationService {
           availableStock: greigeStockInfo.available,
           shortfall: Math.max(0, requiredQty - greigeStockInfo.available),
           unitPrice: Number(fabricItem.greigeCost || 0),
+          priceRequired: !Number(fabricItem.greigeCost),
           sourcingStrategy: fabricItem.sourcingStrategy as any,
           fabricWidth: Number(fabricItem.width),
         };
@@ -173,6 +174,7 @@ class CostSheetPOGenerationService {
             availableStock: 0,
             shortfall: requiredQty,
             unitPrice: Number(fabricItem.processingCost || 0),
+            priceRequired: !Number(fabricItem.processingCost),
             sourcingStrategy: fabricItem.sourcingStrategy as any,
             fabricWidth: Number(fabricItem.width),
             processorId: fabricItem.processorId,
@@ -194,6 +196,7 @@ class CostSheetPOGenerationService {
           availableStock: stockInfo.available,
           shortfall: Math.max(0, requiredQty - stockInfo.available),
           unitPrice: Number(fabricItem.costPerMeter),
+          priceRequired: !Number(fabricItem.costPerMeter),
           sourcingStrategy: fabricItem.sourcingStrategy as any,
           fabricWidth: Number(fabricItem.width),
         };
@@ -229,6 +232,7 @@ class CostSheetPOGenerationService {
         availableStock: stockInfo.available,
         shortfall: Math.max(0, requiredQty - stockInfo.available),
         unitPrice: Number(trim.trimRate || trim.rate || 0),
+        priceRequired: !Number(trim.trimRate || trim.rate),
       });
     }
 
@@ -284,6 +288,7 @@ class CostSheetPOGenerationService {
         availableStock: stockInfo.available,
         shortfall: Math.max(0, requiredQty - stockInfo.available),
         unitPrice: Number(laceItem.costPerMeter),
+        priceRequired: !Number(laceItem.costPerMeter),
         laceSourcingStrategy: laceItem.sourcingStrategy as any,
         greigeLaceId: laceItem.greigeLaceId || undefined,
         labDipId: laceItem.labDipId || undefined,
@@ -315,6 +320,7 @@ class CostSheetPOGenerationService {
           requiredQty: greigeRequiredQty,
           shortfall: Math.max(0, greigeRequiredQty - stockInfo.available),
           unitPrice: Number(laceItem.greigeCost || 0),
+          priceRequired: !Number(laceItem.greigeCost),
         };
         greigeLaceItems.push(greigeLaceItem);
 
@@ -326,6 +332,7 @@ class CostSheetPOGenerationService {
             requiredQty: greigeRequiredQty,
             shortfall: Math.max(0, greigeRequiredQty - stockInfo.available),
             unitPrice: Number(laceItem.processingCost || 0),
+            priceRequired: !Number(laceItem.processingCost),
             processorId: laceItem.processorId,
           };
           laceProcessingItems.push(laceProcessingItem);
@@ -335,6 +342,17 @@ class CostSheetPOGenerationService {
       }
       // STOCK_REUSE items don't need PO generation
     }
+
+    const allItems = [
+      ...fabricItems,
+      ...greigeItems,
+      ...trimsItems,
+      ...processingItems,
+      ...laceItems,
+      ...greigeLaceItems,
+      ...laceProcessingItems,
+    ];
+    const hasZeroPriceItems = allItems.some((item) => item.priceRequired);
 
     return {
       fabricItems,
@@ -348,6 +366,7 @@ class CostSheetPOGenerationService {
       costSheetId,
       styleId: costSheet.styles.id,
       styleCode: costSheet.styles.styleCode,
+      hasZeroPriceItems,
     };
   }
 
@@ -1317,7 +1336,7 @@ class CostSheetPOGenerationService {
           taxAmount: gst.taxAmount,
           remarks:
             item.remarks ||
-            `Greige Lace for processing. Shrinkage: ${item.expectedShrinkagePercent || 5}%. Allowance: ${item.allowancePercent}%`,
+            `Greige Lace for processing. Shrinkage: ${item.expectedShrinkagePercent ?? 'NOT SET'}%. Allowance: ${item.allowancePercent}%`,
         };
       })
     );

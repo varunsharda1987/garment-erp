@@ -359,6 +359,8 @@ export interface FabricStockSummaryItem {
   productionCadId?: string | null;
   productionCadStatus?: string | null; // 'PENDING' | 'APPROVED' | 'REJECTED'
   stockLotNumber?: string | null;
+  patternPartName?: string | null;
+  fabricFinishType?: string | null;
 }
 
 /**

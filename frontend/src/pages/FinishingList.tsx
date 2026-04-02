@@ -35,7 +35,7 @@ import type {
 } from '@/types/finishing.types';
 import { FinishingStatusLabels, FinishingStatusColors } from '@/types/finishing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 
 export default function FinishingList() {
   const navigate = useNavigate();
@@ -335,7 +335,9 @@ export default function FinishingList() {
                       <TableHead>Work Order</TableHead>
                       <TableHead>Style</TableHead>
                       <TableHead>Contractor</TableHead>
-                      <TableHead>Issue Date</TableHead>
+                      <TableHead>Start Date</TableHead>
+                      <TableHead>End Date</TableHead>
+                      <TableHead className="text-center">Days</TableHead>
                       <TableHead className="text-right">Issued Qty</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -355,7 +357,17 @@ export default function FinishingList() {
                           </div>
                         </TableCell>
                         <TableCell>{issue.contractor?.name || issue.manager?.name || '-'}</TableCell>
-                        <TableCell>{format(new Date(issue.issueDate), 'dd MMM yyyy')}</TableCell>
+                        <TableCell>
+                          {issue.startDate ? format(new Date(issue.startDate), 'dd MMM yyyy') : '—'}
+                        </TableCell>
+                        <TableCell>{issue.endDate ? format(new Date(issue.endDate), 'dd MMM yyyy') : '—'}</TableCell>
+                        <TableCell className="text-center">
+                          {issue.startDate && issue.endDate
+                            ? Math.max(1, differenceInCalendarDays(new Date(issue.endDate), new Date(issue.startDate)))
+                            : issue.startDate
+                              ? `${Math.max(1, differenceInCalendarDays(new Date(), new Date(issue.startDate)))}...`
+                              : '—'}
+                        </TableCell>
                         <TableCell className="text-right">
                           {issue.skuBreakdown?.reduce((sum, sku) => sum + sku.issuedQty, 0) || 0}
                         </TableCell>

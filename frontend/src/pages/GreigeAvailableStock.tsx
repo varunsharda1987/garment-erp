@@ -6,20 +6,11 @@ import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { getGenericGreigeStock } from '../services/style-stock.service';
 import { greigeStockService } from '../services/greigeStock.service';
+import { warehouseService } from '../services/warehouse.service';
 import type { GenericGreigeStock, GreigeStockDetail, UpdateGreigeStockData } from '../types/style-stock.types';
 import type { GreigeStockSummary } from '../types/greigeStock.types';
 import {
@@ -31,7 +22,6 @@ import {
   ChevronDown,
   Download,
   Pencil,
-  Trash2,
   IndianRupee,
   AlertTriangle,
   Layers,
@@ -86,6 +76,7 @@ export default function GreigeAvailableStock() {
   const [showAgedOnly, setShowAgedOnly] = useState(false);
   const [summary, setSummary] = useState<GreigeStockSummary | null>(null);
   const [page, setPage] = useState(1);
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; warehouseCode: string; warehouseName: string }>>([]);
 
   // Expandable rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -97,10 +88,15 @@ export default function GreigeAvailableStock() {
   const [editForm, setEditForm] = useState<UpdateGreigeStockData>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  // Delete dialog
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [stockToDelete, setStockToDelete] = useState<GreigeStockDetail | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // Adjust dialog
+  const [adjustingEntry, setAdjustingEntry] = useState<GreigeStockDetail | null>(null);
+  const [adjustForm, setAdjustForm] = useState({
+    type: 'DECREASE' as 'INCREASE' | 'DECREASE',
+    quantity: '',
+    reason: 'CORRECTION',
+    remarks: '',
+  });
+  const [isAdjusting, setIsAdjusting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -109,9 +105,14 @@ export default function GreigeAvailableStock() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [stockData, summaryData] = await Promise.all([getGenericGreigeStock(), greigeStockService.getSummary()]);
+      const [stockData, summaryData, warehouseData] = await Promise.all([
+        getGenericGreigeStock(),
+        greigeStockService.getSummary(),
+        warehouseService.getAll({ isActive: true }),
+      ]);
       setGreigeStock(stockData);
       setSummary(summaryData);
+      setWarehouses(warehouseData);
     } catch (err) {
       logError('Failed to load greige stock:', err);
       toast.error('Failed to load greige stock');
@@ -121,7 +122,8 @@ export default function GreigeAvailableStock() {
   };
 
   const applyFilters = useCallback(() => {
-    let filtered = [...greigeStock];
+    // Only show greige with stock (totalStock > 0)
+    let filtered = greigeStock.filter((s) => s.totalStock > 0);
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -134,7 +136,7 @@ export default function GreigeAvailableStock() {
     }
 
     if (qualityFilter !== 'all') {
-      filtered = filtered.filter((s) => s.qualityGrades?.includes(qualityFilter));
+      filtered = filtered.filter((s) => s.greigeQuality === qualityFilter);
     }
 
     if (warehouseFilter !== 'all') {
@@ -157,7 +159,11 @@ export default function GreigeAvailableStock() {
   const totalPages = Math.ceil(filteredStock.length / PAGE_SIZE);
   const paginatedStock = filteredStock.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const uniqueWarehouses = [...new Set(greigeStock.flatMap((s) => s.warehouses || []))].filter(Boolean).sort();
+  const uniqueWarehouses = [
+    ...new Set([...greigeStock.flatMap((s) => s.warehouses || []), ...warehouses.map((w) => w.warehouseName)]),
+  ]
+    .filter(Boolean)
+    .sort();
 
   const getTotalStock = () => filteredStock.reduce((sum, s) => sum + (s.totalStock || 0), 0);
   const getTotalValue = () => filteredStock.reduce((sum, s) => sum + (s.totalValue || 0), 0);
@@ -229,20 +235,30 @@ export default function GreigeAvailableStock() {
   };
 
   // Delete
-  const handleDelete = async () => {
-    if (!stockToDelete) return;
-    setIsDeleting(true);
+  const handleAdjust = async () => {
+    if (!adjustingEntry || !adjustForm.quantity) return;
+    setIsAdjusting(true);
     try {
-      await greigeStockService.deleteStock(stockToDelete.id);
-      toast.success('Stock entry deleted');
-      setDeleteDialogOpen(false);
-      setStockToDelete(null);
-      await refreshExpandedRow(stockToDelete.greigeId);
+      const qty = parseFloat(adjustForm.quantity);
+      if (isNaN(qty) || qty <= 0) {
+        toast.error('Enter a valid quantity');
+        return;
+      }
+      await greigeStockService.adjustStock(adjustingEntry.id, {
+        adjustmentType: adjustForm.type,
+        quantity: qty,
+        reason: adjustForm.reason,
+        remarks: adjustForm.remarks,
+      });
+      toast.success(`Stock ${adjustForm.type === 'INCREASE' ? 'increased' : 'decreased'} by ${qty} meters`);
+      setAdjustingEntry(null);
+      setAdjustForm({ type: 'DECREASE', quantity: '', reason: 'CORRECTION', remarks: '' });
+      await refreshExpandedRow(adjustingEntry.greigeId);
       await loadData();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to delete');
+      toast.error(err?.response?.data?.message || 'Failed to adjust stock');
     } finally {
-      setIsDeleting(false);
+      setIsAdjusting(false);
     }
   };
 
@@ -252,12 +268,13 @@ export default function GreigeAvailableStock() {
       'Greige Code',
       'Name',
       'Composition',
+      'Greige Quality',
+      'Weaver',
       'Width',
       'Cutable Width',
       'Total Stock',
-      'Quality Grades',
       'Warehouses',
-      'Suppliers',
+      'Avg Cost/m',
       'Total Value',
       'Max Age (days)',
       'Entry Count',
@@ -266,12 +283,13 @@ export default function GreigeAvailableStock() {
       s.greigeCode,
       s.greigeName,
       s.composition,
+      s.greigeQuality || '',
+      s.weaver || '',
       s.greigeWidth ?? '',
       s.cutableWidth ?? '',
       s.totalStock.toFixed(2),
-      (s.qualityGrades || []).join('; '),
       (s.warehouses || []).join('; '),
-      (s.suppliers || []).map((sp) => sp.name).join('; '),
+      s.totalStock > 0 ? (s.totalValue / s.totalStock).toFixed(2) : '',
       (s.totalValue || 0).toFixed(2),
       s.maxAgingDays,
       s.entryCount,
@@ -386,9 +404,9 @@ export default function GreigeAvailableStock() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Qualities</SelectItem>
-                <SelectItem value="A">Grade A</SelectItem>
-                <SelectItem value="B">Grade B</SelectItem>
-                <SelectItem value="DEFECT">Defect</SelectItem>
+                <SelectItem value="PRINTING">Printing</SelectItem>
+                <SelectItem value="DYEING">Dyeing</SelectItem>
+                <SelectItem value="SUPER_DYEING">Super Dyeing</SelectItem>
               </SelectContent>
             </Select>
             <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
@@ -439,13 +457,16 @@ export default function GreigeAvailableStock() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Greige Code</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Composition</th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                        Greige Quality
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weaver</th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Width</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Stock</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Quality</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Warehouse</th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Value</th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Age</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Avg Cost/m</th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Entries</th>
                     </tr>
                   </thead>
@@ -477,12 +498,34 @@ export default function GreigeAvailableStock() {
                           <td className="px-4 py-3 text-sm text-gray-900">{stock.greigeName}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">{stock.composition}</td>
                           <td className="px-3 py-3 text-sm text-center">
+                            {stock.greigeQuality ? (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  stock.greigeQuality === 'SUPER_DYEING'
+                                    ? 'bg-purple-100 text-purple-800 border-purple-200'
+                                    : stock.greigeQuality === 'DYEING'
+                                      ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                      : 'bg-orange-100 text-orange-800 border-orange-200'
+                                }
+                              >
+                                {stock.greigeQuality === 'SUPER_DYEING'
+                                  ? 'Super Dyeing'
+                                  : stock.greigeQuality === 'DYEING'
+                                    ? 'Dyeing'
+                                    : 'Printing'}
+                              </Badge>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {stock.weaver || <span className="text-gray-400">-</span>}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-center">
                             {stock.greigeWidth != null ? (
                               <div>
                                 <span className="font-medium">{stock.greigeWidth}"</span>
-                                {stock.cutableWidth != null && (
-                                  <div className="text-xs text-gray-400">Cut: {stock.cutableWidth}"</div>
-                                )}
                               </div>
                             ) : (
                               '-'
@@ -490,13 +533,6 @@ export default function GreigeAvailableStock() {
                           </td>
                           <td className="px-4 py-3 text-sm text-right">
                             <span className="font-semibold text-green-600">{stock.totalStock.toFixed(2)}</span>
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            <div className="flex gap-1 justify-center flex-wrap">
-                              {(stock.qualityGrades || []).map((g) => (
-                                <span key={g}>{getQualityBadge(g)}</span>
-                              ))}
-                            </div>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {(stock.warehouses || []).length > 0 ? (
@@ -512,13 +548,9 @@ export default function GreigeAvailableStock() {
                             {formatCurrency(stock.totalValue)}
                           </td>
                           <td className="px-3 py-3 text-center">{getAgeBadge(stock.maxAgingDays)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {(stock.suppliers || []).length > 0 ? (
-                              stock.suppliers.length === 1 ? (
-                                stock.suppliers[0].name
-                              ) : (
-                                `${stock.suppliers[0].name} +${stock.suppliers.length - 1}`
-                              )
+                          <td className="px-4 py-3 text-sm text-right font-medium">
+                            {stock.totalStock > 0 ? (
+                              formatCurrency(stock.totalValue / stock.totalStock)
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
@@ -531,7 +563,7 @@ export default function GreigeAvailableStock() {
                         {/* Expanded sub-table */}
                         {expandedRows.has(stock.greigeId) && (
                           <tr key={`${stock.greigeId}-expanded`}>
-                            <td colSpan={12} className="px-0 py-0">
+                            <td colSpan={13} className="px-0 py-0">
                               <div className="bg-gray-50 border-t border-b border-gray-200 px-8 py-4">
                                 {loadingExpanded.has(stock.greigeId) ? (
                                   <div className="text-center py-4 text-gray-500">Loading entries...</div>
@@ -547,7 +579,6 @@ export default function GreigeAvailableStock() {
                                         <th className="px-3 py-2 text-right">Cost/m</th>
                                         <th className="px-3 py-2 text-left">Warehouse</th>
                                         <th className="px-3 py-2 text-left">Roll Numbers</th>
-                                        <th className="px-3 py-2 text-center">Quality</th>
                                         <th className="px-3 py-2 text-left">Received</th>
                                         <th className="px-3 py-2 text-center">Age</th>
                                         <th className="px-3 py-2 text-center">Status</th>
@@ -582,9 +613,6 @@ export default function GreigeAvailableStock() {
                                           >
                                             {entry.rollNumbers || '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-center">
-                                            {getQualityBadge(entry.qualityGrade)}
-                                          </td>
                                           <td className="px-3 py-2 text-gray-600">
                                             {entry.receivedDate
                                               ? new Date(entry.receivedDate).toLocaleDateString('en-IN')
@@ -615,14 +643,20 @@ export default function GreigeAvailableStock() {
                                               <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                                                className="h-7 w-7 p-0 text-orange-600 hover:text-orange-700"
+                                                title="Adjust Stock"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  setStockToDelete(entry);
-                                                  setDeleteDialogOpen(true);
+                                                  setAdjustingEntry(entry);
+                                                  setAdjustForm({
+                                                    type: 'DECREASE',
+                                                    quantity: '',
+                                                    reason: 'CORRECTION',
+                                                    remarks: '',
+                                                  });
                                                 }}
                                               >
-                                                <Trash2 className="h-3 w-3" />
+                                                <AlertTriangle className="h-3 w-3" />
                                               </Button>
                                             </div>
                                           </td>
@@ -709,10 +743,21 @@ export default function GreigeAvailableStock() {
             </div>
             <div className="space-y-2">
               <Label>Warehouse Location</Label>
-              <Input
-                value={editForm.warehouseLocation ?? ''}
-                onChange={(e) => setEditForm({ ...editForm, warehouseLocation: e.target.value })}
-              />
+              <Select
+                value={editForm.warehouseLocation || ''}
+                onValueChange={(v) => setEditForm({ ...editForm, warehouseLocation: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select warehouse" />
+                </SelectTrigger>
+                <SelectContent>
+                  {warehouses.map((wh) => (
+                    <SelectItem key={wh.id} value={wh.warehouseName}>
+                      {wh.warehouseCode} - {wh.warehouseName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Roll Numbers</Label>
@@ -734,24 +779,94 @@ export default function GreigeAvailableStock() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Stock Entry?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this greige stock entry ({stockToDelete?.quantityAvailable.toFixed(2)}{' '}
-              meters). This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700" disabled={isDeleting}>
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Stock Adjustment Dialog */}
+      <Dialog open={!!adjustingEntry} onOpenChange={(open) => !open && setAdjustingEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adjust Stock</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-gray-50 rounded-lg text-sm">
+              <span className="text-gray-500">Current Available:</span>
+              <span className="ml-2 font-semibold text-green-600">
+                {adjustingEntry?.quantityAvailable.toFixed(2)} meters
+              </span>
+            </div>
+            <div className="space-y-2">
+              <Label>Adjustment Type</Label>
+              <Select
+                value={adjustForm.type}
+                onValueChange={(v) => setAdjustForm({ ...adjustForm, type: v as 'INCREASE' | 'DECREASE' })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DECREASE">Decrease (Write-off / Correction)</SelectItem>
+                  <SelectItem value="INCREASE">Increase (Found / Correction)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Quantity (meters)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={adjustForm.quantity}
+                onChange={(e) => setAdjustForm({ ...adjustForm, quantity: e.target.value })}
+                placeholder="Enter adjustment quantity"
+              />
+              {adjustForm.type === 'DECREASE' &&
+                adjustForm.quantity &&
+                adjustingEntry &&
+                parseFloat(adjustForm.quantity) > adjustingEntry.quantityAvailable && (
+                  <p className="text-xs text-red-500">Cannot decrease more than available stock</p>
+                )}
+            </div>
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Select value={adjustForm.reason} onValueChange={(v) => setAdjustForm({ ...adjustForm, reason: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WRONG_ENTRY">Wrong Entry</SelectItem>
+                  <SelectItem value="CORRECTION">Correction</SelectItem>
+                  <SelectItem value="DAMAGED">Damaged</SelectItem>
+                  <SelectItem value="LOST">Lost</SelectItem>
+                  <SelectItem value="FOUND">Found</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Remarks</Label>
+              <Input
+                value={adjustForm.remarks}
+                onChange={(e) => setAdjustForm({ ...adjustForm, remarks: e.target.value })}
+                placeholder="Optional notes about this adjustment"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustingEntry(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAdjust}
+              disabled={
+                isAdjusting ||
+                !adjustForm.quantity ||
+                (adjustForm.type === 'DECREASE' &&
+                  adjustingEntry != null &&
+                  parseFloat(adjustForm.quantity || '0') > adjustingEntry.quantityAvailable)
+              }
+            >
+              {isAdjusting ? 'Adjusting...' : 'Apply Adjustment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

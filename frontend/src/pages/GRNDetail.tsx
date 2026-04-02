@@ -16,7 +16,18 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, CheckCircle, XCircle, Printer, FileText, Scissors, ArrowRight, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  ArrowLeft,
+  CheckCircle,
+  XCircle,
+  Printer,
+  FileText,
+  Scissors,
+  ArrowRight,
+  X,
+  AlertTriangle,
+} from 'lucide-react';
 import type { PendingCuttingInfo } from '@/services/grn.service';
 
 export default function GRNDetail() {
@@ -377,28 +388,115 @@ export default function GRNDetail() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {grn.items?.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{item.materials?.code}</div>
-                      <div className="text-sm text-gray-500">{item.materials?.name}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">{Number(item.orderedQuantity).toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {Number(item.receivedQuantity).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right text-green-600 font-medium">
-                    {Number(item.acceptedQuantity).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right text-red-600">
-                    {Number(item.rejectedQuantity) > 0 ? Number(item.rejectedQuantity).toLocaleString() : '-'}
-                  </TableCell>
-                  <TableCell>{item.unit}</TableCell>
-                  <TableCell className="text-sm text-gray-500">{item.remarks || '-'}</TableCell>
-                </TableRow>
-              ))}
+              {grn.items?.map((item) => {
+                const hasDetails = item.grnItemDetails && item.grnItemDetails.length > 0;
+                const hasMeasurement = item.entryMode || item.foldLengthCm || item.receivedWidthInches;
+
+                // Group details by bale for display
+                const baleGroups: Map<number, typeof item.grnItemDetails> = new Map();
+                if (hasDetails && item.entryMode === 'BALE_WISE') {
+                  item.grnItemDetails!.forEach((d) => {
+                    const bale = d.baleNumber || 0;
+                    if (!baleGroups.has(bale)) baleGroups.set(bale, []);
+                    baleGroups.get(bale)!.push(d);
+                  });
+                }
+
+                return (
+                  <TableRow key={item.id} className="align-top">
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{item.materials?.code}</div>
+                        <div className="text-sm text-gray-500">{item.materials?.name}</div>
+                      </div>
+                      {/* Over-receipt indicator */}
+                      {item.isOverReceipt && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <AlertTriangle className="h-3 w-3 text-amber-600" />
+                          <span className="text-xs text-amber-600 font-medium">
+                            Over-receipt: +{Number(item.overReceiptQty || 0).toFixed(3)}
+                          </span>
+                        </div>
+                      )}
+                      {/* Measurement info */}
+                      {hasMeasurement && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {item.entryMode && item.entryMode !== 'TOTAL_METERS' && (
+                            <Badge variant="outline" className="text-xs">
+                              {item.entryMode.replace('_', ' ')}
+                            </Badge>
+                          )}
+                          {item.foldLengthCm && (
+                            <Badge variant="secondary" className="text-xs">
+                              L: {Number(item.foldLengthCm)}cm
+                            </Badge>
+                          )}
+                          {item.receivedWidthInches && (
+                            <Badge variant="secondary" className="text-xs">
+                              W: {Number(item.receivedWidthInches)}&quot;
+                            </Badge>
+                          )}
+                          {item.thanCount && (
+                            <span className="text-xs text-muted-foreground">{item.thanCount} thans</span>
+                          )}
+                          {item.baleCount && (
+                            <span className="text-xs text-muted-foreground">{item.baleCount} bales</span>
+                          )}
+                          {item.rollCount && (
+                            <span className="text-xs text-muted-foreground">{item.rollCount} rolls</span>
+                          )}
+                        </div>
+                      )}
+                      {/* Detail breakdown */}
+                      {hasDetails && item.entryMode !== 'BALE_WISE' && (
+                        <div className="mt-2 bg-muted/30 rounded p-2 space-y-1">
+                          {item.grnItemDetails!.map((d, di) => (
+                            <div key={d.id} className="flex gap-2 text-xs">
+                              <span className="text-muted-foreground w-6">
+                                {d.detailType === 'THAN' ? 'T' : 'R'}
+                                {di + 1}
+                              </span>
+                              <span className="font-medium">{Number(d.meters).toFixed(3)}m</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {hasDetails && item.entryMode === 'BALE_WISE' && (
+                        <div className="mt-2 space-y-2">
+                          {Array.from(baleGroups.entries()).map(([baleNum, baleDetails]) => {
+                            const baleSum = baleDetails!.reduce((s, d) => s + Number(d.meters), 0);
+                            return (
+                              <div key={baleNum} className="bg-muted/30 rounded p-2">
+                                <div className="text-xs font-medium mb-1">
+                                  Bale {baleNum} ({baleDetails!.length} thans, {baleSum.toFixed(3)}m)
+                                </div>
+                                {baleDetails!.map((d, di) => (
+                                  <div key={d.id} className="flex gap-2 text-xs pl-2">
+                                    <span className="text-muted-foreground w-6">T{di + 1}</span>
+                                    <span>{Number(d.meters).toFixed(3)}m</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">{Number(item.orderedQuantity).toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {Number(item.receivedQuantity).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right text-green-600 font-medium">
+                      {Number(item.acceptedQuantity).toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right text-red-600">
+                      {Number(item.rejectedQuantity) > 0 ? Number(item.rejectedQuantity).toLocaleString() : '-'}
+                    </TableCell>
+                    <TableCell>{item.unit}</TableCell>
+                    <TableCell className="text-sm text-gray-500">{item.remarks || '-'}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

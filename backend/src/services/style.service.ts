@@ -309,6 +309,19 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                           totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
                           // CAD control
                           allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
+                          // Pattern part association
+                          ...(fab.patternPartIds && fab.patternPartIds.length > 0
+                            ? {
+                                stylePatternParts: {
+                                  create: fab.patternPartIds.map((partId: string) => ({
+                                    id: randomUUID(),
+                                    patternPartId: partId,
+                                    quantity: 1,
+                                    goesToEmbroidery: fab.hasEmbroidery || false,
+                                  })),
+                                },
+                              }
+                            : {}),
                         })),
                       },
                     }
@@ -920,6 +933,21 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     componentId: componentId,
                   },
                 });
+
+                // Create pattern parts if provided with this fabric
+                if (fab.patternPartIds && fab.patternPartIds.length > 0) {
+                  for (const partId of fab.patternPartIds) {
+                    await tx.style_pattern_parts.create({
+                      data: {
+                        id: randomUUID(),
+                        styleFabricId: newFabricId,
+                        patternPartId: partId,
+                        quantity: 1,
+                        goesToEmbroidery: fab.hasEmbroidery || false,
+                      },
+                    });
+                  }
+                }
               }
             }
             // Restore pattern parts (preserved before deletion) to first fabric of this component

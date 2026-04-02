@@ -520,15 +520,6 @@ export default function FabricAvailableStock() {
                           <Button variant="ghost" size="sm" onClick={() => setEditingStock(stock)} title="Edit stock">
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteClick(stock)}
-                            title="Delete stock"
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -566,20 +557,6 @@ export default function FabricAvailableStock() {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <ConfirmDeleteDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete Fabric Stock?"
-        description={
-          stockToDelete
-            ? `Are you sure you want to delete this stock entry?\n\nFabric: ${stockToDelete.fabric?.fabricCode} - ${stockToDelete.fabric?.fabricName}\nQuantity: ${stockToDelete.quantityAvailable.toFixed(2)}m\n\nThis will also delete associated stock transactions. This action cannot be undone.`
-            : undefined
-        }
-        onConfirm={confirmDelete}
-        loading={isDeleting}
-        confirmText="Delete Stock"
-      />
-
       {/* Style Selection Dialog */}
       <Dialog
         open={styleSelectOpen}

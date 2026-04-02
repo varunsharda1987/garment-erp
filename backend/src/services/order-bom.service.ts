@@ -486,9 +486,18 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       } else if (Number(material.unitPrice)) {
         unitPrice = Number(material.unitPrice);
       } else {
-        logWarn(
-          `[OrderBOM] No price found for BOM item '${material.componentName || material.materialType}' (materialId: ${material.materialId || 'none'}). Unit price defaults to 0 — BOM total will be understated. Fix: add price in Cost Sheet trims/accessories or set unitPrice on the material.`
-        );
+        // Stage 4: Try master record prices (already included in query)
+        const masterPrice = this.getMasterRecordPrice(material);
+        if (masterPrice > 0) {
+          unitPrice = masterPrice;
+          logInfo(
+            `[OrderBOM] Resolved price from master record for '${material.componentName || material.materialType}': ₹${masterPrice}`
+          );
+        } else {
+          logWarn(
+            `[OrderBOM] No price found for BOM item '${material.componentName || material.materialType}' (materialId: ${material.materialId || 'none'}). Unit price defaults to 0 — BOM total will be understated. Fix: add price in Cost Sheet trims/accessories or set unitPrice on the material.`
+          );
+        }
       }
       const totalCost = totalWithWastage * unitPrice;
 
@@ -1879,6 +1888,29 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       default:
         return null;
     }
+  }
+
+  /**
+   * Try to resolve unit price from material master records.
+   * Used as Stage 4 fallback when cost sheet and BOM unitPrice are both missing.
+   */
+  private getMasterRecordPrice(material: {
+    button_master?: { pricePerPiece?: unknown } | null;
+    thread_master?: { pricePerCone?: unknown } | null;
+    zipper_master?: { pricePerPiece?: unknown } | null;
+    elastic_master?: { pricePerMeter?: unknown } | null;
+    label_master?: { pricePerPiece?: unknown } | null;
+    packaging_master?: { pricePerPiece?: unknown } | null;
+    lace_master?: { pricePerMeter?: unknown } | null;
+  }): number {
+    if (material.button_master?.pricePerPiece) return Number(material.button_master.pricePerPiece);
+    if (material.thread_master?.pricePerCone) return Number(material.thread_master.pricePerCone);
+    if (material.zipper_master?.pricePerPiece) return Number(material.zipper_master.pricePerPiece);
+    if (material.elastic_master?.pricePerMeter) return Number(material.elastic_master.pricePerMeter);
+    if (material.label_master?.pricePerPiece) return Number(material.label_master.pricePerPiece);
+    if (material.packaging_master?.pricePerPiece) return Number(material.packaging_master.pricePerPiece);
+    if (material.lace_master?.pricePerMeter) return Number(material.lace_master.pricePerMeter);
+    return 0;
   }
 
   /**

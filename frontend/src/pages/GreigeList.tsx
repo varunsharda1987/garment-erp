@@ -131,6 +131,7 @@ export default function GreigeList() {
         { wch: 18 }, // Greige Width
         { wch: 28 }, // Default Cutable Width
         { wch: 25 }, // Composition
+        { wch: 15 }, // Greige Quality
         { wch: 15 }, // Weave Type
         { wch: 15 }, // GSM Range
         { wch: 25 }, // Expected Finished Width Min
@@ -185,6 +186,40 @@ export default function GreigeList() {
       key: 'composition',
       header: 'Composition',
       render: (greige) => <div className="text-sm text-gray-900">{greige.composition}</div>,
+    },
+    {
+      key: 'greigeQuality',
+      header: 'Greige Quality',
+      render: (greige) => (
+        <div className="text-sm">
+          {greige.greigeQuality ? (
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                greige.greigeQuality === 'SUPER_DYEING'
+                  ? 'bg-purple-100 text-purple-800'
+                  : greige.greigeQuality === 'DYEING'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-orange-100 text-orange-800'
+              }`}
+            >
+              {greige.greigeQuality === 'SUPER_DYEING'
+                ? 'Super Dyeing'
+                : greige.greigeQuality === 'DYEING'
+                  ? 'Dyeing'
+                  : 'Printing'}
+            </span>
+          ) : (
+            <span className="text-gray-400">-</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'weaver',
+      header: 'Weaver',
+      render: (greige) => (
+        <div className="text-sm text-gray-900">{greige.weaver || <span className="text-gray-400">-</span>}</div>
+      ),
     },
     {
       key: 'greigeWidth',

@@ -78,28 +78,20 @@ class GreigeStockService {
         throw new Error(`Greige with ID ${data.greigeId} not found`);
       }
 
-      // Get a default supplier if none provided
-      let supplierId = data.supplierId;
-      if (!supplierId) {
-        const stockEntrySupplier = await prisma.suppliers.findFirst({
-          where: {
-            OR: [{ code: 'STOCK-ENTRY' }, { name: { contains: 'Stock Entry', mode: 'insensitive' } }],
-          },
+      // Resolve supplier for procurement record (required field) vs stock record (optional)
+      const userSupplierId = data.supplierId || null;
+
+      // fabric_procurement requires a supplierId - use provided or find a system default
+      let procurementSupplierId = userSupplierId;
+      if (!procurementSupplierId) {
+        const fallback = await prisma.suppliers.findFirst({
+          where: { isActive: true },
+          select: { id: true },
         });
-
-        if (stockEntrySupplier) {
-          supplierId = stockEntrySupplier.id;
-        } else {
-          const anySupplier = await prisma.suppliers.findFirst({
-            where: { isActive: true },
-          });
-
-          if (!anySupplier) {
-            throw new Error('No suppliers found in the system. Please create a supplier first.');
-          }
-
-          supplierId = anySupplier.id;
+        if (!fallback) {
+          throw new Error('No suppliers found in the system. Please create a supplier first.');
         }
+        procurementSupplierId = fallback.id;
       }
 
       // Create procurement record for traceability
@@ -107,7 +99,7 @@ class GreigeStockService {
         data: {
           id: `PROC-GRG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           procurementType: 'GREIGE',
-          supplierId: supplierId,
+          supplierId: procurementSupplierId,
           greigeId: data.greigeId,
           quantityPurchased: new Prisma.Decimal(data.quantity),
           unit: 'meters',
@@ -137,7 +129,7 @@ class GreigeStockService {
           purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : null,
           weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : null,
           procurementId: procurement.id,
-          supplierId: supplierId,
+          supplierId: userSupplierId,
           warehouseLocation: data.warehouseLocation || null,
           rollNumbers: data.rollNumbers || null,
           qualityGrade: data.qualityGrade || 'A',
@@ -542,6 +534,57 @@ class GreigeStockService {
 
     await prisma.greige_stock.delete({ where: { id: stockId } });
     logInfo(`Deleted greige stock ${stockId}`);
+  }
+
+  /**
+   * Adjust greige stock quantity (increase/decrease with reason for audit trail)
+   */
+  async adjustGreigeStock(
+    stockId: string,
+    data: { adjustmentType: 'INCREASE' | 'DECREASE'; quantity: number; reason: string; remarks?: string },
+    userId: string
+  ) {
+    const existing = await prisma.greige_stock.findUnique({
+      where: { id: stockId },
+      include: { greige: { select: { greigeCode: true, greigeName: true } } },
+    });
+
+    if (!existing) {
+      throw new Error(`Greige stock with ID ${stockId} not found`);
+    }
+
+    const currentQty = Number(existing.quantityAvailable);
+
+    if (data.adjustmentType === 'DECREASE') {
+      if (data.quantity > currentQty) {
+        throw new Error(`Cannot decrease by ${data.quantity}. Only ${currentQty} meters available.`);
+      }
+    }
+
+    const newQty = data.adjustmentType === 'INCREASE' ? currentQty + data.quantity : currentQty - data.quantity;
+
+    const updated = await prisma.greige_stock.update({
+      where: { id: stockId },
+      data: {
+        quantityAvailable: new Prisma.Decimal(newQty),
+        status: newQty <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
+      },
+    });
+
+    logInfo(
+      `Stock adjustment: ${data.adjustmentType} ${data.quantity}m on ${existing.greige.greigeCode} (${stockId}). ` +
+        `Reason: ${data.reason}. ${data.remarks || ''}. New qty: ${newQty}. By user: ${userId}`
+    );
+
+    return {
+      stockId,
+      adjustmentType: data.adjustmentType,
+      quantity: data.quantity,
+      reason: data.reason,
+      remarks: data.remarks,
+      previousQuantity: currentQty,
+      newQuantity: newQty,
+    };
   }
 }
 

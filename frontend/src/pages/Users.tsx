@@ -136,17 +136,17 @@ export default function Users() {
       header: 'Name',
       render: (user) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-sm font-medium text-foreground">
             {user.firstName} {user.lastName}
           </div>
-          {user.phone && <div className="text-xs text-gray-500">{user.phone}</div>}
+          {user.phone && <div className="text-xs text-muted-foreground">{user.phone}</div>}
         </div>
       ),
     },
     {
       key: 'email',
       header: 'Email',
-      render: (user) => <div className="text-sm text-gray-700">{user.email}</div>,
+      render: (user) => <div className="text-sm text-foreground">{user.email}</div>,
     },
     {
       key: 'role',
@@ -156,7 +156,7 @@ export default function Users() {
     {
       key: 'department',
       header: 'Department',
-      render: (user) => <div className="text-sm text-gray-700">{user.department || '-'}</div>,
+      render: (user) => <div className="text-sm text-foreground">{user.department || '-'}</div>,
     },
     {
       key: 'status',
@@ -211,7 +211,7 @@ export default function Users() {
                       e.stopPropagation();
                       handleActivateClick(user.id, `${user.firstName} ${user.lastName}`);
                     }}
-                    className="text-green-600 hover:text-green-700 border-green-300 hover:bg-green-50"
+                    className="text-success hover:text-success border-success/25 hover:bg-success-muted"
                   >
                     Activate
                   </Button>
@@ -248,7 +248,7 @@ export default function Users() {
                 <Button
                   variant="outline"
                   onClick={() => navigate('/users/pending')}
-                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                  className="border-warning/25 text-warning hover:bg-warning-muted"
                 >
                   <Clock className="h-4 w-4 mr-2" />
                   Pending Approvals

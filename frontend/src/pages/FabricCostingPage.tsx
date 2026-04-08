@@ -1245,31 +1245,31 @@ export default function FabricCostingPage() {
     switch (finishType) {
       case 'DYED':
         return (
-          <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+          <Badge variant="secondary" className="bg-info-muted text-info">
             Dyed
           </Badge>
         );
       case 'PRINTED':
         return (
-          <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+          <Badge variant="secondary" className="bg-accent/10 text-accent">
             Printed
           </Badge>
         );
       case 'YARN_DYED':
         return (
-          <Badge variant="secondary" className="bg-green-100 text-green-700">
+          <Badge variant="secondary" className="bg-success-muted text-success">
             Yarn Dyed
           </Badge>
         );
       case 'RAW':
         return (
-          <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+          <Badge variant="secondary" className="bg-muted text-foreground">
             Raw
           </Badge>
         );
       default:
         return (
-          <Badge variant="secondary" className="bg-gray-100 text-gray-500">
+          <Badge variant="secondary" className="bg-muted text-muted-foreground">
             -
           </Badge>
         );
@@ -1281,8 +1281,8 @@ export default function FabricCostingPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Fabric Costing</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-display font-medium">Fabric Costing</h1>
+          <p className="text-muted-foreground mt-1">
             Calculate fabric cost per meter (₹/m) - consumption is calculated in CAD Planning
           </p>
         </div>
@@ -1317,33 +1317,33 @@ export default function FabricCostingPage() {
 
       {/* Purpose Mode Tabs */}
       <div className="flex items-center gap-3 mb-4">
-        <span className="text-sm font-medium text-gray-700">Mode:</span>
+        <span className="text-sm font-medium text-foreground">Mode:</span>
         <Tabs value={purpose} onValueChange={(val) => setPurpose(val as CostingPurpose)}>
           <TabsList>
-            <TabsTrigger value="COSTING" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700">
+            <TabsTrigger value="COSTING" className="data-[state=active]:bg-info-muted data-[state=active]:text-info">
               Costing
             </TabsTrigger>
             <TabsTrigger
               value="RAW_MATERIAL_CALCULATION"
-              className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-700"
+              className="data-[state=active]:bg-warning/10 data-[state=active]:text-warning"
             >
               Raw Mat Calculation
             </TabsTrigger>
             <TabsTrigger
               value="PRODUCTION"
-              className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700"
+              className="data-[state=active]:bg-success-muted data-[state=active]:text-success"
             >
               Production
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-muted-foreground">
           {purpose === 'COSTING' && 'Style costing for quotations'}
           {purpose === 'RAW_MATERIAL_CALCULATION' && 'MRP for confirmed orders'}
           {purpose === 'PRODUCTION' && 'Final costings locked for production'}
         </span>
         {isRepeatOrder && (
-          <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-700 border-amber-300">
+          <Badge variant="outline" className="ml-2 bg-warning-muted text-warning border-warning/25">
             Repeat Order
           </Badge>
         )}
@@ -1356,7 +1356,7 @@ export default function FabricCostingPage() {
           <Label className="text-sm font-medium mb-2 block">Quick Search</Label>
           <div className="relative">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by style code or name..."
                 value={styleSearchQuery}
@@ -1375,18 +1375,18 @@ export default function FabricCostingPage() {
                 </Button>
               )}
               {isSearching && (
-                <Loader2 className="absolute right-10 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                <Loader2 className="absolute right-10 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
               )}
             </div>
             {/* Search Results Dropdown */}
             {showSearchResults && styleSearchResults.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                 {styleSearchResults.map((style) => {
                   const status = styleCostingStatus[style.id];
                   return (
                     <div
                       key={style.id}
-                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                      className="px-4 py-2 hover:bg-muted cursor-pointer border-b last:border-b-0"
                       onClick={() => handleSearchResultSelect(style)}
                     >
                       <div className="flex items-center justify-between">
@@ -1397,7 +1397,7 @@ export default function FabricCostingPage() {
                             {status.hasProduction && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] px-1.5 py-0 bg-green-50 text-green-700 border-green-300"
+                                className="text-[10px] px-1.5 py-0 bg-success-muted text-success border-success/25"
                               >
                                 Costed
                               </Badge>
@@ -1405,7 +1405,7 @@ export default function FabricCostingPage() {
                             {!status.hasProduction && status.hasApproved && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] px-1.5 py-0 bg-blue-50 text-blue-700 border-blue-300"
+                                className="text-[10px] px-1.5 py-0 bg-info-muted text-info border-info/30"
                               >
                                 Approved
                               </Badge>
@@ -1413,7 +1413,7 @@ export default function FabricCostingPage() {
                             {!status.hasProduction && !status.hasApproved && status.hasPending && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300"
+                                className="text-[10px] px-1.5 py-0 bg-warning-muted text-warning border-warning/25"
                               >
                                 Pending
                               </Badge>
@@ -1421,7 +1421,7 @@ export default function FabricCostingPage() {
                           </div>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         {style.styleName && <span>{style.styleName} • </span>}
                         {style.customerName || 'No Customer'}
                         {status?.costingCount ? ` • ${status.costingCount} option(s)` : ''}
@@ -1432,12 +1432,12 @@ export default function FabricCostingPage() {
               </div>
             )}
             {showSearchResults && styleSearchResults.length === 0 && styleSearchQuery.length >= 2 && !isSearching && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg p-4 text-center text-gray-500 text-sm">
+              <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg p-4 text-center text-muted-foreground text-sm">
                 No styles found
               </div>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-1">Or select customer below to filter styles</p>
+          <p className="text-xs text-muted-foreground mt-1">Or select customer below to filter styles</p>
         </div>
 
         <div className="grid grid-cols-4 gap-4">
@@ -1481,7 +1481,7 @@ export default function FabricCostingPage() {
             <Label className="text-sm font-medium mb-2 block">
               Order Quantity (pcs)
               {previousQuantity && previousQuantity !== orderQuantity && (
-                <span className="ml-2 text-xs text-gray-500 font-normal">
+                <span className="ml-2 text-xs text-muted-foreground font-normal">
                   (Previous: {previousQuantity.toLocaleString()})
                 </span>
               )}
@@ -1495,12 +1495,12 @@ export default function FabricCostingPage() {
               className="w-full"
             />
             {previousQuantity && previousQuantity !== orderQuantity && (
-              <p className="text-xs text-amber-600 mt-1">
+              <p className="text-xs text-warning mt-1">
                 Quantity changed from previous costing ({previousQuantity.toLocaleString()} pcs)
               </p>
             )}
             {previousQuantity && previousQuantity !== orderQuantity && previousQuantity > 0 && orderQuantity > 0 && (
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-xs text-info mt-1">
                 💡 This will create a NEW costing option. Original ({previousQuantity.toLocaleString()} pcs) will be
                 preserved.
               </p>
@@ -1527,7 +1527,7 @@ export default function FabricCostingPage() {
             {showStyleOptionsButton && selectedStyleId && (
               <Button
                 variant="default"
-                className="w-full bg-green-600 hover:bg-green-700"
+                className="w-full bg-success hover:bg-success"
                 onClick={() => navigate(`/fabric-costing/options?styleId=${selectedStyleId}`)}
                 title="View saved costing options for this style"
               >
@@ -1541,12 +1541,12 @@ export default function FabricCostingPage() {
 
       {/* CAD Data Warning Banner */}
       {selectedStyleId && !hasCADData && !isValidatingCAD && (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className="border-warning/20 bg-warning-muted">
           <div className="p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-semibold text-amber-900 mb-1">No CAD Data Found</h3>
-              <p className="text-sm text-amber-800 mb-3">
+              <h3 className="font-semibold text-warning mb-1">No CAD Data Found</h3>
+              <p className="text-sm text-warning mb-3">
                 This style has no CAD data from CAD Planning. Fabric costing requires CAD consumption data (meters per
                 piece) to calculate costs accurately.
               </p>
@@ -1554,7 +1554,7 @@ export default function FabricCostingPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate(`/cad-planning?style=${selectedStyleId}`)}
-                className="border-amber-600 text-amber-900 hover:bg-amber-100"
+                className="border-warning text-warning hover:bg-warning/10"
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Create CAD Data in CAD Planning
@@ -1571,7 +1571,7 @@ export default function FabricCostingPage() {
           <span>Loading fabrics...</span>
         </Card>
       ) : fabricRows.length === 0 ? (
-        <Card className="p-8 text-center text-gray-500">
+        <Card className="p-8 text-center text-muted-foreground">
           {selectedStyleId
             ? `No fabrics found for ${purpose === 'COSTING' ? 'Costing' : purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material Calculation' : 'Production'} mode.${purpose !== 'COSTING' ? ' Try switching to Costing mode to see available data.' : ''}`
             : 'Select a customer and style to load fabrics'}
@@ -1586,26 +1586,26 @@ export default function FabricCostingPage() {
                   <Package className="w-4 h-4" />
                   Existing Costing Runs ({existingRuns.length})
                 </h3>
-                {isLoadingRuns && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                {isLoadingRuns && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {existingRuns.map((run) => (
-                  <div key={run.id} className="p-3 border rounded-lg bg-white hover:shadow-sm transition-shadow">
+                  <div key={run.id} className="p-3 border rounded-lg bg-card hover:shadow-sm transition-shadow">
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-medium text-sm">{run.runName}</span>
                       <div className="flex items-center gap-1">
                         {run.isComplete ? (
-                          <Badge className="bg-green-100 text-green-700 text-xs">
+                          <Badge className="bg-success-muted text-success text-xs">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Complete
                           </Badge>
                         ) : (
-                          <Badge className="bg-amber-100 text-amber-700 text-xs">Incomplete</Badge>
+                          <Badge className="bg-warning/10 text-warning text-xs">Incomplete</Badge>
                         )}
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                           onClick={() => handleDeleteRun(run.id)}
                           disabled={isDeletingRun === run.id}
                         >
@@ -1617,10 +1617,10 @@ export default function FabricCostingPage() {
                         </Button>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-600 space-y-1">
+                    <div className="text-xs text-muted-foreground space-y-1">
                       <p>{run.fabricCount} fabrics</p>
                       <p>₹{run.totalFabricCost?.toFixed(2) ?? '0.00'}/garment</p>
-                      <p className="text-gray-400">{new Date(run.createdAt).toLocaleDateString()}</p>
+                      <p className="text-muted-foreground">{new Date(run.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                 ))}
@@ -1631,7 +1631,7 @@ export default function FabricCostingPage() {
           <Card className="overflow-x-auto">
             <Table className="w-full table-fixed">
               <TableHeader>
-                <TableRow className="bg-gray-50">
+                <TableRow className="bg-muted">
                   <TableHead className="w-[130px] px-1 text-xs">Greige</TableHead>
                   <TableHead
                     className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight"
@@ -1647,7 +1647,7 @@ export default function FabricCostingPage() {
                   </TableHead>
                   <TableHead className="w-[60px] px-1 text-center text-xs">
                     <div>Qty</div>
-                    <div className="text-[10px] text-gray-500">(pcs)</div>
+                    <div className="text-[10px] text-muted-foreground">(pcs)</div>
                   </TableHead>
                   <TableHead className="w-[45px] px-1 text-center text-xs" title="Cutable Width">
                     CW
@@ -1656,7 +1656,7 @@ export default function FabricCostingPage() {
                   <TableHead className="w-[48px] px-1 text-center text-xs">Mode</TableHead>
                   <TableHead className="w-[75px] px-1 text-center text-xs">
                     <div>Greige +Trp</div>
-                    <div className="text-[10px] text-gray-500">(₹/m)</div>
+                    <div className="text-[10px] text-muted-foreground">(₹/m)</div>
                   </TableHead>
                   <TableHead className="w-[170px] px-1 text-center text-xs">Processor</TableHead>
                   <TableHead className="w-[55px] px-1 text-center text-xs">Colors</TableHead>
@@ -1664,27 +1664,27 @@ export default function FabricCostingPage() {
                   <TableHead className="w-[80px] px-1 text-center text-xs">Screen</TableHead>
                   <TableHead className="w-[70px] px-1 text-center text-xs">
                     <div>Process</div>
-                    <div className="text-[10px] text-gray-500">(₹/m)</div>
+                    <div className="text-[10px] text-muted-foreground">(₹/m)</div>
                   </TableHead>
                   <TableHead className="w-[70px] px-1 text-center text-xs">
                     <div>Shrink</div>
-                    <div className="text-[10px] text-gray-500">(₹/m)</div>
+                    <div className="text-[10px] text-muted-foreground">(₹/m)</div>
                   </TableHead>
                   <TableHead className="w-[70px] px-1 text-center text-xs font-semibold">
                     <div>Total</div>
-                    <div className="text-[10px] text-gray-500">(₹/m)</div>
+                    <div className="text-[10px] text-muted-foreground">(₹/m)</div>
                   </TableHead>
                   <TableHead className="w-[70px] px-1 text-center text-xs">
                     <div>Part Cost</div>
-                    <div className="text-[10px] text-gray-500">(₹)</div>
+                    <div className="text-[10px] text-muted-foreground">(₹)</div>
                   </TableHead>
                   <TableHead className="w-[70px] px-1 text-center text-xs">
                     <div>Fabric Req</div>
-                    <div className="text-[10px] text-gray-500">(m)</div>
+                    <div className="text-[10px] text-muted-foreground">(m)</div>
                   </TableHead>
                   <TableHead className="w-[70px] px-1 text-center text-xs">
                     <div>Greige Req</div>
-                    <div className="text-[10px] text-gray-500">(m)</div>
+                    <div className="text-[10px] text-muted-foreground">(m)</div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -1695,11 +1695,11 @@ export default function FabricCostingPage() {
                     nestedGroups.map((dateGroup) => (
                       <React.Fragment key={dateGroup.dateKey}>
                         {/* Date Group Header */}
-                        <TableRow className="bg-amber-50 border-t-2 border-amber-200">
+                        <TableRow className="bg-warning-muted border-t-2 border-warning/20">
                           <TableCell colSpan={18} className="py-2 px-3">
                             <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-amber-600" />
-                              <span className="font-semibold text-amber-800">
+                              <Clock className="h-4 w-4 text-warning" />
+                              <span className="font-semibold text-warning">
                                 {dateGroup.dateKey === 'New (Unsaved)'
                                   ? 'New (Unsaved)'
                                   : `Created: ${dateGroup.dateKey}`}
@@ -1708,7 +1708,7 @@ export default function FabricCostingPage() {
                                 {dateGroup.totalRows} row{dateGroup.totalRows !== 1 ? 's' : ''}
                               </Badge>
                               {dateGroup.dateKey === 'New (Unsaved)' && (
-                                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">
+                                <Badge variant="outline" className="text-info border-info/30 text-xs">
                                   Not yet saved
                                 </Badge>
                               )}
@@ -1721,10 +1721,10 @@ export default function FabricCostingPage() {
                           <React.Fragment key={qtyGroup.qtyKey}>
                             {/* Quantity Sub-Header (only if multiple qty groups in this date) */}
                             {dateGroup.quantityGroups.length > 1 && (
-                              <TableRow className="bg-blue-50 border-t border-blue-200">
+                              <TableRow className="bg-info-muted border-t border-info/20">
                                 <TableCell colSpan={18} className="py-1.5 px-3">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-blue-800">
+                                    <span className="text-sm font-medium text-info">
                                       Order Qty:{' '}
                                       {qtyGroup.qtyKey === 'No Qty'
                                         ? 'Not specified'
@@ -1766,22 +1766,26 @@ export default function FabricCostingPage() {
                                                       {row.readyFabricCost && (
                                                         <Badge
                                                           variant="outline"
-                                                          className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0"
+                                                          className="text-[9px] px-1 py-0 bg-success-muted text-success border-success/20 flex-shrink-0"
                                                         >
                                                           ₹{row.readyFabricCost}
                                                         </Badge>
                                                       )}
                                                     </div>
                                                     {parsed.line2 && (
-                                                      <p className="text-[10px] text-gray-600">{parsed.line2}</p>
+                                                      <p className="text-[10px] text-muted-foreground">
+                                                        {parsed.line2}
+                                                      </p>
                                                     )}
                                                   </>
                                                 );
                                               })()}
-                                              <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
+                                              <p className="text-[10px] text-muted-foreground truncate">
+                                                {row.componentName}
+                                              </p>
                                               {row.greigeCode && (
                                                 <p
-                                                  className="text-[9px] text-gray-400 truncate"
+                                                  className="text-[9px] text-muted-foreground truncate"
                                                   title={`Greige Code: ${row.greigeCode}`}
                                                 >
                                                   {row.greigeCode}
@@ -1791,7 +1795,7 @@ export default function FabricCostingPage() {
                                                 row.fabricName &&
                                                 row.greigeName !== row.fabricName && (
                                                   <p
-                                                    className="text-[10px] text-gray-400 truncate"
+                                                    className="text-[10px] text-muted-foreground truncate"
                                                     title={row.fabricName}
                                                   >
                                                     Fabric: {row.fabricName}
@@ -1829,7 +1833,7 @@ export default function FabricCostingPage() {
                                             />
                                             {row.batchGroupTotalQuantity != null && (
                                               <div
-                                                className="text-[9px] text-blue-600 mt-0.5"
+                                                className="text-[9px] text-info mt-0.5"
                                                 title="Combined batch quantity for rate slab"
                                               >
                                                 {row.batchGroupTotalQuantity.toFixed(0)}m batch
@@ -1837,7 +1841,7 @@ export default function FabricCostingPage() {
                                             )}
                                             {row.batchSavings != null && row.batchSavings > 0 && (
                                               <div
-                                                className="text-[9px] text-green-600 font-medium"
+                                                className="text-[9px] text-success font-medium"
                                                 title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}
                                               >
                                                 save ₹{row.batchSavings.toFixed(2)}/m
@@ -1849,14 +1853,14 @@ export default function FabricCostingPage() {
                                           <TableCell className="px-1 text-center text-xs">
                                             <div className="flex items-center justify-center gap-0.5">
                                               <span
-                                                className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}
+                                                className={row.cadMeters === 0 ? 'text-destructive font-medium' : ''}
                                                 title="Per-piece fabric consumption (calculated from CAD Planning)"
                                               >
                                                 {row.cadMeters.toFixed(3)}
                                               </span>
                                               {row.cadMeters === 0 && (
                                                 <span
-                                                  className="text-red-600 cursor-help text-[10px]"
+                                                  className="text-destructive cursor-help text-[10px]"
                                                   title="No CAD data - set consumption in CAD Planning first"
                                                 >
                                                   !
@@ -1894,7 +1898,7 @@ export default function FabricCostingPage() {
                                           <TableCell className="px-1 text-center">
                                             <div className="flex items-center justify-center gap-0.5">
                                               <span
-                                                className={`text-[9px] ${row.costInputMode === 'BUILD_UP' ? 'text-blue-600 font-semibold' : 'text-gray-400'}`}
+                                                className={`text-[9px] ${row.costInputMode === 'BUILD_UP' ? 'text-info font-semibold' : 'text-muted-foreground'}`}
                                               >
                                                 B
                                               </span>
@@ -1910,7 +1914,7 @@ export default function FabricCostingPage() {
                                                 className="scale-75"
                                               />
                                               <span
-                                                className={`text-[9px] ${row.costInputMode === 'LANDED_PRICE' ? 'text-green-600 font-semibold' : 'text-gray-400'}`}
+                                                className={`text-[9px] ${row.costInputMode === 'LANDED_PRICE' ? 'text-success font-semibold' : 'text-muted-foreground'}`}
                                               >
                                                 L
                                               </span>
@@ -1949,7 +1953,7 @@ export default function FabricCostingPage() {
                                                   placeholder="Greige"
                                                   title={`Greige cost (source: ${row.greigeCostSource || 'MANUAL'})`}
                                                 />
-                                                <span className="text-[10px] text-gray-400">+</span>
+                                                <span className="text-[10px] text-muted-foreground">+</span>
                                                 <Input
                                                   type="number"
                                                   step="0.1"
@@ -1998,7 +2002,7 @@ export default function FabricCostingPage() {
                                           {/* Processor Selection */}
                                           <TableCell className="px-1 text-center">
                                             {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             ) : (
                                               <div className="flex items-center justify-center gap-0.5">
                                                 <Combobox
@@ -2089,7 +2093,7 @@ export default function FabricCostingPage() {
                                                 title="Number of colors/screens"
                                               />
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
 
@@ -2097,7 +2101,7 @@ export default function FabricCostingPage() {
                                           <TableCell className="px-1 text-center">
                                             {row.finishType === 'PRINTED' ? (
                                               <select
-                                                className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
+                                                className="h-7 w-full text-[10px] border rounded px-0.5 bg-card"
                                                 value={row.screenType || ''}
                                                 onChange={(e) => {
                                                   const screenType = (e.target.value || null) as ScreenType | null;
@@ -2141,7 +2145,7 @@ export default function FabricCostingPage() {
                                                 ))}
                                               </select>
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
 
@@ -2155,7 +2159,7 @@ export default function FabricCostingPage() {
                                                 ₹{row.screenCostPerMeter.toFixed(2)}
                                               </span>
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
 
@@ -2168,7 +2172,7 @@ export default function FabricCostingPage() {
                                                 </span>
                                                 {row.slabLabel && (
                                                   <div
-                                                    className="text-[9px] text-gray-500 truncate"
+                                                    className="text-[9px] text-muted-foreground truncate"
                                                     title={row.slabLabel}
                                                   >
                                                     {row.slabLabel}
@@ -2176,7 +2180,7 @@ export default function FabricCostingPage() {
                                                 )}
                                               </div>
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
 
@@ -2186,24 +2190,24 @@ export default function FabricCostingPage() {
                                               <div>
                                                 <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
                                                 {row.shrinkagePercent && (
-                                                  <div className="text-[9px] text-gray-500">
+                                                  <div className="text-[9px] text-muted-foreground">
                                                     {row.shrinkagePercent}%
                                                   </div>
                                                 )}
                                               </div>
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
 
                                           {/* Total Cost */}
                                           <TableCell className="px-1 text-center">
                                             {row.totalCostPerMeter ? (
-                                              <span className="text-xs font-semibold text-green-700">
+                                              <span className="text-xs font-semibold text-success">
                                                 ₹{row.totalCostPerMeter.toFixed(2)}
                                               </span>
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
 
@@ -2214,7 +2218,7 @@ export default function FabricCostingPage() {
                                                 ₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}
                                               </span>
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
 
@@ -2228,7 +2232,7 @@ export default function FabricCostingPage() {
                                                 )}
                                               </span>
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
 
@@ -2255,7 +2259,7 @@ export default function FabricCostingPage() {
                                                 );
                                               })()
                                             ) : (
-                                              <span className="text-gray-400 text-xs">-</span>
+                                              <span className="text-muted-foreground text-xs">-</span>
                                             )}
                                           </TableCell>
                                         </TableRow>
@@ -2265,36 +2269,36 @@ export default function FabricCostingPage() {
 
                                   {/* Subtotal Row for this greige group */}
                                   {showSubtotal && (
-                                    <TableRow className="bg-blue-50 font-medium border-t-2 border-blue-200">
+                                    <TableRow className="bg-info-muted font-medium border-t-2 border-info/20">
                                       <TableCell className="px-1" colSpan={3}>
-                                        <span className="text-xs font-semibold text-blue-800">
+                                        <span className="text-xs font-semibold text-info">
                                           Subtotal: {greigeGroup.greigeName}
                                         </span>
                                       </TableCell>
                                       <TableCell className="px-1 text-center">
-                                        <span className="text-xs font-semibold text-blue-800">
+                                        <span className="text-xs font-semibold text-info">
                                           {subtotals.totalCadMeters.toFixed(3)}
                                         </span>
                                       </TableCell>
                                       <TableCell colSpan={10} className="px-1"></TableCell>
                                       <TableCell className="px-1 text-center">
                                         {subtotals.totalRowCost !== null ? (
-                                          <span className="text-xs font-bold text-blue-800">
+                                          <span className="text-xs font-bold text-info">
                                             ₹{subtotals.totalRowCost.toFixed(2)}/pc
                                           </span>
                                         ) : (
-                                          <span className="text-gray-400 text-xs">-</span>
+                                          <span className="text-muted-foreground text-xs">-</span>
                                         )}
                                       </TableCell>
                                       <TableCell className="px-1 text-center">
-                                        <span className="text-xs font-semibold text-blue-800">
+                                        <span className="text-xs font-semibold text-info">
                                           {subtotals.totalFabricReq.toLocaleString(undefined, {
                                             maximumFractionDigits: 0,
                                           })}
                                         </span>
                                       </TableCell>
                                       <TableCell className="px-1 text-center">
-                                        <span className="text-xs font-semibold text-blue-800">
+                                        <span className="text-xs font-semibold text-info">
                                           {subtotals.totalGreigeReq.toLocaleString(undefined, {
                                             maximumFractionDigits: 0,
                                           })}
@@ -2338,29 +2342,32 @@ export default function FabricCostingPage() {
                                               {row.readyFabricCost && (
                                                 <Badge
                                                   variant="outline"
-                                                  className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-200 flex-shrink-0"
+                                                  className="text-[9px] px-1 py-0 bg-success-muted text-success border-success/20 flex-shrink-0"
                                                 >
                                                   ₹{row.readyFabricCost}
                                                 </Badge>
                                               )}
                                             </div>
                                             {parsed.line2 && (
-                                              <p className="text-[10px] text-gray-600">{parsed.line2}</p>
+                                              <p className="text-[10px] text-muted-foreground">{parsed.line2}</p>
                                             )}
                                           </>
                                         );
                                       })()}
-                                      <p className="text-[10px] text-gray-500 truncate">{row.componentName}</p>
+                                      <p className="text-[10px] text-muted-foreground truncate">{row.componentName}</p>
                                       {row.greigeCode && (
                                         <p
-                                          className="text-[9px] text-gray-400 truncate"
+                                          className="text-[9px] text-muted-foreground truncate"
                                           title={`Greige Code: ${row.greigeCode}`}
                                         >
                                           {row.greigeCode}
                                         </p>
                                       )}
                                       {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
-                                        <p className="text-[10px] text-gray-400 truncate" title={row.fabricName}>
+                                        <p
+                                          className="text-[10px] text-muted-foreground truncate"
+                                          title={row.fabricName}
+                                        >
                                           Fabric: {row.fabricName}
                                         </p>
                                       )}
@@ -2395,7 +2402,7 @@ export default function FabricCostingPage() {
                                     />
                                     {row.batchGroupTotalQuantity != null && (
                                       <div
-                                        className="text-[9px] text-blue-600 mt-0.5"
+                                        className="text-[9px] text-info mt-0.5"
                                         title="Combined batch quantity for rate slab"
                                       >
                                         {row.batchGroupTotalQuantity.toFixed(0)}m batch
@@ -2403,7 +2410,7 @@ export default function FabricCostingPage() {
                                     )}
                                     {row.batchSavings != null && row.batchSavings > 0 && (
                                       <div
-                                        className="text-[9px] text-green-600 font-medium"
+                                        className="text-[9px] text-success font-medium"
                                         title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}
                                       >
                                         save ₹{row.batchSavings.toFixed(2)}/m
@@ -2415,14 +2422,14 @@ export default function FabricCostingPage() {
                                   <TableCell className="px-1 text-center text-xs">
                                     <div className="flex items-center justify-center gap-0.5">
                                       <span
-                                        className={row.cadMeters === 0 ? 'text-red-600 font-medium' : ''}
+                                        className={row.cadMeters === 0 ? 'text-destructive font-medium' : ''}
                                         title="Per-piece fabric consumption (calculated from CAD Planning)"
                                       >
                                         {row.cadMeters.toFixed(3)}
                                       </span>
                                       {row.cadMeters === 0 && (
                                         <span
-                                          className="text-red-600 cursor-help text-[10px]"
+                                          className="text-destructive cursor-help text-[10px]"
                                           title="CAD consumption not set. Complete CAD Planning for this style first."
                                         >
                                           ⚠️
@@ -2460,7 +2467,7 @@ export default function FabricCostingPage() {
                                   <TableCell className="px-1">
                                     <div className="flex items-center gap-1 justify-center">
                                       <span
-                                        className={`text-[10px] ${row.costInputMode === 'BUILD_UP' ? 'font-medium' : 'text-gray-400'}`}
+                                        className={`text-[10px] ${row.costInputMode === 'BUILD_UP' ? 'font-medium' : 'text-muted-foreground'}`}
                                       >
                                         B
                                       </span>
@@ -2474,7 +2481,7 @@ export default function FabricCostingPage() {
                                         className="scale-75"
                                       />
                                       <span
-                                        className={`text-[10px] ${row.costInputMode === 'LANDED_PRICE' ? 'font-medium' : 'text-gray-400'}`}
+                                        className={`text-[10px] ${row.costInputMode === 'LANDED_PRICE' ? 'font-medium' : 'text-muted-foreground'}`}
                                       >
                                         L
                                       </span>
@@ -2501,7 +2508,7 @@ export default function FabricCostingPage() {
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-5 w-5 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                            className="h-5 w-5 p-0 text-success hover:text-success hover:bg-success-muted"
                                             onClick={() =>
                                               updateRow(index, {
                                                 landedPricePerMeter: row.readyFabricCost,
@@ -2521,7 +2528,7 @@ export default function FabricCostingPage() {
                                             type="number"
                                             step="0.01"
                                             placeholder="Greige"
-                                            className={`w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${row.greigeCostSource === 'MANUAL' ? 'border-amber-400 bg-amber-50' : ''}`}
+                                            className={`w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${row.greigeCostSource === 'MANUAL' ? 'border-warning/50 bg-warning-muted' : ''}`}
                                             value={row.greigeCostPerMeter || ''}
                                             onChange={(e) =>
                                               updateRow(index, {
@@ -2539,7 +2546,7 @@ export default function FabricCostingPage() {
                                           />
                                           {row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
                                             <span
-                                              className="text-[9px] text-green-600 font-medium"
+                                              className="text-[9px] text-success font-medium"
                                               title="Using greige stock cost from latest procurement"
                                             >
                                               S
@@ -2547,7 +2554,7 @@ export default function FabricCostingPage() {
                                           )}
                                           {row.greigeCostSource === 'GREIGE_MASTER' && (
                                             <span
-                                              className="text-[9px] text-blue-600"
+                                              className="text-[9px] text-info"
                                               title="Using default greige cost from greige master"
                                             >
                                               D
@@ -2555,7 +2562,7 @@ export default function FabricCostingPage() {
                                           )}
                                           {row.greigeCostSource === 'MANUAL' && (
                                             <span
-                                              className="text-[9px] text-amber-600 font-medium cursor-pointer hover:text-amber-800"
+                                              className="text-[9px] text-warning font-medium cursor-pointer hover:text-warning"
                                               title={`Manual price - Click to reset to ${row.greigeDefaultCost ? `₹${row.greigeDefaultCost}/m` : 'default'}`}
                                               onClick={() =>
                                                 updateRow(index, {
@@ -2590,7 +2597,7 @@ export default function FabricCostingPage() {
                                   {/* Processor Selection */}
                                   <TableCell className="px-1 text-center">
                                     {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     ) : (
                                       <div className="flex items-center justify-center gap-0.5">
                                         <Combobox
@@ -2654,7 +2661,7 @@ export default function FabricCostingPage() {
                                         placeholder="#"
                                       />
                                     ) : (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
 
@@ -2700,7 +2707,7 @@ export default function FabricCostingPage() {
                                         </SelectContent>
                                       </Select>
                                     ) : (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
 
@@ -2731,7 +2738,7 @@ export default function FabricCostingPage() {
                                         </SelectContent>
                                       </Select>
                                     ) : (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
 
@@ -2743,7 +2750,10 @@ export default function FabricCostingPage() {
                                           ₹{row.processingCostPerMeter.toFixed(2)}
                                         </span>
                                         {row.slabLabel && (
-                                          <p className="text-[9px] text-gray-500 truncate" title={row.slabLabel}>
+                                          <p
+                                            className="text-[9px] text-muted-foreground truncate"
+                                            title={row.slabLabel}
+                                          >
                                             {row.slabLabel}
                                           </p>
                                         )}
@@ -2752,7 +2762,7 @@ export default function FabricCostingPage() {
                                           row.batchRate != null &&
                                           row.individualRate !== row.batchRate && (
                                             <p
-                                              className="text-[9px] text-gray-400 line-through"
+                                              className="text-[9px] text-muted-foreground line-through"
                                               title="Individual rate (without batch grouping)"
                                             >
                                               ₹{row.individualRate.toFixed(2)}
@@ -2760,9 +2770,9 @@ export default function FabricCostingPage() {
                                           )}
                                       </div>
                                     ) : row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     ) : (
-                                      <span className="text-gray-400 text-[10px]">Select</span>
+                                      <span className="text-muted-foreground text-[10px]">Select</span>
                                     )}
                                   </TableCell>
 
@@ -2772,11 +2782,13 @@ export default function FabricCostingPage() {
                                       <div>
                                         <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
                                         {row.shrinkagePercent && (
-                                          <div className="text-[9px] text-gray-500">{row.shrinkagePercent}%</div>
+                                          <div className="text-[9px] text-muted-foreground">
+                                            {row.shrinkagePercent}%
+                                          </div>
                                         )}
                                       </div>
                                     ) : (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
 
@@ -2785,7 +2797,7 @@ export default function FabricCostingPage() {
                                     {row.totalCostPerMeter ? (
                                       <span className="font-bold text-xs">₹{row.totalCostPerMeter.toFixed(2)}</span>
                                     ) : (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
 
@@ -2796,7 +2808,7 @@ export default function FabricCostingPage() {
                                         ₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}
                                       </span>
                                     ) : (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
 
@@ -2810,7 +2822,7 @@ export default function FabricCostingPage() {
                                         )}
                                       </span>
                                     ) : (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
 
@@ -2829,7 +2841,7 @@ export default function FabricCostingPage() {
                                         );
                                       })()
                                     ) : (
-                                      <span className="text-gray-400 text-xs">-</span>
+                                      <span className="text-muted-foreground text-xs">-</span>
                                     )}
                                   </TableCell>
                                 </TableRow>
@@ -2839,34 +2851,32 @@ export default function FabricCostingPage() {
 
                           {/* Subtotal Row for this greige group */}
                           {showSubtotal && (
-                            <TableRow className="bg-blue-50 font-medium border-t-2 border-blue-200">
+                            <TableRow className="bg-info-muted font-medium border-t-2 border-info/20">
                               <TableCell className="px-1" colSpan={3}>
-                                <span className="text-xs font-semibold text-blue-800">
-                                  Subtotal: {group.greigeName}
-                                </span>
+                                <span className="text-xs font-semibold text-info">Subtotal: {group.greigeName}</span>
                               </TableCell>
                               <TableCell className="px-1 text-center">
-                                <span className="text-xs font-semibold text-blue-800">
+                                <span className="text-xs font-semibold text-info">
                                   {subtotals.totalCadMeters.toFixed(3)}
                                 </span>
                               </TableCell>
                               <TableCell colSpan={10} className="px-1"></TableCell>
                               <TableCell className="px-1 text-center">
                                 {subtotals.totalRowCost !== null ? (
-                                  <span className="text-xs font-bold text-blue-800">
+                                  <span className="text-xs font-bold text-info">
                                     ₹{subtotals.totalRowCost.toFixed(2)}/pc
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400 text-xs">-</span>
+                                  <span className="text-muted-foreground text-xs">-</span>
                                 )}
                               </TableCell>
                               <TableCell className="px-1 text-center">
-                                <span className="text-xs font-semibold text-blue-800">
+                                <span className="text-xs font-semibold text-info">
                                   {subtotals.totalFabricReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                 </span>
                               </TableCell>
                               <TableCell className="px-1 text-center">
-                                <span className="text-xs font-semibold text-blue-800">
+                                <span className="text-xs font-semibold text-info">
                                   {subtotals.totalGreigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                 </span>
                               </TableCell>
@@ -2879,12 +2889,12 @@ export default function FabricCostingPage() {
             </Table>
 
             {/* Summary Footer */}
-            <div className="p-4 bg-gray-50 border-t flex justify-between items-center">
-              <div className="text-sm text-gray-600">
+            <div className="p-4 bg-muted border-t flex justify-between items-center">
+              <div className="text-sm text-muted-foreground">
                 {fabricRows.length} fabric{fabricRows.length !== 1 ? 's' : ''} •{fabricsWithCosts} with cost calculated
               </div>
               <div className="flex items-center gap-4">
-                <span className="flex items-center gap-1 text-sm text-gray-500">
+                <span className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Info className="w-4 h-4" />
                   Cost per meter will be used in Cost Sheet calculation
                 </span>
@@ -2893,7 +2903,7 @@ export default function FabricCostingPage() {
                     variant="default"
                     size="sm"
                     onClick={() => navigate(`/cost-sheets/new?styleId=${selectedStyleId}`)}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-info hover:bg-info"
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     Create Cost Sheet
@@ -2910,7 +2920,7 @@ export default function FabricCostingPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-blue-600" />
+              <Package className="w-5 h-5 text-info" />
               Create Costing Run?
             </DialogTitle>
             <DialogDescription>
@@ -2920,11 +2930,11 @@ export default function FabricCostingPage() {
           </DialogHeader>
 
           <div className="py-4">
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-              <p className="text-sm text-blue-800">
+            <div className="p-3 bg-info-muted rounded-lg border border-info/15">
+              <p className="text-sm text-info">
                 <strong>Run {existingRuns.length + 1}</strong> will be created with:
               </p>
-              <ul className="mt-2 text-sm text-blue-700 list-disc list-inside">
+              <ul className="mt-2 text-sm text-info list-disc list-inside">
                 <li>{savedCadIds.length} fabric entries</li>
                 <li>
                   Purpose:{' '}
@@ -2942,7 +2952,7 @@ export default function FabricCostingPage() {
             <Button variant="outline" onClick={() => setShowCreateRunDialog(false)} disabled={isCreatingRun}>
               Skip
             </Button>
-            <Button onClick={handleCreateRun} disabled={isCreatingRun} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleCreateRun} disabled={isCreatingRun} className="bg-info hover:bg-info">
               {isCreatingRun ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

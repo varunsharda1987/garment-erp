@@ -65,7 +65,7 @@ export default function AllocatedStylesCard({
           <CardDescription>This fabric is not allocated to any styles yet.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+          <div className="text-center py-8 bg-muted rounded-lg border-2 border-dashed border-border">
             <Shirt className="h-10 w-10 mx-auto text-gray-300 mb-2" />
             <p className="text-sm text-muted-foreground">
               {editable ? 'Click "Allocate to Style" to assign this fabric to a style.' : 'No style allocations found.'}
@@ -112,7 +112,7 @@ export default function AllocatedStylesCard({
             <AccordionItem key={group.style?.id || groupIndex} value={group.style?.id || String(groupIndex)}>
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-3 text-left">
-                  <Shirt className="h-4 w-4 text-blue-600" />
+                  <Shirt className="h-4 w-4 text-info" />
                   <div>
                     <div className="font-medium">
                       {group.style?.styleCode || 'Unknown Style'}
@@ -134,11 +134,11 @@ export default function AllocatedStylesCard({
                   {group.allocations.map((allocation) => (
                     <div
                       key={allocation.id}
-                      className="border rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                      className="border rounded-lg p-3 bg-muted hover:bg-muted transition-colors"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-2">
-                          <Layers className="h-4 w-4 text-green-600 mt-0.5" />
+                          <Layers className="h-4 w-4 text-success mt-0.5" />
                           <div>
                             <div className="font-medium text-sm">
                               {allocation.component?.componentName || 'Unknown Component'}
@@ -190,7 +190,7 @@ export default function AllocatedStylesCard({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
@@ -208,7 +208,7 @@ export default function AllocatedStylesCard({
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => onRemove(allocation.id)}
-                                    className="bg-red-600 hover:bg-red-700"
+                                    className="bg-destructive hover:bg-destructive"
                                   >
                                     Remove
                                   </AlertDialogAction>

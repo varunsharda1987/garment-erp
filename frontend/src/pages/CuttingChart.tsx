@@ -226,7 +226,7 @@ export default function CuttingChart() {
   if (isLoading && !chartData) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -241,10 +241,10 @@ export default function CuttingChart() {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            <Scissors className="h-8 w-8 text-orange-600" />
+            <Scissors className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Cutting Chart</h1>
-              <p className="text-gray-500">Issue cutting instructions for production</p>
+              <h1 className="text-2xl font-display font-medium text-foreground">Cutting Chart</h1>
+              <p className="text-muted-foreground">Issue cutting instructions for production</p>
             </div>
           </div>
         </div>
@@ -256,7 +256,7 @@ export default function CuttingChart() {
             </Button>
           )}
           {chartData && !hasProductionCAD && (
-            <span className="text-xs text-red-600 max-w-[300px] text-right">
+            <span className="text-xs text-destructive max-w-[300px] text-right">
               Production CAD missing for: {fabricsMissingCAD.map((f) => f.part || f.fabricName).join(', ')}. Complete
               PRODUCTION CAD planning first.
             </span>
@@ -337,7 +337,7 @@ export default function CuttingChart() {
                     onError={() => setImageError(true)}
                   />
                 ) : (
-                  <div className="flex flex-col items-center gap-2 text-gray-400">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <ImageIcon className="h-16 w-16" />
                     <span className="text-sm">No style image</span>
                   </div>
@@ -350,45 +350,45 @@ export default function CuttingChart() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Order Details</CardTitle>
-                  <span className="text-lg font-bold text-orange-700 tracking-wide">KASHAYA FABS</span>
+                  <span className="text-lg font-bold text-primary tracking-wide">KASHAYA FABS</span>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-8">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Buyer</p>
-                    <p className="font-semibold text-gray-900">{chartData.buyer}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Buyer</p>
+                    <p className="font-semibold text-foreground">{chartData.buyer}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Brand</p>
-                    <p className="font-semibold text-gray-900">{chartData.brand || '-'}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Brand</p>
+                    <p className="font-semibold text-foreground">{chartData.brand || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Style</p>
-                    <p className="font-semibold text-gray-900">{chartData.style}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Style</p>
+                    <p className="font-semibold text-foreground">{chartData.style}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Style Name</p>
-                    <p className="font-semibold text-gray-900">{chartData.styleName}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Style Name</p>
+                    <p className="font-semibold text-foreground">{chartData.styleName}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Color</p>
-                    <p className="font-semibold text-gray-900">{chartData.color}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Color</p>
+                    <p className="font-semibold text-foreground">{chartData.color}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Work Order</p>
-                    <p className="font-semibold text-gray-900">{chartData.workOrderNumber}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Work Order</p>
+                    <p className="font-semibold text-foreground">{chartData.workOrderNumber}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Order Qty</p>
-                    <p className="font-semibold text-gray-900">{chartData.orderQty.toLocaleString()} pcs</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Order Qty</p>
+                    <p className="font-semibold text-foreground">{chartData.orderQty.toLocaleString()} pcs</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Cut Qty</p>
-                    <p className="font-semibold text-orange-600">{totalCutQty.toLocaleString()} pcs</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Cut Qty</p>
+                    <p className="font-semibold text-primary">{totalCutQty.toLocaleString()} pcs</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Cutting Date</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Cutting Date</p>
                     <Input
                       type="date"
                       className="mt-1 h-8 w-40"
@@ -407,7 +407,7 @@ export default function CuttingChart() {
               <CardTitle className="text-lg">Size Breakup</CardTitle>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <Label className="text-sm font-normal text-gray-500">Extra %:</Label>
+                  <Label className="text-sm font-normal text-muted-foreground">Extra %:</Label>
                   <Input
                     type="number"
                     className="w-20 h-8"
@@ -447,16 +447,16 @@ export default function CuttingChart() {
                     </TableHeader>
                     <TableBody>
                       <TableRow>
-                        <TableCell className="font-medium text-gray-500">Ratio</TableCell>
+                        <TableCell className="font-medium text-muted-foreground">Ratio</TableCell>
                         {sizesWithCutQty.map((s) => (
-                          <TableCell key={s.sizeId} className="text-center text-gray-600">
+                          <TableCell key={s.sizeId} className="text-center text-muted-foreground">
                             {s.ratio}%
                           </TableCell>
                         ))}
                         <TableCell className="text-center font-semibold">100%</TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell className="font-medium text-gray-500">Order Qty</TableCell>
+                        <TableCell className="font-medium text-muted-foreground">Order Qty</TableCell>
                         {sizesWithCutQty.map((s) => (
                           <TableCell key={s.sizeId} className="text-center">
                             {s.orderQty}
@@ -466,14 +466,14 @@ export default function CuttingChart() {
                           {chartData.totalOrderQty.toLocaleString()}
                         </TableCell>
                       </TableRow>
-                      <TableRow className="bg-orange-50">
-                        <TableCell className="font-semibold text-orange-700">Cut Qty</TableCell>
+                      <TableRow className="bg-primary/10">
+                        <TableCell className="font-semibold text-primary">Cut Qty</TableCell>
                         {sizesWithCutQty.map((s) => (
                           <TableCell key={s.sizeId} className="text-center p-1">
                             <Input
                               type="number"
                               min={0}
-                              className="w-16 h-7 text-center font-semibold text-orange-700 mx-auto"
+                              className="w-16 h-7 text-center font-semibold text-primary mx-auto"
                               value={s.cutQty}
                               onChange={(e) => {
                                 const val = parseInt(e.target.value) || 0;
@@ -483,7 +483,7 @@ export default function CuttingChart() {
                           </TableCell>
                         ))}
                         <TableCell
-                          className={`text-center font-bold ${exceedsMaxCuttable ? 'text-red-600' : 'text-orange-700'}`}
+                          className={`text-center font-bold ${exceedsMaxCuttable ? 'text-destructive' : 'text-primary'}`}
                         >
                           {totalCutQty.toLocaleString()}
                           {exceedsMaxCuttable && chartData && (
@@ -505,16 +505,14 @@ export default function CuttingChart() {
                 <CardTitle className="text-lg flex items-center justify-between">
                   <span>Fabric Stock Analysis</span>
                   <div className="flex items-center gap-4 text-sm font-normal">
-                    <span className="text-gray-500">
-                      Order: <strong className="text-gray-900">{chartData.totalOrderQty} pcs</strong>
+                    <span className="text-muted-foreground">
+                      Order: <strong className="text-foreground">{chartData.totalOrderQty} pcs</strong>
                     </span>
-                    <span className="text-gray-500">
-                      Pending: <strong className="text-gray-900">{chartData.pendingCutQty} pcs</strong>
+                    <span className="text-muted-foreground">
+                      Pending: <strong className="text-foreground">{chartData.pendingCutQty} pcs</strong>
                     </span>
                     <span
-                      className={
-                        chartData.maxCuttablePcs >= chartData.pendingCutQty ? 'text-green-700' : 'text-amber-700'
-                      }
+                      className={chartData.maxCuttablePcs >= chartData.pendingCutQty ? 'text-success' : 'text-warning'}
                     >
                       Max Cuttable: <strong>{chartData.maxCuttablePcs} pcs</strong>
                       {chartData.bottleneckFabric && chartData.maxCuttablePcs < chartData.pendingCutQty && (
@@ -548,15 +546,15 @@ export default function CuttingChart() {
                           {fa.cadSet ? (
                             fa.cadAverage.toFixed(2)
                           ) : (
-                            <span className="text-amber-600 text-xs">CAD not set</span>
+                            <span className="text-warning text-xs">CAD not set</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right">{fa.availableStock.toFixed(1)}</TableCell>
                         <TableCell
                           className={`text-right font-medium ${
                             fa.maxPcsFromStock !== null && fa.maxPcsFromStock < chartData.pendingCutQty
-                              ? 'text-red-600'
-                              : 'text-green-600'
+                              ? 'text-destructive'
+                              : 'text-success'
                           }`}
                         >
                           {fa.maxPcsFromStock !== null ? fa.maxPcsFromStock.toLocaleString() : '—'}
@@ -564,7 +562,7 @@ export default function CuttingChart() {
                         </TableCell>
                         <TableCell className="text-right">{fa.requiredForOrder.toFixed(1)}</TableCell>
                         <TableCell
-                          className={`text-right font-medium ${fa.shortfallMeters > 0 ? 'text-red-600' : 'text-green-600'}`}
+                          className={`text-right font-medium ${fa.shortfallMeters > 0 ? 'text-destructive' : 'text-success'}`}
                         >
                           {fa.shortfallMeters > 0 ? fa.shortfallMeters.toFixed(1) : '—'}
                         </TableCell>
@@ -578,9 +576,9 @@ export default function CuttingChart() {
 
           {/* No fabric issued warning */}
           {chartData.fabrics.length > 0 && chartData.fabrics.every((f) => f.lots.length === 0) && (
-            <Alert className="bg-blue-50 border-blue-200">
-              <AlertTriangle className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
+            <Alert className="bg-info-muted border-info/20">
+              <AlertTriangle className="h-4 w-4 text-info" />
+              <AlertDescription className="text-info">
                 No fabric has been issued to cutting for this work order. Please issue fabric from the{' '}
                 <strong>Production Run</strong> page first.
               </AlertDescription>
@@ -589,9 +587,9 @@ export default function CuttingChart() {
 
           {/* Fabric Stock Warning */}
           {(fabricsWithNoStock.length > 0 || fabricsWithShortage.length > 0) && (
-            <Alert className="bg-amber-50 border-amber-200">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
+            <Alert className="bg-warning-muted border-warning/20">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertDescription className="text-warning">
                 {fabricsWithNoStock.length > 0 && (
                   <span>
                     <strong>No fabric stock available</strong> for: {fabricsWithNoStock.map((f) => f.part).join(', ')}
@@ -604,9 +602,7 @@ export default function CuttingChart() {
                     {fabricsWithShortage.map((fd) => `${fd.part} (${fd.extraShortage.toFixed(1)}m)`).join(', ')}.{' '}
                   </span>
                 )}
-                <span className="text-amber-700">
-                  Ensure fabric is available via stock entry or GRN before cutting.
-                </span>
+                <span className="text-warning">Ensure fabric is available via stock entry or GRN before cutting.</span>
               </AlertDescription>
             </Alert>
           )}
@@ -640,7 +636,7 @@ export default function CuttingChart() {
                         <TableCell className="text-right">{fd.fabricReceived.toFixed(1)}</TableCell>
                         <TableCell className="text-right">{fd.cutableQty.toFixed(1)}</TableCell>
                         <TableCell
-                          className={`text-right font-medium ${fd.extraShortage >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                          className={`text-right font-medium ${fd.extraShortage >= 0 ? 'text-success' : 'text-destructive'}`}
                         >
                           {fd.extraShortage >= 0 ? '+' : ''}
                           {fd.extraShortage.toFixed(1)}
@@ -733,7 +729,7 @@ export default function CuttingChart() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Lot Details</CardTitle>
-                <p className="text-sm text-gray-500">Select fabric lots to use for this cutting batch</p>
+                <p className="text-sm text-muted-foreground">Select fabric lots to use for this cutting batch</p>
               </CardHeader>
               <CardContent>
                 {chartData.fabrics
@@ -744,7 +740,7 @@ export default function CuttingChart() {
                       <div key={fIdx} className={fIdx > 0 ? 'mt-6' : ''}>
                         {chartData.fabrics.filter((f) => f.lots.length > 0).length > 1 && (
                           <>
-                            <p className="text-sm font-semibold text-gray-700 mb-2">
+                            <p className="text-sm font-semibold text-foreground mb-2">
                               {fabric.part} — {fabric.fabricName}
                             </p>
                             <Separator className="mb-3" />
@@ -767,7 +763,7 @@ export default function CuttingChart() {
                               return (
                                 <TableRow
                                   key={lot.lotId}
-                                  className={`cursor-pointer ${isSelected ? 'bg-orange-50' : ''}`}
+                                  className={`cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
                                   onClick={() =>
                                     setSelectedLots((prev) => {
                                       const current = prev[fabricKey] || [];
@@ -808,21 +804,21 @@ export default function CuttingChart() {
           {chartData.existingBatches.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg text-gray-600">Existing Batches</CardTitle>
+                <CardTitle className="text-lg text-muted-foreground">Existing Batches</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-3">
                   {chartData.existingBatches.map((b) => (
                     <div
                       key={b.id}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer hover:bg-gray-50"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer hover:bg-muted"
                       onClick={() => navigate(`/manufacturing/cutting/${b.id}`)}
                     >
                       <span className="font-medium text-sm">{b.batchNumber}</span>
                       <Badge variant={b.status === 'COMPLETED' ? 'default' : 'secondary'} className="text-xs">
                         {b.status}
                       </Badge>
-                      <span className="text-sm text-gray-500">{b.totalCut} pcs</span>
+                      <span className="text-sm text-muted-foreground">{b.totalCut} pcs</span>
                     </div>
                   ))}
                 </div>

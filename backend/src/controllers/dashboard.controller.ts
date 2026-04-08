@@ -58,7 +58,7 @@ export const getDashboardSummary = async (req: Request, res: Response): Promise<
         where: {
           requirementType: 'MATERIAL',
           status: { in: ['PENDING', 'PO_REQUIRED'] },
-          materials: { materialType: { in: ['GREIGE_FABRIC', 'GREIGE', 'FABRIC'] } },
+          materials: { materialType: { in: ['GREIGE', 'FABRIC'] } },
           orders: activeOrderFilter,
         },
         select: { orderId: true, totalRequired: true },
@@ -69,7 +69,7 @@ export const getDashboardSummary = async (req: Request, res: Response): Promise<
         where: {
           requirementType: 'MATERIAL',
           status: { in: ['PENDING', 'PO_REQUIRED'] },
-          materials: { materialType: { notIn: ['GREIGE_FABRIC', 'GREIGE', 'FABRIC', 'FINISHED_FABRIC', 'SERVICE'] } },
+          materials: { materialType: { notIn: ['GREIGE', 'FABRIC', 'SERVICE'] } },
           orders: activeOrderFilter,
         },
         select: { orderId: true, totalRequired: true },
@@ -287,7 +287,7 @@ export const getStylesByStage = async (req: Request, res: Response): Promise<voi
           where: {
             requirementType: 'MATERIAL',
             status: { in: ['PENDING', 'PO_REQUIRED'] },
-            materials: { materialType: { in: ['GREIGE_FABRIC', 'GREIGE', 'FABRIC'] } },
+            materials: { materialType: { in: ['GREIGE', 'FABRIC'] } },
             orders: activeOrderFilter,
           },
           include: { orders: { include: { order_items: { include: { styles: { include: styleInclude } } } } } },
@@ -306,7 +306,7 @@ export const getStylesByStage = async (req: Request, res: Response): Promise<voi
           where: {
             requirementType: 'MATERIAL',
             status: { in: ['PENDING', 'PO_REQUIRED'] },
-            materials: { materialType: { notIn: ['GREIGE_FABRIC', 'GREIGE', 'FABRIC', 'FINISHED_FABRIC', 'SERVICE'] } },
+            materials: { materialType: { notIn: ['GREIGE', 'FABRIC', 'SERVICE'] } },
             orders: activeOrderFilter,
           },
           include: { orders: { include: { order_items: { include: { styles: { include: styleInclude } } } } } },

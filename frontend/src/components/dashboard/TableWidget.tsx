@@ -84,14 +84,14 @@ export function TableWidget<T extends Record<string, unknown>>({
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
           <CardTitle className="text-lg">{title}</CardTitle>
-          {description && <p className="text-sm text-gray-500">{description}</p>}
+          {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
         {viewAllPath && data.length > 0 && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate(viewAllPath)}
-            className="text-indigo-600 hover:text-indigo-700"
+            className="text-primary hover:text-primary"
           >
             {viewAllLabel}
             <ArrowRight className="h-4 w-4 ml-1" />
@@ -101,10 +101,10 @@ export function TableWidget<T extends Record<string, unknown>>({
       <CardContent>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : displayData.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">{emptyMessage}</div>
+          <div className="text-center py-8 text-muted-foreground">{emptyMessage}</div>
         ) : (
           <Table>
             <TableHeader>
@@ -120,7 +120,7 @@ export function TableWidget<T extends Record<string, unknown>>({
               {displayData.map((row, index) => (
                 <TableRow
                   key={index}
-                  className={onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''}
+                  className={onRowClick ? 'cursor-pointer hover:bg-muted' : ''}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((column) => (
@@ -134,7 +134,7 @@ export function TableWidget<T extends Record<string, unknown>>({
           </Table>
         )}
         {data.length > maxRows && (
-          <p className="text-sm text-gray-500 mt-2 text-center">
+          <p className="text-sm text-muted-foreground mt-2 text-center">
             Showing {maxRows} of {data.length} items
           </p>
         )}

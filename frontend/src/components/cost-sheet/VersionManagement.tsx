@@ -57,10 +57,10 @@ export default function VersionManagement({
   };
 
   const getVarianceColor = (variance: number | null) => {
-    if (!variance) return 'text-gray-600';
-    if (Math.abs(variance) < 2) return 'text-gray-600';
-    if (variance > 0) return 'text-red-600';
-    return 'text-green-600';
+    if (!variance) return 'text-muted-foreground';
+    if (Math.abs(variance) < 2) return 'text-muted-foreground';
+    if (variance > 0) return 'text-destructive';
+    return 'text-success';
   };
 
   const getVarianceIcon = (variance: number | null) => {
@@ -78,16 +78,16 @@ export default function VersionManagement({
   };
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg ${className}`}>
+    <div className={`bg-card border border-border rounded-lg ${className}`}>
       {/* Current Version Header */}
-      <div className="px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+      <div className="px-6 py-4 border-b bg-gradient-to-r from-info-muted to-primary/5">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-semibold text-gray-900">Version {currentVersion.version}</h3>
+                <h3 className="text-lg font-semibold text-foreground">Version {currentVersion.version}</h3>
                 {currentVersion.isApproved && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-muted text-success border border-success/20">
                     <svg className="h-3 w-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
@@ -111,7 +111,7 @@ export default function VersionManagement({
                   </span>
                 )}
               </div>
-              <div className="text-sm text-gray-600 mt-1">
+              <div className="text-sm text-muted-foreground mt-1">
                 {formatDate(currentVersion.versionDate)} by {currentVersion.createdBy.name}
               </div>
             </div>
@@ -123,20 +123,20 @@ export default function VersionManagement({
                   {getVarianceIcon(currentVersion.costVariancePercent)}
                   {Math.abs(currentVersion.costVariancePercent).toFixed(2)}%
                 </div>
-                <div className="text-sm text-gray-600">vs previous version</div>
+                <div className="text-sm text-muted-foreground">vs previous version</div>
               </div>
             )}
           </div>
 
           <div className="flex items-center space-x-3">
             <div className="text-right">
-              <div className="text-sm text-gray-600">Total Cost</div>
-              <div className="text-2xl font-bold text-gray-900">{formatCurrency(currentVersion.totalCost)}</div>
+              <div className="text-sm text-muted-foreground">Total Cost</div>
+              <div className="text-2xl font-bold text-foreground">{formatCurrency(currentVersion.totalCost)}</div>
             </div>
             {onCreateNewVersion && !currentVersion.lockedForOrders && (
               <button
                 onClick={onCreateNewVersion}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-info hover:bg-info"
               >
                 <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -149,9 +149,9 @@ export default function VersionManagement({
 
         {/* Version Reason */}
         {currentVersion.versionReason && (
-          <div className="mt-3 bg-white bg-opacity-70 rounded p-3 border border-blue-200">
-            <div className="text-xs font-medium text-gray-700 mb-1">Version Notes:</div>
-            <div className="text-sm text-gray-900">{currentVersion.versionReason}</div>
+          <div className="mt-3 bg-card bg-opacity-70 rounded p-3 border border-info/20">
+            <div className="text-xs font-medium text-foreground mb-1">Version Notes:</div>
+            <div className="text-sm text-foreground">{currentVersion.versionReason}</div>
           </div>
         )}
       </div>
@@ -161,56 +161,56 @@ export default function VersionManagement({
         <div className="border-b">
           <button
             onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
-            className="w-full px-6 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            className="w-full px-6 py-3 flex items-center justify-between hover:bg-muted transition-colors"
           >
             <div className="flex items-center space-x-2">
               <svg
-                className={`h-5 w-5 text-gray-500 transition-transform ${isHistoryExpanded ? 'rotate-90' : ''}`}
+                className={`h-5 w-5 text-muted-foreground transition-transform ${isHistoryExpanded ? 'rotate-90' : ''}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium text-foreground">
                 Version History ({sortedVersions.length} versions)
               </span>
             </div>
-            <span className="text-sm text-gray-600">{isHistoryExpanded ? 'Hide' : 'Show'}</span>
+            <span className="text-sm text-muted-foreground">{isHistoryExpanded ? 'Hide' : 'Show'}</span>
           </button>
 
           {/* Version History List */}
           {isHistoryExpanded && (
-            <div className="px-6 py-4 bg-gray-50">
+            <div className="px-6 py-4 bg-muted">
               <div className="space-y-3">
                 {sortedVersions.map((version) => (
                   <div
                     key={version.id}
-                    className={`bg-white border rounded-lg p-4 ${
+                    className={`bg-card border rounded-lg p-4 ${
                       version.id === currentVersion.id
-                        ? 'border-blue-500 ring-2 ring-blue-100'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-info ring-2 ring-blue-100'
+                        : 'border-border hover:border-border'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-gray-900">Version {version.version}</span>
+                          <span className="font-semibold text-foreground">Version {version.version}</span>
                           {version.id === currentVersion.id && (
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Current</span>
+                            <span className="text-xs bg-info-muted text-info px-2 py-0.5 rounded">Current</span>
                           )}
                           {version.isApproved && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Approved</span>
+                            <span className="text-xs bg-success-muted text-success px-2 py-0.5 rounded">Approved</span>
                           )}
                           {version.lockedForOrders && (
                             <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">Locked</span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-600 mt-1">
+                        <div className="text-xs text-muted-foreground mt-1">
                           {formatDate(version.versionDate)} by {version.createdBy.name}
                         </div>
                         {version.versionReason && (
-                          <div className="text-sm text-gray-700 mt-2 italic">{version.versionReason}</div>
+                          <div className="text-sm text-foreground mt-2 italic">{version.versionReason}</div>
                         )}
                       </div>
 
@@ -222,7 +222,9 @@ export default function VersionManagement({
                           </div>
                         )}
                         <div className="text-right">
-                          <div className="text-sm font-semibold text-gray-900">{formatCurrency(version.totalCost)}</div>
+                          <div className="text-sm font-semibold text-foreground">
+                            {formatCurrency(version.totalCost)}
+                          </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           {version.id !== currentVersion.id && (
@@ -230,7 +232,7 @@ export default function VersionManagement({
                               {onSelectVersion && (
                                 <button
                                   onClick={() => onSelectVersion(version.id)}
-                                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                  className="text-xs text-info hover:text-info underline"
                                 >
                                   View
                                 </button>
@@ -241,9 +243,9 @@ export default function VersionManagement({
                                   name="compareVersion"
                                   checked={compareVersionId === version.id}
                                   onChange={() => setCompareVersionId(version.id)}
-                                  className="h-4 w-4 text-blue-600 border-gray-300"
+                                  className="h-4 w-4 text-info border-border"
                                 />
-                                <span className="ml-1 text-xs text-gray-600">Compare</span>
+                                <span className="ml-1 text-xs text-muted-foreground">Compare</span>
                               </label>
                             </>
                           )}
@@ -259,7 +261,7 @@ export default function VersionManagement({
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={handleCompare}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary"
                   >
                     <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path
@@ -281,16 +283,16 @@ export default function VersionManagement({
       {/* Quick Stats */}
       <div className="px-6 py-4 grid grid-cols-3 gap-4">
         <div className="text-center">
-          <div className="text-sm text-gray-600">Total Versions</div>
-          <div className="text-2xl font-bold text-gray-900">{sortedVersions.length}</div>
+          <div className="text-sm text-muted-foreground">Total Versions</div>
+          <div className="text-2xl font-bold text-foreground">{sortedVersions.length}</div>
         </div>
         <div className="text-center">
-          <div className="text-sm text-gray-600">Approved</div>
-          <div className="text-2xl font-bold text-green-600">{sortedVersions.filter((v) => v.isApproved).length}</div>
+          <div className="text-sm text-muted-foreground">Approved</div>
+          <div className="text-2xl font-bold text-success">{sortedVersions.filter((v) => v.isApproved).length}</div>
         </div>
         <div className="text-center">
-          <div className="text-sm text-gray-600">Locked</div>
-          <div className="text-2xl font-bold text-orange-600">
+          <div className="text-sm text-muted-foreground">Locked</div>
+          <div className="text-2xl font-bold text-primary">
             {sortedVersions.filter((v) => v.lockedForOrders).length}
           </div>
         </div>

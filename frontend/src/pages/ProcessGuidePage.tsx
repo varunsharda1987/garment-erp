@@ -75,7 +75,7 @@ export default function ProcessGuidePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-muted py-8">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <ProcessGuideHeader
@@ -107,7 +107,7 @@ export default function ProcessGuidePage() {
                     <div className={`bg-gradient-to-r ${categoryInfo.gradientFrom} ${categoryInfo.gradientTo} p-8`}>
                       <div className="flex items-center gap-6">
                         {/* Larger badge with white border and backdrop effect */}
-                        <div className="w-20 h-20 rounded-2xl bg-white bg-opacity-20 backdrop-blur-sm border-4 border-white flex items-center justify-center text-white font-extrabold text-3xl shadow-lg">
+                        <div className="w-20 h-20 rounded-2xl bg-card bg-opacity-20 backdrop-blur-sm border-4 border-white flex items-center justify-center text-white font-extrabold text-3xl shadow-lg">
                           {stages.length}
                         </div>
                         <div className="flex-1">
@@ -147,20 +147,20 @@ export default function ProcessGuidePage() {
         {/* No Results */}
         {filteredStages.length === 0 && (
           <div className="mt-12 text-center py-12">
-            <p className="text-gray-500 text-lg">No stages found matching your search criteria.</p>
-            <p className="text-gray-400 text-sm mt-2">Try adjusting your search or filter settings.</p>
+            <p className="text-muted-foreground text-lg">No stages found matching your search criteria.</p>
+            <p className="text-muted-foreground text-sm mt-2">Try adjusting your search or filter settings.</p>
           </div>
         )}
 
         {/* Footer */}
-        <div className="my-12 border-t border-gray-200" />
+        <div className="my-12 border-t border-border" />
         <div className="text-center pb-8">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Complete Process Guide - {processStages.length} Stages from Style Creation to Dispatch
           </p>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-muted-foreground mt-2">
             For detailed documentation, refer to{' '}
-            <code className="bg-gray-100 px-2 py-1 rounded text-gray-600">docs/PRODUCT_FLOW_GUIDE.md</code>
+            <code className="bg-muted px-2 py-1 rounded text-muted-foreground">docs/PRODUCT_FLOW_GUIDE.md</code>
           </p>
         </div>
       </div>

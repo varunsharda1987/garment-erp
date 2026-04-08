@@ -25,8 +25,8 @@ export function ProcessesTab({ onPrevious, onNext }: ProcessesTabProps) {
     <div className="space-y-6">
       <Card className="p-6">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold">Production Processes</h2>
-          <p className="text-sm text-gray-600 mt-1">
+          <h2 className="text-xl font-display font-semibold">Production Processes</h2>
+          <p className="text-sm text-muted-foreground mt-1">
             Cutting, Stitching, Finishing, and Transportation are pre-selected
           </p>
         </div>
@@ -37,7 +37,7 @@ export function ProcessesTab({ onPrevious, onNext }: ProcessesTabProps) {
               key={process.processType}
               className={cn(
                 'p-4 border rounded-lg transition-all',
-                process.isRequired ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
+                process.isRequired ? 'border-info/30 bg-info-muted' : 'border-border'
               )}
             >
               <div className="flex items-start gap-3">

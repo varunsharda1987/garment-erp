@@ -71,20 +71,20 @@ export default function ProductionDashboard() {
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : new Date();
 
   const pipelineStages: PipelineStage[] = [
-    { name: 'Cutting', count: stats.cuttingQueue, icon: Scissors, color: 'bg-blue-500' },
-    { name: 'Stitching', count: stats.stitchingActive, icon: Factory, color: 'bg-yellow-500' },
-    { name: 'Finishing', count: stats.finishingActive, icon: CheckSquare, color: 'bg-green-500' },
-    { name: 'Dispatch', count: stats.todayDispatchTarget, icon: Send, color: 'bg-purple-500' },
+    { name: 'Cutting', count: stats.cuttingQueue, icon: Scissors, color: 'bg-info-muted0' },
+    { name: 'Stitching', count: stats.stitchingActive, icon: Factory, color: 'bg-warning-muted0' },
+    { name: 'Finishing', count: stats.finishingActive, icon: CheckSquare, color: 'bg-success-muted0' },
+    { name: 'Dispatch', count: stats.todayDispatchTarget, icon: Send, color: 'bg-accent/100' },
   ];
 
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      PENDING: 'bg-gray-100 text-gray-800',
-      IN_PRODUCTION: 'bg-blue-100 text-blue-800',
-      COMPLETED: 'bg-green-100 text-green-800',
+      PENDING: 'bg-muted text-foreground',
+      IN_PRODUCTION: 'bg-info-muted text-info',
+      COMPLETED: 'bg-success-muted text-success',
       ON_HOLD: 'bg-yellow-100 text-yellow-800',
     };
-    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>{status.replace('_', ' ')}</Badge>;
+    return <Badge className={colors[status] || 'bg-muted text-foreground'}>{status.replace('_', ' ')}</Badge>;
   };
 
   return (
@@ -101,16 +101,16 @@ export default function ProductionDashboard() {
           title="Orders in Production"
           value={stats.ordersInProduction}
           icon={ClipboardList}
-          iconColor="text-blue-600"
-          iconBgColor="bg-blue-100"
+          iconColor="text-info"
+          iconBgColor="bg-info-muted"
           onClick={() => navigate('/production/work-orders?status=IN_PRODUCTION')}
         />
         <StatCard
           title="Today's Dispatch Target"
           value={stats.todayDispatchTarget}
           icon={Send}
-          iconColor="text-purple-600"
-          iconBgColor="bg-purple-100"
+          iconColor="text-accent"
+          iconBgColor="bg-accent/10"
           onClick={() => navigate('/manufacturing/dispatch')}
         />
         <StatCard
@@ -118,16 +118,16 @@ export default function ProductionDashboard() {
           value="87%"
           description="Target vs Actual"
           icon={TrendingUp}
-          iconColor="text-green-600"
-          iconBgColor="bg-green-100"
+          iconColor="text-success"
+          iconBgColor="bg-success-muted"
           trend={{ value: 5, direction: 'up', label: 'vs last week' }}
         />
         <StatCard
           title="Overdue Orders"
           value={stats.overdueOrders}
           icon={AlertTriangle}
-          iconColor={stats.overdueOrders > 0 ? 'text-red-600' : 'text-gray-600'}
-          iconBgColor={stats.overdueOrders > 0 ? 'bg-red-100' : 'bg-gray-100'}
+          iconColor={stats.overdueOrders > 0 ? 'text-destructive' : 'text-muted-foreground'}
+          iconBgColor={stats.overdueOrders > 0 ? 'bg-destructive/10' : 'bg-muted'}
           onClick={() => navigate('/production/work-orders?overdue=true')}
         />
       </div>
@@ -141,9 +141,9 @@ export default function ProductionDashboard() {
                 <div className={`p-4 rounded-full ${stage.color} text-white mb-2`}>
                   <stage.icon className="h-6 w-6" />
                 </div>
-                <span className="font-medium text-gray-900">{stage.name}</span>
-                <span className="text-2xl font-bold text-gray-900">{stage.count}</span>
-                <span className="text-sm text-gray-500">orders</span>
+                <span className="font-medium text-foreground">{stage.name}</span>
+                <span className="text-2xl font-bold text-foreground">{stage.count}</span>
+                <span className="text-sm text-muted-foreground">orders</span>
               </div>
               {index < pipelineStages.length - 1 && (
                 <div className="absolute top-8 left-[60%] w-[80%] h-0.5 bg-gray-200" />
@@ -190,7 +190,7 @@ export default function ProductionDashboard() {
               const date = new Date(value as string);
               const isOverdue = date < new Date();
               return (
-                <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
+                <span className={isOverdue ? 'text-destructive font-medium' : ''}>
                   <Clock className="h-4 w-4 inline mr-1" />
                   {date.toLocaleDateString()}
                 </span>

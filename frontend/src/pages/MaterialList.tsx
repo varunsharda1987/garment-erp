@@ -119,22 +119,24 @@ export default function MaterialList() {
     {
       key: 'code',
       header: 'Code',
-      render: (material) => <div className="text-sm font-medium text-gray-900">{material.code}</div>,
+      render: (material) => <div className="text-sm font-medium text-foreground">{material.code}</div>,
     },
     {
       key: 'name',
       header: 'Material Name',
       render: (material) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{material.name}</div>
-          {material.description && <div className="text-xs text-gray-500 line-clamp-1">{material.description}</div>}
+          <div className="text-sm font-medium text-foreground">{material.name}</div>
+          {material.description && (
+            <div className="text-xs text-muted-foreground line-clamp-1">{material.description}</div>
+          )}
         </div>
       ),
     },
     {
       key: 'category',
       header: 'Category',
-      render: (material) => <div className="text-sm text-gray-700">{material.category?.name || '-'}</div>,
+      render: (material) => <div className="text-sm text-foreground">{material.category?.name || '-'}</div>,
     },
     {
       key: 'materialType',
@@ -144,13 +146,13 @@ export default function MaterialList() {
     {
       key: 'customer',
       header: 'Customer',
-      render: (material) => <div className="text-sm text-gray-700">{material.customer?.name || '-'}</div>,
+      render: (material) => <div className="text-sm text-foreground">{material.customer?.name || '-'}</div>,
     },
     {
       key: 'supplier',
       header: 'Preferred Supplier',
       render: (material) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {material.supplier && material.supplier.length > 0 ? material.supplier[0].supplier.name : '-'}
         </div>
       ),
@@ -158,7 +160,7 @@ export default function MaterialList() {
     {
       key: 'unit',
       header: 'Unit',
-      render: (material) => <div className="text-sm text-gray-700">{UnitLabels[material.unit]}</div>,
+      render: (material) => <div className="text-sm text-foreground">{UnitLabels[material.unit]}</div>,
     },
     {
       key: 'actions',

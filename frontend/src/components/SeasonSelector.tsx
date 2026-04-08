@@ -113,14 +113,14 @@ export default function SeasonSelector({
   return (
     <div className={className}>
       {showLabel && label && (
-        <Label className="block text-sm font-medium text-gray-700 mb-1.5">
+        <Label className="block text-sm font-medium text-foreground mb-1.5">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-destructive ml-1">*</span>}
         </Label>
       )}
 
       <Select value={value || undefined} onValueChange={handleValueChange} disabled={disabled || loading}>
-        <SelectTrigger className={`w-full ${error ? 'border-red-500' : ''}`}>
+        <SelectTrigger className={`w-full ${error ? 'border-destructive' : ''}`}>
           <SelectValue placeholder={placeholder}>
             {selectedSeason ? (
               <span className="flex items-center gap-2">
@@ -149,16 +149,16 @@ export default function SeasonSelector({
           </div>
 
           {loading && (
-            <div className="p-4 text-center text-gray-500">
+            <div className="p-4 text-center text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
               Loading seasons...
             </div>
           )}
 
-          {loadError && <div className="p-4 text-center text-red-500">{loadError}</div>}
+          {loadError && <div className="p-4 text-center text-destructive">{loadError}</div>}
 
           {!loading && !loadError && filteredSeasons.length === 0 && (
-            <div className="p-4 text-center text-gray-500">
+            <div className="p-4 text-center text-muted-foreground">
               {searchTerm ? 'No seasons found' : 'No seasons available'}
             </div>
           )}
@@ -180,7 +180,7 @@ export default function SeasonSelector({
                 <SelectItem key={season.id} value={season.id}>
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                      season.seasonType === 'SS' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
+                      season.seasonType === 'SS' ? 'bg-yellow-100 text-yellow-800' : 'bg-info-muted text-info'
                     }`}
                   >
                     {season.code}
@@ -192,7 +192,7 @@ export default function SeasonSelector({
         </SelectContent>
       </Select>
 
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
     </div>
   );
 }
@@ -239,14 +239,14 @@ export function SeasonSelectorSimple({
   return (
     <div className={className}>
       {showLabel && label && (
-        <Label className="block text-sm font-medium text-gray-700 mb-1.5">
+        <Label className="block text-sm font-medium text-foreground mb-1.5">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-destructive ml-1">*</span>}
         </Label>
       )}
 
       <Select value={value || undefined} onValueChange={handleValueChange} disabled={disabled || loading}>
-        <SelectTrigger className={`w-full ${error ? 'border-red-500' : ''}`}>
+        <SelectTrigger className={`w-full ${error ? 'border-destructive' : ''}`}>
           <SelectValue placeholder={loading ? 'Loading...' : placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -261,7 +261,7 @@ export function SeasonSelectorSimple({
         </SelectContent>
       </Select>
 
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
     </div>
   );
 }

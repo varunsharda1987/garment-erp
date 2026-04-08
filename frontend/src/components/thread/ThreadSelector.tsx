@@ -124,7 +124,7 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
       </div>
 
       <Select value={value || undefined} onValueChange={handleValueChange} disabled={disabled || loading}>
-        <SelectTrigger id="thread-select" className={error ? 'border-red-500' : ''}>
+        <SelectTrigger id="thread-select" className={error ? 'border-destructive' : ''}>
           <SelectValue placeholder={loading ? 'Loading threads...' : placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -135,7 +135,7 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
                 <div className="flex items-center gap-2">
                   {thread.colorCode && (
                     <div
-                      className="w-3 h-3 rounded-full border border-gray-300"
+                      className="w-3 h-3 rounded-full border border-border"
                       style={{ backgroundColor: thread.colorCode }}
                     />
                   )}
@@ -152,7 +152,7 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
         </SelectContent>
       </Select>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       {helperText && !error && <p className="text-sm text-muted-foreground">{helperText}</p>}
 
       {/* Selected thread display */}

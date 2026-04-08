@@ -158,11 +158,11 @@ export default function InvoiceList() {
               e.stopPropagation();
               navigate(`/invoices/${invoice.id}`);
             }}
-            className="text-sm font-medium text-blue-600 hover:underline"
+            className="text-sm font-medium text-info hover:underline"
           >
             {invoice.invoiceNumber}
           </button>
-          <div className="text-xs text-gray-500 mt-0.5">{formatDate(invoice.invoiceDate)}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{formatDate(invoice.invoiceDate)}</div>
         </div>
       ),
     },
@@ -171,17 +171,17 @@ export default function InvoiceList() {
       header: 'Customer',
       render: (invoice) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-sm font-medium text-foreground">
             {invoice.customer?.billingName || invoice.customer?.name || 'N/A'}
           </div>
-          <div className="text-xs text-gray-500">{invoice.customer?.code}</div>
+          <div className="text-xs text-muted-foreground">{invoice.customer?.code}</div>
         </div>
       ),
     },
     {
       key: 'order',
       header: 'Order',
-      render: (invoice) => <div className="text-sm text-gray-700">{invoice.orders?.orderNumber || 'N/A'}</div>,
+      render: (invoice) => <div className="text-sm text-foreground">{invoice.orders?.orderNumber || 'N/A'}</div>,
     },
     {
       key: 'dueDate',
@@ -189,7 +189,7 @@ export default function InvoiceList() {
       render: (invoice) => {
         const isOverdue = new Date(invoice.dueDate) < new Date() && invoice.status !== 'PAID';
         return (
-          <div className={`text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+          <div className={`text-sm ${isOverdue ? 'text-destructive font-medium' : 'text-foreground'}`}>
             {formatDate(invoice.dueDate)}
           </div>
         );
@@ -199,19 +199,19 @@ export default function InvoiceList() {
       key: 'totalAmount',
       header: 'Total',
       render: (invoice) => (
-        <div className="text-sm font-medium text-gray-900">{formatCurrency(invoice.totalAmount)}</div>
+        <div className="text-sm font-medium text-foreground">{formatCurrency(invoice.totalAmount)}</div>
       ),
     },
     {
       key: 'paidAmount',
       header: 'Paid',
-      render: (invoice) => <div className="text-sm text-gray-700">{formatCurrency(invoice.paidAmount)}</div>,
+      render: (invoice) => <div className="text-sm text-foreground">{formatCurrency(invoice.paidAmount)}</div>,
     },
     {
       key: 'balanceAmount',
       header: 'Balance',
       render: (invoice) => (
-        <div className={`text-sm font-medium ${invoice.balanceAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+        <div className={`text-sm font-medium ${invoice.balanceAmount > 0 ? 'text-primary' : 'text-success'}`}>
           {formatCurrency(invoice.balanceAmount)}
         </div>
       ),
@@ -248,7 +248,7 @@ export default function InvoiceList() {
                 e.stopPropagation();
                 handleDeleteClick(invoice.id, invoice.invoiceNumber);
               }}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               Delete
             </Button>
@@ -263,12 +263,12 @@ export default function InvoiceList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <FileText className="h-6 w-6 text-blue-600" />
+          <div className="p-2 bg-info-muted rounded-lg">
+            <FileText className="h-6 w-6 text-info" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
-            <p className="text-sm text-gray-500">Manage customer invoices and payments</p>
+            <h1 className="text-2xl font-display font-medium text-foreground">Invoices</h1>
+            <p className="text-sm text-muted-foreground">Manage customer invoices and payments</p>
           </div>
         </div>
         <Button onClick={() => navigate('/invoices/new')} className="gap-2">
@@ -282,36 +282,36 @@ export default function InvoiceList() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Invoices</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Invoices</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.total}</div>
-              <p className="text-xs text-gray-500 mt-1">{formatCurrency(summary.totalAmount)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{formatCurrency(summary.totalAmount)}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Pending</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{summary.pending}</div>
+              <div className="text-2xl font-bold text-warning">{summary.pending}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Overdue</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Overdue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{summary.overdue}</div>
+              <div className="text-2xl font-bold text-destructive">{summary.overdue}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Outstanding</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Outstanding</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{formatCurrency(summary.balanceAmount)}</div>
-              <p className="text-xs text-gray-500 mt-1">Paid: {formatCurrency(summary.paidAmount)}</p>
+              <div className="text-2xl font-bold text-primary">{formatCurrency(summary.balanceAmount)}</div>
+              <p className="text-xs text-muted-foreground mt-1">Paid: {formatCurrency(summary.paidAmount)}</p>
             </CardContent>
           </Card>
         </div>

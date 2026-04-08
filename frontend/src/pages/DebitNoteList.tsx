@@ -286,11 +286,11 @@ export default function DebitNoteList() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-orange-100 rounded-lg">
-            <FileText className="h-6 w-6 text-orange-600" />
+            <FileText className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Debit Notes</h1>
-            <p className="text-sm text-gray-500">Manage supplier debit notes</p>
+            <h1 className="text-2xl font-display font-medium text-foreground">Debit Notes</h1>
+            <p className="text-sm text-muted-foreground">Manage supplier debit notes</p>
           </div>
         </div>
         <Button
@@ -310,7 +310,7 @@ export default function DebitNoteList() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by debit note # or supplier..."
                 value={search}
@@ -359,13 +359,13 @@ export default function DebitNoteList() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-10 text-gray-500">
+                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : debitNotes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-10 text-gray-500">
+                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
                     No debit notes found.
                   </TableCell>
                 </TableRow>
@@ -376,7 +376,7 @@ export default function DebitNoteList() {
                     <TableCell>
                       <div>
                         <div className="text-sm font-medium">{dn.supplier?.name ?? '-'}</div>
-                        {dn.supplier?.code && <div className="text-xs text-gray-500">{dn.supplier.code}</div>}
+                        {dn.supplier?.code && <div className="text-xs text-muted-foreground">{dn.supplier.code}</div>}
                       </div>
                     </TableCell>
                     <TableCell>{dn.purchaseOrder?.poNumber ?? '-'}</TableCell>
@@ -395,7 +395,7 @@ export default function DebitNoteList() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50 gap-1"
+                              className="text-success hover:text-success hover:bg-success-muted gap-1"
                               onClick={() => setApproveTarget({ id: dn.id, number: dn.debitNoteNumber })}
                             >
                               <CheckCircle2 className="h-4 w-4" />
@@ -404,7 +404,7 @@ export default function DebitNoteList() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 gap-1"
+                              className="text-warning hover:text-yellow-700 hover:bg-warning-muted gap-1"
                               onClick={() => setCancelTarget({ id: dn.id, number: dn.debitNoteNumber })}
                             >
                               <XCircle className="h-4 w-4" />
@@ -413,7 +413,7 @@ export default function DebitNoteList() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-1"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
                               onClick={() => setDeleteTarget({ id: dn.id, number: dn.debitNoteNumber })}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -431,7 +431,7 @@ export default function DebitNoteList() {
           {/* Pagination */}
           {pagination.totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Showing {(page - 1) * limit + 1}
                 {' - '}
                 {Math.min(page * limit, pagination.total)} of {pagination.total}
@@ -531,7 +531,7 @@ export default function DebitNoteList() {
                 </div>
               ) : (
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search supplier by name or code..."
                     value={supplierSearch}
@@ -543,12 +543,12 @@ export default function DebitNoteList() {
                     className="pl-9"
                   />
                   {supplierDropdownOpen && supplierOptions.length > 0 && (
-                    <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-50 mt-1 w-full bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {supplierOptions.map((s) => (
                         <button
                           key={s.id}
                           type="button"
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex justify-between"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex justify-between"
                           onClick={() => {
                             setSelectedSupplier(s);
                             setSupplierSearch('');
@@ -556,7 +556,7 @@ export default function DebitNoteList() {
                           }}
                         >
                           <span className="font-medium">{s.name}</span>
-                          <span className="text-gray-500">{s.code}</span>
+                          <span className="text-muted-foreground">{s.code}</span>
                         </button>
                       ))}
                     </div>
@@ -669,7 +669,7 @@ export default function DebitNoteList() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => removeLineItem(li.key)}
                             disabled={lineItems.length <= 1}
                           >
@@ -684,7 +684,7 @@ export default function DebitNoteList() {
 
               {/* Line total */}
               <div className="flex justify-end">
-                <div className="text-sm font-medium text-gray-700">Subtotal: {formatCurrency(lineTotal)}</div>
+                <div className="text-sm font-medium text-foreground">Subtotal: {formatCurrency(lineTotal)}</div>
               </div>
             </div>
 

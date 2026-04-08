@@ -142,12 +142,12 @@ export default function QuotationDetail() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <FileText className="h-6 w-6 text-purple-600" />
+            <div className="p-2 bg-accent/10 rounded-lg">
+              <FileText className="h-6 w-6 text-accent" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{quotation.quotationNumber}</h1>
-              <p className="text-sm text-gray-500">Quotation Details</p>
+              <h1 className="text-2xl font-display font-medium text-foreground">{quotation.quotationNumber}</h1>
+              <p className="text-sm text-muted-foreground">Quotation Details</p>
             </div>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function QuotationDetail() {
                   setStatusDialogOpen(true);
                 }}
                 variant="outline"
-                className="gap-2 border-green-600 text-green-600 hover:bg-green-50"
+                className="gap-2 border-success text-success hover:bg-success-muted"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 Accept
@@ -192,7 +192,7 @@ export default function QuotationDetail() {
                   setStatusDialogOpen(true);
                 }}
                 variant="outline"
-                className="gap-2 border-red-600 text-red-600 hover:bg-red-50"
+                className="gap-2 border-destructive text-destructive hover:bg-destructive/10"
               >
                 <XCircle className="h-4 w-4" />
                 Reject
@@ -218,7 +218,7 @@ export default function QuotationDetail() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Status</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
           </CardHeader>
           <CardContent>
             <StatusBadge
@@ -229,7 +229,7 @@ export default function QuotationDetail() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Amount</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Amount</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold">
@@ -239,7 +239,7 @@ export default function QuotationDetail() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Items</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Items</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold">{quotation.items?.length || 0}</div>
@@ -256,18 +256,18 @@ export default function QuotationDetail() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-600">Quotation Date</p>
-                <p className="text-sm text-gray-900">{formatDate(quotation.quotationDate)}</p>
+                <p className="text-sm font-medium text-muted-foreground">Quotation Date</p>
+                <p className="text-sm text-foreground">{formatDate(quotation.quotationDate)}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Valid Until</p>
+                <p className="text-sm font-medium text-muted-foreground">Valid Until</p>
                 <p
                   className={`text-sm font-medium ${
                     new Date(quotation.validUntil) < new Date() &&
                     quotation.status !== 'ACCEPTED' &&
                     quotation.status !== 'REJECTED'
-                      ? 'text-red-600'
-                      : 'text-gray-900'
+                      ? 'text-destructive'
+                      : 'text-foreground'
                   }`}
                 >
                   {formatDate(quotation.validUntil)}
@@ -276,14 +276,14 @@ export default function QuotationDetail() {
             </div>
             {quotation.remarks && (
               <div>
-                <p className="text-sm font-medium text-gray-600">Remarks</p>
-                <p className="text-sm text-gray-700">{quotation.remarks}</p>
+                <p className="text-sm font-medium text-muted-foreground">Remarks</p>
+                <p className="text-sm text-foreground">{quotation.remarks}</p>
               </div>
             )}
             {quotation.termsAndConditions && (
               <div>
-                <p className="text-sm font-medium text-gray-600">Terms and Conditions</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{quotation.termsAndConditions}</p>
+                <p className="text-sm font-medium text-muted-foreground">Terms and Conditions</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{quotation.termsAndConditions}</p>
               </div>
             )}
           </CardContent>
@@ -295,41 +295,41 @@ export default function QuotationDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-gray-600">Customer</p>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Customer</p>
+              <p className="text-sm font-semibold text-foreground">
                 {quotation.customer?.billingName || quotation.customer?.name || 'N/A'}
               </p>
-              <p className="text-xs text-gray-500">{quotation.customer?.code}</p>
+              <p className="text-xs text-muted-foreground">{quotation.customer?.code}</p>
             </div>
             {quotation.customer?.email && (
               <div>
-                <p className="text-sm font-medium text-gray-600">Email</p>
-                <p className="text-sm text-gray-900">{quotation.customer.email}</p>
+                <p className="text-sm font-medium text-muted-foreground">Email</p>
+                <p className="text-sm text-foreground">{quotation.customer.email}</p>
               </div>
             )}
             {quotation.customer?.phone && (
               <div>
-                <p className="text-sm font-medium text-gray-600">Phone</p>
-                <p className="text-sm text-gray-900">{quotation.customer.phone}</p>
+                <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                <p className="text-sm text-foreground">{quotation.customer.phone}</p>
               </div>
             )}
             <div>
-              <p className="text-sm font-medium text-gray-600">Created By</p>
-              <p className="text-sm text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Created By</p>
+              <p className="text-sm text-foreground">
                 {quotation.createdBy ? `${quotation.createdBy.firstName} ${quotation.createdBy.lastName}` : 'N/A'}
               </p>
             </div>
             {quotation.approvedBy && (
               <div>
-                <p className="text-sm font-medium text-gray-600">Approved By</p>
-                <p className="text-sm text-gray-900">
+                <p className="text-sm font-medium text-muted-foreground">Approved By</p>
+                <p className="text-sm text-foreground">
                   {`${quotation.approvedBy.firstName} ${quotation.approvedBy.lastName}`}
                 </p>
               </div>
             )}
             <div>
-              <p className="text-sm font-medium text-gray-600">Created At</p>
-              <p className="text-sm text-gray-700">{formatDateTime(quotation.createdAt)}</p>
+              <p className="text-sm font-medium text-muted-foreground">Created At</p>
+              <p className="text-sm text-foreground">{formatDateTime(quotation.createdAt)}</p>
             </div>
           </CardContent>
         </Card>
@@ -362,13 +362,13 @@ export default function QuotationDetail() {
                   const tax = Number(item.taxAmount || 0);
                   return (
                     <TableRow key={item.id}>
-                      <TableCell className="text-gray-500">{index + 1}</TableCell>
+                      <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                       <TableCell>
                         <div className="font-medium">
                           {item.style?.styleCode} - {item.style?.styleName}
                         </div>
-                        {item.description && <div className="text-xs text-gray-500">{item.description}</div>}
-                        {item.remarks && <div className="text-xs text-gray-400 italic">{item.remarks}</div>}
+                        {item.description && <div className="text-xs text-muted-foreground">{item.description}</div>}
+                        {item.remarks && <div className="text-xs text-muted-foreground italic">{item.remarks}</div>}
                       </TableCell>
                       <TableCell className="text-xs">{item.hsnCode || '-'}</TableCell>
                       <TableCell className="text-right">{item.totalQuantity.toLocaleString()}</TableCell>
@@ -376,7 +376,7 @@ export default function QuotationDetail() {
                       <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
                       <TableCell className="text-right">{item.gstRate ? `${Number(item.gstRate)}%` : '-'}</TableCell>
                       <TableCell className="text-right">{tax > 0 ? formatCurrency(tax) : '-'}</TableCell>
-                      <TableCell className="text-right text-gray-500">
+                      <TableCell className="text-right text-muted-foreground">
                         {item.deliveryDays ? `${item.deliveryDays}d` : '-'}
                       </TableCell>
                     </TableRow>
@@ -390,7 +390,7 @@ export default function QuotationDetail() {
               <div className="w-72 space-y-2">
                 {/* Subtotal */}
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
+                  <span className="text-muted-foreground">Subtotal</span>
                   <span className="font-medium">
                     {formatCurrency(quotation.items.reduce((sum, i) => sum + Number(i.totalPrice), 0))}
                   </span>
@@ -400,27 +400,27 @@ export default function QuotationDetail() {
                 {quotation.estimatedCGST || quotation.estimatedSGST || quotation.estimatedIGST ? (
                   <>
                     {quotation.estimatedIGST && Number(quotation.estimatedIGST) > 0 ? (
-                      <div className="flex justify-between text-sm text-gray-600">
+                      <div className="flex justify-between text-sm text-muted-foreground">
                         <span>IGST</span>
                         <span>{formatCurrency(Number(quotation.estimatedIGST))}</span>
                       </div>
                     ) : (
                       <>
                         {quotation.estimatedCGST && Number(quotation.estimatedCGST) > 0 && (
-                          <div className="flex justify-between text-sm text-gray-600">
+                          <div className="flex justify-between text-sm text-muted-foreground">
                             <span>CGST</span>
                             <span>{formatCurrency(Number(quotation.estimatedCGST))}</span>
                           </div>
                         )}
                         {quotation.estimatedSGST && Number(quotation.estimatedSGST) > 0 && (
-                          <div className="flex justify-between text-sm text-gray-600">
+                          <div className="flex justify-between text-sm text-muted-foreground">
                             <span>SGST</span>
                             <span>{formatCurrency(Number(quotation.estimatedSGST))}</span>
                           </div>
                         )}
                       </>
                     )}
-                    <div className="flex justify-between text-sm text-gray-600">
+                    <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Total Tax</span>
                       <span>
                         {formatCurrency(
@@ -432,13 +432,13 @@ export default function QuotationDetail() {
                     </div>
                   </>
                 ) : (
-                  <div className="text-xs text-gray-400">GST not estimated</div>
+                  <div className="text-xs text-muted-foreground">GST not estimated</div>
                 )}
 
                 {/* Grand Total */}
                 <div className="flex justify-between font-semibold text-base pt-2 border-t">
                   <span>Grand Total</span>
-                  <span className="text-purple-600">
+                  <span className="text-accent">
                     {quotation.totalWithTax
                       ? formatCurrency(Number(quotation.totalWithTax))
                       : quotation.totalAmount
@@ -462,10 +462,10 @@ export default function QuotationDetail() {
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Current Status: <strong>{QuotationStatusLabels[quotation.status]}</strong>
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 New Status: <strong>{QuotationStatusLabels[newStatus]}</strong>
               </p>
             </div>

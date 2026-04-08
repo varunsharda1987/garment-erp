@@ -305,7 +305,7 @@ export default function StitchingForm() {
             </CardHeader>
             <CardContent className="space-y-4">
               {pendingTransferSlips.length === 0 ? (
-                <p className="text-sm text-amber-600">
+                <p className="text-sm text-warning">
                   No pending transfer slips from cutting. Complete cutting batches first.
                 </p>
               ) : (
@@ -340,10 +340,10 @@ export default function StitchingForm() {
                                 key={slip.id}
                                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                                   isSelected
-                                    ? 'border-blue-300 bg-blue-50'
+                                    ? 'border-info/30 bg-info-muted'
                                     : isActiveWO || selectedSlipIds.length === 0
-                                      ? 'border-gray-200 hover:bg-gray-50'
-                                      : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                                      ? 'border-border hover:bg-muted'
+                                      : 'border-gray-100 bg-muted opacity-50 cursor-not-allowed'
                                 }`}
                               >
                                 <Checkbox
@@ -374,14 +374,14 @@ export default function StitchingForm() {
 
               {/* Selection summary */}
               {selectedSlipIds.length > 0 && (
-                <div className="bg-blue-50 p-3 rounded-lg flex items-center gap-4 text-sm">
-                  <CheckSquare className="h-4 w-4 text-blue-600" />
+                <div className="bg-info-muted p-3 rounded-lg flex items-center gap-4 text-sm">
+                  <CheckSquare className="h-4 w-4 text-info" />
                   <span>
                     <strong>{selectedSlipIds.length}</strong> slip{selectedSlipIds.length > 1 ? 's' : ''} selected
                   </span>
                   <span className="text-muted-foreground">|</span>
                   <span>
-                    Total: <strong className="text-green-600">{totalSelectedPieces}</strong> pcs
+                    Total: <strong className="text-success">{totalSelectedPieces}</strong> pcs
                   </span>
                 </div>
               )}
@@ -481,7 +481,7 @@ export default function StitchingForm() {
                         <TableRow key={`${sku.colorId || 'null'}-${sku.sizeId}`}>
                           <TableCell className="font-medium">{sku.colorName || '—'}</TableCell>
                           <TableCell>{sku.sizeName}</TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">{sku.availableQty}</TableCell>
+                          <TableCell className="text-right text-success font-medium">{sku.availableQty}</TableCell>
                           <TableCell className="text-right">
                             <Input
                               type="number"
@@ -495,20 +495,20 @@ export default function StitchingForm() {
                         </TableRow>
                       ))}
                     </TableBody>
-                    <tfoot className="bg-gray-50">
+                    <tfoot className="bg-muted">
                       <tr>
                         <td colSpan={2} className="px-4 py-3 text-sm font-semibold">
                           Total
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-green-600">{getTotalAvailable()}</td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-blue-600">{getTotalIssued()}</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-success">{getTotalAvailable()}</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-info">{getTotalIssued()}</td>
                       </tr>
                     </tfoot>
                   </Table>
                 </div>
 
                 {getTotalIssued() < getTotalAvailable() && (
-                  <p className="text-sm text-amber-600 mt-2">
+                  <p className="text-sm text-warning mt-2">
                     Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} available pieces. Remaining pieces
                     can be issued later.
                   </p>
@@ -522,8 +522,8 @@ export default function StitchingForm() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <div className="text-sm text-gray-500">Total pieces to be issued</div>
-                  <div className="text-3xl font-bold text-blue-600">{getTotalIssued()}</div>
+                  <div className="text-sm text-muted-foreground">Total pieces to be issued</div>
+                  <div className="text-3xl font-bold text-info">{getTotalIssued()}</div>
                 </div>
 
                 <div className="flex gap-4">

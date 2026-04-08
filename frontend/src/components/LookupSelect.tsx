@@ -110,14 +110,14 @@ export function LookupSelect({
   return (
     <div className={className}>
       {label && (
-        <Label className="block text-sm font-medium text-gray-700 mb-1">
+        <Label className="block text-sm font-medium text-foreground mb-1">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-destructive ml-1">*</span>}
         </Label>
       )}
       <div className="flex gap-2">
         <Select value={value || undefined} onValueChange={onChange} disabled={disabled || loading}>
-          <SelectTrigger className={`flex-1 ${error ? 'border-red-500' : ''}`}>
+          <SelectTrigger className={`flex-1 ${error ? 'border-destructive' : ''}`}>
             <SelectValue placeholder={loading ? 'Loading...' : placeholder} />
           </SelectTrigger>
           <SelectContent>
@@ -127,7 +127,7 @@ export function LookupSelect({
               </SelectItem>
             ))}
             {options.length === 0 && !loading && (
-              <div className="px-2 py-1.5 text-sm text-gray-500">No options available</div>
+              <div className="px-2 py-1.5 text-sm text-muted-foreground">No options available</div>
             )}
           </SelectContent>
         </Select>
@@ -145,7 +145,7 @@ export function LookupSelect({
         )}
       </div>
 
-      {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-sm text-destructive mt-1">{error}</p>}
 
       {/* Add New Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

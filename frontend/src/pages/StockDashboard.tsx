@@ -133,8 +133,8 @@ export default function StockDashboard() {
           value={formatCurrencyWhole(totalInventoryValue)}
           description="Fabric + Greige + Trims"
           icon={TrendingUp}
-          iconColor="text-blue-600"
-          iconBgColor="bg-blue-100"
+          iconColor="text-info"
+          iconBgColor="bg-info-muted"
         />
 
         <StatCard
@@ -142,8 +142,8 @@ export default function StockDashboard() {
           value={totalMaterials.toString()}
           description={`${fabricSummary?.totalItems || 0} Fabric + ${greigeSummary?.totalItems || 0} Greige + ${stockLevels.length} Trims`}
           icon={Package}
-          iconColor="text-green-600"
-          iconBgColor="bg-green-100"
+          iconColor="text-success"
+          iconBgColor="bg-success-muted"
         />
 
         <StatCard
@@ -151,8 +151,8 @@ export default function StockDashboard() {
           value={totalAlerts.toString()}
           description={`${lowStockItems.length} Low + ${(fabricSummary?.agingStockCount || 0) + (greigeSummary?.agingStockCount || 0)} Aging`}
           icon={AlertTriangle}
-          iconColor={totalAlerts > 0 ? 'text-yellow-600' : 'text-gray-400'}
-          iconBgColor={totalAlerts > 0 ? 'bg-yellow-100' : 'bg-gray-100'}
+          iconColor={totalAlerts > 0 ? 'text-warning' : 'text-muted-foreground'}
+          iconBgColor={totalAlerts > 0 ? 'bg-yellow-100' : 'bg-muted'}
         />
 
         <StatCard
@@ -160,8 +160,8 @@ export default function StockDashboard() {
           value={warehouses.length.toString()}
           description="Across all locations"
           icon={Warehouse}
-          iconColor="text-purple-600"
-          iconBgColor="bg-purple-100"
+          iconColor="text-accent"
+          iconBgColor="bg-accent/10"
           onClick={() => navigate('/inventory/warehouses')}
         />
       </div>
@@ -172,7 +172,7 @@ export default function StockDashboard() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <Layers className="h-5 w-5 text-blue-600" />
+                <Layers className="h-5 w-5 text-info" />
                 <CardTitle>Finished Fabric Stock</CardTitle>
               </div>
               <Button variant="outline" size="sm" onClick={() => navigate('/fabric-stock')}>
@@ -182,28 +182,28 @@ export default function StockDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="bg-blue-50 rounded-lg p-4">
+              <div className="bg-info-muted rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-1">Total Meters</p>
-                <p className="text-2xl font-bold text-blue-900">{fabricSummary.totalMeters.toLocaleString()} m</p>
+                <p className="text-2xl font-bold text-info">{fabricSummary.totalMeters.toLocaleString()} m</p>
               </div>
-              <div className="bg-blue-50 rounded-lg p-4">
+              <div className="bg-info-muted rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-1">Total Value</p>
-                <p className="text-2xl font-bold text-blue-900">{formatCurrencyWhole(fabricSummary.totalValue)}</p>
+                <p className="text-2xl font-bold text-info">{formatCurrencyWhole(fabricSummary.totalValue)}</p>
               </div>
-              <div className="bg-blue-50 rounded-lg p-4">
+              <div className="bg-info-muted rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-1">Aging Stock ({'>'}180 days)</p>
                 <p className="text-2xl font-bold text-yellow-700">{fabricSummary.agingStockCount} items</p>
               </div>
             </div>
             {fabricSummary.byQualityGrade && (
               <div className="flex gap-2">
-                <Badge variant="outline" className="bg-green-50">
+                <Badge variant="outline" className="bg-success-muted">
                   Grade A: {(fabricSummary.byQualityGrade.A || 0).toFixed(2)} m
                 </Badge>
-                <Badge variant="outline" className="bg-yellow-50">
+                <Badge variant="outline" className="bg-warning-muted">
                   Grade B: {(fabricSummary.byQualityGrade.B || 0).toFixed(2)} m
                 </Badge>
-                <Badge variant="outline" className="bg-red-50">
+                <Badge variant="outline" className="bg-destructive/10">
                   Defect: {(fabricSummary.byQualityGrade.DEFECT || 0).toFixed(2)} m
                 </Badge>
               </div>
@@ -218,7 +218,7 @@ export default function StockDashboard() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <Box className="h-5 w-5 text-green-600" />
+                <Box className="h-5 w-5 text-success" />
                 <CardTitle>Generic Greige Stock</CardTitle>
               </div>
               <Button variant="outline" size="sm" onClick={() => navigate('/greige-stock')}>
@@ -228,15 +228,15 @@ export default function StockDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-green-50 rounded-lg p-4">
+              <div className="bg-success-muted rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-1">Total Meters</p>
-                <p className="text-2xl font-bold text-green-900">{greigeSummary.totalMeters.toLocaleString()} m</p>
+                <p className="text-2xl font-bold text-success">{greigeSummary.totalMeters.toLocaleString()} m</p>
               </div>
-              <div className="bg-green-50 rounded-lg p-4">
+              <div className="bg-success-muted rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-1">Total Value</p>
-                <p className="text-2xl font-bold text-green-900">{formatCurrencyWhole(greigeSummary.totalValue)}</p>
+                <p className="text-2xl font-bold text-success">{formatCurrencyWhole(greigeSummary.totalValue)}</p>
               </div>
-              <div className="bg-green-50 rounded-lg p-4">
+              <div className="bg-success-muted rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-1">Aging Stock ({'>'}180 days)</p>
                 <p className="text-2xl font-bold text-yellow-700">{greigeSummary.agingStockCount} items</p>
               </div>
@@ -250,7 +250,7 @@ export default function StockDashboard() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-orange-600" />
+              <Package className="h-5 w-5 text-primary" />
               <CardTitle>Trim & Accessories Stock</CardTitle>
             </div>
             <Button variant="outline" size="sm" onClick={() => navigate('/inventory/stock-levels')}>
@@ -260,15 +260,15 @@ export default function StockDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-orange-50 rounded-lg p-4">
+            <div className="bg-primary/10 rounded-lg p-4">
               <p className="text-sm text-muted-foreground mb-1">Total Materials</p>
               <p className="text-2xl font-bold text-orange-900">{stockLevels.length}</p>
             </div>
-            <div className="bg-orange-50 rounded-lg p-4">
+            <div className="bg-primary/10 rounded-lg p-4">
               <p className="text-sm text-muted-foreground mb-1">Total Value</p>
               <p className="text-2xl font-bold text-orange-900">{formatCurrencyWhole(trimValue)}</p>
             </div>
-            <div className="bg-orange-50 rounded-lg p-4">
+            <div className="bg-primary/10 rounded-lg p-4">
               <p className="text-sm text-muted-foreground mb-1">Low Stock Items</p>
               <p className="text-2xl font-bold text-yellow-700">{lowStockItems.length}</p>
             </div>
@@ -280,7 +280,7 @@ export default function StockDashboard() {
                 {trimsByType.map((item) => (
                   <div
                     key={item.materialType}
-                    className="flex justify-between items-center bg-gray-50 rounded p-2 text-sm"
+                    className="flex justify-between items-center bg-muted rounded p-2 text-sm"
                   >
                     <span className="font-medium">{formatMaterialType(item.materialType)}</span>
                     <Badge variant="secondary">{item.count} items</Badge>
@@ -297,7 +297,7 @@ export default function StockDashboard() {
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-yellow-600" />
+              <Clock className="h-5 w-5 text-warning" />
               <CardTitle>Stock Alerts - Action Required</CardTitle>
             </div>
           </CardHeader>
@@ -339,7 +339,7 @@ export default function StockDashboard() {
                 {fabricSummary && fabricSummary.agingStockCount > 0 && (
                   <TableRow>
                     <TableCell>
-                      <Badge variant="outline" className="bg-blue-50">
+                      <Badge variant="outline" className="bg-info-muted">
                         Fabric
                       </Badge>
                     </TableCell>
@@ -358,7 +358,7 @@ export default function StockDashboard() {
                 {greigeSummary && greigeSummary.agingStockCount > 0 && (
                   <TableRow>
                     <TableCell>
-                      <Badge variant="outline" className="bg-green-50">
+                      <Badge variant="outline" className="bg-success-muted">
                         Greige
                       </Badge>
                     </TableCell>

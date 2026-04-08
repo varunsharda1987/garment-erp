@@ -68,7 +68,7 @@ export default function ChallanList() {
       key: 'challanType',
       header: 'Type',
       render: (challan) => (
-        <Badge className={ChallanTypeColors[challan.challanType] || 'bg-gray-100'}>
+        <Badge className={ChallanTypeColors[challan.challanType] || 'bg-muted'}>
           {ChallanTypeLabels[challan.challanType] || challan.challanType}
         </Badge>
       ),
@@ -108,9 +108,9 @@ export default function ChallanList() {
       header: 'Linked To',
       render: (challan) => (
         <div className="text-sm">
-          {challan.purchaseOrder && <span className="text-blue-600">{challan.purchaseOrder.poNumber}</span>}
-          {challan.order && <span className="text-purple-600">{challan.order.orderNumber}</span>}
-          {challan.productionRun && <span className="text-orange-600">{challan.productionRun.workOrderNumber}</span>}
+          {challan.purchaseOrder && <span className="text-info">{challan.purchaseOrder.poNumber}</span>}
+          {challan.order && <span className="text-accent">{challan.order.orderNumber}</span>}
+          {challan.productionRun && <span className="text-primary">{challan.productionRun.workOrderNumber}</span>}
         </div>
       ),
     },
@@ -118,7 +118,7 @@ export default function ChallanList() {
       key: 'status',
       header: 'Status',
       render: (challan) => (
-        <Badge className={ChallanStatusColors[challan.status] || 'bg-gray-100'}>
+        <Badge className={ChallanStatusColors[challan.status] || 'bg-muted'}>
           {ChallanStatusLabels[challan.status] || challan.status}
         </Badge>
       ),
@@ -138,7 +138,7 @@ export default function ChallanList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
             <FileText className="h-6 w-6" />
             Challans
           </h1>

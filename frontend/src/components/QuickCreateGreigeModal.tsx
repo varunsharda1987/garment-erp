@@ -106,7 +106,7 @@ export function QuickCreateGreigeModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Plus className="h-5 w-5 text-green-600" />
+            <Plus className="h-5 w-5 text-success" />
             Quick Create Greige
           </DialogTitle>
         </DialogHeader>
@@ -115,7 +115,7 @@ export function QuickCreateGreigeModal({
           {/* Generic Greige Name */}
           <div>
             <Label htmlFor="genericGreigeName">
-              Generic Greige Name <span className="text-red-500">*</span>
+              Generic Greige Name <span className="text-destructive">*</span>
             </Label>
             <GenericGreigeSelector
               value={formData.genericGreigeName}
@@ -129,7 +129,7 @@ export function QuickCreateGreigeModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="greigeWidth">
-                Greige Width (inches) <span className="text-red-500">*</span>
+                Greige Width (inches) <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="greigeWidth"
@@ -155,7 +155,7 @@ export function QuickCreateGreigeModal({
                 step="0.5"
                 min="1"
               />
-              <span className="text-xs text-gray-500">Default: Width - 4"</span>
+              <span className="text-xs text-muted-foreground">Default: Width - 4"</span>
             </div>
           </div>
 

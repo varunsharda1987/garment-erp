@@ -7,7 +7,7 @@ export const TCS_STATUS_LABELS: Record<TCSStatus, string> = {
 
 export const TCS_STATUS_COLORS: Record<TCSStatus, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
-  DEPOSITED: 'bg-green-100 text-green-800',
+  DEPOSITED: 'bg-success-muted text-success',
 };
 
 export const TCS_SECTIONS = [

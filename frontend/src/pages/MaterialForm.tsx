@@ -308,11 +308,11 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* MATERIAL INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Material Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Material Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Parent Category Selector */}
                 <div>
@@ -366,7 +366,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                     {...register('name', { required: 'Material name is required' })}
                     placeholder="e.g., Metal Button, Poly Thread"
                   />
-                  {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>}
+                  {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
                 </div>
 
                 <div>
@@ -375,9 +375,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                     id="code"
                     {...register('code', { required: 'Material code is required' })}
                     readOnly
-                    className="bg-gray-100"
+                    className="bg-muted"
                   />
-                  {errors.code && <p className="text-sm text-red-600 mt-1">{errors.code.message}</p>}
+                  {errors.code && <p className="text-sm text-destructive mt-1">{errors.code.message}</p>}
                 </div>
 
                 <div>
@@ -422,20 +422,20 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
             {/* SUPPLIERS */}
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <h3 className="text-lg font-semibold text-foreground">Suppliers</h3>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   + Add Supplier
                 </Button>
               </div>
 
               {materialSuppliers.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <p className="text-gray-500">No suppliers added yet. Click "Add Supplier" to add one.</p>
+                <div className="text-center py-8 bg-muted rounded-lg border-2 border-dashed border-border">
+                  <p className="text-muted-foreground">No suppliers added yet. Click "Add Supplier" to add one.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {materialSuppliers.map((supplier, index) => (
-                    <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                    <div key={index} className="border border-border rounded-lg p-4 bg-muted">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                           <Label>Supplier *</Label>
@@ -448,7 +448,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                             </SelectTrigger>
                             <SelectContent>
                               {filteredSuppliers.length === 0 ? (
-                                <div className="px-2 py-6 text-center text-sm text-gray-500">
+                                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
                                   No relevant suppliers found for this material category
                                 </div>
                               ) : (
@@ -468,9 +468,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                               type="checkbox"
                               checked={supplier.isPreferred}
                               onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              className="h-4 w-4 text-info focus:ring-blue-500 border-border rounded"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                            <span className="ml-2 text-sm text-foreground">Preferred Supplier</span>
                           </label>
 
                           <label className="flex items-center">
@@ -478,9 +478,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                               type="checkbox"
                               checked={supplier.isActive}
                               onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              className="h-4 w-4 text-info focus:ring-blue-500 border-border rounded"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                            <span className="ml-2 text-sm text-foreground">Active</span>
                           </label>
                         </div>
 
@@ -490,7 +490,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                             variant="outline"
                             size="sm"
                             onClick={() => handleRemoveSupplier(index)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-destructive hover:text-destructive"
                           >
                             Remove
                           </Button>
@@ -570,7 +570,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
             {/* HSN & GST */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Tax Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Tax Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="relative">
                   <Label htmlFor="hsnCode">HSN Code</Label>
@@ -585,19 +585,19 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                   />
                   <p className="text-xs text-muted-foreground mt-1">Type to search HSN codes from master data</p>
                   {hsnDropdownOpen && hsnResults.length > 0 && (
-                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {hsnResults.map((item) => (
                         <button
                           key={item.id}
                           type="button"
-                          className="w-full px-3 py-2 text-left hover:bg-gray-100 text-sm flex justify-between items-center"
+                          className="w-full px-3 py-2 text-left hover:bg-muted text-sm flex justify-between items-center"
                           onMouseDown={() => selectHsnCode(item)}
                         >
                           <span>
                             <span className="font-mono font-medium">{item.code}</span>
                             <span className="text-muted-foreground ml-2 text-xs">{item.description}</span>
                           </span>
-                          <span className="text-xs font-medium text-blue-600">{Number(item.defaultGstRate)}%</span>
+                          <span className="text-xs font-medium text-info">{Number(item.defaultGstRate)}%</span>
                         </button>
                       ))}
                     </div>
@@ -632,7 +632,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
             {/* DESCRIPTION & SPECIFICATIONS */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Additional Information</h3>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="description">Description</Label>

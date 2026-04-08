@@ -25,15 +25,19 @@ export default function ProcessGuideHeader({
     <div className="space-y-6">
       {/* Title Section */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Process Guide - Style Creation to Dispatch</h1>
-        <p className="mt-2 text-lg text-gray-600">Your complete workflow reference for the garment ERP system</p>
+        <h1 className="text-3xl font-display font-medium text-foreground">
+          Process Guide - Style Creation to Dispatch
+        </h1>
+        <p className="mt-2 text-lg text-muted-foreground">
+          Your complete workflow reference for the garment ERP system
+        </p>
       </div>
 
       {/* Controls Section */}
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search stages..."

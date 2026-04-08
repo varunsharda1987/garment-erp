@@ -103,21 +103,21 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
       {label && (
         <Label>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-destructive ml-1">*</span>}
         </Label>
       )}
 
       {/* Selected Material Display */}
       {value && (
-        <div className="flex items-center gap-2 p-3 border rounded-md bg-blue-50">
-          <Package className="h-5 w-5 text-blue-600" />
+        <div className="flex items-center gap-2 p-3 border rounded-md bg-info-muted">
+          <Package className="h-5 w-5 text-info" />
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Badge variant="outline">{value.materialCode}</Badge>
               <span className="font-medium">{value.materialName}</span>
             </div>
-            <div className="text-sm text-gray-600 mt-1">{getSpecificationsSummary(value)}</div>
-            <div className="text-sm font-semibold text-blue-600 mt-1">
+            <div className="text-sm text-muted-foreground mt-1">{getSpecificationsSummary(value)}</div>
+            <div className="text-sm font-semibold text-info mt-1">
               {formatPrice(parsePrice(value.pricePerUnit))} per {value.unit}
             </div>
           </div>
@@ -164,9 +164,9 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   {isLoading ? (
-                    <div className="p-2 text-center text-sm text-gray-500">Loading materials...</div>
+                    <div className="p-2 text-center text-sm text-muted-foreground">Loading materials...</div>
                   ) : materials.length === 0 ? (
-                    <div className="p-2 text-center text-sm text-gray-500">No materials found</div>
+                    <div className="p-2 text-center text-sm text-muted-foreground">No materials found</div>
                   ) : (
                     materials.map((material) => (
                       <SelectItem key={material.materialCode} value={material.materialCode}>
@@ -184,8 +184,8 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
 
               {/* Helper text */}
               <div className="flex items-start gap-1 mt-1.5">
-                <Info className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
-                <p className="text-xs text-gray-500">
+                <Info className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+                <p className="text-xs text-muted-foreground">
                   Select material type first, then choose from available materials
                 </p>
               </div>
@@ -193,7 +193,11 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
           )}
 
           {/* Error Display */}
-          {error && <div className="text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">{error}</div>}
+          {error && (
+            <div className="text-sm text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">
+              {error}
+            </div>
+          )}
         </div>
       )}
     </div>

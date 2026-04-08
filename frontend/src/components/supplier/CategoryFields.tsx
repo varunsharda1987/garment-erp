@@ -291,7 +291,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Fabric Supplier Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Fabric Supplier Details</h3>
 
       {/* Selected Fabrics */}
       <div>
@@ -299,12 +299,12 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
         {selectedFabrics.length > 0 ? (
           <div className="mt-2 space-y-2">
             {selectedFabrics.map((fabric) => (
-              <div key={fabric.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
+              <div key={fabric.id} className="flex items-center justify-between bg-muted p-3 rounded-md">
                 <div>
                   <span className="font-medium">{fabric.code}</span>
-                  <span className="text-gray-600 ml-2">{fabric.name}</span>
-                  <span className="text-xs ml-2 px-2 py-1 rounded bg-blue-100 text-blue-700">{fabric.type}</span>
-                  <span className="text-xs text-gray-500 ml-2">Width: {Number(fabric.width)}"</span>
+                  <span className="text-muted-foreground ml-2">{fabric.name}</span>
+                  <span className="text-xs ml-2 px-2 py-1 rounded bg-info-muted text-info">{fabric.type}</span>
+                  <span className="text-xs text-muted-foreground ml-2">Width: {Number(fabric.width)}"</span>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => removeFabric(fabric.id)}>
                   Remove
@@ -313,7 +313,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500 mt-2">No fabrics selected. Search and select fabrics below.</p>
+          <p className="text-sm text-muted-foreground mt-2">No fabrics selected. Search and select fabrics below.</p>
         )}
       </div>
 
@@ -329,15 +329,15 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
         />
 
         {isLoading ? (
-          <p className="text-sm text-gray-500 mt-2">Loading fabrics...</p>
+          <p className="text-sm text-muted-foreground mt-2">Loading fabrics...</p>
         ) : (
           <div className="mt-2 max-h-64 overflow-y-auto border rounded-md">
             {filteredFabrics.length === 0 ? (
-              <p className="text-sm text-gray-500 p-4">No fabrics found</p>
+              <p className="text-sm text-muted-foreground p-4">No fabrics found</p>
             ) : (
               <div className="divide-y">
                 {filteredFabrics.slice(0, 50).map((fabric) => (
-                  <label key={fabric.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
+                  <label key={fabric.id} className="flex items-center gap-3 p-3 hover:bg-muted cursor-pointer">
                     <input
                       type="checkbox"
                       checked={fabricIds.includes(fabric.id)}
@@ -346,11 +346,11 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
                     <div className="flex-1">
                       <div>
                         <span className="font-medium">{fabric.code}</span>
-                        <span className="text-gray-600 ml-2">{fabric.name}</span>
+                        <span className="text-muted-foreground ml-2">{fabric.name}</span>
                       </div>
                       <div className="flex gap-2 mt-1">
-                        <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">{fabric.type}</span>
-                        <span className="text-xs text-gray-500">Width: {Number(fabric.width)}"</span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-info-muted text-info">{fabric.type}</span>
+                        <span className="text-xs text-muted-foreground">Width: {Number(fabric.width)}"</span>
                       </div>
                     </div>
                   </label>
@@ -360,7 +360,7 @@ function FabricFields({ data, updateField }: BasicCategoryFieldProps) {
           </div>
         )}
         {filteredFabrics.length > 50 && (
-          <p className="text-xs text-gray-500 mt-1">Showing first 50 results. Use search to narrow down.</p>
+          <p className="text-xs text-muted-foreground mt-1">Showing first 50 results. Use search to narrow down.</p>
         )}
       </div>
 
@@ -386,7 +386,7 @@ function TrimsFields({ data, updateField, addArrayItem, updateArrayItem, removeA
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Trims Supplier Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Trims Supplier Details</h3>
 
       <div>
         <Label>Items Supplied</Label>
@@ -487,7 +487,7 @@ function DyeingPrintingFields({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Dyeing & Printing Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Dyeing & Printing Details</h3>
 
       {/* Services */}
       <div>
@@ -690,7 +690,7 @@ function EmbroideryFields({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Embroidery Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Embroidery Details</h3>
 
       {/* Embroidery Types - Array */}
       <div>
@@ -849,7 +849,7 @@ function HandWorkFields({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Hand Work Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Hand Work Details</h3>
 
       {/* Hand Work Types - Array */}
       <div>
@@ -987,7 +987,7 @@ function CMTFields({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">CMT Unit Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">CMT Unit Details</h3>
 
       {/* Garment Categories - Array */}
       <div>
@@ -1198,7 +1198,7 @@ function ThreadFields({ data, updateField, addArrayItem, updateArrayItem, remove
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Thread Supplier Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Thread Supplier Details</h3>
 
       {/* Thread Types - Array */}
       <div>
@@ -1287,7 +1287,7 @@ function OtherServicesFields({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Other Services Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Other Services Details</h3>
 
       {/* Services - Array */}
       <div>
@@ -1370,7 +1370,7 @@ function PackagingFields({
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Packaging Supplier Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Packaging Supplier Details</h3>
 
       {/* Packaging Items - Array with itemType and customization */}
       <div>

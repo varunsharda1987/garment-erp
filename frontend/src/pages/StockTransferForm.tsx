@@ -144,7 +144,7 @@ export default function StockTransferForm() {
       )}
 
       {success && (
-        <Alert className="mb-4 bg-green-50 text-green-900 border-green-200">
+        <Alert className="mb-4 bg-success-muted text-success border-success/20">
           <AlertDescription>Stock transfer created successfully! Redirecting...</AlertDescription>
         </Alert>
       )}
@@ -156,7 +156,7 @@ export default function StockTransferForm() {
               {/* From Warehouse */}
               <div className="space-y-2 md:col-span-5">
                 <Label htmlFor="fromWarehouseId">
-                  From Warehouse <span className="text-red-500">*</span>
+                  From Warehouse <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={formData.fromWarehouseId}
@@ -191,7 +191,7 @@ export default function StockTransferForm() {
               {/* To Warehouse */}
               <div className="space-y-2 md:col-span-5">
                 <Label htmlFor="toWarehouseId">
-                  To Warehouse <span className="text-red-500">*</span>
+                  To Warehouse <span className="text-destructive">*</span>
                 </Label>
                 <Select value={formData.toWarehouseId} onValueChange={(value) => handleChange('toWarehouseId', value)}>
                   <SelectTrigger id="toWarehouseId">
@@ -210,7 +210,7 @@ export default function StockTransferForm() {
               {/* Material Selection */}
               <div className="space-y-2 md:col-span-12">
                 <Label htmlFor="materialId">
-                  Material <span className="text-red-500">*</span>
+                  Material <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={formData.materialId}
@@ -241,7 +241,7 @@ export default function StockTransferForm() {
               {/* Stock Info */}
               {selectedStock && (
                 <div className="md:col-span-12">
-                  <Alert className="bg-blue-50 text-blue-900 border-blue-200">
+                  <Alert className="bg-info-muted text-info border-info/20">
                     <AlertDescription>
                       Available in Source Warehouse: {Number(selectedStock.quantity).toFixed(2)} {selectedStock.unit}
                     </AlertDescription>
@@ -252,7 +252,7 @@ export default function StockTransferForm() {
               {/* Quantity */}
               <div className="space-y-2 md:col-span-6">
                 <Label htmlFor="quantity">
-                  Quantity to Transfer <span className="text-red-500">*</span>
+                  Quantity to Transfer <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="quantity"

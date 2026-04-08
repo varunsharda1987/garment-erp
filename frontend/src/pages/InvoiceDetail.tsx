@@ -178,12 +178,12 @@ export default function InvoiceDetail() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <FileText className="h-6 w-6 text-blue-600" />
+            <div className="p-2 bg-info-muted rounded-lg">
+              <FileText className="h-6 w-6 text-info" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{invoice.invoiceNumber}</h1>
-              <p className="text-sm text-gray-500">Invoice Details</p>
+              <h1 className="text-2xl font-display font-medium text-foreground">{invoice.invoiceNumber}</h1>
+              <p className="text-sm text-muted-foreground">Invoice Details</p>
             </div>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function InvoiceDetail() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Status</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
           </CardHeader>
           <CardContent>
             <StatusBadge status={InvoiceStatusLabels[invoice.status]} variant={getStatusVariant(invoice.status)} />
@@ -230,7 +230,7 @@ export default function InvoiceDetail() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Amount</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Amount</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xl font-bold">{formatCurrency(invoice.totalAmount)}</div>
@@ -238,18 +238,18 @@ export default function InvoiceDetail() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Paid Amount</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Paid Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold text-green-600">{formatCurrency(invoice.paidAmount)}</div>
+            <div className="text-xl font-bold text-success">{formatCurrency(invoice.paidAmount)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Balance</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-xl font-bold ${invoice.balanceAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+            <div className={`text-xl font-bold ${invoice.balanceAmount > 0 ? 'text-primary' : 'text-success'}`}>
               {formatCurrency(invoice.balanceAmount)}
             </div>
           </CardContent>
@@ -265,30 +265,30 @@ export default function InvoiceDetail() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-600">Invoice Date</p>
-                <p className="text-sm text-gray-900">{formatDate(invoice.invoiceDate)}</p>
+                <p className="text-sm font-medium text-muted-foreground">Invoice Date</p>
+                <p className="text-sm text-foreground">{formatDate(invoice.invoiceDate)}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Due Date</p>
+                <p className="text-sm font-medium text-muted-foreground">Due Date</p>
                 <p
-                  className={`text-sm font-medium ${new Date(invoice.dueDate) < new Date() && invoice.status !== 'PAID' ? 'text-red-600' : 'text-gray-900'}`}
+                  className={`text-sm font-medium ${new Date(invoice.dueDate) < new Date() && invoice.status !== 'PAID' ? 'text-destructive' : 'text-foreground'}`}
                 >
                   {formatDate(invoice.dueDate)}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Subtotal</p>
-                <p className="text-sm text-gray-900">{formatCurrency(invoice.subtotal)}</p>
+                <p className="text-sm font-medium text-muted-foreground">Subtotal</p>
+                <p className="text-sm text-foreground">{formatCurrency(invoice.subtotal)}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Tax Amount</p>
-                <p className="text-sm text-gray-900">{formatCurrency(invoice.taxAmount)}</p>
+                <p className="text-sm font-medium text-muted-foreground">Tax Amount</p>
+                <p className="text-sm text-foreground">{formatCurrency(invoice.taxAmount)}</p>
               </div>
             </div>
             {invoice.remarks && (
               <div>
-                <p className="text-sm font-medium text-gray-600">Remarks</p>
-                <p className="text-sm text-gray-700">{invoice.remarks}</p>
+                <p className="text-sm font-medium text-muted-foreground">Remarks</p>
+                <p className="text-sm text-foreground">{invoice.remarks}</p>
               </div>
             )}
           </CardContent>
@@ -300,25 +300,25 @@ export default function InvoiceDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-gray-600">Customer</p>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Customer</p>
+              <p className="text-sm font-semibold text-foreground">
                 {invoice.customer?.billingName || invoice.customer?.name || 'N/A'}
               </p>
-              <p className="text-xs text-gray-500">{invoice.customer?.code}</p>
+              <p className="text-xs text-muted-foreground">{invoice.customer?.code}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Order Number</p>
-              <p className="text-sm text-gray-900">{invoice.orders?.orderNumber || 'N/A'}</p>
+              <p className="text-sm font-medium text-muted-foreground">Order Number</p>
+              <p className="text-sm text-foreground">{invoice.orders?.orderNumber || 'N/A'}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Created By</p>
-              <p className="text-sm text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Created By</p>
+              <p className="text-sm text-foreground">
                 {invoice.users ? `${invoice.users.firstName} ${invoice.users.lastName}` : 'N/A'}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Created At</p>
-              <p className="text-sm text-gray-700">{formatDateTime(invoice.createdAt)}</p>
+              <p className="text-sm font-medium text-muted-foreground">Created At</p>
+              <p className="text-sm text-foreground">{formatDateTime(invoice.createdAt)}</p>
             </div>
           </CardContent>
         </Card>
@@ -379,13 +379,13 @@ export default function InvoiceDetail() {
             <div className="flex justify-end mt-4 pt-4 border-t">
               <div className="w-64 space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatCurrency(invoice.subtotal)}</span>
                 </div>
                 {invoice.isInterstate ? (
                   Number(invoice.igstAmount) > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">IGST</span>
+                      <span className="text-muted-foreground">IGST</span>
                       <span>{formatCurrency(invoice.igstAmount)}</span>
                     </div>
                   )
@@ -393,13 +393,13 @@ export default function InvoiceDetail() {
                   <>
                     {Number(invoice.cgstAmount) > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">CGST</span>
+                        <span className="text-muted-foreground">CGST</span>
                         <span>{formatCurrency(invoice.cgstAmount)}</span>
                       </div>
                     )}
                     {Number(invoice.sgstAmount) > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">SGST</span>
+                        <span className="text-muted-foreground">SGST</span>
                         <span>{formatCurrency(invoice.sgstAmount)}</span>
                       </div>
                     )}
@@ -407,7 +407,7 @@ export default function InvoiceDetail() {
                 )}
                 {Number(invoice.taxAmount) > 0 && (
                   <div className="flex justify-between text-sm border-t pt-1">
-                    <span className="text-gray-500">Total Tax</span>
+                    <span className="text-muted-foreground">Total Tax</span>
                     <span>{formatCurrency(invoice.taxAmount)}</span>
                   </div>
                 )}
@@ -430,24 +430,24 @@ export default function InvoiceDetail() {
           <CardContent>
             <div className="space-y-3">
               {invoice.payments.map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div key={payment.id} className="flex items-center justify-between p-4 bg-muted rounded-lg">
                   <div className="flex-1">
                     <div className="flex items-center gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{formatCurrency(payment.amount)}</p>
-                        <p className="text-xs text-gray-500">{formatDate(payment.paymentDate)}</p>
+                        <p className="text-sm font-medium text-foreground">{formatCurrency(payment.amount)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(payment.paymentDate)}</p>
                       </div>
                       <div>
                         <StatusBadge status={PaymentMethodLabels[payment.paymentMethod]} variant="secondary" />
                       </div>
                     </div>
                     {payment.referenceNumber && (
-                      <p className="text-xs text-gray-600 mt-1">Ref: {payment.referenceNumber}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Ref: {payment.referenceNumber}</p>
                     )}
-                    {payment.remarks && <p className="text-xs text-gray-600 mt-1">{payment.remarks}</p>}
+                    {payment.remarks && <p className="text-xs text-muted-foreground mt-1">{payment.remarks}</p>}
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Received by {payment.users ? `${payment.users.firstName} ${payment.users.lastName}` : 'N/A'}
                     </p>
                   </div>
@@ -473,7 +473,7 @@ export default function InvoiceDetail() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="paymentAmount">
-                  Payment Amount (₹) <span className="text-red-500">*</span>
+                  Payment Amount (₹) <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="paymentAmount"
@@ -486,7 +486,7 @@ export default function InvoiceDetail() {
                   placeholder="0.00"
                   required
                 />
-                <p className="text-xs text-gray-500">Maximum: {formatCurrency(invoice.balanceAmount)}</p>
+                <p className="text-xs text-muted-foreground">Maximum: {formatCurrency(invoice.balanceAmount)}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -502,7 +502,7 @@ export default function InvoiceDetail() {
 
                 <div className="space-y-2">
                   <Label htmlFor="paymentMethod">
-                    Payment Method <span className="text-red-500">*</span>
+                    Payment Method <span className="text-destructive">*</span>
                   </Label>
                   <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}>
                     <SelectTrigger id="paymentMethod">

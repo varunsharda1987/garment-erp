@@ -8,9 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
+import { stageValidationService } from '@/services/stageValidation.service';
 import type { CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { Scissors, ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { Scissors, ArrowLeft, Save, Loader2, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import api from '@/lib/api';
 
 interface AvailableWorkOrder {
@@ -71,6 +73,9 @@ export default function CuttingForm() {
   const [availableWorkOrders, setAvailableWorkOrders] = useState<AvailableWorkOrder[]>([]);
   const [fabricStocks, setFabricStocks] = useState<FabricStock[]>([]);
   const [workOrderBreakup, setWorkOrderBreakup] = useState<WorkOrderBreakup[]>([]);
+  const [embroideryWarning, setEmbroideryWarning] = useState<string | null>(null);
+  const [blockers, setBlockers] = useState<string[]>([]);
+  const [isCheckingBlockers, setIsCheckingBlockers] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -102,10 +107,11 @@ export default function CuttingForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // When work order changes, fetch its breakup and fabric stock
+  // When work order changes, fetch its breakup, fabric stock, and check blockers
   useEffect(() => {
     if (formData.workOrderId) {
       fetchWorkOrderBreakup(formData.workOrderId);
+      checkBlockers(formData.workOrderId);
       // Load fabric stock from the selected WO's fabricIds
       const wo = availableWorkOrders.find((w) => w.id === formData.workOrderId);
       if (wo?.fabricIds?.length) {
@@ -116,12 +122,66 @@ export default function CuttingForm() {
       } else {
         setFabricStocks([]);
       }
+      // Check if style requires embroidery
+      if (wo?.styleId) {
+        api
+          .get(`/styles/${wo.styleId}`)
+          .then((res) => {
+            const style = res.data;
+            const components = style.components || style.styleComponents || [];
+            const hasEmbFabric = components.some((c: any) =>
+              (c.fabrics || c.styleFabrics || []).some((f: any) => f.hasEmbroidery)
+            );
+            if (hasEmbFabric) {
+              // Check if embroidered fabric stock exists
+              api
+                .get(`/embroidery-stock/by-style/${wo.styleId}`)
+                .then((embRes) => {
+                  const embStock = embRes.data?.data || [];
+                  const hasEmbroideredStock = embStock.some((s: any) => parseFloat(s.quantityAvailable) > 0);
+                  if (!hasEmbroideredStock) {
+                    setEmbroideryWarning(
+                      'This style requires embroidery. No embroidered fabric is currently available. ' +
+                        'Check the Embroidery page for fabric pending embroidery.'
+                    );
+                  } else {
+                    setEmbroideryWarning(null);
+                  }
+                })
+                .catch(() => setEmbroideryWarning(null));
+            } else {
+              setEmbroideryWarning(null);
+            }
+          })
+          .catch(() => setEmbroideryWarning(null));
+      }
     } else {
       setWorkOrderBreakup([]);
       setSkuPlans([]);
       setFabricStocks([]);
+      setEmbroideryWarning(null);
+      setBlockers([]);
     }
   }, [formData.workOrderId, availableWorkOrders]);
+
+  // Check stage transition blockers (material availability, sample approvals, FPT/GPT)
+  const checkBlockers = async (workOrderId: string) => {
+    if (!workOrderId) return;
+    setIsCheckingBlockers(true);
+    try {
+      const result = await stageValidationService.checkStageTransition(workOrderId, 'IN_CUTTING');
+      if (result.isBlocked && result.blockers) {
+        setBlockers(result.blockers.map((b) => b.message));
+      } else {
+        setBlockers([]);
+      }
+    } catch (err) {
+      console.error('Failed to check stage transition blockers:', err);
+      setBlockers([]);
+    } finally {
+      setIsCheckingBlockers(false);
+    }
+  };
 
   // When breakup changes, update SKU plans
   useEffect(() => {
@@ -309,7 +369,7 @@ export default function CuttingForm() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -323,12 +383,12 @@ export default function CuttingForm() {
           Back
         </Button>
         <div className="flex items-center gap-3">
-          <Scissors className="h-8 w-8 text-orange-600" />
+          <Scissors className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-display font-medium text-foreground">
               {isEditing ? 'Edit Cutting Batch' : 'New Cutting Batch'}
             </h1>
-            <p className="text-gray-500">
+            <p className="text-muted-foreground">
               {isEditing ? 'Update cutting batch details' : 'Create a new cutting batch for production'}
             </p>
           </div>
@@ -367,27 +427,50 @@ export default function CuttingForm() {
                 </div>
 
                 {selectedWO && (
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="bg-muted p-4 rounded-lg">
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-500">Style:</span>
+                        <span className="text-muted-foreground">Style:</span>
                         <div className="font-medium">
                           {selectedWO.styleCode} - {selectedWO.styleName}
                         </div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Order Qty:</span>
+                        <span className="text-muted-foreground">Order Qty:</span>
                         <div className="font-medium">{selectedWO.orderQty} pcs</div>
                       </div>
                       <div>
-                        <span className="text-gray-500">Pending:</span>
-                        <div className="font-medium text-orange-600">{selectedWO.pendingQty} pcs</div>
+                        <span className="text-muted-foreground">Pending:</span>
+                        <div className="font-medium text-primary">{selectedWO.pendingQty} pcs</div>
                       </div>
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* Embroidery Warning */}
+            {embroideryWarning && (
+              <Alert className="border-warning/20 bg-warning-muted">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertDescription className="text-warning">{embroideryWarning}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Stage Transition Blockers */}
+            {blockers.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Cannot proceed with cutting:</strong>
+                  <ul className="list-disc pl-4 mt-2">
+                    {blockers.map((msg, i) => (
+                      <li key={i}>{msg}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Cutting Details */}
             <Card>
@@ -534,7 +617,7 @@ export default function CuttingForm() {
                           <TableCell>{sku.colorName}</TableCell>
                           <TableCell>{sku.sizeName}</TableCell>
                           <TableCell className="text-right">{sku.orderQty}</TableCell>
-                          <TableCell className="text-right text-gray-500">+{sku.extraAllowed}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">+{sku.extraAllowed}</TableCell>
                           <TableCell className="text-right">
                             <Input
                               type="number"
@@ -545,14 +628,16 @@ export default function CuttingForm() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="bg-gray-50 font-semibold">
+                      <TableRow className="bg-muted font-semibold">
                         <TableCell colSpan={4}>Total</TableCell>
                         <TableCell className="text-right">{totalToCut}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
                 ) : (
-                  <p className="text-gray-500 text-center py-8">Select a production run to see the quantity breakup</p>
+                  <p className="text-muted-foreground text-center py-8">
+                    Select a production run to see the quantity breakup
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -566,9 +651,19 @@ export default function CuttingForm() {
                 <CardTitle>Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button type="submit" className="w-full" disabled={isSaving}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSaving || blockers.length > 0 || isCheckingBlockers}
+                >
                   <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Saving...' : isEditing ? 'Update Batch' : 'Create Batch'}
+                  {isCheckingBlockers
+                    ? 'Checking...'
+                    : isSaving
+                      ? 'Saving...'
+                      : isEditing
+                        ? 'Update Batch'
+                        : 'Create Batch'}
                 </Button>
                 <Button
                   type="button"
@@ -589,24 +684,24 @@ export default function CuttingForm() {
                 </CardHeader>
                 <CardContent className="text-sm space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Total to Cut:</span>
+                    <span className="text-muted-foreground">Total to Cut:</span>
                     <span className="font-semibold">{totalToCut} pcs</span>
                   </div>
                   {selectedFabric && (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Fabric Lot:</span>
+                        <span className="text-muted-foreground">Fabric Lot:</span>
                         <span>{selectedFabric.rollNumbers || selectedFabric.fabricName || '-'}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Available:</span>
+                        <span className="text-muted-foreground">Available:</span>
                         <span>{selectedFabric.quantityAvailable}m</span>
                       </div>
                     </>
                   )}
                   {formData.layersPerLay > 0 && formData.numberOfLays > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Max Capacity:</span>
+                      <span className="text-muted-foreground">Max Capacity:</span>
                       <span>{formData.layersPerLay * formData.numberOfLays} pcs</span>
                     </div>
                   )}
@@ -619,7 +714,7 @@ export default function CuttingForm() {
               <CardHeader>
                 <CardTitle className="text-sm">Cutting Guidelines</CardTitle>
               </CardHeader>
-              <CardContent className="text-xs text-gray-600 space-y-2">
+              <CardContent className="text-xs text-muted-foreground space-y-2">
                 <p>
                   <strong>Layers Per Lay:</strong> Number of fabric layers stacked for cutting.
                 </p>

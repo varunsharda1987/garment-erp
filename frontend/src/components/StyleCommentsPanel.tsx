@@ -53,14 +53,14 @@ function stringToColor(str: string): string {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   const colors = [
-    'bg-red-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-orange-500',
+    'bg-destructive/100',
+    'bg-info-muted0',
+    'bg-success-muted0',
+    'bg-accent/100',
+    'bg-primary/100',
     'bg-pink-500',
     'bg-teal-500',
-    'bg-indigo-500',
+    'bg-primary/50',
   ];
   return colors[Math.abs(hash) % colors.length];
 }
@@ -95,20 +95,20 @@ function CommentItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-medium text-sm">{comment.user.name}</span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
           </span>
-          {comment.updatedAt !== comment.createdAt && <span className="text-xs text-gray-400">(edited)</span>}
+          {comment.updatedAt !== comment.createdAt && <span className="text-xs text-muted-foreground">(edited)</span>}
         </div>
 
-        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{comment.comment}</p>
+        <p className="text-sm text-foreground whitespace-pre-wrap break-words">{comment.comment}</p>
 
         <div className="flex items-center gap-2 mt-1">
           {!isReply && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700"
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => onReply(comment.id)}
             >
               <Reply className="h-3 w-3 mr-1" />
@@ -119,7 +119,11 @@ function CommentItem({
           {isOwner && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-muted-foreground"
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -128,7 +132,7 @@ function CommentItem({
                   <Edit2 className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDelete(comment)} className="text-red-600">
+                <DropdownMenuItem onClick={() => onDelete(comment)} className="text-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
                 </DropdownMenuItem>
@@ -335,7 +339,7 @@ export function StyleCommentsPanel({ styleId, currentUserId }: StyleCommentsPane
           {/* Comment input */}
           <div className="space-y-2">
             {replyToId && (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Reply className="h-4 w-4" />
                 <span>Replying to {getParentCommentUser()}</span>
                 <Button variant="ghost" size="sm" className="h-6 px-2" onClick={cancelReply}>
@@ -357,7 +361,7 @@ export function StyleCommentsPanel({ styleId, currentUserId }: StyleCommentsPane
               />
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500">Press Ctrl+Enter to submit</span>
+              <span className="text-xs text-muted-foreground">Press Ctrl+Enter to submit</span>
               <Button onClick={handleSubmit} disabled={!newComment.trim() || submitting} size="sm">
                 <Send className="h-4 w-4 mr-1" />
                 {submitting ? 'Sending...' : 'Send'}
@@ -367,7 +371,7 @@ export function StyleCommentsPanel({ styleId, currentUserId }: StyleCommentsPane
 
           {/* Comments list */}
           {comments.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <MessageSquare className="h-12 w-12 mb-2 opacity-50" />
               <p>No comments yet</p>
               <p className="text-sm">Be the first to comment!</p>

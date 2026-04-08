@@ -231,18 +231,18 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* THREAD INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Thread Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Thread Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Thread Code - Auto-generated */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
                     Thread Code
                     {isNewThread && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                      <span className="text-xs bg-info-muted text-info px-2 py-0.5 rounded">Auto-generated</span>
                     )}
                   </label>
                   {!isNewThread && threadCode ? (
@@ -250,7 +250,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                       <Badge variant="secondary" className="font-mono text-sm">
                         {threadCode}
                       </Badge>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
@@ -261,18 +261,20 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                         value=""
                         readOnly
                         placeholder="Will be auto-generated (e.g., THD-000001)"
-                        className="bg-gray-50 cursor-not-allowed"
+                        className="bg-muted cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
                     </>
                   )}
                 </div>
 
                 {/* Thread Name */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
                     Thread Name
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                    <span className="text-xs bg-success-muted text-success px-2 py-0.5 rounded">Auto-generated</span>
                   </label>
                   <Input
                     id="threadName"
@@ -286,7 +288,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                     })}
                     placeholder="Leave empty to auto-generate from brand, color, packaging type, etc."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {isNewThread
                       ? 'If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Brand Color CONE Thread 5000m")'
                       : 'Name will auto-update when you change attributes. Edit manually to override.'}
@@ -302,7 +304,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                 {/* Ply */}
                 <div>
                   <Label htmlFor="ply">
-                    Ply <span className="text-xs text-gray-500">(Thread Material Module)</span>
+                    Ply <span className="text-xs text-muted-foreground">(Thread Material Module)</span>
                   </Label>
                   <Select value={watchedPly || undefined} onValueChange={(value: ThreadPly) => setValue('ply', value)}>
                     <SelectTrigger>
@@ -313,7 +315,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                       <SelectItem value="THREE_PLY">3-Ply</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Select thread ply for new Thread Material module features
                   </p>
                 </div>
@@ -321,7 +323,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                 {/* Material Composition */}
                 <div>
                   <Label htmlFor="materialComposition">
-                    Material Composition <span className="text-xs text-gray-500">(Thread Material Module)</span>
+                    Material Composition <span className="text-xs text-muted-foreground">(Thread Material Module)</span>
                   </Label>
                   <Select
                     value={watchedMaterialComposition || undefined}
@@ -335,7 +337,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                       <SelectItem value="COTTON">Cotton</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 mt-1">Select thread material composition</p>
+                  <p className="text-xs text-muted-foreground mt-1">Select thread material composition</p>
                 </div>
 
                 {/* Packaging Type */}
@@ -367,12 +369,12 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                     </SelectContent>
                   </Select>
                   {!watchedPly && !watchedMaterialComposition && (
-                    <p className="text-xs text-amber-600 mt-1">
+                    <p className="text-xs text-warning mt-1">
                       ⚠️ Select Ply and Material Composition to enable new packaging types (SPOOL, CONE_5K, CONE_10K)
                     </p>
                   )}
                   {watchedPly && watchedMaterialComposition && (
-                    <p className="text-xs text-green-600 mt-1">
+                    <p className="text-xs text-success mt-1">
                       ✅ New packaging types enabled based on {watchedPly === 'TWO_PLY' ? '2-Ply' : '3-Ply'}{' '}
                       {watchedMaterialComposition === 'POLYESTER' ? 'Polyester' : 'Cotton'}
                     </p>
@@ -387,10 +389,10 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                     type="number"
                     {...register('piecesPerBox')}
                     readOnly
-                    className="bg-gray-50 cursor-not-allowed"
+                    className="bg-muted cursor-not-allowed"
                     placeholder="Auto-set based on packaging type"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Cone: 6 pcs/box | Tube: 10 pcs/box</p>
+                  <p className="text-xs text-muted-foreground mt-1">Cone: 6 pcs/box | Tube: 10 pcs/box</p>
                 </div>
 
                 {/* Units per Box (NEW - Thread Material module) */}
@@ -399,17 +401,17 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   ['SPOOL', 'CONE_5K', 'CONE_10K'].includes(watchedPackagingType) && (
                     <div>
                       <Label htmlFor="unitsPerBox">
-                        Units per Box <span className="text-xs text-green-600">(Thread Material)</span>
+                        Units per Box <span className="text-xs text-success">(Thread Material)</span>
                       </Label>
                       <Input
                         id="unitsPerBox"
                         type="number"
                         {...register('unitsPerBox')}
                         readOnly
-                        className="bg-gray-50 cursor-not-allowed"
+                        className="bg-muted cursor-not-allowed"
                         placeholder="Auto-set based on ply + packaging"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {watchedPackagingType === 'SPOOL' && watchedPly === 'THREE_PLY' && '3-Ply Spool: 15 units/box'}
                         {watchedPackagingType === 'SPOOL' && watchedPly === 'TWO_PLY' && '2-Ply Spool: 10 units/box'}
                         {watchedPackagingType === 'CONE_5K' && '10 units/box'}
@@ -428,7 +430,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                     {...register('metersPerUnit')}
                     placeholder="e.g., 5000, 1000"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Length in meters per cone/tube</p>
+                  <p className="text-xs text-muted-foreground mt-1">Length in meters per cone/tube</p>
                 </div>
 
                 {/* Packaging Specs Display (NEW - Thread Material module) */}
@@ -436,16 +438,16 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                   watchedPackagingType &&
                   ['SPOOL', 'CONE_5K', 'CONE_10K'].includes(watchedPackagingType) && (
                     <div className="md:col-span-2">
-                      <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h4 className="text-sm font-semibold text-blue-900 mb-2">📦 Packaging Specifications</h4>
+                      <div className="p-4 bg-info-muted rounded-lg border border-info/20">
+                        <h4 className="text-sm font-semibold text-info mb-2">📦 Packaging Specifications</h4>
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <div>
-                            <p className="text-blue-600 font-medium">Ply</p>
-                            <p className="text-blue-900">{watchedPly === 'TWO_PLY' ? '2-Ply' : '3-Ply'}</p>
+                            <p className="text-info font-medium">Ply</p>
+                            <p className="text-info">{watchedPly === 'TWO_PLY' ? '2-Ply' : '3-Ply'}</p>
                           </div>
                           <div>
-                            <p className="text-blue-600 font-medium">Units/Box</p>
-                            <p className="text-blue-900">
+                            <p className="text-info font-medium">Units/Box</p>
+                            <p className="text-info">
                               {watchedPackagingType === 'SPOOL' && watchedPly === 'THREE_PLY' && '15 units'}
                               {watchedPackagingType === 'SPOOL' && watchedPly === 'TWO_PLY' && '10 units'}
                               {(watchedPackagingType === 'CONE_5K' || watchedPackagingType === 'CONE_10K') &&
@@ -453,8 +455,8 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                             </p>
                           </div>
                           <div>
-                            <p className="text-blue-600 font-medium">Meters/Unit</p>
-                            <p className="text-blue-900">
+                            <p className="text-info font-medium">Meters/Unit</p>
+                            <p className="text-info">
                               {watchedPackagingType === 'SPOOL' && watchedPly === 'THREE_PLY' && '400m'}
                               {watchedPackagingType === 'SPOOL' && watchedPly === 'TWO_PLY' && '800m'}
                               {watchedPackagingType === 'CONE_5K' && '5,000m'}
@@ -489,9 +491,9 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                     showFamilyFilter={true}
                     placeholder="Select color from master..."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Select from Color Master or{' '}
-                    <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
+                    <a href="/colors/new" target="_blank" className="text-info hover:underline">
                       add a new color
                     </a>
                   </p>
@@ -507,7 +509,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                     {...register('pricePerCone')}
                     placeholder="e.g., 125.50"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Fallback price when no supplier-specific price is available
                   </p>
                 </div>
@@ -517,7 +519,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
             {/* SUPPLIERS SECTION - Multi-supplier support */}
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <h3 className="text-lg font-semibold text-foreground">Suppliers</h3>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
@@ -525,19 +527,19 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
               </div>
 
               {suppliers.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <p className="text-gray-500">No suppliers added yet.</p>
-                  <p className="text-sm text-gray-400 mt-1">Click "Add Supplier" to add one.</p>
+                <div className="text-center py-8 bg-muted rounded-lg border-2 border-dashed border-border">
+                  <p className="text-muted-foreground">No suppliers added yet.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Click "Add Supplier" to add one.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {suppliers.map((supplier, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div key={index} className="border border-border rounded-lg p-4 bg-muted">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
                           <Label>
-                            Supplier <span className="text-red-500">*</span>
+                            Supplier <span className="text-destructive">*</span>
                           </Label>
                           <Select
                             value={supplier.supplierId || undefined}
@@ -575,7 +577,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                             variant="outline"
                             size="icon"
                             onClick={() => handleRemoveSupplier(index)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -588,9 +590,9 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                               type="checkbox"
                               checked={supplier.isPreferred}
                               onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                              className="h-4 w-4 text-info rounded border-border focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                            <span className="ml-2 text-sm text-foreground">Preferred Supplier</span>
                           </label>
 
                           <label className="flex items-center cursor-pointer">
@@ -598,9 +600,9 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                               type="checkbox"
                               checked={supplier.isActive}
                               onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                              className="h-4 w-4 text-info rounded border-border focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                            <span className="ml-2 text-sm text-foreground">Active</span>
                           </label>
                         </div>
 
@@ -622,7 +624,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
 
             {/* SUPPLIER REFERENCE CODE */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Reference Codes</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Reference Codes</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="supplierCode">Supplier Reference Code</Label>
@@ -637,7 +639,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
 
             {/* STYLE ASSOCIATIONS */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Style Associations</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Style Associations</h3>
               <StyleCodeMultiSelect
                 value={selectedStyleCodes}
                 onChange={setSelectedStyleCodes}
@@ -649,7 +651,7 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
 
             {/* DESCRIPTION */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Additional Information</h3>
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea

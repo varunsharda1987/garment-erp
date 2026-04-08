@@ -50,17 +50,17 @@ export default function TestTemplates() {
 
   const getTemplateTypeBadge = (type: TestTemplateType) => {
     if (type === 'FPT') {
-      return <Badge className="bg-blue-100 text-blue-800 border-blue-300">FPT - Fabric</Badge>;
+      return <Badge className="bg-info-muted text-info border-info/30">FPT - Fabric</Badge>;
     }
-    return <Badge className="bg-purple-100 text-purple-800 border-purple-300">GPT - Garment</Badge>;
+    return <Badge className="bg-accent/10 text-accent border-accent/25">GPT - Garment</Badge>;
   };
 
   if (loading) {
     return (
       <div className="p-6">
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-500 mt-4">Loading test templates...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading test templates...</p>
         </div>
       </div>
     );
@@ -71,11 +71,11 @@ export default function TestTemplates() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <FileText className="h-8 w-8 text-orange-600" />
+          <h1 className="text-3xl font-display font-medium text-foreground flex items-center gap-3">
+            <FileText className="h-8 w-8 text-primary" />
             Test Templates
           </h1>
-          <p className="text-gray-500 mt-1">Define test parameters and tolerance ranges for buyers</p>
+          <p className="text-muted-foreground mt-1">Define test parameters and tolerance ranges for buyers</p>
         </div>
         <Button onClick={() => navigate('/test-templates/new')} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
@@ -87,7 +87,7 @@ export default function TestTemplates() {
       <Card className="p-4">
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by template code or name..."
               value={search}
@@ -118,9 +118,9 @@ export default function TestTemplates() {
       {/* Templates List */}
       {templates.length === 0 ? (
         <Card className="p-12 text-center">
-          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Test Templates Found</h3>
-          <p className="text-gray-500 mb-4">Create your first test template</p>
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Test Templates Found</h3>
+          <p className="text-muted-foreground mb-4">Create your first test template</p>
           <Button onClick={() => navigate('/test-templates/new')}>
             <Plus className="h-4 w-4 mr-2" />
             Create Template
@@ -133,30 +133,30 @@ export default function TestTemplates() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{template.templateName}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{template.templateName}</h3>
                     {getTemplateTypeBadge(template.templateType)}
                     {template.isActive ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-300">
+                      <Badge className="bg-success-muted text-success border-success/25">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Active
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                      <Badge variant="outline" className="bg-muted text-muted-foreground">
                         <XCircle className="h-3 w-3 mr-1" />
                         Inactive
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 font-mono mb-4">{template.templateCode}</p>
+                  <p className="text-sm text-muted-foreground font-mono mb-4">{template.templateCode}</p>
 
-                  {template.description && <p className="text-sm text-gray-600 mb-4">{template.description}</p>}
+                  {template.description && <p className="text-sm text-muted-foreground mb-4">{template.description}</p>}
 
                   {/* Required Parameters */}
                   <div className="mb-3">
-                    <p className="text-xs font-semibold text-gray-500 mb-2">Required Parameters:</p>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Required Parameters:</p>
                     <div className="flex flex-wrap gap-2">
                       {template.requiredParams.map((param, idx) => (
-                        <Badge key={idx} variant="outline" className="bg-red-50 text-red-700">
+                        <Badge key={idx} variant="outline" className="bg-destructive/10 text-destructive">
                           {param}
                         </Badge>
                       ))}
@@ -166,10 +166,10 @@ export default function TestTemplates() {
                   {/* Optional Parameters */}
                   {template.optionalParams && template.optionalParams.length > 0 && (
                     <div className="mb-3">
-                      <p className="text-xs font-semibold text-gray-500 mb-2">Optional Parameters:</p>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">Optional Parameters:</p>
                       <div className="flex flex-wrap gap-2">
                         {template.optionalParams.map((param, idx) => (
-                          <Badge key={idx} variant="outline" className="bg-gray-50 text-gray-600">
+                          <Badge key={idx} variant="outline" className="bg-muted text-muted-foreground">
                             {param}
                           </Badge>
                         ))}
@@ -179,15 +179,15 @@ export default function TestTemplates() {
 
                   {/* Tolerance Ranges */}
                   {template.toleranceRanges && Object.keys(template.toleranceRanges).length > 0 && (
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-xs font-semibold text-gray-700 mb-2">Tolerance Ranges:</p>
+                    <div className="mt-4 p-3 bg-info-muted rounded-lg">
+                      <p className="text-xs font-semibold text-foreground mb-2">Tolerance Ranges:</p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                         {Object.entries(template.toleranceRanges).map(
                           ([key, range]) =>
                             range && (
                               <div key={key} className="text-xs">
-                                <span className="text-gray-600 capitalize">{key}:</span>
-                                <span className="ml-1 font-medium text-gray-900">
+                                <span className="text-muted-foreground capitalize">{key}:</span>
+                                <span className="ml-1 font-medium text-foreground">
                                   {range.min !== undefined && `${range.min}`}
                                   {range.min !== undefined && range.max !== undefined && ' - '}
                                   {range.max !== undefined && `${range.max}`}
@@ -202,7 +202,7 @@ export default function TestTemplates() {
 
                   {/* Testing Standards */}
                   {template.testingStandards && (
-                    <div className="mt-3 text-xs text-gray-600">
+                    <div className="mt-3 text-xs text-muted-foreground">
                       <span className="font-semibold">Standards:</span> {template.testingStandards}
                     </div>
                   )}
@@ -230,7 +230,7 @@ export default function TestTemplates() {
           <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
             Previous
           </Button>
-          <span className="px-4 py-2 text-sm text-gray-600">
+          <span className="px-4 py-2 text-sm text-muted-foreground">
             Page {page} of {totalPages}
           </span>
           <Button

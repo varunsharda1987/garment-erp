@@ -179,13 +179,13 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
     return (
       <div className="space-y-1">
         <Label>Ready Fabric *</Label>
-        <div className="flex items-center gap-2 p-2 border rounded-md bg-green-50 border-green-200">
-          <Package className="h-4 w-4 text-green-600 shrink-0" />
+        <div className="flex items-center gap-2 p-2 border rounded-md bg-success-muted border-success/20">
+          <Package className="h-4 w-4 text-success shrink-0" />
           <div className="flex-1 min-w-0">
-            <span className="text-xs font-mono text-gray-500">{fabricCode}</span>
+            <span className="text-xs font-mono text-muted-foreground">{fabricCode}</span>
             <span className="text-sm ml-2 truncate">{fabricName}</span>
           </div>
-          <button type="button" onClick={onClear} className="text-gray-400 hover:text-red-500 shrink-0">
+          <button type="button" onClick={onClear} className="text-muted-foreground hover:text-destructive shrink-0">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -197,9 +197,9 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
     <div className="space-y-1" ref={dropdownRef}>
       <Label>Ready Fabric *</Label>
       <div className="relative">
-        <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         {loading && (
-          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
         )}
         <Input
           ref={inputRef}
@@ -213,7 +213,7 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
           className="pl-10 pr-10"
         />
         {open && query.length > 0 && (
-          <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-52 overflow-auto">
+          <div className="absolute z-50 w-full mt-1 bg-card border rounded-md shadow-lg max-h-52 overflow-auto">
             {results.length > 0 ? (
               results.map((f) => (
                 <button
@@ -224,16 +224,16 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
                     setOpen(false);
                     setQuery('');
                   }}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
                 >
-                  <Package className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                  <span className="font-mono text-xs text-gray-500">{f.fabricCode}</span>
+                  <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-mono text-xs text-muted-foreground">{f.fabricCode}</span>
                   <span className="truncate">{f.fabricName}</span>
-                  {f.colorName && <span className="text-xs text-gray-400 ml-auto shrink-0">{f.colorName}</span>}
+                  {f.colorName && <span className="text-xs text-muted-foreground ml-auto shrink-0">{f.colorName}</span>}
                 </button>
               ))
             ) : (
-              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+              <div className="px-3 py-4 text-sm text-muted-foreground text-center">
                 {loading ? 'Searching...' : 'No fabrics found'}
               </div>
             )}
@@ -1336,6 +1336,33 @@ export default function StyleFormRedesigned() {
         if (loadedTrims.length > 0) {
           setSelectedTrims(loadedTrims);
         }
+      } else {
+        // BOM is empty but style has a preset configured - load preset items directly
+        const presetId = styleData.customerAccessoriesPresetId as string | undefined;
+        if (presetId && loadedPresets) {
+          const savedPreset = loadedPresets.find((p: AccessoryPreset) => p.id === presetId);
+          if (savedPreset?.items && savedPreset.items.length > 0) {
+            const presetAccessories: StyleAccessory[] = savedPreset.items
+              .filter(
+                (item) =>
+                  (item.materialType === 'LABEL' && item.labelId) ||
+                  (item.materialType === 'PACKAGING' && item.materialId)
+              )
+              .map((item) => ({
+                accessoryType: (item.materialType === 'LABEL' ? 'LABEL' : 'PACKAGING') as 'LABEL' | 'PACKAGING',
+                masterId: item.materialType === 'LABEL' ? item.labelId || '' : item.materialId || '',
+                masterCode: item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || '',
+                masterName:
+                  item.materialType === 'LABEL'
+                    ? item.label?.labelName || item.label?.labelCode || ''
+                    : item.material?.name || '',
+                subType: null,
+              }));
+            setSelectedAccessories(presetAccessories);
+            // Track all as preset items for badge display
+            setPresetItemIds(new Set(presetAccessories.map((a) => a.masterId).filter(Boolean)));
+          }
+        }
       }
 
       // Load numberOfComponents - prioritize the saved field value
@@ -1615,7 +1642,7 @@ export default function StyleFormRedesigned() {
     if (selectedAccessoryPresetId) return;
     if (customerAccessoryPresets.length === 0) return;
 
-    const nihsamahPreset = customerAccessoryPresets.find((p) => p.presetName.toLowerCase() === 'nihsamah');
+    const nihsamahPreset = customerAccessoryPresets.find((p) => p.presetName.toLowerCase().includes('nihsamah'));
     if (nihsamahPreset) {
       applyPresetToAccessories(nihsamahPreset);
     }
@@ -2010,8 +2037,8 @@ export default function StyleFormRedesigned() {
         customerAccessoriesPresetId: selectedAccessoryPresetId || undefined,
         // CAD status starts as PENDING
         cadStatus: 'PENDING' as CADStatus,
-        // Status - DRAFT if saving as draft, otherwise ACTIVE
-        status: isDraft ? 'DRAFT' : 'ACTIVE',
+        // Status - DRAFT stays DRAFT until explicitly published, ACTIVE stays ACTIVE
+        status: isDraft || styleStatus === 'DRAFT' ? 'DRAFT' : 'ACTIVE',
       };
 
       if (effectiveId) {
@@ -2020,8 +2047,8 @@ export default function StyleFormRedesigned() {
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
         clearLocalDraft(); // Clear localStorage after successful DB save
 
-        // Only navigate away on full submit, stay on page for draft
-        if (!isDraft) {
+        // Only navigate away for published (ACTIVE) styles, stay on page for drafts
+        if (!isDraft && styleStatus !== 'DRAFT') {
           navigate('/styles');
         }
       } else {
@@ -2114,20 +2141,20 @@ export default function StyleFormRedesigned() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">{isEditMode ? 'Edit Style' : 'Create New Style'}</h1>
+              <h1 className="text-3xl font-display font-medium">{isEditMode ? 'Edit Style' : 'Create New Style'}</h1>
               {/* Status Badge */}
               {(!isEditMode || styleStatus === 'DRAFT') && (
-                <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">
+                <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/25">
                   DRAFT
                 </Badge>
               )}
               {isEditMode && styleStatus === 'ACTIVE' && (
-                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
+                <Badge variant="secondary" className="bg-success-muted text-success border-success/25">
                   ACTIVE
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Define style details, fabrics, and materials. CAD planning comes after creation.
             </p>
           </div>
@@ -2138,12 +2165,12 @@ export default function StyleFormRedesigned() {
             <div className="text-xs text-muted-foreground flex items-center gap-1.5">
               {isFormDirty ? (
                 <>
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-warning-muted0 animate-pulse" />
                   <span>Unsaved changes</span>
                 </>
               ) : lastAutoSaved ? (
                 <>
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <div className="w-2 h-2 rounded-full bg-success-muted0" />
                   <span>Auto-saved {lastAutoSaved.toLocaleTimeString()}</span>
                 </>
               ) : null}
@@ -2164,7 +2191,7 @@ export default function StyleFormRedesigned() {
               type="button"
               onClick={handlePublishClick}
               disabled={publishing || loading}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+              className="flex items-center gap-2 bg-success hover:bg-success text-white"
             >
               {publishing ? 'Publishing...' : 'Publish Style'}
             </Button>
@@ -2173,11 +2200,11 @@ export default function StyleFormRedesigned() {
       </div>
 
       {/* Info Banner */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
-        <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+      <div className="mb-6 p-4 bg-info-muted border border-info/20 rounded-lg flex items-start gap-3">
+        <Info className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
         <div className="flex-1 text-sm">
-          <p className="font-medium text-blue-900 mb-1">New Workflow</p>
-          <p className="text-blue-700">
+          <p className="font-medium text-info mb-1">New Workflow</p>
+          <p className="text-info">
             Use <strong>Generic Greige Name</strong> (e.g., "Cambric") instead of specific greige. You'll select the
             actual greige width during <strong>CAD Planning</strong> after style creation.
           </p>
@@ -2197,7 +2224,7 @@ export default function StyleFormRedesigned() {
           {/* TAB 1: BASIC INFO */}
           <TabsContent value="basic" forceMount className="space-y-6 data-[state=inactive]:hidden">
             <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
+              <h2 className="text-xl font-display font-semibold mb-4">Basic Information</h2>
 
               {/* Main layout: Image on left, Form fields on right */}
               <div className="grid grid-cols-[280px_1fr] gap-6">
@@ -2209,7 +2236,7 @@ export default function StyleFormRedesigned() {
                       <img
                         src={pendingImagePreview || getUploadUrl(imageUrl)}
                         alt="Style preview"
-                        className="w-full h-[280px] object-cover rounded-lg border-2 border-gray-200"
+                        className="w-full h-[280px] object-cover rounded-lg border-2 border-border"
                         loading="lazy"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src =
@@ -2217,7 +2244,7 @@ export default function StyleFormRedesigned() {
                         }}
                       />
                       {pendingImagePreview && (
-                        <span className="absolute bottom-2 left-2 bg-amber-500 text-white text-xs px-2 py-1 rounded">
+                        <span className="absolute bottom-2 left-2 bg-warning-muted0 text-white text-xs px-2 py-1 rounded">
                           Pending upload
                         </span>
                       )}
@@ -2225,7 +2252,7 @@ export default function StyleFormRedesigned() {
                         type="button"
                         onClick={handleDeleteImage}
                         disabled={uploadingImage}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                        className="absolute top-2 right-2 bg-destructive/100 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -2238,9 +2265,9 @@ export default function StyleFormRedesigned() {
                         }
                       }}
                       className={cn(
-                        'flex flex-col items-center justify-center w-full h-[280px] border-2 border-dashed border-gray-300 rounded-lg transition-colors',
+                        'flex flex-col items-center justify-center w-full h-[280px] border-2 border-dashed border-border rounded-lg transition-colors',
                         !uploadingImage
-                          ? 'cursor-pointer hover:border-blue-400 hover:bg-blue-50'
+                          ? 'cursor-pointer hover:border-info/50 hover:bg-info-muted'
                           : 'cursor-not-allowed opacity-60'
                       )}
                     >
@@ -2253,12 +2280,12 @@ export default function StyleFormRedesigned() {
                         className="hidden"
                       />
                       {uploadingImage ? (
-                        <span className="text-sm text-gray-500">Uploading...</span>
+                        <span className="text-sm text-muted-foreground">Uploading...</span>
                       ) : (
                         <>
-                          <Plus className="h-12 w-12 text-gray-400" />
-                          <span className="text-sm text-gray-500 mt-2">Click to add image</span>
-                          <span className="text-xs text-gray-400 mt-1">JPG, PNG (max 5MB)</span>
+                          <Plus className="h-12 w-12 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground mt-2">Click to add image</span>
+                          <span className="text-xs text-muted-foreground mt-1">JPG, PNG (max 5MB)</span>
                         </>
                       )}
                     </div>
@@ -2324,7 +2351,7 @@ export default function StyleFormRedesigned() {
                       </SelectContent>
                     </Select>
                     {!availableBrands.length && selectedCustomerId && (
-                      <p className="text-xs text-gray-500 mt-1">Select a customer with configured brands</p>
+                      <p className="text-xs text-muted-foreground mt-1">Select a customer with configured brands</p>
                     )}
                   </div>
 
@@ -2373,7 +2400,7 @@ export default function StyleFormRedesigned() {
                       </SelectContent>
                     </Select>
                     {!availableCategories.length && brandName && (
-                      <p className="text-xs text-gray-500 mt-1">No categories available for this brand</p>
+                      <p className="text-xs text-muted-foreground mt-1">No categories available for this brand</p>
                     )}
                   </div>
                   <div>
@@ -2451,7 +2478,7 @@ export default function StyleFormRedesigned() {
                                   {cat.name}
                                 </SelectItem>
                                 {productSubCategories[cat.id]?.map((subCat) => (
-                                  <SelectItem key={subCat.id} value={subCat.id} className="pl-6 text-gray-600">
+                                  <SelectItem key={subCat.id} value={subCat.id} className="pl-6 text-muted-foreground">
                                     └ {subCat.name}
                                   </SelectItem>
                                 ))}
@@ -2488,13 +2515,13 @@ export default function StyleFormRedesigned() {
                         selectedProductCategory &&
                         (numberOfComponents < (selectedProductCategory.minComponents || 1) ||
                           numberOfComponents > (selectedProductCategory.maxComponents || 999))
-                          ? 'border-red-500'
+                          ? 'border-destructive'
                           : ''
                       }
                     />
                     {selectedProductCategory &&
                       (selectedProductCategory.minComponents || selectedProductCategory.maxComponents) && (
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-xs text-muted-foreground mt-1">
                           {selectedProductCategory.minComponents === selectedProductCategory.maxComponents
                             ? `This category requires exactly ${selectedProductCategory.minComponents} component${(selectedProductCategory.minComponents ?? 0) > 1 ? 's' : ''}`
                             : `This category supports ${selectedProductCategory.minComponents || 1} to ${selectedProductCategory.maxComponents || '∞'} components`}
@@ -2503,7 +2530,7 @@ export default function StyleFormRedesigned() {
                     {selectedProductCategory &&
                       (numberOfComponents < (selectedProductCategory.minComponents || 1) ||
                         numberOfComponents > (selectedProductCategory.maxComponents || 999)) && (
-                        <p className="text-xs text-red-600 mt-1">
+                        <p className="text-xs text-destructive mt-1">
                           Component count must be between {selectedProductCategory.minComponents || 1} and{' '}
                           {selectedProductCategory.maxComponents || '∞'}
                         </p>
@@ -2540,7 +2567,7 @@ export default function StyleFormRedesigned() {
 
                   {/* Selected Product Category Path (spans both columns) */}
                   {productCategoryId && (
-                    <div className="col-span-2 text-sm text-purple-600">
+                    <div className="col-span-2 text-sm text-accent">
                       Product:{' '}
                       {[
                         productCategories.find((c) => c.id === selectedProductCategoryL1)?.name,
@@ -2559,11 +2586,11 @@ export default function StyleFormRedesigned() {
 
               {/* Component Names Section */}
               {numberOfComponents > 0 && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="mt-4 p-4 bg-info-muted rounded-lg border border-info/20">
                   <Label className="text-base font-semibold mb-3 block">Component Selection</Label>
-                  <p className="text-xs text-gray-600 mb-3">
+                  <p className="text-xs text-muted-foreground mb-3">
                     Select the component for each part of the garment. Manage components in{' '}
-                    <a href="/component-masters" className="text-blue-600 hover:underline">
+                    <a href="/component-masters" className="text-info hover:underline">
                       Component Masters
                     </a>
                     .
@@ -2574,7 +2601,7 @@ export default function StyleFormRedesigned() {
                       const selectedComponent = componentMasters.find((c) => c.id === selectedComponentId);
 
                       return (
-                        <div key={index} className="p-3 bg-white rounded-md border">
+                        <div key={index} className="p-3 bg-card rounded-md border">
                           <Label className="text-sm">Component {index + 1}</Label>
                           <Popover
                             open={openComponentPopovers[index] || false}
@@ -2593,7 +2620,7 @@ export default function StyleFormRedesigned() {
                                   <span className="truncate">
                                     {selectedComponent.name}
                                     {selectedComponent.componentCategory && (
-                                      <span className="text-gray-500 ml-1">
+                                      <span className="text-muted-foreground ml-1">
                                         ({selectedComponent.componentCategory})
                                       </span>
                                     )}
@@ -2702,7 +2729,7 @@ export default function StyleFormRedesigned() {
                                                 <span className="flex-1">
                                                   {component.name}
                                                   {component.componentCategory && (
-                                                    <span className="text-gray-500 ml-1">
+                                                    <span className="text-muted-foreground ml-1">
                                                       ({component.componentCategory})
                                                     </span>
                                                   )}
@@ -2729,14 +2756,14 @@ export default function StyleFormRedesigned() {
               <button
                 type="button"
                 onClick={() => setShowAdditionalDetails(!showAdditionalDetails)}
-                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 mt-4"
+                className="flex items-center gap-2 text-sm text-info hover:text-info mt-4"
               >
                 {showAdditionalDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 Additional Details (Optional)
               </button>
 
               {showAdditionalDetails && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-6">
+                <div className="mt-4 p-4 bg-muted rounded-lg space-y-6">
                   {/* Pricing */}
                   <div>
                     <Label className="text-base font-semibold mb-3 block">Pricing</Label>
@@ -2782,7 +2809,7 @@ export default function StyleFormRedesigned() {
                           maxLength={8}
                         />
                         {hsnCode && (hsnCode.length < 6 || hsnCode.length > 8) && (
-                          <p className="text-xs text-red-600 mt-1">HSN code must be 6-8 digits</p>
+                          <p className="text-xs text-destructive mt-1">HSN code must be 6-8 digits</p>
                         )}
                       </div>
                       <div>
@@ -2799,7 +2826,7 @@ export default function StyleFormRedesigned() {
                           maxLength={2}
                         />
                         {productTaxRule && productTaxRule.length !== 2 && (
-                          <p className="text-xs text-red-600 mt-1">Tax rate must be 2 digits</p>
+                          <p className="text-xs text-destructive mt-1">Tax rate must be 2 digits</p>
                         )}
                       </div>
                       <div>
@@ -2809,7 +2836,7 @@ export default function StyleFormRedesigned() {
                           onChange={(e) => setAccountingUnit(e.target.value)}
                           placeholder="e.g., Units, PCS, DOZEN"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Default: Units</p>
+                        <p className="text-xs text-muted-foreground mt-1">Default: Units</p>
                       </div>
                     </div>
                   </div>
@@ -2857,7 +2884,7 @@ export default function StyleFormRedesigned() {
 
               {/* Size Category Preset Selector */}
               {selectedCustomerId && customerSizePresets.length > 0 && (
-                <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="mt-6 p-4 bg-accent/10 rounded-lg border border-accent/20">
                   <Label className="text-sm font-medium mb-2 block">Size Category Preset (Optional)</Label>
                   <Select value={selectedSizePresetId || 'none'} onValueChange={handleSizePresetChange}>
                     <SelectTrigger className="w-full">
@@ -2873,8 +2900,8 @@ export default function StyleFormRedesigned() {
                     </SelectContent>
                   </Select>
                   {selectedSizePresetId && (
-                    <p className="text-xs text-purple-600 mt-2">
-                      <span className="inline-block px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full mr-1">
+                    <p className="text-xs text-accent mt-2">
+                      <span className="inline-block px-1.5 py-0.5 bg-accent/15 text-accent rounded-full mr-1">
                         Preset
                       </span>
                       {presetSizeIds.size} size(s) from preset - you can add more sizes manually
@@ -2884,7 +2911,7 @@ export default function StyleFormRedesigned() {
               )}
 
               {/* Size Variants & SKUs - Main Section (not in Additional Details) */}
-              <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="mt-6 p-4 bg-success-muted rounded-lg border border-success/20">
                 <div className="flex items-center justify-between mb-3">
                   <Label className="text-base font-semibold">Size Variants & SKUs</Label>
                   <Button type="button" variant="outline" size="sm" onClick={generateSKUs}>
@@ -2894,10 +2921,7 @@ export default function StyleFormRedesigned() {
 
                 <div className="space-y-3">
                   {skuVariants.map((variant, index) => (
-                    <div
-                      key={variant.size}
-                      className="grid grid-cols-12 gap-3 items-center p-3 border rounded bg-white"
-                    >
+                    <div key={variant.size} className="grid grid-cols-12 gap-3 items-center p-3 border rounded bg-card">
                       <div className="col-span-1 flex items-center">
                         <Checkbox
                           checked={variant.isActive}
@@ -2911,7 +2935,7 @@ export default function StyleFormRedesigned() {
                       <div className="col-span-2 flex items-center gap-1">
                         <Badge variant="outline">{variant.size}</Badge>
                         {presetSizeIds.has(variant.size) && (
-                          <span className="text-xs text-purple-500" title="From preset">
+                          <span className="text-xs text-accent" title="From preset">
                             *
                           </span>
                         )}
@@ -2944,7 +2968,7 @@ export default function StyleFormRedesigned() {
                   ))}
                 </div>
 
-                <p className="text-xs text-gray-500 mt-3">
+                <p className="text-xs text-muted-foreground mt-3">
                   Uncheck sizes you don't need. SKUs are required for active sizes. Accounting SKU will default to SKU
                   Code.
                 </p>
@@ -2963,16 +2987,16 @@ export default function StyleFormRedesigned() {
             {/* Fabrics Section - Grouped by Component */}
             <Card className="p-6">
               <div className="mb-4">
-                <h2 className="text-xl font-semibold">Fabrics by Component</h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <h2 className="text-xl font-display font-semibold">Fabrics by Component</h2>
+                <p className="text-sm text-muted-foreground mt-1">
                   Add fabrics to each component. Same fabric + finish + width can be combined for cutting.
                 </p>
               </div>
 
               {/* Component warning if none selected */}
               {numberOfComponents < 1 || selectedComponents.filter((c) => c.componentId).length === 0 ? (
-                <div className="text-center py-8 text-gray-500 border-2 border-dashed rounded-lg">
-                  <AlertCircle className="h-12 w-12 mx-auto mb-3 text-amber-400" />
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-3 text-warning" />
                   <p className="font-medium">No components defined</p>
                   <p className="text-sm mt-1">Please go to Basic Info and select components first</p>
                   <Button
@@ -3003,7 +3027,7 @@ export default function StyleFormRedesigned() {
                         <div
                           className={cn(
                             'w-full flex items-center justify-between p-4 text-left transition-colors',
-                            isExpanded ? 'bg-blue-50 border-b' : 'bg-gray-50 hover:bg-gray-100'
+                            isExpanded ? 'bg-info-muted border-b' : 'bg-muted hover:bg-muted'
                           )}
                         >
                           <div
@@ -3011,15 +3035,15 @@ export default function StyleFormRedesigned() {
                             onClick={() => toggleComponentExpanded(componentIndex)}
                           >
                             {isExpanded ? (
-                              <ChevronDown className="h-5 w-5 text-gray-500" />
+                              <ChevronDown className="h-5 w-5 text-muted-foreground" />
                             ) : (
-                              <ChevronRight className="h-5 w-5 text-gray-500" />
+                              <ChevronRight className="h-5 w-5 text-muted-foreground" />
                             )}
-                            <span className="font-semibold text-gray-900">{componentName.toUpperCase()}</span>
+                            <span className="font-semibold text-foreground">{componentName.toUpperCase()}</span>
                             <Badge variant="outline" className="text-xs">
                               Component {componentIndex + 1}
                             </Badge>
-                            <Badge className="text-xs bg-blue-100 text-blue-700">
+                            <Badge className="text-xs bg-info-muted text-info">
                               {componentFabrics.length} fabric{componentFabrics.length !== 1 ? 's' : ''}
                             </Badge>
                           </div>
@@ -3038,7 +3062,7 @@ export default function StyleFormRedesigned() {
                         {isExpanded && (
                           <div className="p-4 space-y-3">
                             {componentFabrics.length === 0 ? (
-                              <div className="text-center py-6 text-gray-500 border-2 border-dashed rounded-lg bg-gray-50">
+                              <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg bg-muted">
                                 <p className="text-sm">No fabrics added to this component</p>
                                 <Button
                                   type="button"
@@ -3056,17 +3080,17 @@ export default function StyleFormRedesigned() {
                                 <div
                                   key={fabric.id}
                                   id={`fabric-${fabric.id}`}
-                                  className="p-4 border rounded-lg bg-white space-y-3"
+                                  className="p-4 border rounded-lg bg-card space-y-3"
                                 >
                                   {/* Fabric Header */}
                                   <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-gray-700">Fabric {fabricIdx + 1}</span>
+                                    <span className="text-sm font-medium text-foreground">Fabric {fabricIdx + 1}</span>
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleRemoveFabric(fabric.id)}
-                                      className="text-gray-400 hover:text-red-500"
+                                      className="text-muted-foreground hover:text-destructive"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -3074,15 +3098,15 @@ export default function StyleFormRedesigned() {
 
                                   {/* Sourcing Mode Toggle */}
                                   <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500">Source:</span>
+                                    <span className="text-xs text-muted-foreground">Source:</span>
                                     <div className="flex rounded-md border overflow-hidden">
                                       <button
                                         type="button"
                                         onClick={() => handleUpdateFabric(fabric.id, 'sourcingMode', 'GREIGE')}
                                         className={`px-3 py-1 text-xs font-medium transition-colors ${
                                           (fabric.sourcingMode || 'GREIGE') === 'GREIGE'
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                                            ? 'bg-info text-white'
+                                            : 'bg-card text-muted-foreground hover:bg-muted'
                                         }`}
                                       >
                                         Greige / Process
@@ -3092,8 +3116,8 @@ export default function StyleFormRedesigned() {
                                         onClick={() => handleUpdateFabric(fabric.id, 'sourcingMode', 'READY_FABRIC')}
                                         className={`px-3 py-1 text-xs font-medium transition-colors border-l ${
                                           fabric.sourcingMode === 'READY_FABRIC'
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                                            ? 'bg-success text-white'
+                                            : 'bg-card text-muted-foreground hover:bg-muted'
                                         }`}
                                       >
                                         Ready Fabric
@@ -3166,7 +3190,7 @@ export default function StyleFormRedesigned() {
                                   )}
 
                                   {/* Embroidery Section */}
-                                  <div className="flex items-center gap-6 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                                  <div className="flex items-center gap-6 p-3 bg-accent/10 rounded-lg border border-accent/15">
                                     <div className="flex items-center gap-2">
                                       <Checkbox
                                         checked={fabric.hasEmbroidery || false}
@@ -3178,7 +3202,7 @@ export default function StyleFormRedesigned() {
                                         }}
                                       />
                                       <Label className="cursor-pointer flex items-center gap-1 text-sm">
-                                        <Sparkles className="h-4 w-4 text-purple-600" />
+                                        <Sparkles className="h-4 w-4 text-accent" />
                                         Has Embroidery
                                       </Label>
                                     </div>
@@ -3205,7 +3229,7 @@ export default function StyleFormRedesigned() {
                                               variant="ghost"
                                               size="sm"
                                               onClick={() => handleClearEmbroidery(fabric.id)}
-                                              className="text-xs h-6 text-red-500"
+                                              className="text-xs h-6 text-destructive"
                                             >
                                               <Trash2 className="h-3 w-3" />
                                             </Button>
@@ -3257,8 +3281,8 @@ export default function StyleFormRedesigned() {
           <TabsContent value="trims" forceMount className="space-y-6 data-[state=inactive]:hidden">
             <Card className="p-6">
               <div className="mb-4">
-                <h2 className="text-xl font-semibold">Trims & Materials</h2>
-                <p className="text-sm text-gray-600">
+                <h2 className="text-xl font-display font-semibold">Trims & Materials</h2>
+                <p className="text-sm text-muted-foreground">
                   Select trims required for this style. Use "Add New" to create master records inline.
                 </p>
               </div>
@@ -3280,13 +3304,13 @@ export default function StyleFormRedesigned() {
           <TabsContent value="accessories" forceMount className="space-y-6 data-[state=inactive]:hidden">
             {/* Customer Preset Section */}
             {customerAccessoryPresets.length > 0 && (
-              <Card className="p-6 bg-purple-50/50 border-purple-200">
+              <Card className="p-6 bg-accent/10/50 border-accent/20">
                 <div className="mb-4">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-purple-600" />
+                  <h2 className="text-lg font-display font-semibold flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-accent" />
                     Customer Accessory Preset
                   </h2>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     Default preset is auto-applied when customer is selected. You can switch presets or modify items
                     below.
                   </p>
@@ -3299,7 +3323,7 @@ export default function StyleFormRedesigned() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">
-                          <span className="text-gray-500">None (Clear Preset)</span>
+                          <span className="text-muted-foreground">None (Clear Preset)</span>
                         </SelectItem>
                         {customerAccessoryPresets.map((preset) => (
                           <SelectItem key={preset.id} value={preset.id}>
@@ -3326,19 +3350,19 @@ export default function StyleFormRedesigned() {
                   <div className="mt-4 space-y-3">
                     {/* Packaging from Preset */}
                     {presetItemIds.size > 0 && (
-                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                        <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
-                          <span className="inline-block px-1.5 py-0.5 bg-purple-200 rounded-full">Packaging</span>
+                      <div className="p-3 bg-accent/10 border border-accent/20 rounded-lg">
+                        <p className="text-xs font-semibold text-accent mb-2 flex items-center gap-1">
+                          <span className="inline-block px-1.5 py-0.5 bg-accent/15 rounded-full">Packaging</span>
                           {presetItemIds.size} packaging item(s) from preset
                         </p>
                         <div className="space-y-1">
                           {selectedAccessories
                             .filter((acc) => presetItemIds.has(acc.masterId))
                             .map((acc, idx) => (
-                              <div key={idx} className="text-xs text-purple-800 flex items-center gap-2">
-                                <span className="w-1 h-1 bg-purple-400 rounded-full"></span>
+                              <div key={idx} className="text-xs text-accent flex items-center gap-2">
+                                <span className="w-1 h-1 bg-accent rounded-full"></span>
                                 <span className="font-medium">{acc.masterName}</span>
-                                <span className="text-purple-600">{acc.subType || acc.accessoryType}</span>
+                                <span className="text-accent">{acc.subType || acc.accessoryType}</span>
                               </div>
                             ))}
                         </div>
@@ -3347,19 +3371,19 @@ export default function StyleFormRedesigned() {
 
                     {/* Style-specific items */}
                     {styleSpecificIds.size > 0 && (
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-1">
-                          <span className="inline-block px-1.5 py-0.5 bg-green-200 rounded-full">Style-specific</span>
+                      <div className="p-3 bg-success-muted border border-success/20 rounded-lg">
+                        <p className="text-xs font-semibold text-success mb-2 flex items-center gap-1">
+                          <span className="inline-block px-1.5 py-0.5 bg-success/15 rounded-full">Style-specific</span>
                           {styleSpecificIds.size} item(s) added manually
                         </p>
                         <div className="space-y-1">
                           {selectedAccessories
                             .filter((acc) => styleSpecificIds.has(acc.masterId))
                             .map((acc, idx) => (
-                              <div key={idx} className="text-xs text-green-800 flex items-center gap-2">
-                                <span className="w-1 h-1 bg-green-400 rounded-full"></span>
+                              <div key={idx} className="text-xs text-success flex items-center gap-2">
+                                <span className="w-1 h-1 bg-success rounded-full"></span>
                                 <span className="font-medium">{acc.masterName}</span>
-                                <span className="text-green-600">{acc.subType || acc.accessoryType}</span>
+                                <span className="text-success">{acc.subType || acc.accessoryType}</span>
                               </div>
                             ))}
                         </div>
@@ -3373,8 +3397,8 @@ export default function StyleFormRedesigned() {
             {/* Accessories Selector */}
             <Card className="p-6">
               <div className="mb-4">
-                <h2 className="text-xl font-semibold">Garment Accessories</h2>
-                <p className="text-sm text-gray-600">
+                <h2 className="text-xl font-display font-semibold">Garment Accessories</h2>
+                <p className="text-sm text-muted-foreground">
                   Select labels, polybags, hangtags, cartons, and other packaging materials
                 </p>
               </div>
@@ -3437,7 +3461,7 @@ export default function StyleFormRedesigned() {
                     type="button"
                     onClick={handlePublishClick}
                     disabled={publishing || loading}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                    className="flex items-center gap-2 bg-success hover:bg-success text-white"
                   >
                     {publishing ? 'Publishing...' : 'Publish Style'}
                   </Button>
@@ -3482,7 +3506,7 @@ export default function StyleFormRedesigned() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
+              <AlertCircle className="h-5 w-5 text-warning" />
               Style Code Already Exists
             </DialogTitle>
             <DialogDescription className="pt-2">
@@ -3536,7 +3560,7 @@ export default function StyleFormRedesigned() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5 text-blue-500" />
+              <RotateCcw className="h-5 w-5 text-info" />
               Restore Unsaved Changes?
             </DialogTitle>
             <DialogDescription className="pt-2">

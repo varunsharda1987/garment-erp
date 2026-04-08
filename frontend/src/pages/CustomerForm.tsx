@@ -671,8 +671,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <Button variant="ghost" onClick={() => navigate('/customers')}>
             ← Back to Customers
@@ -686,55 +686,59 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           </CardHeader>
           <CardContent>
             {submitError && (
-              <div className="p-4 mb-4 bg-red-50 text-red-800 rounded-md border border-red-200">{submitError}</div>
+              <div className="p-4 mb-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20">
+                {submitError}
+              </div>
             )}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Company Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Company Information</h3>
+                <h3 className="text-lg font-semibold text-foreground">Company Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="code">Customer Code *</Label>
-                    <Input id="code" {...register('code')} readOnly className="bg-gray-50" />
-                    {errors.code && <p className="text-sm text-red-600 mt-1">{errors.code.message}</p>}
+                    <Input id="code" {...register('code')} readOnly className="bg-muted" />
+                    {errors.code && <p className="text-sm text-destructive mt-1">{errors.code.message}</p>}
                   </div>
                   <div>
                     <Label htmlFor="businessType">Business Type *</Label>
                     <select
                       id="businessType"
                       {...register('businessType')}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="B2B">B2B (Business to Business)</option>
                       <option value="B2C">B2C (Business to Consumer)</option>
                     </select>
-                    {errors.businessType && <p className="text-sm text-red-600 mt-1">{errors.businessType.message}</p>}
+                    {errors.businessType && (
+                      <p className="text-sm text-destructive mt-1">{errors.businessType.message}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="market">Market *</Label>
                     <select
                       id="market"
                       {...register('market')}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="DOMESTIC">Domestic (DOM)</option>
                       <option value="INTERNATIONAL">International (INT)</option>
                     </select>
-                    {errors.market && <p className="text-sm text-red-600 mt-1">{errors.market.message}</p>}
+                    {errors.market && <p className="text-sm text-destructive mt-1">{errors.market.message}</p>}
                   </div>
                   <div>
                     <Label htmlFor="category">Customer Category *</Label>
                     <select
                       id="category"
                       {...register('category')}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="DOMESTIC">Domestic</option>
                       <option value="EXPORT">Export</option>
                       <option value="WHOLESALER">Wholesaler</option>
                       <option value="RETAILER">Retailer</option>
                     </select>
-                    {errors.category && <p className="text-sm text-red-600 mt-1">{errors.category.message}</p>}
+                    {errors.category && <p className="text-sm text-destructive mt-1">{errors.category.message}</p>}
                   </div>
 
                   {/* Agent Fields - Only for WHOLESALER/RETAILER */}
@@ -785,12 +789,12 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   <div className="md:col-span-2">
                     <Label htmlFor="name">Company Name *</Label>
                     <Input id="name" {...register('name')} placeholder="Enter company name" />
-                    {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>}
+                    {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <Label htmlFor="billingName">
                       Billing Name
-                      <span className="ml-2 text-sm text-gray-500">
+                      <span className="ml-2 text-sm text-muted-foreground">
                         (Used on invoices and dispatch documents. If left blank, company name will be used.)
                       </span>
                     </Label>
@@ -799,25 +803,27 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                       {...register('billingName')}
                       placeholder="Leave blank to use company name"
                     />
-                    {errors.billingName && <p className="text-sm text-red-600 mt-1">{errors.billingName.message}</p>}
+                    {errors.billingName && (
+                      <p className="text-sm text-destructive mt-1">{errors.billingName.message}</p>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <Label>Brand Names & Brand Categories</Label>
                     <div className="space-y-4">
                       {brandData.map((brand, brandIndex) => (
-                        <div key={brandIndex} className="p-4 bg-gray-50 rounded-lg border border-gray-300">
+                        <div key={brandIndex} className="p-4 bg-muted rounded-lg border border-border">
                           {/* Brand Name */}
                           <div className="mb-3">
                             <div className="flex gap-2 items-center">
                               <div className="flex-1">
-                                <Label className="text-sm font-semibold text-gray-700 mb-1">
+                                <Label className="text-sm font-semibold text-foreground mb-1">
                                   Brand Name {brandIndex + 1}
                                 </Label>
                                 <Input
                                   value={brand.brandName}
                                   onChange={(e) => handleBrandNameChange(brandIndex, e.target.value)}
                                   placeholder="e.g., Kasya"
-                                  className="bg-white"
+                                  className="bg-card"
                                 />
                               </div>
                               {brandData.length > 1 && (
@@ -825,7 +831,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                   type="button"
                                   variant="outline"
                                   onClick={() => removeBrand(brandIndex)}
-                                  className="px-3 text-red-600 hover:text-red-700 mt-6"
+                                  className="px-3 text-destructive hover:text-destructive mt-6"
                                   title="Remove brand"
                                 >
                                   ×
@@ -836,11 +842,11 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
                           {/* Categories for this brand - Cascading Dropdowns */}
                           <div className="ml-4 space-y-3">
-                            <Label className="text-xs font-medium text-gray-600">
+                            <Label className="text-xs font-medium text-muted-foreground">
                               Product Categories for {brand.brandName || 'this brand'}
                             </Label>
                             {brand.categories.map((category, catIndex) => (
-                              <div key={catIndex} className="p-3 bg-white rounded border border-gray-200">
+                              <div key={catIndex} className="p-3 bg-card rounded border border-border">
                                 <div className="flex flex-wrap gap-2 items-center">
                                   {/* Level 1 - Main Category */}
                                   <div className="flex-1 min-w-[140px]">
@@ -861,7 +867,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                   {/* Level 2 - Sub Category */}
                                   {category.level1Id && subCategoriesMap[category.level1Id]?.length > 0 && (
                                     <>
-                                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                       <div className="flex-1 min-w-[140px]">
                                         <Combobox
                                           options={
@@ -884,7 +890,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                   {/* Level 3 - Sub-Sub Category (for Kids Wear) */}
                                   {category.level2Id && subSubCategoriesMap[category.level2Id]?.length > 0 && (
                                     <>
-                                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                       <div className="flex-1 min-w-[140px]">
                                         <Combobox
                                           options={
@@ -911,7 +917,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                         type="button"
                                         variant="outline"
                                         onClick={() => removeCategory(brandIndex, catIndex)}
-                                        className="px-2 py-1 h-8 text-red-600 hover:text-red-700"
+                                        className="px-2 py-1 h-8 text-destructive hover:text-destructive"
                                         title="Remove category"
                                       >
                                         ×
@@ -922,7 +928,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                         type="button"
                                         variant="outline"
                                         onClick={() => addCategory(brandIndex)}
-                                        className="px-2 py-1 h-8 text-blue-600 hover:text-blue-700"
+                                        className="px-2 py-1 h-8 text-info hover:text-info"
                                         title="Add another category"
                                       >
                                         +
@@ -933,8 +939,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
                                 {/* Show selected path */}
                                 {category.categoryName && (
-                                  <div className="mt-2 text-xs text-gray-500">
-                                    Selected: <span className="font-medium text-gray-700">{category.categoryName}</span>
+                                  <div className="mt-2 text-xs text-muted-foreground">
+                                    Selected:{' '}
+                                    <span className="font-medium text-foreground">{category.categoryName}</span>
                                   </div>
                                 )}
                               </div>
@@ -948,7 +955,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                 type="button"
                                 variant="outline"
                                 onClick={addBrand}
-                                className="w-full text-blue-600 hover:text-blue-700 border-dashed"
+                                className="w-full text-info hover:text-info border-dashed"
                               >
                                 + Add Another Brand
                               </Button>
@@ -957,7 +964,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-muted-foreground mt-2">
                       Add brands and their product categories. Use the cascading dropdowns to select categories at
                       different levels (e.g., Western Wear → T-Shirts, or Kids Wear → Boys → Shirts).
                     </p>
@@ -991,12 +998,12 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         type="button"
                         variant="outline"
                         onClick={addGstNumber}
-                        className="w-full text-blue-600 hover:text-blue-700 border-dashed"
+                        className="w-full text-info hover:text-info border-dashed"
                       >
                         + Add GST Number
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-muted-foreground mt-2">
                       Add GST numbers for each state where the customer operates. Mark one as primary.
                     </p>
                   </div>
@@ -1005,7 +1012,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
               {/* Contact Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
+                <h3 className="text-lg font-semibold text-foreground">Contact Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="contactPerson">Contact Person</Label>
@@ -1013,22 +1020,22 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   </div>
                   <div>
                     <Label htmlFor="phone">
-                      Phone <span className="text-gray-500 text-sm">(Max 10 digits)</span>
+                      Phone <span className="text-muted-foreground text-sm">(Max 10 digits)</span>
                     </Label>
                     <Input id="phone" {...register('phone')} placeholder="Enter phone number" maxLength={10} />
-                    {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone.message}</p>}
+                    {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" type="email" {...register('email')} placeholder="Enter email address" />
-                    {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>}
+                    {errors.email && <p className="text-sm text-destructive mt-1">{errors.email.message}</p>}
                   </div>
                 </div>
               </div>
 
               {/* Address Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Address Information</h3>
+                <h3 className="text-lg font-semibold text-foreground">Address Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="billingAddress">Billing Address</Label>
@@ -1043,7 +1050,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
               {/* Credit Information */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Credit Terms</h3>
+                <h3 className="text-lg font-semibold text-foreground">Credit Terms</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="creditLimit">Credit Limit (₹)</Label>
@@ -1058,18 +1065,18 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
               {/* Testing Requirements (FPT/GPT) */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Testing Requirements (FPT/GPT)</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-foreground">Testing Requirements (FPT/GPT)</h3>
+                <p className="text-sm text-muted-foreground">
                   Configure fabric and garment testing requirements for this customer.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* FPT Section */}
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="p-4 bg-info-muted rounded-lg border border-info/20">
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <Label className="text-base font-medium">Fabric Physical Testing (FPT)</Label>
-                        <p className="text-xs text-gray-500 mt-1">Enable FPT requirement for this customer</p>
+                        <p className="text-xs text-muted-foreground mt-1">Enable FPT requirement for this customer</p>
                       </div>
                       <Switch
                         checked={watchRequiresFPT}
@@ -1078,11 +1085,11 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     </div>
 
                     {watchRequiresFPT && (
-                      <div className="space-y-4 pt-2 border-t border-blue-200">
+                      <div className="space-y-4 pt-2 border-t border-info/20">
                         <div className="flex items-center justify-between">
                           <div>
                             <Label className="text-sm">FPT Blocks Production</Label>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               Block cutting and all production stages if FPT fails
                             </p>
                           </div>
@@ -1095,7 +1102,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         <div className="flex items-center justify-between">
                           <div>
                             <Label className="text-sm">Buyer Approves FPT</Label>
-                            <p className="text-xs text-gray-500">Require buyer approval for FPT</p>
+                            <p className="text-xs text-muted-foreground">Require buyer approval for FPT</p>
                           </div>
                           <Switch
                             checked={watch('buyerApprovesFPT')}
@@ -1124,11 +1131,11 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   </div>
 
                   {/* GPT Section */}
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="p-4 bg-success-muted rounded-lg border border-success/20">
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <Label className="text-base font-medium">Garment Physical Testing (GPT)</Label>
-                        <p className="text-xs text-gray-500 mt-1">Enable GPT requirement for this customer</p>
+                        <p className="text-xs text-muted-foreground mt-1">Enable GPT requirement for this customer</p>
                       </div>
                       <Switch
                         checked={watchRequiresGPT}
@@ -1137,11 +1144,11 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     </div>
 
                     {watchRequiresGPT && (
-                      <div className="space-y-4 pt-2 border-t border-green-200">
+                      <div className="space-y-4 pt-2 border-t border-success/20">
                         <div className="flex items-center justify-between">
                           <div>
                             <Label className="text-sm">GPT Blocks Production</Label>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               Block cutting and all subsequent stages if GPT fails
                             </p>
                           </div>
@@ -1154,7 +1161,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                         <div className="flex items-center justify-between">
                           <div>
                             <Label className="text-sm">Buyer Approves GPT</Label>
-                            <p className="text-xs text-gray-500">Require buyer approval for GPT</p>
+                            <p className="text-xs text-muted-foreground">Require buyer approval for GPT</p>
                           </div>
                           <Switch
                             checked={watch('buyerApprovesGPT')}
@@ -1200,7 +1207,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                       emptyText="No labs found."
                       className="mt-1"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Default lab to be used for testing samples from this customer.
                     </p>
                   </div>
@@ -1213,25 +1220,25 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   <CollapsibleTrigger asChild>
                     <button
                       type="button"
-                      className="flex items-center justify-between w-full p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-colors"
+                      className="flex items-center justify-between w-full p-4 bg-muted hover:bg-muted rounded-lg border border-border transition-colors"
                     >
                       <div className="flex items-center gap-2">
-                        <Package className="h-5 w-5 text-gray-600" />
-                        <h3 className="text-lg font-semibold text-gray-900">Accessory Presets</h3>
+                        <Package className="h-5 w-5 text-muted-foreground" />
+                        <h3 className="text-lg font-semibold text-foreground">Accessory Presets</h3>
                       </div>
                       <ChevronDown
-                        className={`h-5 w-5 text-gray-500 transition-transform ${presetsOpen ? 'rotate-180' : ''}`}
+                        className={`h-5 w-5 text-muted-foreground transition-transform ${presetsOpen ? 'rotate-180' : ''}`}
                       />
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-3">
                     {isNewCustomer ? (
-                      <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="p-6 bg-info-muted border border-info/20 rounded-lg">
                         <div className="flex items-start gap-3">
-                          <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                          <Info className="h-5 w-5 text-info mt-0.5" />
                           <div>
-                            <p className="font-medium text-blue-900">Save customer first</p>
-                            <p className="text-sm text-blue-700 mt-1">
+                            <p className="font-medium text-info">Save customer first</p>
+                            <p className="text-sm text-info mt-1">
                               Accessory presets can be configured after the customer is created. These presets define
                               standard labels, packaging, and other accessories that will be auto-populated when
                               creating styles for this customer.
@@ -1251,24 +1258,26 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   onOpenChange={setSizePresetsExpanded}
                   className="border rounded-lg"
                 >
-                  <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-gray-50">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between p-4 hover:bg-muted">
                     <div className="flex items-center gap-2">
-                      <Package className="h-5 w-5 text-blue-600" />
+                      <Package className="h-5 w-5 text-info" />
                       <div className="text-left">
                         <h3 className="font-semibold">Size Category Presets</h3>
-                        <p className="text-sm text-gray-500">Define reusable size templates for this customer</p>
+                        <p className="text-sm text-muted-foreground">
+                          Define reusable size templates for this customer
+                        </p>
                       </div>
                     </div>
                     {sizePresetsExpanded ? (
-                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
                     ) : (
-                      <ChevronRight className="h-5 w-5 text-gray-500" />
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     )}
                   </CollapsibleTrigger>
 
                   <CollapsibleContent className="p-4 pt-0">
                     {!id ? (
-                      <div className="text-center py-8 text-gray-500">
+                      <div className="text-center py-8 text-muted-foreground">
                         <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                         <p className="font-medium">Save customer first</p>
                         <p className="text-sm mt-1">Size category presets can be managed after creating the customer</p>

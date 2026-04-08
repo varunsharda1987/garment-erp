@@ -120,6 +120,35 @@ export const stockMovementService = {
   },
 
   /**
+   * Create bulk stock IN (multiple items in single transaction)
+   */
+  async createBulkStockIn(data: {
+    warehouseId: string;
+    referenceType?: string;
+    referenceNumber?: string;
+    remarks?: string;
+    items: Array<{
+      materialId?: string;
+      itemType?: string;
+      itemId?: string;
+      quantity: number;
+      unit: string;
+      rate?: number;
+      foldLengthCm?: number;
+      thanCount?: number;
+      remarks?: string;
+    }>;
+  }): Promise<{ batchId: string; movements: StockMovement[]; itemCount: number; totalQuantity: string }> {
+    const response = await axios.post<
+      ApiResponse<{ batchId: string; movements: StockMovement[]; itemCount: number; totalQuantity: string }>
+    >(`${BASE_URL}/bulk-stock-in`, data, {
+      headers: getAuthHeader(),
+    });
+    if (!response.data.data) throw new Error('Failed to create bulk stock in');
+    return response.data.data;
+  },
+
+  /**
    * Create stock OUT (issue)
    */
   async createStockOut(data: CreateStockOutDTO): Promise<StockMovement> {
@@ -153,6 +182,24 @@ export const stockMovementService = {
       headers: getAuthHeader(),
     });
     if (!response.data.data) throw new Error('Failed to create stock adjustment');
+    return response.data.data;
+  },
+
+  /**
+   * Create stock IN from processor return (partial receipt - consumes from processor's greige stock)
+   */
+  async createStockInFromProcessor(data: {
+    greigeStockId: string;
+    receivedQuantity: number;
+    warehouseId: string;
+    remarks?: string;
+  }): Promise<{ receivedQuantity: number; remainingAtProcessor: number }> {
+    const response = await axios.post<ApiResponse<{ receivedQuantity: number; remainingAtProcessor: number }>>(
+      `${BASE_URL}/processor-return`,
+      data,
+      { headers: getAuthHeader() }
+    );
+    if (!response.data.data) throw new Error('Failed to process processor return');
     return response.data.data;
   },
 };

@@ -105,7 +105,7 @@ export default function FabricList() {
       render: (fabric) => (
         <Link
           to={`/fabric/${fabric.id}`}
-          className="text-blue-600 hover:text-blue-800 font-medium"
+          className="text-info hover:text-info font-medium"
           onClick={(e) => e.stopPropagation()}
         >
           {fabric.fabricCode}
@@ -117,8 +117,8 @@ export default function FabricList() {
       header: 'Name',
       render: (fabric) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{fabric.fabricName}</div>
-          {fabric.finishType && <div className="text-xs text-gray-500">{fabric.finishType}</div>}
+          <div className="text-sm font-medium text-foreground">{fabric.fabricName}</div>
+          {fabric.finishType && <div className="text-xs text-muted-foreground">{fabric.finishType}</div>}
         </div>
       ),
     },
@@ -127,8 +127,8 @@ export default function FabricList() {
       header: 'Color',
       render: (fabric) => (
         <div>
-          {fabric.colorName && <div className="text-sm text-gray-900">{fabric.colorName}</div>}
-          {fabric.colorCode && <div className="text-xs text-gray-500">{fabric.colorCode}</div>}
+          {fabric.colorName && <div className="text-sm text-foreground">{fabric.colorName}</div>}
+          {fabric.colorCode && <div className="text-xs text-muted-foreground">{fabric.colorCode}</div>}
         </div>
       ),
     },
@@ -136,7 +136,7 @@ export default function FabricList() {
       key: 'greige',
       header: 'Greige Name',
       render: (fabric) => (
-        <div className="text-sm text-gray-900 truncate max-w-[200px]" title={fabric.greige?.greigeName}>
+        <div className="text-sm text-foreground truncate max-w-[200px]" title={fabric.greige?.greigeName}>
           {fabric.greige ? fabric.greige.greigeName : '-'}
         </div>
       ),
@@ -146,8 +146,10 @@ export default function FabricList() {
       header: 'Width (")',
       render: (fabric) => (
         <div>
-          <div className="text-sm text-gray-900">{Number(fabric.actualWidth)}"</div>
-          {fabric.cutableWidth && <div className="text-xs text-gray-500">Cutable: {Number(fabric.cutableWidth)}"</div>}
+          <div className="text-sm text-foreground">{Number(fabric.actualWidth)}"</div>
+          {fabric.cutableWidth && (
+            <div className="text-xs text-muted-foreground">Cutable: {Number(fabric.cutableWidth)}"</div>
+          )}
         </div>
       ),
     },
@@ -157,7 +159,7 @@ export default function FabricList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (fabric) => (
-        <div className="text-sm font-medium text-gray-900">{formatCurrency(fabric.costPerMeter)}</div>
+        <div className="text-sm font-medium text-foreground">{formatCurrency(fabric.costPerMeter)}</div>
       ),
     },
     {
@@ -178,7 +180,7 @@ export default function FabricList() {
         const allocations = fabric.fabrics || []; // styleFabrics -> fabrics (serializer mapping)
 
         if (styleCount === 0) {
-          return <span className="text-xs text-gray-400">Not allocated</span>;
+          return <span className="text-xs text-muted-foreground">Not allocated</span>;
         }
 
         // Get unique styles and components
@@ -207,13 +209,13 @@ export default function FabricList() {
           <div className="space-y-1">
             {entries.slice(0, 2).map((entry, idx) => (
               <div key={idx} className="text-xs">
-                <span className="font-medium text-blue-600">{entry.styleCode}</span>
+                <span className="font-medium text-info">{entry.styleCode}</span>
                 {entry.components.length > 0 && (
-                  <span className="text-gray-500 ml-1">({entry.components.join(', ')})</span>
+                  <span className="text-muted-foreground ml-1">({entry.components.join(', ')})</span>
                 )}
               </div>
             ))}
-            {styleCount > 2 && <span className="text-xs text-gray-400">+{styleCount - 2} more</span>}
+            {styleCount > 2 && <span className="text-xs text-muted-foreground">+{styleCount - 2} more</span>}
           </div>
         );
       },
@@ -323,7 +325,7 @@ export default function FabricList() {
 
       {/* Results Summary */}
       {!loading && fabrics.length > 0 && (
-        <div className="mb-4 text-sm text-gray-600">
+        <div className="mb-4 text-sm text-muted-foreground">
           Showing {fabrics.length} of {total} fabric masters
         </div>
       )}

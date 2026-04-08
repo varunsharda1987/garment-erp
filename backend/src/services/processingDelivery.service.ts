@@ -1,6 +1,7 @@
 // Processing Delivery Service - Handle partial deliveries and quality checks
-import { Prisma } from '@prisma/client';
+import { Prisma, ProductionStage } from '@prisma/client';
 import prisma from '../config/database';
+import { randomUUID } from 'crypto';
 
 export interface CreateProcessingDeliveryDTO {
   batchId: string;
@@ -69,6 +70,7 @@ class ProcessingDeliveryService {
     // Validate batch exists
     const batch = await prisma.processing_batch.findUnique({
       where: { id: data.batchId },
+      select: { id: true, workOrderId: true, totalQuantitySent: true, createdById: true },
     });
     if (!batch) {
       throw new Error('Processing batch not found');
@@ -161,6 +163,36 @@ class ProcessingDeliveryService {
         },
       },
     });
+
+    // Auto-update production_tracking if batch is linked to a work order
+    // After delivery, check if batch is fully delivered → advance stage to IN_CUTTING
+    if (batch.workOrderId) {
+      try {
+        const totalBatchDelivered = await prisma.processing_delivery.aggregate({
+          where: { batchId: data.batchId },
+          _sum: { quantityDelivered: true },
+        });
+        const totalReceived = Number(totalBatchDelivered._sum.quantityDelivered || 0);
+        const totalSent = Number(batch.totalQuantitySent);
+
+        // If fully delivered, advance to IN_CUTTING
+        if (totalReceived >= totalSent) {
+          await prisma.production_tracking.create({
+            data: {
+              id: randomUUID(),
+              workOrderId: batch.workOrderId,
+              productionStage: 'IN_CUTTING' as ProductionStage,
+              quantityCompleted: Math.round(totalReceived),
+              updatedById: data.receivedById,
+              updateDate: new Date(),
+            },
+          });
+        }
+      } catch (err) {
+        // Non-critical: don't fail delivery if tracking fails
+        console.error('Failed to create production_tracking for delivery:', err);
+      }
+    }
 
     return delivery;
   }

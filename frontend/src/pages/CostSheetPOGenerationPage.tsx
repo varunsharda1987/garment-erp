@@ -453,7 +453,7 @@ export default function CostSheetPOGenerationPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Generate Purchase Orders</h1>
+            <h1 className="text-2xl font-display font-medium">Generate Purchase Orders</h1>
             <p className="text-muted-foreground">Generate POs from Cost Sheet for early procurement</p>
           </div>
         </div>
@@ -645,7 +645,7 @@ export default function CostSheetPOGenerationPage() {
                               {calculateAdjustedOrderQty(item).toFixed(2)}
                             </TableCell>
                             <TableCell
-                              className={`text-right ${item.unitPrice === 0 ? 'text-red-500 font-semibold' : ''}`}
+                              className={`text-right ${item.unitPrice === 0 ? 'text-destructive font-semibold' : ''}`}
                             >
                               {item.unitPrice === 0 ? '₹0 ⚠' : formatCurrency(item.unitPrice)}
                             </TableCell>
@@ -744,7 +744,7 @@ export default function CostSheetPOGenerationPage() {
                               {calculateAdjustedOrderQty(item).toFixed(2)}
                             </TableCell>
                             <TableCell
-                              className={`text-right ${item.unitPrice === 0 ? 'text-red-500 font-semibold' : ''}`}
+                              className={`text-right ${item.unitPrice === 0 ? 'text-destructive font-semibold' : ''}`}
                             >
                               {item.unitPrice === 0 ? '₹0 ⚠' : formatCurrency(item.unitPrice)}
                             </TableCell>
@@ -893,7 +893,9 @@ export default function CostSheetPOGenerationPage() {
                         <TableCell className="text-right font-medium">
                           {calculateAdjustedOrderQty(item).toFixed(2)}
                         </TableCell>
-                        <TableCell className={`text-right ${item.unitPrice === 0 ? 'text-red-500 font-semibold' : ''}`}>
+                        <TableCell
+                          className={`text-right ${item.unitPrice === 0 ? 'text-destructive font-semibold' : ''}`}
+                        >
                           {item.unitPrice === 0 ? '₹0 ⚠' : formatCurrency(item.unitPrice)}
                         </TableCell>
                         <TableCell className="text-right font-medium">
@@ -924,7 +926,7 @@ export default function CostSheetPOGenerationPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <CheckCircle className="h-5 w-5 text-success" />
               Generated Purchase Orders
             </CardTitle>
           </CardHeader>

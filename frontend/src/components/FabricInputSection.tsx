@@ -32,12 +32,12 @@ export function FabricInputSection({
       </div>
 
       {fabrics.map((fabric, index) => (
-        <div key={index} className="border rounded-lg p-4 space-y-4 bg-gray-50">
+        <div key={index} className="border rounded-lg p-4 space-y-4 bg-muted">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">Fabric {index + 1}</h4>
             {fabrics.length > 1 && (
               <Button type="button" variant="ghost" size="sm" onClick={() => onRemoveFabric(index)}>
-                <Trash2 className="h-4 w-4 text-red-500" />
+                <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             )}
           </div>
@@ -46,7 +46,7 @@ export function FabricInputSection({
             {/* Generic Greige Name */}
             <div className="space-y-2">
               <Label htmlFor={`fabric-name-${index}`}>
-                Generic Greige Name <span className="text-red-500">*</span>
+                Generic Greige Name <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={fabric.genericGreigeName}
@@ -77,7 +77,7 @@ export function FabricInputSection({
             {/* Fabric Finish Type */}
             <div className="space-y-2">
               <Label>
-                Finish Type <span className="text-red-500">*</span>
+                Finish Type <span className="text-destructive">*</span>
               </Label>
               <RadioGroup
                 value={fabric.fabricFinishType}
@@ -107,8 +107,8 @@ export function FabricInputSection({
             </div>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded p-3">
-            <p className="text-sm text-blue-800">
+          <div className="bg-info-muted border border-info/20 rounded p-3">
+            <p className="text-sm text-info">
               <strong>Note:</strong> Fabric width selection and CAD calculations will be done in the CAD Planning tab
               after creating this style.
             </p>

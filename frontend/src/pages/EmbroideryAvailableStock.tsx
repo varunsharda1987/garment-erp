@@ -36,6 +36,7 @@ export default function EmbroideryAvailableStock() {
   // Data
   const [sendOuts, setSendOuts] = useState<EmbroiderySendOut[]>([]);
   const [embroideredStock, setEmbroideredStock] = useState<EmbroideredFabricStock[]>([]);
+  const [pendingEmbroidery, setPendingEmbroidery] = useState<any[]>([]);
   const [filteredSendOuts, setFilteredSendOuts] = useState<EmbroiderySendOut[]>([]);
   const [filteredStock, setFilteredStock] = useState<EmbroideredFabricStock[]>([]);
 
@@ -76,6 +77,14 @@ export default function EmbroideryAvailableStock() {
       // Load send-outs
       const sendOutData = await embroideryService.getSendOuts();
       setSendOuts(sendOutData);
+
+      // Load pending embroidery stock
+      try {
+        const pendingRes = await embroideryService.getPendingEmbroideryStock({ limit: 100 });
+        setPendingEmbroidery(pendingRes.data || []);
+      } catch {
+        setPendingEmbroidery([]);
+      }
 
       // Load embroidered stock
       const stockResponse = await fetch(`${API_URL}/stock?status=AVAILABLE&stockType=EMBROIDERED`, {
@@ -134,7 +143,7 @@ export default function EmbroideryAvailableStock() {
   const getStatusBadge = (status: string) => {
     const badges: Record<string, ReactNode> = {
       SENT: (
-        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium flex items-center gap-1">
+        <span className="px-2 py-1 bg-info-muted text-info rounded text-xs font-medium flex items-center gap-1">
           <Send className="h-3 w-3" />
           Sent
         </span>
@@ -146,16 +155,16 @@ export default function EmbroideryAvailableStock() {
         </span>
       ),
       RECEIVED: (
-        <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium flex items-center gap-1">
+        <span className="px-2 py-1 bg-success-muted text-success rounded text-xs font-medium flex items-center gap-1">
           <CheckCircle className="h-3 w-3" />
           Received
         </span>
       ),
       PARTIALLY_RECEIVED: (
-        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">Partial</span>
+        <span className="px-2 py-1 bg-orange-100 text-primary rounded text-xs font-medium">Partial</span>
       ),
       CANCELLED: (
-        <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium flex items-center gap-1">
+        <span className="px-2 py-1 bg-destructive/10 text-destructive rounded text-xs font-medium flex items-center gap-1">
           <XCircle className="h-3 w-3" />
           Cancelled
         </span>
@@ -166,9 +175,9 @@ export default function EmbroideryAvailableStock() {
 
   const getQualityBadge = (grade: string) => {
     const badges: Record<string, ReactNode> = {
-      A: <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Grade A</span>,
-      B: <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-medium">Grade B</span>,
-      DEFECT: <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">Defect</span>,
+      A: <span className="px-2 py-1 bg-info-muted text-info rounded text-xs font-medium">Grade A</span>,
+      B: <span className="px-2 py-1 bg-muted text-foreground rounded text-xs font-medium">Grade B</span>,
+      DEFECT: <span className="px-2 py-1 bg-destructive/10 text-destructive rounded text-xs font-medium">Defect</span>,
     };
     return badges[grade] || grade;
   };
@@ -260,16 +269,16 @@ export default function EmbroideryAvailableStock() {
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
-      <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">
+      <div className="mb-4 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-info">
           Home
         </Link>
         {' > '}
-        <Link to="/fabric" className="hover:text-blue-600">
+        <Link to="/fabric" className="hover:text-info">
           Fabric
         </Link>
         {' > '}
-        <span className="font-medium text-gray-900">Embroidery Stock</span>
+        <span className="font-medium text-foreground">Embroidery Stock</span>
       </div>
 
       {/* Back Button */}
@@ -285,10 +294,10 @@ export default function EmbroideryAvailableStock() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-purple-600" />
+                <Sparkles className="h-6 w-6 text-accent" />
                 Embroidery Stock Management
               </CardTitle>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Manage fabric sent for embroidery and embroidered fabric inventory
               </p>
             </div>
@@ -297,10 +306,7 @@ export default function EmbroideryAvailableStock() {
                 <Package2 className="h-4 w-4 mr-2" />
                 Receive
               </Button>
-              <Button
-                onClick={() => navigate('/embroidery-stock/send-out')}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
+              <Button onClick={() => navigate('/embroidery-stock/send-out')} className="bg-accent hover:bg-accent">
                 <Plus className="h-4 w-4 mr-2" />
                 Send Out
               </Button>
@@ -310,51 +316,57 @@ export default function EmbroideryAvailableStock() {
         <CardContent>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="bg-info-muted border-info/20">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <Send className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm text-gray-600">Pending Send-Outs</span>
+                  <Send className="h-5 w-5 text-info" />
+                  <span className="text-sm text-muted-foreground">Pending Send-Outs</span>
                 </div>
-                <div className="text-2xl font-bold text-blue-600">{getPendingCount()}</div>
+                <div className="text-2xl font-bold text-info">{getPendingCount()}</div>
               </CardContent>
             </Card>
-            <Card className="bg-yellow-50 border-yellow-200">
+            <Card className="bg-warning-muted border-yellow-200">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-yellow-600" />
-                  <span className="text-sm text-gray-600">Pending Meters</span>
+                  <Clock className="h-5 w-5 text-warning" />
+                  <span className="text-sm text-muted-foreground">Pending Meters</span>
                 </div>
-                <div className="text-2xl font-bold text-yellow-600">{getTotalPendingMeters().toFixed(2)}</div>
+                <div className="text-2xl font-bold text-warning">{getTotalPendingMeters().toFixed(2)}</div>
               </CardContent>
             </Card>
-            <Card className={`${getOverdueCount() > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+            <Card
+              className={`${getOverdueCount() > 0 ? 'bg-destructive/10 border-destructive/20' : 'bg-muted border-border'}`}
+            >
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className={`h-5 w-5 ${getOverdueCount() > 0 ? 'text-red-600' : 'text-gray-400'}`} />
-                  <span className="text-sm text-gray-600">Overdue</span>
+                  <AlertTriangle
+                    className={`h-5 w-5 ${getOverdueCount() > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+                  />
+                  <span className="text-sm text-muted-foreground">Overdue</span>
                 </div>
-                <div className={`text-2xl font-bold ${getOverdueCount() > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                <div
+                  className={`text-2xl font-bold ${getOverdueCount() > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+                >
                   {getOverdueCount()}
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-green-50 border-green-200">
+            <Card className="bg-success-muted border-success/20">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <Package2 className="h-5 w-5 text-green-600" />
-                  <span className="text-sm text-gray-600">Embroidered Stock</span>
+                  <Package2 className="h-5 w-5 text-success" />
+                  <span className="text-sm text-muted-foreground">Embroidered Stock</span>
                 </div>
-                <div className="text-2xl font-bold text-green-600">{getTotalEmbroideredMeters().toFixed(2)} m</div>
+                <div className="text-2xl font-bold text-success">{getTotalEmbroideredMeters().toFixed(2)} m</div>
               </CardContent>
             </Card>
-            <Card className="bg-purple-50 border-purple-200">
+            <Card className="bg-accent/10 border-accent/20">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-purple-600" />
-                  <span className="text-sm text-gray-600">Stock Value</span>
+                  <Sparkles className="h-5 w-5 text-accent" />
+                  <span className="text-sm text-muted-foreground">Stock Value</span>
                 </div>
-                <div className="text-2xl font-bold text-purple-600">{formatCurrency(getTotalEmbroideredValue())}</div>
+                <div className="text-2xl font-bold text-accent">{formatCurrency(getTotalEmbroideredValue())}</div>
               </CardContent>
             </Card>
           </div>
@@ -365,6 +377,10 @@ export default function EmbroideryAvailableStock() {
               <TabsTrigger value="send-outs" className="flex items-center gap-2">
                 <Send className="h-4 w-4" />
                 Send-Outs ({sendOuts.length})
+              </TabsTrigger>
+              <TabsTrigger value="pending-embroidery" className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Pending Embroidery ({pendingEmbroidery.length})
               </TabsTrigger>
               <TabsTrigger value="stock" className="flex items-center gap-2">
                 <Package2 className="h-4 w-4" />
@@ -378,7 +394,7 @@ export default function EmbroideryAvailableStock() {
               <div className="mb-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search fabric, design, supplier..."
                       value={searchTerm}
@@ -407,9 +423,9 @@ export default function EmbroideryAvailableStock() {
                       id="showOverdueOnly"
                       checked={showOverdueOnly}
                       onChange={(e) => setShowOverdueOnly(e.target.checked)}
-                      className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-destructive focus:ring-red-500 border-border rounded"
                     />
-                    <label htmlFor="showOverdueOnly" className="ml-2 text-sm text-gray-700">
+                    <label htmlFor="showOverdueOnly" className="ml-2 text-sm text-foreground">
                       Show overdue only
                     </label>
                   </div>
@@ -424,13 +440,13 @@ export default function EmbroideryAvailableStock() {
               {/* Send-Outs Table */}
               {isLoading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-                  <p className="text-gray-500 mt-2">Loading send-outs...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto"></div>
+                  <p className="text-muted-foreground mt-2">Loading send-outs...</p>
                 </div>
               ) : filteredSendOuts.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <Send className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">No send-out records found</p>
+                <div className="text-center py-12 bg-muted rounded-lg border-2 border-dashed border-border">
+                  <Send className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No send-out records found</p>
                   <Button className="mt-4" onClick={() => navigate('/embroidery-stock/send-out')}>
                     <Plus className="h-4 w-4 mr-2" />
                     Send First Batch
@@ -439,63 +455,63 @@ export default function EmbroideryAvailableStock() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-100 border-b">
+                    <thead className="bg-muted border-b">
                       <tr>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">Fabric</th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">Embroidery</th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">Supplier</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-700">Qty Sent</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-700">Qty Received</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700">Status</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700">Send Date</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700">Expected</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700">Actions</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Fabric</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Embroidery</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Supplier</th>
+                        <th className="px-4 py-3 text-right font-medium text-foreground">Qty Sent</th>
+                        <th className="px-4 py-3 text-right font-medium text-foreground">Qty Received</th>
+                        <th className="px-4 py-3 text-center font-medium text-foreground">Status</th>
+                        <th className="px-4 py-3 text-center font-medium text-foreground">Send Date</th>
+                        <th className="px-4 py-3 text-center font-medium text-foreground">Expected</th>
+                        <th className="px-4 py-3 text-center font-medium text-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {filteredSendOuts.map((so) => (
                         <tr
                           key={so.id}
-                          className={`hover:bg-gray-50 ${isOverdue(so.expectedReturnDate, so.status) ? 'bg-red-50' : ''}`}
+                          className={`hover:bg-muted ${isOverdue(so.expectedReturnDate, so.status) ? 'bg-destructive/10' : ''}`}
                         >
                           <td className="px-4 py-3">
-                            <div className="font-medium text-gray-900">
+                            <div className="font-medium text-foreground">
                               {so.sourceFabricStock?.fabricMaster?.fabricCode}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-muted-foreground">
                               {so.sourceFabricStock?.fabricMaster?.fabricName}
                             </div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
-                              <Sparkles className="h-3 w-3 text-purple-500" />
+                              <Sparkles className="h-3 w-3 text-accent" />
                               <span className="font-medium">{so.embroidery?.designName}</span>
                             </div>
-                            <div className="text-xs text-gray-500">{so.embroidery?.embroideryCode}</div>
+                            <div className="text-xs text-muted-foreground">{so.embroidery?.embroideryCode}</div>
                           </td>
-                          <td className="px-4 py-3 text-gray-700">{so.supplier?.name || '-'}</td>
+                          <td className="px-4 py-3 text-foreground">{so.supplier?.name || '-'}</td>
                           <td className="px-4 py-3 text-right font-medium">{so.quantitySent} m</td>
                           <td className="px-4 py-3 text-right">
                             {so.quantityReceived ? (
-                              <span className="text-green-600">{so.quantityReceived} m</span>
+                              <span className="text-success">{so.quantityReceived} m</span>
                             ) : (
-                              <span className="text-gray-400">-</span>
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">{getStatusBadge(so.status)}</td>
-                          <td className="px-4 py-3 text-center text-gray-700">
+                          <td className="px-4 py-3 text-center text-foreground">
                             {new Date(so.sendDate).toLocaleDateString()}
                           </td>
                           <td className="px-4 py-3 text-center">
                             {so.expectedReturnDate ? (
                               <span
-                                className={`flex items-center justify-center gap-1 ${isOverdue(so.expectedReturnDate, so.status) ? 'text-red-600 font-medium' : 'text-gray-700'}`}
+                                className={`flex items-center justify-center gap-1 ${isOverdue(so.expectedReturnDate, so.status) ? 'text-destructive font-medium' : 'text-foreground'}`}
                               >
                                 {isOverdue(so.expectedReturnDate, so.status) && <AlertTriangle className="h-3 w-3" />}
                                 {new Date(so.expectedReturnDate).toLocaleDateString()}
                               </span>
                             ) : (
-                              <span className="text-gray-400">-</span>
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -518,12 +534,86 @@ export default function EmbroideryAvailableStock() {
             </TabsContent>
 
             {/* Embroidered Stock Tab */}
+            {/* Pending Embroidery Tab */}
+            <TabsContent value="pending-embroidery">
+              {pendingEmbroidery.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Sparkles className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg font-medium">No fabric pending embroidery</p>
+                  <p className="text-sm">Fabric that needs embroidery will appear here after processing is complete</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted">
+                        <th className="text-left p-3 font-medium">Fabric</th>
+                        <th className="text-left p-3 font-medium">Style</th>
+                        <th className="text-left p-3 font-medium">Order</th>
+                        <th className="text-right p-3 font-medium">Available (m)</th>
+                        <th className="text-right p-3 font-medium">Width</th>
+                        <th className="text-left p-3 font-medium">Received</th>
+                        <th className="text-center p-3 font-medium">Days</th>
+                        <th className="text-left p-3 font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingEmbroidery.map((stock: any) => {
+                        const agingDays = stock.receivedDate
+                          ? Math.max(1, Math.floor((Date.now() - new Date(stock.receivedDate).getTime()) / 86400000))
+                          : 0;
+                        return (
+                          <tr key={stock.id} className="border-b hover:bg-muted">
+                            <td className="p-3">
+                              <div className="font-medium">{stock.fabricMaster?.fabricCode || '—'}</div>
+                              <div className="text-xs text-muted-foreground">{stock.fabricMaster?.fabricName}</div>
+                              {stock.fabricMaster?.colorName && (
+                                <div className="text-xs text-muted-foreground">{stock.fabricMaster.colorName}</div>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              {stock.originStyle ? (
+                                <div>
+                                  <div className="font-medium">{stock.originStyle.styleCode}</div>
+                                  <div className="text-xs text-muted-foreground">{stock.originStyle.styleName}</div>
+                                </div>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                            <td className="p-3">{stock.originOrder?.orderNumber || '—'}</td>
+                            <td className="p-3 text-right font-medium">
+                              {parseFloat(stock.quantityAvailable).toFixed(2)}
+                            </td>
+                            <td className="p-3 text-right">{parseFloat(stock.finishedWidth).toFixed(1)}&quot;</td>
+                            <td className="p-3">
+                              {stock.receivedDate ? new Date(stock.receivedDate).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className={agingDays > 7 ? 'text-destructive font-medium' : ''}>{agingDays}</span>
+                            </td>
+                            <td className="p-3">
+                              <Link to="/embroidery-stock/send-out">
+                                <Button variant="outline" size="sm">
+                                  <Send className="h-3 w-3 mr-1" /> Send
+                                </Button>
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </TabsContent>
+
             <TabsContent value="stock">
               {/* Filters */}
               <div className="mb-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search fabric, design..."
                       value={searchTerm}
@@ -544,69 +634,66 @@ export default function EmbroideryAvailableStock() {
               {/* Embroidered Stock Table */}
               {isLoading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                  <p className="text-gray-500 mt-2">Loading stock...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-success mx-auto"></div>
+                  <p className="text-muted-foreground mt-2">Loading stock...</p>
                 </div>
               ) : filteredStock.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <Package2 className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">No embroidered fabric stock found</p>
-                  <p className="text-sm text-gray-400 mt-1">
+                <div className="text-center py-12 bg-muted rounded-lg border-2 border-dashed border-border">
+                  <Package2 className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">No embroidered fabric stock found</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Embroidered stock is created when you receive fabric back from embroidery
                   </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-100 border-b">
+                    <thead className="bg-muted border-b">
                       <tr>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">Fabric</th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">Embroidery Design</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-700">Quantity</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700">Width</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700">Quality</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-700">Cost/m</th>
-                        <th className="px-4 py-3 text-right font-medium text-gray-700">Total Value</th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">Location</th>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">For Style</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Fabric</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Embroidery Design</th>
+                        <th className="px-4 py-3 text-right font-medium text-foreground">Quantity</th>
+                        <th className="px-4 py-3 text-center font-medium text-foreground">Width</th>
+                        <th className="px-4 py-3 text-center font-medium text-foreground">Quality</th>
+                        <th className="px-4 py-3 text-right font-medium text-foreground">Cost/m</th>
+                        <th className="px-4 py-3 text-right font-medium text-foreground">Total Value</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Location</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">For Style</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {filteredStock.map((stock) => (
-                        <tr key={stock.id} className="hover:bg-gray-50">
+                        <tr key={stock.id} className="hover:bg-muted">
                           <td className="px-4 py-3">
-                            <div className="font-medium text-gray-900">{stock.fabricMaster?.fabricCode}</div>
-                            <div className="text-xs text-gray-500">{stock.fabricMaster?.fabricName}</div>
+                            <div className="font-medium text-foreground">{stock.fabricMaster?.fabricCode}</div>
+                            <div className="text-xs text-muted-foreground">{stock.fabricMaster?.fabricName}</div>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
-                              <Sparkles className="h-3 w-3 text-purple-500" />
-                              <span className="font-medium text-purple-700">{stock.embroidery?.designName}</span>
+                              <Sparkles className="h-3 w-3 text-accent" />
+                              <span className="font-medium text-accent">{stock.embroidery?.designName}</span>
                             </div>
-                            <div className="text-xs text-gray-500">{stock.embroidery?.embroideryCode}</div>
+                            <div className="text-xs text-muted-foreground">{stock.embroidery?.embroideryCode}</div>
                           </td>
-                          <td className="px-4 py-3 text-right font-medium text-green-600">
+                          <td className="px-4 py-3 text-right font-medium text-success">
                             {stock.quantityAvailable.toFixed(2)} m
                           </td>
-                          <td className="px-4 py-3 text-center text-gray-700">{stock.width}"</td>
+                          <td className="px-4 py-3 text-center text-foreground">{stock.width}"</td>
                           <td className="px-4 py-3 text-center">{getQualityBadge(stock.qualityGrade)}</td>
-                          <td className="px-4 py-3 text-right text-gray-700">
+                          <td className="px-4 py-3 text-right text-foreground">
                             {formatCurrency(stock.weightedAvgCost)}
                           </td>
-                          <td className="px-4 py-3 text-right font-medium text-gray-900">
+                          <td className="px-4 py-3 text-right font-medium text-foreground">
                             {formatCurrency(stock.quantityAvailable * stock.weightedAvgCost)}
                           </td>
-                          <td className="px-4 py-3 text-gray-700">{stock.warehouseLocation || '-'}</td>
+                          <td className="px-4 py-3 text-foreground">{stock.warehouseLocation || '-'}</td>
                           <td className="px-4 py-3">
                             {stock.forStyle ? (
-                              <Link
-                                to={`/styles/${stock.forStyle.id}`}
-                                className="text-blue-600 hover:underline text-xs"
-                              >
+                              <Link to={`/styles/${stock.forStyle.id}`} className="text-info hover:underline text-xs">
                                 {stock.forStyle.styleCode}
                               </Link>
                             ) : (
-                              <span className="text-gray-400 text-xs">Generic</span>
+                              <span className="text-muted-foreground text-xs">Generic</span>
                             )}
                           </td>
                         </tr>

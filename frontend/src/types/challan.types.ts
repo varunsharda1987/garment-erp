@@ -18,8 +18,8 @@ export const ChallanTypeLabels: Record<ChallanType, string> = {
 
 export const ChallanTypeColors: Record<ChallanType, string> = {
   OUTWARD: 'bg-orange-100 text-orange-800',
-  INWARD: 'bg-green-100 text-green-800',
-  INTERNAL: 'bg-blue-100 text-blue-800',
+  INWARD: 'bg-success-muted text-success',
+  INTERNAL: 'bg-info-muted text-info',
 };
 
 export const ChallanStatus = {
@@ -43,12 +43,12 @@ export const ChallanStatusLabels: Record<ChallanStatus, string> = {
 };
 
 export const ChallanStatusColors: Record<ChallanStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  ISSUED: 'bg-blue-100 text-blue-800',
+  DRAFT: 'bg-muted text-foreground',
+  ISSUED: 'bg-info-muted text-info',
   IN_TRANSIT: 'bg-yellow-100 text-yellow-800',
-  RECEIVED: 'bg-green-100 text-green-800',
-  PARTIALLY_RECEIVED: 'bg-amber-100 text-amber-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  RECEIVED: 'bg-success-muted text-success',
+  PARTIALLY_RECEIVED: 'bg-warning/10 text-warning',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
 // ============================================
@@ -141,6 +141,8 @@ export interface CreateChallanItemInput {
   sizeId?: string;
   rate?: number;
   remarks?: string;
+  foldLengthCm?: number;
+  thanCount?: number;
 }
 
 export interface CreateChallanInput {

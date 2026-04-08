@@ -135,11 +135,11 @@ export default function OverrideHistory() {
   const getBlockTypeBadgeColor = (blockType: string) => {
     switch (blockType) {
       case 'STAGE_TRANSITION':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-destructive/10 text-destructive border-destructive/25';
       case 'SAMPLE_CREATION':
         return 'bg-orange-100 text-orange-800 border-orange-300';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return 'bg-muted text-foreground border-border';
     }
   };
 
@@ -157,11 +157,11 @@ export default function OverrideHistory() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <ShieldAlert className="h-8 w-8 text-red-600" />
+          <h1 className="text-3xl font-display font-medium text-foreground flex items-center gap-2">
+            <ShieldAlert className="h-8 w-8 text-destructive" />
             Override History
           </h1>
-          <p className="text-gray-600 mt-1">Audit trail of all admin overrides for production blocking rules</p>
+          <p className="text-muted-foreground mt-1">Audit trail of all admin overrides for production blocking rules</p>
         </div>
         <Button onClick={exportToCSV} disabled={filteredOverrides.length === 0}>
           <Download className="h-4 w-4 mr-2" />
@@ -176,7 +176,7 @@ export default function OverrideHistory() {
           <div className="space-y-2">
             <Label htmlFor="search">Search</Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="search"
                 placeholder="Search by reason, user, work order, sample..."
@@ -205,24 +205,24 @@ export default function OverrideHistory() {
       </Card>
 
       {/* Results Count */}
-      <div className="text-sm text-gray-600">
+      <div className="text-sm text-muted-foreground">
         Showing {filteredOverrides.length} of {overrides.length} overrides
       </div>
 
       {/* Loading State */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <span className="ml-3 text-gray-600">Loading override history...</span>
+          <Loader2 className="h-8 w-8 animate-spin text-info" />
+          <span className="ml-3 text-muted-foreground">Loading override history...</span>
         </div>
       )}
 
       {/* Empty State */}
       {!loading && filteredOverrides.length === 0 && (
         <Card className="p-12 text-center">
-          <ShieldAlert className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">No overrides found</p>
-          <p className="text-gray-500 text-sm mt-2">
+          <ShieldAlert className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground text-lg">No overrides found</p>
+          <p className="text-muted-foreground text-sm mt-2">
             {search || blockTypeFilter !== 'all'
               ? 'Try adjusting your filters'
               : 'No admin overrides have been recorded yet'}
@@ -249,18 +249,18 @@ export default function OverrideHistory() {
               {filteredOverrides.map((override) => (
                 <TableRow
                   key={override.id}
-                  className="cursor-pointer hover:bg-gray-50"
+                  className="cursor-pointer hover:bg-muted"
                   onClick={() => handleRowClick(override)}
                 >
                   <TableCell>
                     <div className="flex items-center gap-2 text-sm">
-                      <Clock className="h-4 w-4 text-gray-400" />
+                      <Clock className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <div className="font-medium">{new Date(override.overriddenAt).toLocaleDateString()}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           {new Date(override.overriddenAt).toLocaleTimeString()}
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(override.overriddenAt), { addSuffix: true })}
                         </div>
                       </div>
@@ -268,12 +268,12 @@ export default function OverrideHistory() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-gray-400" />
+                      <User className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <div className="font-medium">
                           {override.overriddenBy.firstName} {override.overriddenBy.lastName}
                         </div>
-                        <div className="text-xs text-gray-500">{override.overriddenBy.email}</div>
+                        <div className="text-xs text-muted-foreground">{override.overriddenBy.email}</div>
                       </div>
                     </div>
                   </TableCell>
@@ -286,11 +286,11 @@ export default function OverrideHistory() {
                     <div className="text-sm">
                       {override.workOrder && <div className="font-medium">{override.workOrder.workOrderNumber}</div>}
                       {override.sample && <div className="font-medium">{override.sample.sampleNumber}</div>}
-                      {!override.workOrder && !override.sample && <span className="text-gray-400">N/A</span>}
+                      {!override.workOrder && !override.sample && <span className="text-muted-foreground">N/A</span>}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-xs text-gray-600">
+                    <div className="text-xs text-muted-foreground">
                       {override.toStage && (
                         <div>
                           {override.fromStage && <span>{override.fromStage} → </span>}
@@ -306,7 +306,7 @@ export default function OverrideHistory() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="max-w-md text-sm text-gray-700 line-clamp-2">{override.overrideReason}</div>
+                    <div className="max-w-md text-sm text-foreground line-clamp-2">{override.overrideReason}</div>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -332,7 +332,7 @@ export default function OverrideHistory() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600" />
+              <AlertCircle className="h-5 w-5 text-destructive" />
               Override Details
             </DialogTitle>
           </DialogHeader>
@@ -342,11 +342,11 @@ export default function OverrideHistory() {
               {/* Override Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-gray-500">Date & Time</Label>
+                  <Label className="text-xs text-muted-foreground">Date & Time</Label>
                   <p className="text-sm font-medium">{new Date(selectedOverride.overriddenAt).toLocaleString()}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">Type</Label>
+                  <Label className="text-xs text-muted-foreground">Type</Label>
                   <Badge className={getBlockTypeBadgeColor(selectedOverride.blockType)}>
                     {formatBlockType(selectedOverride.blockType)}
                   </Badge>
@@ -355,24 +355,24 @@ export default function OverrideHistory() {
 
               {/* User Info */}
               <div>
-                <Label className="text-xs text-gray-500">Overridden By</Label>
+                <Label className="text-xs text-muted-foreground">Overridden By</Label>
                 <p className="text-sm font-medium">
                   {selectedOverride.overriddenBy.firstName} {selectedOverride.overriddenBy.lastName}
                 </p>
-                <p className="text-xs text-gray-500">{selectedOverride.overriddenBy.email}</p>
+                <p className="text-xs text-muted-foreground">{selectedOverride.overriddenBy.email}</p>
               </div>
 
               {/* Item Info */}
               {selectedOverride.workOrder && (
                 <div>
-                  <Label className="text-xs text-gray-500">Work Order</Label>
+                  <Label className="text-xs text-muted-foreground">Work Order</Label>
                   <p className="text-sm font-medium">{selectedOverride.workOrder.workOrderNumber}</p>
                 </div>
               )}
 
               {selectedOverride.sample && (
                 <div>
-                  <Label className="text-xs text-gray-500">Sample</Label>
+                  <Label className="text-xs text-muted-foreground">Sample</Label>
                   <p className="text-sm font-medium">
                     {selectedOverride.sample.sampleNumber} ({selectedOverride.sample.sampleType})
                   </p>
@@ -382,10 +382,10 @@ export default function OverrideHistory() {
               {/* Stage Transition Details */}
               {selectedOverride.toStage && (
                 <div>
-                  <Label className="text-xs text-gray-500">Stage Transition</Label>
+                  <Label className="text-xs text-muted-foreground">Stage Transition</Label>
                   <p className="text-sm font-medium">
                     {selectedOverride.fromStage && <span>{selectedOverride.fromStage} → </span>}
-                    <span className="text-blue-600">{selectedOverride.toStage}</span>
+                    <span className="text-info">{selectedOverride.toStage}</span>
                   </p>
                 </div>
               )}
@@ -393,11 +393,14 @@ export default function OverrideHistory() {
               {/* Sample Creation Details */}
               {selectedOverride.blockedSampleType && (
                 <div>
-                  <Label className="text-xs text-gray-500">Sample Creation</Label>
+                  <Label className="text-xs text-muted-foreground">Sample Creation</Label>
                   <p className="text-sm font-medium">
                     {selectedOverride.blockedSampleType}
                     {selectedOverride.prerequisiteSampleType && (
-                      <span className="text-gray-500"> (requires {selectedOverride.prerequisiteSampleType})</span>
+                      <span className="text-muted-foreground">
+                        {' '}
+                        (requires {selectedOverride.prerequisiteSampleType})
+                      </span>
                     )}
                   </p>
                 </div>
@@ -405,16 +408,16 @@ export default function OverrideHistory() {
 
               {/* Reason */}
               <div>
-                <Label className="text-xs text-gray-500">Override Reason</Label>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-1">
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedOverride.overrideReason}</p>
+                <Label className="text-xs text-muted-foreground">Override Reason</Label>
+                <div className="bg-muted border border-border rounded-lg p-3 mt-1">
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{selectedOverride.overrideReason}</p>
                 </div>
               </div>
 
               {/* Warning */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="bg-warning-muted border border-yellow-200 rounded-lg p-3">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-yellow-900">
                     <p className="font-semibold mb-1">Audit Record</p>
                     <p>

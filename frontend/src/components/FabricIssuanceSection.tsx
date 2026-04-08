@@ -106,8 +106,8 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-orange-600 mr-2" />
-          <span className="text-gray-500">Loading fabric data...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+          <span className="text-muted-foreground">Loading fabric data...</span>
         </CardContent>
       </Card>
     );
@@ -124,7 +124,7 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-orange-600" />
+              <Package className="h-5 w-5 text-primary" />
               <CardTitle className="text-lg">Fabric Issuance</CardTitle>
             </div>
             {hasAvailableLots && (
@@ -143,7 +143,7 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
               </Button>
             )}
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Select fabric lots from stock to issue to the cutting department. Full lot quantity will be issued via
             internal challan.
           </p>
@@ -161,6 +161,7 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
                     <TableHead>Fabric</TableHead>
                     <TableHead className="text-right">CAD Avg (m/pc)</TableHead>
                     <TableHead className="text-right">Available (m)</TableHead>
+                    <TableHead className="text-right">Issued (m)</TableHead>
                     <TableHead className="text-right">Required (m)</TableHead>
                     <TableHead className="text-right">Max Pcs</TableHead>
                     <TableHead className="text-right">Shortfall (m)</TableHead>
@@ -175,12 +176,15 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
                       </TableCell>
                       <TableCell className="text-right">{fa.cadSet ? fa.cadAverage.toFixed(2) : '-'}</TableCell>
                       <TableCell className="text-right">{fa.availableStock.toFixed(1)}</TableCell>
+                      <TableCell className="text-right text-success font-medium">
+                        {(fa.issuedStock ?? 0) > 0 ? fa.issuedStock.toFixed(1) : '-'}
+                      </TableCell>
                       <TableCell className="text-right">{fa.cadSet ? fa.requiredForOrder.toFixed(1) : '-'}</TableCell>
                       <TableCell className="text-right font-semibold">
                         {fa.maxPcsFromStock !== null ? fa.maxPcsFromStock.toLocaleString() : '-'}
                       </TableCell>
                       <TableCell
-                        className={`text-right ${fa.shortfallMeters > 0 ? 'text-red-600 font-medium' : 'text-green-600'}`}
+                        className={`text-right ${fa.shortfallMeters > 0 ? 'text-destructive font-medium' : 'text-success'}`}
                       >
                         {fa.shortfallMeters > 0 ? fa.shortfallMeters.toFixed(1) : '-'}
                       </TableCell>
@@ -189,7 +193,7 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
                 </TableBody>
               </Table>
               {data.bottleneckFabric && (
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-warning mt-1">
                   Bottleneck: {data.bottleneckFabric} — Max cuttable: {data.maxCuttablePcs.toLocaleString()} pcs
                 </p>
               )}
@@ -219,7 +223,7 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
                   {allLots.map((lot) => (
                     <TableRow
                       key={lot.lotId}
-                      className={selectedLots[lot.lotId] ? 'bg-orange-50' : 'cursor-pointer hover:bg-gray-50'}
+                      className={selectedLots[lot.lotId] ? 'bg-primary/10' : 'cursor-pointer hover:bg-muted'}
                       onClick={() => toggleLot(lot.lotId)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -246,9 +250,9 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
 
               {/* Warning when not all component parts have lots selected */}
               {missingParts.length > 0 && (
-                <Alert className="bg-amber-50 border-amber-200 mt-3">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-800">
+                <Alert className="bg-warning-muted border-warning/20 mt-3">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  <AlertDescription className="text-warning">
                     <strong>Missing fabrics for:</strong> {missingParts.join(', ')}. Cutting cannot produce complete
                     garments without all component fabrics.
                   </AlertDescription>
@@ -256,16 +260,16 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
               )}
             </div>
           ) : hasIssuedChallans ? (
-            <Alert className="bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="bg-success-muted border-success/20">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success">
                 All fabric has been issued to the cutting department via challans below.
               </AlertDescription>
             </Alert>
           ) : (
-            <Alert className="bg-amber-50 border-amber-200">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
+            <Alert className="bg-warning-muted border-warning/20">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertDescription className="text-warning">
                 No fabric stock available for this style. Ensure fabric is received via GRN first.
               </AlertDescription>
             </Alert>
@@ -278,7 +282,7 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <CheckCircle className="h-5 w-5 text-success" />
               <CardTitle className="text-lg">Issued Fabric Challans</CardTitle>
             </div>
           </CardHeader>
@@ -305,10 +309,10 @@ export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: 
                         <Badge
                           className={
                             challan.status === 'ISSUED'
-                              ? 'bg-blue-100 text-blue-700'
+                              ? 'bg-info-muted text-info'
                               : challan.status === 'RECEIVED'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-700'
+                                ? 'bg-success-muted text-success'
+                                : 'bg-muted text-foreground'
                           }
                         >
                           {challan.status}

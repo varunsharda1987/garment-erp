@@ -119,25 +119,25 @@ export default function ZipperList() {
       header: 'Zipper Name',
       render: (zipper) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{zipper.zipperName}</div>
-          {zipper.description && <div className="text-xs text-gray-500 line-clamp-1">{zipper.description}</div>}
+          <div className="text-sm font-medium text-foreground">{zipper.zipperName}</div>
+          {zipper.description && <div className="text-xs text-muted-foreground line-clamp-1">{zipper.description}</div>}
         </div>
       ),
     },
     {
       key: 'length',
       header: 'Length',
-      render: (zipper) => <div className="text-sm text-gray-700">{zipper.length ? `${zipper.length}"` : '-'}</div>,
+      render: (zipper) => <div className="text-sm text-foreground">{zipper.length ? `${zipper.length}"` : '-'}</div>,
     },
     {
       key: 'teethType',
       header: 'Teeth Type',
-      render: (zipper) => <div className="text-sm text-gray-700">{zipper.teethType || '-'}</div>,
+      render: (zipper) => <div className="text-sm text-foreground">{zipper.teethType || '-'}</div>,
     },
     {
       key: 'color',
       header: 'Color',
-      render: (zipper) => <div className="text-sm text-gray-700">{zipper.color || '-'}</div>,
+      render: (zipper) => <div className="text-sm text-foreground">{zipper.color || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -157,7 +157,7 @@ export default function ZipperList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
           {zipper.zipperSuppliers && zipper.zipperSuppliers.length > 2 && (
             <Badge variant="outline" className="text-xs">
@@ -171,7 +171,7 @@ export default function ZipperList() {
       key: 'pricePerPiece',
       header: 'Price/Piece',
       render: (zipper) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {zipper.pricePerPiece ? formatCurrency(zipper.pricePerPiece) : '-'}
         </div>
       ),

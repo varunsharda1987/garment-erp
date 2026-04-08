@@ -97,13 +97,13 @@ export function StatusBadge({ status, variant, className }: StatusBadgeProps) {
 // Movement type badge with custom colors
 export function MovementTypeBadge({ type }: { type: string }) {
   const colors = {
-    IN: 'bg-green-100 text-green-800 hover:bg-green-100',
-    OUT: 'bg-red-100 text-red-800 hover:bg-red-100',
-    TRANSFER: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
+    IN: 'bg-success-muted text-success hover:bg-success-muted',
+    OUT: 'bg-destructive/10 text-destructive hover:bg-destructive/10',
+    TRANSFER: 'bg-info-muted text-info hover:bg-info-muted',
     ADJUSTMENT: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
   };
 
-  const colorClass = colors[type as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  const colorClass = colors[type as keyof typeof colors] || 'bg-muted text-foreground';
 
   return (
     <Badge variant="outline" className={cn('capitalize', colorClass)}>

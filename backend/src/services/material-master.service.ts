@@ -244,8 +244,6 @@ function getMaterialTypePrefix(materialType: MaterialType): string {
   const prefixes: Record<MaterialType, string> = {
     // Generic and fabric types
     GENERIC: 'GEN',
-    GREIGE_FABRIC: 'GRF',
-    FINISHED_FABRIC: 'FNF',
     FABRIC: 'FAB',
     GREIGE: 'GRG',
     // Trim types

@@ -30,9 +30,9 @@ const PURPOSE_LABELS: Record<CADPurpose, string> = {
 
 // Purpose colors
 const PURPOSE_COLORS: Record<CADPurpose, string> = {
-  COSTING: 'bg-blue-100 text-blue-800',
-  RAW_MATERIAL_CALCULATION: 'bg-amber-100 text-amber-800',
-  PRODUCTION: 'bg-green-100 text-green-800',
+  COSTING: 'bg-info-muted text-info',
+  RAW_MATERIAL_CALCULATION: 'bg-warning/10 text-warning',
+  PRODUCTION: 'bg-success-muted text-success',
 };
 
 export const CopyCADConfirmationDialog: React.FC<CopyCADConfirmationDialogProps> = ({
@@ -62,44 +62,44 @@ export const CopyCADConfirmationDialog: React.FC<CopyCADConfirmationDialogProps>
 
         <div className="space-y-4">
           {/* Source Record Info */}
-          <div className="rounded-lg border bg-gray-50 p-4">
+          <div className="rounded-lg border bg-muted p-4">
             <div className="mb-2 flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Source Record:</span>
+              <span className="text-sm font-medium text-foreground">Source Record:</span>
               <Badge className={PURPOSE_COLORS[sourcePurpose]}>{sourcePurposeLabel} (Approved)</Badge>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-gray-600">Component:</span>
+                <span className="text-muted-foreground">Component:</span>
                 <span className="ml-2 font-medium">{sourceRow.componentName}</span>
               </div>
               {sourceRow.partName && (
                 <div>
-                  <span className="text-gray-600">Part:</span>
+                  <span className="text-muted-foreground">Part:</span>
                   <span className="ml-2 font-medium">{sourceRow.partName}</span>
                 </div>
               )}
               <div>
-                <span className="text-gray-600">Greige:</span>
+                <span className="text-muted-foreground">Greige:</span>
                 <span className="ml-2 font-medium">
                   {sourceRow.greigeName || sourceRow.genericGreigeName || 'Not specified'}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Width:</span>
+                <span className="text-muted-foreground">Width:</span>
                 <span className="ml-2 font-medium">
                   {sourceRow.cutableWidth ? `${sourceRow.cutableWidth}"` : 'Not specified'}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">CAD:</span>
+                <span className="text-muted-foreground">CAD:</span>
                 <span className="ml-2 font-medium">
                   {sourceRow.cadAverage ? `${sourceRow.cadAverage.toFixed(3)}m/pc` : 'Not specified'}
                 </span>
               </div>
               {sourceRow.piecesPerMarker && (
                 <div>
-                  <span className="text-gray-600">Pieces/Marker:</span>
+                  <span className="text-muted-foreground">Pieces/Marker:</span>
                   <span className="ml-2 font-medium">{sourceRow.piecesPerMarker}</span>
                 </div>
               )}
@@ -107,33 +107,33 @@ export const CopyCADConfirmationDialog: React.FC<CopyCADConfirmationDialogProps>
           </div>
 
           {/* Target Draft Info */}
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="rounded-lg border border-warning/20 bg-warning-muted p-4">
             <div className="mb-2 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-900">New Draft Will Be Created:</span>
+              <AlertCircle className="h-4 w-4 text-warning" />
+              <span className="text-sm font-medium text-warning">New Draft Will Be Created:</span>
             </div>
 
-            <ul className="space-y-1.5 text-sm text-amber-900">
+            <ul className="space-y-1.5 text-sm text-warning">
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-amber-600">•</span>
+                <span className="mt-0.5 text-warning">•</span>
                 <span>
                   <strong>Purpose:</strong> {targetPurposeLabel}
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-amber-600">•</span>
+                <span className="mt-0.5 text-warning">•</span>
                 <span>
                   <strong>Status:</strong> PENDING (not approved)
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-amber-600">•</span>
+                <span className="mt-0.5 text-warning">•</span>
                 <span>
                   <strong>Editable:</strong> Yes, you can adjust values before approving
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-0.5 text-amber-600">•</span>
+                <span className="mt-0.5 text-warning">•</span>
                 <span>
                   <strong>Linked:</strong> Tracked back to source record for audit trail
                 </span>
@@ -142,9 +142,9 @@ export const CopyCADConfirmationDialog: React.FC<CopyCADConfirmationDialogProps>
           </div>
 
           {/* Next Steps */}
-          <div className="rounded-lg border bg-blue-50 p-4">
-            <div className="mb-2 text-sm font-medium text-blue-900">After Copying:</div>
-            <ol className="space-y-1.5 text-sm text-blue-900">
+          <div className="rounded-lg border bg-info-muted p-4">
+            <div className="mb-2 text-sm font-medium text-info">After Copying:</div>
+            <ol className="space-y-1.5 text-sm text-info">
               <li className="flex items-start gap-2">
                 <span className="font-medium">1.</span>
                 <span>Review the copied CAD data</span>

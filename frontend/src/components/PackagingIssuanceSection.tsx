@@ -93,8 +93,8 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-purple-600 mr-2" />
-          <span className="text-gray-500">Loading packaging data...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-accent mr-2" />
+          <span className="text-muted-foreground">Loading packaging data...</span>
         </CardContent>
       </Card>
     );
@@ -112,7 +112,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-purple-600" />
+              <Package className="h-5 w-5 text-accent" />
               <CardTitle className="text-lg">Packaging Issuance — Finishing</CardTitle>
             </div>
             {itemsWithStock.length > 0 && (
@@ -128,7 +128,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
               </Button>
             )}
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Issue polybags, tags, cartons, and packaging materials to finishing department.
           </p>
         </CardHeader>
@@ -155,9 +155,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
                 return (
                   <TableRow
                     key={item.bomItemId}
-                    className={
-                      isSelected ? 'bg-purple-50' : hasStock ? 'cursor-pointer hover:bg-gray-50' : 'opacity-50'
-                    }
+                    className={isSelected ? 'bg-accent/10' : hasStock ? 'cursor-pointer hover:bg-muted' : 'opacity-50'}
                     onClick={() => {
                       if (item.materialId && hasStock && remaining > 0) {
                         setSelected((prev) => ({ ...prev, [item.materialId!]: !prev[item.materialId!] }));
@@ -185,10 +183,10 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
                     </TableCell>
                     <TableCell className="text-right">{item.qtyPerPiece}</TableCell>
                     <TableCell className="text-right">{item.requiredQty.toFixed(0)}</TableCell>
-                    <TableCell className="text-right text-green-600">
+                    <TableCell className="text-right text-success">
                       {item.alreadyIssued > 0 ? item.alreadyIssued.toFixed(0) : '-'}
                     </TableCell>
-                    <TableCell className={`text-right ${item.shortage > 0 ? 'text-red-600 font-medium' : ''}`}>
+                    <TableCell className={`text-right ${item.shortage > 0 ? 'text-destructive font-medium' : ''}`}>
                       {item.availableStock.toFixed(0)}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -201,7 +199,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
                           onChange={(e) => setQuantities((prev) => ({ ...prev, [item.materialId!]: e.target.value }))}
                         />
                       ) : (
-                        <span className="text-gray-400">{remaining <= 0 ? 'Done' : 'No stock'}</span>
+                        <span className="text-muted-foreground">{remaining <= 0 ? 'Done' : 'No stock'}</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -211,9 +209,9 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
           </Table>
 
           {hasShortage && (
-            <Alert className="bg-amber-50 border-amber-200 mt-3">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
+            <Alert className="bg-warning-muted border-warning/20 mt-3">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertDescription className="text-warning">
                 Some packaging materials have insufficient stock. Ensure materials are procured before finishing.
               </AlertDescription>
             </Alert>
@@ -225,7 +223,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <CheckCircle className="h-5 w-5 text-success" />
               <CardTitle className="text-lg">Issued Packaging Challans</CardTitle>
             </div>
           </CardHeader>
@@ -248,7 +246,7 @@ export default function PackagingIssuanceSection({ workOrderId }: PackagingIssua
                     <TableCell>
                       <Badge
                         className={
-                          challan.status === 'ISSUED' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                          challan.status === 'ISSUED' ? 'bg-info-muted text-info' : 'bg-success-muted text-success'
                         }
                       >
                         {challan.status}

@@ -23,24 +23,24 @@ interface ProcessStageCardProps {
 
 const categoryColors = {
   'pre-production': {
-    bg: 'bg-gradient-to-r from-blue-500 to-indigo-600',
-    badge: 'bg-blue-100 text-blue-700 border-blue-300',
-    border: 'border-blue-200',
+    bg: 'bg-gradient-to-r from-info-muted0 to-primary',
+    badge: 'bg-info-muted text-info border-info/30',
+    border: 'border-info/20',
   },
   'order-management': {
-    bg: 'bg-gradient-to-r from-green-500 to-emerald-600',
-    badge: 'bg-green-100 text-green-700 border-green-300',
-    border: 'border-green-200',
+    bg: 'bg-gradient-to-r from-success to-emerald-600',
+    badge: 'bg-success-muted text-success border-success/25',
+    border: 'border-success/20',
   },
   production: {
-    bg: 'bg-gradient-to-r from-orange-500 to-amber-600',
-    badge: 'bg-orange-100 text-orange-700 border-orange-300',
+    bg: 'bg-gradient-to-r from-orange-500 to-warning',
+    badge: 'bg-orange-100 text-primary border-orange-300',
     border: 'border-orange-200',
   },
   fulfillment: {
-    bg: 'bg-gradient-to-r from-purple-500 to-violet-600',
-    badge: 'bg-purple-100 text-purple-700 border-purple-300',
-    border: 'border-purple-200',
+    bg: 'bg-gradient-to-r from-accent/50 to-violet-600',
+    badge: 'bg-accent/10 text-accent border-accent/25',
+    border: 'border-accent/20',
   },
 };
 
@@ -49,7 +49,7 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
 
   return (
     <Card className={`border-2 ${colors.border} hover:shadow-lg transition-shadow`}>
-      <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={onToggle}>
+      <CardHeader className="cursor-pointer hover:bg-muted" onClick={onToggle}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4 flex-1">
             {/* Stage Number */}
@@ -70,7 +70,7 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
                   {stage.category.replace('-', ' ')}
                 </Badge>
               </CardTitle>
-              <p className="text-sm text-gray-600">{stage.description}</p>
+              <p className="text-sm text-muted-foreground">{stage.description}</p>
             </div>
           </div>
 
@@ -93,25 +93,25 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
         <CardContent className="space-y-6 pt-0">
           {/* Purpose */}
           <div className="space-y-2">
-            <h4 className="text-sm font-semibold text-gray-700">Purpose</h4>
-            <p className="text-sm text-gray-600 leading-relaxed">{stage.purpose}</p>
+            <h4 className="text-sm font-semibold text-foreground">Purpose</h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">{stage.purpose}</p>
           </div>
 
           {/* Prerequisites */}
           {stage.prerequisites.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-700">Prerequisites</h4>
+              <h4 className="text-sm font-semibold text-foreground">Prerequisites</h4>
               <ul className="space-y-2">
                 {stage.prerequisites.map((prereq, index) => (
                   <li key={index} className="flex items-start gap-2 text-sm">
                     {prereq.required ? (
-                      <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
                     ) : (
-                      <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                      <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
                     )}
-                    <span className="text-gray-600">
+                    <span className="text-muted-foreground">
                       {prereq.condition}
-                      {prereq.required && <span className="text-red-600 font-medium ml-1">(Required)</span>}
+                      {prereq.required && <span className="text-destructive font-medium ml-1">(Required)</span>}
                     </span>
                   </li>
                 ))}
@@ -122,13 +122,13 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
           {/* Key Actions / Pages */}
           {stage.pages.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-700">Key Actions</h4>
+              <h4 className="text-sm font-semibold text-foreground">Key Actions</h4>
               <div className="flex flex-wrap gap-2">
                 {stage.pages.map((page, index) => (
                   <Link
                     key={index}
                     to={page.path}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-sm text-indigo-700 hover:text-indigo-900 transition-colors"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary/5 hover:bg-primary/10 border border-primary/20 text-sm text-primary hover:text-primary transition-colors"
                   >
                     {page.icon}
                     <span>{page.title}</span>
@@ -145,7 +145,7 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
           {/* Database Models */}
           {stage.databaseModels.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Database className="h-4 w-4" />
                 Database Models
               </h4>
@@ -162,10 +162,10 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
           {/* Key Fields */}
           {stage.keyFields && stage.keyFields.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-700">Key Fields</h4>
+              <h4 className="text-sm font-semibold text-foreground">Key Fields</h4>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {stage.keyFields.map((field, index) => (
-                  <li key={index} className="text-sm text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded">
+                  <li key={index} className="text-sm text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
                     {field}
                   </li>
                 ))}
@@ -176,7 +176,7 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
           {/* Tips */}
           {stage.tips && stage.tips.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Lightbulb className="h-4 w-4 text-yellow-500" />
                 Tips
               </h4>
@@ -184,7 +184,7 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
                 {stage.tips.map((tip, index) => (
                   <li
                     key={index}
-                    className="text-sm text-gray-600 pl-6 relative before:content-['•'] before:absolute before:left-2 before:text-yellow-500"
+                    className="text-sm text-muted-foreground pl-6 relative before:content-['•'] before:absolute before:left-2 before:text-yellow-500"
                   >
                     {tip}
                   </li>
@@ -195,14 +195,14 @@ export default function ProcessStageCard({ stage, isExpanded, onToggle }: Proces
 
           {/* Gates / Blockers */}
           {stage.gates && stage.gates.length > 0 && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-red-700 flex items-center gap-2 mb-2">
+            <div className="bg-destructive/10 border-2 border-destructive/20 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-destructive flex items-center gap-2 mb-2">
                 <AlertTriangle className="h-4 w-4" />
                 Critical Gate
               </h4>
               <ul className="space-y-1">
                 {stage.gates.map((gate, index) => (
-                  <li key={index} className="text-sm text-red-600 font-medium">
+                  <li key={index} className="text-sm text-destructive font-medium">
                     {gate}
                   </li>
                 ))}

@@ -299,7 +299,7 @@ const OrderBOMDetail = () => {
       <div className="p-6">
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-red-500 mb-4">{error || 'Order BOM not found'}</p>
+            <p className="text-destructive mb-4">{error || 'Order BOM not found'}</p>
             <Button onClick={() => navigate('/order-bom')}>Back to List</Button>
           </CardContent>
         </Card>
@@ -325,7 +325,7 @@ const OrderBOMDetail = () => {
               {bom.sourceCostSheetId && (
                 <Button
                   variant="outline"
-                  className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                  className="border-primary text-primary hover:bg-primary/10"
                   onClick={() => setRegenerateDialogOpen(true)}
                   disabled={regenerating}
                 >
@@ -333,7 +333,7 @@ const OrderBOMDetail = () => {
                   Regenerate from Cost Sheet
                 </Button>
               )}
-              <Button className="bg-green-600 hover:bg-green-700" onClick={() => setApproveDialogOpen(true)}>
+              <Button className="bg-success hover:bg-success" onClick={() => setApproveDialogOpen(true)}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Approve
               </Button>
@@ -344,7 +344,7 @@ const OrderBOMDetail = () => {
             <>
               <Button
                 variant="outline"
-                className="border-purple-500 text-purple-600 hover:bg-purple-50"
+                className="border-accent text-accent hover:bg-accent/10"
                 onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${bom.orderId}`)}
               >
                 <FileText className="h-4 w-4 mr-2" />
@@ -352,7 +352,7 @@ const OrderBOMDetail = () => {
               </Button>
               <Button
                 variant="outline"
-                className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                className="border-primary text-primary hover:bg-primary/10"
                 onClick={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${bom.orderId}`)}
               >
                 <Wrench className="h-4 w-4 mr-2" />
@@ -360,13 +360,13 @@ const OrderBOMDetail = () => {
               </Button>
               <Button
                 variant="outline"
-                className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                className="border-info text-info hover:bg-info-muted"
                 onClick={handleCalculateMRP}
               >
                 <Calculator className="h-4 w-4 mr-2" />
                 Calculate MRP
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setLockDialogOpen(true)}>
+              <Button className="bg-info hover:bg-info" onClick={() => setLockDialogOpen(true)}>
                 <Lock className="h-4 w-4 mr-2" />
                 Lock for Production
               </Button>
@@ -377,7 +377,7 @@ const OrderBOMDetail = () => {
             <>
               <Button
                 variant="outline"
-                className="border-purple-500 text-purple-600 hover:bg-purple-50"
+                className="border-accent text-accent hover:bg-accent/10"
                 onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${bom.orderId}`)}
               >
                 <FileText className="h-4 w-4 mr-2" />
@@ -385,7 +385,7 @@ const OrderBOMDetail = () => {
               </Button>
               <Button
                 variant="outline"
-                className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                className="border-primary text-primary hover:bg-primary/10"
                 onClick={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${bom.orderId}`)}
               >
                 <Wrench className="h-4 w-4 mr-2" />
@@ -398,22 +398,22 @@ const OrderBOMDetail = () => {
 
       {/* Next-step banner after BOM approval */}
       {justApprovedMsg && isApproved && (
-        <Alert className="mb-6 bg-green-50 border-green-200">
-          <CheckCircle className="h-4 w-4 text-green-600" />
+        <Alert className="mb-6 bg-success-muted border-success/20">
+          <CheckCircle className="h-4 w-4 text-success" />
           <AlertDescription className="flex items-center justify-between">
-            <span className="text-green-800">
+            <span className="text-success">
               <strong>BOM Approved & MRP Calculated</strong> — {justApprovedMsg}
             </span>
             <div className="flex gap-2 ml-4 flex-shrink-0">
               <Button
                 size="sm"
                 variant="outline"
-                className="border-purple-400 text-purple-600 hover:bg-purple-50"
+                className="border-accent/50 text-accent hover:bg-accent/10"
                 onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${bom.orderId}`)}
               >
                 View Requirements <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => setLockDialogOpen(true)}>
+              <Button size="sm" className="bg-info hover:bg-info" onClick={() => setLockDialogOpen(true)}>
                 Lock for Production <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setJustApprovedMsg(null)}>
@@ -426,17 +426,17 @@ const OrderBOMDetail = () => {
 
       {/* Next-step banner after BOM lock */}
       {justLocked && isLocked && (
-        <Alert className="mb-6 bg-blue-50 border-blue-200">
-          <Lock className="h-4 w-4 text-blue-600" />
+        <Alert className="mb-6 bg-info-muted border-info/20">
+          <Lock className="h-4 w-4 text-info" />
           <AlertDescription className="flex items-center justify-between">
-            <span className="text-blue-800">
+            <span className="text-info">
               <strong>BOM Locked for Production</strong> — Ready for procurement and cutting.
             </span>
             <div className="flex gap-2 ml-4 flex-shrink-0">
               <Button
                 size="sm"
                 variant="outline"
-                className="border-purple-400 text-purple-600 hover:bg-purple-50"
+                className="border-accent/50 text-accent hover:bg-accent/10"
                 onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${bom.orderId}`)}
               >
                 View Requirements <ArrowRight className="ml-1 h-3 w-3" />
@@ -462,7 +462,7 @@ const OrderBOMDetail = () => {
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-2xl font-bold">{bom.order?.orderNumber || 'Order BOM'}</h2>
+                <h2 className="text-2xl font-display font-medium">{bom.order?.orderNumber || 'Order BOM'}</h2>
                 <Badge variant="outline" className="text-sm">
                   v{bom.version}
                 </Badge>
@@ -470,10 +470,10 @@ const OrderBOMDetail = () => {
                   {bom.status}
                 </span>
               </div>
-              <p className="text-gray-600 text-lg">
+              <p className="text-muted-foreground text-lg">
                 {bom.style?.styleCode} - {bom.style?.styleName}
               </p>
-              <div className="mt-3 text-sm text-gray-500 space-y-1">
+              <div className="mt-3 text-sm text-muted-foreground space-y-1">
                 <div>
                   Created by: {bom.createdBy ? `${bom.createdBy.firstName} ${bom.createdBy.lastName}` : 'N/A'} on{' '}
                   {new Date(bom.createdAt).toLocaleDateString()}
@@ -491,7 +491,7 @@ const OrderBOMDetail = () => {
                     <Button
                       variant="link"
                       size="sm"
-                      className="h-auto p-0 text-blue-600"
+                      className="h-auto p-0 text-info"
                       onClick={() => navigate(`/cost-sheets/${bom.sourceCostSheetId}`)}
                     >
                       View Source
@@ -503,11 +503,11 @@ const OrderBOMDetail = () => {
 
             {/* Summary Stats */}
             <div className="text-right">
-              <div className="text-sm text-gray-500">Total Material Cost</div>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-sm text-muted-foreground">Total Material Cost</div>
+              <div className="text-2xl font-bold text-success">
                 {bom.totalMaterialCost ? formatCurrency(bom.totalMaterialCost) : '-'}
               </div>
-              <div className="text-sm text-gray-500 mt-2">{bom.items?.length || 0} items</div>
+              <div className="text-sm text-muted-foreground mt-2">{bom.items?.length || 0} items</div>
             </div>
           </div>
         </CardContent>
@@ -549,15 +549,15 @@ const OrderBOMDetail = () => {
           });
           if (unlinked.length === 0) return null;
           return (
-            <div className="mb-4 border border-orange-200 bg-orange-50 rounded-lg p-4">
+            <div className="mb-4 border border-orange-200 bg-primary/10 rounded-lg p-4">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 shrink-0" />
+                <AlertTriangle className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                 <div>
                   <p className="font-medium text-orange-800">
                     {unlinked.length} BOM item{unlinked.length > 1 ? 's' : ''} not linked to master records — MRP will
                     skip these
                   </p>
-                  <ul className="mt-2 text-sm text-orange-700 space-y-1">
+                  <ul className="mt-2 text-sm text-primary space-y-1">
                     {unlinked.map((item: OrderBOMItem, i: number) => (
                       <li key={i}>
                         <span className="font-medium">{item.componentName || 'Unknown'}</span>
@@ -589,45 +589,63 @@ const OrderBOMDetail = () => {
           {bom.items && bom.items.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Material</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Type</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Category</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty/Garment</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Order Qty</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Qty</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Wastage%</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Unit</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unit Price</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Cost</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                      Material
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Code</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Type</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                      Category
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Qty/Garment
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Order Qty
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Total Qty
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Wastage%
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Unit</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Unit Price
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Total Cost
+                    </th>
                     {!isLocked && (
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Actions
+                      </th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-card divide-y divide-gray-200">
                   {bom.items.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
+                    <tr key={item.id} className="hover:bg-muted">
                       <td className="px-4 py-3 text-sm">{index + 1}</td>
                       <td className="px-4 py-3 text-sm font-medium">
                         {getBOMItemDisplayName(item)}
                         {(item.materialType === 'FABRIC' || item.materialType === 'GREIGE') &&
                           item.fabricWidthInches && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs text-muted-foreground">
                               {Number(item.fabricWidthInches).toFixed(1)}" width
                             </div>
                           )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{getBOMItemCode(item)}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">{getBOMItemCode(item)}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge variant="outline" className="text-xs">
                           {item.materialType}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-center text-xs text-gray-500">
+                      <td className="px-4 py-3 text-center text-xs text-muted-foreground">
                         {item.usageCategory?.replace(/_/g, ' ') || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-right">{Number(item.quantityPerGarment).toFixed(2)}</td>
@@ -669,7 +687,7 @@ const OrderBOMDetail = () => {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-gray-50">
+                <tfoot className="bg-muted">
                   <tr>
                     <td colSpan={!isLocked ? 12 : 11} className="px-4 py-3 text-sm font-semibold text-right">
                       Total:
@@ -682,7 +700,7 @@ const OrderBOMDetail = () => {
               </table>
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">No items in this BOM</p>
+            <p className="text-muted-foreground text-center py-8">No items in this BOM</p>
           )}
         </CardContent>
       </Card>
@@ -700,7 +718,7 @@ const OrderBOMDetail = () => {
                 .map((item, idx) => (
                   <div key={idx} className="text-sm">
                     <span className="font-medium">{getBOMItemDisplayName(item)}:</span>{' '}
-                    <span className="text-gray-600">{item.notes}</span>
+                    <span className="text-muted-foreground">{item.notes}</span>
                   </div>
                 ))}
             </div>
@@ -750,10 +768,10 @@ const OrderBOMDetail = () => {
           </DialogHeader>
           {widthModalItem && (
             <div className="space-y-4">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-muted-foreground">
                 <span className="font-medium">{getBOMItemDisplayName(widthModalItem)}</span>
                 {widthModalItem.fabricWidthInches && (
-                  <span className="ml-2 text-gray-500">
+                  <span className="ml-2 text-muted-foreground">
                     (Current: {Number(widthModalItem.fabricWidthInches).toFixed(1)}" width,{' '}
                     {Number(widthModalItem.cadAverageSnapshot || widthModalItem.quantityPerGarment).toFixed(2)} avg/pc)
                   </span>
@@ -765,7 +783,7 @@ const OrderBOMDetail = () => {
                   <LoadingSpinner />
                 </div>
               ) : cadOptions.length === 0 ? (
-                <p className="text-gray-500 text-sm py-4">No CAD width options found for this fabric.</p>
+                <p className="text-muted-foreground text-sm py-4">No CAD width options found for this fabric.</p>
               ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {cadOptions
@@ -777,10 +795,10 @@ const OrderBOMDetail = () => {
                           key={opt.id}
                           className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
                             selectedCadId === opt.id
-                              ? 'border-blue-500 bg-blue-50'
+                              ? 'border-info bg-info-muted'
                               : isCurrentWidth
-                                ? 'border-green-300 bg-green-50'
-                                : 'border-gray-200 hover:border-gray-300'
+                                ? 'border-success/25 bg-success-muted'
+                                : 'border-border hover:border-border'
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -802,7 +820,7 @@ const OrderBOMDetail = () => {
                                   </Badge>
                                 )}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-muted-foreground">
                                 CAD avg: {Number(opt.cadAverage).toFixed(4)} per piece
                                 {opt.markerEfficiency && ` | Efficiency: ${Number(opt.markerEfficiency).toFixed(1)}%`}
                               </div>
@@ -820,7 +838,7 @@ const OrderBOMDetail = () => {
               )}
 
               {selectedCadId && widthModalItem && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm">
+                <div className="bg-warning-muted border border-yellow-200 rounded p-3 text-sm">
                   <strong>Note:</strong> This will create a new BOM version with updated consumption and cost for the
                   selected width.
                 </div>

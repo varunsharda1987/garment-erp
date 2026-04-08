@@ -3,6 +3,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
+import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 export interface CreateGreigeStockDTO {
   greigeId: string;
@@ -151,6 +152,10 @@ class GreigeStockService {
         },
       });
 
+      // Ensure materials record exists + sync stock_levels
+      await ensureMaterialRecord(data.greigeId, 'GREIGE');
+      await syncStockLevelQuantity(data.greigeId, data.quantity);
+
       logInfo(`Created greige stock for ${greige.greigeCode}: ${data.quantity} meters`);
 
       return greigeStock;
@@ -167,6 +172,8 @@ class GreigeStockService {
     greigeId?: string;
     status?: string;
     minQuantity?: number;
+    supplierId?: string;
+    sourceType?: string;
   }): Promise<GreigeStockItem[]> {
     try {
       const where: Prisma.greige_stockWhereInput = {
@@ -179,6 +186,14 @@ class GreigeStockService {
 
       if (filters?.minQuantity !== undefined) {
         where.quantityAvailable = { gte: filters.minQuantity };
+      }
+
+      if (filters?.supplierId) {
+        where.supplierId = filters.supplierId;
+      }
+
+      if (filters?.sourceType) {
+        where.sourceType = filters.sourceType;
       }
 
       const stocks = await prisma.greige_stock.findMany({
@@ -385,6 +400,29 @@ class GreigeStockService {
         },
       });
 
+      // Create audit trail for consumption
+      const costPerUnit = stock.purchaseCost
+        ? Number(stock.purchaseCost)
+        : stock.weightedAvgCost
+          ? Number(stock.weightedAvgCost)
+          : null;
+      await prisma.greige_stock_transaction.create({
+        data: {
+          stockId,
+          transactionType: 'CONSUMPTION',
+          quantity: new Prisma.Decimal(-quantity),
+          balanceAfter: new Prisma.Decimal(newAvailable),
+          costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
+          totalValue: costPerUnit !== null ? new Prisma.Decimal(quantity * costPerUnit) : null,
+          referenceType: 'CHALLAN',
+          notes: `Consumed via challan issuance`,
+          performedById: userId,
+        },
+      });
+
+      // Sync stock_levels
+      await syncStockLevelQuantity(stock.greigeId, -quantity);
+
       logInfo(`Consumed ${quantity} meters of greige stock ${stockId}`);
 
       return updatedStock;
@@ -571,6 +609,30 @@ class GreigeStockService {
       },
     });
 
+    // Create audit trail in greige_stock_transaction table
+    const costPerUnit = existing.purchaseCost
+      ? Number(existing.purchaseCost)
+      : existing.weightedAvgCost
+        ? Number(existing.weightedAvgCost)
+        : null;
+    await prisma.greige_stock_transaction.create({
+      data: {
+        stockId,
+        transactionType: data.adjustmentType === 'INCREASE' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+        quantity: new Prisma.Decimal(data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity),
+        balanceAfter: new Prisma.Decimal(newQty),
+        costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
+        totalValue: costPerUnit !== null ? new Prisma.Decimal(data.quantity * costPerUnit) : null,
+        referenceType: 'MANUAL',
+        notes: `${data.reason}${data.remarks ? ' - ' + data.remarks : ''}`,
+        performedById: userId,
+      },
+    });
+
+    // Sync stock_levels
+    const adjustChange = data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity;
+    await syncStockLevelQuantity(existing.greigeId, adjustChange);
+
     logInfo(
       `Stock adjustment: ${data.adjustmentType} ${data.quantity}m on ${existing.greige.greigeCode} (${stockId}). ` +
         `Reason: ${data.reason}. ${data.remarks || ''}. New qty: ${newQty}. By user: ${userId}`
@@ -584,6 +646,249 @@ class GreigeStockService {
       remarks: data.remarks,
       previousQuantity: currentQty,
       newQuantity: newQty,
+    };
+  }
+
+  /**
+   * Get processors (suppliers) that have available greige stock from transfers
+   * Used for processor return flow in Stock In
+   */
+  async getProcessorsWithGreigeStock(): Promise<
+    Array<{
+      processorId: string;
+      processorName: string;
+      processorCode: string;
+      warehouseName: string | null;
+      totalQuantity: number;
+      stockEntries: number;
+    }>
+  > {
+    try {
+      // Find all greige stock at processor warehouses (sourceType = TRANSFER)
+      const processorStock = await prisma.greige_stock.groupBy({
+        by: ['supplierId', 'warehouseLocation'],
+        where: {
+          supplierId: { not: null },
+          sourceType: 'TRANSFER',
+          status: 'AVAILABLE',
+          quantityAvailable: { gt: 0 },
+        },
+        _sum: { quantityAvailable: true },
+        _count: { id: true },
+      });
+
+      // Get supplier details
+      const supplierIds = processorStock.map((s) => s.supplierId).filter((id): id is string => id !== null);
+
+      const suppliers = await prisma.suppliers.findMany({
+        where: { id: { in: supplierIds } },
+        select: { id: true, name: true, code: true },
+      });
+
+      const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
+
+      return processorStock
+        .filter((s) => s.supplierId && supplierMap.has(s.supplierId))
+        .map((s) => {
+          const supplier = supplierMap.get(s.supplierId!)!;
+          return {
+            processorId: s.supplierId!,
+            processorName: supplier.name,
+            processorCode: supplier.code,
+            warehouseName: s.warehouseLocation,
+            totalQuantity: Number(s._sum.quantityAvailable) || 0,
+            stockEntries: s._count.id,
+          };
+        });
+    } catch (error: unknown) {
+      logError('Error getting processors with greige stock:', error);
+      throw new Error(
+        `Failed to get processors with greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * Get greige stock at a specific processor (for processor return)
+   */
+  async getProcessorGreigeStock(processorId: string): Promise<GreigeStockItem[]> {
+    return this.getGreigeStock({
+      supplierId: processorId,
+      sourceType: 'TRANSFER',
+      status: 'AVAILABLE',
+      minQuantity: 0.01,
+    });
+  }
+
+  /**
+   * Consume greige from processor's stock when receiving processed goods
+   * Creates audit trail with shrinkage tracking
+   */
+  async consumeFromProcessor(
+    stockId: string,
+    sentQuantity: number,
+    receivedQuantity: number,
+    userId: string,
+    options?: {
+      notes?: string;
+      referenceType?: string;
+      referenceId?: string;
+    }
+  ): Promise<{
+    sentQuantity: number;
+    receivedQuantity: number;
+    shrinkageQuantity: number;
+    shrinkagePercent: number;
+  }> {
+    const stock = await prisma.greige_stock.findUnique({
+      where: { id: stockId },
+      include: { greige: { select: { greigeCode: true, greigeName: true } } },
+    });
+
+    if (!stock) {
+      throw new Error(`Greige stock with ID ${stockId} not found`);
+    }
+
+    const available = Number(stock.quantityAvailable);
+    if (sentQuantity > available) {
+      throw new Error(`Cannot consume ${sentQuantity}. Only ${available} meters available at processor.`);
+    }
+
+    // Calculate shrinkage
+    const shrinkageQuantity = sentQuantity - receivedQuantity;
+    const shrinkagePercent = sentQuantity > 0 ? (shrinkageQuantity / sentQuantity) * 100 : 0;
+
+    // Consume the sent quantity from processor's stock
+    const newAvailable = available - sentQuantity;
+    await prisma.greige_stock.update({
+      where: { id: stockId },
+      data: {
+        quantityAvailable: new Prisma.Decimal(newAvailable),
+        quantityConsumed: new Prisma.Decimal(Number(stock.quantityConsumed) + sentQuantity),
+        lastConsumedDate: new Date(),
+        status: newAvailable <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
+      },
+    });
+
+    // Create audit trail
+    const costPerUnit = stock.purchaseCost
+      ? Number(stock.purchaseCost)
+      : stock.weightedAvgCost
+        ? Number(stock.weightedAvgCost)
+        : null;
+
+    await prisma.greige_stock_transaction.create({
+      data: {
+        stockId,
+        transactionType: 'PROCESSOR_RETURN',
+        quantity: new Prisma.Decimal(-sentQuantity),
+        balanceAfter: new Prisma.Decimal(newAvailable),
+        costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
+        totalValue: costPerUnit !== null ? new Prisma.Decimal(sentQuantity * costPerUnit) : null,
+        referenceType: options?.referenceType || 'STOCK_IN',
+        referenceId: options?.referenceId,
+        notes:
+          `Processor return: Sent ${sentQuantity}m, Received ${receivedQuantity}m. ` +
+          `Shrinkage: ${shrinkageQuantity.toFixed(2)}m (${shrinkagePercent.toFixed(2)}%). ` +
+          (options?.notes || ''),
+        performedById: userId,
+      },
+    });
+
+    logInfo(
+      `Processor return: ${stock.greige.greigeCode} - Sent ${sentQuantity}m, Received ${receivedQuantity}m, ` +
+        `Shrinkage: ${shrinkagePercent.toFixed(2)}%`
+    );
+
+    return {
+      sentQuantity,
+      receivedQuantity,
+      shrinkageQuantity,
+      shrinkagePercent,
+    };
+  }
+
+  /**
+   * Receive partial quantity from processor's stock
+   * Used for partial returns - NO shrinkage calculation (shrinkage is a reconciliation exercise)
+   *
+   * @param stockId - The processor's greige stock entry ID
+   * @param receivedQuantity - Quantity being received now (partial)
+   * @param userId - User performing the action
+   * @param options - Additional options (notes, reference)
+   */
+  async receiveFromProcessor(
+    stockId: string,
+    receivedQuantity: number,
+    userId: string,
+    options?: {
+      notes?: string;
+      referenceType?: string;
+      referenceId?: string;
+    }
+  ): Promise<{
+    receivedQuantity: number;
+    remainingAtProcessor: number;
+  }> {
+    const stock = await prisma.greige_stock.findUnique({
+      where: { id: stockId },
+      include: { greige: { select: { greigeCode: true, greigeName: true } } },
+    });
+
+    if (!stock) {
+      throw new Error(`Greige stock with ID ${stockId} not found`);
+    }
+
+    const available = Number(stock.quantityAvailable);
+    if (receivedQuantity > available) {
+      throw new Error(`Cannot receive ${receivedQuantity}. Only ${available} meters available at processor.`);
+    }
+
+    // Consume the received quantity from processor's stock
+    const remainingAtProcessor = available - receivedQuantity;
+    await prisma.greige_stock.update({
+      where: { id: stockId },
+      data: {
+        quantityAvailable: new Prisma.Decimal(remainingAtProcessor),
+        quantityConsumed: new Prisma.Decimal(Number(stock.quantityConsumed) + receivedQuantity),
+        lastConsumedDate: new Date(),
+        status: remainingAtProcessor <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
+      },
+    });
+
+    // Create audit trail
+    const costPerUnit = stock.purchaseCost
+      ? Number(stock.purchaseCost)
+      : stock.weightedAvgCost
+        ? Number(stock.weightedAvgCost)
+        : null;
+
+    await prisma.greige_stock_transaction.create({
+      data: {
+        stockId,
+        transactionType: 'PROCESSOR_RETURN',
+        quantity: new Prisma.Decimal(-receivedQuantity),
+        balanceAfter: new Prisma.Decimal(remainingAtProcessor),
+        costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
+        totalValue: costPerUnit !== null ? new Prisma.Decimal(receivedQuantity * costPerUnit) : null,
+        referenceType: options?.referenceType || 'STOCK_IN',
+        referenceId: options?.referenceId,
+        notes:
+          `Partial receipt from processor: ${receivedQuantity}m received. ` +
+          `Remaining at processor: ${remainingAtProcessor.toFixed(2)}m. ` +
+          (options?.notes || ''),
+        performedById: userId,
+      },
+    });
+
+    logInfo(
+      `Processor receipt: ${stock.greige.greigeCode} - Received ${receivedQuantity}m, ` +
+        `Remaining at processor: ${remainingAtProcessor.toFixed(2)}m`
+    );
+
+    return {
+      receivedQuantity,
+      remainingAtProcessor,
     };
   }
 }

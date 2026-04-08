@@ -362,10 +362,10 @@ export const LabDipStatusLabels: Record<LabDipStatus, string> = {
 };
 
 export const LabDipStatusColors: Record<LabDipStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-800',
-  SUBMITTED: 'bg-blue-100 text-blue-800',
-  APPROVED: 'bg-green-100 text-green-800',
-  REJECTED: 'bg-red-100 text-red-800',
+  PENDING: 'bg-muted text-foreground',
+  SUBMITTED: 'bg-info-muted text-info',
+  APPROVED: 'bg-success-muted text-success',
+  REJECTED: 'bg-destructive/10 text-destructive',
   RESUBMIT: 'bg-yellow-100 text-yellow-800',
 };
 
@@ -382,15 +382,15 @@ export const JobWorkStatusLabels: Record<JobWorkStatus, string> = {
 };
 
 export const JobWorkStatusColors: Record<JobWorkStatus, string> = {
-  LAB_DIP_PENDING: 'bg-gray-100 text-gray-800',
-  LAB_DIP_SUBMITTED: 'bg-blue-100 text-blue-800',
-  LAB_DIP_APPROVED: 'bg-green-100 text-green-800',
+  LAB_DIP_PENDING: 'bg-muted text-foreground',
+  LAB_DIP_SUBMITTED: 'bg-info-muted text-info',
+  LAB_DIP_APPROVED: 'bg-success-muted text-success',
   READY_TO_SEND: 'bg-yellow-100 text-yellow-800',
-  SENT_TO_MILL: 'bg-purple-100 text-purple-800',
-  AT_MILL: 'bg-indigo-100 text-indigo-800',
+  SENT_TO_MILL: 'bg-accent/10 text-accent',
+  AT_MILL: 'bg-primary/10 text-primary',
   RECEIVED: 'bg-teal-100 text-teal-800',
   QUALITY_CHECKED: 'bg-emerald-100 text-emerald-800',
-  STOCK_UPDATED: 'bg-green-100 text-green-800',
+  STOCK_UPDATED: 'bg-success-muted text-success',
 };
 
 export const PrintMethodLabels: Record<PrintMethod, string> = {
@@ -484,11 +484,11 @@ export const ProcessPOStatusLabels: Record<ProcessPOStatus, string> = {
 };
 
 export const ProcessPOStatusColors: Record<ProcessPOStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  AT_MILL: 'bg-blue-100 text-blue-800',
-  RECEIVED: 'bg-purple-100 text-purple-800',
+  DRAFT: 'bg-muted text-foreground',
+  AT_MILL: 'bg-info-muted text-info',
+  RECEIVED: 'bg-accent/10 text-accent',
   QUALITY_CHECKED: 'bg-orange-100 text-orange-800',
-  STOCK_UPDATED: 'bg-green-100 text-green-800',
+  STOCK_UPDATED: 'bg-success-muted text-success',
   RETURNED: 'bg-yellow-100 text-yellow-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };

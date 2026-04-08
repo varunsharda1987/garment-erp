@@ -163,7 +163,7 @@ export default function FabricDetail() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600">Loading fabric details...</div>
+        <div className="text-lg text-muted-foreground">Loading fabric details...</div>
       </div>
     );
   }
@@ -171,7 +171,7 @@ export default function FabricDetail() {
   if (error || !fabric) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
-        <div className="text-lg text-red-600 mb-4">{error || 'Fabric not found'}</div>
+        <div className="text-lg text-destructive mb-4">{error || 'Fabric not found'}</div>
         <Button onClick={() => navigate('/fabric')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Fabric Master
@@ -216,16 +216,16 @@ export default function FabricDetail() {
       </PageHeader>
 
       {/* Breadcrumb */}
-      <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">
+      <div className="mb-4 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-info">
           Home
         </Link>
         {' > '}
-        <Link to="/fabric" className="hover:text-blue-600">
+        <Link to="/fabric" className="hover:text-info">
           Fabric Master
         </Link>
         {' > '}
-        <span className="font-medium text-gray-900">{fabric.fabricCode}</span>
+        <span className="font-medium text-foreground">{fabric.fabricCode}</span>
       </div>
 
       <div className="space-y-6">
@@ -235,11 +235,11 @@ export default function FabricDetail() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Stock</p>
-                  <p className="text-2xl font-bold text-gray-900">{getTotalStockQuantity().toFixed(2)}</p>
-                  <p className="text-xs text-gray-500 mt-1">meters</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Stock</p>
+                  <p className="text-2xl font-bold text-foreground">{getTotalStockQuantity().toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">meters</p>
                 </div>
-                <Package className="h-8 w-8 text-blue-600" />
+                <Package className="h-8 w-8 text-info" />
               </div>
             </CardContent>
           </Card>
@@ -248,11 +248,11 @@ export default function FabricDetail() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Stock Value</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(getTotalStockValue())}</p>
-                  <p className="text-xs text-gray-500 mt-1">total value</p>
+                  <p className="text-sm font-medium text-muted-foreground">Stock Value</p>
+                  <p className="text-2xl font-bold text-foreground">{formatCurrency(getTotalStockValue())}</p>
+                  <p className="text-xs text-muted-foreground mt-1">total value</p>
                 </div>
-                <DollarSign className="h-8 w-8 text-green-600" />
+                <DollarSign className="h-8 w-8 text-success" />
               </div>
             </CardContent>
           </Card>
@@ -261,13 +261,13 @@ export default function FabricDetail() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Actual Width</p>
-                  <p className="text-2xl font-bold text-gray-900">{Number(fabric.actualWidth)}"</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-sm font-medium text-muted-foreground">Actual Width</p>
+                  <p className="text-2xl font-bold text-foreground">{Number(fabric.actualWidth)}"</p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     {fabric.cutableWidth ? `${Number(fabric.cutableWidth)}" cutable` : 'no cutable width'}
                   </p>
                 </div>
-                <Ruler className="h-8 w-8 text-purple-600" />
+                <Ruler className="h-8 w-8 text-accent" />
               </div>
             </CardContent>
           </Card>
@@ -276,13 +276,13 @@ export default function FabricDetail() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Width CADs</p>
-                  <p className="text-2xl font-bold text-gray-900">{widthCADs.length}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-sm font-medium text-muted-foreground">Width CADs</p>
+                  <p className="text-2xl font-bold text-foreground">{widthCADs.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     {preferredCAD ? `${preferredCAD.availableWidth}" preferred` : 'no preferred'}
                   </p>
                 </div>
-                <Palette className="h-8 w-8 text-orange-600" />
+                <Palette className="h-8 w-8 text-primary" />
               </div>
             </CardContent>
           </Card>
@@ -308,33 +308,33 @@ export default function FabricDetail() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-500">Fabric Code</label>
-                <div className="text-base font-semibold text-gray-900">{fabric.fabricCode}</div>
+                <label className="text-sm font-medium text-muted-foreground">Fabric Code</label>
+                <div className="text-base font-semibold text-foreground">{fabric.fabricCode}</div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">Fabric Name</label>
-                <div className="text-base text-gray-900">{fabric.fabricName}</div>
+                <label className="text-sm font-medium text-muted-foreground">Fabric Name</label>
+                <div className="text-base text-foreground">{fabric.fabricName}</div>
               </div>
               {fabric.genericGreigeName && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Generic Greige Name</label>
-                  <div className="text-base text-gray-900">{fabric.genericGreigeName}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Generic Greige Name</label>
+                  <div className="text-base text-foreground">{fabric.genericGreigeName}</div>
                 </div>
               )}
               {fabric.styleReference && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Style Reference</label>
-                  <div className="text-base text-gray-900">{fabric.styleReference}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Style Reference</label>
+                  <div className="text-base text-foreground">{fabric.styleReference}</div>
                 </div>
               )}
               {fabric.colorName && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Color</label>
+                  <label className="text-sm font-medium text-muted-foreground">Color</label>
                   <div className="flex items-center gap-2">
-                    <div className="text-base text-gray-900">{fabric.colorName}</div>
+                    <div className="text-base text-foreground">{fabric.colorName}</div>
                     {fabric.colorCode && (
                       <div
-                        className="w-6 h-6 rounded border border-gray-300"
+                        className="w-6 h-6 rounded border border-border"
                         style={{ backgroundColor: fabric.colorCode }}
                         title={fabric.colorCode}
                       />
@@ -346,15 +346,15 @@ export default function FabricDetail() {
 
             {fabric.description && (
               <div className="mt-6">
-                <label className="text-sm font-medium text-gray-500">Description</label>
-                <div className="text-base text-gray-900 mt-1">{fabric.description}</div>
+                <label className="text-sm font-medium text-muted-foreground">Description</label>
+                <div className="text-base text-foreground mt-1">{fabric.description}</div>
               </div>
             )}
 
             {fabric.notes && (
               <div className="mt-4">
-                <label className="text-sm font-medium text-gray-500">Notes</label>
-                <div className="text-base text-gray-900 mt-1">{fabric.notes}</div>
+                <label className="text-sm font-medium text-muted-foreground">Notes</label>
+                <div className="text-base text-foreground mt-1">{fabric.notes}</div>
               </div>
             )}
           </CardContent>
@@ -369,37 +369,34 @@ export default function FabricDetail() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Greige Code</label>
-                  <Link
-                    to={`/greige/${fabric.greige.id}`}
-                    className="text-base text-blue-600 hover:underline font-medium"
-                  >
+                  <label className="text-sm font-medium text-muted-foreground">Greige Code</label>
+                  <Link to={`/greige/${fabric.greige.id}`} className="text-base text-info hover:underline font-medium">
                     {fabric.greige.greigeCode}
                   </Link>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Greige Name</label>
-                  <div className="text-base text-gray-900">{fabric.greige.greigeName}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Greige Name</label>
+                  <div className="text-base text-foreground">{fabric.greige.greigeName}</div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Composition</label>
-                  <div className="text-base text-gray-900">{fabric.greige.composition}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Composition</label>
+                  <div className="text-base text-foreground">{fabric.greige.composition}</div>
                 </div>
                 {fabric.greige.yarnCount && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Yarn Count</label>
-                    <div className="text-base text-gray-900">{fabric.greige.yarnCount}</div>
+                    <label className="text-sm font-medium text-muted-foreground">Yarn Count</label>
+                    <div className="text-base text-foreground">{fabric.greige.yarnCount}</div>
                   </div>
                 )}
                 {fabric.greige.construction && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Greige Construction</label>
-                    <div className="text-base text-gray-900">{fabric.greige.construction}</div>
+                    <label className="text-sm font-medium text-muted-foreground">Greige Construction</label>
+                    <div className="text-base text-foreground">{fabric.greige.construction}</div>
                   </div>
                 )}
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Greige Width</label>
-                  <div className="text-base text-gray-900">{Number(fabric.greige.greigeWidth)}"</div>
+                  <label className="text-sm font-medium text-muted-foreground">Greige Width</label>
+                  <div className="text-base text-foreground">{Number(fabric.greige.greigeWidth)}"</div>
                 </div>
               </div>
             </CardContent>
@@ -414,49 +411,49 @@ export default function FabricDetail() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div>
-                <label className="text-sm font-medium text-gray-500">Actual Width</label>
-                <div className="text-base font-semibold text-gray-900">{Number(fabric.actualWidth)}"</div>
+                <label className="text-sm font-medium text-muted-foreground">Actual Width</label>
+                <div className="text-base font-semibold text-foreground">{Number(fabric.actualWidth)}"</div>
               </div>
               {fabric.cutableWidth && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Cutable Width</label>
-                  <div className="text-base font-semibold text-gray-900">{Number(fabric.cutableWidth)}"</div>
+                  <label className="text-sm font-medium text-muted-foreground">Cutable Width</label>
+                  <div className="text-base font-semibold text-foreground">{Number(fabric.cutableWidth)}"</div>
                 </div>
               )}
               {fabric.finishedConstruction && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Finished Construction</label>
-                  <div className="text-base text-gray-900">{fabric.finishedConstruction}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Finished Construction</label>
+                  <div className="text-base text-foreground">{fabric.finishedConstruction}</div>
                 </div>
               )}
               {fabric.actualGSM && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Actual GSM</label>
-                  <div className="text-base text-gray-900">{fabric.actualGSM}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Actual GSM</label>
+                  <div className="text-base text-foreground">{fabric.actualGSM}</div>
                 </div>
               )}
               {fabric.finishType && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Finish Type</label>
-                  <div className="text-base text-gray-900">{fabric.finishType}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Finish Type</label>
+                  <div className="text-base text-foreground">{fabric.finishType}</div>
                 </div>
               )}
               {fabric.printDesign && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Print Design</label>
-                  <div className="text-base text-gray-900">{fabric.printDesign}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Print Design</label>
+                  <div className="text-base text-foreground">{fabric.printDesign}</div>
                 </div>
               )}
               {(fabric.yarnCount || fabric.greige?.yarnCount) && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Yarn Count</label>
-                  <div className="text-base text-gray-900">{fabric.yarnCount || fabric.greige?.yarnCount}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Yarn Count</label>
+                  <div className="text-base text-foreground">{fabric.yarnCount || fabric.greige?.yarnCount}</div>
                 </div>
               )}
               {(fabric.composition || fabric.greige?.composition) && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Composition</label>
-                  <div className="text-base text-gray-900">{fabric.composition || fabric.greige?.composition}</div>
+                  <label className="text-sm font-medium text-muted-foreground">Composition</label>
+                  <div className="text-base text-foreground">{fabric.composition || fabric.greige?.composition}</div>
                 </div>
               )}
             </div>
@@ -473,14 +470,14 @@ export default function FabricDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {fabric.valueAddition && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Value Addition Type</label>
-                    <div className="text-base text-gray-900">{fabric.valueAddition}</div>
+                    <label className="text-sm font-medium text-muted-foreground">Value Addition Type</label>
+                    <div className="text-base text-foreground">{fabric.valueAddition}</div>
                   </div>
                 )}
                 {fabric.valueAdditionCost && (
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Value Addition Cost</label>
-                    <div className="text-base font-semibold text-gray-900">
+                    <label className="text-sm font-medium text-muted-foreground">Value Addition Cost</label>
+                    <div className="text-base font-semibold text-foreground">
                       {formatCurrency(fabric.valueAdditionCost)}/meter
                     </div>
                   </div>
@@ -507,28 +504,42 @@ export default function FabricDetail() {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Width</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CAD (m)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CAD (yd)</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wastage %</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Efficiency %</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Availability</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Width</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        CAD (m)
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        CAD (yd)
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Wastage %
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Efficiency %
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Availability
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Status
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-card divide-y divide-gray-200">
                     {widthCADs.map((cad) => (
-                      <tr key={cad.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      <tr key={cad.id} className="hover:bg-muted">
+                        <td className="px-4 py-3 text-sm font-medium text-foreground">
                           {cad.availableWidth} {cad.widthUnit}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{cad.cadMeters?.toFixed(3) || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{cad.cadYards?.toFixed(3) || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{cad.cadWastagePercent}%</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{cad.markerEfficiency?.toFixed(2) || '-'}%</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{cad.supplierAvailability || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-foreground">{cad.cadMeters?.toFixed(3) || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-foreground">{cad.cadYards?.toFixed(3) || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-foreground">{cad.cadWastagePercent}%</td>
+                        <td className="px-4 py-3 text-sm text-foreground">
+                          {cad.markerEfficiency?.toFixed(2) || '-'}%
+                        </td>
+                        <td className="px-4 py-3 text-sm text-foreground">{cad.supplierAvailability || '-'}</td>
                         <td className="px-4 py-3">
                           {cad.isPreferred && <StatusBadge status="Preferred" variant="success" />}
                         </td>
@@ -557,26 +568,38 @@ export default function FabricDetail() {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Width</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Available</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reserved</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quality</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost/m</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aging</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Width</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Available
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Reserved
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Quality
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Location
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Cost/m
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Aging</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Status
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-card divide-y divide-gray-200">
                     {stockEntries.map((stock) => (
-                      <tr key={stock.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">{stock.width}"</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      <tr key={stock.id} className="hover:bg-muted">
+                        <td className="px-4 py-3 text-sm text-foreground">{stock.width}"</td>
+                        <td className="px-4 py-3 text-sm font-medium text-foreground">
                           {stock.quantityAvailable.toFixed(2)} {stock.unit}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-foreground">
                           {stock.quantityReserved.toFixed(2)} {stock.unit}
                         </td>
                         <td className="px-4 py-3">
@@ -591,14 +614,14 @@ export default function FabricDetail() {
                             }
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-foreground">
                           {stock.warehouseLocation || '-'}
                           {stock.rackNumber && ` / ${stock.rackNumber}`}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-foreground">
                           {formatCurrency(stock.weightedAvgCost || stock.purchaseCost || 0)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-foreground">
                           {stock.agingDays !== undefined ? `${stock.agingDays} days` : '-'}
                         </td>
                         <td className="px-4 py-3">
@@ -633,7 +656,7 @@ export default function FabricDetail() {
                 {fabric.supplier.map((supplierRel, index) => (
                   <div key={index} className="border-b pb-4 last:border-b-0">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-gray-900">{supplierRel.supplier.name}</div>
+                      <div className="font-medium text-foreground">{supplierRel.supplier.name}</div>
                       <div className="flex gap-2">
                         {supplierRel.isPreferred && <StatusBadge status="Preferred" variant="success" />}
                         <StatusBadge
@@ -642,7 +665,7 @@ export default function FabricDetail() {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
                       <div>
                         <span className="font-medium">Code:</span> {supplierRel.supplier.code}
                       </div>
@@ -658,7 +681,7 @@ export default function FabricDetail() {
                       )}
                     </div>
                     {supplierRel.notes && (
-                      <div className="mt-2 text-sm text-gray-600">
+                      <div className="mt-2 text-sm text-muted-foreground">
                         <span className="font-medium">Notes:</span> {supplierRel.notes}
                       </div>
                     )}

@@ -93,8 +93,8 @@ export default function UserForm({ mode }: UserFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <Button variant="ghost" onClick={() => navigate('/users')}>
             Back
@@ -107,7 +107,7 @@ export default function UserForm({ mode }: UserFormProps) {
             <CardTitle>{isNewUser ? 'Create New User' : 'Edit User'}</CardTitle>
           </CardHeader>
           <CardContent>
-            {submitError && <div className="p-4 mb-4 bg-red-50 text-red-800">{submitError}</div>}
+            {submitError && <div className="p-4 mb-4 bg-destructive/10 text-destructive">{submitError}</div>}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>
@@ -134,7 +134,7 @@ export default function UserForm({ mode }: UserFormProps) {
                 <select
                   id="role"
                   {...register('role')}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="ADMIN">Admin</option>
                   <option value="MERCHANDISER">Merchandiser</option>
@@ -152,7 +152,7 @@ export default function UserForm({ mode }: UserFormProps) {
                 <select
                   id="department"
                   {...register('department')}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">-- Select Department --</option>
                   <option value="Merchandising">Merchandising</option>

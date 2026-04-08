@@ -136,7 +136,7 @@ export default function SeasonMasterList() {
     <Badge
       variant="outline"
       className={
-        type === 'SS' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+        type === 'SS' ? 'bg-warning-muted text-yellow-700 border-yellow-200' : 'bg-info-muted text-info border-info/20'
       }
     >
       {type}
@@ -177,7 +177,7 @@ export default function SeasonMasterList() {
     {
       key: 'seasonType',
       header: 'Type',
-      render: (item) => <span className="text-sm text-gray-600">{SEASON_TYPE_NAMES[item.seasonType]}</span>,
+      render: (item) => <span className="text-sm text-muted-foreground">{SEASON_TYPE_NAMES[item.seasonType]}</span>,
     },
     {
       key: 'isActive',
@@ -209,7 +209,7 @@ export default function SeasonMasterList() {
               handleDeleteClick(item.id, item.code);
             }}
           >
-            <Trash2 className="h-4 w-4 text-red-500" />
+            <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       ),
@@ -290,10 +290,10 @@ export default function SeasonMasterList() {
           </div>
 
           {/* Error */}
-          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
+          {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-4">{error}</div>}
 
           {/* Stats */}
-          <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
             <span>Total: {totalItems} seasons</span>
             {yearFilter !== 'all' && <span>• Year: {yearFilter}</span>}
             {typeFilter !== 'all' && <span>• Type: {SEASON_TYPE_NAMES[typeFilter as SeasonType]}</span>}

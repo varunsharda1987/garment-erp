@@ -6,9 +6,16 @@
 
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
-import { ExternalProcessType, ExternalProcessSourceType, ExternalProcessStatus, Prisma } from '@prisma/client';
+import {
+  ExternalProcessType,
+  ExternalProcessSourceType,
+  ExternalProcessStatus,
+  ProductionStage,
+  Prisma,
+} from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { createChallan } from './challan.service';
+import { randomUUID } from 'crypto';
 
 // ============================================
 // Types
@@ -260,13 +267,23 @@ class ExternalProcessService {
         });
       }
 
-      // 10. Update production tracking
+      // 10. Update style-level production tracking (piece counts)
       await this.updateProductionTracking(
         tx,
         data.styleId || workOrder.styleId,
         data.processType,
         'SEND',
         Math.round(data.quantitySent)
+      );
+
+      // 11. Create production_tracking record (updates currentStage on dashboard)
+      await this.createProductionTrackingRecord(
+        tx,
+        data.workOrderId,
+        data.processType,
+        'SEND',
+        Math.round(data.quantitySent),
+        data.createdById
       );
 
       logInfo('External process send-out created', {
@@ -418,7 +435,7 @@ class ExternalProcessService {
         });
       }
 
-      // 8. Update production tracking
+      // 8. Update style-level production tracking (piece counts)
       await this.updateProductionTracking(
         tx,
         sendOut.styleId || '',
@@ -426,6 +443,18 @@ class ExternalProcessService {
         'RECEIVE',
         Math.round(quantityGood)
       );
+
+      // 9. Create production_tracking record (updates currentStage on dashboard)
+      if (newStatus === 'RECEIVED') {
+        await this.createProductionTrackingRecord(
+          tx,
+          sendOut.workOrderId,
+          sendOut.processType,
+          'RECEIVE',
+          Math.round(quantityGood),
+          data.createdById
+        );
+      }
 
       logInfo('External process material received', {
         sendOutId: sendOut.id,
@@ -544,6 +573,61 @@ class ExternalProcessService {
   }
 
   /**
+   * Map external process type to ProductionStage for tracking
+   */
+  private getProductionStage(processType: ExternalProcessType, action: 'SEND' | 'RECEIVE'): ProductionStage {
+    if (action === 'SEND') {
+      switch (processType) {
+        case 'SMOCKING':
+          return 'IN_SMOCKING';
+        case 'HANDWORK':
+          return 'IN_HANDWORK';
+        case 'EMBROIDERY_PIECE':
+          return 'IN_EMBROIDERY';
+      }
+    }
+    // On receive, advance to next stage
+    switch (processType) {
+      case 'SMOCKING':
+        return 'IN_STITCHING';
+      case 'EMBROIDERY_PIECE':
+        return 'IN_STITCHING';
+      case 'HANDWORK':
+        return 'IN_FINISHING';
+    }
+  }
+
+  /**
+   * Create a production_tracking record to update currentStage on the dashboard.
+   * The dashboard reads the latest production_tracking record per work order to determine stage.
+   */
+  private async createProductionTrackingRecord(
+    tx: any,
+    workOrderId: string,
+    processType: ExternalProcessType,
+    action: 'SEND' | 'RECEIVE',
+    quantity: number,
+    userId: string
+  ) {
+    try {
+      const stage = this.getProductionStage(processType, action);
+      await tx.production_tracking.create({
+        data: {
+          id: randomUUID(),
+          workOrderId,
+          productionStage: stage,
+          quantityCompleted: quantity,
+          updatedById: userId,
+          updateDate: new Date(),
+        },
+      });
+      logDebug('Created production_tracking record', { workOrderId, stage, quantity });
+    } catch (err) {
+      logError('Failed to create production_tracking record (non-critical)', err);
+    }
+  }
+
+  /**
    * Get all send-outs with filters and pagination
    */
   async getSendOuts(filters?: SendOutFilters) {
@@ -587,7 +671,7 @@ class ExternalProcessService {
           skuBreakdown: {
             include: {
               color: { select: { colorName: true } },
-              size: { select: { name: true } },
+              size: { select: { sizeName: true } },
             },
           },
           createdBy: { select: { firstName: true, lastName: true } },
@@ -627,7 +711,7 @@ class ExternalProcessService {
         skuBreakdown: {
           include: {
             color: { select: { colorName: true } },
-            size: { select: { name: true } },
+            size: { select: { sizeName: true } },
           },
           orderBy: { sizeId: 'asc' },
         },
@@ -823,7 +907,7 @@ class ExternalProcessService {
         skuBreakdown: {
           include: {
             color: { select: { colorName: true } },
-            size: { select: { name: true } },
+            size: { select: { sizeName: true } },
           },
         },
       },

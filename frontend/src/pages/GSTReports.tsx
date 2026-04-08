@@ -189,7 +189,7 @@ export default function GSTReports() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <FileText className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">GST Reports</h1>
+          <h1 className="text-2xl font-display font-medium tracking-tight">GST Reports</h1>
         </div>
       </div>
 

@@ -220,41 +220,41 @@ export default function Sidebar({ isOpen }: SidebarProps) {
   if (!isOpen) return null;
 
   return (
-    <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white border-r shadow-sm overflow-y-auto">
+    <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-card border-r shadow-sm overflow-y-auto">
       <nav className="p-4">
         {/* Search Input */}
         <div className="relative mb-3">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Filter menu..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-300 focus:border-indigo-300 bg-gray-50"
+            className="w-full pl-8 pr-8 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring bg-muted"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
           <button
             onClick={() => setCommandPaletteOpen(true)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
             style={{ display: searchTerm ? 'none' : 'block' }}
             title="Search all pages (Ctrl+K)"
           >
-            <kbd className="text-[10px] bg-gray-200 text-gray-500 px-1 py-0.5 rounded font-mono">/</kbd>
+            <kbd className="text-[10px] bg-muted text-muted-foreground px-1 py-0.5 rounded font-mono">/</kbd>
           </button>
         </div>
 
         {/* Pinned Favorites */}
         {resolvedPinnedItems.length > 0 && !isSearching && (
           <div className="mb-3">
-            <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-amber-600 uppercase tracking-wider">
-              <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+            <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-warning uppercase tracking-wider">
+              <Star className="h-3 w-3 fill-amber-400 text-warning" />
               <span>Favorites</span>
             </div>
             <div className="space-y-0.5">
@@ -264,7 +264,9 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                     to={item.path}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                        isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+                        isActive
+                          ? 'bg-sidebar-accent/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:bg-muted'
                       }`
                     }
                   >
@@ -276,7 +278,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                       e.stopPropagation();
                       togglePin(item.path);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-amber-400 hover:text-amber-600 transition-opacity"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-warning hover:text-warning transition-opacity"
                     title="Unpin"
                   >
                     <Star className="h-3 w-3 fill-current" />
@@ -284,7 +286,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 </div>
               ))}
             </div>
-            <div className="my-2 border-t border-gray-100 mx-3" />
+            <div className="my-2 border-t border-border mx-3" />
           </div>
         )}
 
@@ -297,20 +299,20 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 `flex items-center gap-3 px-3 py-2 rounded-md ${
                   index === searchFilteredTopLevel.length - 1 ? 'mb-4' : 'mb-1'
                 } transition-colors ${
-                  isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
+                  isActive ? 'bg-sidebar-accent/10 text-primary font-medium' : 'text-foreground hover:bg-muted'
                 }`
               }
             >
               {getIcon(item.iconName, 'md')}
               <span>{item.title}</span>
               {item.badge && (
-                <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{item.badge}</span>
+                <span className="ml-auto text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full">{item.badge}</span>
               )}
             </NavLink>
             {!pinnedItems.includes(item.path) && (
               <button
                 onClick={() => togglePin(item.path)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-amber-400 transition-opacity"
+                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-300 hover:text-warning transition-opacity"
                 title="Pin to favorites"
               >
                 <Star className="h-3 w-3" />
@@ -325,7 +327,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             {/* Group Header */}
             <button
               onClick={() => toggleGroup(group.title)}
-              className="flex items-center justify-between w-full px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+              className="flex items-center justify-between w-full px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted rounded-md transition-colors"
             >
               <div className="flex items-center gap-2">
                 {getIcon(group.iconName, 'md')}
@@ -347,20 +349,20 @@ export default function Sidebar({ isOpen }: SidebarProps) {
 
         {/* AI Assistant Link - Bottom */}
         {can('aiAssistant') && !isSearching && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="mt-4 pt-4 border-t border-border">
             <NavLink
               to="/ai-assistant"
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                   isActive
-                    ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium border border-blue-200'
-                    : 'text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:border hover:border-blue-100'
+                    ? 'bg-accent/10 text-accent font-medium border border-accent/20'
+                    : 'text-foreground hover:bg-accent/10 hover:border hover:border-accent/10'
                 }`
               }
             >
               <Sparkles className="h-5 w-5" />
               <span>AI Assistant</span>
-              <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">NEW</span>
+              <span className="ml-auto text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full">NEW</span>
             </NavLink>
           </div>
         )}
@@ -371,7 +373,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             to="/ai-assistant"
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2 rounded-md mt-2 text-sm transition-colors ${
-                isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+                isActive ? 'bg-sidebar-accent/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'
               }`
             }
           >
@@ -404,7 +406,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
             {isCollapsible ? (
               <button
                 onClick={() => toggleSubSection(key)}
-                className="flex items-center justify-between w-full px-3 py-1 mt-1 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
+                className="flex items-center justify-between w-full px-3 py-1 mt-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-muted-foreground transition-colors"
               >
                 <span>{currentSubHeader.title}</span>
                 <span className="flex items-center gap-1">
@@ -415,7 +417,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
                 </span>
               </button>
             ) : (
-              <div className="px-3 py-1 mt-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <div className="px-3 py-1 mt-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {currentSubHeader.title}
               </div>
             )}
@@ -437,7 +439,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
     for (const item of items) {
       if (item === 'divider') {
         flushSubSection();
-        result.push(<div key={`divider-${itemIndex}`} className="my-1.5 border-t border-gray-100 mx-3" />);
+        result.push(<div key={`divider-${itemIndex}`} className="my-1.5 border-t border-border mx-3" />);
       } else if (isSubHeader(item)) {
         flushSubSection();
         currentSubHeader = item;
@@ -458,7 +460,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
           to={item.path}
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
-              isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+              isActive ? 'bg-sidebar-accent/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'
             }`
           }
         >
@@ -468,7 +470,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         {!pinnedItems.includes(item.path) && (
           <button
             onClick={() => togglePin(item.path)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 text-gray-300 hover:text-amber-400 transition-opacity"
+            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 text-gray-300 hover:text-warning transition-opacity"
             title="Pin to favorites"
           >
             <Star className="h-3 w-3" />

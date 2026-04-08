@@ -485,8 +485,8 @@ export default function GRNForm() {
     const pct = item.orderedQuantity > 0 ? ((excess / item.orderedQuantity) * 100).toFixed(1) : '0';
     return (
       <div className="flex items-center gap-1 mt-1">
-        <AlertTriangle className="h-3 w-3 text-amber-600" />
-        <span className="text-xs text-amber-600 font-medium">
+        <AlertTriangle className="h-3 w-3 text-warning" />
+        <span className="text-xs text-warning font-medium">
           Over-receipt: +{excess.toFixed(3)} ({pct}%)
         </span>
       </div>
@@ -555,11 +555,11 @@ export default function GRNForm() {
           {item.details.length > 0 && (
             <div className="text-xs">
               <span className="text-muted-foreground">Detail sum:</span>{' '}
-              <span className={`font-medium ${hasMismatch ? 'text-amber-600' : 'text-green-600'}`}>
+              <span className={`font-medium ${hasMismatch ? 'text-warning' : 'text-success'}`}>
                 {detailSum.toFixed(3)}m
               </span>
               {hasMismatch && (
-                <span className="text-amber-600 ml-1">(differs from received: {manualQty.toFixed(3)}m)</span>
+                <span className="text-warning ml-1">(differs from received: {manualQty.toFixed(3)}m)</span>
               )}
             </div>
           )}
@@ -743,7 +743,7 @@ export default function GRNForm() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
             <PackageOpen className="h-6 w-6" />
             Create Goods Receiving Note
           </h1>
@@ -856,23 +856,23 @@ export default function GRNForm() {
           </div>
 
           {selectedPO && (
-            <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="bg-muted p-4 rounded-lg">
               <h4 className="font-medium mb-2">Supplier Details</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-500">Supplier:</span>
+                  <span className="text-muted-foreground">Supplier:</span>
                   <p className="font-medium">{selectedPO.supplier?.name}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Expected Delivery:</span>
+                  <span className="text-muted-foreground">Expected Delivery:</span>
                   <p>{new Date(selectedPO.expectedDeliveryDate).toLocaleDateString('en-IN')}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">PO Status:</span>
+                  <span className="text-muted-foreground">PO Status:</span>
                   <p>{selectedPO.status}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Total Amount:</span>
+                  <span className="text-muted-foreground">Total Amount:</span>
                   <p className="font-medium">{formatCurrency(selectedPO.totalAmount || 0)}</p>
                 </div>
               </div>
@@ -1056,8 +1056,8 @@ export default function GRNForm() {
                       <TableCell>
                         <div>
                           <div className="font-medium">{item.materialCode}</div>
-                          <div className="text-sm text-gray-500">{item.materialName}</div>
-                          <div className="text-xs text-gray-400">{item.unit}</div>
+                          <div className="text-sm text-muted-foreground">{item.materialName}</div>
+                          <div className="text-xs text-muted-foreground">{item.unit}</div>
                         </div>
                         {/* Measurement detail section for FABRIC/GREIGE */}
                         {renderDetailSection(item, index)}
@@ -1072,7 +1072,7 @@ export default function GRNForm() {
                           step="0.001"
                           value={item.receivedQuantity}
                           onChange={(e) => updateItem(index, 'receivedQuantity', e.target.value)}
-                          className={`w-full ${isOver ? 'border-amber-400 bg-amber-50' : ''}`}
+                          className={`w-full ${isOver ? 'border-warning/50 bg-warning-muted' : ''}`}
                           placeholder="0"
                         />
                         {renderOverReceiptWarning(item)}

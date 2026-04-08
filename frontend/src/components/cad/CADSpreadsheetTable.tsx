@@ -65,16 +65,16 @@ import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
  */
 const FIELD_STYLES = {
   editable: {
-    cell: 'bg-blue-100 border-l-2 border-l-blue-400',
-    cellEdit: 'bg-blue-200 border-l-2 border-l-blue-500',
+    cell: 'bg-info-muted border-l-2 border-l-blue-400',
+    cellEdit: 'bg-info/15 border-l-2 border-l-blue-500',
   },
   prepopulated: {
     cell: 'bg-slate-100 text-slate-700 border-l-2 border-l-slate-400',
     cellEdit: 'bg-slate-200 text-slate-700 border-l-2 border-l-slate-500',
   },
   calculated: {
-    cell: 'bg-green-100 text-green-800 border-l-2 border-l-green-500 font-medium',
-    cellEdit: 'bg-green-100 text-green-800 border-l-2 border-l-green-500 font-medium',
+    cell: 'bg-success-muted text-success border-l-2 border-l-green-500 font-medium',
+    cellEdit: 'bg-success-muted text-success border-l-2 border-l-green-500 font-medium',
   },
 } as const;
 
@@ -1216,18 +1216,18 @@ export function CADSpreadsheetTable({
 
       {/* Field Type Legend */}
       <div className="flex items-center gap-4 mb-3 text-xs">
-        <span className="font-medium text-gray-600">Field Types:</span>
+        <span className="font-medium text-muted-foreground">Field Types:</span>
         <span className="flex items-center gap-1.5">
-          <span className="w-4 h-4 rounded bg-blue-100 border-l-2 border-l-blue-400"></span>
-          <span className="text-blue-700">Editable</span>
+          <span className="w-4 h-4 rounded bg-info-muted border-l-2 border-l-blue-400"></span>
+          <span className="text-info">Editable</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-4 h-4 rounded bg-slate-100 border-l-2 border-l-slate-400"></span>
           <span className="text-slate-600">Pre-populated</span>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-4 h-4 rounded bg-green-100 border-l-2 border-l-green-500"></span>
-          <span className="text-green-700 font-medium">Calculated</span>
+          <span className="w-4 h-4 rounded bg-success-muted border-l-2 border-l-green-500"></span>
+          <span className="text-success font-medium">Calculated</span>
         </span>
       </div>
 
@@ -1312,7 +1312,7 @@ export function CADSpreadsheetTable({
                         className={cn(
                           'hover:bg-muted/30',
                           isEditing && 'bg-primary/5',
-                          isRowLocked && 'opacity-75 bg-gray-50'
+                          isRowLocked && 'opacity-75 bg-muted'
                         )}
                         title={isRowLocked ? 'This row is locked (approved CAD)' : undefined}
                       >
@@ -1347,9 +1347,8 @@ export function CADSpreadsheetTable({
                                 }
                                 className={cn(
                                   'text-[10px] px-1.5',
-                                  row.purpose === 'PRODUCTION' && 'bg-green-600 hover:bg-green-700',
-                                  row.purpose === 'RAW_MATERIAL_CALCULATION' &&
-                                    'bg-blue-600 hover:bg-blue-700 text-white',
+                                  row.purpose === 'PRODUCTION' && 'bg-success hover:bg-success',
+                                  row.purpose === 'RAW_MATERIAL_CALCULATION' && 'bg-info hover:bg-info text-white',
                                   row.purpose === 'COSTING' && 'bg-orange-600 hover:bg-orange-700 text-white'
                                 )}
                               >
@@ -1359,7 +1358,7 @@ export function CADSpreadsheetTable({
                               {row.copiedFromId && row.copiedFrom && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[9px] px-1 py-0 bg-purple-50 text-purple-700 border-purple-300"
+                                  className="text-[9px] px-1 py-0 bg-accent/10 text-accent border-accent/25"
                                 >
                                   ← {CAD_PURPOSE_LABELS[row.copiedFrom.purpose]}
                                 </Badge>
@@ -1374,7 +1373,7 @@ export function CADSpreadsheetTable({
                             {/* Locked indicator for approved rows in approved style */}
                             {isRowLocked && (
                               <span title="Locked - approved CAD cannot be modified">
-                                <Lock className="h-3 w-3 text-amber-500" />
+                                <Lock className="h-3 w-3 text-warning" />
                               </span>
                             )}
                             {/* Version indicator */}
@@ -1396,7 +1395,7 @@ export function CADSpreadsheetTable({
                             {row.purpose === 'PRODUCTION' && row.orderCount !== undefined && row.orderCount > 0 && (
                               <Badge
                                 variant="secondary"
-                                className="text-[10px] px-1.5 bg-blue-100 text-blue-700 border-blue-200"
+                                className="text-[10px] px-1.5 bg-info-muted text-info border-info/20"
                                 title={`Used in ${row.orderCount} order${row.orderCount > 1 ? 's' : ''}`}
                               >
                                 {row.orderCount} order{row.orderCount > 1 ? 's' : ''}
@@ -1406,7 +1405,7 @@ export function CADSpreadsheetTable({
                             {row.purpose === 'PRODUCTION' && row.stockLotNumber && (
                               <Badge
                                 variant="outline"
-                                className="text-[9px] px-1 bg-gray-50 border-gray-200"
+                                className="text-[9px] px-1 bg-muted border-border"
                                 title={`Stock Lot: ${row.stockLotNumber}`}
                               >
                                 {row.stockLotNumber}
@@ -1434,8 +1433,8 @@ export function CADSpreadsheetTable({
                               className="flex items-center gap-1"
                               title={`Combined: ${row.combinedComponents || row.componentName}`}
                             >
-                              <span className="text-purple-600">📎</span>
-                              <span className="text-purple-700">{row.combinedComponents || row.componentName}</span>
+                              <span className="text-accent">📎</span>
+                              <span className="text-accent">{row.combinedComponents || row.componentName}</span>
                             </div>
                           ) : (
                             row.componentName
@@ -1535,9 +1534,9 @@ export function CADSpreadsheetTable({
                         >
                           {row.readyFabricId ? (
                             // Ready Fabric mode: show fabric name as static label
-                            <span className="text-xs whitespace-nowrap text-green-700">
+                            <span className="text-xs whitespace-nowrap text-success">
                               {row.readyFabricCode && (
-                                <span className="font-mono text-gray-500 mr-1">{row.readyFabricCode}</span>
+                                <span className="font-mono text-muted-foreground mr-1">{row.readyFabricCode}</span>
                               )}
                               {row.readyFabricName || '-'}
                             </span>
@@ -1626,7 +1625,7 @@ export function CADSpreadsheetTable({
                                       }
                                     />
                                     {maxGreigeWidth && (
-                                      <span className="text-[9px] text-blue-600 flex items-center gap-0.5">
+                                      <span className="text-[9px] text-info flex items-center gap-0.5">
                                         <Pencil className="h-2 w-2" />
                                         Manual (≤ {maxGreigeWidth}")
                                       </span>
@@ -1652,13 +1651,13 @@ export function CADSpreadsheetTable({
                                     {/* Stock widths first with indicator */}
                                     {row.stockWidths && row.stockWidths.length > 0 && (
                                       <>
-                                        <div className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-50 flex items-center gap-1">
+                                        <div className="px-2 py-1 text-xs font-semibold text-success bg-success-muted flex items-center gap-1">
                                           <Package className="h-3 w-3" />
                                           From Stock
                                         </div>
                                         {row.stockWidths.map((w) => (
                                           <SelectItem key={`stock-${w}`} value={w.toString()}>
-                                            <span className="text-green-700 font-medium">{w}" (Stock)</span>
+                                            <span className="text-success font-medium">{w}" (Stock)</span>
                                           </SelectItem>
                                         ))}
                                         <div className="border-t my-1" />
@@ -1685,7 +1684,7 @@ export function CADSpreadsheetTable({
                               {row.stockWidths?.includes(row.cutableWidth!) && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[9px] px-1 py-0 h-4 bg-green-50 border-green-200 text-green-700"
+                                  className="text-[9px] px-1 py-0 h-4 bg-success-muted border-success/20 text-success"
                                   title="Width matches available stock"
                                 >
                                   <Package className="h-2 w-2 mr-0.5" />
@@ -1697,7 +1696,7 @@ export function CADSpreadsheetTable({
                                 (row as CADSpreadsheetRowExtended).fabricStockDetails && (
                                   <Badge
                                     variant="outline"
-                                    className="text-[9px] px-1 py-0 h-4 bg-blue-50 border-blue-200"
+                                    className="text-[9px] px-1 py-0 h-4 bg-info-muted border-info/20"
                                     title={`Stock: ${(row as CADSpreadsheetRowExtended).fabricStockDetails?.rollNumbers || 'N/A'} - Grade ${(row as CADSpreadsheetRowExtended).fabricStockDetails?.qualityGrade}`}
                                   >
                                     📦 {(row as CADSpreadsheetRowExtended).fabricStockDetails?.qualityGrade}
@@ -1834,7 +1833,7 @@ export function CADSpreadsheetTable({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    className="h-6 w-6 p-0 text-success hover:text-success hover:bg-success-muted"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleApproveCAD(row.id);
@@ -1856,7 +1855,7 @@ export function CADSpreadsheetTable({
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleRejectCAD(row.id);
@@ -1876,7 +1875,7 @@ export function CADSpreadsheetTable({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    className="h-6 w-6 p-0 text-info hover:text-info hover:bg-info-muted"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleCreateVersion(row.id);
@@ -1897,7 +1896,7 @@ export function CADSpreadsheetTable({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                    className="h-6 w-6 p-0 text-accent hover:text-accent hover:bg-accent/10"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       const targetPurpose =
@@ -1931,7 +1930,7 @@ export function CADSpreadsheetTable({
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-6 w-6 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                      className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleOpenStockSelection(row.id);
@@ -2041,18 +2040,18 @@ export function CADSpreadsheetTable({
           <div className="py-4 overflow-y-auto overflow-x-hidden flex-1">
             {/* Info banner for approved styles */}
             {isStyleApproved && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800">
+              <div className="mb-4 p-3 bg-info-muted rounded-lg border border-info/20 flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 text-info mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-info">
                   <strong>Adding width variant to approved style.</strong>
-                  <p className="mt-1 text-blue-600">
+                  <p className="mt-1 text-info">
                     New CAD rows will be created with PENDING status. Existing approved rows are preserved.
                   </p>
                 </div>
               </div>
             )}
             {/* Purpose Selection */}
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg border">
+            <div className="mb-4 p-3 bg-muted rounded-lg border">
               <Label className="text-sm font-medium mb-2 block">CAD Purpose</Label>
               <Select
                 value={selectedPurpose}
@@ -2079,20 +2078,20 @@ export function CADSpreadsheetTable({
                   </SelectItem>
                   <SelectItem value="RAW_MATERIAL_CALCULATION">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-blue-500" />
+                      <Clock className="h-4 w-4 text-info" />
                       <span>RAW MAT - MRP for confirmed orders</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="PRODUCTION">
                     <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-green-500" />
+                      <Package className="h-4 w-4 text-success" />
                       <span>PRODUCTION - Actual cutting (stock required)</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
               {selectedPurpose === 'PRODUCTION' && (
-                <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                <p className="text-xs text-warning mt-2 flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" />
                   PRODUCTION CAD requires available fabric stock. Width will be taken from actual stock.
                 </p>
@@ -2146,7 +2145,7 @@ export function CADSpreadsheetTable({
                         {fabricCadCounts.has(sf.id) && (
                           <Badge
                             variant="secondary"
-                            className="text-xs bg-blue-100 text-blue-700 border-blue-200 px-1.5 py-0 flex-shrink-0"
+                            className="text-xs bg-info-muted text-info border-info/20 px-1.5 py-0 flex-shrink-0"
                           >
                             Added ({fabricCadCounts.get(sf.id)})
                           </Badge>
@@ -2154,7 +2153,7 @@ export function CADSpreadsheetTable({
                         {sf.hasEmbroidery && (
                           <Badge
                             variant="outline"
-                            className="bg-purple-50 text-purple-700 border-purple-200 text-xs px-1.5 py-0 flex-shrink-0"
+                            className="bg-accent/10 text-accent border-accent/20 text-xs px-1.5 py-0 flex-shrink-0"
                           >
                             <Sparkles className="h-3 w-3 mr-1" />
                             Embroidery
@@ -2163,9 +2162,9 @@ export function CADSpreadsheetTable({
                       </div>
                       <span className="text-xs text-muted-foreground truncate">
                         {sf.fabricFinishType || 'N/A'} • {sf.genericGreigeName || 'No fabric assigned'}
-                        {sf.fabricCode && <span className="ml-1 font-mono text-blue-600">({sf.fabricCode})</span>}
+                        {sf.fabricCode && <span className="ml-1 font-mono text-info">({sf.fabricCode})</span>}
                         {sf.hasEmbroidery && sf.embroideryCode && (
-                          <span className="ml-1 text-purple-600">• {sf.embroideryCode}</span>
+                          <span className="ml-1 text-accent">• {sf.embroideryCode}</span>
                         )}
                       </span>
                     </div>
@@ -2176,8 +2175,8 @@ export function CADSpreadsheetTable({
 
             {selectedStyleFabrics.length > 0 && (
               <div className="mt-4 space-y-2">
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-700">
+                <div className="p-3 bg-info-muted border border-info/20 rounded-lg">
+                  <p className="text-sm text-info">
                     {selectedStyleFabrics.length} component-fabric pair{selectedStyleFabrics.length > 1 ? 's' : ''}{' '}
                     selected
                   </p>
@@ -2188,13 +2187,15 @@ export function CADSpreadsheetTable({
                   <div
                     className={cn(
                       'p-3 border rounded-lg',
-                      canCombineSelected.canCombine ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+                      canCombineSelected.canCombine
+                        ? 'bg-success-muted border-success/20'
+                        : 'bg-warning-muted border-yellow-200'
                     )}
                   >
                     <p
                       className={cn(
                         'text-sm flex items-start gap-2 min-w-0',
-                        canCombineSelected.canCombine ? 'text-green-700' : 'text-yellow-700'
+                        canCombineSelected.canCombine ? 'text-success' : 'text-yellow-700'
                       )}
                     >
                       {canCombineSelected.canCombine ? (
@@ -2218,9 +2219,9 @@ export function CADSpreadsheetTable({
 
                 {/* PRODUCTION Stock Selection - Required for PRODUCTION purpose */}
                 {selectedPurpose === 'PRODUCTION' && (
-                  <div className="p-3 border rounded-lg bg-amber-50 border-amber-200">
+                  <div className="p-3 border rounded-lg bg-warning-muted border-warning/20">
                     <div className="flex items-center justify-between mb-2">
-                      <Label className="text-sm font-medium text-amber-800">Select Available Stock (Required)</Label>
+                      <Label className="text-sm font-medium text-warning">Select Available Stock (Required)</Label>
                       <Button
                         size="sm"
                         variant="outline"
@@ -2233,19 +2234,19 @@ export function CADSpreadsheetTable({
                     </div>
                     {loadingProductionStock ? (
                       <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
-                        <span className="ml-2 text-sm text-amber-700">Loading stock...</span>
+                        <Loader2 className="h-5 w-5 animate-spin text-warning" />
+                        <span className="ml-2 text-sm text-warning">Loading stock...</span>
                       </div>
                     ) : productionStockOptions.length === 0 ? (
                       <div className="text-center py-4">
-                        <p className="text-sm text-amber-700">No available stock found for the selected fabrics.</p>
-                        <p className="text-xs text-amber-600 mt-1">
+                        <p className="text-sm text-warning">No available stock found for the selected fabrics.</p>
+                        <p className="text-xs text-warning mt-1">
                           Please ensure fabric has been GRN'd and is in AVAILABLE status.
                         </p>
                       </div>
                     ) : (
                       <Select value={selectedStockForProduction || ''} onValueChange={setSelectedStockForProduction}>
-                        <SelectTrigger className="w-full bg-white">
+                        <SelectTrigger className="w-full bg-card">
                           <SelectValue placeholder="Select stock..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -2255,11 +2256,11 @@ export function CADSpreadsheetTable({
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{stock.fabricCode}</span>
                                   <span className="text-muted-foreground">•</span>
-                                  <span className="text-green-600 font-semibold">{stock.cutableWidth}" width</span>
+                                  <span className="text-success font-semibold">{stock.cutableWidth}" width</span>
                                   <span className="text-muted-foreground">•</span>
                                   <span>{stock.quantityAvailable.toFixed(1)}m available</span>
                                   {stock.embroideryId && (
-                                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs ml-1">
+                                    <Badge variant="secondary" className="bg-accent/10 text-accent text-xs ml-1">
                                       Embroidered
                                     </Badge>
                                   )}
@@ -2275,7 +2276,7 @@ export function CADSpreadsheetTable({
                       </Select>
                     )}
                     {selectedStockForProduction && (
-                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
+                      <div className="mt-2 p-2 bg-success-muted border border-success/20 rounded text-xs text-success">
                         <Check className="h-3 w-3 inline mr-1" />
                         Stock selected. Width will be automatically set from stock.
                       </div>
@@ -2301,7 +2302,7 @@ export function CADSpreadsheetTable({
                 variant="secondary"
                 onClick={handleCombineRows}
                 disabled={addingRow || (selectedPurpose === 'PRODUCTION' && !selectedStockForProduction)}
-                className="bg-green-100 hover:bg-green-200 text-green-800 border-green-300"
+                className="bg-success-muted hover:bg-success/15 text-success border-success/25"
               >
                 {addingRow ? (
                   <>
@@ -2355,7 +2356,7 @@ export function CADSpreadsheetTable({
               {(() => {
                 const currentRow = selectedRowForStock ? rows.find((r) => r.id === selectedRowForStock) : null;
                 return currentRow?.isEmbroidery ? (
-                  <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                  <Badge variant="secondary" className="bg-accent/10 text-accent">
                     ✨ Embroidered
                   </Badge>
                 ) : (
@@ -2416,14 +2417,14 @@ export function CADSpreadsheetTable({
                             <div className="flex items-center gap-2">
                               <p className="font-medium">{stock.fabricCode}</p>
                               {stock.embroideryId && (
-                                <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-xs">
+                                <Badge variant="secondary" className="bg-accent/10 text-accent text-xs">
                                   ✨ Embroidered
                                 </Badge>
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground">{stock.fabricName}</p>
                             {stock.colorName && <p className="text-xs text-muted-foreground">{stock.colorName}</p>}
-                            {stock.embroideryName && <p className="text-xs text-purple-600">{stock.embroideryName}</p>}
+                            {stock.embroideryName && <p className="text-xs text-accent">{stock.embroideryName}</p>}
                           </div>
                         </TableCell>
                         <TableCell>{stock.greigeName}</TableCell>
@@ -2466,31 +2467,33 @@ export function CADSpreadsheetTable({
       <Dialog open={varianceWarningOpen} onOpenChange={setVarianceWarningOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-orange-600">
+            <DialogTitle className="flex items-center gap-2 text-primary">
               <XCircle className="h-5 w-5" />
               Width Variance Detected
             </DialogTitle>
           </DialogHeader>
           {pendingStockSelection && (
             <div className="py-4 space-y-4">
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="bg-primary/10 border border-orange-200 rounded-lg p-4">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700">Raw Mat CAD Width:</span>
-                    <span className="text-lg font-semibold text-gray-900">{pendingStockSelection.planningWidth}"</span>
+                    <span className="text-sm font-medium text-foreground">Raw Mat CAD Width:</span>
+                    <span className="text-lg font-semibold text-foreground">
+                      {pendingStockSelection.planningWidth}"
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700">Actual Stock Width:</span>
+                    <span className="text-sm font-medium text-foreground">Actual Stock Width:</span>
                     <span className="text-lg font-semibold text-primary">
                       {pendingStockSelection.stock.cutableWidth}"
                     </span>
                   </div>
                   <div className="border-t border-orange-200 pt-2 mt-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-700">Variance:</span>
+                      <span className="text-sm font-medium text-foreground">Variance:</span>
                       <span
                         className={`text-lg font-bold ${
-                          (pendingStockSelection.variance || 0) < 0 ? 'text-red-600' : 'text-green-600'
+                          (pendingStockSelection.variance || 0) < 0 ? 'text-destructive' : 'text-success'
                         }`}
                       >
                         {(pendingStockSelection.variance || 0) > 0 ? '+' : ''}
@@ -2504,17 +2507,17 @@ export function CADSpreadsheetTable({
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-foreground">
                   <strong>Impact:</strong> This width difference will affect fabric consumption calculations.
                 </p>
-                <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
                   <li>
                     {(pendingStockSelection.variance || 0) < 0 ? (
-                      <span className="text-red-600 font-medium">
+                      <span className="text-destructive font-medium">
                         Narrower width may require more fabric for the same order quantity
                       </span>
                     ) : (
-                      <span className="text-green-600 font-medium">Wider width may reduce fabric requirements</span>
+                      <span className="text-success font-medium">Wider width may reduce fabric requirements</span>
                     )}
                   </li>
                   <li>CAD average will be recalculated based on actual width</li>
@@ -2522,8 +2525,8 @@ export function CADSpreadsheetTable({
                 </ul>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-800">
+              <div className="bg-info-muted border border-info/20 rounded-lg p-3">
+                <p className="text-sm text-info">
                   <strong>Stock Details:</strong> {pendingStockSelection.stock.fabricCode} - Roll{' '}
                   {pendingStockSelection.stock.rollNumbers || 'N/A'}
                 </p>

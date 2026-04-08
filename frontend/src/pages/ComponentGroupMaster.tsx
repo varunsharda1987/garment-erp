@@ -183,8 +183,8 @@ export default function ComponentGroupMaster() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Component Group Master</h1>
-          <p className="text-gray-600 mt-1">Manage component groups for organizing garment components</p>
+          <h1 className="text-3xl font-display font-medium">Component Group Master</h1>
+          <p className="text-muted-foreground mt-1">Manage component groups for organizing garment components</p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
@@ -195,7 +195,7 @@ export default function ComponentGroupMaster() {
       {/* Search */}
       <div className="mb-4 max-w-sm">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search component groups..."
@@ -229,7 +229,7 @@ export default function ComponentGroupMaster() {
               </TableRow>
             ) : componentGroups.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No component groups found
                 </TableCell>
               </TableRow>
@@ -264,13 +264,13 @@ export default function ComponentGroupMaster() {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{group.name}</TableCell>
-                  <TableCell className="text-sm text-gray-600">{group.description || '-'}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{group.description || '-'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{group._count?.components || 0}</Badge>
                   </TableCell>
                   <TableCell>
                     {group.isActive ? (
-                      <Badge variant="default" className="bg-green-500">
+                      <Badge variant="default" className="bg-success-muted0">
                         Active
                       </Badge>
                     ) : (
@@ -286,7 +286,7 @@ export default function ComponentGroupMaster() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteClick(group.id, group.name)}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-destructive hover:text-destructive"
                         title="Delete"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -317,7 +317,7 @@ export default function ComponentGroupMaster() {
               {/* Code */}
               <div className="grid gap-2">
                 <Label htmlFor="code">
-                  Code <span className="text-red-500">*</span>
+                  Code <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="code"
@@ -328,13 +328,13 @@ export default function ComponentGroupMaster() {
                   className="font-mono"
                   disabled={!!editingGroup} // Don't allow code change on edit
                 />
-                <p className="text-xs text-gray-500">Unique identifier (will be auto-converted to uppercase)</p>
+                <p className="text-xs text-muted-foreground">Unique identifier (will be auto-converted to uppercase)</p>
               </div>
 
               {/* Name */}
               <div className="grid gap-2">
                 <Label htmlFor="name">
-                  Name <span className="text-red-500">*</span>
+                  Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="name"
@@ -367,14 +367,14 @@ export default function ComponentGroupMaster() {
                   onChange={(e) => setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })}
                   min="0"
                 />
-                <p className="text-xs text-gray-500">Lower numbers appear first</p>
+                <p className="text-xs text-muted-foreground">Lower numbers appear first</p>
               </div>
 
               {/* Active Status */}
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="isActive">Active Status</Label>
-                  <p className="text-xs text-gray-500">Inactive groups won't appear in dropdowns</p>
+                  <p className="text-xs text-muted-foreground">Inactive groups won't appear in dropdowns</p>
                 </div>
                 <Switch
                   id="isActive"

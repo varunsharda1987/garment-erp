@@ -46,7 +46,7 @@ function formatDate(dateString: string): string {
 }
 
 function getStatusBadgeClasses(status: DocumentStatus): string {
-  return DocumentStatusColors[status] ?? 'bg-gray-100 text-gray-800';
+  return DocumentStatusColors[status] ?? 'bg-muted text-foreground';
 }
 
 // ---------------------------------------------------------------------------
@@ -187,12 +187,12 @@ export default function CreditNoteList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <FileText className="h-6 w-6 text-blue-600" />
+          <div className="p-2 bg-info-muted rounded-lg">
+            <FileText className="h-6 w-6 text-info" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Credit Notes</h1>
-            <p className="text-sm text-gray-500">Manage credit notes issued against customer invoices</p>
+            <h1 className="text-2xl font-display font-medium text-foreground">Credit Notes</h1>
+            <p className="text-sm text-muted-foreground">Manage credit notes issued against customer invoices</p>
           </div>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2">
@@ -274,7 +274,7 @@ export default function CreditNoteList() {
                         {cn.customer?.code && <div className="text-xs text-muted-foreground">{cn.customer.code}</div>}
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-blue-600">{cn.invoice?.invoiceNumber || '-'}</span>
+                        <span className="text-sm text-info">{cn.invoice?.invoiceNumber || '-'}</span>
                       </TableCell>
                       <TableCell className="text-sm">{formatDate(cn.creditNoteDate)}</TableCell>
                       <TableCell>
@@ -299,7 +299,7 @@ export default function CreditNoteList() {
                           {cn.status === 'DRAFT' && (
                             <>
                               <Button variant="ghost" size="icon" title="Approve" onClick={() => setApproveTarget(cn)}>
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                <CheckCircle2 className="h-4 w-4 text-success" />
                               </Button>
                               <Button variant="ghost" size="icon" title="Cancel" onClick={() => setCancelTarget(cn)}>
                                 <XCircle className="h-4 w-4 text-orange-500" />

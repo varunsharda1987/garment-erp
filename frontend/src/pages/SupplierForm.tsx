@@ -276,14 +276,14 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <Card>
-        <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b">
-          <CardTitle className="text-2xl font-bold text-gray-900">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-info-muted border-b">
+          <CardTitle className="text-2xl font-bold text-foreground">
             {isNewSupplier ? (
               '✨ Create New Supplier'
             ) : (
               <div className="flex flex-col gap-1">
                 <span>✏️ Edit Supplier</span>
-                {supplierName && <span className="text-lg font-semibold text-indigo-600">{supplierName}</span>}
+                {supplierName && <span className="text-lg font-semibold text-primary">{supplierName}</span>}
               </div>
             )}
           </CardTitle>
@@ -291,35 +291,35 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
         <CardContent className="p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3">
-                <span className="text-red-500 text-xl">⚠️</span>
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-start gap-3">
+                <span className="text-destructive text-xl">⚠️</span>
                 <span className="flex-1">{error}</span>
               </div>
             )}
 
             {/* BASIC INFORMATION */}
-            <section className="border rounded-lg p-6 bg-gray-50">
-              <h3 className="text-xl font-semibold mb-6 text-gray-900 flex items-center gap-2">
+            <section className="border rounded-lg p-6 bg-muted">
+              <h3 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
                 <span className="text-2xl">📋</span>
                 Basic Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="code" className="text-sm font-medium text-gray-700">
-                    Supplier Code <span className="text-red-500">*</span>
+                  <Label htmlFor="code" className="text-sm font-medium text-foreground">
+                    Supplier Code <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="code"
                     {...register('code', { required: 'Supplier code is required' })}
                     readOnly
-                    className="mt-1.5 bg-gray-100 font-mono"
+                    className="mt-1.5 bg-muted font-mono"
                   />
-                  {errors.code && <p className="text-red-600 text-sm mt-1">{errors.code.message}</p>}
+                  {errors.code && <p className="text-destructive text-sm mt-1">{errors.code.message}</p>}
                 </div>
 
                 <div>
-                  <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                    Supplier Name <span className="text-red-500">*</span>
+                  <Label htmlFor="name" className="text-sm font-medium text-foreground">
+                    Supplier Name <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="name"
@@ -327,13 +327,13 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     placeholder="Enter supplier/vendor name"
                     className="mt-1.5"
                   />
-                  {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>}
+                  {errors.name && <p className="text-destructive text-sm mt-1">{errors.name.message}</p>}
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label className="text-sm font-medium text-gray-700">
-                    Supplier Categories <span className="text-red-500">*</span>
-                    <span className="text-gray-500 text-xs font-normal ml-2">(Select all that apply)</span>
+                  <Label className="text-sm font-medium text-foreground">
+                    Supplier Categories <span className="text-destructive">*</span>
+                    <span className="text-muted-foreground text-xs font-normal ml-2">(Select all that apply)</span>
                   </Label>
 
                   {selectedCategories.length > 0 && (
@@ -341,7 +341,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                       {selectedCategories.map((cat) => (
                         <span
                           key={cat}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium"
                         >
                           {SupplierCategoryLabels[cat]}
                           <button
@@ -349,7 +349,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                             onClick={() => {
                               setSelectedCategories((prev) => prev.filter((c) => c !== cat));
                             }}
-                            className="hover:text-indigo-950 transition-colors"
+                            className="hover:text-primary transition-colors"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -358,11 +358,11 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-5 border-2 border-dashed rounded-lg bg-white max-h-72 overflow-y-auto">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-5 border-2 border-dashed rounded-lg bg-card max-h-72 overflow-y-auto">
                     {Object.entries(SupplierCategoryLabels).map(([value, label]) => (
                       <label
                         key={value}
-                        className="flex items-center gap-3 cursor-pointer hover:bg-indigo-50 p-3 rounded-lg transition-colors"
+                        className="flex items-center gap-3 cursor-pointer hover:bg-primary/5 p-3 rounded-lg transition-colors"
                       >
                         <Checkbox
                           checked={selectedCategories.includes(value as SupplierCategory)}
@@ -375,26 +375,26 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                           }}
                           className="border-2"
                         />
-                        <span className="text-sm font-medium text-gray-700">{label}</span>
+                        <span className="text-sm font-medium text-foreground">{label}</span>
                       </label>
                     ))}
                   </div>
                   {selectedCategories.length === 0 && (
-                    <p className="text-red-600 text-sm mt-2">At least one category is required</p>
+                    <p className="text-destructive text-sm mt-2">At least one category is required</p>
                   )}
                 </div>
               </div>
             </section>
 
             {/* CONTACT DETAILS */}
-            <section className="border rounded-lg p-6 bg-gray-50">
-              <h3 className="text-xl font-semibold mb-6 text-gray-900 flex items-center gap-2">
+            <section className="border rounded-lg p-6 bg-muted">
+              <h3 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
                 <span className="text-2xl">📞</span>
                 Contact Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="contactPerson" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="contactPerson" className="text-sm font-medium text-foreground">
                     Contact Person
                   </Label>
                   <Input
@@ -406,7 +406,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="phone" className="text-sm font-medium text-foreground">
                     Phone Number
                   </Label>
                   <Input
@@ -419,7 +419,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="email" className="text-sm font-medium text-foreground">
                     Email Address
                   </Label>
                   <Input
@@ -434,11 +434,11 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     placeholder="email@example.com"
                     className="mt-1.5"
                   />
-                  {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
+                  {errors.email && <p className="text-destructive text-sm mt-1">{errors.email.message}</p>}
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label htmlFor="address" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="address" className="text-sm font-medium text-foreground">
                     Office Address
                   </Label>
                   <Textarea
@@ -453,14 +453,14 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
             </section>
 
             {/* BILLING LOCATION */}
-            <section className="border rounded-lg p-6 bg-gradient-to-br from-blue-50 to-indigo-50">
-              <h3 className="text-xl font-semibold mb-6 text-gray-900 flex items-center gap-2">
+            <section className="border rounded-lg p-6 bg-gradient-to-br from-info-muted to-primary/5">
+              <h3 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
                 <span className="text-2xl">📍</span>
                 Billing Location
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <Label htmlFor="billingStateId" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="billingStateId" className="text-sm font-medium text-foreground">
                     State
                   </Label>
                   <div className="mt-1.5">
@@ -476,7 +476,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="billingCityId" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="billingCityId" className="text-sm font-medium text-foreground">
                     City
                   </Label>
                   <div className="mt-1.5">
@@ -490,7 +490,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="billingPincode" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="billingPincode" className="text-sm font-medium text-foreground">
                     PIN Code
                   </Label>
                   <Input
@@ -506,30 +506,30 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     className="mt-1.5"
                   />
                   {errors.billingPincode && (
-                    <p className="text-red-600 text-sm mt-1">{errors.billingPincode.message}</p>
+                    <p className="text-destructive text-sm mt-1">{errors.billingPincode.message}</p>
                   )}
                 </div>
               </div>
             </section>
 
             {/* SHIPPING LOCATION */}
-            <section className="border rounded-lg p-6 bg-gradient-to-br from-green-50 to-teal-50">
+            <section className="border rounded-lg p-6 bg-gradient-to-br from-success-muted to-teal-50">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-semibold text-foreground flex items-center gap-2">
                   <span className="text-2xl">🚚</span>
                   Shipping Location
                 </h3>
-                <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-lg border-2 hover:bg-gray-50 transition-colors">
+                <label className="flex items-center gap-2 cursor-pointer bg-card px-4 py-2 rounded-lg border-2 hover:bg-muted transition-colors">
                   <Checkbox
                     checked={copyBillingToShipping}
                     onCheckedChange={(checked) => setCopyBillingToShipping(!!checked)}
                   />
-                  <span className="text-sm font-medium text-gray-700">Same as Billing</span>
+                  <span className="text-sm font-medium text-foreground">Same as Billing</span>
                 </label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <Label htmlFor="shippingStateId" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="shippingStateId" className="text-sm font-medium text-foreground">
                     State
                   </Label>
                   <div className="mt-1.5">
@@ -545,7 +545,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="shippingCityId" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="shippingCityId" className="text-sm font-medium text-foreground">
                     City
                   </Label>
                   <div className="mt-1.5">
@@ -559,7 +559,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="shippingPincode" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="shippingPincode" className="text-sm font-medium text-foreground">
                     PIN Code
                   </Label>
                   <Input
@@ -575,12 +575,12 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     className="mt-1.5"
                   />
                   {errors.shippingPincode && (
-                    <p className="text-red-600 text-sm mt-1">{errors.shippingPincode.message}</p>
+                    <p className="text-destructive text-sm mt-1">{errors.shippingPincode.message}</p>
                   )}
                 </div>
 
                 <div className="md:col-span-3">
-                  <Label htmlFor="shippingAddress" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="shippingAddress" className="text-sm font-medium text-foreground">
                     Shipping Address (if different)
                   </Label>
                   <Textarea
@@ -595,19 +595,19 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
             </section>
 
             {/* GST NUMBERS */}
-            <section className="border rounded-lg p-6 bg-gradient-to-br from-amber-50 to-orange-50">
+            <section className="border rounded-lg p-6 bg-gradient-to-br from-warning-muted to-orange-50">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-semibold text-foreground flex items-center gap-2">
                   <span className="text-2xl">💼</span>
                   GST Registration Numbers
-                  <span className="text-sm font-normal text-gray-600">(Multi-state registration support)</span>
+                  <span className="text-sm font-normal text-muted-foreground">(Multi-state registration support)</span>
                 </h3>
                 <Button
                   type="button"
                   onClick={handleAddGSTNumber}
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-2 bg-white hover:bg-amber-100 border-amber-300"
+                  className="flex items-center gap-2 bg-card hover:bg-warning/10 border-warning/25"
                 >
                   <Plus className="h-4 w-4" />
                   Add GST Number
@@ -615,8 +615,8 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               </div>
 
               {gstNumbers.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed">
-                  <p className="text-gray-500 mb-4">No GST numbers added yet</p>
+                <div className="text-center py-12 bg-card rounded-lg border-2 border-dashed">
+                  <p className="text-muted-foreground mb-4">No GST numbers added yet</p>
                   <Button
                     type="button"
                     onClick={handleAddGSTNumber}
@@ -630,7 +630,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               ) : (
                 <div className="space-y-4">
                   {gstNumbers.map((gst, index) => (
-                    <div key={index} className="bg-white p-4 rounded-lg border-2 shadow-sm">
+                    <div key={index} className="bg-card p-4 rounded-lg border-2 shadow-sm">
                       <GSTNumberInput
                         value={gst}
                         onChange={(updated) => handleGSTNumberChange(index, updated)}
@@ -643,14 +643,14 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
             </section>
 
             {/* PAYMENT & CREDIT TERMS */}
-            <section className="border rounded-lg p-6 bg-gray-50">
-              <h3 className="text-xl font-semibold mb-6 text-gray-900 flex items-center gap-2">
+            <section className="border rounded-lg p-6 bg-muted">
+              <h3 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
                 <span className="text-2xl">💰</span>
                 Payment & Credit Terms
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div>
-                  <Label htmlFor="paymentTerms" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="paymentTerms" className="text-sm font-medium text-foreground">
                     Payment Terms
                   </Label>
                   <Input
@@ -662,7 +662,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="creditLimit" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="creditLimit" className="text-sm font-medium text-foreground">
                     Credit Limit (₹)
                   </Label>
                   <Input
@@ -676,7 +676,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="creditDays" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="creditDays" className="text-sm font-medium text-foreground">
                     Credit Days
                   </Label>
                   <Input
@@ -689,7 +689,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="rating" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="rating" className="text-sm font-medium text-foreground">
                     Supplier Rating
                   </Label>
                   <Input
@@ -707,14 +707,14 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
             </section>
 
             {/* BANK DETAILS */}
-            <section className="border rounded-lg p-6 bg-gray-50">
-              <h3 className="text-xl font-semibold mb-6 text-gray-900 flex items-center gap-2">
+            <section className="border rounded-lg p-6 bg-muted">
+              <h3 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
                 <span className="text-2xl">🏦</span>
                 Bank Account Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="bankName" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="bankName" className="text-sm font-medium text-foreground">
                     Bank Name
                   </Label>
                   <Combobox
@@ -736,7 +736,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="ifscCode" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="ifscCode" className="text-sm font-medium text-foreground">
                     IFSC Code
                   </Label>
                   <Input
@@ -752,11 +752,11 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     style={{ textTransform: 'uppercase' }}
                     className="mt-1.5"
                   />
-                  {errors.ifscCode && <p className="text-red-600 text-sm mt-1">{errors.ifscCode.message}</p>}
+                  {errors.ifscCode && <p className="text-destructive text-sm mt-1">{errors.ifscCode.message}</p>}
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label htmlFor="bankAccountNumber" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="bankAccountNumber" className="text-sm font-medium text-foreground">
                     Account Number
                   </Label>
                   <Input
@@ -772,7 +772,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
                     className="mt-1.5"
                   />
                   {errors.bankAccountNumber && (
-                    <p className="text-red-600 text-sm mt-1">{errors.bankAccountNumber.message}</p>
+                    <p className="text-destructive text-sm mt-1">{errors.bankAccountNumber.message}</p>
                   )}
                 </div>
               </div>
@@ -780,16 +780,16 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
 
             {/* CATEGORY-SPECIFIC FIELDS */}
             {selectedCategories.length > 0 && (
-              <section className="border rounded-lg p-6 bg-gradient-to-br from-purple-50 to-pink-50">
-                <h3 className="text-xl font-semibold mb-6 text-gray-900 flex items-center gap-2">
+              <section className="border rounded-lg p-6 bg-gradient-to-br from-accent/5 to-pink-50">
+                <h3 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
                   <span className="text-2xl">⚙️</span>
                   Category-Specific Details
                 </h3>
                 <div className="space-y-6">
                   {selectedCategories.map((category) => (
-                    <div key={category} className="border-2 rounded-lg p-5 bg-white shadow-sm">
-                      <h4 className="font-semibold text-lg text-indigo-700 mb-4 flex items-center gap-2">
-                        <span className="bg-indigo-100 px-3 py-1 rounded-full text-sm">
+                    <div key={category} className="border-2 rounded-lg p-5 bg-card shadow-sm">
+                      <h4 className="font-semibold text-lg text-primary mb-4 flex items-center gap-2">
+                        <span className="bg-primary/10 px-3 py-1 rounded-full text-sm">
                           {SupplierCategoryLabels[category]}
                         </span>
                       </h4>
@@ -812,7 +812,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
             )}
 
             {/* FORM ACTIONS */}
-            <div className="flex justify-end gap-4 pt-6 border-t-2 border-gray-200">
+            <div className="flex justify-end gap-4 pt-6 border-t-2 border-border">
               <Button
                 type="button"
                 variant="outline"
@@ -825,7 +825,7 @@ export default function SupplierForm({ mode = 'create' }: SupplierFormProps) {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading} className="px-8 bg-indigo-600 hover:bg-indigo-700">
+              <Button type="submit" disabled={isLoading} className="px-8 bg-primary hover:bg-primary">
                 {isLoading ? 'Saving...' : isNewSupplier ? '✨ Create Supplier' : '💾 Update Supplier'}
               </Button>
             </div>

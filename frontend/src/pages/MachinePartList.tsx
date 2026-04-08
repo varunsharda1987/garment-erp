@@ -119,28 +119,28 @@ export default function MachinePartList() {
       header: 'Part Name',
       render: (part) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{part.partName}</div>
-          {part.description && <div className="text-xs text-gray-500 line-clamp-1">{part.description}</div>}
+          <div className="text-sm font-medium text-foreground">{part.partName}</div>
+          {part.description && <div className="text-xs text-muted-foreground line-clamp-1">{part.description}</div>}
         </div>
       ),
     },
     {
       key: 'partNumber',
       header: 'Part Number',
-      render: (part) => <div className="text-sm text-gray-700 font-mono">{part.partNumber || '-'}</div>,
+      render: (part) => <div className="text-sm text-foreground font-mono">{part.partNumber || '-'}</div>,
     },
     {
       key: 'category',
       header: 'Category',
-      render: (part) => <div className="text-sm text-gray-700">{part.category || '-'}</div>,
+      render: (part) => <div className="text-sm text-foreground">{part.category || '-'}</div>,
     },
     {
       key: 'machine',
       header: 'Machine / Brand',
       render: (part) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {part.machine && <div className="font-medium">{part.machine}</div>}
-          {part.brand && <div className="text-xs text-gray-500">{part.brand}</div>}
+          {part.brand && <div className="text-xs text-muted-foreground">{part.brand}</div>}
           {!part.machine && !part.brand && '-'}
         </div>
       ),
@@ -163,7 +163,7 @@ export default function MachinePartList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
           {part.machinePartSuppliers && part.machinePartSuppliers.length > 2 && (
             <Badge variant="outline" className="text-xs">
@@ -177,7 +177,7 @@ export default function MachinePartList() {
       key: 'pricePerUnit',
       header: 'Price/Unit',
       render: (part) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {part.pricePerUnit ? formatCurrency(part.pricePerUnit) : '-'}
         </div>
       ),

@@ -31,7 +31,7 @@ export function FabricsTrimsTab({ onPrevious, onNext, onOpenPicker }: FabricsTri
       {/* Fabrics Section */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Fabrics</h2>
+          <h2 className="text-xl font-display font-semibold">Fabrics</h2>
           <Button type="button" variant="outline" size="sm" onClick={addFabric}>
             <Plus className="h-4 w-4 mr-2" />
             Add Fabric
@@ -129,8 +129,8 @@ export function FabricsTrimsTab({ onPrevious, onNext, onOpenPicker }: FabricsTri
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-semibold">Trims & Materials</h2>
-            <p className="text-sm text-gray-600">Buttons, Zippers, Lace, Thread, etc.</p>
+            <h2 className="text-xl font-display font-semibold">Trims & Materials</h2>
+            <p className="text-sm text-muted-foreground">Buttons, Zippers, Lace, Thread, etc.</p>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={onOpenPicker}>
             <Plus className="h-4 w-4 mr-2" />
@@ -139,7 +139,7 @@ export function FabricsTrimsTab({ onPrevious, onNext, onOpenPicker }: FabricsTri
         </div>
 
         {materialBOM.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             <AlertCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
             <p>No materials added yet</p>
             <p className="text-sm mt-1">Click "Add Material" to get started</p>
@@ -153,7 +153,7 @@ export function FabricsTrimsTab({ onPrevious, onNext, onOpenPicker }: FabricsTri
                     <Badge variant="outline">{material.materialCode}</Badge>
                     <span className="font-medium text-sm">{material.materialName}</span>
                   </div>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Qty: {material.quantityPerGarment} {material.unit} · Category:{' '}
                     {material.usageCategory.replace('_', ' ')}
                     {material.componentName && ` · Component: ${material.componentName}`}

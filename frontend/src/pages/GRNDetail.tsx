@@ -180,7 +180,7 @@ export default function GRNDetail() {
       <div className="container mx-auto py-8 px-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center text-red-600">{error || 'GRN not found'}</div>
+            <div className="text-center text-destructive">{error || 'GRN not found'}</div>
             <div className="text-center mt-4">
               <Button onClick={() => navigate('/procurement/grn')}>Back to GRNs</Button>
             </div>
@@ -197,10 +197,10 @@ export default function GRNDetail() {
     <div className="space-y-6">
       {/* Pending Cutting Notification (shown after GRN approval) */}
       {pendingCutting && pendingCutting.length > 0 && (
-        <Alert className="bg-blue-50 border-blue-200">
-          <Scissors className="h-4 w-4 text-blue-600" />
+        <Alert className="bg-info-muted border-info/20">
+          <Scissors className="h-4 w-4 text-info" />
           <AlertDescription className="flex items-center justify-between">
-            <span className="text-blue-800">
+            <span className="text-info">
               <strong>Fabric received for pending production</strong> —{' '}
               {pendingCutting.map((pc) => `${pc.workOrderNumber} (${pc.pendingQty} pcs pending)`).join(', ')}
             </span>
@@ -209,7 +209,7 @@ export default function GRNDetail() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-blue-400 text-blue-700 hover:bg-blue-50"
+                  className="border-info/50 text-info hover:bg-info-muted"
                   onClick={() => navigate(`/manufacturing/cutting/new?workOrderId=${pendingCutting[0].workOrderId}`)}
                 >
                   Go to Cutting Chart <ArrowRight className="ml-1 h-3 w-3" />
@@ -218,7 +218,7 @@ export default function GRNDetail() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-blue-400 text-blue-700 hover:bg-blue-50"
+                  className="border-info/50 text-info hover:bg-info-muted"
                   onClick={() => navigate('/manufacturing/cutting')}
                 >
                   View Cutting <ArrowRight className="ml-1 h-3 w-3" />
@@ -240,8 +240,8 @@ export default function GRNDetail() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{grn.grnNumber}</h1>
-            <p className="text-sm text-gray-500">Received on {formatDate(grn.receivingDate)}</p>
+            <h1 className="text-2xl font-display font-medium">{grn.grnNumber}</h1>
+            <p className="text-sm text-muted-foreground">Received on {formatDate(grn.receivingDate)}</p>
           </div>
           <StatusBadge status={GRNStatusLabels[grn.status]} variant={getStatusVariant(grn.status)} />
         </div>
@@ -269,13 +269,13 @@ export default function GRNDetail() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Total Items</div>
+            <div className="text-sm text-muted-foreground">Total Items</div>
             <div className="text-2xl font-bold">{grn.items?.length || 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Total Received</div>
+            <div className="text-sm text-muted-foreground">Total Received</div>
             <div className="text-2xl font-bold">
               {grn.items?.reduce((sum, item) => sum + Number(item.receivedQuantity), 0).toLocaleString()}
             </div>
@@ -283,16 +283,16 @@ export default function GRNDetail() {
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Total Accepted</div>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-sm text-muted-foreground">Total Accepted</div>
+            <div className="text-2xl font-bold text-success">
               {grn.items?.reduce((sum, item) => sum + Number(item.acceptedQuantity), 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Total Rejected</div>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-sm text-muted-foreground">Total Rejected</div>
+            <div className="text-2xl font-bold text-destructive">
               {grn.items?.reduce((sum, item) => sum + Number(item.rejectedQuantity), 0).toLocaleString()}
             </div>
           </CardContent>
@@ -310,20 +310,20 @@ export default function GRNDetail() {
               <h4 className="font-medium mb-2">Purchase Order</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">PO Number:</span>
+                  <span className="text-muted-foreground">PO Number:</span>
                   <button
                     onClick={() => navigate(`/procurement/purchase-orders/${grn.poId}`)}
-                    className="text-blue-600 hover:underline font-medium"
+                    className="text-info hover:underline font-medium"
                   >
                     {grn.purchaseOrders?.poNumber}
                   </button>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Expected Delivery:</span>
+                  <span className="text-muted-foreground">Expected Delivery:</span>
                   <span>{formatDate(grn.purchaseOrders?.expectedDeliveryDate || null)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">PO Status:</span>
+                  <span className="text-muted-foreground">PO Status:</span>
                   <span>{grn.purchaseOrders?.status}</span>
                 </div>
               </div>
@@ -332,15 +332,15 @@ export default function GRNDetail() {
               <h4 className="font-medium mb-2">Supplier</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Name:</span>
+                  <span className="text-muted-foreground">Name:</span>
                   <span className="font-medium">{grn.supplier?.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Code:</span>
+                  <span className="text-muted-foreground">Code:</span>
                   <span>{grn.supplier?.code}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Contact:</span>
+                  <span className="text-muted-foreground">Contact:</span>
                   <span>{grn.supplier?.contactPerson || '-'}</span>
                 </div>
               </div>
@@ -356,11 +356,11 @@ export default function GRNDetail() {
               </h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-500">Invoice Number:</span>
+                  <span className="text-muted-foreground">Invoice Number:</span>
                   <p className="font-medium">{grn.invoiceNumber || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Invoice Date:</span>
+                  <span className="text-muted-foreground">Invoice Date:</span>
                   <p>{formatDate(grn.invoiceDate)}</p>
                 </div>
               </div>
@@ -407,13 +407,13 @@ export default function GRNDetail() {
                     <TableCell>
                       <div>
                         <div className="font-medium">{item.materials?.code}</div>
-                        <div className="text-sm text-gray-500">{item.materials?.name}</div>
+                        <div className="text-sm text-muted-foreground">{item.materials?.name}</div>
                       </div>
                       {/* Over-receipt indicator */}
                       {item.isOverReceipt && (
                         <div className="flex items-center gap-1 mt-1">
-                          <AlertTriangle className="h-3 w-3 text-amber-600" />
-                          <span className="text-xs text-amber-600 font-medium">
+                          <AlertTriangle className="h-3 w-3 text-warning" />
+                          <span className="text-xs text-warning font-medium">
                             Over-receipt: +{Number(item.overReceiptQty || 0).toFixed(3)}
                           </span>
                         </div>
@@ -486,14 +486,14 @@ export default function GRNDetail() {
                     <TableCell className="text-right font-medium">
                       {Number(item.receivedQuantity).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right text-green-600 font-medium">
+                    <TableCell className="text-right text-success font-medium">
                       {Number(item.acceptedQuantity).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right text-red-600">
+                    <TableCell className="text-right text-destructive">
                       {Number(item.rejectedQuantity) > 0 ? Number(item.rejectedQuantity).toLocaleString() : '-'}
                     </TableCell>
                     <TableCell>{item.unit}</TableCell>
-                    <TableCell className="text-sm text-gray-500">{item.remarks || '-'}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{item.remarks || '-'}</TableCell>
                   </TableRow>
                 );
               })}
@@ -510,19 +510,19 @@ export default function GRNDetail() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
             <div>
-              <span className="text-gray-500">Received By:</span>
+              <span className="text-muted-foreground">Received By:</span>
               <p className="font-medium">
                 {grn.receivedBy ? `${grn.receivedBy.firstName} ${grn.receivedBy.lastName}` : '-'}
               </p>
-              <p className="text-gray-500">{grn.receivedBy?.email}</p>
+              <p className="text-muted-foreground">{grn.receivedBy?.email}</p>
             </div>
             {grn.approvedById && (
               <div>
-                <span className="text-gray-500">Approved/Rejected By:</span>
+                <span className="text-muted-foreground">Approved/Rejected By:</span>
                 <p className="font-medium">
                   {grn.approvedBy ? `${grn.approvedBy.firstName} ${grn.approvedBy.lastName}` : '-'}
                 </p>
-                <p className="text-gray-500">{grn.approvedBy?.email}</p>
+                <p className="text-muted-foreground">{grn.approvedBy?.email}</p>
               </div>
             )}
           </div>
@@ -536,7 +536,7 @@ export default function GRNDetail() {
             <CardTitle>Notes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700 whitespace-pre-wrap">{grn.remarks}</p>
+            <p className="text-foreground whitespace-pre-wrap">{grn.remarks}</p>
           </CardContent>
         </Card>
       )}
@@ -549,7 +549,7 @@ export default function GRNDetail() {
               <CardTitle>Select Warehouse to Approve</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 This GRN has no warehouse assigned. Select a warehouse to receive the goods into.
               </p>
               <div className="space-y-2">
@@ -722,7 +722,7 @@ export default function GRNDetail() {
               <CardTitle>Reject GRN</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Are you sure you want to reject GRN {grn.grnNumber}? This will revert the received quantities on the
                 purchase order.
               </p>

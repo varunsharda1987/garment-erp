@@ -475,7 +475,7 @@ export default function CuttingDetail() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -483,7 +483,7 @@ export default function CuttingDetail() {
   if (!batch) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">Cutting batch not found</p>
+        <p className="text-muted-foreground">Cutting batch not found</p>
         <Button className="mt-4" onClick={() => navigate('/manufacturing/cutting')}>
           Back to Cutting
         </Button>
@@ -501,13 +501,13 @@ export default function CuttingDetail() {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            <Scissors className="h-8 w-8 text-orange-600" />
+            <Scissors className="h-8 w-8 text-primary" />
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900">{batch.batchNumber}</h1>
+                <h1 className="text-2xl font-display font-medium text-foreground">{batch.batchNumber}</h1>
                 {getStatusBadge(batch.status)}
               </div>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 {batch.workOrder?.style?.styleCode} - {batch.workOrder?.style?.styleName}
                 {' | '}
                 {batch.workOrder?.workOrderNumber}
@@ -525,17 +525,18 @@ export default function CuttingDetail() {
             <Scissors className="h-4 w-4 mr-2" />
             View Chart
           </Button>
+          {/* Delete button for batches without lays (PENDING, IN_PROGRESS, ON_HOLD) */}
+          {['PENDING', 'IN_PROGRESS', 'ON_HOLD'].includes(batch.status) && lays.length === 0 && (
+            <Button variant="destructive" size="sm" onClick={handleDelete} disabled={isActioning}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          )}
           {batch.status === 'PENDING' && (
-            <>
-              <Button variant="destructive" size="sm" onClick={handleDelete} disabled={isActioning}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
-              <Button onClick={handleStart} disabled={isActioning}>
-                <Play className="h-4 w-4 mr-2" />
-                Start Cutting
-              </Button>
-            </>
+            <Button onClick={handleStart} disabled={isActioning}>
+              <Play className="h-4 w-4 mr-2" />
+              Start Cutting
+            </Button>
           )}
           {isInProgress && (
             <>
@@ -567,13 +568,13 @@ export default function CuttingDetail() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <Label className="text-gray-500 text-xs uppercase">Cutting Date</Label>
+              <Label className="text-muted-foreground text-xs uppercase">Cutting Date</Label>
               <p className="font-medium">{format(new Date(batch.cuttingDate), 'dd MMM yyyy')}</p>
             </div>
             <div>
-              <Label className="text-gray-500 text-xs uppercase">Work Order</Label>
+              <Label className="text-muted-foreground text-xs uppercase">Work Order</Label>
               <p
-                className="font-medium text-blue-600 cursor-pointer hover:underline"
+                className="font-medium text-info cursor-pointer hover:underline"
                 onClick={() => navigate(`/production/work-orders/${batch.workOrderId}`)}
               >
                 {batch.workOrder?.workOrderNumber}
@@ -581,14 +582,14 @@ export default function CuttingDetail() {
             </div>
             {dedupedFabrics.length > 0 ? (
               <div className="col-span-2">
-                <Label className="text-gray-500 text-xs uppercase mb-2 block">Fabrics & CAD Averages</Label>
+                <Label className="text-muted-foreground text-xs uppercase mb-2 block">Fabrics & CAD Averages</Label>
                 <div className="space-y-1">
                   {dedupedFabrics.map((af) => (
                     <div key={af.id} className="flex items-center gap-4 text-sm">
                       <span className="font-medium min-w-[120px]">
                         {af.fabricStock?.fabricMaster?.fabricName || af.fabricStock?.rollNumbers || 'Fabric'}
                       </span>
-                      <span className="text-gray-500">Lot: {af.fabricStock?.rollNumbers || '-'}</span>
+                      <span className="text-muted-foreground">Lot: {af.fabricStock?.rollNumbers || '-'}</span>
                       <span className="font-semibold">
                         CAD Avg: {af.cadAvgUsed != null ? `${Number(af.cadAvgUsed).toFixed(2)} m/pc` : '-'}
                       </span>
@@ -599,11 +600,11 @@ export default function CuttingDetail() {
             ) : (
               <>
                 <div>
-                  <Label className="text-gray-500 text-xs uppercase">Fabric Lot</Label>
+                  <Label className="text-muted-foreground text-xs uppercase">Fabric Lot</Label>
                   <p className="font-medium">{batch.fabricStock?.rollNumbers || '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-500 text-xs uppercase">CAD Average</Label>
+                  <Label className="text-muted-foreground text-xs uppercase">CAD Average</Label>
                   <p className="font-medium">{batch.cadAverageUsed} m/pc</p>
                 </div>
               </>
@@ -621,26 +622,26 @@ export default function CuttingDetail() {
               {dedupedFabrics.length > 1 ? (
                 <div className="flex flex-col items-end text-xs gap-0.5">
                   {dedupedFabrics.map((af) => (
-                    <span key={af.id} className="text-gray-500">
+                    <span key={af.id} className="text-muted-foreground">
                       {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
-                      <span className="font-semibold text-gray-900">{(af.fabricConsumed || 0).toFixed(2)} m</span>
+                      <span className="font-semibold text-foreground">{(af.fabricConsumed || 0).toFixed(2)} m</span>
                     </span>
                   ))}
                 </div>
               ) : (
-                <span className="text-gray-500">
+                <span className="text-muted-foreground">
                   Fabric Used:{' '}
-                  <span className="font-semibold text-gray-900">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
+                  <span className="font-semibold text-foreground">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
                 </span>
               )}
-              <span className="text-gray-500">
-                Progress: <span className="font-semibold text-orange-600">{progressPercent}%</span>
+              <span className="text-muted-foreground">
+                Progress: <span className="font-semibold text-primary">{progressPercent}%</span>
               </span>
             </div>
           </div>
           {/* Progress bar */}
           <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-            <div className="bg-orange-500 h-2 rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
+            <div className="bg-primary/100 h-2 rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
         </CardHeader>
         <CardContent>
@@ -659,7 +660,7 @@ export default function CuttingDetail() {
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell className="font-medium text-gray-500">Planned</TableCell>
+                  <TableCell className="font-medium text-muted-foreground">Planned</TableCell>
                   {sortedSkus.map((sku) => (
                     <TableCell key={sku.id} className="text-center">
                       {sku.toCut}
@@ -668,31 +669,31 @@ export default function CuttingDetail() {
                   <TableCell className="text-center font-semibold">{totalToCut}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="font-medium text-blue-600">Cut</TableCell>
+                  <TableCell className="font-medium text-info">Cut</TableCell>
                   {sortedSkus.map((sku) => (
-                    <TableCell key={sku.id} className="text-center font-medium text-blue-600">
+                    <TableCell key={sku.id} className="text-center font-medium text-info">
                       {sku.cutQty || 0}
                     </TableCell>
                   ))}
-                  <TableCell className="text-center font-bold text-blue-600">{totalCut}</TableCell>
+                  <TableCell className="text-center font-bold text-info">{totalCut}</TableCell>
                 </TableRow>
-                <TableRow className="bg-orange-50">
-                  <TableCell className="font-semibold text-orange-700">Remaining</TableCell>
+                <TableRow className="bg-primary/10">
+                  <TableCell className="font-semibold text-primary">Remaining</TableCell>
                   {sortedSkus.map((sku) => (
-                    <TableCell key={sku.id} className="text-center font-semibold text-orange-700">
+                    <TableCell key={sku.id} className="text-center font-semibold text-primary">
                       {sku.toCut - (sku.cutQty || 0)}
                     </TableCell>
                   ))}
-                  <TableCell className="text-center font-bold text-orange-700">{totalRemaining}</TableCell>
+                  <TableCell className="text-center font-bold text-primary">{totalRemaining}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="font-medium text-green-600">Good Pcs</TableCell>
+                  <TableCell className="font-medium text-success">Good Pcs</TableCell>
                   {sortedSkus.map((sku) => (
-                    <TableCell key={sku.id} className="text-center text-green-600">
+                    <TableCell key={sku.id} className="text-center text-success">
                       {sku.goodPcs || 0}
                     </TableCell>
                   ))}
-                  <TableCell className="text-center font-semibold text-green-600">{totalGood}</TableCell>
+                  <TableCell className="text-center font-semibold text-success">{totalGood}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -705,7 +706,7 @@ export default function CuttingDetail() {
         <Card className="border-orange-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Layers className="h-5 w-5 text-orange-600" />
+              <Layers className="h-5 w-5 text-primary" />
               Add New Lay
             </CardTitle>
             <CardDescription>
@@ -767,7 +768,9 @@ export default function CuttingDetail() {
                           <span className="text-sm min-w-[200px]">
                             {af.fabricStock?.fabricMaster?.fabricName || 'Fabric'}
                             {af.cadAvgUsed != null && (
-                              <span className="text-gray-400 ml-1">(CAD: {Number(af.cadAvgUsed).toFixed(2)} m/pc)</span>
+                              <span className="text-muted-foreground ml-1">
+                                (CAD: {Number(af.cadAvgUsed).toFixed(2)} m/pc)
+                              </span>
                             )}
                           </span>
                           <Input
@@ -778,9 +781,9 @@ export default function CuttingDetail() {
                             value={fabricLayerLengths[af.id] || ''}
                             onChange={(e) => setFabricLayerLengths((prev) => ({ ...prev, [af.id]: e.target.value }))}
                           />
-                          <span className="text-sm text-gray-500">m</span>
+                          <span className="text-sm text-muted-foreground">m</span>
                           {consumed > 0 && (
-                            <span className="text-sm text-blue-600 font-medium">→ {consumed.toFixed(2)} m total</span>
+                            <span className="text-sm text-info font-medium">→ {consumed.toFixed(2)} m total</span>
                           )}
                         </div>
                       );
@@ -820,7 +823,7 @@ export default function CuttingDetail() {
                           />
                         </TableCell>
                         <TableCell className="font-medium">{sku.size?.sizeName || '-'}</TableCell>
-                        <TableCell className="text-center text-orange-600">{remaining}</TableCell>
+                        <TableCell className="text-center text-primary">{remaining}</TableCell>
                         <TableCell className="text-center">
                           <Input
                             type="number"
@@ -836,7 +839,7 @@ export default function CuttingDetail() {
                             }
                           />
                         </TableCell>
-                        <TableCell className="text-center font-medium text-green-700">
+                        <TableCell className="text-center font-medium text-success">
                           {layChecked[key] && totalCutForSize > 0 ? totalCutForSize : '-'}
                         </TableCell>
                       </TableRow>
@@ -891,7 +894,7 @@ export default function CuttingDetail() {
                               <div key={lf.id}>
                                 {lf.batchFabric?.fabricStock?.fabricMaster?.fabricName || 'Fabric'}:{' '}
                                 <span className="font-medium">{(Number(lf.layerLength) * layers).toFixed(2)} m</span>
-                                <span className="text-gray-400">
+                                <span className="text-muted-foreground">
                                   {' '}
                                   ({Number(lf.layerLength).toFixed(2)} × {layers})
                                 </span>
@@ -912,14 +915,14 @@ export default function CuttingDetail() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium">{lay.totalPieces}</TableCell>
-                      <TableCell className="text-gray-500 text-sm">{lay.remarks || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{lay.remarks || '-'}</TableCell>
                       {isInProgress && (
                         <TableCell>
                           {idx === 0 && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-500 hover:text-red-700"
+                              className="text-destructive hover:text-destructive"
                               onClick={() => handleDeleteLay(lay.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -938,17 +941,17 @@ export default function CuttingDetail() {
 
       {/* Issue to Stitching — When batch has good pieces */}
       {hasGoodPcs && (isCompleted || isInProgress) && stitchingData && (
-        <Card className="border-blue-200">
+        <Card className="border-info/20">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Send className="h-5 w-5 text-blue-600" />
+                <Send className="h-5 w-5 text-info" />
                 Issue to Stitching
               </CardTitle>
               {!showIssueForm && (
                 <div className="flex items-center gap-2">
                   {!allFabricsCut && (
-                    <span className="text-xs text-red-600">
+                    <span className="text-xs text-destructive">
                       {uncutFabrics.map((af) => af.fabricStock?.fabricMaster?.fabricName || 'Fabric').join(', ')} not
                       yet cut
                     </span>
@@ -978,23 +981,23 @@ export default function CuttingDetail() {
                     <TableRow key={`${sku.colorId}-${sku.sizeId}`}>
                       <TableCell className="font-medium">{sku.sizeName}</TableCell>
                       <TableCell className="text-center">{sku.goodPcs}</TableCell>
-                      <TableCell className="text-center text-blue-600">{sku.issuedQty}</TableCell>
+                      <TableCell className="text-center text-info">{sku.issuedQty}</TableCell>
                       <TableCell
-                        className={`text-center font-medium ${sku.availableQty > 0 ? 'text-green-600' : 'text-gray-400'}`}
+                        className={`text-center font-medium ${sku.availableQty > 0 ? 'text-success' : 'text-muted-foreground'}`}
                       >
                         {sku.availableQty}
                       </TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="bg-gray-50 font-semibold">
+                  <TableRow className="bg-muted font-semibold">
                     <TableCell>Total</TableCell>
                     <TableCell className="text-center">
                       {stitchingData.perSku.reduce((s, r) => s + r.goodPcs, 0)}
                     </TableCell>
-                    <TableCell className="text-center text-blue-600">
+                    <TableCell className="text-center text-info">
                       {stitchingData.perSku.reduce((s, r) => s + r.issuedQty, 0)}
                     </TableCell>
-                    <TableCell className="text-center text-green-600">
+                    <TableCell className="text-center text-success">
                       {stitchingData.perSku.reduce((s, r) => s + r.availableQty, 0)}
                     </TableCell>
                   </TableRow>
@@ -1006,8 +1009,8 @@ export default function CuttingDetail() {
             {showIssueForm && (
               <>
                 <Separator />
-                <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-semibold text-blue-900">New Issue</h4>
+                <div className="space-y-4 p-4 bg-info-muted rounded-lg">
+                  <h4 className="font-semibold text-info">New Issue</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
                       <Label className="text-sm">Issue To</Label>
@@ -1054,7 +1057,7 @@ export default function CuttingDetail() {
                           return (
                             <TableRow key={key}>
                               <TableCell className="font-medium">{sku.sizeName}</TableCell>
-                              <TableCell className="text-center text-green-600">{sku.availableQty}</TableCell>
+                              <TableCell className="text-center text-success">{sku.availableQty}</TableCell>
                               <TableCell className="text-center">
                                 <Input
                                   type="number"
@@ -1098,14 +1101,16 @@ export default function CuttingDetail() {
               <>
                 <Separator />
                 <div>
-                  <h4 className="font-semibold text-gray-700 mb-3">Issue History</h4>
+                  <h4 className="font-semibold text-foreground mb-3">Issue History</h4>
                   <div className="space-y-3">
                     {stitchingData.issues.map((issue) => (
                       <div key={issue.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-4">
                           <div>
                             <p className="font-medium text-sm">{issue.slipNumber}</p>
-                            <p className="text-xs text-gray-500">{format(new Date(issue.issueDate), 'dd MMM yyyy')}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(issue.issueDate), 'dd MMM yyyy')}
+                            </p>
                           </div>
                           <div>
                             <p className="text-sm">
@@ -1158,7 +1163,7 @@ export default function CuttingDetail() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <Label className="text-gray-500">CAD Average</Label>
+                <Label className="text-muted-foreground">CAD Average</Label>
                 {dedupedFabrics.length > 0 ? (
                   <div className="space-y-0.5">
                     {dedupedFabrics.map((af) => (
@@ -1173,19 +1178,19 @@ export default function CuttingDetail() {
                 )}
               </div>
               <div>
-                <Label className="text-gray-500">Actual Average</Label>
+                <Label className="text-muted-foreground">Actual Average</Label>
                 <p className="font-semibold">{batch.actualAverage.toFixed(3)} m/pc</p>
               </div>
               <div>
-                <Label className="text-gray-500">Variance</Label>
+                <Label className="text-muted-foreground">Variance</Label>
                 <p
-                  className={`font-semibold ${batch.variancePercent && batch.variancePercent > 0 ? 'text-red-600' : 'text-green-600'}`}
+                  className={`font-semibold ${batch.variancePercent && batch.variancePercent > 0 ? 'text-destructive' : 'text-success'}`}
                 >
                   {batch.variancePercent?.toFixed(2)}%
                 </p>
               </div>
               <div>
-                <Label className="text-gray-500">Fabric Consumed</Label>
+                <Label className="text-muted-foreground">Fabric Consumed</Label>
                 <p className="font-semibold">{(batch.fabricConsumed || 0).toFixed(2)} m</p>
               </div>
             </div>
@@ -1206,11 +1211,11 @@ export default function CuttingDetail() {
             {/* Summary */}
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Total Cut:</span>
+                <span className="text-muted-foreground">Total Cut:</span>
                 <span className="font-semibold">{totalCut} pcs</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Consumed in Lays:</span>
+                <span className="text-muted-foreground">Consumed in Lays:</span>
                 <span className="font-semibold">{(batch.fabricConsumed || 0).toFixed(2)} m</span>
               </div>
             </div>
@@ -1307,19 +1312,19 @@ export default function CuttingDetail() {
                   return (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Actual Average:</span>
+                        <span className="text-muted-foreground">Actual Average:</span>
                         <span className="font-semibold">{actualAvg.toFixed(4)} m/pc</span>
                       </div>
                       {cadAvg > 0 && (
                         <>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">CAD Average:</span>
+                            <span className="text-muted-foreground">CAD Average:</span>
                             <span>{cadAvg.toFixed(4)} m/pc</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Variance:</span>
+                            <span className="text-muted-foreground">Variance:</span>
                             <span
-                              className={variance > 0 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}
+                              className={variance > 0 ? 'text-destructive font-semibold' : 'text-success font-semibold'}
                             >
                               {variance > 0 ? '+' : ''}
                               {variance.toFixed(2)}%

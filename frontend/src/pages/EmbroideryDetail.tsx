@@ -62,10 +62,10 @@ export default function EmbroideryDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-accent/5 to-primary/10 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading embroidery details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading embroidery details...</p>
         </div>
       </div>
     );
@@ -73,8 +73,8 @@ export default function EmbroideryDetail() {
 
   if (error || !embroidery) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
-        <header className="bg-white shadow-sm">
+      <div className="min-h-screen bg-gradient-to-br from-accent/5 to-primary/10">
+        <header className="bg-card shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => navigate('/embroidery')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -85,7 +85,7 @@ export default function EmbroideryDetail() {
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600">{error || 'Embroidery design not found'}</p>
+              <p className="text-destructive">{error || 'Embroidery design not found'}</p>
               <Button onClick={() => navigate('/embroidery')} className="mt-4">
                 Return to Embroidery
               </Button>
@@ -97,8 +97,8 @@ export default function EmbroideryDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-accent/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Button variant="ghost" onClick={() => navigate('/embroidery')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -120,13 +120,13 @@ export default function EmbroideryDetail() {
             <div className="flex justify-between items-start">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <Sparkles className="h-6 w-6 text-purple-600" />
+                  <Sparkles className="h-6 w-6 text-accent" />
                   <CardTitle className="text-3xl">{embroidery.designName}</CardTitle>
                   <Badge variant={embroidery.isActive ? 'default' : 'secondary'}>
                     {embroidery.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
-                <p className="text-gray-600 font-mono">{embroidery.embroideryCode}</p>
+                <p className="text-muted-foreground font-mono">{embroidery.embroideryCode}</p>
               </div>
               {embroidery.designImage && (
                 <img
@@ -152,23 +152,23 @@ export default function EmbroideryDetail() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Stitch Count</label>
-                  <p className="text-gray-900 text-xl font-semibold">
+                  <label className="text-sm font-medium text-muted-foreground">Stitch Count</label>
+                  <p className="text-foreground text-xl font-semibold">
                     {embroidery.stitchCount ? embroidery.stitchCount.toLocaleString() : '-'}
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Palette className="h-4 w-4 text-gray-500 mt-1" />
+                  <Palette className="h-4 w-4 text-muted-foreground mt-1" />
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Thread Colors</label>
-                    <p className="text-gray-900 text-xl font-semibold">{embroidery.threadColors || '-'}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Thread Colors</label>
+                    <p className="text-foreground text-xl font-semibold">{embroidery.threadColors || '-'}</p>
                   </div>
                 </div>
               </div>
               {(embroidery.repeatWidth || embroidery.repeatHeight) && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Pattern Repeat</label>
-                  <p className="text-gray-900">
+                  <label className="text-sm font-medium text-muted-foreground">Pattern Repeat</label>
+                  <p className="text-foreground">
                     {embroidery.repeatWidth ? `${embroidery.repeatWidth}"` : '-'} x{' '}
                     {embroidery.repeatHeight ? `${embroidery.repeatHeight}"` : '-'}
                   </p>
@@ -188,17 +188,17 @@ export default function EmbroideryDetail() {
             <CardContent className="space-y-4">
               {embroidery.minFabricWidth && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Minimum Fabric Width</label>
-                  <p className="text-gray-900 text-lg">{embroidery.minFabricWidth}" (input)</p>
+                  <label className="text-sm font-medium text-muted-foreground">Minimum Fabric Width</label>
+                  <p className="text-foreground text-lg">{embroidery.minFabricWidth}" (input)</p>
                 </div>
               )}
               <div>
-                <label className="text-sm font-medium text-gray-600">Usable Width After Embroidery</label>
+                <label className="text-sm font-medium text-muted-foreground">Usable Width After Embroidery</label>
                 <div className="flex items-center gap-2">
-                  <Scissors className="h-4 w-4 text-purple-600" />
-                  <p className="text-purple-700 text-2xl font-semibold">{embroidery.usableWidthAfter}"</p>
+                  <Scissors className="h-4 w-4 text-accent" />
+                  <p className="text-accent text-2xl font-semibold">{embroidery.usableWidthAfter}"</p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Cuttable width for CAD planning</p>
+                <p className="text-xs text-muted-foreground mt-1">Cuttable width for CAD planning</p>
               </div>
             </CardContent>
           </Card>
@@ -213,15 +213,15 @@ export default function EmbroideryDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-600">Cost per Meter</label>
-                <p className="text-gray-900 text-3xl font-semibold">{formatCurrency(embroidery.costPerMeter)}</p>
+                <label className="text-sm font-medium text-muted-foreground">Cost per Meter</label>
+                <p className="text-foreground text-3xl font-semibold">{formatCurrency(embroidery.costPerMeter)}</p>
               </div>
               {embroidery.leadTimeDays && (
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-gray-500" />
+                  <Clock className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Lead Time</label>
-                    <p className="text-gray-900">{embroidery.leadTimeDays} days</p>
+                    <label className="text-sm font-medium text-muted-foreground">Lead Time</label>
+                    <p className="text-foreground">{embroidery.leadTimeDays} days</p>
                   </div>
                 </div>
               )}
@@ -240,18 +240,18 @@ export default function EmbroideryDetail() {
               {embroidery.supplier ? (
                 <div className="space-y-2">
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Supplier Name</label>
-                    <p className="text-gray-900 font-medium">{embroidery.supplier.name}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Supplier Name</label>
+                    <p className="text-foreground font-medium">{embroidery.supplier.name}</p>
                   </div>
                   {embroidery.supplier.code && (
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Supplier Code</label>
-                      <p className="text-gray-900 font-mono">{embroidery.supplier.code}</p>
+                      <label className="text-sm font-medium text-muted-foreground">Supplier Code</label>
+                      <p className="text-foreground font-mono">{embroidery.supplier.code}</p>
                     </div>
                   )}
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No supplier assigned</p>
+                <p className="text-muted-foreground text-sm">No supplier assigned</p>
               )}
             </CardContent>
           </Card>
@@ -266,7 +266,7 @@ export default function EmbroideryDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-900 whitespace-pre-line">{embroidery.description}</p>
+                <p className="text-foreground whitespace-pre-line">{embroidery.description}</p>
               </CardContent>
             </Card>
           )}
@@ -285,12 +285,12 @@ export default function EmbroideryDetail() {
                   {embroidery.usedInStyles.map((usage, index) => (
                     <div
                       key={index}
-                      className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors"
                       onClick={() => navigate(`/styles/${usage.styleId}`)}
                     >
-                      <div className="font-medium text-gray-900">{usage.styleCode}</div>
-                      <div className="text-sm text-gray-600">{usage.styleName}</div>
-                      <div className="text-xs text-gray-500 mt-1">Component: {usage.componentName}</div>
+                      <div className="font-medium text-foreground">{usage.styleCode}</div>
+                      <div className="text-sm text-muted-foreground">{usage.styleName}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Component: {usage.componentName}</div>
                     </div>
                   ))}
                 </div>
@@ -309,7 +309,7 @@ export default function EmbroideryDetail() {
                   href={embroidery.designFile}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline flex items-center gap-2"
+                  className="text-info hover:underline flex items-center gap-2"
                 >
                   <FileText className="h-4 w-4" />
                   Download Design File
@@ -326,12 +326,12 @@ export default function EmbroideryDetail() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Created At</label>
-                  <p className="text-gray-900">{new Date(embroidery.createdAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Created At</label>
+                  <p className="text-foreground">{new Date(embroidery.createdAt).toLocaleString()}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                  <p className="text-gray-900">{new Date(embroidery.updatedAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                  <p className="text-foreground">{new Date(embroidery.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>

@@ -137,7 +137,7 @@ export default function StockAdjustmentForm() {
       )}
 
       {success && (
-        <Alert className="mb-4 bg-green-50 text-green-900 border-green-200">
+        <Alert className="mb-4 bg-success-muted text-success border-success/20">
           <AlertDescription>Stock adjustment created successfully! Redirecting...</AlertDescription>
         </Alert>
       )}
@@ -149,7 +149,7 @@ export default function StockAdjustmentForm() {
               {/* Warehouse Selection */}
               <div className="space-y-2">
                 <Label htmlFor="warehouseId">
-                  Warehouse <span className="text-red-500">*</span>
+                  Warehouse <span className="text-destructive">*</span>
                 </Label>
                 <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
                   <SelectTrigger id="warehouseId">
@@ -168,7 +168,7 @@ export default function StockAdjustmentForm() {
               {/* Material Selection */}
               <div className="space-y-2">
                 <Label htmlFor="materialId">
-                  Material <span className="text-red-500">*</span>
+                  Material <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={formData.materialId}
@@ -199,7 +199,7 @@ export default function StockAdjustmentForm() {
               {/* Stock Info */}
               {selectedStock && (
                 <div className="md:col-span-2">
-                  <Alert className="bg-blue-50 text-blue-900 border-blue-200">
+                  <Alert className="bg-info-muted text-info border-info/20">
                     <AlertDescription>
                       Current Stock: {Number(selectedStock.quantity).toFixed(2)} {selectedStock.unit}
                       {' | '}
@@ -212,7 +212,7 @@ export default function StockAdjustmentForm() {
               {/* Adjustment Type */}
               <div className="space-y-2 md:col-span-2">
                 <Label>
-                  Adjustment Type <span className="text-red-500">*</span>
+                  Adjustment Type <span className="text-destructive">*</span>
                 </Label>
                 <RadioGroup
                   value={formData.adjustmentType}
@@ -238,7 +238,7 @@ export default function StockAdjustmentForm() {
               <div className="space-y-2">
                 <Label htmlFor="quantity">
                   Quantity to {formData.adjustmentType === 'increase' ? 'Add' : 'Subtract'}{' '}
-                  <span className="text-red-500">*</span>
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="quantity"
@@ -261,7 +261,7 @@ export default function StockAdjustmentForm() {
               {/* Reason */}
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="reason">
-                  Reason for Adjustment <span className="text-red-500">*</span>
+                  Reason for Adjustment <span className="text-destructive">*</span>
                 </Label>
                 <Select value={formData.reason} onValueChange={(value) => handleChange('reason', value)}>
                   <SelectTrigger id="reason">
@@ -281,7 +281,7 @@ export default function StockAdjustmentForm() {
               {/* Remarks */}
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="remarks">
-                  Detailed Remarks <span className="text-red-500">*</span>
+                  Detailed Remarks <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="remarks"

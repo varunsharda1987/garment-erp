@@ -13,7 +13,7 @@ export default function StatusSummaryCards({ summary, loading }: StatusSummaryCa
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         {[...Array(5)].map((_, i) => (
           <Card key={i} className="p-4 animate-pulse">
-            <div className="h-16 bg-gray-200 rounded"></div>
+            <div className="h-16 bg-muted rounded"></div>
           </Card>
         ))}
       </div>
@@ -27,45 +27,45 @@ export default function StatusSummaryCards({ summary, loading }: StatusSummaryCa
       value: summary.total,
       subValue: `₹${(summary.totalOrderValue / 10000000).toFixed(2)} Cr`,
       pieces: `${summary.totalPieces.toLocaleString()} pcs`,
-      bgColor: 'bg-blue-50',
-      iconColor: 'text-blue-600',
-      borderColor: 'border-blue-200',
+      bgColor: 'bg-info-muted',
+      iconColor: 'text-info',
+      borderColor: 'border-info/20',
     },
     {
       title: 'Running',
       icon: TrendingUp,
       value: summary.running,
       subValue: `${summary.total > 0 ? Math.round((summary.running / summary.total) * 100) : 0}% of total`,
-      bgColor: 'bg-indigo-50',
-      iconColor: 'text-indigo-600',
-      borderColor: 'border-indigo-200',
+      bgColor: 'bg-primary/5',
+      iconColor: 'text-primary',
+      borderColor: 'border-primary/20',
     },
     {
       title: 'Delayed',
       icon: AlertTriangle,
       value: summary.delayed,
       subValue: summary.delayed > 0 ? 'Requires attention' : 'All on track',
-      bgColor: 'bg-red-50',
-      iconColor: 'text-red-600',
-      borderColor: 'border-red-200',
+      bgColor: 'bg-destructive/10',
+      iconColor: 'text-destructive',
+      borderColor: 'border-destructive/20',
     },
     {
       title: 'Needs Attention',
       icon: Clock,
       value: summary.needsAttention,
       subValue: summary.needsAttention > 0 ? 'Action required' : 'No blockers',
-      bgColor: 'bg-amber-50',
-      iconColor: 'text-amber-600',
-      borderColor: 'border-amber-200',
+      bgColor: 'bg-warning-muted',
+      iconColor: 'text-warning',
+      borderColor: 'border-warning/20',
     },
     {
       title: 'Completed',
       icon: CheckCircle,
       value: summary.completed,
       subValue: `${summary.total > 0 ? Math.round((summary.completed / summary.total) * 100) : 0}% complete`,
-      bgColor: 'bg-green-50',
-      iconColor: 'text-green-600',
-      borderColor: 'border-green-200',
+      bgColor: 'bg-success-muted',
+      iconColor: 'text-success',
+      borderColor: 'border-success/20',
     },
   ];
 
@@ -80,10 +80,10 @@ export default function StatusSummaryCards({ summary, loading }: StatusSummaryCa
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-600 mb-1">{card.title}</p>
-                <p className="text-3xl font-bold text-gray-900 mb-1">{card.value}</p>
-                <p className="text-xs text-gray-500">{card.subValue}</p>
-                {card.pieces && <p className="text-xs text-gray-500 mt-1">{card.pieces}</p>}
+                <p className="text-sm font-medium text-muted-foreground mb-1">{card.title}</p>
+                <p className="text-3xl font-bold text-foreground mb-1">{card.value}</p>
+                <p className="text-xs text-muted-foreground">{card.subValue}</p>
+                {card.pieces && <p className="text-xs text-muted-foreground mt-1">{card.pieces}</p>}
               </div>
               <div className={`p-2 rounded-lg ${card.bgColor}`}>
                 <Icon className={`h-6 w-6 ${card.iconColor}`} />

@@ -2,7 +2,7 @@
 // Handles HTTP requests for style-fabric stock management
 
 import { Request, Response } from 'express';
-import FabricStockService, { CreateStyleStockDTO } from '../services/fabric-stock.service';
+import FabricStockService, { CreateStyleStockDTO, StockStatusFilter } from '../services/fabric-stock.service';
 import GreigeStockService from '../services/greige-stock.service';
 import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
@@ -79,12 +79,24 @@ class StyleStockController {
   /**
    * Get stock for a style
    * GET /api/styles/:styleId/stock
+   * Query params:
+   *   - status: AVAILABLE | RESERVED | CONSUMED | ALL (default: AVAILABLE)
    */
   async getStyleStock(req: Request, res: Response) {
     try {
       const { styleId } = req.params;
+      const statusFilter = (req.query.status as StockStatusFilter) || 'AVAILABLE';
 
-      const stockData = await FabricStockService.getAvailableStockForStyle(styleId);
+      // Validate status filter
+      const validStatuses: StockStatusFilter[] = ['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ALL'];
+      if (!validStatuses.includes(statusFilter)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status filter. Must be one of: ${validStatuses.join(', ')}`,
+        });
+      }
+
+      const stockData = await FabricStockService.getAvailableStockForStyle(styleId, statusFilter);
 
       return res.status(200).json({
         success: true,
@@ -476,6 +488,57 @@ class StyleStockController {
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get bulk style stock',
+      });
+    }
+  }
+
+  /**
+   * Get processors (suppliers) that have available greige stock from transfers
+   * GET /api/greige/processors-with-stock
+   */
+  async getProcessorsWithGreigeStock(_req: Request, res: Response) {
+    try {
+      const processors = await GreigeStockService.getProcessorsWithGreigeStock();
+
+      return res.status(200).json({
+        success: true,
+        data: processors,
+      });
+    } catch (error: unknown) {
+      logError('Get processors with greige stock error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get processors with greige stock',
+      });
+    }
+  }
+
+  /**
+   * Get greige stock at a specific processor
+   * GET /api/greige/processor-stock/:processorId
+   */
+  async getProcessorGreigeStock(req: Request, res: Response) {
+    try {
+      const { processorId } = req.params;
+
+      if (!processorId) {
+        return res.status(400).json({
+          success: false,
+          message: 'processorId is required',
+        });
+      }
+
+      const stocks = await GreigeStockService.getProcessorGreigeStock(processorId);
+
+      return res.status(200).json({
+        success: true,
+        data: stocks,
+      });
+    } catch (error: unknown) {
+      logError('Get processor greige stock error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get processor greige stock',
       });
     }
   }

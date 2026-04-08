@@ -153,35 +153,35 @@ const getSeverityConfig = (severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW') => 
   switch (severity) {
     case 'CRITICAL':
       return {
-        borderColor: 'border-red-500',
-        bgColor: 'bg-red-50',
-        iconColor: 'text-red-600',
-        badgeBg: 'bg-red-100',
-        badgeText: 'text-red-800',
+        borderColor: 'border-destructive',
+        bgColor: 'bg-destructive/10',
+        iconColor: 'text-destructive',
+        badgeBg: 'bg-destructive/10',
+        badgeText: 'text-destructive',
       };
     case 'HIGH':
       return {
-        borderColor: 'border-orange-500',
-        bgColor: 'bg-orange-50',
-        iconColor: 'text-orange-600',
+        borderColor: 'border-primary',
+        bgColor: 'bg-primary/10',
+        iconColor: 'text-primary',
         badgeBg: 'bg-orange-100',
         badgeText: 'text-orange-800',
       };
     case 'MEDIUM':
       return {
-        borderColor: 'border-yellow-500',
-        bgColor: 'bg-yellow-50',
-        iconColor: 'text-yellow-600',
+        borderColor: 'border-warning',
+        bgColor: 'bg-warning-muted',
+        iconColor: 'text-warning',
         badgeBg: 'bg-yellow-100',
         badgeText: 'text-yellow-800',
       };
     case 'LOW':
       return {
-        borderColor: 'border-gray-300',
-        bgColor: 'bg-gray-50',
-        iconColor: 'text-gray-500',
-        badgeBg: 'bg-gray-100',
-        badgeText: 'text-gray-700',
+        borderColor: 'border-border',
+        bgColor: 'bg-muted',
+        iconColor: 'text-muted-foreground',
+        badgeBg: 'bg-muted',
+        badgeText: 'text-foreground',
       };
   }
 };
@@ -218,13 +218,13 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({ blocker }) =>
                 {blocker.severity}
               </span>
               {blocker.daysStuck != null && blocker.daysStuck > 0 && (
-                <span className="flex items-center gap-1 text-xs text-gray-600">
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   Stuck for {blocker.daysStuck} {blocker.daysStuck === 1 ? 'day' : 'days'}
                 </span>
               )}
             </div>
-            <p className="font-medium text-sm text-gray-900 break-words">{blocker.message}</p>
+            <p className="font-medium text-sm text-foreground break-words">{blocker.message}</p>
           </div>
         </div>
 
@@ -239,20 +239,22 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({ blocker }) =>
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-gray-300 space-y-3">
+        <div className="mt-3 pt-3 border-t border-border space-y-3">
           {/* Blocker Type */}
           <div className="text-xs">
-            <p className="font-semibold text-gray-700 mb-1">Blocker Type:</p>
-            <p className="text-gray-600 font-mono bg-white px-2 py-1 rounded border border-gray-200">{blocker.type}</p>
+            <p className="font-semibold text-foreground mb-1">Blocker Type:</p>
+            <p className="text-muted-foreground font-mono bg-card px-2 py-1 rounded border border-border">
+              {blocker.type}
+            </p>
           </div>
 
           {/* Resolution Steps */}
           <div className="text-xs">
-            <p className="font-semibold text-gray-700 mb-2 flex items-center gap-1">
+            <p className="font-semibold text-foreground mb-2 flex items-center gap-1">
               <CheckCircle className="h-3 w-3" />
               Resolution Steps:
             </p>
-            <ol className="list-decimal list-inside text-gray-700 space-y-1.5 bg-white px-3 py-2 rounded border border-gray-200">
+            <ol className="list-decimal list-inside text-foreground space-y-1.5 bg-card px-3 py-2 rounded border border-border">
               {resolutionSteps.map((step, idx) => (
                 <li key={idx} className="leading-relaxed">
                   {step}
@@ -262,8 +264,8 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({ blocker }) =>
           </div>
 
           {/* Admin Note */}
-          <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
-            <p className="text-blue-900">
+          <div className="text-xs bg-info-muted border border-info/20 rounded p-2">
+            <p className="text-info">
               <span className="font-semibold">Note:</span> Admin users can override this blocker with a valid business
               justification. All overrides are logged and auditable.
             </p>

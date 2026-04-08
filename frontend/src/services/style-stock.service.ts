@@ -10,6 +10,7 @@ import type {
   FabricStockHistoryEntry,
   GreigeStockCreateResponse,
   GenericGreigeStock,
+  StockStatusFilter,
 } from '../types/style-stock.types';
 
 // Re-export types for convenience
@@ -38,9 +39,16 @@ export async function createStyleStock(styleId: string, entries: StyleStockEntry
 
 /**
  * Get stock availability for a style
+ * @param styleId - The style ID
+ * @param statusFilter - Filter by stock status (default: AVAILABLE)
  */
-export async function getStyleStock(styleId: string): Promise<StyleStockAvailability> {
-  const response = await api.get(`/styles/${styleId}/stock`);
+export async function getStyleStock(
+  styleId: string,
+  statusFilter: StockStatusFilter = 'AVAILABLE'
+): Promise<StyleStockAvailability> {
+  const response = await api.get(`/styles/${styleId}/stock`, {
+    params: { status: statusFilter },
+  });
   return response.data.data;
 }
 

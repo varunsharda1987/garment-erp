@@ -334,6 +334,7 @@ export interface FabricStock {
   receivedDate: string;
   agingDays?: number;
   agingAlertSent: boolean;
+  needsEmbroidery?: boolean;
   createdAt: string;
   updatedAt: string;
   createdById: string;

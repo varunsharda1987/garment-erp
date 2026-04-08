@@ -100,13 +100,13 @@ export default function LaceCostingRow({
   const getStrategyBadgeColor = (strategy?: string) => {
     switch (strategy) {
       case 'STOCK_REUSE':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-success-muted text-success border-success/20';
       case 'READY_LACE':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-info-muted text-info border-info/20';
       case 'GREIGE_PROCESSED':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
+        return 'bg-accent/10 text-accent border-accent/20';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-foreground border-border';
     }
   };
 
@@ -129,15 +129,15 @@ export default function LaceCostingRow({
 
   return (
     <>
-      <tr className={`border-b hover:bg-gray-50 ${isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
+      <tr className={`border-b hover:bg-muted ${isNotApplicable ? 'bg-muted opacity-60' : ''}`}>
         {/* Index */}
-        <td className="px-4 py-3 text-sm text-gray-900">{index + 1}</td>
+        <td className="px-4 py-3 text-sm text-foreground">{index + 1}</td>
 
         {/* Lace Name */}
         <td className="px-4 py-3">
-          <div className="text-sm font-medium text-gray-900">{laceName}</div>
-          {colorName && <div className="text-xs text-gray-500">Color: {colorName}</div>}
-          {width && <div className="text-xs text-gray-500">Width: {width}"</div>}
+          <div className="text-sm font-medium text-foreground">{laceName}</div>
+          {colorName && <div className="text-xs text-muted-foreground">Color: {colorName}</div>}
+          {width && <div className="text-xs text-muted-foreground">Width: {width}"</div>}
         </td>
 
         {/* Quantity per Garment */}
@@ -148,10 +148,10 @@ export default function LaceCostingRow({
             min="0"
             value={quantityPerGarment}
             onChange={(e) => onQuantityChange?.(parseFloat(e.target.value) || 0)}
-            className="w-20 px-2 py-1 text-sm border border-gray-300 rounded text-center"
+            className="w-20 px-2 py-1 text-sm border border-border rounded text-center"
             disabled={isNotApplicable}
           />
-          <span className="text-xs text-gray-500 ml-1">m</span>
+          <span className="text-xs text-muted-foreground ml-1">m</span>
         </td>
 
         {/* Wastage % */}
@@ -163,14 +163,14 @@ export default function LaceCostingRow({
             max="50"
             value={wastagePercent}
             onChange={(e) => onWastageChange?.(parseFloat(e.target.value) || 0)}
-            className="w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center"
+            className="w-16 px-2 py-1 text-sm border border-border rounded text-center"
             disabled={isNotApplicable}
           />
-          <span className="text-xs text-gray-500 ml-1">%</span>
+          <span className="text-xs text-muted-foreground ml-1">%</span>
         </td>
 
         {/* Effective Quantity */}
-        <td className="px-4 py-3 text-sm text-gray-900 text-center">{effectiveQuantity.toFixed(3)}m</td>
+        <td className="px-4 py-3 text-sm text-foreground text-center">{effectiveQuantity.toFixed(3)}m</td>
 
         {/* Sourcing Strategy */}
         <td className="px-4 py-3">
@@ -186,23 +186,23 @@ export default function LaceCostingRow({
               <button
                 onClick={handleOpenSourcingModal}
                 disabled={isLoading || !hasRequiredFields}
-                className="text-blue-600 hover:text-blue-800 text-xs underline disabled:opacity-50"
+                className="text-info hover:text-info text-xs underline disabled:opacity-50"
               >
                 {isLoading ? 'Loading...' : 'Change'}
               </button>
             </div>
           ) : !isLaceLinked ? (
             <div className="flex flex-col">
-              <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+              <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-muted text-muted-foreground border border-border">
                 Not Linked
               </span>
-              <span className="text-xs text-orange-600 mt-1">Select lace from master</span>
+              <span className="text-xs text-primary mt-1">Select lace from master</span>
             </div>
           ) : (
             <button
               onClick={handleOpenSourcingModal}
               disabled={isLoading || !hasRequiredFields}
-              className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
+              className="inline-flex items-center px-3 py-1 border border-info/30 text-xs font-medium rounded text-info bg-info-muted hover:bg-info-muted disabled:opacity-50"
             >
               {isLoading ? (
                 <>
@@ -218,7 +218,7 @@ export default function LaceCostingRow({
 
         {/* Cost */}
         <td
-          className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+          className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-muted-foreground line-through' : 'text-foreground'}`}
         >
           {isNotApplicable ? 'N/A' : formatCurrency(currentCost)}
         </td>
@@ -231,7 +231,7 @@ export default function LaceCostingRow({
                 type="checkbox"
                 checked={isNotApplicable}
                 onChange={(e) => onNotApplicableChange(e.target.checked)}
-                className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                className="w-4 h-4 text-primary border-border rounded focus:ring-orange-500"
                 title={isNotApplicable ? 'Item marked as Not Applicable' : 'Mark as Not Applicable'}
               />
             </label>
@@ -244,13 +244,13 @@ export default function LaceCostingRow({
             <button
               onClick={handleOpenSourcingModal}
               disabled={isLoading}
-              className="text-gray-600 hover:text-gray-900 disabled:opacity-50"
+              className="text-muted-foreground hover:text-foreground disabled:opacity-50"
               title="View cost breakdown"
             >
               <Info className="h-5 w-5" />
             </button>
             {onRemove && (
-              <button onClick={onRemove} className="text-red-600 hover:text-red-800" title="Remove lace">
+              <button onClick={onRemove} className="text-destructive hover:text-destructive" title="Remove lace">
                 <Trash2 className="h-5 w-5" />
               </button>
             )}
@@ -261,8 +261,8 @@ export default function LaceCostingRow({
       {/* Error Row */}
       {error && (
         <tr>
-          <td colSpan={9} className="px-4 py-2 bg-red-50">
-            <div className="flex items-center text-red-700 text-sm">
+          <td colSpan={9} className="px-4 py-2 bg-destructive/10">
+            <div className="flex items-center text-destructive text-sm">
               <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"

@@ -119,15 +119,15 @@ export default function ThreadList() {
       header: 'Thread Name',
       render: (thread) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{thread.threadName}</div>
-          {thread.description && <div className="text-xs text-gray-500 line-clamp-1">{thread.description}</div>}
+          <div className="text-sm font-medium text-foreground">{thread.threadName}</div>
+          {thread.description && <div className="text-xs text-muted-foreground line-clamp-1">{thread.description}</div>}
         </div>
       ),
     },
     {
       key: 'brand',
       header: 'Brand',
-      render: (thread) => <div className="text-sm text-gray-700">{thread.brand || '-'}</div>,
+      render: (thread) => <div className="text-sm text-foreground">{thread.brand || '-'}</div>,
     },
     {
       key: 'packagingType',
@@ -141,20 +141,20 @@ export default function ThreadList() {
             </span>
           </Badge>
         ) : (
-          <span className="text-sm text-gray-400">-</span>
+          <span className="text-sm text-muted-foreground">-</span>
         ),
     },
     {
       key: 'metersPerUnit',
       header: 'Meters',
       render: (thread) => (
-        <div className="text-sm text-gray-700">{thread.metersPerUnit ? `${thread.metersPerUnit}m` : '-'}</div>
+        <div className="text-sm text-foreground">{thread.metersPerUnit ? `${thread.metersPerUnit}m` : '-'}</div>
       ),
     },
     {
       key: 'color',
       header: 'Color',
-      render: (thread) => <div className="text-sm text-gray-700">{thread.color || '-'}</div>,
+      render: (thread) => <div className="text-sm text-foreground">{thread.color || '-'}</div>,
     },
     {
       key: 'styleCodes',
@@ -168,7 +168,7 @@ export default function ThreadList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
           {thread.styleCodes && thread.styleCodes.length > 2 && (
             <Badge variant="outline" className="text-xs">
@@ -196,7 +196,7 @@ export default function ThreadList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
           {thread.threadSuppliers && thread.threadSuppliers.length > 2 && (
             <Badge variant="outline" className="text-xs">
@@ -210,7 +210,7 @@ export default function ThreadList() {
       key: 'pricePerCone',
       header: 'Price',
       render: (thread) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {thread.pricePerCone ? formatCurrency(thread.pricePerCone) : '-'}
         </div>
       ),

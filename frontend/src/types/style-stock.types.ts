@@ -22,13 +22,18 @@ export interface StyleFabricStock {
   requiredPerGarment: number;
   availableStock: number;
   reservedStock: number;
+  consumedStock: number;
   canMakeGarments: number;
 }
+
+// Stock status filter type (maps to Prisma StockStatus enum)
+export type StockStatusFilter = 'AVAILABLE' | 'RESERVED' | 'EXHAUSTED' | 'ALL';
 
 export interface StyleStockAvailability {
   canMakeGarments: number;
   fabricStocks: StyleFabricStock[];
   bottleneckFabric?: StyleFabricStock;
+  statusFilter?: StockStatusFilter;
 }
 
 export interface FabricWithCAD {

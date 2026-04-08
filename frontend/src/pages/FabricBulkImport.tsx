@@ -402,7 +402,7 @@ export default function FabricBulkImport() {
               <Download className="h-4 w-4 mr-2" />
               Download Excel Template
             </Button>
-            <p className="text-sm text-gray-600 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               Download the template file with sample data and correct column headers.
             </p>
           </CardContent>
@@ -415,7 +415,7 @@ export default function FabricBulkImport() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                 <input
                   type="file"
                   id="file-upload"
@@ -424,17 +424,17 @@ export default function FabricBulkImport() {
                   onChange={handleFileChange}
                 />
                 <label htmlFor="file-upload" className="cursor-pointer">
-                  <FileSpreadsheet className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-sm text-gray-600 mb-2">Click to upload or drag and drop</p>
-                  <p className="text-xs text-gray-500">Excel files (.xlsx, .xls)</p>
+                  <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-sm text-muted-foreground mb-2">Click to upload or drag and drop</p>
+                  <p className="text-xs text-muted-foreground">Excel files (.xlsx, .xls)</p>
                 </label>
               </div>
 
               {file && (
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-info-muted rounded-lg">
                   <div className="flex items-center gap-2">
-                    <FileSpreadsheet className="h-5 w-5 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-900">{file.name}</span>
+                    <FileSpreadsheet className="h-5 w-5 text-info" />
+                    <span className="text-sm font-medium text-foreground">{file.name}</span>
                   </div>
                   <Button
                     onClick={() => {
@@ -462,27 +462,27 @@ export default function FabricBulkImport() {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Greige Code</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Generic Name</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Fabric Name</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Color</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Width</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Construction</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Generic?</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Greige Code</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Generic Name</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Fabric Name</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Color</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Width</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Construction</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Generic?</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-card divide-y divide-gray-200">
                     {previewData.map((row, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-sm text-gray-900">{row['Greige Code']}</td>
-                        <td className="px-3 py-2 text-sm text-gray-900">{row['Generic Greige Name']}</td>
-                        <td className="px-3 py-2 text-sm text-gray-900">{row['Fabric Name']}</td>
-                        <td className="px-3 py-2 text-sm text-gray-900">{row['Color Name']}</td>
-                        <td className="px-3 py-2 text-sm text-gray-900">{row['Actual Width (inches)']}"</td>
-                        <td className="px-3 py-2 text-sm text-gray-900">{row['Finished Construction']}</td>
-                        <td className="px-3 py-2 text-sm text-gray-900">{row['Is Generic']}</td>
+                      <tr key={index} className="hover:bg-muted">
+                        <td className="px-3 py-2 text-sm text-foreground">{row['Greige Code']}</td>
+                        <td className="px-3 py-2 text-sm text-foreground">{row['Generic Greige Name']}</td>
+                        <td className="px-3 py-2 text-sm text-foreground">{row['Fabric Name']}</td>
+                        <td className="px-3 py-2 text-sm text-foreground">{row['Color Name']}</td>
+                        <td className="px-3 py-2 text-sm text-foreground">{row['Actual Width (inches)']}"</td>
+                        <td className="px-3 py-2 text-sm text-foreground">{row['Finished Construction']}</td>
+                        <td className="px-3 py-2 text-sm text-foreground">{row['Is Generic']}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -525,25 +525,25 @@ export default function FabricBulkImport() {
             <CardContent>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2 p-4 bg-green-50 rounded-lg">
-                    <CheckCircle className="h-6 w-6 text-green-600" />
+                  <div className="flex items-center gap-2 p-4 bg-success-muted rounded-lg">
+                    <CheckCircle className="h-6 w-6 text-success" />
                     <div>
-                      <p className="text-sm text-gray-600">Successfully Imported</p>
-                      <p className="text-2xl font-bold text-green-600">{result.success}</p>
+                      <p className="text-sm text-muted-foreground">Successfully Imported</p>
+                      <p className="text-2xl font-bold text-success">{result.success}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 p-4 bg-red-50 rounded-lg">
-                    <XCircle className="h-6 w-6 text-red-600" />
+                  <div className="flex items-center gap-2 p-4 bg-destructive/10 rounded-lg">
+                    <XCircle className="h-6 w-6 text-destructive" />
                     <div>
-                      <p className="text-sm text-gray-600">Failed</p>
-                      <p className="text-2xl font-bold text-red-600">{result.failed}</p>
+                      <p className="text-sm text-muted-foreground">Failed</p>
+                      <p className="text-2xl font-bold text-destructive">{result.failed}</p>
                     </div>
                   </div>
                 </div>
 
                 {result.errors.length > 0 && (
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Errors:</h4>
+                    <h4 className="font-medium text-foreground mb-2">Errors:</h4>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {result.errors.map((err, index) => (
                         <Alert key={index} variant="destructive">

@@ -134,7 +134,7 @@ export default function SizeCategoryForm({ mode = 'create' }: SizeCategoryFormPr
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* Template Selection - Only for new categories */}
             {isNewCategory && (
@@ -152,7 +152,9 @@ export default function SizeCategoryForm({ mode = 'create' }: SizeCategoryFormPr
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">Start with a predefined size set or create your own</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Start with a predefined size set or create your own
+                </p>
               </div>
             )}
 
@@ -164,7 +166,7 @@ export default function SizeCategoryForm({ mode = 'create' }: SizeCategoryFormPr
                 {...register('name', { required: 'Category name is required' })}
                 placeholder="e.g., Men's Standard, Kids Age, European Sizes"
               />
-              {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>}
+              {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
             </div>
 
             {/* Description */}
@@ -199,26 +201,28 @@ export default function SizeCategoryForm({ mode = 'create' }: SizeCategoryFormPr
                   Add
                 </Button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Add sizes one by one. Press Enter or click Add button.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Add sizes one by one. Press Enter or click Add button.
+              </p>
 
               {/* Size Badges */}
               {sizes.length > 0 ? (
-                <div className="flex flex-wrap gap-2 mt-4 p-4 bg-gray-50 rounded-md">
+                <div className="flex flex-wrap gap-2 mt-4 p-4 bg-muted rounded-md">
                   {sizes.map((size, index) => (
                     <Badge key={index} variant="secondary" className="text-sm px-3 py-1 flex items-center gap-2">
                       {size}
-                      <button type="button" onClick={() => handleRemoveSize(index)} className="hover:text-red-600">
+                      <button type="button" onClick={() => handleRemoveSize(index)} className="hover:text-destructive">
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>
                   ))}
                 </div>
               ) : (
-                <div className="mt-4 p-4 bg-gray-50 rounded-md text-center text-gray-500 text-sm">
+                <div className="mt-4 p-4 bg-muted rounded-md text-center text-muted-foreground text-sm">
                   No sizes added yet. Add sizes using the input above.
                 </div>
               )}
-              <p className="text-xs text-gray-600 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 Total: <strong>{sizes.length}</strong> size(s)
               </p>
             </div>

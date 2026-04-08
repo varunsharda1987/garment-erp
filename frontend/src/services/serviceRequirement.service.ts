@@ -323,11 +323,11 @@ export async function getWorkOrderRequirements(
 export function getConfidenceBadgeColor(confidence: 'high' | 'medium' | 'low'): string {
   switch (confidence) {
     case 'high':
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'bg-success-muted text-success border-success/20';
     case 'medium':
       return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     case 'low':
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return 'bg-muted text-foreground border-border';
   }
 }
 

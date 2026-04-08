@@ -18,10 +18,10 @@ export const InvoiceStatusLabels: Record<InvoiceStatus, string> = {
 };
 
 export const InvoiceStatusColors: Record<InvoiceStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-800',
+  PENDING: 'bg-muted text-foreground',
   PARTIALLY_PAID: 'bg-yellow-100 text-yellow-800',
-  PAID: 'bg-green-100 text-green-800',
-  OVERDUE: 'bg-red-100 text-red-800',
+  PAID: 'bg-success-muted text-success',
+  OVERDUE: 'bg-destructive/10 text-destructive',
 };
 
 export type PaymentMethod = 'CASH' | 'CHEQUE' | 'BANK_TRANSFER' | 'UPI';

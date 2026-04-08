@@ -179,18 +179,18 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* BUTTON INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Button Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Button Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Button Code - Auto-generated */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
                     Button Code
                     {isNewButton && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                      <span className="text-xs bg-info-muted text-info px-2 py-0.5 rounded">Auto-generated</span>
                     )}
                   </label>
                   {!isNewButton && buttonCode ? (
@@ -198,7 +198,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                       <Badge variant="secondary" className="font-mono text-sm">
                         {buttonCode}
                       </Badge>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
@@ -209,18 +209,20 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                         value=""
                         readOnly
                         placeholder="Will be auto-generated (e.g., BTN-000001)"
-                        className="bg-gray-50 cursor-not-allowed"
+                        className="bg-muted cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
                     </>
                   )}
                 </div>
 
                 {/* Button Name */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
                     Button Name
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                    <span className="text-xs bg-success-muted text-success px-2 py-0.5 rounded">Auto-generated</span>
                   </label>
                   <Input
                     id="buttonName"
@@ -234,7 +236,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                     })}
                     placeholder="Leave empty to auto-generate from color, material, holes, size, etc."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {isNewButton
                       ? 'If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Material Holes Button Size")'
                       : 'Name will auto-update when you change attributes. Edit manually to override.'}
@@ -269,9 +271,9 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                     showFamilyFilter={true}
                     placeholder="Select color from master..."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Select from Color Master or{' '}
-                    <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
+                    <a href="/colors/new" target="_blank" className="text-info hover:underline">
                       add a new color
                     </a>
                   </p>
@@ -318,7 +320,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
             {/* SUPPLIERS SECTION - Multi-supplier support */}
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <h3 className="text-lg font-semibold text-foreground">Suppliers</h3>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
@@ -326,19 +328,19 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
               </div>
 
               {suppliers.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <p className="text-gray-500">No suppliers added yet.</p>
-                  <p className="text-sm text-gray-400 mt-1">Click "Add Supplier" to add one.</p>
+                <div className="text-center py-8 bg-muted rounded-lg border-2 border-dashed border-border">
+                  <p className="text-muted-foreground">No suppliers added yet.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Click "Add Supplier" to add one.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {suppliers.map((supplier, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div key={index} className="border border-border rounded-lg p-4 bg-muted">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
                           <Label>
-                            Supplier <span className="text-red-500">*</span>
+                            Supplier <span className="text-destructive">*</span>
                           </Label>
                           <Select
                             value={supplier.supplierId || undefined}
@@ -388,7 +390,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                             variant="outline"
                             size="icon"
                             onClick={() => handleRemoveSupplier(index)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -401,9 +403,9 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                               type="checkbox"
                               checked={supplier.isPreferred}
                               onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                              className="h-4 w-4 text-info rounded border-border focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                            <span className="ml-2 text-sm text-foreground">Preferred Supplier</span>
                           </label>
 
                           <label className="flex items-center cursor-pointer">
@@ -411,9 +413,9 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
                               type="checkbox"
                               checked={supplier.isActive}
                               onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                              className="h-4 w-4 text-info rounded border-border focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                            <span className="ml-2 text-sm text-foreground">Active</span>
                           </label>
                         </div>
 
@@ -435,7 +437,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
 
             {/* SUPPLIER REFERENCE CODE */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Reference Codes</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Reference Codes</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="supplierCode">Supplier Reference Code</Label>
@@ -450,7 +452,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
 
             {/* STYLE ASSOCIATIONS */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Style Associations</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Style Associations</h3>
               <StyleCodeMultiSelect
                 value={selectedStyleCodes}
                 onChange={setSelectedStyleCodes}
@@ -462,7 +464,7 @@ export default function ButtonForm({ mode = 'create' }: ButtonFormProps) {
 
             {/* DESCRIPTION */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Additional Information</h3>
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea

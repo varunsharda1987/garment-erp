@@ -61,7 +61,7 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
+        <h2 className="text-xl font-display font-semibold mb-4">Basic Information</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label>Style Code *</Label>
@@ -117,7 +117,7 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
               </SelectContent>
             </Select>
             {!availableBrands.length && selectedCustomerId && (
-              <p className="text-xs text-gray-500 mt-1">Select a customer with configured brands</p>
+              <p className="text-xs text-muted-foreground mt-1">Select a customer with configured brands</p>
             )}
           </div>
           <div>
@@ -147,7 +147,7 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
               </SelectContent>
             </Select>
             {!availableCategories.length && brandName && (
-              <p className="text-xs text-gray-500 mt-1">No categories available for this brand</p>
+              <p className="text-xs text-muted-foreground mt-1">No categories available for this brand</p>
             )}
           </div>
           <div>
@@ -177,11 +177,11 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
 
         {/* Component Names Section */}
         {numberOfComponents > 0 && (
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="mt-4 p-4 bg-info-muted rounded-lg border border-info/20">
             <Label className="text-base font-semibold mb-3 block">Component Selection</Label>
-            <p className="text-xs text-gray-600 mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Select component category and specific component for each part of the garment. Manage components in{' '}
-              <a href="/component-masters" className="text-blue-600 hover:underline">
+              <a href="/component-masters" className="text-info hover:underline">
                 Component Masters
               </a>
               .
@@ -194,7 +194,7 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
                   : componentMasters;
 
                 return (
-                  <div key={index} className="grid grid-cols-2 gap-3 p-3 bg-white rounded-md border">
+                  <div key={index} className="grid grid-cols-2 gap-3 p-3 bg-card rounded-md border">
                     <div>
                       <Label className="text-sm">Component {index + 1} - Category</Label>
                       <Select
@@ -258,21 +258,21 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
         <button
           type="button"
           onClick={toggleAdditionalDetails}
-          className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 mt-4"
+          className="flex items-center gap-2 text-sm text-info hover:text-info mt-4"
         >
           {showAdditionalDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           Additional Details (Optional)
         </button>
 
         {showAdditionalDetails && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-6">
+          <div className="mt-4 p-4 bg-muted rounded-lg space-y-6">
             {/* Image Upload */}
             <div>
               <Label className="text-base font-semibold">Product Image</Label>
               <div className="mt-2 space-y-3">
                 {imageUrl && (
                   <div className="relative inline-block">
-                    <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
+                    <div className="border-2 border-border rounded-lg p-4 bg-card">
                       <img
                         src={getUploadUrl(imageUrl)}
                         alt="Style preview"
@@ -312,13 +312,13 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
                     disabled={uploadingImage || !styleId}
                     className="flex-1"
                   />
-                  {uploadingImage && <span className="text-sm text-gray-500">Uploading...</span>}
+                  {uploadingImage && <span className="text-sm text-muted-foreground">Uploading...</span>}
                 </div>
 
                 {!styleId && (
-                  <p className="text-xs text-amber-600">Note: Image upload is available after creating the style</p>
+                  <p className="text-xs text-warning">Note: Image upload is available after creating the style</p>
                 )}
-                <p className="text-xs text-gray-500">Supported formats: JPG, PNG (Max size: 5MB)</p>
+                <p className="text-xs text-muted-foreground">Supported formats: JPG, PNG (Max size: 5MB)</p>
               </div>
             </div>
 
@@ -367,7 +367,7 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
                     maxLength={8}
                   />
                   {hsnCode && (hsnCode.length < 6 || hsnCode.length > 8) && (
-                    <p className="text-xs text-red-600 mt-1">HSN code must be 6-8 digits</p>
+                    <p className="text-xs text-destructive mt-1">HSN code must be 6-8 digits</p>
                   )}
                 </div>
                 <div>
@@ -384,7 +384,7 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
                     maxLength={2}
                   />
                   {productTaxRule && productTaxRule.length !== 2 && (
-                    <p className="text-xs text-red-600 mt-1">Tax rate must be 2 digits</p>
+                    <p className="text-xs text-destructive mt-1">Tax rate must be 2 digits</p>
                   )}
                 </div>
               </div>
@@ -406,7 +406,9 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
                   />
                 </div>
                 <div className="flex items-end">
-                  <p className="text-xs text-gray-500">Accounting SKU will be mapped to each size variant below</p>
+                  <p className="text-xs text-muted-foreground">
+                    Accounting SKU will be mapped to each size variant below
+                  </p>
                 </div>
               </div>
             </div>
@@ -422,7 +424,7 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
 
               <div className="space-y-3">
                 {skuVariants.map((variant, index) => (
-                  <div key={variant.size} className="grid grid-cols-12 gap-3 items-center p-3 border rounded bg-white">
+                  <div key={variant.size} className="grid grid-cols-12 gap-3 items-center p-3 border rounded bg-card">
                     <div className="col-span-1 flex items-center">
                       <Checkbox
                         checked={variant.isActive}
@@ -480,7 +482,7 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
                 ))}
               </div>
 
-              <p className="text-xs text-gray-500 mt-3">
+              <p className="text-xs text-muted-foreground mt-3">
                 Uncheck sizes you don't need. SKUs are required for active sizes.
               </p>
             </div>

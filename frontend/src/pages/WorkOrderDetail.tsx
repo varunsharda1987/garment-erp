@@ -363,7 +363,7 @@ export default function WorkOrderDetail() {
               <Button
                 onClick={handlePushToCuttingClick}
                 disabled={isPushingToCutting}
-                className={materialReadiness?.isReady ? 'bg-green-600 hover:bg-green-700' : ''}
+                className={materialReadiness?.isReady ? 'bg-success hover:bg-success' : ''}
                 variant={materialReadiness?.isReady ? 'default' : 'outline'}
               >
                 <Scissors className="mr-2 h-4 w-4" />
@@ -378,7 +378,7 @@ export default function WorkOrderDetail() {
             <Button
               onClick={handleCalculateServices}
               disabled={isCalculatingServices}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-accent hover:bg-accent"
             >
               {isCalculatingServices ? (
                 <>
@@ -411,12 +411,12 @@ export default function WorkOrderDetail() {
       <div className="grid gap-6">
         {/* Parent Run Banner */}
         {workOrder.parentRun && (
-          <Alert className="bg-blue-50 border-blue-200">
-            <GitBranch className="h-4 w-4 text-blue-600" />
+          <Alert className="bg-info-muted border-info/20">
+            <GitBranch className="h-4 w-4 text-info" />
             <AlertDescription>
               This is a split child run from{' '}
               <span
-                className="font-medium text-blue-600 cursor-pointer hover:underline"
+                className="font-medium text-info cursor-pointer hover:underline"
                 onClick={() => navigate(`/production/work-orders/${workOrder.parentRun!.id}`)}
               >
                 {workOrder.parentRun.workOrderNumber}
@@ -428,8 +428,8 @@ export default function WorkOrderDetail() {
 
         {/* Split Status Banner */}
         {workOrder.status === 'SPLIT' && (
-          <Alert className="bg-amber-50 border-amber-200">
-            <GitBranch className="h-4 w-4 text-amber-600" />
+          <Alert className="bg-warning-muted border-warning/20">
+            <GitBranch className="h-4 w-4 text-warning" />
             <AlertDescription>
               This production run has been split into <strong>{workOrder.childRuns?.length || 0}</strong> child runs.
               The parent is now a container — production continues in child runs below.
@@ -448,24 +448,24 @@ export default function WorkOrderDetail() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div>
-                <div className="text-sm text-gray-500 mb-1">Status</div>
+                <div className="text-sm text-muted-foreground mb-1">Status</div>
                 <StatusBadge
                   status={workOrder.status.replace(/_/g, ' ')}
                   variant={getStatusVariant(workOrder.status)}
                 />
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Priority</div>
+                <div className="text-sm text-muted-foreground mb-1">Priority</div>
                 <StatusBadge status={workOrder.priority} variant={getPriorityVariant(workOrder.priority)} />
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Quantity</div>
+                <div className="text-sm text-muted-foreground mb-1">Quantity</div>
                 <div className="font-semibold text-lg">
                   {workOrder.completedQuantity} / {workOrder.totalQuantity}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Progress</div>
+                <div className="text-sm text-muted-foreground mb-1">Progress</div>
                 <div className="font-semibold text-lg">{progress}%</div>
               </div>
             </div>
@@ -474,7 +474,7 @@ export default function WorkOrderDetail() {
             <div className="mt-6">
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
-                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
+                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-success' : 'bg-info'}`}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -503,7 +503,7 @@ export default function WorkOrderDetail() {
                   <div className="flex items-center gap-4">
                     <div
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                        materialReadiness.isReady ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                        materialReadiness.isReady ? 'bg-success-muted text-success' : 'bg-warning/10 text-warning'
                       }`}
                     >
                       {materialReadiness.isReady ? (
@@ -515,36 +515,36 @@ export default function WorkOrderDetail() {
                         {materialReadiness.isReady ? 'All Materials Available' : 'Materials Missing'}
                       </span>
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       {materialReadiness.availableMaterials} / {materialReadiness.totalMaterials} materials ready
                     </div>
                   </div>
 
                   {/* Missing Materials */}
                   {materialReadiness.missingMaterials.length > 0 && (
-                    <div className="border border-amber-200 rounded-lg p-4 bg-amber-50">
-                      <h4 className="font-medium text-amber-900 mb-3">Missing Materials:</h4>
+                    <div className="border border-warning/20 rounded-lg p-4 bg-warning-muted">
+                      <h4 className="font-medium text-warning mb-3">Missing Materials:</h4>
                       <div className="space-y-2">
                         {materialReadiness.missingMaterials.map((material, idx) => (
                           <div key={idx} className="flex justify-between items-center text-sm">
                             <div>
-                              <span className="font-medium text-gray-900">{material.materialName}</span>
-                              <span className="text-gray-500 ml-2">({material.materialCode})</span>
+                              <span className="font-medium text-foreground">{material.materialName}</span>
+                              <span className="text-muted-foreground ml-2">({material.materialCode})</span>
                             </div>
                             <div className="text-right">
-                              <div className="text-red-600 font-medium">
+                              <div className="text-destructive font-medium">
                                 Short: {material.shortfall.toFixed(2)} {material.unit}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-muted-foreground">
                                 Need: {material.required.toFixed(2)}, Have: {material.available.toFixed(2)}
                               </div>
                             </div>
                           </div>
                         ))}
                       </div>
-                      <Alert className="mt-4 bg-blue-50 border-blue-300">
-                        <AlertCircle className="h-4 w-4 text-blue-600" />
-                        <AlertDescription className="text-blue-900">
+                      <Alert className="mt-4 bg-info-muted border-info/30">
+                        <AlertCircle className="h-4 w-4 text-info" />
+                        <AlertDescription className="text-info">
                           Some fabrics are short. You can still push to cutting for a partial quantity based on
                           available stock. The cutting chart will show the maximum cuttable pieces.
                         </AlertDescription>
@@ -554,9 +554,9 @@ export default function WorkOrderDetail() {
 
                   {/* Ready State */}
                   {materialReadiness.isReady && materialReadiness.totalMaterials > 0 && (
-                    <Alert className="bg-green-50 border-green-300">
-                      <CheckSquare className="h-4 w-4 text-green-600" />
-                      <AlertDescription className="text-green-900">
+                    <Alert className="bg-success-muted border-success/25">
+                      <CheckSquare className="h-4 w-4 text-success" />
+                      <AlertDescription className="text-success">
                         All required fabrics are in stock. You can push this production run to cutting.
                       </AlertDescription>
                     </Alert>
@@ -564,9 +564,9 @@ export default function WorkOrderDetail() {
 
                   {/* No Approved BOM State */}
                   {!materialReadiness.hasApprovedBom && (
-                    <Alert className="bg-amber-50 border-amber-300">
-                      <AlertCircle className="h-4 w-4 text-amber-600" />
-                      <AlertDescription className="text-amber-900">
+                    <Alert className="bg-warning-muted border-warning/25">
+                      <AlertCircle className="h-4 w-4 text-warning" />
+                      <AlertDescription className="text-warning">
                         No approved Order BOM found. Please approve the Order BOM first, or you can proceed to cutting
                         without material validation.
                       </AlertDescription>
@@ -575,16 +575,16 @@ export default function WorkOrderDetail() {
 
                   {/* Has BOM but no fabric items */}
                   {materialReadiness.hasApprovedBom && materialReadiness.totalMaterials === 0 && (
-                    <Alert className="bg-blue-50 border-blue-300">
-                      <AlertCircle className="h-4 w-4 text-blue-600" />
-                      <AlertDescription className="text-blue-900">
+                    <Alert className="bg-info-muted border-info/30">
+                      <AlertCircle className="h-4 w-4 text-info" />
+                      <AlertDescription className="text-info">
                         No fabric items found in the Order BOM. You can proceed to cutting without material validation.
                       </AlertDescription>
                     </Alert>
                   )}
                 </div>
               ) : (
-                <div className="text-gray-500 text-sm">No material information available</div>
+                <div className="text-muted-foreground text-sm">No material information available</div>
               )}
             </CardContent>
           </Card>
@@ -597,7 +597,7 @@ export default function WorkOrderDetail() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-purple-600" />
+                    <Zap className="h-5 w-5 text-accent" />
                     Service Requirements
                   </CardTitle>
                   <CardDescription>Embroidery, printing, dyeing, and other process services</CardDescription>
@@ -607,7 +607,7 @@ export default function WorkOrderDetail() {
                     variant="outline"
                     size="sm"
                     onClick={() => navigate(`/procurement/requirements?tab=outsourced&workOrderId=${id}`)}
-                    className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                    className="text-accent border-accent hover:bg-accent/10"
                   >
                     View All Services <ArrowRight className="h-4 w-4 ml-1" />
                   </Button>
@@ -624,44 +624,40 @@ export default function WorkOrderDetail() {
                 <div className="space-y-4">
                   {/* Statistics Grid - 2x2 */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                    <div className="bg-info-muted border border-info/20 rounded-lg p-4 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
-                        <Package className="h-4 w-4 text-blue-600" />
-                        <div className="text-2xl font-bold text-blue-700">
-                          {serviceRequirementsSummary.totalServices}
-                        </div>
+                        <Package className="h-4 w-4 text-info" />
+                        <div className="text-2xl font-bold text-info">{serviceRequirementsSummary.totalServices}</div>
                       </div>
-                      <div className="text-xs text-blue-600">Total Services</div>
+                      <div className="text-xs text-info">Total Services</div>
                     </div>
 
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+                    <div className="bg-primary/10 border border-orange-200 rounded-lg p-4 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
-                        <Clock className="h-4 w-4 text-orange-600" />
-                        <div className="text-2xl font-bold text-orange-700">
-                          {serviceRequirementsSummary.pendingCount}
-                        </div>
+                        <Clock className="h-4 w-4 text-primary" />
+                        <div className="text-2xl font-bold text-primary">{serviceRequirementsSummary.pendingCount}</div>
                       </div>
-                      <div className="text-xs text-orange-600">Pending</div>
+                      <div className="text-xs text-primary">Pending</div>
                     </div>
 
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                    <div className="bg-success-muted border border-success/20 rounded-lg p-4 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
-                        <CheckSquare className="h-4 w-4 text-green-600" />
-                        <div className="text-2xl font-bold text-green-700">
+                        <CheckSquare className="h-4 w-4 text-success" />
+                        <div className="text-2xl font-bold text-success">
                           {serviceRequirementsSummary.poGeneratedCount + serviceRequirementsSummary.completedCount}
                         </div>
                       </div>
-                      <div className="text-xs text-green-600">PO Generated</div>
+                      <div className="text-xs text-success">PO Generated</div>
                     </div>
 
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+                    <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
-                        <DollarSign className="h-4 w-4 text-purple-600" />
-                        <div className="text-2xl font-bold text-purple-700">
+                        <DollarSign className="h-4 w-4 text-accent" />
+                        <div className="text-2xl font-bold text-accent">
                           ₹{serviceRequirementsSummary.totalEstimatedCost.toFixed(0)}
                         </div>
                       </div>
-                      <div className="text-xs text-purple-600">Est. Total Cost</div>
+                      <div className="text-xs text-accent">Est. Total Cost</div>
                     </div>
                   </div>
 
@@ -687,14 +683,14 @@ export default function WorkOrderDetail() {
                     <div className="flex items-center gap-6">
                       <div>
                         <span className="text-sm text-muted-foreground">Processor Assigned:</span>
-                        <div className="font-bold text-green-600">
+                        <div className="font-bold text-success">
                           {serviceRequirementsSummary.servicesWithProcessor} /{' '}
                           {serviceRequirementsSummary.totalServices}
                         </div>
                       </div>
                       <div>
                         <span className="text-sm text-muted-foreground">Unassigned:</span>
-                        <div className="font-bold text-red-600">
+                        <div className="font-bold text-destructive">
                           {serviceRequirementsSummary.servicesWithoutProcessor}
                         </div>
                       </div>
@@ -707,7 +703,7 @@ export default function WorkOrderDetail() {
                           size="sm"
                           variant="outline"
                           onClick={() => navigate(`/service-requirements/list?workOrderId=${id}&status=PENDING`)}
-                          className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                          className="text-accent border-accent hover:bg-accent/10"
                         >
                           <UserCheck className="h-4 w-4 mr-1" />
                           Assign Processors
@@ -719,7 +715,7 @@ export default function WorkOrderDetail() {
                             size="sm"
                             variant="outline"
                             onClick={() => navigate(`/service-requirements/list?workOrderId=${id}&status=PENDING`)}
-                            className="text-green-600 border-green-600 hover:bg-green-50"
+                            className="text-success border-success hover:bg-success-muted"
                           >
                             <ShoppingCart className="h-4 w-4 mr-1" />
                             Generate Service POs
@@ -736,7 +732,7 @@ export default function WorkOrderDetail() {
                     size="sm"
                     onClick={handleCalculateServices}
                     disabled={isCalculatingServices}
-                    className="bg-purple-600 hover:bg-purple-700"
+                    className="bg-accent hover:bg-accent"
                   >
                     {isCalculatingServices ? (
                       <>
@@ -782,17 +778,19 @@ export default function WorkOrderDetail() {
               <div className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Scissors className="h-5 w-5 text-orange-600" />
+                    <Scissors className="h-5 w-5 text-primary" />
                     <span className="font-medium">Cutting</span>
                   </div>
                   {manufacturingProgress.cutting.batches > 0 && (
-                    <span className="text-sm text-gray-500">{manufacturingProgress.cutting.batches} batch(es)</span>
+                    <span className="text-sm text-muted-foreground">
+                      {manufacturingProgress.cutting.batches} batch(es)
+                    </span>
                   )}
                 </div>
-                <div className="text-2xl font-bold text-orange-600">{manufacturingProgress.cutting.totalCut} pcs</div>
+                <div className="text-2xl font-bold text-primary">{manufacturingProgress.cutting.totalCut} pcs</div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="h-2 rounded-full bg-orange-500"
+                    className="h-2 rounded-full bg-primary/100"
                     style={{
                       width: `${workOrder?.totalQuantity ? Math.min(100, (manufacturingProgress.cutting.totalCut / workOrder.totalQuantity) * 100) : 0}%`,
                     }}
@@ -820,19 +818,19 @@ export default function WorkOrderDetail() {
               <div className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Shirt className="h-5 w-5 text-blue-600" />
+                    <Shirt className="h-5 w-5 text-info" />
                     <span className="font-medium">Stitching</span>
                   </div>
                   {manufacturingProgress.stitching.issues > 0 && (
-                    <span className="text-sm text-gray-500">{manufacturingProgress.stitching.issues} issue(s)</span>
+                    <span className="text-sm text-muted-foreground">
+                      {manufacturingProgress.stitching.issues} issue(s)
+                    </span>
                   )}
                 </div>
-                <div className="text-2xl font-bold text-blue-600">
-                  {manufacturingProgress.stitching.totalStitched} pcs
-                </div>
+                <div className="text-2xl font-bold text-info">{manufacturingProgress.stitching.totalStitched} pcs</div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="h-2 rounded-full bg-blue-500"
+                    className="h-2 rounded-full bg-info-muted0"
                     style={{
                       width: `${workOrder?.totalQuantity ? Math.min(100, (manufacturingProgress.stitching.totalStitched / workOrder.totalQuantity) * 100) : 0}%`,
                     }}
@@ -854,7 +852,7 @@ export default function WorkOrderDetail() {
                     </Button>
                   )}
                   {manufacturingProgress.stitching.pending && manufacturingProgress.cutting.totalCut === 0 && (
-                    <span className="text-sm text-gray-500 italic">Complete cutting first</span>
+                    <span className="text-sm text-muted-foreground italic">Complete cutting first</span>
                   )}
                 </div>
               </div>
@@ -863,19 +861,21 @@ export default function WorkOrderDetail() {
               <div className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CheckSquare className="h-5 w-5 text-green-600" />
+                    <CheckSquare className="h-5 w-5 text-success" />
                     <span className="font-medium">Finishing</span>
                   </div>
                   {manufacturingProgress.finishing.issues > 0 && (
-                    <span className="text-sm text-gray-500">{manufacturingProgress.finishing.issues} issue(s)</span>
+                    <span className="text-sm text-muted-foreground">
+                      {manufacturingProgress.finishing.issues} issue(s)
+                    </span>
                   )}
                 </div>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-success">
                   {manufacturingProgress.finishing.totalFinished} pcs
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="h-2 rounded-full bg-green-500"
+                    className="h-2 rounded-full bg-success-muted0"
                     style={{
                       width: `${workOrder?.totalQuantity ? Math.min(100, (manufacturingProgress.finishing.totalFinished / workOrder.totalQuantity) * 100) : 0}%`,
                     }}
@@ -897,7 +897,7 @@ export default function WorkOrderDetail() {
                     </Button>
                   )}
                   {manufacturingProgress.finishing.pending && manufacturingProgress.stitching.totalStitched === 0 && (
-                    <span className="text-sm text-gray-500 italic">Complete stitching first</span>
+                    <span className="text-sm text-muted-foreground italic">Complete stitching first</span>
                   )}
                 </div>
               </div>
@@ -913,24 +913,24 @@ export default function WorkOrderDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Order Number</span>
+                <span className="text-muted-foreground">Order Number</span>
                 <span
-                  className="font-medium text-blue-600 cursor-pointer hover:underline"
+                  className="font-medium text-info cursor-pointer hover:underline"
                   onClick={() => navigate(`/orders/${workOrder.orderId}`)}
                 >
                   {workOrder.orders?.orderNumber || '-'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Customer</span>
+                <span className="text-muted-foreground">Customer</span>
                 <span className="font-medium">{workOrder.orders?.customer?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Style Code</span>
+                <span className="text-muted-foreground">Style Code</span>
                 <span className="font-medium">{workOrder.style?.styleCode || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Style Name</span>
+                <span className="text-muted-foreground">Style Name</span>
                 <span className="font-medium">{workOrder.style?.styleName || '-'}</span>
               </div>
             </CardContent>
@@ -945,22 +945,22 @@ export default function WorkOrderDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Planned Start</span>
+                <span className="text-muted-foreground">Planned Start</span>
                 <span className="font-medium">{formatDate(workOrder.plannedStartDate)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Planned End</span>
+                <span className="text-muted-foreground">Planned End</span>
                 <span className="font-medium">{formatDate(workOrder.plannedEndDate)}</span>
               </div>
               {workOrder.actualStartDate && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Actual Start</span>
+                  <span className="text-muted-foreground">Actual Start</span>
                   <span className="font-medium">{formatDate(workOrder.actualStartDate)}</span>
                 </div>
               )}
               {workOrder.actualEndDate && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Actual End</span>
+                  <span className="text-muted-foreground">Actual End</span>
                   <span className="font-medium">{formatDate(workOrder.actualEndDate)}</span>
                 </div>
               )}
@@ -981,13 +981,13 @@ export default function WorkOrderDetail() {
               {workOrder.warehouses ? (
                 <div className="space-y-2">
                   <div className="font-medium text-lg">{workOrder.warehouses.warehouseName}</div>
-                  <div className="text-gray-500">{workOrder.warehouses.warehouseCode}</div>
+                  <div className="text-muted-foreground">{workOrder.warehouses.warehouseCode}</div>
                   {workOrder.warehouses.address && (
-                    <div className="text-sm text-gray-600">{workOrder.warehouses.address}</div>
+                    <div className="text-sm text-muted-foreground">{workOrder.warehouses.address}</div>
                   )}
                 </div>
               ) : (
-                <div className="text-amber-600 font-medium">Not Assigned</div>
+                <div className="text-warning font-medium">Not Assigned</div>
               )}
             </CardContent>
           </Card>
@@ -1006,12 +1006,14 @@ export default function WorkOrderDetail() {
                     {workOrder.usersWorkOrdersCreatedByIdTousers.firstName}{' '}
                     {workOrder.usersWorkOrdersCreatedByIdTousers.lastName}
                   </div>
-                  <div className="text-gray-500 text-sm">{workOrder.usersWorkOrdersCreatedByIdTousers.email}</div>
+                  <div className="text-muted-foreground text-sm">
+                    {workOrder.usersWorkOrdersCreatedByIdTousers.email}
+                  </div>
                 </div>
               ) : (
-                <div className="text-gray-500">-</div>
+                <div className="text-muted-foreground">-</div>
               )}
-              <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 Created: {formatDate(workOrder.createdAt)}
               </div>
@@ -1028,40 +1030,46 @@ export default function WorkOrderDetail() {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Planned</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Completed</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Remaining</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Color</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Size</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Planned
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Completed
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Remaining
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {workOrder.workOrderBreakup.map((breakup) => (
-                      <tr key={breakup.id} className="hover:bg-gray-50">
+                      <tr key={breakup.id} className="hover:bg-muted">
                         <td className="px-4 py-3 text-sm">{breakup.colorOptions?.colorName || '-'}</td>
                         <td className="px-4 py-3 text-sm">{breakup.sizeOptions?.sizeName || '-'}</td>
                         <td className="px-4 py-3 text-sm text-right font-medium">{breakup.plannedQuantity}</td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-green-600">
+                        <td className="px-4 py-3 text-sm text-right font-medium text-success">
                           {breakup.completedQuantity}
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-amber-600">
+                        <td className="px-4 py-3 text-sm text-right font-medium text-warning">
                           {breakup.plannedQuantity - breakup.completedQuantity}
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-gray-50">
+                  <tfoot className="bg-muted">
                     <tr>
                       <td colSpan={2} className="px-4 py-3 text-sm font-semibold">
                         Total
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-bold">{workOrder.totalQuantity}</td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
+                      <td className="px-4 py-3 text-sm text-right font-bold text-success">
                         {workOrder.completedQuantity}
                       </td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-amber-600">
+                      <td className="px-4 py-3 text-sm text-right font-bold text-warning">
                         {workOrder.totalQuantity - workOrder.completedQuantity}
                       </td>
                     </tr>
@@ -1146,7 +1154,7 @@ export default function WorkOrderDetail() {
               <CardTitle>Remarks</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700 whitespace-pre-wrap">{workOrder.remarks}</p>
+              <p className="text-foreground whitespace-pre-wrap">{workOrder.remarks}</p>
             </CardContent>
           </Card>
         )}

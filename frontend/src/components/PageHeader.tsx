@@ -8,7 +8,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, children }: PageHeaderProps) {
   return (
     <div className="flex justify-between items-center mb-6">
-      <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+      <h1 className="text-3xl font-display font-medium text-foreground">{title}</h1>
       {children && <div className="flex gap-2">{children}</div>}
     </div>
   );

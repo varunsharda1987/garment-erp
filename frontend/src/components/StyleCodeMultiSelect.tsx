@@ -190,7 +190,7 @@ export function StyleCodeMultiSelect({
           className={cn(
             'flex flex-wrap gap-1.5 p-2 min-h-[42px] rounded-md border border-input bg-transparent',
             'focus-within:ring-1 focus-within:ring-ring',
-            disabled && 'opacity-50 cursor-not-allowed bg-gray-50',
+            disabled && 'opacity-50 cursor-not-allowed bg-muted',
             isOpen && 'ring-1 ring-ring'
           )}
           onClick={() => {
@@ -204,7 +204,9 @@ export function StyleCodeMultiSelect({
           {selectedStyles.map((style) => (
             <Badge key={style.styleCode} variant="secondary" className="flex items-center gap-1 px-2 py-1 text-xs">
               <span className="font-medium">{style.styleCode}</span>
-              {style.styleName && <span className="text-gray-500 max-w-[100px] truncate">- {style.styleName}</span>}
+              {style.styleName && (
+                <span className="text-muted-foreground max-w-[100px] truncate">- {style.styleName}</span>
+              )}
               {!disabled && (
                 <button
                   type="button"
@@ -222,7 +224,7 @@ export function StyleCodeMultiSelect({
 
           {/* Search input */}
           <div className="flex-1 flex items-center gap-1 min-w-[120px]">
-            <Search className="h-4 w-4 text-gray-400" />
+            <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
               type="text"
@@ -235,7 +237,7 @@ export function StyleCodeMultiSelect({
               className="border-0 p-0 h-6 focus-visible:ring-0 shadow-none"
             />
             <ChevronDown
-              className={cn('h-4 w-4 text-gray-400 transition-transform', isOpen && 'transform rotate-180')}
+              className={cn('h-4 w-4 text-muted-foreground transition-transform', isOpen && 'transform rotate-180')}
             />
           </div>
         </div>
@@ -244,17 +246,17 @@ export function StyleCodeMultiSelect({
         {isOpen && !disabled && (
           <div
             ref={dropdownRef}
-            className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
+            className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-60 overflow-auto"
           >
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                <span className="ml-2 text-sm text-gray-500">Loading styles...</span>
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading styles...</span>
               </div>
             ) : error ? (
-              <div className="px-3 py-4 text-sm text-red-600 text-center">{error}</div>
+              <div className="px-3 py-4 text-sm text-destructive text-center">{error}</div>
             ) : availableOptions.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+              <div className="px-3 py-4 text-sm text-muted-foreground text-center">
                 {searchTerm ? 'No styles found matching your search' : 'No styles available'}
               </div>
             ) : (
@@ -263,11 +265,13 @@ export function StyleCodeMultiSelect({
                   <li
                     key={style.id}
                     onClick={() => handleSelect(style)}
-                    className="px-3 py-2 cursor-pointer hover:bg-gray-100 flex items-center justify-between"
+                    className="px-3 py-2 cursor-pointer hover:bg-muted flex items-center justify-between"
                   >
                     <div>
                       <span className="font-medium text-sm">{style.styleCode}</span>
-                      {style.styleName && <span className="text-gray-500 text-sm ml-2">- {style.styleName}</span>}
+                      {style.styleName && (
+                        <span className="text-muted-foreground text-sm ml-2">- {style.styleName}</span>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -277,7 +281,7 @@ export function StyleCodeMultiSelect({
         )}
       </div>
 
-      {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
+      {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
     </div>
   );
 }

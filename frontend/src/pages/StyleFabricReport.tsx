@@ -134,17 +134,17 @@ export default function StyleFabricReport() {
 
   const getStockStatusBadge = (style: StyleWithStock) => {
     if (!style.stockData) {
-      return <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">Unknown</span>;
+      return <span className="px-2 py-1 bg-muted text-muted-foreground rounded text-xs">Unknown</span>;
     }
 
     const canMake = style.stockData.canMakeGarments;
 
     if (canMake === 0) {
-      return <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">No Stock</span>;
+      return <span className="px-2 py-1 bg-destructive/10 text-destructive rounded text-xs">No Stock</span>;
     } else if (canMake < 50) {
       return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">Low Stock</span>;
     } else {
-      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">In Stock</span>;
+      return <span className="px-2 py-1 bg-success-muted text-success rounded text-xs">In Stock</span>;
     }
   };
 
@@ -155,7 +155,9 @@ export default function StyleFabricReport() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle>Style Fabric Report</CardTitle>
-              <p className="text-sm text-gray-500 mt-2">View fabric usage and stock availability for all styles</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                View fabric usage and stock availability for all styles
+              </p>
             </div>
             <Button onClick={() => navigate('/styles/import')}>Import Styles</Button>
           </div>
@@ -164,7 +166,7 @@ export default function StyleFabricReport() {
           {/* Filters */}
           <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search styles..."
@@ -221,33 +223,33 @@ export default function StyleFabricReport() {
               <div className="text-lg">Loading styles...</div>
             </div>
           ) : filteredStyles.length === 0 ? (
-            <div className="flex justify-center items-center h-64 text-gray-500">
+            <div className="flex justify-center items-center h-64 text-muted-foreground">
               No styles found matching the filters
             </div>
           ) : (
             <div className="space-y-2">
               {filteredStyles.map((style) => (
-                <div key={style.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div key={style.id} className="border border-border rounded-lg overflow-hidden">
                   {/* Style Header */}
                   <div
-                    className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                    className="flex items-center justify-between p-4 bg-muted hover:bg-muted cursor-pointer"
                     onClick={() => toggleExpand(style.id)}
                   >
                     <div className="flex items-center gap-4 flex-1">
                       {style.isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
                       )}
 
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-gray-900">{style.styleCode}</h3>
+                          <h3 className="font-semibold text-foreground">{style.styleCode}</h3>
                           {getStockStatusBadge(style)}
                         </div>
-                        <p className="text-sm text-gray-600">{style.styleName}</p>
+                        <p className="text-sm text-muted-foreground">{style.styleName}</p>
                         {(style.customerName || style.season || style.projectGroup) && (
-                          <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                          <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
                             {style.customerName && <span>Buyer: {style.customerName}</span>}
                             {style.season && <span>Season: {style.season}</span>}
                             {style.projectGroup && <span>Project: {style.projectGroup}</span>}
@@ -257,8 +259,8 @@ export default function StyleFabricReport() {
 
                       {style.stockData && (
                         <div className="text-right">
-                          <div className="text-2xl font-bold text-blue-600">{style.stockData.canMakeGarments}</div>
-                          <div className="text-xs text-gray-500">Can Make</div>
+                          <div className="text-2xl font-bold text-info">{style.stockData.canMakeGarments}</div>
+                          <div className="text-xs text-muted-foreground">Can Make</div>
                         </div>
                       )}
                     </div>
@@ -266,62 +268,62 @@ export default function StyleFabricReport() {
 
                   {/* Expanded Content */}
                   {style.isExpanded && (
-                    <div className="p-4 bg-white border-t">
+                    <div className="p-4 bg-card border-t">
                       {style.isLoading ? (
-                        <div className="text-center py-4 text-gray-500">Loading stock data...</div>
+                        <div className="text-center py-4 text-muted-foreground">Loading stock data...</div>
                       ) : style.stockData ? (
                         <div className="space-y-4">
                           {/* Fabric Stock Table */}
                           <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
+                              <thead className="bg-muted">
                                 <tr>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                                     Component
                                   </th>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                                     Fabric Code
                                   </th>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                                     Fabric Name
                                   </th>
-                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
                                     Req/Garment
                                   </th>
-                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
                                     Available
                                   </th>
-                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
                                     Reserved
                                   </th>
-                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
                                     Can Make
                                   </th>
                                 </tr>
                               </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
+                              <tbody className="bg-card divide-y divide-gray-200">
                                 {style.stockData.fabricStocks.map((fabric) => (
                                   <tr key={fabric.fabricId}>
-                                    <td className="px-4 py-3 text-sm text-gray-900">{fabric.componentName}</td>
-                                    <td className="px-4 py-3 text-sm text-gray-600">{fabric.fabricCode}</td>
-                                    <td className="px-4 py-3 text-sm text-gray-600">{fabric.fabricName}</td>
-                                    <td className="px-4 py-3 text-sm text-right text-gray-900">
+                                    <td className="px-4 py-3 text-sm text-foreground">{fabric.componentName}</td>
+                                    <td className="px-4 py-3 text-sm text-muted-foreground">{fabric.fabricCode}</td>
+                                    <td className="px-4 py-3 text-sm text-muted-foreground">{fabric.fabricName}</td>
+                                    <td className="px-4 py-3 text-sm text-right text-foreground">
                                       {fabric.requiredPerGarment.toFixed(2)}m
                                     </td>
                                     <td className="px-4 py-3 text-sm text-right">
-                                      <span className="text-green-600 font-medium">
+                                      <span className="text-success font-medium">
                                         {fabric.availableStock.toFixed(2)}m
                                       </span>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-right">
-                                      <span className="text-yellow-600">{fabric.reservedStock.toFixed(2)}m</span>
+                                      <span className="text-warning">{fabric.reservedStock.toFixed(2)}m</span>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-right">
                                       <span
                                         className={`font-semibold ${
                                           fabric.canMakeGarments === style.stockData!.canMakeGarments
-                                            ? 'text-red-600'
-                                            : 'text-gray-900'
+                                            ? 'text-destructive'
+                                            : 'text-foreground'
                                         }`}
                                       >
                                         {fabric.canMakeGarments}
@@ -362,7 +364,7 @@ export default function StyleFabricReport() {
                           </div>
                         </div>
                       ) : (
-                        <div className="text-center py-4 text-gray-500">No stock data available</div>
+                        <div className="text-center py-4 text-muted-foreground">No stock data available</div>
                       )}
                     </div>
                   )}

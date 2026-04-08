@@ -347,23 +347,23 @@ export default function FinishingDetail() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               <div>
-                <div className="text-sm text-gray-500 mb-1">Status</div>
+                <div className="text-sm text-muted-foreground mb-1">Status</div>
                 {getStatusBadge(issue.status)}
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Total Issued</div>
+                <div className="text-sm text-muted-foreground mb-1">Total Issued</div>
                 <div className="text-2xl font-bold">{getTotalIssued()}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Finished</div>
-                <div className="text-2xl font-bold text-green-600">{getTotalFinished()}</div>
+                <div className="text-sm text-muted-foreground mb-1">Finished</div>
+                <div className="text-2xl font-bold text-success">{getTotalFinished()}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Defects</div>
-                <div className="text-2xl font-bold text-red-600">{getTotalDefects()}</div>
+                <div className="text-sm text-muted-foreground mb-1">Defects</div>
+                <div className="text-2xl font-bold text-destructive">{getTotalDefects()}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Progress</div>
+                <div className="text-sm text-muted-foreground mb-1">Progress</div>
                 <div className="text-2xl font-bold">{progress}%</div>
               </div>
             </div>
@@ -372,7 +372,7 @@ export default function FinishingDetail() {
             <div className="mt-6">
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
-                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-green-600' : 'bg-purple-600'}`}
+                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-success' : 'bg-accent'}`}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -391,26 +391,26 @@ export default function FinishingDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Work Order</span>
+                <span className="text-muted-foreground">Work Order</span>
                 <span
-                  className="font-medium text-blue-600 cursor-pointer hover:underline"
+                  className="font-medium text-info cursor-pointer hover:underline"
                   onClick={() => navigate(`/production/work-orders/${issue.workOrderId}`)}
                 >
                   {issue.workOrder?.workOrderNumber || '-'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Style</span>
+                <span className="text-muted-foreground">Style</span>
                 <span className="font-medium">
                   {issue.workOrder?.style?.styleCode} - {issue.workOrder?.style?.styleName}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Customer</span>
+                <span className="text-muted-foreground">Customer</span>
                 <span className="font-medium">{issue.workOrder?.order?.customer?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Issue Date</span>
+                <span className="text-muted-foreground">Issue Date</span>
                 <span className="font-medium">{format(new Date(issue.issueDate), 'dd MMM yyyy')}</span>
               </div>
             </CardContent>
@@ -425,24 +425,24 @@ export default function FinishingDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Contractor</span>
+                <span className="text-muted-foreground">Contractor</span>
                 <span className="font-medium">{issue.contractor?.name || issue.manager?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Expected Completion</span>
+                <span className="text-muted-foreground">Expected Completion</span>
                 <span className="font-medium">
                   {issue.expectedCompletionDate ? format(new Date(issue.expectedCompletionDate), 'dd MMM yyyy') : '-'}
                 </span>
               </div>
               {issue.startDate && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Started On</span>
+                  <span className="text-muted-foreground">Started On</span>
                   <span className="font-medium">{format(new Date(issue.startDate), 'dd MMM yyyy')}</span>
                 </div>
               )}
               {issue.endDate && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Completed On</span>
+                  <span className="text-muted-foreground">Completed On</span>
                   <span className="font-medium">{format(new Date(issue.endDate), 'dd MMM yyyy')}</span>
                 </div>
               )}
@@ -483,13 +483,13 @@ export default function FinishingDetail() {
                           <TableCell>{sku.size?.sizeName || '-'}</TableCell>
                           <TableCell className="text-right">{sku.availableQty}</TableCell>
                           <TableCell className="text-right font-medium">{sku.issuedQty}</TableCell>
-                          <TableCell className="text-right font-medium text-green-600">{finished}</TableCell>
-                          <TableCell className="text-right font-medium text-amber-600">{remaining}</TableCell>
+                          <TableCell className="text-right font-medium text-success">{finished}</TableCell>
+                          <TableCell className="text-right font-medium text-warning">{remaining}</TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
-                  <tfoot className="bg-gray-50">
+                  <tfoot className="bg-muted">
                     <tr>
                       <td colSpan={2} className="px-4 py-3 text-sm font-semibold">
                         Total
@@ -498,8 +498,8 @@ export default function FinishingDetail() {
                         {issue.skuBreakdown.reduce((sum, s) => sum + s.availableQty, 0)}
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-bold">{getTotalIssued()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-green-600">{getTotalFinished()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-amber-600">
+                      <td className="px-4 py-3 text-sm text-right font-bold text-success">{getTotalFinished()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-warning">
                         {getTotalIssued() - getTotalFinished()}
                       </td>
                     </tr>
@@ -530,25 +530,25 @@ export default function FinishingDetail() {
                     <div key={output.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-400" />
+                          <Clock className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium">{format(new Date(output.outputDate), 'dd MMM yyyy')}</span>
                         </div>
                         <div className="flex items-center gap-4 text-sm">
-                          <span className="text-green-600">Finished: {totalFinished}</span>
-                          <span className="text-red-600">Defect: {totalDefect}</span>
+                          <span className="text-success">Finished: {totalFinished}</span>
+                          <span className="text-destructive">Defect: {totalDefect}</span>
                         </div>
                       </div>
                       {output.skuOutputs && output.skuOutputs.length > 0 && (
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-muted-foreground">
                           {output.skuOutputs.map((sku, idx) => (
                             <span key={idx} className="mr-4">
                               {sku.color?.colorName}/{sku.size?.sizeName}: {sku.finishedQty}
-                              {sku.defectQty > 0 && <span className="text-red-500"> (-{sku.defectQty})</span>}
+                              {sku.defectQty > 0 && <span className="text-destructive"> (-{sku.defectQty})</span>}
                             </span>
                           ))}
                         </div>
                       )}
-                      {output.remarks && <p className="text-sm text-gray-500 mt-2 italic">{output.remarks}</p>}
+                      {output.remarks && <p className="text-sm text-muted-foreground mt-2 italic">{output.remarks}</p>}
                     </div>
                   );
                 })}
@@ -564,7 +564,7 @@ export default function FinishingDetail() {
               <CardTitle>Remarks</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700 whitespace-pre-wrap">{issue.remarks}</p>
+              <p className="text-foreground whitespace-pre-wrap">{issue.remarks}</p>
             </CardContent>
           </Card>
         )}
@@ -604,7 +604,7 @@ export default function FinishingDetail() {
                       <TableRow key={`${entry.colorId}-${entry.sizeId}`}>
                         <TableCell>{entry.colorName}</TableCell>
                         <TableCell>{entry.sizeName}</TableCell>
-                        <TableCell className="text-right text-amber-600 font-medium">{remaining}</TableCell>
+                        <TableCell className="text-right text-warning font-medium">{remaining}</TableCell>
                         <TableCell className="text-right">
                           <Input
                             type="number"
@@ -631,15 +631,15 @@ export default function FinishingDetail() {
                     );
                   })}
                 </TableBody>
-                <tfoot className="bg-gray-50">
+                <tfoot className="bg-muted">
                   <tr>
                     <td colSpan={3} className="px-4 py-2 font-semibold text-right">
                       Today's Total:
                     </td>
-                    <td className="px-4 py-2 text-right font-bold text-green-600">
+                    <td className="px-4 py-2 text-right font-bold text-success">
                       {outputEntries.reduce((sum, e) => sum + e.todayFinished, 0)}
                     </td>
-                    <td className="px-4 py-2 text-right font-bold text-red-600">
+                    <td className="px-4 py-2 text-right font-bold text-destructive">
                       {outputEntries.reduce((sum, e) => sum + e.defectQty, 0)}
                     </td>
                   </tr>

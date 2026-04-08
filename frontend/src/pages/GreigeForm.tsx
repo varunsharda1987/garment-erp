@@ -259,7 +259,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Loading...</p>
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -268,16 +268,16 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     <>
       <PageHeader title={mode === 'edit' ? 'Edit Greige Master' : 'New Greige Master'} />
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-card rounded-lg shadow p-6 space-y-6">
         {/* Basic Information */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+          <h3 className="text-lg font-medium text-foreground mb-4">Basic Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                Greige Code <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+                Greige Code <span className="text-destructive">*</span>
                 {mode === 'create' && (
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                  <span className="text-xs bg-info-muted text-info px-2 py-0.5 rounded">Auto-generated</span>
                 )}
               </label>
               <Input
@@ -288,10 +288,10 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 placeholder="e.g., GRG-0001"
                 required
                 readOnly={mode === 'create'}
-                className={mode === 'create' ? 'bg-gray-50 cursor-not-allowed' : ''}
+                className={mode === 'create' ? 'bg-muted cursor-not-allowed' : ''}
               />
               {mode === 'create' && (
-                <p className="text-xs text-gray-500 mt-1">Format: GRG-XXXX (automatically assigned)</p>
+                <p className="text-xs text-muted-foreground mt-1">Format: GRG-XXXX (automatically assigned)</p>
               )}
             </div>
 
@@ -306,9 +306,9 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                Greige Name <span className="text-red-500">*</span>
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+              <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+                Greige Name <span className="text-destructive">*</span>
+                <span className="text-xs bg-success-muted text-success px-2 py-0.5 rounded">Auto-generated</span>
               </label>
               <Input
                 type="text"
@@ -317,12 +317,12 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 placeholder='Will be auto-generated: e.g., Cambric 40×40 / 92×88 / 63"'
                 required
                 readOnly
-                className="bg-gray-50 cursor-not-allowed"
+                className="bg-muted cursor-not-allowed"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Format: Generic Name + Yarn Count / Construction / Width
                 {genericGreigeName && formData.yarnCount && formData.construction && formData.greigeWidth && (
-                  <span className="block mt-1 text-green-600 font-medium">
+                  <span className="block mt-1 text-success font-medium">
                     Preview: {genericGreigeName} {formData.yarnCount} / {formData.construction} / {formData.greigeWidth}
                     "
                   </span>
@@ -331,8 +331,8 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Yarn Count <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Yarn Count <span className="text-destructive">*</span>
               </label>
               <Input
                 type="text"
@@ -345,8 +345,8 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Construction <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Construction <span className="text-destructive">*</span>
               </label>
               <Input
                 type="text"
@@ -359,27 +359,27 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Composition <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Composition <span className="text-destructive">*</span>
               </label>
               <textarea
                 name="composition"
                 value={formData.composition}
                 onChange={handleChange}
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="e.g., 100% Cotton"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Weave Type</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Weave Type</label>
               <select
                 name="weaveType"
                 value={formData.weaveType}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select...</option>
                 <option value="Plain">Plain</option>
@@ -392,12 +392,12 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Greige Quality</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Greige Quality</label>
               <select
                 name="greigeQuality"
                 value={formData.greigeQuality || ''}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select...</option>
                 <option value="PRINTING">Printing</option>
@@ -407,7 +407,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Weaver</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Weaver</label>
               <Input
                 type="text"
                 name="weaver"
@@ -418,7 +418,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">GSM Range</label>
+              <label className="block text-sm font-medium text-foreground mb-1">GSM Range</label>
               <Input
                 type="text"
                 name="gsmRange"
@@ -432,11 +432,11 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
         {/* Width & Shrinkage */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Width & Shrinkage</h3>
+          <h3 className="text-lg font-medium text-foreground mb-4">Width & Shrinkage</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Greige Width (inches) <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Greige Width (inches) <span className="text-destructive">*</span>
               </label>
               <Input
                 type="number"
@@ -450,7 +450,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Default Cutable Width (inches)</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Default Cutable Width (inches)</label>
               <Input
                 type="number"
                 name="defaultCutableWidth"
@@ -459,14 +459,14 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 placeholder="e.g., 44 (auto: greige width - 4)"
                 step="0.1"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Used in CAD Planning. If not set, defaults to Greige Width - 4"
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Average Shrinkage (%) <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Average Shrinkage (%) <span className="text-destructive">*</span>
               </label>
               <Input
                 type="number"
@@ -480,7 +480,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Expected Finished Width Min (inches)
               </label>
               <Input
@@ -494,7 +494,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Expected Finished Width Max (inches)
               </label>
               <Input
@@ -512,29 +512,29 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         {/* Suppliers */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Suppliers</h3>
+            <h3 className="text-lg font-medium text-foreground">Suppliers</h3>
             <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
               + Add Supplier
             </Button>
           </div>
 
           {formData.suppliers.length === 0 ? (
-            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <p className="text-gray-500">No suppliers added yet. Click "Add Supplier" to add one.</p>
+            <div className="text-center py-8 bg-muted rounded-lg border-2 border-dashed border-border">
+              <p className="text-muted-foreground">No suppliers added yet. Click "Add Supplier" to add one.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {formData.suppliers.map((supplier, index) => (
-                <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <div key={index} className="border border-border rounded-lg p-4 bg-muted">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Supplier <span className="text-red-500">*</span>
+                      <label className="block text-sm font-medium text-foreground mb-1">
+                        Supplier <span className="text-destructive">*</span>
                       </label>
                       <select
                         value={supplier.supplierId}
                         onChange={(e) => handleSupplierChange(index, 'supplierId', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
                         <option value="">Select supplier...</option>
@@ -552,9 +552,9 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                           type="checkbox"
                           checked={supplier.isPreferred}
                           onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-info focus:ring-blue-500 border-border rounded"
                         />
-                        <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                        <span className="ml-2 text-sm text-foreground">Preferred Supplier</span>
                       </label>
 
                       <label className="flex items-center">
@@ -562,9 +562,9 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                           type="checkbox"
                           checked={supplier.isActive}
                           onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-info focus:ring-blue-500 border-border rounded"
                         />
-                        <span className="ml-2 text-sm text-gray-700">Active</span>
+                        <span className="ml-2 text-sm text-foreground">Active</span>
                       </label>
                     </div>
 
@@ -574,14 +574,14 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => handleRemoveSupplier(index)}
-                        className="text-red-600 hover:text-red-700"
+                        className="text-destructive hover:text-destructive"
                       >
                         Remove
                       </Button>
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <label className="block text-sm font-medium text-foreground mb-1">Notes</label>
                       <Input
                         type="text"
                         value={supplier.notes}
@@ -598,28 +598,28 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
         {/* Additional Information */}
         <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
+          <h3 className="text-lg font-medium text-foreground mb-4">Additional Information</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Description</label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter detailed description..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Notes</label>
               <textarea
                 name="notes"
                 value={formData.notes}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Internal notes..."
               />
             </div>
@@ -630,9 +630,9 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 name="isActive"
                 checked={formData.isActive}
                 onChange={handleChange}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-info focus:ring-blue-500 border-border rounded"
               />
-              <label className="ml-2 block text-sm text-gray-900">Active</label>
+              <label className="ml-2 block text-sm text-foreground">Active</label>
             </div>
           </div>
         </div>

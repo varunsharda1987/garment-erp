@@ -16,9 +16,9 @@ export const CuttingBatchStatusLabels: Record<CuttingBatchStatus, string> = {
 };
 
 export const CuttingBatchStatusColors: Record<CuttingBatchStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-800',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800',
-  COMPLETED: 'bg-green-100 text-green-800',
+  PENDING: 'bg-muted text-foreground',
+  IN_PROGRESS: 'bg-info-muted text-info',
+  COMPLETED: 'bg-success-muted text-success',
   ON_HOLD: 'bg-yellow-100 text-yellow-800',
 };
 

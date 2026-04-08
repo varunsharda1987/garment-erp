@@ -110,6 +110,72 @@ export const greigeService = {
     );
     return response.data;
   },
+
+  // Get processors with available greige stock (for processor return flow)
+  async getProcessorsWithStock(): Promise<
+    Array<{
+      processorId: string;
+      processorName: string;
+      processorCode: string;
+      warehouseName: string | null;
+      totalQuantity: number;
+      stockEntries: number;
+    }>
+  > {
+    const response = await axios.get<{
+      success: boolean;
+      data: Array<{
+        processorId: string;
+        processorName: string;
+        processorCode: string;
+        warehouseName: string | null;
+        totalQuantity: number;
+        stockEntries: number;
+      }>;
+      // NOTE: These routes are at /api/greige, not /api/fabric-management/greige
+    }>(`${API_BASE_URL}/greige/processors-with-stock`, getAuthHeaders());
+    return response.data.data;
+  },
+
+  // Get greige stock at a specific processor
+  async getProcessorStock(processorId: string): Promise<
+    Array<{
+      id: string;
+      greigeId: string;
+      greige: {
+        id: string;
+        greigeCode: string;
+        greigeName: string;
+        composition: string;
+      };
+      quantityAvailable: number;
+      greigeWidth: number;
+      warehouseLocation: string | null;
+      qualityGrade: string;
+      receivedDate: string;
+    }>
+  > {
+    const response = await axios.get<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        greigeId: string;
+        greige: {
+          id: string;
+          greigeCode: string;
+          greigeName: string;
+          composition: string;
+        };
+        quantityAvailable: number;
+        greigeWidth: number;
+        warehouseLocation: string | null;
+        qualityGrade: string;
+        receivedDate: string;
+      }>;
+      // NOTE: These routes are at /api/greige, not /api/fabric-management/greige
+    }>(`${API_BASE_URL}/greige/processor-stock/${processorId}`, getAuthHeaders());
+    return response.data.data;
+  },
 };
 
 // ============================================

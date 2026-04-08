@@ -294,7 +294,7 @@ export default function PurchaseOrderList() {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl font-display font-medium flex items-center gap-2">
           <ShoppingBag className="h-6 w-6" />
           Purchase Orders
         </h1>
@@ -325,8 +325,8 @@ export default function PurchaseOrderList() {
                 <p className="text-sm text-muted-foreground">Total POs</p>
                 <p className="text-2xl font-bold">{tabCounts.all}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <ShoppingBag className="h-5 w-5 text-blue-600" />
+              <div className="h-10 w-10 rounded-full bg-info-muted flex items-center justify-center">
+                <ShoppingBag className="h-5 w-5 text-info" />
               </div>
             </div>
           </CardContent>
@@ -339,8 +339,8 @@ export default function PurchaseOrderList() {
                 <p className="text-sm text-muted-foreground">Pending Action</p>
                 <p className="text-2xl font-bold">{pendingAction}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-amber-600" />
+              <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-warning" />
               </div>
             </div>
           </CardContent>
@@ -353,8 +353,8 @@ export default function PurchaseOrderList() {
                 <p className="text-sm text-muted-foreground">Awaiting Delivery</p>
                 <p className="text-2xl font-bold">{awaitingDelivery}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                <Truck className="h-5 w-5 text-indigo-600" />
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <Truck className="h-5 w-5 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -367,8 +367,8 @@ export default function PurchaseOrderList() {
                 <p className="text-sm text-muted-foreground">Total Value</p>
                 <p className="text-2xl font-bold">{formatCurrency(normalizedStats?.totalValue || 0)}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                <IndianRupee className="h-5 w-5 text-green-600" />
+              <div className="h-10 w-10 rounded-full bg-success-muted flex items-center justify-center">
+                <IndianRupee className="h-5 w-5 text-success" />
               </div>
             </div>
           </CardContent>
@@ -572,7 +572,7 @@ export default function PurchaseOrderList() {
                         {/* PO Number */}
                         <TableCell>
                           <div>
-                            <span className="text-sm font-medium text-blue-600 hover:underline">{po.poNumber}</span>
+                            <span className="text-sm font-medium text-info hover:underline">{po.poNumber}</span>
                             <div className="text-xs text-muted-foreground mt-0.5">{formatDate(po.poDate)}</div>
                           </div>
                         </TableCell>
@@ -589,7 +589,7 @@ export default function PurchaseOrderList() {
                         <TableCell>
                           {po.poCategory && (
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${PO_CATEGORY_COLORS[po.poCategory] || 'bg-gray-100 text-gray-600'}`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${PO_CATEGORY_COLORS[po.poCategory] || 'bg-muted text-muted-foreground'}`}
                             >
                               {PO_CATEGORY_LABELS[po.poCategory] || po.poCategory}
                             </span>
@@ -615,7 +615,7 @@ export default function PurchaseOrderList() {
                         {activeTab === 'all' && (
                           <TableCell>
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${po.poSource ? POSourceColors[po.poSource] : 'bg-gray-100 text-gray-600'}`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${po.poSource ? POSourceColors[po.poSource] : 'bg-muted text-muted-foreground'}`}
                             >
                               {po.poSource ? POSourceLabels[po.poSource] : 'Unknown'}
                             </span>
@@ -666,7 +666,7 @@ export default function PurchaseOrderList() {
                                       e.stopPropagation();
                                       handleDeleteClick(po.id, po.poNumber);
                                     }}
-                                    className="text-red-600"
+                                    className="text-destructive"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Delete
@@ -682,7 +682,7 @@ export default function PurchaseOrderList() {
                                       e.stopPropagation();
                                       handleCancelClick(po.id, po.poNumber);
                                     }}
-                                    className="text-red-600"
+                                    className="text-destructive"
                                   >
                                     <XCircle className="h-4 w-4 mr-2" />
                                     Cancel PO
@@ -750,7 +750,7 @@ export default function PurchaseOrderList() {
           </AlertDialogHeader>
           <div className="py-4">
             <Label htmlFor="cancel-reason" className="text-sm font-medium">
-              Cancellation Reason <span className="text-red-500">*</span>
+              Cancellation Reason <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="cancel-reason"

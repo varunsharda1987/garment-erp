@@ -268,7 +268,7 @@ export default function TDSList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">TDS Tracking</h1>
+          <h1 className="text-2xl font-display font-medium tracking-tight">TDS Tracking</h1>
           <p className="text-muted-foreground text-sm">
             Tax Deducted at Source - Track deductions, certificates, and quarterly returns
           </p>
@@ -302,7 +302,7 @@ export default function TDSList() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total TDS</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatAmount(summary.totalTDS)}</div>
+            <div className="text-2xl font-bold text-destructive">{formatAmount(summary.totalTDS)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -310,7 +310,7 @@ export default function TDSList() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Net</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatAmount(summary.totalNet)}</div>
+            <div className="text-2xl font-bold text-success">{formatAmount(summary.totalNet)}</div>
           </CardContent>
         </Card>
       </div>
@@ -435,7 +435,7 @@ export default function TDSList() {
                     <TableCell className="text-right font-mono">
                       {Number(entry.grossAmount).toLocaleString('en-IN')}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-red-600">
+                    <TableCell className="text-right font-mono text-destructive">
                       {Number(entry.tdsAmount).toLocaleString('en-IN')}
                     </TableCell>
                     <TableCell className="text-right font-mono">
@@ -613,7 +613,7 @@ export default function TDSList() {
                   step="0.01"
                   value={formData.tdsAmount}
                   readOnly
-                  className="bg-muted font-medium text-red-600"
+                  className="bg-muted font-medium text-destructive"
                 />
               </div>
               <div className="space-y-2">
@@ -624,7 +624,7 @@ export default function TDSList() {
                   step="0.01"
                   value={formData.netAmount}
                   readOnly
-                  className="bg-muted font-medium text-green-600"
+                  className="bg-muted font-medium text-success"
                 />
               </div>
             </div>

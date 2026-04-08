@@ -78,21 +78,21 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
   }
 
   return (
-    <Card className="bg-gray-50 border-dashed">
+    <Card className="bg-muted border-dashed">
       <CardHeader className="py-3 px-4">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Layers className="h-4 w-4 text-blue-600" />
+          <Layers className="h-4 w-4 text-info" />
           CAD Groups Preview
         </CardTitle>
       </CardHeader>
       <CardContent className="py-2 px-4">
         {groups.length === 0 ? (
-          <p className="text-sm text-gray-500">Add fabrics with generic names to see CAD groups</p>
+          <p className="text-sm text-muted-foreground">Add fabrics with generic names to see CAD groups</p>
         ) : (
           <div className="space-y-2">
             {groups.map((group, index) => (
-              <div key={group.key} className="flex items-center gap-2 p-2 bg-white rounded border text-sm">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-medium">
+              <div key={group.key} className="flex items-center gap-2 p-2 bg-card rounded border text-sm">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-info-muted text-info flex items-center justify-center text-xs font-medium">
                   {index + 1}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -102,13 +102,13 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
                       {group.finishType}
                     </Badge>
                     {group.hasEmbroidery && (
-                      <Badge className="text-xs bg-purple-100 text-purple-700 hover:bg-purple-100">
+                      <Badge className="text-xs bg-accent/10 text-accent hover:bg-accent/10">
                         <Sparkles className="h-3 w-3 mr-1" />
                         {group.embroideryName || 'Embroidered'}
                       </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                  <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                     <Scissors className="h-3 w-3" />
                     {group.components.join(', ')}
                   </div>
@@ -117,7 +117,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
             ))}
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           Fabrics with matching name, finish & embroidery will be grouped for CAD Planning.
         </p>
       </CardContent>

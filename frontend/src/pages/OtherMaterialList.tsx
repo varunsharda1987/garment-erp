@@ -119,15 +119,17 @@ export default function OtherMaterialList() {
       header: 'Material Name',
       render: (material) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{material.materialName}</div>
-          {material.description && <div className="text-xs text-gray-500 line-clamp-1">{material.description}</div>}
+          <div className="text-sm font-medium text-foreground">{material.materialName}</div>
+          {material.description && (
+            <div className="text-xs text-muted-foreground line-clamp-1">{material.description}</div>
+          )}
         </div>
       ),
     },
     {
       key: 'category',
       header: 'Category',
-      render: (material) => <div className="text-sm text-gray-700">{material.category || '-'}</div>,
+      render: (material) => <div className="text-sm text-foreground">{material.category || '-'}</div>,
     },
     {
       key: 'unit',
@@ -142,7 +144,7 @@ export default function OtherMaterialList() {
       key: 'specifications',
       header: 'Specifications',
       render: (material) => (
-        <div className="text-sm text-gray-700 max-w-xs truncate">{material.specifications || '-'}</div>
+        <div className="text-sm text-foreground max-w-xs truncate">{material.specifications || '-'}</div>
       ),
     },
     {
@@ -163,7 +165,7 @@ export default function OtherMaterialList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
           {material.otherMaterialSuppliers && material.otherMaterialSuppliers.length > 2 && (
             <Badge variant="outline" className="text-xs">
@@ -177,7 +179,7 @@ export default function OtherMaterialList() {
       key: 'pricePerUnit',
       header: 'Price/Unit',
       render: (material) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {material.pricePerUnit ? formatCurrency(material.pricePerUnit) : '-'}
         </div>
       ),

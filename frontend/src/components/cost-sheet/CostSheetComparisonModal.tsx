@@ -86,7 +86,7 @@ export default function CostSheetComparisonModal({
           <DialogDescription>
             Compare approved cost sheets side-by-side to select the best pricing for your order.
             {selectedStyleCode && (
-              <span className="block mt-1 font-medium text-gray-700">
+              <span className="block mt-1 font-medium text-foreground">
                 Style: {selectedStyleCode} {selectedStyleName && `- ${selectedStyleName}`}
               </span>
             )}
@@ -94,12 +94,12 @@ export default function CostSheetComparisonModal({
         </DialogHeader>
 
         {loadingCostSheets ? (
-          <div className="text-center py-12 text-gray-500">
-            <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+          <div className="text-center py-12 text-muted-foreground">
+            <div className="animate-spin w-8 h-8 border-2 border-info border-t-transparent rounded-full mx-auto mb-3"></div>
             Loading cost sheets...
           </div>
         ) : approvedSheets.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-muted-foreground">
             <Calculator className="w-16 h-16 mx-auto text-gray-300 mb-4" />
             <p className="text-lg font-medium">No Approved Cost Sheets</p>
             <p className="text-sm mt-2">Create and approve a cost sheet for this style before creating orders.</p>
@@ -108,12 +108,12 @@ export default function CostSheetComparisonModal({
           <>
             {/* Selection Helper */}
             {approvedSheets.length > 3 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <div className="bg-info-muted border border-info/20 rounded-lg p-3 mb-4">
                 <div className="flex items-start gap-2">
-                  <Info className="w-4 h-4 text-blue-600 mt-0.5" />
-                  <div className="text-sm text-blue-800">
+                  <Info className="w-4 h-4 text-info mt-0.5" />
+                  <div className="text-sm text-info">
                     <p className="font-medium">Multiple cost sheets available</p>
-                    <p className="text-blue-600">
+                    <p className="text-info">
                       Click on cost sheets below to select up to 3 for comparison.
                       {selectedForComparison.length > 0 && (
                         <button
@@ -133,13 +133,13 @@ export default function CostSheetComparisonModal({
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gray-50">
-                    <th className="text-left p-3 border-b font-medium text-gray-600 w-40">Cost Component</th>
+                  <tr className="bg-muted">
+                    <th className="text-left p-3 border-b font-medium text-muted-foreground w-40">Cost Component</th>
                     {sheetsToCompare.map((cs) => (
                       <th
                         key={cs.id}
                         className={`text-center p-3 border-b cursor-pointer transition-colors ${
-                          selectedForComparison.includes(cs.id) ? 'bg-blue-100' : 'hover:bg-gray-100'
+                          selectedForComparison.includes(cs.id) ? 'bg-info-muted' : 'hover:bg-muted'
                         }`}
                         onClick={() => toggleComparison(cs.id)}
                       >
@@ -149,13 +149,13 @@ export default function CostSheetComparisonModal({
                               <GitBranch className="w-3 h-3 mr-1" />v{cs.version || 1}
                             </Badge>
                             {cs.lockedForOrders && (
-                              <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
+                              <Badge variant="outline" className="text-xs text-warning border-warning/20">
                                 Locked
                               </Badge>
                             )}
                           </div>
                           {cs.widthCombinationDescription && (
-                            <span className="text-xs text-blue-600 font-normal">{cs.widthCombinationDescription}</span>
+                            <span className="text-xs text-info font-normal">{cs.widthCombinationDescription}</span>
                           )}
                         </div>
                       </th>
@@ -164,8 +164,8 @@ export default function CostSheetComparisonModal({
                 </thead>
                 <tbody>
                   {/* Fabric Cost */}
-                  <tr className="hover:bg-gray-50">
-                    <td className="p-3 border-b text-sm text-gray-600">Fabric</td>
+                  <tr className="hover:bg-muted">
+                    <td className="p-3 border-b text-sm text-muted-foreground">Fabric</td>
                     {sheetsToCompare.map((cs) => (
                       <td key={cs.id} className="p-3 border-b text-center font-medium">
                         {formatCurrency(cs.fabricTotal)}
@@ -174,8 +174,8 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* Trims Cost */}
-                  <tr className="hover:bg-gray-50">
-                    <td className="p-3 border-b text-sm text-gray-600">Trims</td>
+                  <tr className="hover:bg-muted">
+                    <td className="p-3 border-b text-sm text-muted-foreground">Trims</td>
                     {sheetsToCompare.map((cs) => (
                       <td key={cs.id} className="p-3 border-b text-center font-medium">
                         {formatCurrency(cs.trimsTotal)}
@@ -184,8 +184,8 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* CMT Cost */}
-                  <tr className="hover:bg-gray-50">
-                    <td className="p-3 border-b text-sm text-gray-600">CMT</td>
+                  <tr className="hover:bg-muted">
+                    <td className="p-3 border-b text-sm text-muted-foreground">CMT</td>
                     {sheetsToCompare.map((cs) => (
                       <td key={cs.id} className="p-3 border-b text-center font-medium">
                         {formatCurrency(cs.cmtTotal)}
@@ -194,8 +194,8 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* Embroidery Cost */}
-                  <tr className="hover:bg-gray-50">
-                    <td className="p-3 border-b text-sm text-gray-600">Embroidery</td>
+                  <tr className="hover:bg-muted">
+                    <td className="p-3 border-b text-sm text-muted-foreground">Embroidery</td>
                     {sheetsToCompare.map((cs) => (
                       <td key={cs.id} className="p-3 border-b text-center font-medium">
                         {formatCurrency(cs.embroideryTotal)}
@@ -204,8 +204,8 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* Accessories Cost */}
-                  <tr className="hover:bg-gray-50">
-                    <td className="p-3 border-b text-sm text-gray-600">Accessories</td>
+                  <tr className="hover:bg-muted">
+                    <td className="p-3 border-b text-sm text-muted-foreground">Accessories</td>
                     {sheetsToCompare.map((cs) => (
                       <td key={cs.id} className="p-3 border-b text-center font-medium">
                         {formatCurrency(cs.accessoriesTotal)}
@@ -217,24 +217,24 @@ export default function CostSheetComparisonModal({
                   {showDetails && (
                     <>
                       {/* Value Loss */}
-                      <tr className="hover:bg-gray-50 bg-amber-50/30">
-                        <td className="p-3 border-b text-sm text-gray-600 pl-6">
+                      <tr className="hover:bg-muted bg-warning-muted/30">
+                        <td className="p-3 border-b text-sm text-muted-foreground pl-6">
                           Value Loss ({sheetsToCompare[0]?.valueLossPercent}%)
                         </td>
                         {sheetsToCompare.map((cs) => (
-                          <td key={cs.id} className="p-3 border-b text-center text-red-600">
+                          <td key={cs.id} className="p-3 border-b text-center text-destructive">
                             +{formatCurrency(cs.valueLossAmount)}
                           </td>
                         ))}
                       </tr>
 
                       {/* Markup */}
-                      <tr className="hover:bg-gray-50 bg-green-50/30">
-                        <td className="p-3 border-b text-sm text-gray-600 pl-6">
+                      <tr className="hover:bg-muted bg-success-muted/30">
+                        <td className="p-3 border-b text-sm text-muted-foreground pl-6">
                           Markup ({sheetsToCompare[0]?.markupPercent}%)
                         </td>
                         {sheetsToCompare.map((cs) => (
-                          <td key={cs.id} className="p-3 border-b text-center text-green-600">
+                          <td key={cs.id} className="p-3 border-b text-center text-success">
                             +{formatCurrency(cs.markupAmount)}
                           </td>
                         ))}
@@ -247,7 +247,7 @@ export default function CostSheetComparisonModal({
                     <td colSpan={sheetsToCompare.length + 1} className="p-1 text-center border-b">
                       <button
                         onClick={() => setShowDetails(!showDetails)}
-                        className="text-xs text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1 mx-auto"
+                        className="text-xs text-info hover:text-info flex items-center justify-center gap-1 mx-auto"
                       >
                         {showDetails ? (
                           <>
@@ -263,8 +263,8 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* Total Material Cost */}
-                  <tr className="bg-gray-100">
-                    <td className="p-3 border-b text-sm font-medium text-gray-700">Total Material</td>
+                  <tr className="bg-muted">
+                    <td className="p-3 border-b text-sm font-medium text-foreground">Total Material</td>
                     {sheetsToCompare.map((cs) => (
                       <td key={cs.id} className="p-3 border-b text-center font-semibold">
                         {formatCurrency(cs.totalMaterialCost)}
@@ -273,8 +273,8 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* Total Processing Cost */}
-                  <tr className="bg-gray-100">
-                    <td className="p-3 border-b text-sm font-medium text-gray-700">Total Processing</td>
+                  <tr className="bg-muted">
+                    <td className="p-3 border-b text-sm font-medium text-foreground">Total Processing</td>
                     {sheetsToCompare.map((cs) => (
                       <td key={cs.id} className="p-3 border-b text-center font-semibold">
                         {formatCurrency(cs.totalProcessingCost)}
@@ -283,13 +283,13 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* Total Cost Per Piece */}
-                  <tr className="bg-blue-50">
-                    <td className="p-3 border-b text-sm font-bold text-blue-800">Cost Per Piece</td>
+                  <tr className="bg-info-muted">
+                    <td className="p-3 border-b text-sm font-bold text-info">Cost Per Piece</td>
                     {sheetsToCompare.map((cs) => (
                       <td
                         key={cs.id}
                         className={`p-3 border-b text-center font-bold ${
-                          cs.totalCostPerPiece === lowestCost ? 'text-green-700 bg-green-100' : 'text-blue-800'
+                          cs.totalCostPerPiece === lowestCost ? 'text-success bg-success-muted' : 'text-info'
                         }`}
                       >
                         {formatCurrency(cs.totalCostPerPiece)}
@@ -301,13 +301,13 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* Selling Price Per Piece */}
-                  <tr className="bg-green-50">
-                    <td className="p-3 text-sm font-bold text-green-800">Selling Price</td>
+                  <tr className="bg-success-muted">
+                    <td className="p-3 text-sm font-bold text-success">Selling Price</td>
                     {sheetsToCompare.map((cs) => (
                       <td
                         key={cs.id}
                         className={`p-3 text-center font-bold text-lg ${
-                          cs.sellingPricePerPiece === highestPrice ? 'text-green-700 bg-green-100' : 'text-green-800'
+                          cs.sellingPricePerPiece === highestPrice ? 'text-success bg-success-muted' : 'text-success'
                         }`}
                       >
                         {formatCurrency(cs.sellingPricePerPiece)}
@@ -316,25 +316,25 @@ export default function CostSheetComparisonModal({
                   </tr>
 
                   {/* Variance Info */}
-                  <tr className="bg-gray-50">
-                    <td className="p-3 text-sm text-gray-500">Variance</td>
+                  <tr className="bg-muted">
+                    <td className="p-3 text-sm text-muted-foreground">Variance</td>
                     {sheetsToCompare.map((cs) => (
                       <td key={cs.id} className="p-3 text-center">
                         {cs.costVariancePercent !== undefined && cs.costVariancePercent !== null ? (
                           <span
                             className={`text-xs ${
                               Number(cs.costVariancePercent) > 0
-                                ? 'text-red-600'
+                                ? 'text-destructive'
                                 : Number(cs.costVariancePercent) < 0
-                                  ? 'text-green-600'
-                                  : 'text-gray-500'
+                                  ? 'text-success'
+                                  : 'text-muted-foreground'
                             }`}
                           >
                             {Number(cs.costVariancePercent) > 0 ? '+' : ''}
                             {formatPercent(cs.costVariancePercent)} from prev
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">-</span>
+                          <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </td>
                     ))}
@@ -359,7 +359,7 @@ export default function CostSheetComparisonModal({
             {/* All Cost Sheets List (for selection when more than 3) */}
             {approvedSheets.length > 3 && (
               <div className="mt-6 pt-4 border-t">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">
+                <h4 className="text-sm font-medium text-foreground mb-3">
                   All Approved Cost Sheets ({approvedSheets.length})
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -369,20 +369,20 @@ export default function CostSheetComparisonModal({
                       onClick={() => toggleComparison(cs.id)}
                       className={`p-3 border rounded-lg text-left text-sm transition-all ${
                         selectedForComparison.includes(cs.id)
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-400'
+                          ? 'border-info bg-info-muted'
+                          : 'border-border hover:border-gray-400'
                       }`}
                     >
                       <div className="flex items-center gap-1 mb-1">
                         <Badge variant="outline" className="text-xs">
                           v{cs.version || 1}
                         </Badge>
-                        {selectedForComparison.includes(cs.id) && <Check className="w-3 h-3 text-blue-600" />}
+                        {selectedForComparison.includes(cs.id) && <Check className="w-3 h-3 text-info" />}
                       </div>
                       {cs.widthCombinationDescription && (
-                        <p className="text-xs text-blue-600 truncate">{cs.widthCombinationDescription}</p>
+                        <p className="text-xs text-info truncate">{cs.widthCombinationDescription}</p>
                       )}
-                      <p className="font-medium text-green-700 mt-1">{formatCurrency(cs.sellingPricePerPiece)}</p>
+                      <p className="font-medium text-success mt-1">{formatCurrency(cs.sellingPricePerPiece)}</p>
                     </button>
                   ))}
                 </div>
@@ -391,7 +391,7 @@ export default function CostSheetComparisonModal({
 
             {/* Quick Select Footer */}
             <div className="mt-4 pt-4 border-t flex items-center justify-between">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 <ArrowRight className="w-4 h-4 inline mr-1" />
                 Click "Use This" to apply the selling price to your order
               </p>

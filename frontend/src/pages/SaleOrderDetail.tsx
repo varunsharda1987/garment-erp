@@ -24,13 +24,13 @@ import { getSaleOrderById, confirmSaleOrder, allocateStock, getAvailableStock } 
 import type { SaleOrderStatus, SaleOrderItem, AvailableFGStock } from '@/types/saleOrder.types';
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  CONFIRMED: 'bg-blue-100 text-blue-800',
-  PARTIALLY_ALLOCATED: 'bg-amber-100 text-amber-800',
-  FULLY_ALLOCATED: 'bg-green-100 text-green-800',
-  PARTIALLY_DISPATCHED: 'bg-purple-100 text-purple-800',
+  DRAFT: 'bg-muted text-foreground',
+  CONFIRMED: 'bg-info-muted text-info',
+  PARTIALLY_ALLOCATED: 'bg-warning/10 text-warning',
+  FULLY_ALLOCATED: 'bg-success-muted text-success',
+  PARTIALLY_DISPATCHED: 'bg-accent/10 text-accent',
   DISPATCHED: 'bg-teal-100 text-teal-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
 export default function SaleOrderDetail() {
@@ -114,7 +114,7 @@ export default function SaleOrderDetail() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="text-2xl font-display font-medium flex items-center gap-2">
               <ShoppingBag className="h-6 w-6" />
               {so.saleOrderNumber}
             </h1>
@@ -220,7 +220,7 @@ export default function SaleOrderDetail() {
                     <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(Number(item.totalPrice))}</TableCell>
                     <TableCell className="text-right">
-                      <span className={item.allocatedQty >= item.quantity ? 'text-green-600 font-medium' : ''}>
+                      <span className={item.allocatedQty >= item.quantity ? 'text-success font-medium' : ''}>
                         {item.allocatedQty} / {item.quantity}
                       </span>
                     </TableCell>
@@ -342,7 +342,7 @@ export default function SaleOrderDetail() {
                       <div
                         key={stock.id}
                         className={`px-3 py-2 cursor-pointer text-sm ${
-                          selectedFgStockId === stock.id ? 'bg-blue-50 border-blue-200' : 'hover:bg-muted'
+                          selectedFgStockId === stock.id ? 'bg-info-muted border-info/20' : 'hover:bg-muted'
                         }`}
                         onClick={() => setSelectedFgStockId(stock.id)}
                       >
@@ -350,7 +350,7 @@ export default function SaleOrderDetail() {
                           <span>
                             {stock.colorOptions?.colorName || '-'} / {stock.sizeOptions?.sizeName || '-'}
                           </span>
-                          <span className="font-medium text-green-700">{stock.availableQty} available</span>
+                          <span className="font-medium text-success">{stock.availableQty} available</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Location: {stock.locations?.name || '-'} | Total: {stock.quantity} | Allocated:{' '}

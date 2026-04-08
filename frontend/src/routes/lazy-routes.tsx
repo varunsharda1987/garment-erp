@@ -320,6 +320,19 @@ export const EmbroideryStockSendOut = lazy(() => import('../pages/EmbroideryStoc
 export const EmbroideryStockReceive = lazy(() => import('../pages/EmbroideryStockReceive'));
 
 // ============================================================================
+// External Process (Smocking, Handwork)
+// ============================================================================
+export const SmockingDashboard = lazy(() => import('../pages/SmockingDashboard'));
+export const SmockingSendOut = lazy(() => import('../pages/SmockingSendOut'));
+export const SmockingReceive = lazy(() => import('../pages/SmockingReceive'));
+export const HandworkDashboard = lazy(() => import('../pages/HandworkDashboard'));
+export const HandworkSendOut = lazy(() => import('../pages/HandworkSendOut'));
+export const HandworkReceive = lazy(() => import('../pages/HandworkReceive'));
+export const EmbroideryPieceDashboard = lazy(() => import('../pages/EmbroideryPieceDashboard'));
+export const EmbroideryPieceSendOut = lazy(() => import('../pages/EmbroideryPieceSendOut'));
+export const EmbroideryPieceReceive = lazy(() => import('../pages/EmbroideryPieceReceive'));
+
+// ============================================================================
 // Component Masters
 // ============================================================================
 export const ComponentMasters = lazy(() => import('../pages/ComponentMasters'));

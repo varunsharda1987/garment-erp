@@ -282,6 +282,26 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
     include: issueIncludeOptions,
   });
 
+  // Auto-create production_tracking: IN_FINISHING
+  try {
+    const totalIssuedQty = skuBreakdown.reduce(
+      (sum: number, sku: any) => sum + (Number(sku.issuedQty) || Number(sku.availableQty) || 0),
+      0
+    );
+    await prisma.production_tracking.create({
+      data: {
+        id: randomUUID(),
+        workOrderId,
+        productionStage: 'IN_FINISHING',
+        quantityCompleted: totalIssuedQty,
+        updatedById: userId,
+        updateDate: new Date(),
+      },
+    });
+  } catch (err) {
+    console.error('Failed to create production_tracking for finishing:', err);
+  }
+
   res.status(201).json({ data: transformFinishingIssue(issue) });
   // end createFinishingIssue
 };
@@ -539,6 +559,26 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
     },
     include: issueIncludeOptions,
   });
+
+  // Auto-create production_tracking: READY_TO_SHIP
+  try {
+    const userId = req.user?.userId;
+    if (issue.workOrderId && userId) {
+      await prisma.production_tracking.create({
+        data: {
+          id: randomUUID(),
+          workOrderId: issue.workOrderId,
+          productionStage: 'READY_TO_SHIP',
+          quantityCompleted:
+            issue.skuBreakdown?.reduce((sum: number, sku: any) => sum + (Number(sku.issuedQty) || 0), 0) || 0,
+          updatedById: userId,
+          updateDate: new Date(),
+        },
+      });
+    }
+  } catch (err) {
+    console.error('Failed to create production_tracking for finishing completion:', err);
+  }
 
   res.json({ data: transformFinishingIssue(issue) });
   // end completeFinishingIssue

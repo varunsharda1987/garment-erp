@@ -92,13 +92,13 @@ export default function ColorMasterList() {
   const ColorSwatch = ({ hexCode }: { hexCode: string | null }) => {
     if (!hexCode) {
       return (
-        <div className="h-6 w-6 rounded border border-gray-200 bg-gray-50 flex items-center justify-center">
-          <span className="text-xs text-gray-400">?</span>
+        <div className="h-6 w-6 rounded border border-border bg-muted flex items-center justify-center">
+          <span className="text-xs text-muted-foreground">?</span>
         </div>
       );
     }
     return (
-      <div className="h-6 w-6 rounded border border-gray-200" style={{ backgroundColor: hexCode }} title={hexCode} />
+      <div className="h-6 w-6 rounded border border-border" style={{ backgroundColor: hexCode }} title={hexCode} />
     );
   };
 
@@ -120,8 +120,8 @@ export default function ColorMasterList() {
         <div className="flex items-center gap-3">
           <ColorSwatch hexCode={item.hexCode} />
           <div>
-            <div className="text-sm font-medium text-gray-900">{item.colorName}</div>
-            {item.hexCode && <div className="text-xs text-gray-500 font-mono">{item.hexCode}</div>}
+            <div className="text-sm font-medium text-foreground">{item.colorName}</div>
+            {item.hexCode && <div className="text-xs text-muted-foreground font-mono">{item.hexCode}</div>}
           </div>
         </div>
       ),
@@ -134,7 +134,9 @@ export default function ColorMasterList() {
     {
       key: 'description',
       header: 'Description',
-      render: (item) => <div className="text-sm text-gray-500 max-w-[200px] truncate">{item.description || '-'}</div>,
+      render: (item) => (
+        <div className="text-sm text-muted-foreground max-w-[200px] truncate">{item.description || '-'}</div>
+      ),
     },
     {
       key: 'isActive',
@@ -166,7 +168,7 @@ export default function ColorMasterList() {
               handleDeleteClick(item.id, item.colorName);
             }}
           >
-            <Trash2 className="h-4 w-4 text-red-500" />
+            <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       ),
@@ -230,10 +232,10 @@ export default function ColorMasterList() {
           </div>
 
           {/* Error */}
-          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
+          {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-4">{error}</div>}
 
           {/* Stats */}
-          <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
             <span>Total: {totalItems} colors</span>
             {familyFilter !== 'all' && <span>• Filtered by: {familyFilter}</span>}
           </div>

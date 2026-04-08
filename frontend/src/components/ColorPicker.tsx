@@ -34,15 +34,15 @@ const ColorSwatch = ({ hexCode, size = 'sm' }: { hexCode: string | null; size?: 
 
   if (!hexCode) {
     return (
-      <div className={cn(sizeClasses, 'rounded border border-gray-200 bg-gray-50 flex items-center justify-center')}>
-        <span className="text-[8px] text-gray-400">?</span>
+      <div className={cn(sizeClasses, 'rounded border border-border bg-muted flex items-center justify-center')}>
+        <span className="text-[8px] text-muted-foreground">?</span>
       </div>
     );
   }
 
   return (
     <div
-      className={cn(sizeClasses, 'rounded border border-gray-200 flex-shrink-0')}
+      className={cn(sizeClasses, 'rounded border border-border flex-shrink-0')}
       style={{ backgroundColor: hexCode }}
       title={hexCode}
     />
@@ -166,7 +166,7 @@ export default function ColorPicker({
             className={cn(
               'w-full justify-between font-normal',
               !selectedColor && 'text-muted-foreground',
-              error && 'border-red-500'
+              error && 'border-destructive'
             )}
           >
             {selectedColor ? (
@@ -241,7 +241,7 @@ export default function ColorPicker({
       </Popover>
 
       {/* Error message */}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

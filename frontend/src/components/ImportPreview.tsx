@@ -56,13 +56,17 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
 
       {/* Modal */}
       <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div className="relative bg-card rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-display font-medium text-foreground">
               Import Preview - {module.charAt(0).toUpperCase() + module.slice(1)}
             </h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600" disabled={isImporting}>
+            <button
+              onClick={onClose}
+              className="text-muted-foreground hover:text-muted-foreground"
+              disabled={isImporting}
+            >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -73,19 +77,19 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
           <div className="flex-1 overflow-y-auto p-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-blue-600">Total Rows</div>
-                <div className="text-2xl font-bold text-blue-900">{result.totalRows}</div>
+              <div className="bg-info-muted border border-info/20 rounded-lg p-4">
+                <div className="text-sm font-medium text-info">Total Rows</div>
+                <div className="text-2xl font-bold text-info">{result.totalRows}</div>
               </div>
 
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-green-600">Valid Rows</div>
-                <div className="text-2xl font-bold text-green-900">{result.validRows}</div>
+              <div className="bg-success-muted border border-success/20 rounded-lg p-4">
+                <div className="text-sm font-medium text-success">Valid Rows</div>
+                <div className="text-2xl font-bold text-success">{result.validRows}</div>
               </div>
 
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="text-sm font-medium text-red-600">Invalid Rows</div>
-                <div className="text-2xl font-bold text-red-900">{result.invalidRows}</div>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                <div className="text-sm font-medium text-destructive">Invalid Rows</div>
+                <div className="text-2xl font-bold text-destructive">{result.invalidRows}</div>
               </div>
             </div>
 
@@ -94,8 +98,8 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
               <div
                 className={`mb-6 p-4 rounded-lg ${
                   importResult.success
-                    ? 'bg-green-50 border border-green-200 text-green-800'
-                    : 'bg-red-50 border border-red-200 text-red-800'
+                    ? 'bg-success-muted border border-success/20 text-success'
+                    : 'bg-destructive/10 border border-destructive/20 text-destructive'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -128,25 +132,27 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
 
             {/* Validation Errors */}
             {hasErrors && result.errors && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-semibold text-red-900 mb-3">Validation Errors ({result.errors.length})</h3>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-destructive mb-3">
+                  Validation Errors ({result.errors.length})
+                </h3>
                 <div className="max-h-64 overflow-y-auto">
                   <table className="min-w-full divide-y divide-red-200">
-                    <thead className="bg-red-100">
+                    <thead className="bg-destructive/10">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">Row</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">Field</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">Error</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-red-900">Value</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-destructive">Row</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-destructive">Field</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-destructive">Error</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-destructive">Value</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-red-200">
                       {result.errors.slice(0, 50).map((error, index) => (
-                        <tr key={index} className="bg-white">
-                          <td className="px-3 py-2 text-sm text-red-900">{error.row}</td>
-                          <td className="px-3 py-2 text-sm text-red-900">{error.field || '-'}</td>
-                          <td className="px-3 py-2 text-sm text-red-700">{error.message}</td>
-                          <td className="px-3 py-2 text-sm text-red-600 font-mono text-xs">
+                        <tr key={index} className="bg-card">
+                          <td className="px-3 py-2 text-sm text-destructive">{error.row}</td>
+                          <td className="px-3 py-2 text-sm text-destructive">{error.field || '-'}</td>
+                          <td className="px-3 py-2 text-sm text-destructive">{error.message}</td>
+                          <td className="px-3 py-2 text-sm text-destructive font-mono text-xs">
                             {error.value !== undefined ? String(error.value) : '-'}
                           </td>
                         </tr>
@@ -154,7 +160,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
                     </tbody>
                   </table>
                   {result.errors.length > 50 && (
-                    <p className="text-sm text-red-700 mt-2 text-center">
+                    <p className="text-sm text-destructive mt-2 text-center">
                       Showing first 50 of {result.errors.length} errors
                     </p>
                   )}
@@ -164,27 +170,27 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
 
             {/* Preview Data */}
             {result.data && result.data.length > 0 && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              <div className="bg-muted border border-border rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-foreground mb-3">
                   Preview Data (First {Math.min(result.data.length, 10)} rows)
                 </h3>
                 <div className="max-h-64 overflow-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-100 sticky top-0">
+                    <thead className="bg-muted sticky top-0">
                       <tr>
                         {result.data[0] &&
                           Object.keys(result.data[0]).map((key) => (
-                            <th key={key} className="px-3 py-2 text-left text-xs font-medium text-gray-700">
+                            <th key={key} className="px-3 py-2 text-left text-xs font-medium text-foreground">
                               {key}
                             </th>
                           ))}
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-card divide-y divide-gray-200">
                       {result.data.slice(0, 10).map((row, index) => (
                         <tr key={index}>
                           {Object.values(row).map((value: string | number | boolean | null, cellIndex) => (
-                            <td key={cellIndex} className="px-3 py-2 text-sm text-gray-900 whitespace-nowrap">
+                            <td key={cellIndex} className="px-3 py-2 text-sm text-foreground whitespace-nowrap">
                               {value !== null && value !== undefined ? String(value) : '-'}
                             </td>
                           ))}
@@ -198,7 +204,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
 
             {/* No Valid Data Warning */}
             {!canImport && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="bg-warning-muted border border-yellow-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 text-yellow-800">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path
@@ -214,11 +220,11 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+          <div className="flex items-center justify-end gap-3 p-6 border-t bg-muted">
             <button
               onClick={onClose}
               disabled={isImporting}
-              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+              className="px-4 py-2 text-foreground bg-card border border-border rounded hover:bg-muted disabled:opacity-50"
             >
               Cancel
             </button>
@@ -227,7 +233,7 @@ const ImportPreview: React.FC<ImportPreviewProps> = ({ module, result, file, isO
               <button
                 onClick={handleConfirm}
                 disabled={isImporting}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-info text-white rounded hover:bg-info disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isImporting ? (
                   <>

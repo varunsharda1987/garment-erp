@@ -11,6 +11,7 @@
 
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 // ============================================================================
 // INTERFACES
@@ -151,6 +152,10 @@ export async function createLaceStock(input: CreateLaceStockInput) {
       performedById: input.createdById,
     },
   });
+
+  // Ensure materials record exists + sync stock_levels
+  await ensureMaterialRecord(input.laceId, 'LACE');
+  await syncStockLevelQuantity(input.laceId, Number(input.quantityAvailable));
 
   return stock;
 }

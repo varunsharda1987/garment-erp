@@ -90,19 +90,19 @@ export default function Register() {
   // Show success state
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <div className="flex items-center justify-center mb-4">
-              <div className="p-3 bg-green-100 rounded-full">
-                <CheckCircle className="h-12 w-12 text-green-600" />
+              <div className="p-3 bg-success-muted rounded-full">
+                <CheckCircle className="h-12 w-12 text-success" />
               </div>
             </div>
-            <CardTitle className="text-2xl text-center text-green-700">Registration Submitted</CardTitle>
+            <CardTitle className="text-2xl text-center text-success">Registration Submitted</CardTitle>
             <CardDescription className="text-center">{successMessage}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm">
+            <div className="bg-warning-muted border border-warning/20 text-warning px-4 py-3 rounded-md text-sm">
               <p className="font-medium">What happens next?</p>
               <ul className="mt-2 list-disc list-inside space-y-1">
                 <li>An administrator will review your request</li>
@@ -122,7 +122,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
@@ -134,20 +134,22 @@ export default function Register() {
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">
+                {error}
+              </div>
             )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
                 <Input id="firstName" type="text" placeholder="John" {...register('firstName')} disabled={isLoading} />
-                {errors.firstName && <p className="text-sm text-red-500">{errors.firstName.message}</p>}
+                {errors.firstName && <p className="text-sm text-destructive">{errors.firstName.message}</p>}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
                 <Input id="lastName" type="text" placeholder="Doe" {...register('lastName')} disabled={isLoading} />
-                {errors.lastName && <p className="text-sm text-red-500">{errors.lastName.message}</p>}
+                {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
               </div>
             </div>
 
@@ -160,15 +162,15 @@ export default function Register() {
                 {...register('email')}
                 disabled={isLoading}
               />
-              {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="phone">
-                Phone Number <span className="text-gray-400 text-xs">(Optional)</span>
+                Phone Number <span className="text-muted-foreground text-xs">(Optional)</span>
               </Label>
               <Input id="phone" type="tel" placeholder="+91 98765 43210" {...register('phone')} disabled={isLoading} />
-              {errors.phone && <p className="text-sm text-red-500">{errors.phone.message}</p>}
+              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -185,7 +187,7 @@ export default function Register() {
                   ))}
                 </SelectContent>
               </Select>
-              {errors.role && <p className="text-sm text-red-500">{errors.role.message}</p>}
+              {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -197,8 +199,8 @@ export default function Register() {
                 {...register('password')}
                 disabled={isLoading}
               />
-              <p className="text-xs text-gray-500">Must be at least 6 characters</p>
-              {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+              <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
+              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -210,10 +212,10 @@ export default function Register() {
                 {...register('confirmPassword')}
                 disabled={isLoading}
               />
-              {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>}
+              {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md text-sm">
+            <div className="bg-info-muted border border-info/20 text-info px-4 py-3 rounded-md text-sm">
               Your account will require admin approval before you can log in.
             </div>
           </CardContent>
@@ -221,9 +223,9 @@ export default function Register() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Submitting...' : 'Request Access'}
             </Button>
-            <p className="text-sm text-center text-gray-600">
+            <p className="text-sm text-center text-muted-foreground">
               Already have an account?{' '}
-              <Link to="/login" className="text-blue-600 hover:underline">
+              <Link to="/login" className="text-info hover:underline">
                 Sign in
               </Link>
             </p>

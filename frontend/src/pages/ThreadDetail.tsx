@@ -58,10 +58,10 @@ export default function ThreadDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading thread details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading thread details...</p>
         </div>
       </div>
     );
@@ -69,8 +69,8 @@ export default function ThreadDetail() {
 
   if (error || !thread) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <header className="bg-white shadow-sm">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+        <header className="bg-card shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => navigate('/materials/thread')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -81,7 +81,7 @@ export default function ThreadDetail() {
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600">{error || 'Thread not found'}</p>
+              <p className="text-destructive">{error || 'Thread not found'}</p>
               <Button onClick={() => navigate('/materials/thread')} className="mt-4">
                 Return to Threads
               </Button>
@@ -93,8 +93,8 @@ export default function ThreadDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Button variant="ghost" onClick={() => navigate('/materials/thread')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -122,8 +122,10 @@ export default function ThreadDetail() {
                     variant={thread.isActive ? 'success' : 'secondary'}
                   />
                 </div>
-                <p className="text-gray-600">Thread Code: {thread.threadCode}</p>
-                {thread.materialCode && <p className="text-gray-500 text-sm">Material Code: {thread.materialCode}</p>}
+                <p className="text-muted-foreground">Thread Code: {thread.threadCode}</p>
+                {thread.materialCode && (
+                  <p className="text-muted-foreground text-sm">Material Code: {thread.materialCode}</p>
+                )}
               </div>
               {thread.image && (
                 <img
@@ -149,25 +151,25 @@ export default function ThreadDetail() {
             <CardContent className="space-y-4">
               {thread.brand && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Brand</label>
-                  <p className="text-gray-900 text-lg font-semibold">{thread.brand}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Brand</label>
+                  <p className="text-foreground text-lg font-semibold">{thread.brand}</p>
                 </div>
               )}
               {thread.packagingType && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Packaging Type</label>
+                  <label className="text-sm font-medium text-muted-foreground">Packaging Type</label>
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant={thread.packagingType === 'CONE' ? 'default' : 'secondary'}>
                       {thread.packagingType}
                     </Badge>
-                    <span className="text-gray-600">
+                    <span className="text-muted-foreground">
                       ({thread.piecesPerBox || (thread.packagingType === 'CONE' ? 6 : 10)} pieces per box)
                     </span>
                   </div>
                 </div>
               )}
               {!thread.brand && !thread.packagingType && (
-                <p className="text-gray-500 text-sm">No basic information available</p>
+                <p className="text-muted-foreground text-sm">No basic information available</p>
               )}
             </CardContent>
           </Card>
@@ -183,27 +185,27 @@ export default function ThreadDetail() {
             <CardContent className="space-y-4">
               {thread.metersPerUnit && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Meters per Unit</label>
-                  <p className="text-gray-900 text-xl font-semibold">{thread.metersPerUnit}m</p>
+                  <label className="text-sm font-medium text-muted-foreground">Meters per Unit</label>
+                  <p className="text-foreground text-xl font-semibold">{thread.metersPerUnit}m</p>
                 </div>
               )}
               {thread.color && (
                 <div className="flex items-center gap-2">
-                  <Palette className="h-4 w-4 text-gray-500" />
+                  <Palette className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Color</label>
-                    <p className="text-gray-900">{thread.color}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Color</label>
+                    <p className="text-foreground">{thread.color}</p>
                   </div>
                 </div>
               )}
               {thread.colorCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Color Code</label>
-                  <p className="text-gray-900 font-mono">{thread.colorCode}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Color Code</label>
+                  <p className="text-foreground font-mono">{thread.colorCode}</p>
                 </div>
               )}
               {!thread.metersPerUnit && !thread.color && (
-                <p className="text-gray-500 text-sm">No specifications available</p>
+                <p className="text-muted-foreground text-sm">No specifications available</p>
               )}
             </CardContent>
           </Card>
@@ -219,11 +221,11 @@ export default function ThreadDetail() {
             <CardContent>
               {thread.pricePerCone ? (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Price per Cone</label>
-                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(thread.pricePerCone)}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Price per Cone</label>
+                  <p className="text-foreground text-2xl font-semibold">{formatCurrency(thread.pricePerCone)}</p>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No pricing information available</p>
+                <p className="text-muted-foreground text-sm">No pricing information available</p>
               )}
             </CardContent>
           </Card>
@@ -239,18 +241,18 @@ export default function ThreadDetail() {
             <CardContent className="space-y-4">
               {thread.supplierCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier Reference Code</label>
-                  <p className="text-gray-900 font-mono">{thread.supplierCode}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Supplier Reference Code</label>
+                  <p className="text-foreground font-mono">{thread.supplierCode}</p>
                 </div>
               )}
               {thread.buyerCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Buyer Code</label>
-                  <p className="text-gray-900 font-mono">{thread.buyerCode}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Buyer Code</label>
+                  <p className="text-foreground font-mono">{thread.buyerCode}</p>
                 </div>
               )}
               {!thread.supplierCode && !thread.buyerCode && (
-                <p className="text-gray-500 text-sm">No reference codes available</p>
+                <p className="text-muted-foreground text-sm">No reference codes available</p>
               )}
             </CardContent>
           </Card>
@@ -267,30 +269,30 @@ export default function ThreadDetail() {
               {thread.threadSuppliers && thread.threadSuppliers.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Supplier
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Price/Cone
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Notes
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-card divide-y divide-gray-200">
                       {thread.threadSuppliers.map((s) => (
                         <tr key={s.id}>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <div>
-                                <p className="text-sm font-medium text-gray-900">{s.supplier.name}</p>
-                                <p className="text-xs text-gray-500">{s.supplier.code}</p>
+                                <p className="text-sm font-medium text-foreground">{s.supplier.name}</p>
+                                <p className="text-xs text-muted-foreground">{s.supplier.code}</p>
                               </div>
                               {s.isPreferred && (
                                 <Badge variant="default" className="text-xs">
@@ -300,30 +302,32 @@ export default function ThreadDetail() {
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">
                             {s.pricePerCone ? formatCurrency(s.pricePerCone) : '-'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             {s.isActive ? (
-                              <Badge variant="outline" className="text-green-600 border-green-600">
+                              <Badge variant="outline" className="text-success border-success">
                                 <Check className="h-3 w-3 mr-1" />
                                 Active
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-gray-500 border-gray-400">
+                              <Badge variant="outline" className="text-muted-foreground border-gray-400">
                                 <X className="h-3 w-3 mr-1" />
                                 Inactive
                               </Badge>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{s.notes || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground max-w-xs truncate">
+                            {s.notes || '-'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No suppliers linked to this thread</p>
+                <p className="text-muted-foreground text-sm">No suppliers linked to this thread</p>
               )}
             </CardContent>
           </Card>
@@ -338,7 +342,7 @@ export default function ThreadDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-900 whitespace-pre-line">{thread.description}</p>
+                <p className="text-foreground whitespace-pre-line">{thread.description}</p>
               </CardContent>
             </Card>
           )}
@@ -351,12 +355,12 @@ export default function ThreadDetail() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Created At</label>
-                  <p className="text-gray-900">{new Date(thread.createdAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Created At</label>
+                  <p className="text-foreground">{new Date(thread.createdAt).toLocaleString()}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                  <p className="text-gray-900">{new Date(thread.updatedAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                  <p className="text-foreground">{new Date(thread.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>

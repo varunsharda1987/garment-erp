@@ -219,18 +219,18 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* LACE INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Lace Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Lace Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Lace Code - Auto-generated */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
                     Lace Code
                     {isNewLace && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                      <span className="text-xs bg-info-muted text-info px-2 py-0.5 rounded">Auto-generated</span>
                     )}
                   </label>
                   {!isNewLace && laceCode ? (
@@ -238,7 +238,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                       <Badge variant="secondary" className="font-mono text-sm">
                         {laceCode}
                       </Badge>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
@@ -249,9 +249,11 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         value=""
                         readOnly
                         placeholder="Will be auto-generated (e.g., LACE-000001)"
-                        className="bg-gray-50 cursor-not-allowed"
+                        className="bg-muted cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
                     </>
                   )}
                 </div>
@@ -262,7 +264,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   <div className="flex gap-4">
                     <label
                       className={`flex items-center gap-2 px-4 py-3 border rounded-lg cursor-pointer transition-colors ${
-                        !isGreige ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50'
+                        !isGreige ? 'border-info bg-info-muted text-info' : 'border-border hover:bg-muted'
                       }`}
                     >
                       <input
@@ -270,16 +272,16 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         name="laceNature"
                         checked={!isGreige}
                         onChange={() => setIsGreige(false)}
-                        className="h-4 w-4 text-blue-600"
+                        className="h-4 w-4 text-info"
                       />
                       <div>
                         <span className="font-medium">Ready-to-Use (Finished)</span>
-                        <p className="text-xs text-gray-500">Colored lace ready for production</p>
+                        <p className="text-xs text-muted-foreground">Colored lace ready for production</p>
                       </div>
                     </label>
                     <label
                       className={`flex items-center gap-2 px-4 py-3 border rounded-lg cursor-pointer transition-colors ${
-                        isGreige ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 hover:bg-gray-50'
+                        isGreige ? 'border-warning bg-warning-muted text-warning' : 'border-border hover:bg-muted'
                       }`}
                     >
                       <input
@@ -287,11 +289,11 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         name="laceNature"
                         checked={isGreige}
                         onChange={() => setIsGreige(true)}
-                        className="h-4 w-4 text-amber-600"
+                        className="h-4 w-4 text-warning"
                       />
                       <div>
                         <span className="font-medium">Raw/Greige</span>
-                        <p className="text-xs text-gray-500">Uncolored lace that needs dyeing</p>
+                        <p className="text-xs text-muted-foreground">Uncolored lace that needs dyeing</p>
                       </div>
                     </label>
                   </div>
@@ -299,9 +301,9 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
                 {/* Lace Name */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
                     Lace Name
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Auto-generated</span>
+                    <span className="text-xs bg-success-muted text-success px-2 py-0.5 rounded">Auto-generated</span>
                   </label>
                   <Input
                     id="laceName"
@@ -315,7 +317,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                     })}
                     placeholder="Leave empty to auto-generate from color, design, composition, etc."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {isNewLace
                       ? 'If left empty, name will be auto-generated from attributes (e.g., "[Buyer-Code] Color Design Composition Lace Width")'
                       : 'Name will auto-update when you change attributes. Edit manually to override.'}
@@ -357,9 +359,9 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                       showFamilyFilter={true}
                       placeholder="Select color from master..."
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Select from Color Master or{' '}
-                      <a href="/colors/new" target="_blank" className="text-blue-600 hover:underline">
+                      <a href="/colors/new" target="_blank" className="text-info hover:underline">
                         add a new color
                       </a>
                     </p>
@@ -378,7 +380,9 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         {...register('expectedShrinkagePercent')}
                         placeholder="e.g., 5"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Shrinkage during dyeing process (typically 3-8%)</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Shrinkage during dyeing process (typically 3-8%)
+                      </p>
                     </div>
                     <div>
                       <Label htmlFor="costPerMeterGreige">Greige Cost (per meter)</Label>
@@ -389,7 +393,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         {...register('costPerMeterGreige')}
                         placeholder="e.g., 18.50"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Raw lace cost before processing</p>
+                      <p className="text-xs text-muted-foreground mt-1">Raw lace cost before processing</p>
                     </div>
                   </>
                 )}
@@ -414,7 +418,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Link to the greige lace this was dyed from (for traceability)
                     </p>
                   </div>
@@ -447,7 +451,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
             {/* SUPPLIERS SECTION - Multi-supplier support */}
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <h3 className="text-lg font-semibold text-foreground">Suppliers</h3>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
@@ -455,19 +459,19 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
               </div>
 
               {suppliers.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <p className="text-gray-500">No suppliers added yet.</p>
-                  <p className="text-sm text-gray-400 mt-1">Click "Add Supplier" to add one.</p>
+                <div className="text-center py-8 bg-muted rounded-lg border-2 border-dashed border-border">
+                  <p className="text-muted-foreground">No suppliers added yet.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Click "Add Supplier" to add one.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {suppliers.map((supplier, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div key={index} className="border border-border rounded-lg p-4 bg-muted">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
                           <Label>
-                            Supplier <span className="text-red-500">*</span>
+                            Supplier <span className="text-destructive">*</span>
                           </Label>
                           <Select
                             value={supplier.supplierId || undefined}
@@ -505,7 +509,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                             variant="outline"
                             size="icon"
                             onClick={() => handleRemoveSupplier(index)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -518,9 +522,9 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                               type="checkbox"
                               checked={supplier.isPreferred}
                               onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                              className="h-4 w-4 text-info rounded border-border focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                            <span className="ml-2 text-sm text-foreground">Preferred Supplier</span>
                           </label>
 
                           <label className="flex items-center cursor-pointer">
@@ -528,9 +532,9 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                               type="checkbox"
                               checked={supplier.isActive}
                               onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                              className="h-4 w-4 text-info rounded border-border focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                            <span className="ml-2 text-sm text-foreground">Active</span>
                           </label>
                         </div>
 
@@ -552,7 +556,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
             {/* SUPPLIER REFERENCE CODE */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Reference Codes</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Reference Codes</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="supplierCode">Supplier Reference Code</Label>
@@ -567,7 +571,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
             {/* STYLE ASSOCIATIONS */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Style Associations</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Style Associations</h3>
               <StyleCodeMultiSelect
                 value={selectedStyleCodes}
                 onChange={setSelectedStyleCodes}
@@ -579,7 +583,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
             {/* DESCRIPTION */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Additional Information</h3>
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea

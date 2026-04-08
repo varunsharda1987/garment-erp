@@ -490,12 +490,12 @@ export default function CatalogueGenerator() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <BookImage className="h-6 w-6 text-purple-600" />
+          <div className="p-2 bg-accent/10 rounded-lg">
+            <BookImage className="h-6 w-6 text-accent" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Catalogue Generator</h1>
-            <p className="text-sm text-gray-500">Create PDF catalogues from your styles</p>
+            <h1 className="text-2xl font-display font-medium text-foreground">Catalogue Generator</h1>
+            <p className="text-sm text-muted-foreground">Create PDF catalogues from your styles</p>
           </div>
         </div>
 
@@ -503,7 +503,7 @@ export default function CatalogueGenerator() {
           <DropdownMenuTrigger asChild>
             <Button
               disabled={isGenerating || isSharing || selectedStyleIds.size === 0}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
+              className="gap-2 bg-accent hover:bg-accent"
             >
               {isGenerating || isSharing ? (
                 <>
@@ -525,7 +525,7 @@ export default function CatalogueGenerator() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handlePrepareWhatsApp} className="cursor-pointer">
-              <MessageCircle className="mr-2 h-4 w-4 text-green-600" />
+              <MessageCircle className="mr-2 h-4 w-4 text-success" />
               Share via WhatsApp
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -651,9 +651,9 @@ export default function CatalogueGenerator() {
                   placeholder={'Paste style codes separated by comma or newline:\nKF-001, KF-002\nKF-003'}
                   className="h-24 font-mono text-sm"
                 />
-                <p className="text-xs text-gray-500">Separate codes with commas, newlines, or tabs</p>
+                <p className="text-xs text-muted-foreground">Separate codes with commas, newlines, or tabs</p>
               </div>
-              {bulkParseError && <p className="text-xs text-red-600">{bulkParseError}</p>}
+              {bulkParseError && <p className="text-xs text-destructive">{bulkParseError}</p>}
               <Button
                 variant="outline"
                 size="sm"
@@ -761,14 +761,14 @@ export default function CatalogueGenerator() {
                     <Badge
                       key={size}
                       variant={selectedSizes.includes(size) ? 'default' : 'outline'}
-                      className="cursor-pointer text-xs px-2 py-0.5 hover:bg-purple-100"
+                      className="cursor-pointer text-xs px-2 py-0.5 hover:bg-accent/10"
                       onClick={() => toggleSize(size)}
                     >
                       {size}
                     </Badge>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500">Filter by size availability</p>
+                <p className="text-xs text-muted-foreground">Filter by size availability</p>
               </div>
 
               <div className="space-y-2">
@@ -781,7 +781,7 @@ export default function CatalogueGenerator() {
                     placeholder="Min"
                     className="w-full"
                   />
-                  <span className="text-gray-400">-</span>
+                  <span className="text-muted-foreground">-</span>
                   <Input
                     type="number"
                     value={maxPrice}
@@ -815,15 +815,15 @@ export default function CatalogueGenerator() {
             <CardContent>
               {isLoadingStyles ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredStyles.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">No styles found matching your filters.</div>
+                <div className="text-center py-12 text-muted-foreground">No styles found matching your filters.</div>
               ) : (
                 <>
                   <div className="overflow-auto max-h-[500px]">
                     <Table>
-                      <TableHeader className="sticky top-0 bg-white z-10">
+                      <TableHeader className="sticky top-0 bg-card z-10">
                         <TableRow>
                           <TableHead className="w-12">
                             <Checkbox
@@ -861,7 +861,7 @@ export default function CatalogueGenerator() {
                         {paginatedFilteredStyles.map((style) => (
                           <TableRow
                             key={style.id}
-                            className={`cursor-pointer ${selectedStyleIds.has(style.id) ? 'bg-purple-50' : ''}`}
+                            className={`cursor-pointer ${selectedStyleIds.has(style.id) ? 'bg-accent/10' : ''}`}
                             onClick={() => toggleStyleSelection(style.id)}
                           >
                             <TableCell onClick={(e) => e.stopPropagation()}>
@@ -883,8 +883,8 @@ export default function CatalogueGenerator() {
                                   }}
                                 />
                               ) : (
-                                <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                                  <ImageIcon className="h-5 w-5 text-gray-400" />
+                                <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
+                                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
                                 </div>
                               )}
                             </TableCell>
@@ -905,12 +905,12 @@ export default function CatalogueGenerator() {
 
                   {/* Pagination Controls */}
                   <div className="flex items-center justify-between pt-4 border-t mt-4">
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-muted-foreground">
                       Showing {(displayPage - 1) * DISPLAY_PAGE_SIZE + 1}-
                       {Math.min(displayPage * DISPLAY_PAGE_SIZE, filteredStyles.length)} of {filteredStyles.length}{' '}
                       styles
                       {totalStyles > styles.length && (
-                        <span className="ml-2 text-purple-600">
+                        <span className="ml-2 text-accent">
                           ({styles.length} loaded of {totalStyles} total)
                         </span>
                       )}
@@ -924,7 +924,7 @@ export default function CatalogueGenerator() {
                       >
                         Previous
                       </Button>
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-muted-foreground">
                         Page {displayPage} of {totalDisplayPages}
                       </span>
                       <Button
@@ -968,7 +968,7 @@ export default function CatalogueGenerator() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-600" />
+              <MessageCircle className="h-5 w-5 text-success" />
               Share via WhatsApp
             </DialogTitle>
             <DialogDescription>
@@ -986,7 +986,9 @@ export default function CatalogueGenerator() {
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="Enter phone number (e.g., 9876543210)"
               />
-              <p className="text-xs text-gray-500">Include country code without + (e.g., 919876543210 for India)</p>
+              <p className="text-xs text-muted-foreground">
+                Include country code without + (e.g., 919876543210 for India)
+              </p>
             </div>
           </div>
 
@@ -997,7 +999,7 @@ export default function CatalogueGenerator() {
             <Button
               onClick={handleShareWhatsApp}
               disabled={isSharing || !phoneNumber.trim()}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-success hover:bg-success"
             >
               {isSharing ? (
                 <>

@@ -57,10 +57,10 @@ export const ServiceRequirementStatusLabels: Record<ServiceRequirementStatus, st
 
 export const ServiceRequirementStatusColors: Record<ServiceRequirementStatus, string> = {
   PENDING: 'bg-orange-100 text-orange-800',
-  PO_GENERATED: 'bg-blue-100 text-blue-800',
+  PO_GENERATED: 'bg-info-muted text-info',
   IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
-  COMPLETED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  COMPLETED: 'bg-success-muted text-success',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
 export const RequirementSource = {

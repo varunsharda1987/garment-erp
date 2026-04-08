@@ -87,4 +87,26 @@ router.post(
   asyncHandler((req: Request, res: Response) => StyleStockController.adjustGreigeStockEntry(req, res))
 );
 
+/**
+ * @route   GET /api/greige/processors-with-stock
+ * @desc    Get processors (suppliers) that have available greige stock from transfers
+ * @access  Protected - All authenticated users
+ */
+router.get(
+  '/processors-with-stock',
+  authenticateToken,
+  asyncHandler((req: Request, res: Response) => StyleStockController.getProcessorsWithGreigeStock(req, res))
+);
+
+/**
+ * @route   GET /api/greige/processor-stock/:processorId
+ * @desc    Get greige stock at a specific processor
+ * @access  Protected - All authenticated users
+ */
+router.get(
+  '/processor-stock/:processorId',
+  authenticateToken,
+  asyncHandler((req: Request, res: Response) => StyleStockController.getProcessorGreigeStock(req, res))
+);
+
 export default router;

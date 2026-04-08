@@ -154,7 +154,7 @@ export default function SampleList() {
           </Badge>
           {isOverdue(item) && (
             <span title="Overdue">
-              <AlertCircle className="h-4 w-4 text-red-500" />
+              <AlertCircle className="h-4 w-4 text-destructive" />
             </span>
           )}
         </div>
@@ -176,11 +176,11 @@ export default function SampleList() {
         <div>
           {item.style ? (
             <>
-              <div className="text-sm font-medium text-gray-900">{item.style.styleCode}</div>
-              <div className="text-xs text-gray-500 line-clamp-1">{item.style.styleName}</div>
+              <div className="text-sm font-medium text-foreground">{item.style.styleCode}</div>
+              <div className="text-xs text-muted-foreground line-clamp-1">{item.style.styleName}</div>
             </>
           ) : (
-            <span className="text-gray-400">No style</span>
+            <span className="text-muted-foreground">No style</span>
           )}
         </div>
       ),
@@ -188,13 +188,13 @@ export default function SampleList() {
     {
       key: 'customer',
       header: 'Customer',
-      render: (item) => <div className="text-sm text-gray-700">{item.customer?.name || '-'}</div>,
+      render: (item) => <div className="text-sm text-foreground">{item.customer?.name || '-'}</div>,
     },
     {
       key: 'requiredDate',
       header: 'Required By',
       render: (item) => (
-        <div className={`text-sm ${isOverdue(item) ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+        <div className={`text-sm ${isOverdue(item) ? 'text-destructive font-medium' : 'text-foreground'}`}>
           {formatDate(item.requiredDate)}
         </div>
       ),
@@ -212,7 +212,7 @@ export default function SampleList() {
       key: 'version',
       header: 'Ver.',
       render: (item) => (
-        <div className="text-sm text-gray-700">{item.sampleType === 'FIT_SAMPLE' ? `v${item.version}` : '-'}</div>
+        <div className="text-sm text-foreground">{item.sampleType === 'FIT_SAMPLE' ? `v${item.version}` : '-'}</div>
       ),
     },
     {
@@ -250,7 +250,7 @@ export default function SampleList() {
                 e.stopPropagation();
                 handleDeleteClick(item.id, item.sampleNumber);
               }}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
               title="Delete"
             >
               <Trash2 className="h-4 w-4" />
@@ -266,10 +266,10 @@ export default function SampleList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <TestTube className="h-8 w-8 text-indigo-600" />
+          <TestTube className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Sample Tracking</h1>
-            <p className="text-gray-500">Manage FIT, PP, Size Set, and Shipment samples</p>
+            <h1 className="text-2xl font-display font-medium text-foreground">Sample Tracking</h1>
+            <p className="text-muted-foreground">Manage FIT, PP, Size Set, and Shipment samples</p>
           </div>
         </div>
         <Button onClick={() => navigate('/samples/new')} className="flex items-center gap-2">
@@ -284,11 +284,11 @@ export default function SampleList() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <TestTube className="h-5 w-5 text-blue-600" />
+                <div className="p-2 bg-info-muted rounded-lg">
+                  <TestTube className="h-5 w-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Total Samples</p>
+                  <p className="text-sm text-muted-foreground">Total Samples</p>
                   <p className="text-2xl font-bold">{summary.total}</p>
                 </div>
               </div>
@@ -298,10 +298,10 @@ export default function SampleList() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+                  <Clock className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Pending Approval</p>
+                  <p className="text-sm text-muted-foreground">Pending Approval</p>
                   <p className="text-2xl font-bold">{summary.pendingApproval}</p>
                 </div>
               </div>
@@ -310,12 +310,12 @@ export default function SampleList() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
+                <div className="p-2 bg-destructive/10 rounded-lg">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Overdue</p>
-                  <p className="text-2xl font-bold text-red-600">{summary.overdue}</p>
+                  <p className="text-sm text-muted-foreground">Overdue</p>
+                  <p className="text-2xl font-bold text-destructive">{summary.overdue}</p>
                 </div>
               </div>
             </CardContent>
@@ -323,12 +323,12 @@ export default function SampleList() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="p-2 bg-success-muted rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Approved</p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-sm text-muted-foreground">Approved</p>
+                  <p className="text-2xl font-bold text-success">
                     {summary.byStatus.find((s) => s.status === 'APPROVED')?.count || 0}
                   </p>
                 </div>
@@ -405,8 +405,8 @@ export default function SampleList() {
         <CardContent className="p-0">
           {error ? (
             <div className="p-8 text-center">
-              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <p className="text-red-600">{error}</p>
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <p className="text-destructive">{error}</p>
               <Button variant="outline" onClick={fetchSamples} className="mt-4">
                 Try Again
               </Button>

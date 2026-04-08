@@ -223,10 +223,10 @@ export default function AllocateFabricToStyleModal({
 
         <div className="space-y-4 py-4">
           {/* Fabric Info */}
-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-            <div className="text-sm text-blue-800">
+          <div className="p-3 bg-info-muted rounded-lg border border-info/15">
+            <div className="text-sm text-info">
               <div className="font-medium">{fabricCode}</div>
-              <div className="text-blue-600">{fabricName}</div>
+              <div className="text-info">{fabricName}</div>
             </div>
           </div>
 
@@ -355,11 +355,11 @@ export default function AllocateFabricToStyleModal({
                 Loading pattern parts...
               </div>
             ) : !selectedComponentId ? (
-              <div className="py-3 text-center text-sm text-muted-foreground border rounded-md bg-gray-50">
+              <div className="py-3 text-center text-sm text-muted-foreground border rounded-md bg-muted">
                 Select a component to see pattern parts
               </div>
             ) : patternParts.length === 0 ? (
-              <div className="py-3 text-center text-sm text-muted-foreground border rounded-md bg-gray-50">
+              <div className="py-3 text-center text-sm text-muted-foreground border rounded-md bg-muted">
                 No pattern parts defined for this component
               </div>
             ) : (

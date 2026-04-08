@@ -20,6 +20,7 @@ import prisma from '../config/database';
 import WeightedAverageCostService from '../services/WeightedAverageCostService';
 import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError } from '../errors';
+import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 
 // ==================== VALIDATION SCHEMAS ====================
 
@@ -1020,6 +1021,16 @@ export const adjustStock = async (req: Request, res: Response) => {
       createdById: userId,
     },
   });
+
+  // Sync stock_levels
+  const material = await prisma.materials.findFirst({
+    where: { fabricId: stock.fabricId },
+    select: { id: true },
+  });
+  if (material) {
+    const change = data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity;
+    await syncStockLevelQuantity(material.id, change);
+  }
 
   res.json({
     success: true,

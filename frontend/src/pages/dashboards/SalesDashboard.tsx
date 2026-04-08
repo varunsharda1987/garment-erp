@@ -77,25 +77,25 @@ export default function SalesDashboard() {
 
   const getOrderStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      DRAFT: 'bg-gray-100 text-gray-800',
+      DRAFT: 'bg-muted text-foreground',
       PENDING: 'bg-yellow-100 text-yellow-800',
-      CONFIRMED: 'bg-blue-100 text-blue-800',
-      IN_PRODUCTION: 'bg-indigo-100 text-indigo-800',
-      COMPLETED: 'bg-green-100 text-green-800',
-      CANCELLED: 'bg-red-100 text-red-800',
+      CONFIRMED: 'bg-info-muted text-info',
+      IN_PRODUCTION: 'bg-primary/10 text-primary',
+      COMPLETED: 'bg-success-muted text-success',
+      CANCELLED: 'bg-destructive/10 text-destructive',
     };
-    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>{status.replace('_', ' ')}</Badge>;
+    return <Badge className={colors[status] || 'bg-muted text-foreground'}>{status.replace('_', ' ')}</Badge>;
   };
 
   const getQuotationStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      DRAFT: 'bg-gray-100 text-gray-800',
-      SENT: 'bg-blue-100 text-blue-800',
-      ACCEPTED: 'bg-green-100 text-green-800',
-      REJECTED: 'bg-red-100 text-red-800',
+      DRAFT: 'bg-muted text-foreground',
+      SENT: 'bg-info-muted text-info',
+      ACCEPTED: 'bg-success-muted text-success',
+      REJECTED: 'bg-destructive/10 text-destructive',
       EXPIRED: 'bg-orange-100 text-orange-800',
     };
-    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>{status}</Badge>;
+    return <Badge className={colors[status] || 'bg-muted text-foreground'}>{status}</Badge>;
   };
 
   // Use getQuotationStatusBadge for quotations table if needed
@@ -115,15 +115,15 @@ export default function SalesDashboard() {
           title="Active Orders"
           value={stats.activeOrders}
           icon={ShoppingCart}
-          iconColor="text-blue-600"
-          iconBgColor="bg-blue-100"
+          iconColor="text-info"
+          iconBgColor="bg-info-muted"
           onClick={() => navigate('/orders')}
         />
         <StatCard
           title="Pending Quotations"
           value={stats.pendingQuotations}
           icon={FileText}
-          iconColor="text-yellow-600"
+          iconColor="text-warning"
           iconBgColor="bg-yellow-100"
           onClick={() => navigate('/quotations?status=SENT')}
         />
@@ -131,8 +131,8 @@ export default function SalesDashboard() {
           title="This Month Revenue"
           value={formatCurrencyWhole(stats.monthlyRevenue)}
           icon={DollarSign}
-          iconColor="text-green-600"
-          iconBgColor="bg-green-100"
+          iconColor="text-success"
+          iconBgColor="bg-success-muted"
           trend={{ value: 12, direction: 'up', label: 'vs last month' }}
         />
         <StatCard
@@ -140,8 +140,8 @@ export default function SalesDashboard() {
           value={stats.upcomingDeliveries}
           description="Next 7 days"
           icon={Calendar}
-          iconColor="text-purple-600"
-          iconBgColor="bg-purple-100"
+          iconColor="text-accent"
+          iconBgColor="bg-accent/10"
         />
       </div>
 
@@ -151,15 +151,15 @@ export default function SalesDashboard() {
           title="Active Customers"
           value={stats.activeCustomers}
           icon={Users}
-          iconColor="text-indigo-600"
-          iconBgColor="bg-indigo-100"
+          iconColor="text-primary"
+          iconBgColor="bg-primary/10"
           onClick={() => navigate('/customers')}
         />
         <StatCard
           title="Styles Pending Costing"
           value={stats.stylesPendingCosting}
           icon={Shirt}
-          iconColor="text-orange-600"
+          iconColor="text-primary"
           iconBgColor="bg-orange-100"
           onClick={() => navigate('/cost-sheets')}
         />
@@ -168,8 +168,8 @@ export default function SalesDashboard() {
           value="68%"
           description="Quotation to Order"
           icon={TrendingUp}
-          iconColor="text-green-600"
-          iconBgColor="bg-green-100"
+          iconColor="text-success"
+          iconBgColor="bg-success-muted"
           trend={{ value: 5, direction: 'up' }}
         />
       </div>
@@ -221,7 +221,7 @@ export default function SalesDashboard() {
                 const date = new Date(value as string);
                 const isExpired = date < new Date();
                 return (
-                  <span className={isExpired ? 'text-red-600' : ''}>
+                  <span className={isExpired ? 'text-destructive' : ''}>
                     <Clock className="h-4 w-4 inline mr-1" />
                     {date.toLocaleDateString()}
                   </span>

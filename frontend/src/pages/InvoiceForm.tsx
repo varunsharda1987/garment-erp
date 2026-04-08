@@ -238,12 +238,14 @@ export default function InvoiceForm() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <FileText className="h-6 w-6 text-blue-600" />
+          <div className="p-2 bg-info-muted rounded-lg">
+            <FileText className="h-6 w-6 text-info" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Invoice' : 'Create Invoice'}</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-2xl font-display font-medium text-foreground">
+              {isEditMode ? 'Edit Invoice' : 'Create Invoice'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
               {isEditMode ? 'Update invoice details' : 'Generate a new invoice for an order'}
             </p>
           </div>
@@ -261,7 +263,7 @@ export default function InvoiceForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="customerId">
-                  Customer <span className="text-red-500">*</span>
+                  Customer <span className="text-destructive">*</span>
                 </Label>
                 <Select value={customerId} onValueChange={setCustomerId} disabled={isEditMode}>
                   <SelectTrigger id="customerId">
@@ -279,7 +281,7 @@ export default function InvoiceForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="orderId">
-                  Order <span className="text-red-500">*</span>
+                  Order <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={orderId}
@@ -298,7 +300,7 @@ export default function InvoiceForm() {
                   </SelectContent>
                 </Select>
                 {customerId && orders.length === 0 && !isLoadingOrders && (
-                  <p className="text-xs text-gray-500">No orders found for this customer</p>
+                  <p className="text-xs text-muted-foreground">No orders found for this customer</p>
                 )}
               </div>
             </div>
@@ -317,7 +319,7 @@ export default function InvoiceForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="dueDate">
-                  Due Date <span className="text-red-500">*</span>
+                  Due Date <span className="text-destructive">*</span>
                 </Label>
                 <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
               </div>
@@ -348,7 +350,7 @@ export default function InvoiceForm() {
           </CardHeader>
           <CardContent>
             {items.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <p>No items yet. Select an order to auto-populate items, or add items manually.</p>
               </div>
             ) : (
@@ -409,7 +411,7 @@ export default function InvoiceForm() {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-red-500 hover:text-red-700"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
                             onClick={() => removeItem(item._key)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -427,10 +429,10 @@ export default function InvoiceForm() {
               <div className="flex justify-end mt-4 pt-4 border-t">
                 <div className="w-72 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal</span>
+                    <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-medium">{formatCurrency(subtotal)}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500">
+                  <div className="flex justify-between text-xs text-muted-foreground">
                     <span>GST (auto-calculated on save)</span>
                     <span>—</span>
                   </div>
@@ -438,7 +440,7 @@ export default function InvoiceForm() {
                     <span>Subtotal (excl. tax)</span>
                     <span>{formatCurrency(subtotal)}</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     GST will be calculated automatically based on HSN codes and customer state.
                   </p>
                 </div>

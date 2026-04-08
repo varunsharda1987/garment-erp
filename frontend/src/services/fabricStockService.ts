@@ -162,6 +162,33 @@ export const fabricStockService = {
   },
 
   /**
+   * Adjust fabric stock quantity (increase/decrease with reason)
+   * Backend: POST /api/stock/adjust
+   */
+  adjustStock: async (
+    stockId: string,
+    data: { adjustmentType: 'INCREASE' | 'DECREASE'; quantity: number; reason: string; notes?: string }
+  ) => {
+    const token = getAuthToken();
+
+    const response = await fetch(`${API_URL}/stock/adjust`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ stockId, ...data }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || error.message || 'Failed to adjust stock');
+    }
+
+    return response.json();
+  },
+
+  /**
    * Delete fabric stock record
    * Will block if dependencies exist
    */

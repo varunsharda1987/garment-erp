@@ -201,9 +201,9 @@ export default function FinishingList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <CheckSquare className="h-8 w-8 text-purple-600" />
+          <CheckSquare className="h-8 w-8 text-accent" />
           <div>
-            <h1 className="text-2xl font-bold">Finishing</h1>
+            <h1 className="text-2xl font-display font-medium">Finishing</h1>
             <p className="text-muted-foreground">Manage finishing issues, QC, and packing operations</p>
           </div>
         </div>
@@ -247,7 +247,7 @@ export default function FinishingList() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Pending Receipt</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-gray-600">{summary.pendingReceipt}</div>
+                  <div className="text-2xl font-bold text-muted-foreground">{summary.pendingReceipt}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -255,7 +255,7 @@ export default function FinishingList() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-yellow-600">{summary.inProgress}</div>
+                  <div className="text-2xl font-bold text-warning">{summary.inProgress}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -263,7 +263,7 @@ export default function FinishingList() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Packing</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">{summary.packing}</div>
+                  <div className="text-2xl font-bold text-accent">{summary.packing}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -271,7 +271,7 @@ export default function FinishingList() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
+                  <div className="text-2xl font-bold text-success">{summary.completed}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -386,7 +386,7 @@ export default function FinishingList() {
                                 onClick={() => handleReceive(issue.id)}
                                 title="Receive from Stitching"
                               >
-                                <ClipboardCheck className="h-4 w-4 text-yellow-600" />
+                                <ClipboardCheck className="h-4 w-4 text-warning" />
                               </Button>
                             )}
                             {issue.status === 'RECEIVED' && (
@@ -396,7 +396,7 @@ export default function FinishingList() {
                                 onClick={() => handleStart(issue.id)}
                                 title="Start Finishing"
                               >
-                                <Play className="h-4 w-4 text-blue-600" />
+                                <Play className="h-4 w-4 text-info" />
                               </Button>
                             )}
                             {issue.status === 'IN_PROGRESS' && (
@@ -406,7 +406,7 @@ export default function FinishingList() {
                                 onClick={() => handleMoveToPacking(issue.id)}
                                 title="Move to Packing"
                               >
-                                <Box className="h-4 w-4 text-purple-600" />
+                                <Box className="h-4 w-4 text-accent" />
                               </Button>
                             )}
                             {issue.status === 'PACKING' && (
@@ -416,7 +416,7 @@ export default function FinishingList() {
                                 onClick={() => handleComplete(issue.id)}
                                 title="Complete Finishing"
                               >
-                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <CheckCircle className="h-4 w-4 text-success" />
                               </Button>
                             )}
                             {issue.status === 'COMPLETED' && (
@@ -583,13 +583,13 @@ export default function FinishingList() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-sm mt-2">
-                    <span className="text-gray-500">
+                    <span className="text-muted-foreground">
                       Pending: <strong>{item.totalPending}</strong>
                     </span>
-                    <span className="text-blue-600">
+                    <span className="text-info">
                       Running: <strong>{item.totalInProgress}</strong>
                     </span>
-                    <span className="text-green-600">
+                    <span className="text-success">
                       Done: <strong>{item.totalCompleted}</strong>
                     </span>
                   </div>
@@ -609,21 +609,17 @@ export default function FinishingList() {
                       {item.sizes.map((size) => (
                         <TableRow key={size.sizeId}>
                           <TableCell className="font-medium">{size.sizeName}</TableCell>
-                          <TableCell className="text-right text-gray-600">{size.pending || '-'}</TableCell>
-                          <TableCell className="text-right text-blue-600 font-medium">
-                            {size.inProgress || '-'}
-                          </TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">
-                            {size.completed || '-'}
-                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">{size.pending || '-'}</TableCell>
+                          <TableCell className="text-right text-info font-medium">{size.inProgress || '-'}</TableCell>
+                          <TableCell className="text-right text-success font-medium">{size.completed || '-'}</TableCell>
                           <TableCell className="text-right font-bold">{size.total}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-bold border-t-2">
                         <TableCell>Total</TableCell>
-                        <TableCell className="text-right text-gray-600">{item.totalPending}</TableCell>
-                        <TableCell className="text-right text-blue-600">{item.totalInProgress}</TableCell>
-                        <TableCell className="text-right text-green-600">{item.totalCompleted}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.totalPending}</TableCell>
+                        <TableCell className="text-right text-info">{item.totalInProgress}</TableCell>
+                        <TableCell className="text-right text-success">{item.totalCompleted}</TableCell>
                         <TableCell className="text-right">
                           {item.totalPending + item.totalInProgress + item.totalCompleted}
                         </TableCell>

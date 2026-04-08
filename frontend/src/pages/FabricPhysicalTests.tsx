@@ -45,21 +45,21 @@ export default function FabricPhysicalTests() {
     switch (result) {
       case 'PASS':
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-300">
+          <Badge className="bg-success-muted text-success border-success/25">
             <CheckCircle className="h-3 w-3 mr-1" />
             PASS
           </Badge>
         );
       case 'FAIL':
         return (
-          <Badge className="bg-red-100 text-red-800 border-red-300">
+          <Badge className="bg-destructive/10 text-destructive border-destructive/25">
             <XCircle className="h-3 w-3 mr-1" />
             FAIL
           </Badge>
         );
       case 'PENDING':
         return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+          <Badge className="bg-warning/10 text-warning border-warning/25">
             <Clock className="h-3 w-3 mr-1" />
             PENDING
           </Badge>
@@ -90,8 +90,8 @@ export default function FabricPhysicalTests() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Fabric Physical Tests</h1>
-          <p className="text-gray-500 mt-1">Manage fabric testing records and results</p>
+          <h1 className="text-3xl font-display font-medium text-foreground">Fabric Physical Tests</h1>
+          <p className="text-muted-foreground mt-1">Manage fabric testing records and results</p>
         </div>
         <Button onClick={() => navigate('/fabric-physical-tests/new')} className="gap-2">
           <Plus className="h-4 w-4" />
@@ -103,7 +103,7 @@ export default function FabricPhysicalTests() {
       <Card className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by test number, batch..."
               value={search}
@@ -131,14 +131,14 @@ export default function FabricPhysicalTests() {
       {/* Tests List */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-500 mt-4">Loading tests...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading tests...</p>
         </div>
       ) : tests.length === 0 ? (
         <Card className="p-12 text-center">
           <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No tests found</h3>
-          <p className="text-gray-500 mb-6">Get started by creating a new fabric physical test</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">No tests found</h3>
+          <p className="text-muted-foreground mb-6">Get started by creating a new fabric physical test</p>
           <Button onClick={() => navigate('/fabric-physical-tests/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Test
@@ -155,7 +155,7 @@ export default function FabricPhysicalTests() {
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{test.testNumber}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{test.testNumber}</h3>
                     {getStatusBadge(test.overallTestResult)}
                     {test.isRetest && (
                       <Badge variant="outline" className="text-xs">
@@ -163,26 +163,26 @@ export default function FabricPhysicalTests() {
                       </Badge>
                     )}
                     {test.adminOverride && (
-                      <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">Admin Override</Badge>
+                      <Badge className="bg-accent/10 text-accent border-accent/25 text-xs">Admin Override</Badge>
                     )}
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-500">Batch:</span>
-                      <p className="font-medium text-gray-900">{test.batchNumber || 'N/A'}</p>
+                      <span className="text-muted-foreground">Batch:</span>
+                      <p className="font-medium text-foreground">{test.batchNumber || 'N/A'}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Sent to Lab:</span>
-                      <p className="font-medium text-gray-900">{formatDate(test.sentToLabDate)}</p>
+                      <span className="text-muted-foreground">Sent to Lab:</span>
+                      <p className="font-medium text-foreground">{formatDate(test.sentToLabDate)}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Result Received:</span>
-                      <p className="font-medium text-gray-900">{formatDate(test.testResultReceivedDate)}</p>
+                      <span className="text-muted-foreground">Result Received:</span>
+                      <p className="font-medium text-foreground">{formatDate(test.testResultReceivedDate)}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Sample Qty:</span>
-                      <p className="font-medium text-gray-900">
+                      <span className="text-muted-foreground">Sample Qty:</span>
+                      <p className="font-medium text-foreground">
                         {test.sampleQuantity ? `${test.sampleQuantity} m` : 'N/A'}
                       </p>
                     </div>
@@ -190,20 +190,22 @@ export default function FabricPhysicalTests() {
 
                   {/* Test Results Summary */}
                   {test.overallTestResult !== 'PENDING' && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-border">
                       <div className="grid grid-cols-3 gap-4 text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500">GSM:</span>
+                          <span className="text-muted-foreground">GSM:</span>
                           <span className="font-semibold">
                             {test.testedGSM || 'N/A'}
-                            {test.expectedGSM && <span className="text-gray-500 ml-1">(exp: {test.expectedGSM})</span>}
+                            {test.expectedGSM && (
+                              <span className="text-muted-foreground ml-1">(exp: {test.expectedGSM})</span>
+                            )}
                           </span>
                           {test.gsmTestResult && (
                             <span className="ml-1">{test.gsmTestResult === 'PASS' ? '✓' : '✗'}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Construction:</span>
+                          <span className="text-muted-foreground">Construction:</span>
                           <span className="font-semibold">
                             {test.testedConstruction || test.expectedConstruction || 'N/A'}
                           </span>
@@ -212,7 +214,7 @@ export default function FabricPhysicalTests() {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Count:</span>
+                          <span className="text-muted-foreground">Count:</span>
                           <span className="font-semibold">{test.testedCount || test.expectedCount || 'N/A'}</span>
                           {test.countTestResult && (
                             <span className="ml-1">{test.countTestResult === 'PASS' ? '✓' : '✗'}</span>
@@ -223,7 +225,7 @@ export default function FabricPhysicalTests() {
                   )}
 
                   {test.failureReason && (
-                    <div className="mt-3 p-2 bg-red-50 rounded text-sm text-red-700">
+                    <div className="mt-3 p-2 bg-destructive/10 rounded text-sm text-destructive">
                       <strong>Failure Reason:</strong> {test.failureReason}
                     </div>
                   )}
@@ -240,7 +242,7 @@ export default function FabricPhysicalTests() {
           <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
             Previous
           </Button>
-          <span className="py-2 px-4 text-sm text-gray-700">
+          <span className="py-2 px-4 text-sm text-foreground">
             Page {page} of {totalPages}
           </span>
           <Button

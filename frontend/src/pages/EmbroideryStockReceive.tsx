@@ -178,15 +178,17 @@ export default function EmbroideryStockReceive() {
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, React.ReactNode> = {
-      SENT: <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Sent</span>,
+      SENT: <span className="px-2 py-1 bg-info-muted text-info rounded text-xs font-medium">Sent</span>,
       IN_PROGRESS: (
         <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">In Progress</span>
       ),
-      RECEIVED: <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Received</span>,
+      RECEIVED: <span className="px-2 py-1 bg-success-muted text-success rounded text-xs font-medium">Received</span>,
       PARTIALLY_RECEIVED: (
-        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">Partial</span>
+        <span className="px-2 py-1 bg-orange-100 text-primary rounded text-xs font-medium">Partial</span>
       ),
-      CANCELLED: <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">Cancelled</span>,
+      CANCELLED: (
+        <span className="px-2 py-1 bg-destructive/10 text-destructive rounded text-xs font-medium">Cancelled</span>
+      ),
     };
     return badges[status] || status;
   };
@@ -199,20 +201,20 @@ export default function EmbroideryStockReceive() {
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
-      <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">
+      <div className="mb-4 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-info">
           Home
         </Link>
         {' > '}
-        <Link to="/fabric" className="hover:text-blue-600">
+        <Link to="/fabric" className="hover:text-info">
           Fabric
         </Link>
         {' > '}
-        <Link to="/embroidery-stock" className="hover:text-blue-600">
+        <Link to="/embroidery-stock" className="hover:text-info">
           Embroidery Stock
         </Link>
         {' > '}
-        <span className="font-medium text-gray-900">Receive</span>
+        <span className="font-medium text-foreground">Receive</span>
       </div>
 
       {/* Back Button */}
@@ -226,19 +228,19 @@ export default function EmbroideryStockReceive() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package2 className="h-6 w-6 text-green-600" />
+            <Package2 className="h-6 w-6 text-success" />
             Receive Embroidered Fabric
           </CardTitle>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             Receive embroidered fabric back from vendor. This will create new embroidered fabric stock.
           </p>
         </CardHeader>
         <CardContent>
           {/* Success Alert */}
           {success && (
-            <Alert className="mb-6 bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="mb-6 bg-success-muted border-success/20">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success">
                 Embroidered fabric received successfully! New stock entry created. Redirecting...
               </AlertDescription>
             </Alert>
@@ -246,29 +248,29 @@ export default function EmbroideryStockReceive() {
 
           {/* Error Alert */}
           {error && (
-            <Alert className="mb-6 bg-red-50 border-red-200">
-              <XCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            <Alert className="mb-6 bg-destructive/10 border-destructive/20">
+              <XCircle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-destructive">{error}</AlertDescription>
             </Alert>
           )}
 
           {isLoading ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-              <p className="text-gray-500 mt-2">Loading data...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-success mx-auto"></div>
+              <p className="text-muted-foreground mt-2">Loading data...</p>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Send-Out Selection (if not pre-selected) */}
               {!sendOutId && (
                 <div className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm">Step 1</span>
+                  <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                    <span className="bg-success-muted text-success px-2 py-1 rounded text-sm">Step 1</span>
                     Select Send-Out to Receive
                   </h3>
                   <div>
                     <Label>
-                      Pending Send-Out <span className="text-red-500">*</span>
+                      Pending Send-Out <span className="text-destructive">*</span>
                     </Label>
                     <Select value={selectedSendOutId} onValueChange={handleSendOutSelect}>
                       <SelectTrigger className="w-full mt-1">
@@ -290,14 +292,14 @@ export default function EmbroideryStockReceive() {
 
               {/* Send-Out Details */}
               {sendOut && (
-                <Card className="bg-blue-50 border-blue-200">
+                <Card className="bg-info-muted border-info/20">
                   <CardContent className="pt-4">
                     <div className="flex justify-between items-start mb-4">
-                      <h4 className="font-medium text-gray-900">Send-Out Details</h4>
+                      <h4 className="font-medium text-foreground">Send-Out Details</h4>
                       <div className="flex items-center gap-2">
                         {getStatusBadge(sendOut.status)}
                         {isOverdue(sendOut.expectedReturnDate) && (
-                          <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium flex items-center gap-1">
+                          <span className="px-2 py-1 bg-destructive/10 text-destructive rounded text-xs font-medium flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
                             Overdue
                           </span>
@@ -306,48 +308,48 @@ export default function EmbroideryStockReceive() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-600">Source Fabric:</span>
+                        <span className="text-muted-foreground">Source Fabric:</span>
                         <p className="font-medium">
                           {sendOut.sourceFabricStock?.fabricMaster?.fabricCode} -{' '}
                           {sendOut.sourceFabricStock?.fabricMaster?.fabricName}
                         </p>
                       </div>
                       <div>
-                        <span className="text-gray-600">Embroidery Design:</span>
+                        <span className="text-muted-foreground">Embroidery Design:</span>
                         <p className="font-medium flex items-center gap-1">
-                          <Sparkles className="h-3 w-3 text-purple-500" />
+                          <Sparkles className="h-3 w-3 text-accent" />
                           {sendOut.embroidery?.designName}
                         </p>
                       </div>
                       <div>
-                        <span className="text-gray-600">Supplier:</span>
+                        <span className="text-muted-foreground">Supplier:</span>
                         <p className="font-medium">{sendOut.supplier?.name}</p>
                       </div>
                       <div>
-                        <span className="text-gray-600">Quantity Sent:</span>
-                        <p className="font-medium text-blue-600">{sendOut.quantitySent} m</p>
+                        <span className="text-muted-foreground">Quantity Sent:</span>
+                        <p className="font-medium text-info">{sendOut.quantitySent} m</p>
                       </div>
                       <div>
-                        <span className="text-gray-600">Sent Width:</span>
+                        <span className="text-muted-foreground">Sent Width:</span>
                         <p className="font-medium">{sendOut.sentWidth}"</p>
                       </div>
                       <div>
-                        <span className="text-gray-600">Expected Width After:</span>
-                        <p className="font-medium text-orange-600">{sendOut.embroidery?.usableWidthAfter}"</p>
+                        <span className="text-muted-foreground">Expected Width After:</span>
+                        <p className="font-medium text-primary">{sendOut.embroidery?.usableWidthAfter}"</p>
                       </div>
                       <div>
-                        <span className="text-gray-600">Agreed Rate:</span>
+                        <span className="text-muted-foreground">Agreed Rate:</span>
                         <p className="font-medium">{formatCurrency(sendOut.agreedRate)}/m</p>
                       </div>
                       <div>
-                        <span className="text-gray-600">Send Date:</span>
+                        <span className="text-muted-foreground">Send Date:</span>
                         <p className="font-medium">{new Date(sendOut.sendDate).toLocaleDateString()}</p>
                       </div>
                       {sendOut.expectedReturnDate && (
                         <div>
-                          <span className="text-gray-600">Expected Return:</span>
+                          <span className="text-muted-foreground">Expected Return:</span>
                           <p
-                            className={`font-medium ${isOverdue(sendOut.expectedReturnDate) ? 'text-red-600' : 'text-gray-900'}`}
+                            className={`font-medium ${isOverdue(sendOut.expectedReturnDate) ? 'text-destructive' : 'text-foreground'}`}
                           >
                             <Clock className="h-3 w-3 inline mr-1" />
                             {new Date(sendOut.expectedReturnDate).toLocaleDateString()}
@@ -356,7 +358,7 @@ export default function EmbroideryStockReceive() {
                       )}
                       {sendOut.forStyle && (
                         <div>
-                          <span className="text-gray-600">For Style:</span>
+                          <span className="text-muted-foreground">For Style:</span>
                           <p className="font-medium">{sendOut.forStyle.styleCode}</p>
                         </div>
                       )}
@@ -368,8 +370,8 @@ export default function EmbroideryStockReceive() {
               {/* Receive Form */}
               {sendOut && (
                 <div className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm">
+                  <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                    <span className="bg-success-muted text-success px-2 py-1 rounded text-sm">
                       {sendOutId ? 'Step 1' : 'Step 2'}
                     </span>
                     Receive Details
@@ -377,7 +379,7 @@ export default function EmbroideryStockReceive() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <Label htmlFor="quantityReceived">
-                        Quantity Received (meters) <span className="text-red-500">*</span>
+                        Quantity Received (meters) <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="quantityReceived"
@@ -388,7 +390,7 @@ export default function EmbroideryStockReceive() {
                         placeholder="e.g., 100"
                         className="mt-1"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Sent: {sendOut.quantitySent} m</p>
+                      <p className="text-xs text-muted-foreground mt-1">Sent: {sendOut.quantitySent} m</p>
                     </div>
 
                     <div>
@@ -406,7 +408,7 @@ export default function EmbroideryStockReceive() {
 
                     <div>
                       <Label htmlFor="receivedWidth">
-                        Received/Usable Width (inches) <span className="text-red-500">*</span>
+                        Received/Usable Width (inches) <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="receivedWidth"
@@ -417,14 +419,14 @@ export default function EmbroideryStockReceive() {
                         placeholder="e.g., 50"
                         className="mt-1"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Sent: {sendOut.sentWidth}" | Expected: {sendOut.embroidery?.usableWidthAfter}"
                       </p>
                     </div>
 
                     <div>
                       <Label htmlFor="actualReturnDate">
-                        Actual Return Date <span className="text-red-500">*</span>
+                        Actual Return Date <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="actualReturnDate"
@@ -437,7 +439,7 @@ export default function EmbroideryStockReceive() {
 
                     <div>
                       <Label htmlFor="qualityGrade">
-                        Quality Grade <span className="text-red-500">*</span>
+                        Quality Grade <span className="text-destructive">*</span>
                       </Label>
                       <Select
                         value={formData.qualityGrade}
@@ -476,7 +478,7 @@ export default function EmbroideryStockReceive() {
                         placeholder="e.g., 2500.00"
                         className="mt-1"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Expected: {formatCurrency(sendOut.quantitySent * sendOut.agreedRate)}
                       </p>
                     </div>
@@ -510,7 +512,7 @@ export default function EmbroideryStockReceive() {
                         value={formData.remarks}
                         onChange={(e) => handleFieldChange('remarks', e.target.value)}
                         placeholder="Any quality issues, notes, or observations..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mt-1"
+                        className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 mt-1"
                         rows={3}
                       />
                     </div>
@@ -520,12 +522,12 @@ export default function EmbroideryStockReceive() {
 
               {/* Cost Summary */}
               {sendOut && formData.quantityReceived && (
-                <Card className="bg-gray-50">
+                <Card className="bg-muted">
                   <CardContent className="pt-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Cost Summary</h4>
+                    <h4 className="font-medium text-foreground mb-3">Cost Summary</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Original Fabric Cost:</span>
+                        <span className="text-muted-foreground">Original Fabric Cost:</span>
                         <span className="font-medium">
                           {formatCurrency(
                             parseFloat(formData.quantityReceived) * (sendOut.sourceFabricStock?.weightedAvgCost || 0)
@@ -533,7 +535,7 @@ export default function EmbroideryStockReceive() {
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Embroidery Cost:</span>
+                        <span className="text-muted-foreground">Embroidery Cost:</span>
                         <span className="font-medium">
                           {formatCurrency(
                             formData.actualCost
@@ -543,8 +545,8 @@ export default function EmbroideryStockReceive() {
                         </span>
                       </div>
                       <div className="flex justify-between pt-2 border-t text-base">
-                        <span className="font-medium text-gray-900">Combined Cost per Meter:</span>
-                        <span className="font-bold text-green-600">
+                        <span className="font-medium text-foreground">Combined Cost per Meter:</span>
+                        <span className="font-bold text-success">
                           {formatCurrency(
                             (sendOut.sourceFabricStock?.weightedAvgCost || 0) +
                               (formData.actualCost
@@ -572,7 +574,7 @@ export default function EmbroideryStockReceive() {
                     !formData.quantityReceived ||
                     !formData.receivedWidth
                   }
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-success hover:bg-success"
                 >
                   {isSaving ? 'Processing...' : 'Receive & Create Stock'}
                 </Button>

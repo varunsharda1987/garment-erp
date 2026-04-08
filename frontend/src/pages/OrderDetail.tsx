@@ -258,15 +258,15 @@ export default function OrderDetail() {
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-800';
       case 'IN_PRODUCTION':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-info-muted text-info';
       case 'COMPLETED':
-        return 'bg-green-100 text-green-800';
+        return 'bg-success-muted text-success';
       case 'DISPATCHED':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-accent/10 text-accent';
       case 'CANCELLED':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -275,15 +275,15 @@ export default function OrderDetail() {
   const getPriorityBadgeColor = (priority: string) => {
     switch (priority) {
       case 'LOW':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-foreground';
       case 'MEDIUM':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-info-muted text-info';
       case 'HIGH':
         return 'bg-orange-100 text-orange-800';
       case 'URGENT':
-        return 'bg-red-100 text-red-800';
+        return 'bg-destructive/10 text-destructive';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -299,7 +299,7 @@ export default function OrderDetail() {
       );
     } else if (percent < 0) {
       return (
-        <Badge variant="default" className="flex items-center gap-1 bg-green-600">
+        <Badge variant="default" className="flex items-center gap-1 bg-success">
           <TrendingDown className="h-3 w-3" />
           {percent.toFixed(1)}%
         </Badge>
@@ -321,10 +321,10 @@ export default function OrderDetail() {
     const hasActualCost = costing.actualCostPerPiece !== null && costing.actualCostPerPiece !== undefined;
 
     return (
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+      <div className="mt-4 p-4 bg-muted rounded-lg border">
         <div className="flex items-center gap-2 mb-3">
-          <Calculator className="h-4 w-4 text-gray-500" />
-          <h4 className="font-medium text-gray-700">Costing Details</h4>
+          <Calculator className="h-4 w-4 text-muted-foreground" />
+          <h4 className="font-medium text-foreground">Costing Details</h4>
           {costing.originalCostSheetVersion && (
             <Badge variant="outline" className="text-xs">
               v{costing.originalCostSheetVersion}
@@ -334,35 +334,35 @@ export default function OrderDetail() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
-            <div className="text-gray-500">Fabric</div>
+            <div className="text-muted-foreground">Fabric</div>
             <div className="font-medium">{formatCurrency(costing.fabricTotal)}</div>
           </div>
           <div>
-            <div className="text-gray-500">Trims</div>
+            <div className="text-muted-foreground">Trims</div>
             <div className="font-medium">{formatCurrency(costing.trimsTotal)}</div>
           </div>
           <div>
-            <div className="text-gray-500">CMT</div>
+            <div className="text-muted-foreground">CMT</div>
             <div className="font-medium">{formatCurrency(costing.cmtTotal)}</div>
           </div>
           <div>
-            <div className="text-gray-500">Embroidery</div>
+            <div className="text-muted-foreground">Embroidery</div>
             <div className="font-medium">{formatCurrency(costing.embroideryTotal)}</div>
           </div>
         </div>
 
         {/* Variance Section */}
         {(hasVariance || hasActualCost) && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="mt-4 pt-4 border-t border-border">
             <div className="flex items-center gap-2 mb-3">
-              <DollarSign className="h-4 w-4 text-gray-500" />
-              <span className="font-medium text-gray-700">Production Variance</span>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium text-foreground">Production Variance</span>
               {hasVariance && renderVarianceBadge(costing.costVariancePercent)}
             </div>
 
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <div className="text-gray-500">Estimated Cost/Pc</div>
+                <div className="text-muted-foreground">Estimated Cost/Pc</div>
                 <div className="font-medium">
                   {costing.estimatedCostPerPiece !== null && costing.estimatedCostPerPiece !== undefined
                     ? formatCurrency(costing.estimatedCostPerPiece)
@@ -370,17 +370,17 @@ export default function OrderDetail() {
                 </div>
               </div>
               <div>
-                <div className="text-gray-500">Actual Cost/Pc</div>
+                <div className="text-muted-foreground">Actual Cost/Pc</div>
                 <div
-                  className={`font-medium ${hasVariance && Number(costing.costVariancePercent) > 0 ? 'text-red-600' : hasVariance && Number(costing.costVariancePercent) < 0 ? 'text-green-600' : ''}`}
+                  className={`font-medium ${hasVariance && Number(costing.costVariancePercent) > 0 ? 'text-destructive' : hasVariance && Number(costing.costVariancePercent) < 0 ? 'text-success' : ''}`}
                 >
                   {hasActualCost ? formatCurrency(costing.actualCostPerPiece!) : '-'}
                 </div>
               </div>
               <div>
-                <div className="text-gray-500">Variance Amount</div>
+                <div className="text-muted-foreground">Variance Amount</div>
                 <div
-                  className={`font-medium ${costing.costVarianceAmount && Number(costing.costVarianceAmount) > 0 ? 'text-red-600' : costing.costVarianceAmount && Number(costing.costVarianceAmount) < 0 ? 'text-green-600' : ''}`}
+                  className={`font-medium ${costing.costVarianceAmount && Number(costing.costVarianceAmount) > 0 ? 'text-destructive' : costing.costVarianceAmount && Number(costing.costVarianceAmount) < 0 ? 'text-success' : ''}`}
                 >
                   {costing.costVarianceAmount !== null && costing.costVarianceAmount !== undefined
                     ? `${Number(costing.costVarianceAmount) > 0 ? '+' : ''}${formatCurrency(costing.costVarianceAmount)}`
@@ -390,13 +390,13 @@ export default function OrderDetail() {
             </div>
 
             {costing.varianceCalculatedAt && (
-              <div className="mt-2 text-xs text-gray-400">
+              <div className="mt-2 text-xs text-muted-foreground">
                 Calculated: {new Date(costing.varianceCalculatedAt).toLocaleDateString()}
               </div>
             )}
 
             {!hasActualCost && (
-              <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded">
+              <div className="mt-3 flex items-center gap-2 text-xs text-warning bg-warning-muted px-3 py-2 rounded">
                 <AlertCircle className="h-4 w-4" />
                 <span>Actual production costs not yet calculated</span>
               </div>
@@ -420,7 +420,7 @@ export default function OrderDetail() {
       <div className="container mx-auto py-8 px-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center text-red-600">{error || 'Order not found'}</div>
+            <div className="text-center text-destructive">{error || 'Order not found'}</div>
             <div className="text-center mt-4">
               <Button onClick={() => navigate('/orders')}>Back to Orders</Button>
             </div>
@@ -433,7 +433,7 @@ export default function OrderDetail() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Order Details</h1>
+        <h1 className="text-3xl font-display font-medium">Order Details</h1>
         <div className="flex gap-2">
           {/* Document Download Menu */}
           <DocumentShareMenu documentType="order" documentId={order.id} documentNumber={order.orderNumber} />
@@ -466,48 +466,48 @@ export default function OrderDetail() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
-              <div className="text-sm font-medium text-gray-500">Customer</div>
+              <div className="text-sm font-medium text-muted-foreground">Customer</div>
               <div className="mt-1 text-lg">{order.customer?.name || 'N/A'}</div>
-              <div className="text-sm text-gray-500">{order.customer?.code}</div>
+              <div className="text-sm text-muted-foreground">{order.customer?.code}</div>
             </div>
             <div>
-              <div className="text-sm font-medium text-gray-500">Order Date</div>
+              <div className="text-sm font-medium text-muted-foreground">Order Date</div>
               <div className="mt-1">{new Date(order.orderDate).toLocaleDateString()}</div>
             </div>
             <div>
-              <div className="text-sm font-medium text-gray-500">Expected Delivery</div>
+              <div className="text-sm font-medium text-muted-foreground">Expected Delivery</div>
               <div className="mt-1">{new Date(order.expectedDeliveryDate).toLocaleDateString()}</div>
             </div>
             <div>
-              <div className="text-sm font-medium text-gray-500">Total Quantity</div>
+              <div className="text-sm font-medium text-muted-foreground">Total Quantity</div>
               <div className="mt-1 text-lg font-semibold">{order.totalQuantity} pieces</div>
             </div>
             <div>
-              <div className="text-sm font-medium text-gray-500">Total Amount</div>
+              <div className="text-sm font-medium text-muted-foreground">Total Amount</div>
               <div className="mt-1 text-lg font-semibold">
                 {Number(order.totalAmount) > 0 ? (
                   formatCurrency(order.totalAmount, { decimals: 0 })
                 ) : (
-                  <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded text-sm">Pricing Pending</span>
+                  <span className="text-warning bg-warning-muted px-2 py-1 rounded text-sm">Pricing Pending</span>
                 )}
               </div>
             </div>
             <div>
-              <div className="text-sm font-medium text-gray-500">Payment Terms</div>
+              <div className="text-sm font-medium text-muted-foreground">Payment Terms</div>
               <div className="mt-1">{order.paymentTerms || 'N/A'}</div>
             </div>
           </div>
 
           {order.shippingAddress && (
             <div className="mt-6">
-              <div className="text-sm font-medium text-gray-500">Shipping Address</div>
+              <div className="text-sm font-medium text-muted-foreground">Shipping Address</div>
               <div className="mt-1">{order.shippingAddress}</div>
             </div>
           )}
 
           {order.remarks && (
             <div className="mt-6">
-              <div className="text-sm font-medium text-gray-500">Remarks</div>
+              <div className="text-sm font-medium text-muted-foreground">Remarks</div>
               <div className="mt-1">{order.remarks}</div>
             </div>
           )}
@@ -572,16 +572,16 @@ export default function OrderDetail() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Materials Section (Blue) */}
                 {mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-info-muted border border-info/20 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-blue-800 flex items-center gap-2">
+                      <h3 className="font-semibold text-info flex items-center gap-2">
                         <Package className="h-5 w-5" />
                         Materials (MRP)
                       </h3>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-blue-700 border-blue-300 hover:bg-blue-100"
+                        className="text-info border-info/30 hover:bg-info-muted"
                         onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${id}`)}
                       >
                         View <ArrowRight className="h-4 w-4 ml-1" />
@@ -589,25 +589,25 @@ export default function OrderDetail() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
-                        <div className="text-2xl font-bold text-blue-700">{mrpSummary.totalRequirements}</div>
-                        <div className="text-xs text-blue-600">Total</div>
+                      <div className="bg-card rounded-lg p-3 text-center border border-info/15">
+                        <div className="text-2xl font-bold text-info">{mrpSummary.totalRequirements}</div>
+                        <div className="text-xs text-info">Total</div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
-                        <div className="text-2xl font-bold text-orange-600">{mrpSummary.requirementsNeedingPO}</div>
+                      <div className="bg-card rounded-lg p-3 text-center border border-info/15">
+                        <div className="text-2xl font-bold text-primary">{mrpSummary.requirementsNeedingPO}</div>
                         <div className="text-xs text-orange-500">Pending PO</div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
-                        <div className="text-2xl font-bold text-green-600">
+                      <div className="bg-card rounded-lg p-3 text-center border border-info/15">
+                        <div className="text-2xl font-bold text-success">
                           {mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO}
                         </div>
-                        <div className="text-xs text-green-500">PO Generated</div>
+                        <div className="text-xs text-success">PO Generated</div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 text-center border border-blue-100">
-                        <div className="text-2xl font-bold text-red-600">
+                      <div className="bg-card rounded-lg p-3 text-center border border-info/15">
+                        <div className="text-2xl font-bold text-destructive">
                           {mrpSummary.totalShortfall > 0 ? mrpSummary.requirementsNeedingPO : 0}
                         </div>
-                        <div className="text-xs text-red-500">With Shortfall</div>
+                        <div className="text-xs text-destructive">With Shortfall</div>
                       </div>
                     </div>
 
@@ -615,8 +615,8 @@ export default function OrderDetail() {
                     {mrpSummary.totalRequirements > 0 && (
                       <div>
                         <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-blue-600">Progress</span>
-                          <span className="font-medium text-blue-700">
+                          <span className="text-info">Progress</span>
+                          <span className="font-medium text-info">
                             {Math.round(
                               ((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) /
                                 mrpSummary.totalRequirements) *
@@ -625,9 +625,9 @@ export default function OrderDetail() {
                             %
                           </span>
                         </div>
-                        <div className="w-full bg-blue-100 rounded-full h-2">
+                        <div className="w-full bg-info-muted rounded-full h-2">
                           <div
-                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            className="bg-info h-2 rounded-full transition-all"
                             style={{
                               width: `${((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100}%`,
                             }}
@@ -640,16 +640,16 @@ export default function OrderDetail() {
 
                 {/* Services Section (Purple) */}
                 {serviceSummary && serviceSummary.totalServices > 0 && (
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-purple-800 flex items-center gap-2">
+                      <h3 className="font-semibold text-accent flex items-center gap-2">
                         <Wrench className="h-5 w-5" />
                         Services
                       </h3>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-purple-700 border-purple-300 hover:bg-purple-100"
+                        className="text-accent border-accent/25 hover:bg-accent/10"
                         onClick={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${id}`)}
                       >
                         View <ArrowRight className="h-4 w-4 ml-1" />
@@ -657,21 +657,21 @@ export default function OrderDetail() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-white rounded-lg p-3 text-center border border-purple-100">
-                        <div className="text-2xl font-bold text-purple-700">{serviceSummary.totalServices}</div>
-                        <div className="text-xs text-purple-600">Total</div>
+                      <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
+                        <div className="text-2xl font-bold text-accent">{serviceSummary.totalServices}</div>
+                        <div className="text-xs text-accent">Total</div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 text-center border border-purple-100">
-                        <div className="text-2xl font-bold text-orange-600">{serviceSummary.pendingServices}</div>
+                      <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
+                        <div className="text-2xl font-bold text-primary">{serviceSummary.pendingServices}</div>
                         <div className="text-xs text-orange-500">Pending</div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 text-center border border-purple-100">
-                        <div className="text-2xl font-bold text-blue-600">{serviceSummary.poGenerated}</div>
-                        <div className="text-xs text-blue-500">PO Generated</div>
+                      <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
+                        <div className="text-2xl font-bold text-info">{serviceSummary.poGenerated}</div>
+                        <div className="text-xs text-info">PO Generated</div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 text-center border border-purple-100">
-                        <div className="text-2xl font-bold text-green-600">{serviceSummary.completed}</div>
-                        <div className="text-xs text-green-500">Completed</div>
+                      <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
+                        <div className="text-2xl font-bold text-success">{serviceSummary.completed}</div>
+                        <div className="text-xs text-success">Completed</div>
                       </div>
                     </div>
 
@@ -679,8 +679,8 @@ export default function OrderDetail() {
                     {serviceSummary.totalServices > 0 && (
                       <div>
                         <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-purple-600">Progress</span>
-                          <span className="font-medium text-purple-700">
+                          <span className="text-accent">Progress</span>
+                          <span className="font-medium text-accent">
                             {Math.round(
                               ((serviceSummary.poGenerated + serviceSummary.completed) / serviceSummary.totalServices) *
                                 100
@@ -688,9 +688,9 @@ export default function OrderDetail() {
                             %
                           </span>
                         </div>
-                        <div className="w-full bg-purple-100 rounded-full h-2">
+                        <div className="w-full bg-accent/10 rounded-full h-2">
                           <div
-                            className="bg-purple-600 h-2 rounded-full transition-all"
+                            className="bg-accent h-2 rounded-full transition-all"
                             style={{
                               width: `${((serviceSummary.poGenerated + serviceSummary.completed) / serviceSummary.totalServices) * 100}%`,
                             }}
@@ -700,7 +700,7 @@ export default function OrderDetail() {
                     )}
 
                     {/* Work Order Count */}
-                    <div className="mt-3 text-xs text-purple-600 text-center">
+                    <div className="mt-3 text-xs text-accent text-center">
                       Across {serviceSummary.workOrderCount} work order{serviceSummary.workOrderCount !== 1 ? 's' : ''}
                     </div>
                   </div>
@@ -710,10 +710,10 @@ export default function OrderDetail() {
                 {mrpSummary &&
                   (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') &&
                   (!serviceSummary || serviceSummary.totalServices === 0) && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+                    <div className="bg-muted border border-border rounded-lg p-4 flex flex-col items-center justify-center text-center">
                       <Wrench className="h-10 w-10 text-gray-300 mb-2" />
-                      <div className="text-gray-500 font-medium">No Service Requirements</div>
-                      <div className="text-xs text-gray-400 mt-1">
+                      <div className="text-muted-foreground font-medium">No Service Requirements</div>
+                      <div className="text-xs text-muted-foreground mt-1">
                         Calculate services from Work Orders to track service POs
                       </div>
                     </div>
@@ -722,10 +722,10 @@ export default function OrderDetail() {
                 {serviceSummary &&
                   serviceSummary.totalServices > 0 &&
                   (!mrpSummary || !(orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+                    <div className="bg-muted border border-border rounded-lg p-4 flex flex-col items-center justify-center text-center">
                       <Package className="h-10 w-10 text-gray-300 mb-2" />
-                      <div className="text-gray-500 font-medium">No Material Requirements</div>
-                      <div className="text-xs text-gray-400 mt-1">Approve Order BOM to track material POs</div>
+                      <div className="text-muted-foreground font-medium">No Material Requirements</div>
+                      <div className="text-xs text-muted-foreground mt-1">Approve Order BOM to track material POs</div>
                     </div>
                   )}
               </div>
@@ -747,39 +747,39 @@ export default function OrderDetail() {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-semibold text-lg">Item #{index + 1}</h3>
-                      <div className="text-sm text-gray-600 mt-1">
+                      <div className="text-sm text-muted-foreground mt-1">
                         {item.style?.styleCode} - {item.style?.styleName}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-gray-500">Quantity</div>
+                      <div className="text-sm text-muted-foreground">Quantity</div>
                       <div className="text-lg font-semibold">{item.totalQuantity} pieces</div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
-                      <div className="text-sm text-gray-500">Unit Price</div>
+                      <div className="text-sm text-muted-foreground">Unit Price</div>
                       <div>
                         {Number(item.unitPrice) > 0 ? (
                           formatCurrency(item.unitPrice)
                         ) : (
-                          <span className="text-amber-600 text-sm">Not set</span>
+                          <span className="text-warning text-sm">Not set</span>
                         )}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-500">Total Price</div>
+                      <div className="text-sm text-muted-foreground">Total Price</div>
                       <div className="font-semibold">
                         {Number(item.totalPrice) > 0 ? (
                           formatCurrency(item.totalPrice, { decimals: 0 })
                         ) : (
-                          <span className="text-amber-600 text-sm">Pending</span>
+                          <span className="text-warning text-sm">Pending</span>
                         )}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-500">Delivery Date</div>
+                      <div className="text-sm text-muted-foreground">Delivery Date</div>
                       <div>
                         {item.deliveryDate
                           ? new Date(item.deliveryDate).toLocaleDateString()
@@ -792,7 +792,7 @@ export default function OrderDetail() {
 
                   {item.itemDescription && (
                     <div className="mb-4">
-                      <div className="text-sm text-gray-500">Description</div>
+                      <div className="text-sm text-muted-foreground">Description</div>
                       <div>{item.itemDescription}</div>
                     </div>
                   )}
@@ -800,10 +800,10 @@ export default function OrderDetail() {
                   {/* Quantity Breakup */}
                   {item.breakup && item.breakup.length > 0 ? (
                     <div>
-                      <div className="text-sm font-medium text-gray-700 mb-2">Quantity Breakup</div>
+                      <div className="text-sm font-medium text-foreground mb-2">Quantity Breakup</div>
                       <div className="overflow-x-auto">
                         <table className="min-w-full border text-sm">
-                          <thead className="bg-gray-50">
+                          <thead className="bg-muted">
                             <tr>
                               <th className="border px-4 py-2 text-left">Color</th>
                               <th className="border px-4 py-2 text-left">Size</th>
@@ -812,7 +812,7 @@ export default function OrderDetail() {
                           </thead>
                           <tbody>
                             {item.breakup.map((breakup, idx) => (
-                              <tr key={idx} className="hover:bg-gray-50">
+                              <tr key={idx} className="hover:bg-muted">
                                 <td className="border px-4 py-2">
                                   {breakup.colors?.colorName || (breakup.colorId === null ? '-' : 'N/A')}
                                 </td>
@@ -821,7 +821,7 @@ export default function OrderDetail() {
                               </tr>
                             ))}
                           </tbody>
-                          <tfoot className="bg-gray-50 font-semibold">
+                          <tfoot className="bg-muted font-semibold">
                             <tr>
                               <td colSpan={2} className="border px-4 py-2 text-right">
                                 Total:
@@ -835,23 +835,23 @@ export default function OrderDetail() {
                       </div>
                     </div>
                   ) : (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="p-4 bg-info-muted border border-info/20 rounded-lg">
                       <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                        <AlertCircle className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
-                          <div className="font-medium text-blue-800">Size breakdown not specified</div>
-                          <p className="text-sm text-blue-700 mt-1">
+                          <div className="font-medium text-info">Size breakdown not specified</div>
+                          <p className="text-sm text-info mt-1">
                             This order was created with total quantity only ({item.totalQuantity} pcs). Size breakdown
                             can be added by editing the order.
                           </p>
-                          <p className="text-xs text-blue-600 mt-2">
+                          <p className="text-xs text-info mt-2">
                             Note: Size-independent materials (fabric, greige, processing, most trims) can still be
                             procured without size breakdown.
                           </p>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="mt-3 text-blue-700 border-blue-300 hover:bg-blue-100"
+                            className="mt-3 text-info border-info/30 hover:bg-info-muted"
                             onClick={() => navigate(`/orders/${order.id}/edit`)}
                           >
                             Add Size Breakdown
@@ -867,7 +867,7 @@ export default function OrderDetail() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">No items found for this order</div>
+            <div className="text-center py-8 text-muted-foreground">No items found for this order</div>
           )}
         </CardContent>
       </Card>
@@ -882,7 +882,7 @@ export default function OrderDetail() {
         </CardHeader>
         <CardContent>
           {bomLoading ? (
-            <div className="text-center py-4 text-gray-500">Loading BOM...</div>
+            <div className="text-center py-4 text-muted-foreground">Loading BOM...</div>
           ) : orderBom ? (
             <div className="border rounded-lg p-4">
               <div className="flex justify-between items-center">
@@ -898,7 +898,7 @@ export default function OrderDetail() {
                       {orderBom.status}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-muted-foreground">
                     {orderBom.items?.length || 0} items | Total:{' '}
                     {orderBom.totalMaterialCost ? `${Number(orderBom.totalMaterialCost).toFixed(2)}` : 'N/A'}
                   </div>
@@ -912,8 +912,8 @@ export default function OrderDetail() {
           ) : (
             <div className="text-center py-8">
               <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <div className="text-gray-500">No Order BOM found</div>
-              <div className="text-sm text-gray-400 mt-1">Create an Order BOM from an approved Cost Sheet</div>
+              <div className="text-muted-foreground">No Order BOM found</div>
+              <div className="text-sm text-muted-foreground mt-1">Create an Order BOM from an approved Cost Sheet</div>
             </div>
           )}
         </CardContent>
@@ -940,7 +940,7 @@ export default function OrderDetail() {
         </CardHeader>
         <CardContent>
           {workOrdersLoading ? (
-            <div className="text-center py-4 text-gray-500">Loading production runs...</div>
+            <div className="text-center py-4 text-muted-foreground">Loading production runs...</div>
           ) : workOrders.length > 0 ? (
             <div className="space-y-4">
               {workOrders.map((wo) => {
@@ -957,7 +957,7 @@ export default function OrderDetail() {
                             {wo.status.replace(/_/g, ' ')}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">
+                        <div className="text-sm text-muted-foreground mt-1">
                           {wo.style?.styleCode} - {wo.style?.styleName}
                         </div>
                       </div>
@@ -986,36 +986,36 @@ export default function OrderDetail() {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <div className="text-gray-500">Location</div>
+                        <div className="text-muted-foreground">Location</div>
                         <div className="font-medium">
-                          {wo.locations?.locationName || <span className="text-amber-600">Not Assigned</span>}
+                          {wo.locations?.locationName || <span className="text-warning">Not Assigned</span>}
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Quantity</div>
+                        <div className="text-muted-foreground">Quantity</div>
                         <div className="font-medium">
                           {wo.completedQuantity} / {wo.totalQuantity} pcs
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Planned Start</div>
+                        <div className="text-muted-foreground">Planned Start</div>
                         <div className="font-medium">{new Date(wo.plannedStartDate).toLocaleDateString()}</div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Planned End</div>
+                        <div className="text-muted-foreground">Planned End</div>
                         <div className="font-medium">{new Date(wo.plannedEndDate).toLocaleDateString()}</div>
                       </div>
                     </div>
 
                     {/* Progress Bar */}
                     <div className="mt-3">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
                         <span>Progress</span>
                         <span>{progress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
-                          className={`h-2 rounded-full ${progress === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
+                          className={`h-2 rounded-full ${progress === 100 ? 'bg-success' : 'bg-info'}`}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -1027,8 +1027,10 @@ export default function OrderDetail() {
           ) : (
             <div className="text-center py-8">
               <Factory className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <div className="text-gray-500">No production runs found for this order</div>
-              <div className="text-sm text-gray-400 mt-1">Production runs are auto-created when orders are saved</div>
+              <div className="text-muted-foreground">No production runs found for this order</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Production runs are auto-created when orders are saved
+              </div>
             </div>
           )}
         </CardContent>

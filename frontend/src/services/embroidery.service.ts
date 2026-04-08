@@ -175,6 +175,18 @@ export const embroideryService = {
     const response = await api.get<{ data: EmbroideryStockSummary }>('/embroidery-stock/summary');
     return response.data.data;
   },
+
+  /**
+   * Get fabric stock pending embroidery (needsEmbroidery=true)
+   */
+  getPendingEmbroideryStock: async (params?: { styleId?: string; page?: number; limit?: number }) => {
+    const qp = new URLSearchParams();
+    if (params?.styleId) qp.append('styleId', params.styleId);
+    if (params?.page) qp.append('page', params.page.toString());
+    if (params?.limit) qp.append('limit', params.limit.toString());
+    const response = await api.get(`/embroidery-stock/pending-embroidery?${qp.toString()}`);
+    return response.data;
+  },
 };
 
 export default embroideryService;

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, StitchingIssueStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 // ============================================
 // Helper Functions
@@ -306,6 +307,26 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
       where: { id: { in: transferSlipIds }, isActive: true },
       data: { status: 'RECEIVED', receivedDate: new Date() },
     });
+  }
+
+  // Auto-create production_tracking: IN_STITCHING
+  try {
+    const totalIssuedQty = skuBreakdown.reduce(
+      (sum: number, sku: any) => sum + (Number(sku.issuedQty) || Number(sku.availableQty) || 0),
+      0
+    );
+    await prisma.production_tracking.create({
+      data: {
+        id: randomUUID(),
+        workOrderId,
+        productionStage: 'IN_STITCHING',
+        quantityCompleted: totalIssuedQty,
+        updatedById: userId,
+        updateDate: new Date(),
+      },
+    });
+  } catch (err) {
+    console.error('Failed to create production_tracking for stitching:', err);
   }
 
   res.status(201).json({ data: transformStitchingIssue(issue) });

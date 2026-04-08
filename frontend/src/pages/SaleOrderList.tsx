@@ -26,13 +26,13 @@ import { getAllSaleOrders, createSaleOrder, deleteSaleOrder } from '@/services/s
 import type { SaleOrder, SaleOrderStatus, CreateSORequest } from '@/types/saleOrder.types';
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  CONFIRMED: 'bg-blue-100 text-blue-800',
-  PARTIALLY_ALLOCATED: 'bg-amber-100 text-amber-800',
-  FULLY_ALLOCATED: 'bg-green-100 text-green-800',
-  PARTIALLY_DISPATCHED: 'bg-purple-100 text-purple-800',
+  DRAFT: 'bg-muted text-foreground',
+  CONFIRMED: 'bg-info-muted text-info',
+  PARTIALLY_ALLOCATED: 'bg-warning/10 text-warning',
+  FULLY_ALLOCATED: 'bg-success-muted text-success',
+  PARTIALLY_DISPATCHED: 'bg-accent/10 text-accent',
   DISPATCHED: 'bg-teal-100 text-teal-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
 export default function SaleOrderList() {
@@ -135,7 +135,7 @@ export default function SaleOrderList() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
             <ShoppingBag className="h-6 w-6" />
             Sale Orders
           </h1>
@@ -251,7 +251,7 @@ export default function SaleOrderList() {
                               setDeleteDialogOpen(true);
                             }}
                           >
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
                       </div>
@@ -358,7 +358,7 @@ export default function SaleOrderList() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive"
               onClick={() => soToDelete && deleteMutation.mutate(soToDelete.id)}
             >
               Delete

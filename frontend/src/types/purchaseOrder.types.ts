@@ -32,12 +32,12 @@ export const PurchaseOrderStatusLabels: Record<PurchaseOrderStatus, string> = {
 };
 
 export const PurchaseOrderStatusColors: Record<PurchaseOrderStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  SENT: 'bg-blue-100 text-blue-800',
-  ACKNOWLEDGED: 'bg-indigo-100 text-indigo-800',
+  DRAFT: 'bg-muted text-foreground',
+  SENT: 'bg-info-muted text-info',
+  ACKNOWLEDGED: 'bg-primary/10 text-primary',
   PARTIALLY_RECEIVED: 'bg-yellow-100 text-yellow-800',
-  RECEIVED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  RECEIVED: 'bg-success-muted text-success',
+  CANCELLED: 'bg-destructive/10 text-destructive',
   PENDING_GREIGE: 'bg-orange-100 text-orange-800',
   READY_FOR_PROCESSING: 'bg-cyan-100 text-cyan-800',
 };
@@ -65,9 +65,9 @@ export const POSourceLabels: Record<POSource, string> = {
 };
 
 export const POSourceColors: Record<POSource, string> = {
-  MANUAL: 'bg-gray-100 text-gray-800',
-  COST_SHEET: 'bg-purple-100 text-purple-800',
-  MRP: 'bg-blue-100 text-blue-800',
+  MANUAL: 'bg-muted text-foreground',
+  COST_SHEET: 'bg-accent/10 text-accent',
+  MRP: 'bg-info-muted text-info',
   SERVICE_REQUIREMENT: 'bg-teal-100 text-teal-800',
   PRODUCTION_RUN: 'bg-orange-100 text-orange-800',
 };
@@ -120,21 +120,21 @@ export const PO_CATEGORY_LABELS: Record<string, string> = {
 };
 
 export const PO_CATEGORY_COLORS: Record<string, string> = {
-  FABRIC: 'bg-blue-100 text-blue-800',
+  FABRIC: 'bg-info-muted text-info',
   GREIGE: 'bg-stone-100 text-stone-800',
-  PROCESSING: 'bg-purple-100 text-purple-800',
+  PROCESSING: 'bg-accent/10 text-accent',
   TRIMS: 'bg-cyan-100 text-cyan-800',
   LACE: 'bg-pink-100 text-pink-800',
-  GREIGE_LACE: 'bg-amber-100 text-amber-800',
+  GREIGE_LACE: 'bg-warning/10 text-warning',
   LACE_PROCESSING: 'bg-violet-100 text-violet-800',
-  GENERAL: 'bg-gray-100 text-gray-800',
+  GENERAL: 'bg-muted text-foreground',
   EMBROIDERY_SERVICE: 'bg-rose-100 text-rose-800',
   WASHING_SERVICE: 'bg-sky-100 text-sky-800',
   FINISHING_SERVICE: 'bg-emerald-100 text-emerald-800',
   CUTTING_SERVICE: 'bg-lime-100 text-lime-800',
   STITCHING_SERVICE: 'bg-fuchsia-100 text-fuchsia-800',
   HANDWORK_SERVICE: 'bg-yellow-100 text-yellow-800',
-  SMOCKING_SERVICE: 'bg-indigo-100 text-indigo-800',
+  SMOCKING_SERVICE: 'bg-primary/10 text-primary',
   TRANSPORTATION_SERVICE: 'bg-slate-100 text-slate-800',
 };
 

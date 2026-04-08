@@ -44,10 +44,10 @@ export default function PackagingDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading packaging details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading packaging details...</p>
         </div>
       </div>
     );
@@ -55,8 +55,8 @@ export default function PackagingDetail() {
 
   if (error || !packaging) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <header className="bg-white shadow-sm">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+        <header className="bg-card shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => navigate('/materials/packaging')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -67,7 +67,7 @@ export default function PackagingDetail() {
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600">{error || 'Packaging not found'}</p>
+              <p className="text-destructive">{error || 'Packaging not found'}</p>
               <Button onClick={() => navigate('/materials/packaging')} className="mt-4">
                 Return to Packaging
               </Button>
@@ -79,8 +79,8 @@ export default function PackagingDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Button variant="ghost" onClick={() => navigate('/materials/packaging')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -108,9 +108,9 @@ export default function PackagingDetail() {
                     variant={packaging.isActive ? 'success' : 'secondary'}
                   />
                 </div>
-                <p className="text-gray-600">Packaging Code: {packaging.packagingCode}</p>
+                <p className="text-muted-foreground">Packaging Code: {packaging.packagingCode}</p>
                 {packaging.materialCode && (
-                  <p className="text-gray-500 text-sm">Material Code: {packaging.materialCode}</p>
+                  <p className="text-muted-foreground text-sm">Material Code: {packaging.materialCode}</p>
                 )}
               </div>
               {packaging.image && (
@@ -137,18 +137,18 @@ export default function PackagingDetail() {
             <CardContent className="space-y-4">
               {packaging.packagingType && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Packaging Type</label>
-                  <p className="text-gray-900">{packaging.packagingType}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Packaging Type</label>
+                  <p className="text-foreground">{packaging.packagingType}</p>
                 </div>
               )}
               {packaging.material && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Material</label>
-                  <p className="text-gray-900">{packaging.material}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Material</label>
+                  <p className="text-foreground">{packaging.material}</p>
                 </div>
               )}
               {!packaging.packagingType && !packaging.material && (
-                <p className="text-gray-500 text-sm">No basic information available</p>
+                <p className="text-muted-foreground text-sm">No basic information available</p>
               )}
             </CardContent>
           </Card>
@@ -164,30 +164,30 @@ export default function PackagingDetail() {
             <CardContent className="space-y-4">
               {packaging.size && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Size</label>
-                  <p className="text-gray-900 text-xl font-semibold">{packaging.size}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Size</label>
+                  <p className="text-foreground text-xl font-semibold">{packaging.size}</p>
                 </div>
               )}
               {packaging.thickness && (
                 <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-gray-500" />
+                  <Layers className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Thickness</label>
-                    <p className="text-gray-900">{packaging.thickness}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Thickness</label>
+                    <p className="text-foreground">{packaging.thickness}</p>
                   </div>
                 </div>
               )}
               {packaging.printDetails && (
                 <div className="flex items-center gap-2">
-                  <Printer className="h-4 w-4 text-gray-500" />
+                  <Printer className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Print Details</label>
-                    <p className="text-gray-900">{packaging.printDetails}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Print Details</label>
+                    <p className="text-foreground">{packaging.printDetails}</p>
                   </div>
                 </div>
               )}
               {!packaging.size && !packaging.thickness && !packaging.printDetails && (
-                <p className="text-gray-500 text-sm">No specifications available</p>
+                <p className="text-muted-foreground text-sm">No specifications available</p>
               )}
             </CardContent>
           </Card>
@@ -203,18 +203,18 @@ export default function PackagingDetail() {
             <CardContent className="space-y-4">
               {packaging.pricePerPiece && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Price per Piece</label>
-                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(packaging.pricePerPiece)}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Price per Piece</label>
+                  <p className="text-foreground text-2xl font-semibold">{formatCurrency(packaging.pricePerPiece)}</p>
                 </div>
               )}
               {packaging.pricePerHundred && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Price per 100 pcs</label>
-                  <p className="text-gray-900 text-2xl font-semibold">{formatCurrency(packaging.pricePerHundred)}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Price per 100 pcs</label>
+                  <p className="text-foreground text-2xl font-semibold">{formatCurrency(packaging.pricePerHundred)}</p>
                 </div>
               )}
               {!packaging.pricePerPiece && !packaging.pricePerHundred && (
-                <p className="text-gray-500 text-sm">No pricing information available</p>
+                <p className="text-muted-foreground text-sm">No pricing information available</p>
               )}
             </CardContent>
           </Card>
@@ -230,24 +230,24 @@ export default function PackagingDetail() {
             <CardContent className="space-y-4">
               {packaging.supplierName && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier</label>
-                  <p className="text-gray-900">{packaging.supplierName}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Supplier</label>
+                  <p className="text-foreground">{packaging.supplierName}</p>
                 </div>
               )}
               {packaging.supplierCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier Code</label>
-                  <p className="text-gray-900 font-mono">{packaging.supplierCode}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Supplier Code</label>
+                  <p className="text-foreground font-mono">{packaging.supplierCode}</p>
                 </div>
               )}
               {packaging.buyerCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Buyer Code</label>
-                  <p className="text-gray-900 font-mono">{packaging.buyerCode}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Buyer Code</label>
+                  <p className="text-foreground font-mono">{packaging.buyerCode}</p>
                 </div>
               )}
               {!packaging.supplierName && !packaging.supplierCode && !packaging.buyerCode && (
-                <p className="text-gray-500 text-sm">No supplier information available</p>
+                <p className="text-muted-foreground text-sm">No supplier information available</p>
               )}
             </CardContent>
           </Card>
@@ -262,7 +262,7 @@ export default function PackagingDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-900 whitespace-pre-line">{packaging.description}</p>
+                <p className="text-foreground whitespace-pre-line">{packaging.description}</p>
               </CardContent>
             </Card>
           )}
@@ -275,12 +275,12 @@ export default function PackagingDetail() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Created At</label>
-                  <p className="text-gray-900">{new Date(packaging.createdAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Created At</label>
+                  <p className="text-foreground">{new Date(packaging.createdAt).toLocaleString()}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                  <p className="text-gray-900">{new Date(packaging.updatedAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                  <p className="text-foreground">{new Date(packaging.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>

@@ -15,6 +15,7 @@ import {
   getStockByEmbroidery,
   getPendingSendOuts,
   getStockSummary,
+  getPendingEmbroideryStock,
 } from '../controllers/embroidery-stock.controller';
 
 const router = Router();
@@ -29,6 +30,7 @@ router.get('/send-outs/:id', asyncHandler(getSendOutById));
 router.post('/send-outs/:id/cancel', asyncHandler(cancelSendOut));
 
 // Stock Queries
+router.get('/pending-embroidery', asyncHandler(getPendingEmbroideryStock));
 router.get('/by-style/:styleId', asyncHandler(getStockByStyle));
 router.get('/by-embroidery/:embroideryId', asyncHandler(getStockByEmbroidery));
 router.get('/pending', asyncHandler(getPendingSendOuts));

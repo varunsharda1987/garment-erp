@@ -1,7 +1,7 @@
 // Stock IN Form - Create stock receipt with material-type-specific fields
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, X, Info } from 'lucide-react';
+import { Save, X, Info, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,36 @@ import stockMovementService from '../services/stockMovement.service';
 import warehouseService from '../services/warehouse.service';
 import { getAllMaterials } from '../services/material.service';
 import { greigeService, fabricService } from '../services/fabricGreigeService';
+
+// Source type for stock in
+type SourceType = 'FRESH_STOCK' | 'PROCESSOR_RETURN';
+
+// Processor with greige stock
+interface ProcessorWithStock {
+  processorId: string;
+  processorName: string;
+  processorCode: string;
+  warehouseName: string | null;
+  totalQuantity: number;
+  stockEntries: number;
+}
+
+// Processor greige stock item
+interface ProcessorGreigeStock {
+  id: string;
+  greigeId: string;
+  greige: {
+    id: string;
+    greigeCode: string;
+    greigeName: string;
+    composition: string;
+  };
+  quantityAvailable: number;
+  greigeWidth: number;
+  warehouseLocation: string | null;
+  qualityGrade: string;
+  receivedDate: string;
+}
 import { getAllLace } from '../services/lace.service';
 import { getAllButtons } from '../services/button.service';
 import { getAllThreads } from '../services/thread.service';
@@ -116,6 +146,16 @@ export default function StockInForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Source type: Fresh stock or Processor return
+  const [sourceType, setSourceType] = useState<SourceType>('FRESH_STOCK');
+
+  // Processor return state
+  const [processorsWithStock, setProcessorsWithStock] = useState<ProcessorWithStock[]>([]);
+  const [selectedProcessorId, setSelectedProcessorId] = useState<string>('');
+  const [processorGreigeStock, setProcessorGreigeStock] = useState<ProcessorGreigeStock[]>([]);
+  const [selectedProcessorStock, setSelectedProcessorStock] = useState<ProcessorGreigeStock | null>(null);
+  const [receivedQuantity, setReceivedQuantity] = useState<string>('');
+
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [unifiedMaterials, setUnifiedMaterials] = useState<ExtendedMaterialItem[]>([]);
   const [selectedMaterialType, setSelectedMaterialType] = useState<MaterialType | ''>('');
@@ -137,6 +177,8 @@ export default function StockInForm() {
     rollNumber: '',
     challanNumber: '',
     supplierInvoice: '',
+    foldLengthCm: '',
+    thanCount: '',
   });
 
   useEffect(() => {
@@ -157,6 +199,7 @@ export default function StockInForm() {
         elasticResponse,
         labelResponse,
         packagingResponse,
+        processorsData,
       ] = await Promise.all([
         warehouseService.getAll({ isActive: true }),
         getAllMaterials({ limit: 100 }),
@@ -169,8 +212,10 @@ export default function StockInForm() {
         getAllElastics({ limit: 100 }),
         getAllLabels({ limit: 100 }),
         getAllPackaging({ limit: 100 }),
+        greigeService.getProcessorsWithStock().catch(() => []),
       ]);
       setWarehouses(warehousesData);
+      setProcessorsWithStock(processorsData);
 
       // Build unified materials list with full data
       const unified: ExtendedMaterialItem[] = [];
@@ -309,24 +354,97 @@ export default function StockInForm() {
     }
   };
 
+  // Load greige stock when processor is selected
+  const handleProcessorSelect = async (processorId: string) => {
+    setSelectedProcessorId(processorId);
+    setSelectedProcessorStock(null);
+    setReceivedQuantity('');
+
+    if (processorId) {
+      try {
+        const stock = await greigeService.getProcessorStock(processorId);
+        setProcessorGreigeStock(stock);
+      } catch (err) {
+        logError('Failed to load processor stock:', err);
+        setProcessorGreigeStock([]);
+      }
+    } else {
+      setProcessorGreigeStock([]);
+    }
+  };
+
+  // Handle processor greige stock selection
+  const handleProcessorStockSelect = (stockId: string) => {
+    const stock = processorGreigeStock.find((s) => s.id === stockId);
+    setSelectedProcessorStock(stock || null);
+    if (stock) {
+      setReceivedQuantity(stock.quantityAvailable.toString());
+    }
+  };
+
+  // Reset source type selection
+  const handleSourceTypeChange = (type: SourceType) => {
+    setSourceType(type);
+    // Reset processor return state
+    setSelectedProcessorId('');
+    setProcessorGreigeStock([]);
+    setSelectedProcessorStock(null);
+    setReceivedQuantity('');
+    // Reset fresh stock state
+    setSelectedMaterialType('');
+    setSelectedItem(null);
+    setFormData((prev) => ({ ...prev, materialId: '' }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
 
-    if (!formData.materialId || !formData.warehouseId || !formData.quantity || !formData.unit) {
-      setError('Please fill in all required fields');
-      return;
-    }
-
-    if (Number(formData.quantity) <= 0) {
-      setError('Quantity must be greater than 0');
-      return;
+    // Validate based on source type
+    if (sourceType === 'PROCESSOR_RETURN') {
+      if (!selectedProcessorStock || !receivedQuantity || !formData.warehouseId) {
+        setError('Please fill in all required fields for processor return');
+        return;
+      }
+      const qty = Number(receivedQuantity);
+      if (qty <= 0) {
+        setError('Received quantity must be greater than 0');
+        return;
+      }
+      if (qty > selectedProcessorStock.quantityAvailable) {
+        setError('Received quantity cannot exceed sent quantity');
+        return;
+      }
+    } else {
+      if (!formData.materialId || !formData.warehouseId || !formData.quantity || !formData.unit) {
+        setError('Please fill in all required fields');
+        return;
+      }
+      if (Number(formData.quantity) <= 0) {
+        setError('Quantity must be greater than 0');
+        return;
+      }
     }
 
     try {
       setLoading(true);
 
+      // Handle processor return (partial receipt - no shrinkage calculation)
+      if (sourceType === 'PROCESSOR_RETURN' && selectedProcessorStock) {
+        await stockMovementService.createStockInFromProcessor({
+          greigeStockId: selectedProcessorStock.id,
+          receivedQuantity: Number(receivedQuantity),
+          warehouseId: formData.warehouseId,
+          remarks: formData.remarks || undefined,
+        });
+
+        setSuccess(true);
+        navTimeoutRef.current = setTimeout(() => navigate('/inventory/movements'), 2000);
+        return;
+      }
+
+      // Handle fresh stock
       let itemType: string | undefined;
       let itemId: string | undefined;
       let materialId: string | undefined;
@@ -343,6 +461,8 @@ export default function StockInForm() {
       let fullRemarks = formData.remarks || '';
       const additionalInfo: string[] = [];
       if (formData.width) additionalInfo.push(`Width: ${formData.width}`);
+      if (formData.thanCount) additionalInfo.push(`Thans: ${formData.thanCount}`);
+      if (formData.foldLengthCm) additionalInfo.push(`L: ${formData.foldLengthCm}cm`);
       if (formData.color) additionalInfo.push(`Color: ${formData.color}`);
       if (formData.lotNumber) additionalInfo.push(`Lot: ${formData.lotNumber}`);
       if (formData.rollNumber) additionalInfo.push(`Roll: ${formData.rollNumber}`);
@@ -364,6 +484,8 @@ export default function StockInForm() {
         referenceType: formData.referenceType || undefined,
         referenceNumber: formData.referenceNumber || undefined,
         remarks: fullRemarks || undefined,
+        foldLengthCm: formData.foldLengthCm ? Number(formData.foldLengthCm) : undefined,
+        thanCount: formData.thanCount ? Number(formData.thanCount) : undefined,
       });
 
       setSuccess(true);
@@ -722,6 +844,30 @@ export default function StockInForm() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="thanCount">Than Count</Label>
+              <Input
+                id="thanCount"
+                type="number"
+                value={formData.thanCount}
+                onChange={(e) => handleChange('thanCount', e.target.value)}
+                placeholder="Number of thans"
+                min="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="foldLengthCm">L / Fold Length (cm)</Label>
+              <Input
+                id="foldLengthCm"
+                type="number"
+                value={formData.foldLengthCm}
+                onChange={(e) => handleChange('foldLengthCm', e.target.value)}
+                placeholder="e.g. 97"
+                step="0.01"
+                min="0"
+              />
+              <p className="text-xs text-muted-foreground">Fold length in cm for thans</p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="rollNumber">Roll Number(s)</Label>
               <Input
                 id="rollNumber"
@@ -986,60 +1132,280 @@ export default function StockInForm() {
       )}
 
       {success && (
-        <Alert className="mb-4 bg-green-50 text-green-900 border-green-200">
+        <Alert className="mb-4 bg-success-muted text-success border-success/20">
           <AlertDescription>Stock IN created successfully! Redirecting...</AlertDescription>
         </Alert>
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* Step 1: Material Type Selection */}
+        {/* Source Type Selection */}
         <Card className="mb-4">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Step 1: Select Material Type</CardTitle>
+            <CardTitle className="text-lg">Source Type</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).map((type) => {
-                const count = unifiedMaterials.filter((m) => m.type === type).length;
-                const isSelected = selectedMaterialType === type;
-                return (
-                  <Button
-                    key={type}
-                    type="button"
-                    variant={isSelected ? 'default' : 'outline'}
-                    className={`h-auto py-3 flex flex-col items-center justify-center ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
-                    onClick={() => {
-                      setSelectedMaterialType(type);
-                      setSelectedItem(null);
-                      handleChange('materialId', '');
-                      handleChange('unit', MATERIAL_TYPE_UNITS[type]);
-                      // Reset type-specific fields
-                      handleChange('width', '');
-                      handleChange('color', '');
-                      handleChange('lotNumber', '');
-                      handleChange('rollNumber', '');
-                      handleChange('challanNumber', '');
-                      handleChange('supplierInvoice', '');
-                    }}
-                  >
-                    <span className="font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
-                    <span className="text-xs opacity-70">{count} items</span>
-                  </Button>
-                );
-              })}
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                type="button"
+                variant={sourceType === 'FRESH_STOCK' ? 'default' : 'outline'}
+                className={`h-auto py-4 flex flex-col items-center justify-center ${sourceType === 'FRESH_STOCK' ? 'ring-2 ring-offset-2' : ''}`}
+                onClick={() => handleSourceTypeChange('FRESH_STOCK')}
+              >
+                <span className="font-medium">Fresh Stock</span>
+                <span className="text-xs opacity-70">New purchase / Direct receipt</span>
+              </Button>
+              <Button
+                type="button"
+                variant={sourceType === 'PROCESSOR_RETURN' ? 'default' : 'outline'}
+                className={`h-auto py-4 flex flex-col items-center justify-center ${sourceType === 'PROCESSOR_RETURN' ? 'ring-2 ring-offset-2' : ''}`}
+                onClick={() => handleSourceTypeChange('PROCESSOR_RETURN')}
+                disabled={processorsWithStock.length === 0}
+              >
+                <span className="font-medium">Processor Return</span>
+                <span className="text-xs opacity-70">
+                  {processorsWithStock.length > 0
+                    ? `${processorsWithStock.length} processor(s) with stock`
+                    : 'No processors with stock'}
+                </span>
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Step 2: Select Item (only shown after type selection) */}
-        {selectedMaterialType && (
+        {/* Processor Return Flow */}
+        {sourceType === 'PROCESSOR_RETURN' && (
+          <>
+            {/* Step 1: Select Processor */}
+            <Card className="mb-4">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Step 1: Select Processor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Select value={selectedProcessorId} onValueChange={handleProcessorSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select processor with pending stock" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {processorsWithStock.map((p) => (
+                      <SelectItem key={p.processorId} value={p.processorId}>
+                        <span className="font-medium">{p.processorCode}</span>
+                        <span className="text-muted-foreground"> - {p.processorName}</span>
+                        <span className="text-xs ml-2 text-primary">
+                          ({p.totalQuantity.toLocaleString()} MTR available)
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            {/* Step 2: Select Greige Stock */}
+            {selectedProcessorId && (
+              <Card className="mb-4">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Step 2: Select Greige to Receive</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {processorGreigeStock.length === 0 ? (
+                    <Alert>
+                      <AlertDescription>No greige stock found at this processor.</AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Select value={selectedProcessorStock?.id || ''} onValueChange={handleProcessorStockSelect}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select greige stock entry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {processorGreigeStock.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            <span className="font-medium">{s.greige.greigeCode}</span>
+                            <span className="text-muted-foreground"> - {s.greige.greigeName}</span>
+                            <span className="text-xs ml-2 text-primary">
+                              ({s.quantityAvailable.toLocaleString()} MTR)
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Step 3: Receive Details with Shrinkage */}
+            {selectedProcessorStock && (
+              <Card className="mb-4">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Step 3: Receive Details</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Greige Info */}
+                    <div className="col-span-full p-4 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Info className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium text-sm">Greige Details</span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Code:</span>{' '}
+                          {selectedProcessorStock.greige.greigeCode}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Name:</span>{' '}
+                          {selectedProcessorStock.greige.greigeName}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Composition:</span>{' '}
+                          {selectedProcessorStock.greige.composition}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Width:</span> {selectedProcessorStock.greigeWidth}"
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Available at Processor (read-only) */}
+                    <div className="space-y-2">
+                      <Label>Available at Processor (MTR)</Label>
+                      <Input
+                        value={selectedProcessorStock.quantityAvailable.toLocaleString()}
+                        disabled
+                        className="bg-muted"
+                      />
+                    </div>
+
+                    {/* Received Quantity */}
+                    <div className="space-y-2">
+                      <Label htmlFor="receivedQty">
+                        Receiving Now (MTR) <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="receivedQty"
+                        type="number"
+                        value={receivedQuantity}
+                        onChange={(e) => setReceivedQuantity(e.target.value)}
+                        min="0.01"
+                        max={selectedProcessorStock.quantityAvailable}
+                        step="0.01"
+                        placeholder="Enter quantity to receive"
+                      />
+                    </div>
+
+                    {/* Balance After Receipt */}
+                    <div className="space-y-2">
+                      <Label>Balance at Processor After</Label>
+                      {(() => {
+                        const qty = Number(receivedQuantity) || 0;
+                        const available = selectedProcessorStock.quantityAvailable;
+                        const balance = available - qty;
+                        if (qty <= 0) return <Input value="-" disabled className="bg-muted" />;
+                        return (
+                          <div
+                            className={`p-2 rounded-md text-center ${balance > 0 ? 'bg-muted' : 'bg-success-muted text-success'}`}
+                          >
+                            <span className="font-medium">{balance.toFixed(2)} MTR</span>
+                            {balance === 0 && <div className="text-xs mt-1">Full receipt - no balance</div>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Warehouse Selection */}
+                    <div className="space-y-2">
+                      <Label htmlFor="warehouseId">
+                        Receive to Warehouse <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.warehouseId}
+                        onValueChange={(value) => handleChange('warehouseId', value)}
+                      >
+                        <SelectTrigger id="warehouseId">
+                          <SelectValue placeholder="Select warehouse" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {warehouses
+                            .filter((wh) => wh.warehouseType !== 'JOB_WORK')
+                            .map((wh) => (
+                              <SelectItem key={wh.id} value={wh.id}>
+                                {wh.warehouseCode} - {wh.warehouseName}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Remarks */}
+                    <div className="col-span-full space-y-2">
+                      <Label htmlFor="remarks">Remarks</Label>
+                      <Textarea
+                        id="remarks"
+                        value={formData.remarks}
+                        onChange={(e) => handleChange('remarks', e.target.value)}
+                        placeholder="Any additional notes..."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* Fresh Stock Flow - Step 1: Material Type Selection */}
+        {sourceType === 'FRESH_STOCK' && (
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Step 1: Select Material Type</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).map((type) => {
+                  const count = unifiedMaterials.filter((m) => m.type === type).length;
+                  const isSelected = selectedMaterialType === type;
+                  return (
+                    <Button
+                      key={type}
+                      type="button"
+                      variant={isSelected ? 'default' : 'outline'}
+                      className={`h-auto py-3 flex flex-col items-center justify-center ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
+                      onClick={() => {
+                        setSelectedMaterialType(type);
+                        setSelectedItem(null);
+                        handleChange('materialId', '');
+                        handleChange('unit', MATERIAL_TYPE_UNITS[type]);
+                        // Reset type-specific fields
+                        handleChange('width', '');
+                        handleChange('color', '');
+                        handleChange('lotNumber', '');
+                        handleChange('rollNumber', '');
+                        handleChange('challanNumber', '');
+                        handleChange('supplierInvoice', '');
+                        handleChange('foldLengthCm', '');
+                        handleChange('thanCount', '');
+                      }}
+                    >
+                      <span className="font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
+                      <span className="text-xs opacity-70">{count} items</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Fresh Stock Flow - Step 2: Select Item (only shown after type selection) */}
+        {sourceType === 'FRESH_STOCK' && selectedMaterialType && (
           <Card className="mb-4">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Step 2: Select {MATERIAL_TYPE_LABELS[selectedMaterialType]}</CardTitle>
             </CardHeader>
             <CardContent>
               {unifiedMaterials.filter((m) => m.type === selectedMaterialType).length === 0 ? (
-                <Alert className="bg-amber-50 text-amber-900 border-amber-200">
+                <Alert className="bg-warning-muted text-warning border-warning/20">
                   <AlertDescription>
                     No {MATERIAL_TYPE_LABELS[selectedMaterialType].toLowerCase()} found in the system. Please add items
                     in the <strong>{MATERIAL_TYPE_LABELS[selectedMaterialType]} Master</strong> first before inwarding
@@ -1090,8 +1456,8 @@ export default function StockInForm() {
           </Card>
         )}
 
-        {/* Step 3: Stock In Details (only shown after item selection) */}
-        {selectedItem && (
+        {/* Fresh Stock Flow - Step 3: Stock In Details (only shown after item selection) */}
+        {sourceType === 'FRESH_STOCK' && selectedItem && (
           <Card className="mb-4">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Step 3: Stock In Details</CardTitle>
@@ -1101,7 +1467,7 @@ export default function StockInForm() {
                 {/* Warehouse Selection */}
                 <div className="space-y-2">
                   <Label htmlFor="warehouseId">
-                    Warehouse <span className="text-red-500">*</span>
+                    Warehouse <span className="text-destructive">*</span>
                   </Label>
                   <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
                     <SelectTrigger id="warehouseId">
@@ -1120,7 +1486,7 @@ export default function StockInForm() {
                 {/* Quantity */}
                 <div className="space-y-2">
                   <Label htmlFor="quantity">
-                    Quantity <span className="text-red-500">*</span>
+                    Quantity <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="quantity"
@@ -1137,7 +1503,7 @@ export default function StockInForm() {
                 {/* Unit */}
                 <div className="space-y-2">
                   <Label htmlFor="unit">
-                    Unit <span className="text-red-500">*</span>
+                    Unit <span className="text-destructive">*</span>
                   </Label>
                   <Select value={formData.unit} onValueChange={(value) => handleChange('unit', value)}>
                     <SelectTrigger id="unit">
@@ -1224,9 +1590,17 @@ export default function StockInForm() {
             <X className="mr-2 h-4 w-4" />
             Cancel
           </Button>
-          <Button type="submit" disabled={loading || !selectedItem}>
+          <Button
+            type="submit"
+            disabled={
+              loading ||
+              (sourceType === 'FRESH_STOCK' && !selectedItem) ||
+              (sourceType === 'PROCESSOR_RETURN' &&
+                (!selectedProcessorStock || !receivedQuantity || !formData.warehouseId))
+            }
+          >
             {loading ? <ButtonSpinner className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
-            Create Stock IN
+            {sourceType === 'PROCESSOR_RETURN' ? 'Receive from Processor' : 'Create Stock IN'}
           </Button>
         </div>
       </form>

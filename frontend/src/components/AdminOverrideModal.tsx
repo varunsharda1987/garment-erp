@@ -43,7 +43,7 @@ export const AdminOverrideModal: React.FC<AdminOverrideModalProps> = ({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-red-600 flex items-center gap-2">
+          <DialogTitle className="text-destructive flex items-center gap-2">
             <ShieldAlert className="h-6 w-6" />
             Admin Override Required
           </DialogTitle>
@@ -51,11 +51,11 @@ export const AdminOverrideModal: React.FC<AdminOverrideModalProps> = ({
 
         <div className="space-y-4">
           {/* Blockers List */}
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <h3 className="font-semibold text-red-900 mb-2">The following blocks prevent: {action}</h3>
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+            <h3 className="font-semibold text-destructive mb-2">The following blocks prevent: {action}</h3>
             <ul className="space-y-2">
               {blockers.map((blocker, idx) => (
-                <li key={idx} className="text-sm text-red-800 flex gap-2">
+                <li key={idx} className="text-sm text-destructive flex gap-2">
                   <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                   <span>{blocker.message}</span>
                 </li>
@@ -64,9 +64,9 @@ export const AdminOverrideModal: React.FC<AdminOverrideModalProps> = ({
           </div>
 
           {/* Warning */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="bg-warning-muted border border-yellow-200 rounded-lg p-4">
             <div className="flex gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
               <div className="text-sm text-yellow-900">
                 <p className="font-semibold mb-1">Warning</p>
                 <p>
@@ -90,7 +90,7 @@ export const AdminOverrideModal: React.FC<AdminOverrideModalProps> = ({
               className="mt-1"
               rows={4}
             />
-            <p className="text-xs text-gray-500 mt-1">{reason.length}/10 characters minimum</p>
+            <p className="text-xs text-muted-foreground mt-1">{reason.length}/10 characters minimum</p>
           </div>
         </div>
 

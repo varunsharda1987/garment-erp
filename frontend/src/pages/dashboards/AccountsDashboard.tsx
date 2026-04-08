@@ -48,10 +48,10 @@ interface AccountsDashboardData {
 }
 
 const emptyAging: AgingBucket[] = [
-  { label: '0-30 Days', amount: 0, count: 0, color: 'bg-green-500' },
-  { label: '31-60 Days', amount: 0, count: 0, color: 'bg-yellow-500' },
-  { label: '61-90 Days', amount: 0, count: 0, color: 'bg-orange-500' },
-  { label: '90+ Days', amount: 0, count: 0, color: 'bg-red-500' },
+  { label: '0-30 Days', amount: 0, count: 0, color: 'bg-success-muted0' },
+  { label: '31-60 Days', amount: 0, count: 0, color: 'bg-warning-muted0' },
+  { label: '61-90 Days', amount: 0, count: 0, color: 'bg-primary/100' },
+  { label: '90+ Days', amount: 0, count: 0, color: 'bg-destructive/100' },
 ];
 
 export default function AccountsDashboard() {
@@ -83,14 +83,14 @@ export default function AccountsDashboard() {
 
   const getInvoiceStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      DRAFT: 'bg-gray-100 text-gray-800',
+      DRAFT: 'bg-muted text-foreground',
       PENDING: 'bg-yellow-100 text-yellow-800',
-      PARTIALLY_PAID: 'bg-blue-100 text-blue-800',
-      PAID: 'bg-green-100 text-green-800',
-      OVERDUE: 'bg-red-100 text-red-800',
-      CANCELLED: 'bg-gray-100 text-gray-800',
+      PARTIALLY_PAID: 'bg-info-muted text-info',
+      PAID: 'bg-success-muted text-success',
+      OVERDUE: 'bg-destructive/10 text-destructive',
+      CANCELLED: 'bg-muted text-foreground',
     };
-    return <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>{status.replace('_', ' ')}</Badge>;
+    return <Badge className={colors[status] || 'bg-muted text-foreground'}>{status.replace('_', ' ')}</Badge>;
   };
 
   return (
@@ -107,24 +107,24 @@ export default function AccountsDashboard() {
           title="Outstanding Invoices"
           value={formatCurrencyWhole(stats.outstandingInvoices)}
           icon={FileText}
-          iconColor="text-blue-600"
-          iconBgColor="bg-blue-100"
+          iconColor="text-info"
+          iconBgColor="bg-info-muted"
           onClick={() => navigate('/invoices?status=PENDING')}
         />
         <StatCard
           title="Overdue Amount"
           value={formatCurrencyWhole(stats.overdueAmount)}
           icon={AlertTriangle}
-          iconColor={stats.overdueAmount > 0 ? 'text-red-600' : 'text-gray-600'}
-          iconBgColor={stats.overdueAmount > 0 ? 'bg-red-100' : 'bg-gray-100'}
+          iconColor={stats.overdueAmount > 0 ? 'text-destructive' : 'text-muted-foreground'}
+          iconBgColor={stats.overdueAmount > 0 ? 'bg-destructive/10' : 'bg-muted'}
           onClick={() => navigate('/invoices?status=OVERDUE')}
         />
         <StatCard
           title="This Month Collections"
           value={formatCurrencyWhole(stats.monthlyCollections)}
           icon={DollarSign}
-          iconColor="text-green-600"
-          iconBgColor="bg-green-100"
+          iconColor="text-success"
+          iconBgColor="bg-success-muted"
           trend={{ value: 8, direction: 'up', label: 'vs last month' }}
         />
         <StatCard
@@ -132,7 +132,7 @@ export default function AccountsDashboard() {
           value={stats.pendingInvoices}
           description="Awaiting payment"
           icon={Clock}
-          iconColor="text-yellow-600"
+          iconColor="text-warning"
           iconBgColor="bg-yellow-100"
         />
       </div>
@@ -144,11 +144,11 @@ export default function AccountsDashboard() {
             <Card key={bucket.label}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-500">{bucket.label}</span>
+                  <span className="text-sm font-medium text-muted-foreground">{bucket.label}</span>
                   <div className={`w-3 h-3 rounded-full ${bucket.color}`} />
                 </div>
-                <p className="text-xl font-bold text-gray-900">{formatCurrencyWhole(bucket.amount)}</p>
-                <p className="text-sm text-gray-500">{bucket.count} invoices</p>
+                <p className="text-xl font-bold text-foreground">{formatCurrencyWhole(bucket.amount)}</p>
+                <p className="text-sm text-muted-foreground">{bucket.count} invoices</p>
               </CardContent>
             </Card>
           ))}
@@ -180,16 +180,16 @@ export default function AccountsDashboard() {
           value={formatCurrencyWhole(stats.gstPayable)}
           description="CGST + SGST + IGST"
           icon={Receipt}
-          iconColor="text-purple-600"
-          iconBgColor="bg-purple-100"
+          iconColor="text-accent"
+          iconBgColor="bg-accent/10"
         />
         <StatCard
           title="Collection Rate"
           value="78%"
           description="On-time payments"
           icon={TrendingUp}
-          iconColor="text-green-600"
-          iconBgColor="bg-green-100"
+          iconColor="text-success"
+          iconBgColor="bg-success-muted"
           trend={{ value: 3, direction: 'up' }}
         />
         <StatCard
@@ -197,8 +197,8 @@ export default function AccountsDashboard() {
           value="32"
           description="Days to receive payment"
           icon={BarChart3}
-          iconColor="text-indigo-600"
-          iconBgColor="bg-indigo-100"
+          iconColor="text-primary"
+          iconBgColor="bg-primary/10"
         />
       </div>
 
@@ -220,7 +220,7 @@ export default function AccountsDashboard() {
             label: 'Balance',
             align: 'right',
             render: (value) => (
-              <span className={(value as number) > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>
+              <span className={(value as number) > 0 ? 'text-destructive font-medium' : 'text-success'}>
                 {formatCurrency(value as number)}
               </span>
             ),
@@ -238,7 +238,7 @@ export default function AccountsDashboard() {
               const date = new Date(value as string);
               const isOverdue = date < new Date();
               return (
-                <span className={isOverdue ? 'text-red-600' : ''}>
+                <span className={isOverdue ? 'text-destructive' : ''}>
                   <Clock className="h-4 w-4 inline mr-1" />
                   {date.toLocaleDateString()}
                 </span>

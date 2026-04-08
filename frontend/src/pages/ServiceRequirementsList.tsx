@@ -246,8 +246,8 @@ export default function ServiceRequirementsList() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Zap className="h-6 w-6 text-purple-600" />
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
+            <Zap className="h-6 w-6 text-accent" />
             Service Requirements
           </h1>
         </div>
@@ -257,7 +257,7 @@ export default function ServiceRequirementsList() {
               <Button
                 variant="outline"
                 onClick={() => setShowProcessorAllocation(true)}
-                className="border-purple-500 text-purple-600 hover:bg-purple-50"
+                className="border-accent text-accent hover:bg-accent/10"
               >
                 <UserCheck className="h-4 w-4 mr-2" />
                 Assign Processors ({selectedIds.length})
@@ -265,7 +265,7 @@ export default function ServiceRequirementsList() {
               <Button
                 variant="default"
                 onClick={() => setShowBulkPOGeneration(true)}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-success hover:bg-success text-white"
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
                 Bulk Generate POs ({selectedIds.length})
@@ -459,7 +459,7 @@ export default function ServiceRequirementsList() {
                         </div>
                       ) : req.preferredProcessor ? (
                         <div>
-                          <div className="font-medium text-orange-600">{req.preferredProcessor.code}</div>
+                          <div className="font-medium text-primary">{req.preferredProcessor.code}</div>
                           <div className="text-xs text-muted-foreground">(Suggested)</div>
                         </div>
                       ) : (
@@ -470,7 +470,7 @@ export default function ServiceRequirementsList() {
                     </TableCell>
                     <TableCell className="text-right">
                       {req.estimatedTotal ? (
-                        <div className="font-medium text-purple-600">₹{req.estimatedTotal.toLocaleString()}</div>
+                        <div className="font-medium text-accent">₹{req.estimatedTotal.toLocaleString()}</div>
                       ) : (
                         <span className="text-muted-foreground">--</span>
                       )}

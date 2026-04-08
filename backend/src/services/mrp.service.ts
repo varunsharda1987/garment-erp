@@ -555,9 +555,7 @@ function determinePOCategoryFromMaterials(materials: Array<{ materialType: strin
   const typeMapping: Record<string, POCategory> = {
     // Fabric types
     FABRIC: POCategory.FABRIC,
-    FINISHED_FABRIC: POCategory.FABRIC,
     GREIGE: POCategory.GREIGE,
-    GREIGE_FABRIC: POCategory.GREIGE,
     // Lace types
     LACE: POCategory.LACE,
     GREIGE_LACE: POCategory.GREIGE_LACE,
@@ -3187,7 +3185,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
     for (const [groupKey, mg] of materialGroups) {
       const mat = mg.material;
       const matType = mat?.materialType || '';
-      const isGreige = matType === 'GREIGE' || matType === 'GREIGE_FABRIC' || matType === 'GREIGE_LACE';
+      const isGreige = matType === 'GREIGE' || matType === 'GREIGE_LACE';
       // Priority: cost sheet / processing rate (by groupKey) → supplier price → 0 (user enters manually)
       const unitPrice =
         costSheetRateMap.get(groupKey) ?? costSheetRateMap.get(mg.materialId) ?? priceMap.get(mg.materialId) ?? 0;

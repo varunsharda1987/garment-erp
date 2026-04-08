@@ -119,27 +119,29 @@ export default function ElasticList() {
       header: 'Elastic Name',
       render: (elastic) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{elastic.elasticName}</div>
-          {elastic.description && <div className="text-xs text-gray-500 line-clamp-1">{elastic.description}</div>}
+          <div className="text-sm font-medium text-foreground">{elastic.elasticName}</div>
+          {elastic.description && (
+            <div className="text-xs text-muted-foreground line-clamp-1">{elastic.description}</div>
+          )}
         </div>
       ),
     },
     {
       key: 'width',
       header: 'Width',
-      render: (elastic) => <div className="text-sm text-gray-700">{elastic.width ? `${elastic.width}mm` : '-'}</div>,
+      render: (elastic) => <div className="text-sm text-foreground">{elastic.width ? `${elastic.width}mm` : '-'}</div>,
     },
     {
       key: 'stretchPercent',
       header: 'Stretch %',
       render: (elastic) => (
-        <div className="text-sm text-gray-700">{elastic.stretchPercent ? `${elastic.stretchPercent}%` : '-'}</div>
+        <div className="text-sm text-foreground">{elastic.stretchPercent ? `${elastic.stretchPercent}%` : '-'}</div>
       ),
     },
     {
       key: 'color',
       header: 'Color',
-      render: (elastic) => <div className="text-sm text-gray-700">{elastic.color || '-'}</div>,
+      render: (elastic) => <div className="text-sm text-foreground">{elastic.color || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -159,7 +161,7 @@ export default function ElasticList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
           {elastic.elasticSuppliers && elastic.elasticSuppliers.length > 2 && (
             <Badge variant="outline" className="text-xs">
@@ -173,7 +175,7 @@ export default function ElasticList() {
       key: 'pricePerMeter',
       header: 'Price/Meter',
       render: (elastic) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {elastic.pricePerMeter ? formatCurrency(elastic.pricePerMeter) : '-'}
         </div>
       ),

@@ -233,7 +233,7 @@ export const approveGRN = async (req: Request, res: Response) => {
             }
 
             // Categorize as FABRIC, LACE, or TRIMS based on material type
-            if (materialType === 'GREIGE' || materialType === 'FINISHED_FABRIC') {
+            if (materialType === 'GREIGE' || materialType === 'FABRIC') {
               styleActuals[styleId].fabric += actualCost;
             } else if (materialType === 'LACE') {
               styleActuals[styleId].lace += actualCost;

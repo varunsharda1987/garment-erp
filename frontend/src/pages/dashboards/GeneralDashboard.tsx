@@ -103,32 +103,32 @@ export default function GeneralDashboard() {
           title="Total Orders"
           value={stats.totalOrders}
           icon={ShoppingCart}
-          iconColor="text-blue-600"
-          iconBgColor="bg-blue-100"
+          iconColor="text-info"
+          iconBgColor="bg-info-muted"
           onClick={() => navigate('/orders')}
         />
         <StatCard
           title="Active Work Orders"
           value={stats.activeWorkOrders}
           icon={Factory}
-          iconColor="text-indigo-600"
-          iconBgColor="bg-indigo-100"
+          iconColor="text-primary"
+          iconBgColor="bg-primary/10"
           onClick={() => navigate('/production/work-orders')}
         />
         <StatCard
           title="Monthly Revenue"
           value={formatCurrencyWhole(stats.monthlyRevenue)}
           icon={TrendingUp}
-          iconColor="text-green-600"
-          iconBgColor="bg-green-100"
+          iconColor="text-success"
+          iconBgColor="bg-success-muted"
           trend={{ value: 12, direction: 'up', label: 'vs last month' }}
         />
         <StatCard
           title="Overdue Orders"
           value={stats.overdueOrders}
           icon={AlertTriangle}
-          iconColor={stats.overdueOrders > 0 ? 'text-red-600' : 'text-gray-600'}
-          iconBgColor={stats.overdueOrders > 0 ? 'bg-red-100' : 'bg-gray-100'}
+          iconColor={stats.overdueOrders > 0 ? 'text-destructive' : 'text-muted-foreground'}
+          iconBgColor={stats.overdueOrders > 0 ? 'bg-destructive/10' : 'bg-muted'}
         />
       </div>
 
@@ -138,15 +138,15 @@ export default function GeneralDashboard() {
           title="Active Customers"
           value={stats.activeCustomers}
           icon={Users}
-          iconColor="text-purple-600"
-          iconBgColor="bg-purple-100"
+          iconColor="text-accent"
+          iconBgColor="bg-accent/10"
           onClick={() => navigate('/customers')}
         />
         <StatCard
           title="Pending Quotations"
           value={stats.pendingQuotations}
           icon={FileText}
-          iconColor="text-yellow-600"
+          iconColor="text-warning"
           iconBgColor="bg-yellow-100"
           onClick={() => navigate('/quotations')}
         />
@@ -154,7 +154,7 @@ export default function GeneralDashboard() {
           title="Low Stock Items"
           value={stats.lowStockItems}
           icon={Package}
-          iconColor="text-orange-600"
+          iconColor="text-primary"
           iconBgColor="bg-orange-100"
           onClick={() => navigate('/inventory/stock-levels')}
         />
@@ -162,8 +162,8 @@ export default function GeneralDashboard() {
           title="Outstanding Invoices"
           value={formatCurrencyWhole(stats.outstandingInvoices)}
           icon={FileText}
-          iconColor="text-red-600"
-          iconBgColor="bg-red-100"
+          iconColor="text-destructive"
+          iconBgColor="bg-destructive/10"
           onClick={() => navigate('/invoices')}
         />
       </div>
@@ -172,36 +172,36 @@ export default function GeneralDashboard() {
       {isAdmin && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
           <div
-            className="p-4 bg-white rounded-lg border hover:shadow-md cursor-pointer transition-shadow"
+            className="p-4 bg-card rounded-lg border hover:shadow-md cursor-pointer transition-shadow"
             onClick={() => navigate('/dashboard/production')}
           >
-            <Factory className="h-8 w-8 text-indigo-600 mb-2" />
+            <Factory className="h-8 w-8 text-primary mb-2" />
             <h3 className="font-medium">Production View</h3>
-            <p className="text-sm text-gray-500">Shop floor operations</p>
+            <p className="text-sm text-muted-foreground">Shop floor operations</p>
           </div>
           <div
-            className="p-4 bg-white rounded-lg border hover:shadow-md cursor-pointer transition-shadow"
+            className="p-4 bg-card rounded-lg border hover:shadow-md cursor-pointer transition-shadow"
             onClick={() => navigate('/dashboard/sales')}
           >
-            <ShoppingCart className="h-8 w-8 text-blue-600 mb-2" />
+            <ShoppingCart className="h-8 w-8 text-info mb-2" />
             <h3 className="font-medium">Sales View</h3>
-            <p className="text-sm text-gray-500">Orders & quotations</p>
+            <p className="text-sm text-muted-foreground">Orders & quotations</p>
           </div>
           <div
-            className="p-4 bg-white rounded-lg border hover:shadow-md cursor-pointer transition-shadow"
+            className="p-4 bg-card rounded-lg border hover:shadow-md cursor-pointer transition-shadow"
             onClick={() => navigate('/dashboard/accounts')}
           >
-            <FileText className="h-8 w-8 text-green-600 mb-2" />
+            <FileText className="h-8 w-8 text-success mb-2" />
             <h3 className="font-medium">Accounts View</h3>
-            <p className="text-sm text-gray-500">Invoices & payments</p>
+            <p className="text-sm text-muted-foreground">Invoices & payments</p>
           </div>
           <div
-            className="p-4 bg-white rounded-lg border hover:shadow-md cursor-pointer transition-shadow"
+            className="p-4 bg-card rounded-lg border hover:shadow-md cursor-pointer transition-shadow"
             onClick={() => navigate('/users')}
           >
-            <Users className="h-8 w-8 text-purple-600 mb-2" />
+            <Users className="h-8 w-8 text-accent mb-2" />
             <h3 className="font-medium">User Management</h3>
-            <p className="text-sm text-gray-500">Manage team access</p>
+            <p className="text-sm text-muted-foreground">Manage team access</p>
           </div>
         </div>
       )}

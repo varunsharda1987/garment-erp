@@ -184,6 +184,21 @@ function main() {
     console.log(`${colors.yellow}⚠ Warning: console.log found (not blocking commit)${colors.reset}\n`);
   }
 
+  // Check stock service pattern compliance (warning only)
+  const stockFiles = stagedFiles.filter(f => f.includes('stock') && f.endsWith('.service.ts') && f.includes('backend'));
+  for (const file of stockFiles) {
+    try {
+      const content = fs.readFileSync(file, 'utf8');
+      if (!content.includes('material-sync.helper')) {
+        console.log(`${colors.yellow}⚠ Stock service pattern: ${file} does not import material-sync.helper.${colors.reset}`);
+        console.log(`  Stock services MUST use ensureMaterialRecord() + syncStockLevelQuantity() for data consistency.`);
+        console.log(`  See CLAUDE.md "Stock Service Pattern" section.\n`);
+      }
+    } catch (e) {
+      // File might not exist in working tree
+    }
+  }
+
   if (!allPassed) {
     console.log(`${colors.red}✗ Pre-commit checks failed${colors.reset}`);
     console.log(`${colors.cyan}Fix the issues above before committing${colors.reset}\n`);

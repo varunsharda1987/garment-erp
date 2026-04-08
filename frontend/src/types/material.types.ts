@@ -6,8 +6,6 @@
 
 export const MaterialType = {
   GENERIC: 'GENERIC',
-  GREIGE_FABRIC: 'GREIGE_FABRIC',
-  FINISHED_FABRIC: 'FINISHED_FABRIC',
   TRIMS: 'TRIMS',
   LACE: 'LACE',
   BUTTON: 'BUTTON',
@@ -45,8 +43,6 @@ export type MaterialType = (typeof MaterialType)[keyof typeof MaterialType];
 
 export const MaterialTypeLabels: Record<MaterialType, string> = {
   GENERIC: 'Generic',
-  GREIGE_FABRIC: 'Greige Fabric',
-  FINISHED_FABRIC: 'Finished Fabric',
   TRIMS: 'Trims',
   LACE: 'Lace',
   BUTTON: 'Button',

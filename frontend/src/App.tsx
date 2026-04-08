@@ -158,6 +158,15 @@ import {
   EmbroideryAvailableStock,
   EmbroideryStockSendOut,
   EmbroideryStockReceive,
+  SmockingDashboard,
+  SmockingSendOut,
+  SmockingReceive,
+  HandworkDashboard,
+  HandworkSendOut,
+  HandworkReceive,
+  EmbroideryPieceDashboard,
+  EmbroideryPieceSendOut,
+  EmbroideryPieceReceive,
   ColorMasterList,
   ColorMasterForm,
   SeasonMasterList,
@@ -595,6 +604,24 @@ function App() {
               <Route path="/embroidery-stock/send-out" element={<EmbroideryStockSendOut />} />
               <Route path="/embroidery-stock/receive" element={<EmbroideryStockReceive />} />
               <Route path="/embroidery-stock/receive/:id" element={<EmbroideryStockReceive />} />
+
+              {/* Embroidery Piece-Level (Cut Pieces) */}
+              <Route path="/embroidery-stock/pieces" element={<EmbroideryPieceDashboard />} />
+              <Route path="/embroidery-stock/piece-send-out" element={<EmbroideryPieceSendOut />} />
+              <Route path="/embroidery-stock/piece-receive" element={<EmbroideryPieceReceive />} />
+              <Route path="/embroidery-stock/piece-receive/:id" element={<EmbroideryPieceReceive />} />
+
+              {/* Smocking (External Process) */}
+              <Route path="/manufacturing/smocking" element={<SmockingDashboard />} />
+              <Route path="/manufacturing/smocking/send-out" element={<SmockingSendOut />} />
+              <Route path="/manufacturing/smocking/receive" element={<SmockingReceive />} />
+              <Route path="/manufacturing/smocking/receive/:id" element={<SmockingReceive />} />
+
+              {/* Handwork (External Process) */}
+              <Route path="/manufacturing/handwork" element={<HandworkDashboard />} />
+              <Route path="/manufacturing/handwork/send-out" element={<HandworkSendOut />} />
+              <Route path="/manufacturing/handwork/receive" element={<HandworkReceive />} />
+              <Route path="/manufacturing/handwork/receive/:id" element={<HandworkReceive />} />
 
               {/* Testing Module (FPT/GPT) */}
               <Route path="/testing" element={<TestingDashboard />} />

@@ -52,21 +52,21 @@ export default function GarmentPhysicalTests() {
     switch (result) {
       case 'PASS':
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-300">
+          <Badge className="bg-success-muted text-success border-success/25">
             <CheckCircle className="h-3 w-3 mr-1" />
             PASS
           </Badge>
         );
       case 'FAIL':
         return (
-          <Badge className="bg-red-100 text-red-800 border-red-300">
+          <Badge className="bg-destructive/10 text-destructive border-destructive/25">
             <XCircle className="h-3 w-3 mr-1" />
             FAIL
           </Badge>
         );
       case 'PENDING':
         return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+          <Badge className="bg-warning/10 text-warning border-warning/25">
             <Clock className="h-3 w-3 mr-1" />
             PENDING
           </Badge>
@@ -92,8 +92,8 @@ export default function GarmentPhysicalTests() {
     return (
       <div className="p-6">
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="text-gray-500 mt-4">Loading garment tests...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading garment tests...</p>
         </div>
       </div>
     );
@@ -104,11 +104,11 @@ export default function GarmentPhysicalTests() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Shirt className="h-8 w-8 text-purple-600" />
+          <h1 className="text-3xl font-display font-medium text-foreground flex items-center gap-3">
+            <Shirt className="h-8 w-8 text-accent" />
             Garment Physical Tests (GPT)
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-muted-foreground mt-1">
             Track shrinkage, seam strength, and color fastness tests for finished garments
           </p>
         </div>
@@ -122,7 +122,7 @@ export default function GarmentPhysicalTests() {
       <Card className="p-4">
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by test number, batch, work order..."
               value={search}
@@ -156,9 +156,9 @@ export default function GarmentPhysicalTests() {
       {/* Tests List */}
       {tests.length === 0 ? (
         <Card className="p-12 text-center">
-          <Shirt className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Garment Tests Found</h3>
-          <p className="text-gray-500 mb-4">Create your first garment physical test</p>
+          <Shirt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Garment Tests Found</h3>
+          <p className="text-muted-foreground mb-4">Create your first garment physical test</p>
           <Button onClick={() => navigate('/garment-physical-tests/new')}>
             <Plus className="h-4 w-4 mr-2" />
             Create GPT
@@ -175,27 +175,27 @@ export default function GarmentPhysicalTests() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{test.testNumber}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{test.testNumber}</h3>
                     {getStatusBadge(test.overallTestResult)}
                     {test.isRetest && (
-                      <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                      <Badge variant="outline" className="bg-primary/10 text-primary">
                         <RefreshCw className="h-3 w-3 mr-1" />
                         Retest #{test.retestCount}
                       </Badge>
                     )}
                     {test.adminOverride && (
-                      <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                      <Badge variant="outline" className="bg-accent/10 text-accent">
                         Admin Override
                       </Badge>
                     )}
                     {test.buyerApprovalRequired && !test.buyerApprovedDate && (
-                      <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+                      <Badge className="bg-info-muted text-info border-info/30">
                         <Clock className="h-3 w-3 mr-1" />
                         Buyer Approval Pending
                       </Badge>
                     )}
                     {test.buyerApprovedDate && (
-                      <Badge className="bg-green-100 text-green-800 border-green-300">
+                      <Badge className="bg-success-muted text-success border-success/25">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Buyer Approved
                       </Badge>
@@ -205,47 +205,47 @@ export default function GarmentPhysicalTests() {
                   {/* Basic Info */}
                   <div className="grid grid-cols-4 gap-4 text-sm mb-4">
                     <div>
-                      <span className="text-gray-500">Work Order:</span>
-                      <p className="font-medium text-gray-900">{test.workOrderId}</p>
+                      <span className="text-muted-foreground">Work Order:</span>
+                      <p className="font-medium text-foreground">{test.workOrderId}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Style:</span>
-                      <p className="font-medium text-gray-900">{test.styleId}</p>
+                      <span className="text-muted-foreground">Style:</span>
+                      <p className="font-medium text-foreground">{test.styleId}</p>
                     </div>
                     {test.batchNumber && (
                       <div>
-                        <span className="text-gray-500">Batch:</span>
-                        <p className="font-medium text-gray-900">{test.batchNumber}</p>
+                        <span className="text-muted-foreground">Batch:</span>
+                        <p className="font-medium text-foreground">{test.batchNumber}</p>
                       </div>
                     )}
                     {test.sampleQuantity && (
                       <div>
-                        <span className="text-gray-500">Sample Qty:</span>
-                        <p className="font-medium text-gray-900">{test.sampleQuantity} pcs</p>
+                        <span className="text-muted-foreground">Sample Qty:</span>
+                        <p className="font-medium text-foreground">{test.sampleQuantity} pcs</p>
                       </div>
                     )}
                   </div>
 
                   {/* Test Results Summary */}
                   {test.overallTestResult !== 'PENDING' && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-border">
                       <div className="grid grid-cols-3 gap-4 text-xs">
                         {/* Shrinkage */}
                         {test.shrinkageTestResult && (
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Shrinkage:</span>
+                            <span className="text-muted-foreground">Shrinkage:</span>
                             <span
                               className={`font-semibold ${
-                                test.shrinkageTestResult === 'PASS' ? 'text-green-600' : 'text-red-600'
+                                test.shrinkageTestResult === 'PASS' ? 'text-success' : 'text-destructive'
                               }`}
                             >
                               {test.shrinkageTestResult === 'PASS' ? '✓' : '✗'}
                             </span>
                             {test.lengthShrinkage !== null && (
-                              <span className="text-gray-600">L: {test.lengthShrinkage.toFixed(1)}%</span>
+                              <span className="text-muted-foreground">L: {test.lengthShrinkage.toFixed(1)}%</span>
                             )}
                             {test.widthShrinkage !== null && (
-                              <span className="text-gray-600">W: {test.widthShrinkage.toFixed(1)}%</span>
+                              <span className="text-muted-foreground">W: {test.widthShrinkage.toFixed(1)}%</span>
                             )}
                           </div>
                         )}
@@ -253,25 +253,25 @@ export default function GarmentPhysicalTests() {
                         {/* Seam Strength */}
                         {test.seamTestResult && (
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Seam:</span>
+                            <span className="text-muted-foreground">Seam:</span>
                             <span
                               className={`font-semibold ${
-                                test.seamTestResult === 'PASS' ? 'text-green-600' : 'text-red-600'
+                                test.seamTestResult === 'PASS' ? 'text-success' : 'text-destructive'
                               }`}
                             >
                               {test.seamTestResult === 'PASS' ? '✓' : '✗'}
                             </span>
-                            {test.seamStrength && <span className="text-gray-600">{test.seamStrength} kg</span>}
+                            {test.seamStrength && <span className="text-muted-foreground">{test.seamStrength} kg</span>}
                           </div>
                         )}
 
                         {/* Color Fastness */}
                         {test.colorTestResult && (
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Color:</span>
+                            <span className="text-muted-foreground">Color:</span>
                             <span
                               className={`font-semibold ${
-                                test.colorTestResult === 'PASS' ? 'text-green-600' : 'text-red-600'
+                                test.colorTestResult === 'PASS' ? 'text-success' : 'text-destructive'
                               }`}
                             >
                               {test.colorTestResult === 'PASS' ? '✓' : '✗'}
@@ -284,14 +284,14 @@ export default function GarmentPhysicalTests() {
 
                   {/* Failure Reason */}
                   {test.failureReason && (
-                    <div className="mt-3 p-2 bg-red-50 rounded text-sm text-red-700">
+                    <div className="mt-3 p-2 bg-destructive/10 rounded text-sm text-destructive">
                       <span className="font-semibold">Failure Reason:</span> {test.failureReason}
                     </div>
                   )}
 
                   {/* Buyer Remarks */}
                   {test.buyerRemarks && (
-                    <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-blue-700">
+                    <div className="mt-2 p-2 bg-info-muted rounded text-sm text-info">
                       <span className="font-semibold">Buyer Remarks:</span> {test.buyerRemarks}
                     </div>
                   )}
@@ -308,7 +308,7 @@ export default function GarmentPhysicalTests() {
           <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
             Previous
           </Button>
-          <span className="px-4 py-2 text-sm text-gray-600">
+          <span className="px-4 py-2 text-sm text-muted-foreground">
             Page {page} of {totalPages}
           </span>
           <Button

@@ -44,10 +44,10 @@ export default function LaceDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading lace details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading lace details...</p>
         </div>
       </div>
     );
@@ -55,8 +55,8 @@ export default function LaceDetail() {
 
   if (error || !lace) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <header className="bg-white shadow-sm">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+        <header className="bg-card shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => navigate('/materials/lace')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -67,7 +67,7 @@ export default function LaceDetail() {
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600">{error || 'Lace not found'}</p>
+              <p className="text-destructive">{error || 'Lace not found'}</p>
               <Button onClick={() => navigate('/materials/lace')} className="mt-4">
                 Return to Lace
               </Button>
@@ -79,8 +79,8 @@ export default function LaceDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Button variant="ghost" onClick={() => navigate('/materials/lace')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -108,8 +108,10 @@ export default function LaceDetail() {
                     variant={lace.isActive ? 'success' : 'secondary'}
                   />
                 </div>
-                <p className="text-gray-600">Lace Code: {lace.laceCode}</p>
-                {lace.materialCode && <p className="text-gray-500 text-sm">Material Code: {lace.materialCode}</p>}
+                <p className="text-muted-foreground">Lace Code: {lace.laceCode}</p>
+                {lace.materialCode && (
+                  <p className="text-muted-foreground text-sm">Material Code: {lace.materialCode}</p>
+                )}
               </div>
               {lace.image && (
                 <img
@@ -135,24 +137,24 @@ export default function LaceDetail() {
             <CardContent className="space-y-4">
               {lace.laceType && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Lace Type</label>
-                  <p className="text-gray-900">{lace.laceType}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Lace Type</label>
+                  <p className="text-foreground">{lace.laceType}</p>
                 </div>
               )}
               {lace.design && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Design</label>
-                  <p className="text-gray-900">{lace.design}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Design</label>
+                  <p className="text-foreground">{lace.design}</p>
                 </div>
               )}
               {lace.composition && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Composition</label>
-                  <p className="text-gray-900">{lace.composition}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Composition</label>
+                  <p className="text-foreground">{lace.composition}</p>
                 </div>
               )}
               {!lace.laceType && !lace.design && !lace.composition && (
-                <p className="text-gray-500 text-sm">No basic information available</p>
+                <p className="text-muted-foreground text-sm">No basic information available</p>
               )}
             </CardContent>
           </Card>
@@ -168,20 +170,22 @@ export default function LaceDetail() {
             <CardContent className="space-y-4">
               {lace.width && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Width</label>
-                  <p className="text-gray-900 text-xl font-semibold">{parseFloat(String(lace.width))}"</p>
+                  <label className="text-sm font-medium text-muted-foreground">Width</label>
+                  <p className="text-foreground text-xl font-semibold">{parseFloat(String(lace.width))}"</p>
                 </div>
               )}
               {lace.color && (
                 <div className="flex items-center gap-2">
-                  <Palette className="h-4 w-4 text-gray-500" />
+                  <Palette className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Color</label>
-                    <p className="text-gray-900">{lace.color}</p>
+                    <label className="text-sm font-medium text-muted-foreground">Color</label>
+                    <p className="text-foreground">{lace.color}</p>
                   </div>
                 </div>
               )}
-              {!lace.width && !lace.color && <p className="text-gray-500 text-sm">No specifications available</p>}
+              {!lace.width && !lace.color && (
+                <p className="text-muted-foreground text-sm">No specifications available</p>
+              )}
             </CardContent>
           </Card>
 
@@ -197,33 +201,33 @@ export default function LaceDetail() {
               {lace.laceSuppliers && lace.laceSuppliers.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Supplier
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Price/Meter
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Notes
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-card divide-y divide-gray-200">
                       {lace.laceSuppliers.map((ls) => (
-                        <tr key={ls.id} className="hover:bg-gray-50">
+                        <tr key={ls.id} className="hover:bg-muted">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <div>
-                                <p className="font-medium text-gray-900">{ls.supplier.name}</p>
-                                <p className="text-xs text-gray-500">{ls.supplier.code}</p>
+                                <p className="font-medium text-foreground">{ls.supplier.name}</p>
+                                <p className="text-xs text-muted-foreground">{ls.supplier.code}</p>
                               </div>
                               {ls.isPreferred && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-muted text-info">
                                   Preferred
                                 </span>
                               )}
@@ -231,9 +235,9 @@ export default function LaceDetail() {
                           </td>
                           <td className="px-4 py-3 text-sm">
                             {ls.pricePerMeter ? (
-                              <span className="font-semibold text-gray-900">{formatCurrency(ls.pricePerMeter)}</span>
+                              <span className="font-semibold text-foreground">{formatCurrency(ls.pricePerMeter)}</span>
                             ) : (
-                              <span className="text-gray-400">-</span>
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -242,14 +246,14 @@ export default function LaceDetail() {
                               variant={ls.isActive ? 'success' : 'secondary'}
                             />
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">{ls.notes || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">{ls.notes || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm text-center py-4">No suppliers assigned</p>
+                <p className="text-muted-foreground text-sm text-center py-4">No suppliers assigned</p>
               )}
             </CardContent>
           </Card>
@@ -265,18 +269,18 @@ export default function LaceDetail() {
             <CardContent className="space-y-4">
               {lace.supplierCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Supplier Reference Code</label>
-                  <p className="text-gray-900 font-mono">{lace.supplierCode}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Supplier Reference Code</label>
+                  <p className="text-foreground font-mono">{lace.supplierCode}</p>
                 </div>
               )}
               {lace.buyerCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Buyer Code</label>
-                  <p className="text-gray-900 font-mono">{lace.buyerCode}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Buyer Code</label>
+                  <p className="text-foreground font-mono">{lace.buyerCode}</p>
                 </div>
               )}
               {!lace.supplierCode && !lace.buyerCode && (
-                <p className="text-gray-500 text-sm">No reference codes available</p>
+                <p className="text-muted-foreground text-sm">No reference codes available</p>
               )}
             </CardContent>
           </Card>
@@ -291,7 +295,7 @@ export default function LaceDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-900 whitespace-pre-line">{lace.description}</p>
+                <p className="text-foreground whitespace-pre-line">{lace.description}</p>
               </CardContent>
             </Card>
           )}
@@ -304,12 +308,12 @@ export default function LaceDetail() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Created At</label>
-                  <p className="text-gray-900">{new Date(lace.createdAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Created At</label>
+                  <p className="text-foreground">{new Date(lace.createdAt).toLocaleString()}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                  <p className="text-gray-900">{new Date(lace.updatedAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                  <p className="text-foreground">{new Date(lace.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>

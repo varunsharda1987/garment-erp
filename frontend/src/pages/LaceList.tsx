@@ -119,27 +119,27 @@ export default function LaceList() {
       header: 'Lace Name',
       render: (lace) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{lace.laceName}</div>
-          {lace.description && <div className="text-xs text-gray-500 line-clamp-1">{lace.description}</div>}
+          <div className="text-sm font-medium text-foreground">{lace.laceName}</div>
+          {lace.description && <div className="text-xs text-muted-foreground line-clamp-1">{lace.description}</div>}
         </div>
       ),
     },
     {
       key: 'laceType',
       header: 'Lace Type',
-      render: (lace) => <div className="text-sm text-gray-700">{lace.laceType || '-'}</div>,
+      render: (lace) => <div className="text-sm text-foreground">{lace.laceType || '-'}</div>,
     },
     {
       key: 'width',
       header: 'Width',
       render: (lace) => (
-        <div className="text-sm text-gray-700">{lace.width ? `${parseFloat(String(lace.width))}"` : '-'}</div>
+        <div className="text-sm text-foreground">{lace.width ? `${parseFloat(String(lace.width))}"` : '-'}</div>
       ),
     },
     {
       key: 'color',
       header: 'Color',
-      render: (lace) => <div className="text-sm text-gray-700">{lace.color || '-'}</div>,
+      render: (lace) => <div className="text-sm text-foreground">{lace.color || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -163,7 +163,7 @@ export default function LaceList() {
               )}
             </>
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
         </div>
       ),

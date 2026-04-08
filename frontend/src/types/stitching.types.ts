@@ -16,10 +16,10 @@ export const StitchingIssueStatusLabels: Record<StitchingIssueStatus, string> = 
 };
 
 export const StitchingIssueStatusColors: Record<StitchingIssueStatus, string> = {
-  PENDING_RECEIPT: 'bg-gray-100 text-gray-800',
-  RECEIVED: 'bg-blue-100 text-blue-800',
+  PENDING_RECEIPT: 'bg-muted text-foreground',
+  RECEIVED: 'bg-info-muted text-info',
   IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
-  COMPLETED: 'bg-green-100 text-green-800',
+  COMPLETED: 'bg-success-muted text-success',
 };
 
 // ============================================

@@ -129,7 +129,7 @@ export default function StockCountForm() {
       )}
 
       {success && (
-        <Alert className="mb-4 bg-green-50 text-green-900 border-green-200">
+        <Alert className="mb-4 bg-success-muted text-success border-success/20">
           <AlertDescription>Stock count created successfully! Redirecting...</AlertDescription>
         </Alert>
       )}
@@ -141,7 +141,7 @@ export default function StockCountForm() {
               {/* Warehouse Selection */}
               <div className="space-y-2">
                 <Label htmlFor="warehouseId">
-                  Warehouse <span className="text-red-500">*</span>
+                  Warehouse <span className="text-destructive">*</span>
                 </Label>
                 <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
                   <SelectTrigger id="warehouseId">
@@ -160,7 +160,7 @@ export default function StockCountForm() {
               {/* Count Type */}
               <div className="space-y-2">
                 <Label htmlFor="countType">
-                  Count Type <span className="text-red-500">*</span>
+                  Count Type <span className="text-destructive">*</span>
                 </Label>
                 <Select value={formData.countType} onValueChange={(value) => handleChange('countType', value)}>
                   <SelectTrigger id="countType">
@@ -178,7 +178,7 @@ export default function StockCountForm() {
               {/* Count Date */}
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="countDate">
-                  Count Date <span className="text-red-500">*</span>
+                  Count Date <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="countDate"
@@ -195,10 +195,10 @@ export default function StockCountForm() {
                   <Card className="border-2">
                     <CardContent className="pt-6">
                       <Label className="text-base mb-3 block">
-                        Select Materials to Count <span className="text-red-500">*</span>
+                        Select Materials to Count <span className="text-destructive">*</span>
                       </Label>
                       {availableMaterials.length === 0 ? (
-                        <Alert className="bg-blue-50 text-blue-900 border-blue-200">
+                        <Alert className="bg-info-muted text-info border-info/20">
                           <AlertDescription>
                             No materials in selected warehouse. Please select a warehouse with stock.
                           </AlertDescription>

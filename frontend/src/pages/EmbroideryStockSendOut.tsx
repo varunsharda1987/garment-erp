@@ -246,20 +246,20 @@ export default function EmbroideryStockSendOut() {
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
-      <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">
+      <div className="mb-4 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-info">
           Home
         </Link>
         {' > '}
-        <Link to="/fabric" className="hover:text-blue-600">
+        <Link to="/fabric" className="hover:text-info">
           Fabric
         </Link>
         {' > '}
-        <Link to="/embroidery-stock" className="hover:text-blue-600">
+        <Link to="/embroidery-stock" className="hover:text-info">
           Embroidery Stock
         </Link>
         {' > '}
-        <span className="font-medium text-gray-900">Send Out</span>
+        <span className="font-medium text-foreground">Send Out</span>
       </div>
 
       {/* Back Button */}
@@ -273,10 +273,10 @@ export default function EmbroideryStockSendOut() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-purple-600" />
+            <Sparkles className="h-6 w-6 text-accent" />
             Send Fabric for Embroidery
           </CardTitle>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             Send plain fabric out to embroidery vendor. When received back, it will be tracked as embroidered fabric
             stock.
           </p>
@@ -284,9 +284,9 @@ export default function EmbroideryStockSendOut() {
         <CardContent>
           {/* Success Alert */}
           {success && (
-            <Alert className="mb-6 bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="mb-6 bg-success-muted border-success/20">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success">
                 Fabric sent for embroidery successfully! Redirecting...
               </AlertDescription>
             </Alert>
@@ -294,28 +294,28 @@ export default function EmbroideryStockSendOut() {
 
           {/* Error Alert */}
           {error && (
-            <Alert className="mb-6 bg-red-50 border-red-200">
-              <XCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            <Alert className="mb-6 bg-destructive/10 border-destructive/20">
+              <XCircle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-destructive">{error}</AlertDescription>
             </Alert>
           )}
 
           {isLoading ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-              <p className="text-gray-500 mt-2">Loading data...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto"></div>
+              <p className="text-muted-foreground mt-2">Loading data...</p>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Step 1: Select Fabric Stock */}
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">Step 1</span>
+                <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                  <span className="bg-accent/10 text-accent px-2 py-1 rounded text-sm">Step 1</span>
                   Select Fabric Stock
                 </h3>
                 <div>
                   <Label>
-                    Plain Fabric Stock <span className="text-red-500">*</span>
+                    Plain Fabric Stock <span className="text-destructive">*</span>
                   </Label>
                   <Select value={selectedStockId} onValueChange={handleStockChange}>
                     <SelectTrigger className="w-full mt-1">
@@ -335,11 +335,11 @@ export default function EmbroideryStockSendOut() {
 
                 {/* Stock Details Panel */}
                 {selectedStock && (
-                  <Card className="bg-blue-50 border-blue-200 mt-4">
+                  <Card className="bg-info-muted border-info/20 mt-4">
                     <CardContent className="pt-4">
                       <button
                         onClick={() => setShowStockDetails(!showStockDetails)}
-                        className="flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900 w-full justify-between"
+                        className="flex items-center gap-2 text-sm font-medium text-info hover:text-info w-full justify-between"
                       >
                         <span>Selected Fabric Details</span>
                         {showStockDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -347,35 +347,35 @@ export default function EmbroideryStockSendOut() {
                       {showStockDetails && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-3">
                           <div>
-                            <span className="text-gray-600">Fabric Code:</span>
+                            <span className="text-muted-foreground">Fabric Code:</span>
                             <p className="font-medium">{selectedStock.fabricMaster?.fabricCode}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Fabric Name:</span>
+                            <span className="text-muted-foreground">Fabric Name:</span>
                             <p className="font-medium">{selectedStock.fabricMaster?.fabricName}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Color:</span>
+                            <span className="text-muted-foreground">Color:</span>
                             <p className="font-medium">{selectedStock.fabricMaster?.colorName || 'N/A'}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Available Qty:</span>
-                            <p className="font-medium text-green-600">{selectedStock.quantityAvailable.toFixed(2)} m</p>
+                            <span className="text-muted-foreground">Available Qty:</span>
+                            <p className="font-medium text-success">{selectedStock.quantityAvailable.toFixed(2)} m</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Width:</span>
+                            <span className="text-muted-foreground">Width:</span>
                             <p className="font-medium">{selectedStock.width}"</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Cost/m:</span>
+                            <span className="text-muted-foreground">Cost/m:</span>
                             <p className="font-medium">{formatCurrency(selectedStock.weightedAvgCost)}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Quality:</span>
+                            <span className="text-muted-foreground">Quality:</span>
                             <p className="font-medium">{selectedStock.qualityGrade}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Location:</span>
+                            <span className="text-muted-foreground">Location:</span>
                             <p className="font-medium">{selectedStock.warehouseLocation || 'N/A'}</p>
                           </div>
                         </div>
@@ -387,13 +387,13 @@ export default function EmbroideryStockSendOut() {
 
               {/* Step 2: Select Embroidery Design */}
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">Step 2</span>
+                <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                  <span className="bg-accent/10 text-accent px-2 py-1 rounded text-sm">Step 2</span>
                   Select Embroidery Design
                 </h3>
                 <div>
                   <Label>
-                    Embroidery Design <span className="text-red-500">*</span>
+                    Embroidery Design <span className="text-destructive">*</span>
                   </Label>
                   <Select value={selectedEmbroideryId} onValueChange={handleEmbroideryChange}>
                     <SelectTrigger className="w-full mt-1">
@@ -411,11 +411,11 @@ export default function EmbroideryStockSendOut() {
 
                 {/* Embroidery Details Panel */}
                 {selectedEmbroidery && (
-                  <Card className="bg-purple-50 border-purple-200 mt-4">
+                  <Card className="bg-accent/10 border-accent/20 mt-4">
                     <CardContent className="pt-4">
                       <button
                         onClick={() => setShowEmbroideryDetails(!showEmbroideryDetails)}
-                        className="flex items-center gap-2 text-sm font-medium text-purple-700 hover:text-purple-900 w-full justify-between"
+                        className="flex items-center gap-2 text-sm font-medium text-accent hover:text-accent w-full justify-between"
                       >
                         <span>Embroidery Design Details</span>
                         {showEmbroideryDetails ? (
@@ -427,37 +427,37 @@ export default function EmbroideryStockSendOut() {
                       {showEmbroideryDetails && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-3">
                           <div>
-                            <span className="text-gray-600">Code:</span>
+                            <span className="text-muted-foreground">Code:</span>
                             <p className="font-medium">{selectedEmbroidery.embroideryCode}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Design Name:</span>
+                            <span className="text-muted-foreground">Design Name:</span>
                             <p className="font-medium">{selectedEmbroidery.designName}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Stitch Count:</span>
+                            <span className="text-muted-foreground">Stitch Count:</span>
                             <p className="font-medium">{selectedEmbroidery.stitchCount?.toLocaleString() || 'N/A'}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Thread Colors:</span>
+                            <span className="text-muted-foreground">Thread Colors:</span>
                             <p className="font-medium">{selectedEmbroidery.threadColors || 'N/A'}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Min Fabric Width:</span>
+                            <span className="text-muted-foreground">Min Fabric Width:</span>
                             <p className="font-medium">{selectedEmbroidery.minFabricWidth || 'N/A'}"</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Usable Width After:</span>
-                            <p className="font-medium text-orange-600">{selectedEmbroidery.usableWidthAfter}"</p>
+                            <span className="text-muted-foreground">Usable Width After:</span>
+                            <p className="font-medium text-primary">{selectedEmbroidery.usableWidthAfter}"</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Cost/meter:</span>
-                            <p className="font-medium text-green-600">
+                            <span className="text-muted-foreground">Cost/meter:</span>
+                            <p className="font-medium text-success">
                               {formatCurrency(selectedEmbroidery.costPerMeter)}
                             </p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Lead Time:</span>
+                            <span className="text-muted-foreground">Lead Time:</span>
                             <p className="font-medium">{selectedEmbroidery.leadTimeDays || 'N/A'} days</p>
                           </div>
                         </div>
@@ -469,13 +469,13 @@ export default function EmbroideryStockSendOut() {
 
               {/* Step 3: Select Supplier */}
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">Step 3</span>
+                <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                  <span className="bg-accent/10 text-accent px-2 py-1 rounded text-sm">Step 3</span>
                   Select Embroidery Supplier
                 </h3>
                 <div>
                   <Label>
-                    Supplier <span className="text-red-500">*</span>
+                    Supplier <span className="text-destructive">*</span>
                   </Label>
                   <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
                     <SelectTrigger className="w-full mt-1">
@@ -491,7 +491,7 @@ export default function EmbroideryStockSendOut() {
                   </Select>
                 </div>
                 {selectedSupplier && (
-                  <p className="text-sm text-gray-600 mt-2">
+                  <p className="text-sm text-muted-foreground mt-2">
                     Contact: {selectedSupplier.contactPerson || 'N/A'} | Phone: {selectedSupplier.phone || 'N/A'}
                   </p>
                 )}
@@ -499,14 +499,14 @@ export default function EmbroideryStockSendOut() {
 
               {/* Step 4: Send-Out Details */}
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-sm">Step 4</span>
+                <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                  <span className="bg-accent/10 text-accent px-2 py-1 rounded text-sm">Step 4</span>
                   Send-Out Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <Label htmlFor="quantitySent">
-                      Quantity to Send (meters) <span className="text-red-500">*</span>
+                      Quantity to Send (meters) <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="quantitySent"
@@ -518,7 +518,7 @@ export default function EmbroideryStockSendOut() {
                       className="mt-1"
                     />
                     {selectedStock && (
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Available: {selectedStock.quantityAvailable.toFixed(2)} m
                       </p>
                     )}
@@ -526,7 +526,7 @@ export default function EmbroideryStockSendOut() {
 
                   <div>
                     <Label htmlFor="sentWidth">
-                      Sent Width (inches) <span className="text-red-500">*</span>
+                      Sent Width (inches) <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="sentWidth"
@@ -535,13 +535,13 @@ export default function EmbroideryStockSendOut() {
                       value={formData.sentWidth}
                       onChange={(e) => handleFieldChange('sentWidth', e.target.value)}
                       placeholder="Auto-filled from stock"
-                      className="mt-1 bg-gray-50"
+                      className="mt-1 bg-muted"
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="agreedRate">
-                      Agreed Rate (per meter) <span className="text-red-500">*</span>
+                      Agreed Rate (per meter) <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="agreedRate"
@@ -553,7 +553,7 @@ export default function EmbroideryStockSendOut() {
                       className="mt-1"
                     />
                     {selectedEmbroidery && (
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Standard rate: {formatCurrency(selectedEmbroidery.costPerMeter)}/m
                       </p>
                     )}
@@ -561,7 +561,7 @@ export default function EmbroideryStockSendOut() {
 
                   <div>
                     <Label htmlFor="sendDate">
-                      Send Date <span className="text-red-500">*</span>
+                      Send Date <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="sendDate"
@@ -582,7 +582,9 @@ export default function EmbroideryStockSendOut() {
                       className="mt-1"
                     />
                     {selectedEmbroidery?.leadTimeDays && (
-                      <p className="text-xs text-gray-500 mt-1">Lead time: {selectedEmbroidery.leadTimeDays} days</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Lead time: {selectedEmbroidery.leadTimeDays} days
+                      </p>
                     )}
                   </div>
 
@@ -593,7 +595,7 @@ export default function EmbroideryStockSendOut() {
                       value={formData.remarks}
                       onChange={(e) => handleFieldChange('remarks', e.target.value)}
                       placeholder="Any special instructions for the embroidery vendor..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 mt-1"
+                      className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 mt-1"
                       rows={3}
                     />
                   </div>
@@ -602,21 +604,21 @@ export default function EmbroideryStockSendOut() {
 
               {/* Cost Summary */}
               {estimatedCost > 0 && (
-                <Card className="bg-gray-50">
+                <Card className="bg-muted">
                   <CardContent className="pt-4">
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className="font-medium text-gray-700">Estimated Embroidery Cost:</span>
-                        <p className="text-sm text-gray-500">
+                        <span className="font-medium text-foreground">Estimated Embroidery Cost:</span>
+                        <p className="text-sm text-muted-foreground">
                           {formData.quantitySent} m x {formatCurrency(parseFloat(formData.agreedRate))}/m
                         </p>
                       </div>
-                      <span className="text-2xl font-bold text-purple-600">{formatCurrency(estimatedCost)}</span>
+                      <span className="text-2xl font-bold text-accent">{formatCurrency(estimatedCost)}</span>
                     </div>
                     {selectedStock && (
                       <div className="mt-3 pt-3 border-t flex justify-between items-center">
-                        <span className="text-gray-600">Combined Cost (Fabric + Embroidery):</span>
-                        <span className="font-bold text-blue-600">
+                        <span className="text-muted-foreground">Combined Cost (Fabric + Embroidery):</span>
+                        <span className="font-bold text-info">
                           {formatCurrency(
                             parseFloat(formData.quantitySent || '0') * selectedStock.weightedAvgCost + estimatedCost
                           )}
@@ -642,7 +644,7 @@ export default function EmbroideryStockSendOut() {
                     !formData.quantitySent ||
                     !formData.agreedRate
                   }
-                  className="bg-purple-600 hover:bg-purple-700"
+                  className="bg-accent hover:bg-accent"
                 >
                   {isSaving ? 'Sending...' : 'Send for Embroidery'}
                 </Button>

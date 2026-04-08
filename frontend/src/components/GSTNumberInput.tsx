@@ -137,7 +137,7 @@ export default function GSTNumberInput({
   };
 
   return (
-    <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-3">
+    <div className="p-4 border border-border rounded-lg bg-muted space-y-3">
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-2">
           <input
@@ -145,16 +145,16 @@ export default function GSTNumberInput({
             checked={value.isPrimary}
             onChange={handleIsPrimaryChange}
             disabled={disabled}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-border text-info focus:ring-blue-500"
           />
-          <label className="text-sm font-medium text-gray-700">Primary GST Registration</label>
+          <label className="text-sm font-medium text-foreground">Primary GST Registration</label>
         </div>
         {showRemove && onRemove && (
           <button
             type="button"
             onClick={onRemove}
             disabled={disabled}
-            className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+            className="text-destructive hover:text-destructive text-sm font-medium disabled:opacity-50"
           >
             Remove
           </button>
@@ -173,8 +173,8 @@ export default function GSTNumberInput({
         />
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            GST Number <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-foreground mb-1">
+            GST Number <span className="text-destructive">*</span>
           </label>
           <input
             type="text"
@@ -186,19 +186,21 @@ export default function GSTNumberInput({
             className={`
               w-full px-3 py-2 border rounded-md shadow-sm uppercase
               focus:outline-none focus:ring-2 focus:ring-blue-500
-              disabled:bg-gray-100 disabled:cursor-not-allowed
-              ${error?.gstNumber || validationError ? 'border-red-500' : 'border-gray-300'}
+              disabled:bg-muted disabled:cursor-not-allowed
+              ${error?.gstNumber || validationError ? 'border-destructive' : 'border-border'}
             `}
           />
-          {isValidating && <p className="mt-1 text-sm text-blue-600">Validating...</p>}
-          {validationError && !isValidating && <p className="mt-1 text-sm text-red-600">{validationError}</p>}
-          {error?.gstNumber && !validationError && <p className="mt-1 text-sm text-red-600">{error.gstNumber}</p>}
-          <p className="mt-1 text-xs text-gray-500">Format: 2-digit state code + 10-digit PAN + 3-character suffix</p>
+          {isValidating && <p className="mt-1 text-sm text-info">Validating...</p>}
+          {validationError && !isValidating && <p className="mt-1 text-sm text-destructive">{validationError}</p>}
+          {error?.gstNumber && !validationError && <p className="mt-1 text-sm text-destructive">{error.gstNumber}</p>}
+          <p className="mt-1 text-xs text-muted-foreground">
+            Format: 2-digit state code + 10-digit PAN + 3-character suffix
+          </p>
         </div>
       </div>
 
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700">Billing Address for this GST (Optional)</label>
+        <label className="block text-sm font-medium text-foreground">Billing Address for this GST (Optional)</label>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
@@ -210,11 +212,11 @@ export default function GSTNumberInput({
               placeholder="Select city"
               label="City"
             />
-            {error?.billingCityId && <p className="mt-1 text-sm text-red-600">{error.billingCityId}</p>}
+            {error?.billingCityId && <p className="mt-1 text-sm text-destructive">{error.billingCityId}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code</label>
+            <label className="block text-sm font-medium text-foreground mb-1">PIN Code</label>
             <input
               type="text"
               value={value.billingPincode || ''}
@@ -226,16 +228,16 @@ export default function GSTNumberInput({
               className={`
                 w-full px-3 py-2 border rounded-md shadow-sm
                 focus:outline-none focus:ring-2 focus:ring-blue-500
-                disabled:bg-gray-100 disabled:cursor-not-allowed
-                ${error?.billingPincode ? 'border-red-500' : 'border-gray-300'}
+                disabled:bg-muted disabled:cursor-not-allowed
+                ${error?.billingPincode ? 'border-destructive' : 'border-border'}
               `}
             />
-            {error?.billingPincode && <p className="mt-1 text-sm text-red-600">{error.billingPincode}</p>}
+            {error?.billingPincode && <p className="mt-1 text-sm text-destructive">{error.billingPincode}</p>}
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Street Address</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Street Address</label>
           <textarea
             value={value.billingAddress || ''}
             onChange={handleBillingAddressChange}
@@ -245,11 +247,11 @@ export default function GSTNumberInput({
             className={`
               w-full px-3 py-2 border rounded-md shadow-sm
               focus:outline-none focus:ring-2 focus:ring-blue-500
-              disabled:bg-gray-100 disabled:cursor-not-allowed
-              ${error?.billingAddress ? 'border-red-500' : 'border-gray-300'}
+              disabled:bg-muted disabled:cursor-not-allowed
+              ${error?.billingAddress ? 'border-destructive' : 'border-border'}
             `}
           />
-          {error?.billingAddress && <p className="mt-1 text-sm text-red-600">{error.billingAddress}</p>}
+          {error?.billingAddress && <p className="mt-1 text-sm text-destructive">{error.billingAddress}</p>}
         </div>
       </div>
     </div>

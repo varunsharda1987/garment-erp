@@ -122,14 +122,14 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
           <Tooltip>
             <TooltipTrigger asChild>
               {compact ? (
-                <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
+                <Badge variant="default" className="gap-1 bg-success hover:bg-success">
                   <CheckCircle className="h-3 w-3" />
                   In Stock
                 </Badge>
               ) : (
                 <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-green-600 font-medium">
+                  <CheckCircle className="h-4 w-4 text-success" />
+                  <span className="text-success font-medium">
                     In Stock: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)}{' '}
                     boxes)
                   </span>
@@ -155,14 +155,14 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
           <Tooltip>
             <TooltipTrigger asChild>
               {compact ? (
-                <Badge variant="default" className="gap-1 bg-amber-500 hover:bg-amber-600">
+                <Badge variant="default" className="gap-1 bg-warning-muted0 hover:bg-warning">
                   <AlertTriangle className="h-3 w-3" />
                   Low Stock
                 </Badge>
               ) : (
                 <div className="flex items-center gap-2 text-sm">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <span className="text-amber-600 font-medium">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  <span className="text-warning font-medium">
                     Low Stock: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)}{' '}
                     boxes) - Reorder suggested
                   </span>
@@ -176,7 +176,7 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
                   Available: {formatNumber(stockStatus.totalUnits)} units ({formatNumber(stockStatus.totalBoxes)} boxes)
                 </p>
                 <p>Required: {formatNumber(requiredUnits)} units</p>
-                <p className="text-amber-500">⚠️ Stock is running low. Consider reordering soon.</p>
+                <p className="text-warning">⚠️ Stock is running low. Consider reordering soon.</p>
               </div>
             </TooltipContent>
           </Tooltip>
@@ -195,8 +195,8 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
                 </Badge>
               ) : (
                 <div className="flex items-center gap-2 text-sm">
-                  <XCircle className="h-4 w-4 text-red-600" />
-                  <span className="text-red-600 font-medium">
+                  <XCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-destructive font-medium">
                     ⚠️ SHORTAGE: Need {formatNumber(requiredUnits)}, Have {formatNumber(stockStatus.totalUnits)}
                     (Short: {formatNumber(stockStatus.shortage)} units / {formatNumber(stockStatus.shortage / 10)}{' '}
                     boxes)
@@ -209,7 +209,7 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
                 <p className="font-semibold">Shortage Detected</p>
                 <p>Required: {formatNumber(requiredUnits)} units</p>
                 <p>Available: {formatNumber(stockStatus.totalUnits)} units</p>
-                <p className="text-red-500 font-semibold">
+                <p className="text-destructive font-semibold">
                   Short: {formatNumber(stockStatus.shortage)} units ({formatNumber(stockStatus.shortage / 10)} boxes
                   approx.)
                 </p>

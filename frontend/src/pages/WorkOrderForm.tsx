@@ -170,7 +170,7 @@ export default function WorkOrderForm() {
       )}
 
       {success && (
-        <Alert className="mb-4 bg-green-50 text-green-900 border-green-200">
+        <Alert className="mb-4 bg-success-muted text-success border-success/20">
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
@@ -185,10 +185,10 @@ export default function WorkOrderForm() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <Label className="text-gray-500">Order Number</Label>
+                  <Label className="text-muted-foreground">Order Number</Label>
                   <div className="font-medium mt-1">
                     <span
-                      className="text-blue-600 cursor-pointer hover:underline"
+                      className="text-info cursor-pointer hover:underline"
                       onClick={() => navigate(`/orders/${workOrder.orderId}`)}
                     >
                       {workOrder.orders?.orderNumber || '-'}
@@ -196,17 +196,17 @@ export default function WorkOrderForm() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-gray-500">Customer</Label>
+                  <Label className="text-muted-foreground">Customer</Label>
                   <div className="font-medium mt-1">{workOrder.orders?.customer?.name || '-'}</div>
                 </div>
                 <div>
-                  <Label className="text-gray-500">Style</Label>
+                  <Label className="text-muted-foreground">Style</Label>
                   <div className="font-medium mt-1">
                     {workOrder.style?.styleCode} - {workOrder.style?.styleName}
                   </div>
                 </div>
                 <div>
-                  <Label className="text-gray-500">Total Quantity</Label>
+                  <Label className="text-muted-foreground">Total Quantity</Label>
                   <div className="font-medium mt-1">{workOrder.totalQuantity} pcs</div>
                 </div>
               </div>
@@ -302,11 +302,15 @@ export default function WorkOrderForm() {
               <CardContent>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                          Color
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                          Size
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
                           Planned Qty
                         </th>
                       </tr>

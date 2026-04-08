@@ -78,8 +78,8 @@ const PO_CATEGORY_TO_SERVICE_TYPE: Record<string, string> = {
 // PO Category → Material Types mapping
 // Used to show materials matching the PO category type (OR-combined with supplier filter)
 const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
-  GREIGE: ['GREIGE', 'GREIGE_FABRIC'],
-  FABRIC: ['FABRIC', 'FINISHED_FABRIC'],
+  GREIGE: ['GREIGE'],
+  FABRIC: ['FABRIC'],
   TRIMS: [
     'TRIMS',
     'BUTTON',
@@ -631,9 +631,11 @@ export default function PurchaseOrderForm() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}</h1>
+          <h1 className="text-2xl font-display font-medium">
+            {isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
+          </h1>
           {poCategory && (
-            <Badge className={PO_CATEGORY_COLORS[poCategory] || 'bg-gray-100 text-gray-800'}>
+            <Badge className={PO_CATEGORY_COLORS[poCategory] || 'bg-muted text-foreground'}>
               {PO_CATEGORY_LABELS[poCategory] || poCategory}
             </Badge>
           )}
@@ -773,23 +775,23 @@ export default function PurchaseOrderForm() {
           </div>
 
           {selectedSupplier && (
-            <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="bg-muted p-4 rounded-lg">
               <h4 className="font-medium mb-2">Supplier Details</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-500">Contact:</span>
+                  <span className="text-muted-foreground">Contact:</span>
                   <p>{selectedSupplier.contactPerson || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Phone:</span>
+                  <span className="text-muted-foreground">Phone:</span>
                   <p>{selectedSupplier.phone || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Email:</span>
+                  <span className="text-muted-foreground">Email:</span>
                   <p>{selectedSupplier.email || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Payment Terms:</span>
+                  <span className="text-muted-foreground">Payment Terms:</span>
                   <p>{selectedSupplier.paymentTerms || '-'}</p>
                 </div>
               </div>
@@ -819,7 +821,7 @@ export default function PurchaseOrderForm() {
           <CardContent>
             {/* Material PO: Quick Add Material */}
             {isMaterial && supplierId && (
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="mb-6 p-4 bg-info-muted border border-info/20 rounded-lg">
                 <Label className="text-sm font-medium mb-2 block">Quick Add Material</Label>
                 <div className="flex gap-3 items-end">
                   <div className="flex-1">
@@ -838,18 +840,18 @@ export default function PurchaseOrderForm() {
                   </Button>
                 </div>
                 {materials.length > 0 && (
-                  <p className="text-xs text-gray-600 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Showing {materials.length} materials matching supplier or{' '}
                     {PO_CATEGORY_LABELS[poCategory] || poCategory} category.
                   </p>
                 )}
                 {!isLoadingMaterials && materials.length === 0 && (
-                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700">
+                  <div className="mt-3 p-3 bg-warning-muted border border-warning/20 rounded text-sm text-warning">
                     <p>No materials found for this supplier or category.</p>
                     <Button
                       variant="link"
                       size="sm"
-                      className="p-0 h-auto text-amber-800 underline"
+                      className="p-0 h-auto text-warning underline"
                       onClick={() => fetchMaterials(undefined, true)}
                     >
                       Browse all materials instead
@@ -861,7 +863,7 @@ export default function PurchaseOrderForm() {
 
             {/* Processing PO: Greige Picker */}
             {isProcessing && supplierId && (
-              <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="mb-6 p-4 bg-accent/10 border border-accent/20 rounded-lg">
                 <Label className="text-sm font-medium mb-2 block">Add Greige for Processing</Label>
                 <div className="flex-1">
                   <Combobox
@@ -875,11 +877,11 @@ export default function PurchaseOrderForm() {
                   />
                 </div>
                 {processingType === 'PRINTING' && !printingType && (
-                  <p className="text-xs text-amber-600 mt-2">
+                  <p className="text-xs text-warning mt-2">
                     Please select a Printing Type above before adding greige fabrics.
                   </p>
                 )}
-                <p className="text-xs text-gray-600 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   Rate will auto-fill from processor rate card when available. You can override manually.
                 </p>
               </div>
@@ -887,12 +889,12 @@ export default function PurchaseOrderForm() {
 
             {/* No supplier selected */}
             {!supplierId && (
-              <div className="text-center py-8 text-gray-500">Please select a supplier to add items.</div>
+              <div className="text-center py-8 text-muted-foreground">Please select a supplier to add items.</div>
             )}
 
             {/* Empty items */}
             {supplierId && items.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 No items added yet.{' '}
                 {isProcessing
                   ? 'Select a greige fabric above to add processing items.'
@@ -926,7 +928,7 @@ export default function PurchaseOrderForm() {
                         {isProcessing ? (
                           <div>
                             <div className="font-medium">{item.materialCode}</div>
-                            <div className="text-sm text-gray-500">{item.materialName}</div>
+                            <div className="text-sm text-muted-foreground">{item.materialName}</div>
                           </div>
                         ) : isService ? (
                           <Input
@@ -938,7 +940,7 @@ export default function PurchaseOrderForm() {
                         ) : (
                           <div>
                             <div className="font-medium">{item.materialCode}</div>
-                            <div className="text-sm text-gray-500">{item.materialName}</div>
+                            <div className="text-sm text-muted-foreground">{item.materialName}</div>
                           </div>
                         )}
                       </TableCell>
@@ -1000,7 +1002,7 @@ export default function PurchaseOrderForm() {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeItem(item.tempId)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-destructive hover:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -1015,7 +1017,7 @@ export default function PurchaseOrderForm() {
             {items.length > 0 && (
               <div className="flex justify-end mt-4 pt-4 border-t">
                 <div className="text-right">
-                  <div className="text-sm text-gray-500">Grand Total</div>
+                  <div className="text-sm text-muted-foreground">Grand Total</div>
                   <div className="text-2xl font-bold">{formatCurrency(calculateGrandTotal())}</div>
                 </div>
               </div>
@@ -1058,7 +1060,7 @@ export default function PurchaseOrderForm() {
               />
               <div className="max-h-[400px] overflow-y-auto">
                 {filteredMaterials.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">No materials found for this supplier</div>
+                  <div className="text-center py-4 text-muted-foreground">No materials found for this supplier</div>
                 ) : (
                   <Table>
                     <TableHeader>

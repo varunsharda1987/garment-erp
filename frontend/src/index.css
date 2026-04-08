@@ -1,71 +1,389 @@
+/* ============================================================
+   KASHAYA FABS ERP — Design System
+   index.css
+   
+   Stack: React + Vite + shadcn/ui (Radix UI + Tailwind CSS)
+   Theme: "The Atelier OS" — warm, editorial, fashion-forward ops
+   
+   Fonts loaded via main.tsx or index.html:
+   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+   ============================================================ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ── 1. FONT FACE REGISTRATION ───────────────────────────── */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 142.1 76.2% 36.3%;
-    --success-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 222.2 47.4% 11.2%;
-    --info: 221.2 83.2% 53.3%;
-    --info-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    /* ── TYPOGRAPHY ──────────────────────────────────────── */
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-sans:    'DM Sans', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+    /* ── RADIUS ──────────────────────────────────────────── */
+    --radius: 0.5rem;          /* shadcn default — used by components */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+
+    /* ── SHADOWS ─────────────────────────────────────────── */
+    --shadow-xs:  0 1px 2px 0 hsl(30 20% 10% / 0.04);
+    --shadow-sm:  0 1px 3px 0 hsl(30 20% 10% / 0.07), 0 1px 2px -1px hsl(30 20% 10% / 0.04);
+    --shadow-md:  0 4px 6px -1px hsl(30 20% 10% / 0.07), 0 2px 4px -2px hsl(30 20% 10% / 0.04);
+    --shadow-lg:  0 10px 15px -3px hsl(30 20% 10% / 0.08), 0 4px 6px -4px hsl(30 20% 10% / 0.04);
+
+    /* ══════════════════════════════════════════════════════
+       LIGHT MODE — HSL tokens
+       All shadcn/ui components consume these automatically.
+    ══════════════════════════════════════════════════════ */
+
+    /* ── BACKGROUNDS ─────────────────────────────────────── */
+    --background:           36 28% 96%;    /* Warm Parchment  #F6F2EB */
+    --foreground:           30 14% 10%;    /* Deep Charcoal   #1C1A15 */
+
+    /* ── CARD / POPOVER ──────────────────────────────────── */
+    --card:                 40 38% 99%;    /* Ivory White     #FDFCF8 */
+    --card-foreground:      30 14% 10%;
+
+    --popover:              40 38% 99%;
+    --popover-foreground:   30 14% 10%;
+
+    /* ── PRIMARY — Kashaya Ember (action / CTA) ──────────── */
+    --primary:              18 54% 46%;    /* Ember            #B85C38 */
+    --primary-foreground:   36 80% 97%;    /* near-white on ember */
+
+    /* ── SECONDARY — Muted warm surface ─────────────────── */
+    --secondary:            34 22% 91%;    /* Linen            #EDE8E0 */
+    --secondary-foreground: 30 14% 20%;
+
+    /* ── MUTED — Quiet backgrounds ───────────────────────── */
+    --muted:                34 18% 93%;    /* Warm Fog         #F0ECE5 */
+    --muted-foreground:     30 10% 40%;    /* Warm Stone       #6B665E */
+
+    /* ── ACCENT — Antique Gold (highlights, hover) ───────── */
+    --accent:               43 65% 46%;    /* Antique Gold     #C49A2A */
+    --accent-foreground:    36 80% 97%;
+
+    /* ── DESTRUCTIVE ─────────────────────────────────────── */
+    --destructive:          4 60% 43%;     /* Brick Red        #A83228 */
+    --destructive-foreground: 36 80% 97%;
+
+    /* ── BORDERS & INPUTS ────────────────────────────────── */
+    --border:               34 20% 86%;    /* Warm Border      #E5DED3 */
+    --input:                34 20% 86%;
+    --ring:                 18 54% 46%;    /* Focus ring = primary */
+
+    /* ── SEMANTIC EXTRAS (beyond default shadcn) ─────────── */
+    --success:              120 30% 32%;   /* Forest           #3A6B35 */
+    --success-foreground:   120 40% 96%;
+    --success-muted:        120 22% 92%;   /* Light green tint */
+
+    --warning:              38 88% 40%;    /* Amber            #C4860A */
+    --warning-foreground:   38 80% 97%;
+    --warning-muted:        38 80% 93%;    /* Light amber tint */
+
+    --info:                 210 55% 44%;   /* Steel Blue       #3373A8 */
+    --info-foreground:      210 60% 97%;
+    --info-muted:           210 45% 92%;
+
+    /* ── BRAND CLIENT TAGS ───────────────────────────────── */
+    /* Used as pill/badge tints when an order belongs to a brand */
+    --brand-kasya:          18 65% 47%;    /* Burnt Orange     #C4522A */
+    --brand-kasya-muted:    18 55% 93%;    /* Light tint */
+    --brand-nihsamah:       0 28% 44%;     /* Warm Mauve       #8B5E52 */
+    --brand-nihsamah-muted: 0 28% 93%;
+    --brand-external:       30 10% 52%;    /* Neutral stone for 3rd-party clients */
+    --brand-external-muted: 30 10% 92%;
+
+    /* ── SIDEBAR (deep mocha dark panel) ─────────────────── */
+    --sidebar:              27 28% 9%;     /* Deep Mocha       #1E1710 */
+    --sidebar-foreground:   36 50% 93%;    /* Warm Cream       #F4EFE4 */
+    --sidebar-muted:        27 15% 55%;    /* Muted nav text */
+    --sidebar-border:       27 20% 16%;
+    --sidebar-accent:       18 54% 46%;    /* Active = ember */
+    --sidebar-accent-foreground: 36 80% 97%;
+    --sidebar-ring:         18 54% 46%;
+
+    /* ── CHART PALETTE (for any Recharts usage) ──────────── */
+    --chart-1:  18 54% 46%;   /* Ember         */
+    --chart-2:  43 65% 46%;   /* Antique Gold  */
+    --chart-3:  120 30% 32%;  /* Forest Green  */
+    --chart-4:  210 55% 44%;  /* Steel Blue    */
+    --chart-5:  0  28% 44%;   /* Mauve         */
   }
 
+  /* ══════════════════════════════════════════════════════════
+     DARK MODE
+     Activate via class="dark" on <html> (shadcn convention)
+  ══════════════════════════════════════════════════════════ */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 142.1 70.6% 45.3%;
-    --success-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 222.2 47.4% 11.2%;
-    --info: 221.2 83.2% 53.3%;
-    --info-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background:           27 20% 8%;     /* Near-black warm  #15110C */
+    --foreground:           36 35% 93%;    /* Warm Cream       #F1EBE0 */
+
+    --card:                 27 22% 11%;    /* Dark card        #1D1710 */
+    --card-foreground:      36 35% 93%;
+
+    --popover:              27 22% 11%;
+    --popover-foreground:   36 35% 93%;
+
+    --primary:              18 60% 58%;    /* Lighter ember for dark */
+    --primary-foreground:   27 20% 8%;
+
+    --secondary:            27 16% 18%;
+    --secondary-foreground: 36 30% 80%;
+
+    --muted:                27 16% 15%;
+    --muted-foreground:     36 12% 62%;
+
+    --accent:               43 58% 52%;
+    --accent-foreground:    27 20% 8%;
+
+    --destructive:          4 65% 55%;
+    --destructive-foreground: 36 80% 97%;
+
+    --border:               27 16% 20%;
+    --input:                27 16% 20%;
+    --ring:                 18 60% 58%;
+
+    --success:              120 36% 44%;
+    --success-foreground:   120 40% 96%;
+    --success-muted:        120 18% 16%;
+
+    --warning:              38 80% 50%;
+    --warning-foreground:   27 20% 8%;
+    --warning-muted:        38 50% 16%;
+
+    --info:                 210 60% 55%;
+    --info-foreground:      27 20% 8%;
+    --info-muted:           210 35% 16%;
+
+    --brand-kasya:          18 60% 58%;
+    --brand-kasya-muted:    18 40% 18%;
+    --brand-nihsamah:       0 32% 56%;
+    --brand-nihsamah-muted: 0 22% 18%;
+    --brand-external:       30 10% 55%;
+    --brand-external-muted: 30 10% 18%;
+
+    --sidebar:              27 28% 6%;
+    --sidebar-foreground:   36 40% 88%;
+    --sidebar-muted:        27 12% 45%;
+    --sidebar-border:       27 20% 12%;
+    --sidebar-accent:       18 60% 52%;
+    --sidebar-accent-foreground: 36 80% 97%;
+    --sidebar-ring:         18 60% 52%;
+
+    --chart-1:  18 60% 58%;
+    --chart-2:  43 58% 52%;
+    --chart-3:  120 36% 44%;
+    --chart-4:  210 60% 55%;
+    --chart-5:  0  32% 56%;
   }
 }
 
+/* ── 2. BASE ELEMENT STYLES ──────────────────────────────── */
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+
+  /* Display headings use Cormorant */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+
+  /* UI headings stay in DM Sans */
+  h4, h5, h6 {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  h4 { font-size: 1rem; }
+  h5 { font-size: 0.875rem; }
+  h6 { font-size: 0.75rem; }
+}
+
+/* ── 3. COMPONENT UTILITIES ──────────────────────────────── */
+@layer components {
+
+  /* Page section title (display font, used in main content headings) */
+  .page-title {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: hsl(var(--foreground));
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+  }
+
+  /* Section label — small uppercase tracker above a list/table */
+  .section-label {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* ── Brand Client Badges ─────────────────────────────── */
+  .badge-kasya {
+    background-color: hsl(var(--brand-kasya-muted));
+    color: hsl(var(--brand-kasya));
+    border: 0.5px solid hsl(var(--brand-kasya) / 0.25);
+  }
+  .badge-nihsamah {
+    background-color: hsl(var(--brand-nihsamah-muted));
+    color: hsl(var(--brand-nihsamah));
+    border: 0.5px solid hsl(var(--brand-nihsamah) / 0.25);
+  }
+  .badge-external {
+    background-color: hsl(var(--brand-external-muted));
+    color: hsl(var(--brand-external));
+    border: 0.5px solid hsl(var(--brand-external) / 0.25);
+  }
+
+  /* ── Semantic Status Badges ─────────────────────────── */
+  .badge-success {
+    background-color: hsl(var(--success-muted));
+    color: hsl(var(--success));
+    border: 0.5px solid hsl(var(--success) / 0.2);
+  }
+  .badge-warning {
+    background-color: hsl(var(--warning-muted));
+    color: hsl(var(--warning));
+    border: 0.5px solid hsl(var(--warning) / 0.2);
+  }
+  .badge-info {
+    background-color: hsl(var(--info-muted));
+    color: hsl(var(--info));
+    border: 0.5px solid hsl(var(--info) / 0.2);
+  }
+  .badge-destructive {
+    background-color: hsl(var(--destructive) / 0.08);
+    color: hsl(var(--destructive));
+    border: 0.5px solid hsl(var(--destructive) / 0.2);
+  }
+
+  /* ── ERP Table refinements ──────────────────────────── */
+  .erp-table thead tr {
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .erp-table thead th {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+    padding: 0.625rem 1rem;
+    text-align: left;
+  }
+  .erp-table tbody td {
+    padding: 0.75rem 1rem;
+    font-size: 0.8125rem;
+    color: hsl(var(--foreground));
+    border-bottom: 0.5px solid hsl(var(--border) / 0.6);
+    vertical-align: middle;
+  }
+  .erp-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .erp-table tbody tr:hover td {
+    background-color: hsl(var(--muted) / 0.5);
+  }
+
+  /* ── Stat / KPI card top-bar accent ─────────────────── */
+  .kpi-card-ember  { border-top: 2px solid hsl(var(--primary)); }
+  .kpi-card-gold   { border-top: 2px solid hsl(var(--accent)); }
+  .kpi-card-green  { border-top: 2px solid hsl(var(--success)); }
+  .kpi-card-muted  { border-top: 2px solid hsl(var(--border)); }
+
+  /* ── Sidebar nav item (use alongside your existing sidebar) */
+  .sidebar-nav-item {
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors duration-150;
+    color: hsl(var(--sidebar-muted));
+  }
+  .sidebar-nav-item:hover {
+    background-color: hsl(var(--sidebar-accent) / 0.12);
+    color: hsl(var(--sidebar-foreground));
+  }
+  .sidebar-nav-item.active {
+    background-color: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  /* ── Focus ring override ─────────────────────────────── */
+  .focus-ring {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+/* ── 4. UTILITY EXTRAS ───────────────────────────────────── */
+@layer utilities {
+  /* Semantic color utilities — bg-success, text-warning etc. */
+  .bg-success         { background-color: hsl(var(--success)); }
+  .bg-success-muted   { background-color: hsl(var(--success-muted)); }
+  .text-success       { color: hsl(var(--success)); }
+
+  .bg-warning         { background-color: hsl(var(--warning)); }
+  .bg-warning-muted   { background-color: hsl(var(--warning-muted)); }
+  .text-warning       { color: hsl(var(--warning)); }
+
+  .bg-info            { background-color: hsl(var(--info)); }
+  .bg-info-muted      { background-color: hsl(var(--info-muted)); }
+  .text-info          { color: hsl(var(--info)); }
+
+  /* Brand tag utilities */
+  .bg-kasya           { background-color: hsl(var(--brand-kasya)); }
+  .bg-kasya-muted     { background-color: hsl(var(--brand-kasya-muted)); }
+  .text-kasya         { color: hsl(var(--brand-kasya)); }
+
+  .bg-nihsamah        { background-color: hsl(var(--brand-nihsamah)); }
+  .bg-nihsamah-muted  { background-color: hsl(var(--brand-nihsamah-muted)); }
+  .text-nihsamah      { color: hsl(var(--brand-nihsamah)); }
+
+  /* Display font utility */
+  .font-display       { font-family: var(--font-display); }
+  .font-sans          { font-family: var(--font-sans); }
+
+  /* Sidebar background */
+  .bg-sidebar         { background-color: hsl(var(--sidebar)); }
+  .text-sidebar       { color: hsl(var(--sidebar-foreground)); }
+  .text-sidebar-muted { color: hsl(var(--sidebar-muted)); }
+
+  /* Smooth scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
   }
 }

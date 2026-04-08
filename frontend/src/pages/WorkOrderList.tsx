@@ -107,7 +107,7 @@ export default function WorkOrderList() {
     {
       key: 'workOrderNumber',
       header: 'Production Run #',
-      render: (wo) => <div className="font-medium text-gray-900">{wo.workOrderNumber}</div>,
+      render: (wo) => <div className="font-medium text-foreground">{wo.workOrderNumber}</div>,
     },
     {
       key: 'order',
@@ -116,18 +116,16 @@ export default function WorkOrderList() {
         <div>
           {wo.orders ? (
             <>
-              <div className="font-medium text-gray-900">{wo.orders.orderNumber}</div>
-              <div className="text-xs text-gray-500">{wo.orders.customer?.name || '-'}</div>
+              <div className="font-medium text-foreground">{wo.orders.orderNumber}</div>
+              <div className="text-xs text-muted-foreground">{wo.orders.customer?.name || '-'}</div>
             </>
           ) : wo.stockProductionOrderId ? (
             <>
-              <div className="font-medium text-blue-700">
-                {wo.stockProductionOrder?.spoNumber || 'Stock Production'}
-              </div>
-              <div className="text-xs text-blue-500">Make-to-Stock</div>
+              <div className="font-medium text-info">{wo.stockProductionOrder?.spoNumber || 'Stock Production'}</div>
+              <div className="text-xs text-info">Make-to-Stock</div>
             </>
           ) : (
-            <div className="text-gray-400">-</div>
+            <div className="text-muted-foreground">-</div>
           )}
         </div>
       ),
@@ -137,8 +135,8 @@ export default function WorkOrderList() {
       header: 'Style',
       render: (wo) => (
         <div>
-          <div className="font-medium text-gray-900">{wo.style?.styleCode || '-'}</div>
-          <div className="text-xs text-gray-500">{wo.style?.styleName || ''}</div>
+          <div className="font-medium text-foreground">{wo.style?.styleCode || '-'}</div>
+          <div className="text-xs text-muted-foreground">{wo.style?.styleName || ''}</div>
         </div>
       ),
     },
@@ -146,8 +144,8 @@ export default function WorkOrderList() {
       key: 'location',
       header: 'Location',
       render: (wo) => (
-        <div className="text-sm text-gray-700">
-          {wo.warehouses?.warehouseName || <span className="text-amber-600">Not Assigned</span>}
+        <div className="text-sm text-foreground">
+          {wo.warehouses?.warehouseName || <span className="text-warning">Not Assigned</span>}
         </div>
       ),
     },
@@ -156,10 +154,10 @@ export default function WorkOrderList() {
       header: 'Quantity',
       render: (wo) => (
         <div>
-          <div className="font-medium text-gray-900">
+          <div className="font-medium text-foreground">
             {wo.completedQuantity} / {wo.totalQuantity}
           </div>
-          <div className="text-xs text-gray-500">{calculateProgress(wo)}% complete</div>
+          <div className="text-xs text-muted-foreground">{calculateProgress(wo)}% complete</div>
         </div>
       ),
     },
@@ -172,7 +170,7 @@ export default function WorkOrderList() {
           <div className="w-full">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className={`h-2 rounded-full ${progress === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
+                className={`h-2 rounded-full ${progress === 100 ? 'bg-success' : 'bg-info'}`}
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -195,8 +193,8 @@ export default function WorkOrderList() {
       header: 'Planned Dates',
       render: (wo) => (
         <div className="text-sm">
-          <div className="text-gray-900">{formatDate(wo.plannedStartDate)}</div>
-          <div className="text-xs text-gray-500">to {formatDate(wo.plannedEndDate)}</div>
+          <div className="text-foreground">{formatDate(wo.plannedStartDate)}</div>
+          <div className="text-xs text-muted-foreground">to {formatDate(wo.plannedEndDate)}</div>
         </div>
       ),
     },

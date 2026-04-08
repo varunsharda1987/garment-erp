@@ -168,7 +168,7 @@ export const CadAverageInput: React.FC<CadAverageInputProps> = ({ value = [], on
                     id={`preferred-${index}`}
                     checked={cad.isPreferred}
                     onChange={(e) => updateCadAverage(index, 'isPreferred', e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
+                    className="h-4 w-4 rounded border-border"
                   />
                   <label
                     htmlFor={`preferred-${index}`}

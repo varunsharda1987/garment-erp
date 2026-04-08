@@ -3,16 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { challanService } from '@/services/challan.service';
 import type { Challan } from '@/types/challan.types';
 import { ChallanTypeLabels, ChallanTypeColors, ChallanStatusLabels, ChallanStatusColors } from '@/types/challan.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Send, PackageCheck, X, ArrowRight, Loader2, Printer } from 'lucide-react';
+import { ArrowLeft, Send, X, ArrowRight, Loader2, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ChallanDetail() {
@@ -21,10 +18,6 @@ export default function ChallanDetail() {
   const { toast } = useToast();
   const [challan, setChallan] = useState<Challan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isReceiveOpen, setIsReceiveOpen] = useState(false);
-  const [receiveItems, setReceiveItems] = useState<
-    { challanItemId: string; receivedQty: number; damagedQty: number }[]
-  >([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -70,32 +63,6 @@ export default function ChallanDetail() {
     }
   }
 
-  function openReceiveDialog() {
-    if (!challan) return;
-    setReceiveItems(
-      challan.items.map((item) => ({
-        challanItemId: item.id,
-        receivedQty: Number(item.quantity),
-        damagedQty: 0,
-      }))
-    );
-    setIsReceiveOpen(true);
-  }
-
-  async function handleReceive() {
-    try {
-      setIsProcessing(true);
-      await challanService.receiveChallan(id!, { items: receiveItems });
-      toast({ title: 'Success', description: 'Challan received' });
-      setIsReceiveOpen(false);
-      loadChallan();
-    } catch (error) {
-      handleApiError(error);
-    } finally {
-      setIsProcessing(false);
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -109,7 +76,6 @@ export default function ChallanDetail() {
   }
 
   const canIssue = challan.status === 'DRAFT';
-  const canReceive = ['ISSUED', 'IN_TRANSIT', 'PARTIALLY_RECEIVED'].includes(challan.status);
   const canCancel = !['RECEIVED', 'CANCELLED'].includes(challan.status);
 
   return (
@@ -122,7 +88,7 @@ export default function ChallanDetail() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{challan.challanNumber}</h1>
+            <h1 className="text-2xl font-display font-medium">{challan.challanNumber}</h1>
             <div className="flex items-center gap-2 mt-1">
               <Badge className={ChallanTypeColors[challan.challanType]}>{ChallanTypeLabels[challan.challanType]}</Badge>
               <Badge className={ChallanStatusColors[challan.status]}>{ChallanStatusLabels[challan.status]}</Badge>
@@ -134,12 +100,6 @@ export default function ChallanDetail() {
             <Button onClick={handleIssue} disabled={isProcessing}>
               <Send className="h-4 w-4 mr-2" />
               Issue Challan
-            </Button>
-          )}
-          {canReceive && (
-            <Button onClick={openReceiveDialog} disabled={isProcessing}>
-              <PackageCheck className="h-4 w-4 mr-2" />
-              Receive
             </Button>
           )}
           {canCancel && (
@@ -293,11 +253,14 @@ export default function ChallanDetail() {
               <TableRow>
                 <TableHead>Type</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead className="text-right">Sent Qty</TableHead>
-                <TableHead className="text-right">Received Qty</TableHead>
-                <TableHead className="text-right">Damaged</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                {challan.challanType === 'INWARD' && (
+                  <>
+                    <TableHead className="text-right">Received Qty</TableHead>
+                    <TableHead className="text-right">Damaged</TableHead>
+                  </>
+                )}
                 <TableHead>Unit</TableHead>
-                <TableHead className="text-right">Rate</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -308,75 +271,27 @@ export default function ChallanDetail() {
                   </TableCell>
                   <TableCell>{item.description}</TableCell>
                   <TableCell className="text-right">{Number(item.quantity).toLocaleString()}</TableCell>
-                  <TableCell className="text-right">
-                    {item.receivedQty != null ? Number(item.receivedQty).toLocaleString() : '—'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {item.damagedQty != null && Number(item.damagedQty) > 0 ? (
-                      <span className="text-red-500">{Number(item.damagedQty).toLocaleString()}</span>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
+                  {challan.challanType === 'INWARD' && (
+                    <>
+                      <TableCell className="text-right">
+                        {item.receivedQty != null ? Number(item.receivedQty).toLocaleString() : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {item.damagedQty != null && Number(item.damagedQty) > 0 ? (
+                          <span className="text-destructive">{Number(item.damagedQty).toLocaleString()}</span>
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                    </>
+                  )}
                   <TableCell>{item.unit}</TableCell>
-                  <TableCell className="text-right">
-                    {item.rate != null ? `₹${Number(item.rate).toFixed(2)}` : '—'}
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-
-      {/* Receive Dialog */}
-      <Dialog open={isReceiveOpen} onOpenChange={setIsReceiveOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Receive Challan Items</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
-            {challan.items.map((item, index) => (
-              <div key={item.id} className="grid grid-cols-12 gap-2 items-center border-b pb-2">
-                <div className="col-span-5 text-sm">{item.description}</div>
-                <div className="col-span-2 text-sm text-right text-muted-foreground">Sent: {Number(item.quantity)}</div>
-                <div className="col-span-2">
-                  <Label className="text-xs">Received</Label>
-                  <Input
-                    type="number"
-                    value={receiveItems[index]?.receivedQty || 0}
-                    onChange={(e) => {
-                      const updated = [...receiveItems];
-                      updated[index].receivedQty = parseFloat(e.target.value) || 0;
-                      setReceiveItems(updated);
-                    }}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-xs">Damaged</Label>
-                  <Input
-                    type="number"
-                    value={receiveItems[index]?.damagedQty || 0}
-                    onChange={(e) => {
-                      const updated = [...receiveItems];
-                      updated[index].damagedQty = parseFloat(e.target.value) || 0;
-                      setReceiveItems(updated);
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsReceiveOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleReceive} disabled={isProcessing}>
-              {isProcessing ? 'Processing...' : 'Confirm Receipt'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

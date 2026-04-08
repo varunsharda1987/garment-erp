@@ -151,15 +151,15 @@ export default function CustomerList() {
     {
       key: 'code',
       header: 'Code',
-      render: (customer) => <div className="text-sm font-medium text-gray-900">{customer.code}</div>,
+      render: (customer) => <div className="text-sm font-medium text-foreground">{customer.code}</div>,
     },
     {
       key: 'name',
       header: 'Company Name',
       render: (customer) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{customer.name}</div>
-          {customer.gstNumber && <div className="text-xs text-gray-500">GST: {customer.gstNumber}</div>}
+          <div className="text-sm font-medium text-foreground">{customer.name}</div>
+          {customer.gstNumber && <div className="text-xs text-muted-foreground">GST: {customer.gstNumber}</div>}
         </div>
       ),
     },
@@ -167,7 +167,7 @@ export default function CustomerList() {
       key: 'brandNames',
       header: 'Brand Names',
       render: (customer) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {customer.brandNames
             ? customer.brandNames
                 .split('\n')
@@ -176,7 +176,7 @@ export default function CustomerList() {
                 .join(', ')
             : '-'}
           {customer.brandNames && customer.brandNames.split('\n').filter((b) => b.trim()).length > 2 && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-muted-foreground">
               {' '}
               +{customer.brandNames.split('\n').filter((b) => b.trim()).length - 2} more
             </span>
@@ -188,7 +188,7 @@ export default function CustomerList() {
       key: 'categories',
       header: 'Product Categories',
       render: (customer) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {customer.categories
             ? customer.categories
                 .split('\n')
@@ -197,7 +197,7 @@ export default function CustomerList() {
                 .join(', ')
             : '-'}
           {customer.categories && customer.categories.split('\n').filter((c) => c.trim()).length > 2 && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-muted-foreground">
               {' '}
               +{customer.categories.split('\n').filter((c) => c.trim()).length - 2} more
             </span>
@@ -215,22 +215,22 @@ export default function CustomerList() {
       header: 'Contact',
       render: (customer) => (
         <div>
-          {customer.contactPerson && <div className="text-sm text-gray-900">{customer.contactPerson}</div>}
-          {customer.email && <div className="text-xs text-gray-500">{customer.email}</div>}
+          {customer.contactPerson && <div className="text-sm text-foreground">{customer.contactPerson}</div>}
+          {customer.email && <div className="text-xs text-muted-foreground">{customer.email}</div>}
         </div>
       ),
     },
     {
       key: 'phone',
       header: 'Phone',
-      render: (customer) => <div className="text-sm text-gray-900">{customer.phone || '-'}</div>,
+      render: (customer) => <div className="text-sm text-foreground">{customer.phone || '-'}</div>,
     },
     {
       key: 'stats',
       header: 'Stats',
       render: (customer) =>
         customer._count && (
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-muted-foreground">
             <div>Orders: {customer._count.orders}</div>
             <div>Quotations: {customer._count.quotations}</div>
             <div>Invoices: {customer._count.invoices}</div>
@@ -379,7 +379,7 @@ export default function CustomerList() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-warning" />
               Cannot Deactivate Customer
             </DialogTitle>
             <DialogDescription>

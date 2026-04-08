@@ -186,7 +186,9 @@ export default function StyleFabricCostingOptionsPage() {
             Back to Costing
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{style ? `${style.styleCode} - ${style.styleName}` : 'Loading...'}</h1>
+            <h1 className="text-2xl font-display font-medium">
+              {style ? `${style.styleCode} - ${style.styleName}` : 'Loading...'}
+            </h1>
             <p className="text-muted-foreground text-sm">
               {style?.customerName || 'No Customer'} | {componentEntries.length} components | {totalOptions} options |{' '}
               {approvedCount} approved
@@ -198,10 +200,7 @@ export default function StyleFabricCostingOptionsPage() {
             Edit Costing
           </Button>
           {approvedCount > 0 && (
-            <Button
-              onClick={() => navigate(`/cost-sheets/new?styleId=${styleId}`)}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
+            <Button onClick={() => navigate(`/cost-sheets/new?styleId=${styleId}`)} className="bg-info hover:bg-info">
               <FileText className="h-4 w-4 mr-2" />
               Create Cost Sheet
             </Button>
@@ -252,12 +251,12 @@ export default function StyleFabricCostingOptionsPage() {
                     <h3 className="font-semibold">{componentName}</h3>
                     <Badge variant="secondary">{options.length} options</Badge>
                     {sortedQuantities.length > 1 && (
-                      <Badge variant="outline" className="text-blue-600 border-blue-300">
+                      <Badge variant="outline" className="text-info border-info/30">
                         {sortedQuantities.length} qty groups
                       </Badge>
                     )}
                     {hasApproved && (
-                      <Badge variant="default" className="bg-green-600">
+                      <Badge variant="default" className="bg-success">
                         <Check className="h-3 w-3 mr-1" />
                         Approved
                       </Badge>
@@ -274,8 +273,8 @@ export default function StyleFabricCostingOptionsPage() {
                       <div key={qty} className="border rounded-lg overflow-hidden">
                         {/* Quantity group header - only show if multiple groups */}
                         {sortedQuantities.length > 1 && (
-                          <div className="bg-blue-50 px-4 py-2 flex items-center gap-2 border-b">
-                            <span className="font-medium text-blue-800">
+                          <div className="bg-info-muted px-4 py-2 flex items-center gap-2 border-b">
+                            <span className="font-medium text-info">
                               {qty === 'No Qty'
                                 ? 'No Quantity Specified'
                                 : `Order Qty: ${Number(qty).toLocaleString()} pcs`}
@@ -284,7 +283,7 @@ export default function StyleFabricCostingOptionsPage() {
                               {qtyOptions.length} option{qtyOptions.length > 1 ? 's' : ''}
                             </Badge>
                             {qtyApproved && (
-                              <Badge variant="default" className="bg-green-600 text-xs">
+                              <Badge variant="default" className="bg-success text-xs">
                                 <Check className="h-3 w-3 mr-1" />
                                 Has Approved
                               </Badge>
@@ -320,7 +319,7 @@ export default function StyleFabricCostingOptionsPage() {
                             {qtyOptions.map((option, idx) => (
                               <TableRow
                                 key={option.id}
-                                className={option.approvalStatus === 'APPROVED' ? 'bg-green-50' : ''}
+                                className={option.approvalStatus === 'APPROVED' ? 'bg-success-muted' : ''}
                               >
                                 {/* # */}
                                 <TableCell>{idx + 1}</TableCell>
@@ -328,7 +327,7 @@ export default function StyleFabricCostingOptionsPage() {
                                 <TableCell className="text-center">
                                   <Badge
                                     variant={getPurposeBadgeVariant(option.purpose)}
-                                    className={option.purpose === 'PRODUCTION' ? 'bg-blue-600' : ''}
+                                    className={option.purpose === 'PRODUCTION' ? 'bg-info' : ''}
                                   >
                                     {option.isLocked && <Lock className="h-3 w-3 mr-1" />}
                                     {option.purpose === 'RAW_MATERIAL_CALCULATION'
@@ -420,7 +419,7 @@ export default function StyleFabricCostingOptionsPage() {
                                 {/* Status */}
                                 <TableCell className="text-center">
                                   {option.approvalStatus === 'APPROVED' ? (
-                                    <Badge variant="default" className="bg-green-600">
+                                    <Badge variant="default" className="bg-success">
                                       <Check className="h-3 w-3 mr-1" />
                                       Approved
                                     </Badge>
@@ -455,7 +454,7 @@ export default function StyleFabricCostingOptionsPage() {
                                         onClick={() => handleUnapprove(option.id)}
                                         disabled={unapprovingId === option.id}
                                         title="Unapprove"
-                                        className="text-amber-600 hover:text-amber-700"
+                                        className="text-warning hover:text-warning"
                                       >
                                         {unapprovingId === option.id ? (
                                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -473,7 +472,7 @@ export default function StyleFabricCostingOptionsPage() {
                                           size="sm"
                                           onClick={() => handlePromote(option.id, 'PRODUCTION')}
                                           disabled={promotingId === option.id}
-                                          className="text-green-600 hover:text-green-700"
+                                          className="text-success hover:text-success"
                                           title="Promote to Production"
                                         >
                                           {promotingId === option.id ? (

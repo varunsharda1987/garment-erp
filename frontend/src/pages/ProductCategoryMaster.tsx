@@ -78,7 +78,7 @@ function TreeNode({
   return (
     <div>
       <div
-        className={`flex items-center py-2 px-3 hover:bg-gray-50 border-b border-gray-100 ${
+        className={`flex items-center py-2 px-3 hover:bg-muted border-b border-gray-100 ${
           !category.isActive ? 'opacity-50' : ''
         }`}
         style={{ paddingLeft: `${paddingLeft}px` }}
@@ -90,9 +90,9 @@ function TreeNode({
         >
           {hasChildren ? (
             isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-gray-500" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-gray-500" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             )
           ) : (
             <span className="w-4" />
@@ -102,17 +102,17 @@ function TreeNode({
         {/* Icon */}
         {hasChildren ? (
           isExpanded ? (
-            <FolderOpen className="h-5 w-5 text-amber-500 mr-2" />
+            <FolderOpen className="h-5 w-5 text-warning mr-2" />
           ) : (
-            <Folder className="h-5 w-5 text-amber-500 mr-2" />
+            <Folder className="h-5 w-5 text-warning mr-2" />
           )
         ) : (
-          <Tag className="h-4 w-4 text-blue-500 mr-2" />
+          <Tag className="h-4 w-4 text-info mr-2" />
         )}
 
         {/* Category Info */}
         <div className="flex-1 flex items-center">
-          <span className="font-mono text-xs text-gray-400 mr-2">[{category.code}]</span>
+          <span className="font-mono text-xs text-muted-foreground mr-2">[{category.code}]</span>
           <span className="font-medium">{category.name}</span>
           <Badge variant="outline" className="ml-2 text-xs">
             Level {category.level}
@@ -142,7 +142,7 @@ function TreeNode({
               size="sm"
               onClick={() => onManageComponents(category)}
               title="Manage default components"
-              className="text-purple-600 hover:text-purple-800"
+              className="text-accent hover:text-accent"
             >
               <Layers className="h-4 w-4" />
             </Button>
@@ -163,7 +163,7 @@ function TreeNode({
             size="sm"
             onClick={() => onDelete(category)}
             title="Delete"
-            className="text-red-500 hover:text-red-700"
+            className="text-destructive hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -498,8 +498,10 @@ export default function ProductCategoryMaster() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Product Category Master</h1>
-          <p className="text-gray-600 mt-1">Manage hierarchical product categories (Western Wear, Ethnic Wear, etc.)</p>
+          <h1 className="text-3xl font-display font-medium">Product Category Master</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage hierarchical product categories (Western Wear, Ethnic Wear, etc.)
+          </p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
@@ -510,7 +512,7 @@ export default function ProductCategoryMaster() {
       {/* Search & Actions */}
       <div className="flex gap-4 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search categories..."
             value={searchTerm}
@@ -531,12 +533,12 @@ export default function ProductCategoryMaster() {
       </div>
 
       {/* Tree View */}
-      <div className="bg-white border rounded-lg">
-        <div className="border-b bg-gray-50 px-4 py-2 text-sm font-medium text-gray-600">Category Hierarchy</div>
+      <div className="bg-card border rounded-lg">
+        <div className="border-b bg-muted px-4 py-2 text-sm font-medium text-muted-foreground">Category Hierarchy</div>
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Loading categories...</div>
+          <div className="p-8 text-center text-muted-foreground">Loading categories...</div>
         ) : filteredHierarchy.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-8 text-center text-muted-foreground">
             {searchTerm
               ? 'No categories found matching your search.'
               : 'No categories found. Click "Add Category" to create one.'}
@@ -656,7 +658,7 @@ export default function ProductCategoryMaster() {
                     min={1}
                     placeholder="1"
                   />
-                  <p className="text-xs text-gray-500">Minimum required components</p>
+                  <p className="text-xs text-muted-foreground">Minimum required components</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="maxComponents">Max Components</Label>
@@ -671,11 +673,11 @@ export default function ProductCategoryMaster() {
                     min={formData.minComponents || 1}
                     placeholder="1"
                   />
-                  <p className="text-xs text-gray-500">Maximum allowed components</p>
+                  <p className="text-xs text-muted-foreground">Maximum allowed components</p>
                 </div>
               </div>
               {formData.minComponents && formData.maxComponents && formData.minComponents > formData.maxComponents && (
-                <p className="text-sm text-red-500">Min components cannot be greater than max components</p>
+                <p className="text-sm text-destructive">Min components cannot be greater than max components</p>
               )}
             </div>
 
@@ -694,7 +696,7 @@ export default function ProductCategoryMaster() {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Layers className="h-5 w-5 text-purple-600" />
+              <Layers className="h-5 w-5 text-accent" />
               Default Components for "{componentsCategory?.name}"
             </DialogTitle>
             <DialogDescription>
@@ -705,7 +707,7 @@ export default function ProductCategoryMaster() {
 
           <div className="flex-1 overflow-y-auto py-4">
             {componentMasters.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
+              <div className="text-center text-muted-foreground py-8">
                 No components available. Please create components in Component Master first.
               </div>
             ) : (
@@ -718,7 +720,7 @@ export default function ProductCategoryMaster() {
                     <div
                       key={component.id}
                       className={`flex items-center justify-between p-3 rounded-lg border ${
-                        isSelected ? 'border-purple-300 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'
+                        isSelected ? 'border-accent/25 bg-accent/10' : 'border-border hover:bg-muted'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -731,7 +733,9 @@ export default function ProductCategoryMaster() {
                           <label htmlFor={`component-${component.id}`} className="font-medium cursor-pointer">
                             {component.name}
                           </label>
-                          {component.description && <p className="text-sm text-gray-500">{component.description}</p>}
+                          {component.description && (
+                            <p className="text-sm text-muted-foreground">{component.description}</p>
+                          )}
                           {component.componentCategory && (
                             <Badge variant="outline" className="mt-1 text-xs">
                               {component.componentCategory}
@@ -742,7 +746,10 @@ export default function ProductCategoryMaster() {
 
                       {isSelected && (
                         <div className="flex items-center gap-2">
-                          <label htmlFor={`required-${component.id}`} className="text-sm text-gray-600 cursor-pointer">
+                          <label
+                            htmlFor={`required-${component.id}`}
+                            className="text-sm text-muted-foreground cursor-pointer"
+                          >
                             Required
                           </label>
                           <Checkbox
@@ -763,7 +770,7 @@ export default function ProductCategoryMaster() {
           {selectedComponentIds.size > 0 && (
             <div className="border-t pt-3">
               <div className="flex flex-wrap gap-2">
-                <span className="text-sm text-gray-600">Selected:</span>
+                <span className="text-sm text-muted-foreground">Selected:</span>
                 {Array.from(selectedComponentIds).map((id) => {
                   const component = componentMasters.find((c) => c.id === id);
                   const isRequired = requiredComponentIds.has(id);
@@ -774,7 +781,7 @@ export default function ProductCategoryMaster() {
                       <button
                         type="button"
                         onClick={() => handleToggleComponent(id)}
-                        className="ml-1 hover:text-red-500"
+                        className="ml-1 hover:text-destructive"
                       >
                         <X className="h-3 w-3" />
                       </button>

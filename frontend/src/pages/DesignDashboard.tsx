@@ -46,24 +46,24 @@ function stringToColor(str: string): string {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   const colors = [
-    'bg-red-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-orange-500',
+    'bg-destructive/100',
+    'bg-info-muted0',
+    'bg-success-muted0',
+    'bg-accent/100',
+    'bg-primary/100',
     'bg-pink-500',
     'bg-teal-500',
-    'bg-indigo-500',
+    'bg-primary/50',
   ];
   return colors[Math.abs(hash) % colors.length];
 }
 
 // Status badge colors
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: 'bg-gray-500',
-  ACTIVE: 'bg-green-500',
-  DISCONTINUED: 'bg-yellow-500',
-  ARCHIVED: 'bg-red-500',
+  DRAFT: 'bg-muted0',
+  ACTIVE: 'bg-success-muted0',
+  DISCONTINUED: 'bg-warning-muted0',
+  ARCHIVED: 'bg-destructive/100',
 };
 
 // Recent style card component
@@ -73,7 +73,7 @@ function RecentStyleCard({ style }: { style: RecentStyle }) {
 
   return (
     <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/styles/${style.id}`)}>
-      <div className="aspect-square relative bg-gray-100 rounded-t-lg overflow-hidden">
+      <div className="aspect-square relative bg-muted rounded-t-lg overflow-hidden">
         {style.imageUrl ? (
           <img
             src={`${backendUrl}${style.imageUrl}`}
@@ -89,14 +89,14 @@ function RecentStyleCard({ style }: { style: RecentStyle }) {
             <ImageIcon className="h-12 w-12 text-gray-300" />
           </div>
         )}
-        <Badge className={`absolute top-2 right-2 ${STATUS_COLORS[style.status] || 'bg-gray-500'} text-white text-xs`}>
+        <Badge className={`absolute top-2 right-2 ${STATUS_COLORS[style.status] || 'bg-muted0'} text-white text-xs`}>
           {style.status}
         </Badge>
       </div>
       <CardContent className="p-3">
         <p className="font-medium text-sm truncate">{style.styleCode}</p>
-        <p className="text-xs text-gray-500 truncate">{style.styleName}</p>
-        {style.season && <p className="text-xs text-gray-400 mt-1">{style.season}</p>}
+        <p className="text-xs text-muted-foreground truncate">{style.styleName}</p>
+        {style.season && <p className="text-xs text-muted-foreground mt-1">{style.season}</p>}
       </CardContent>
     </Card>
   );
@@ -115,7 +115,7 @@ function ActivityItem({ activity }: { activity: TeamActivity }) {
       </Avatar>
       <div className="flex-1 min-w-0">
         <p className="text-sm">
-          <span className="font-medium">{userName}</span> <span className="text-gray-600">commented on</span>
+          <span className="font-medium">{userName}</span> <span className="text-muted-foreground">commented on</span>
           {activity.style && (
             <Button
               variant="link"
@@ -126,8 +126,8 @@ function ActivityItem({ activity }: { activity: TeamActivity }) {
             </Button>
           )}
         </p>
-        <p className="text-xs text-gray-500 line-clamp-2">{activity.comment}</p>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-muted-foreground line-clamp-2">{activity.comment}</p>
+        <p className="text-xs text-muted-foreground mt-1">
           {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
         </p>
       </div>
@@ -189,8 +189,8 @@ export function DesignDashboard() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="flex flex-col items-center justify-center h-64">
-            <FileX className="h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500">Failed to load dashboard</p>
+            <FileX className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Failed to load dashboard</p>
             <Button onClick={loadDashboard} className="mt-4">
               Retry
             </Button>
@@ -207,11 +207,11 @@ export function DesignDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
             <Palette className="h-6 w-6" />
             Design Hub
           </h1>
-          <p className="text-gray-500">Your creative workspace</p>
+          <p className="text-muted-foreground">Your creative workspace</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/mood-boards')}>
@@ -229,36 +229,36 @@ export function DesignDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-blue-100">
-              <Layers className="h-6 w-6 text-blue-600" />
+            <div className="p-3 rounded-lg bg-info-muted">
+              <Layers className="h-6 w-6 text-info" />
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.totalStyles}</p>
-              <p className="text-sm text-gray-500">Total Styles</p>
+              <p className="text-sm text-muted-foreground">Total Styles</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-gray-100">
-              <FileText className="h-6 w-6 text-gray-600" />
+            <div className="p-3 rounded-lg bg-muted">
+              <FileText className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.byStatus.DRAFT}</p>
-              <p className="text-sm text-gray-500">Drafts</p>
+              <p className="text-sm text-muted-foreground">Drafts</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-green-100">
-              <TrendingUp className="h-6 w-6 text-green-600" />
+            <div className="p-3 rounded-lg bg-success-muted">
+              <TrendingUp className="h-6 w-6 text-success" />
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.byStatus.ACTIVE}</p>
-              <p className="text-sm text-gray-500">Active</p>
+              <p className="text-sm text-muted-foreground">Active</p>
             </div>
           </CardContent>
         </Card>
@@ -266,11 +266,11 @@ export function DesignDashboard() {
         <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 rounded-lg bg-orange-100">
-              <Archive className="h-6 w-6 text-orange-600" />
+              <Archive className="h-6 w-6 text-primary" />
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.byStatus.ARCHIVED}</p>
-              <p className="text-sm text-gray-500">Archived</p>
+              <p className="text-sm text-muted-foreground">Archived</p>
             </div>
           </CardContent>
         </Card>
@@ -295,7 +295,7 @@ export function DesignDashboard() {
           </CardHeader>
           <CardContent>
             {recentStyles.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                 <ImageIcon className="h-12 w-12 mb-2 opacity-50" />
                 <p>No styles yet</p>
                 <Button variant="outline" className="mt-2" onClick={() => navigate('/styles/new')}>
@@ -349,7 +349,7 @@ export function DesignDashboard() {
             </CardHeader>
             <CardContent>
               {activity.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-32 text-gray-500">
+                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
                   <MessageSquare className="h-8 w-8 mb-2 opacity-50" />
                   <p className="text-sm">No recent activity</p>
                 </div>
@@ -374,16 +374,16 @@ export function DesignDashboard() {
                   <div key={season.season} className="flex items-center gap-2">
                     <div className="flex-1">
                       <p className="text-sm font-medium">{season.season}</p>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-blue-500 rounded-full"
+                          className="h-full bg-info rounded-full"
                           style={{
                             width: `${Math.min((season.count / stats.totalStyles) * 100, 100)}%`,
                           }}
                         />
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-500">{season.count}</span>
+                    <span className="text-sm font-medium text-muted-foreground">{season.count}</span>
                   </div>
                 ))}
               </CardContent>

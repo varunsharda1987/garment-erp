@@ -119,8 +119,10 @@ export default function PackagingList() {
       header: 'Packaging Name',
       render: (packaging) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{packaging.packagingName}</div>
-          {packaging.description && <div className="text-xs text-gray-500 line-clamp-1">{packaging.description}</div>}
+          <div className="text-sm font-medium text-foreground">{packaging.packagingName}</div>
+          {packaging.description && (
+            <div className="text-xs text-muted-foreground line-clamp-1">{packaging.description}</div>
+          )}
         </div>
       ),
     },
@@ -128,11 +130,11 @@ export default function PackagingList() {
       key: 'customer',
       header: 'Customer',
       render: (packaging) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {packaging.customer ? (
             <span className="font-medium">{packaging.customer.name}</span>
           ) : (
-            <span className="text-gray-400 italic">Generic</span>
+            <span className="text-muted-foreground italic">Generic</span>
           )}
         </div>
       ),
@@ -141,16 +143,16 @@ export default function PackagingList() {
       key: 'brand',
       header: 'Brand',
       render: (packaging) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {packaging.brandCategory ? (
             <div>
               <div className="font-medium">{packaging.brandCategory.brandName}</div>
               {packaging.brandCategory.category && (
-                <div className="text-xs text-gray-500">{packaging.brandCategory.category}</div>
+                <div className="text-xs text-muted-foreground">{packaging.brandCategory.category}</div>
               )}
             </div>
           ) : (
-            <span className="text-gray-400 italic">-</span>
+            <span className="text-muted-foreground italic">-</span>
           )}
         </div>
       ),
@@ -158,23 +160,23 @@ export default function PackagingList() {
     {
       key: 'packagingType',
       header: 'Type',
-      render: (packaging) => <div className="text-sm text-gray-700">{packaging.packagingType || '-'}</div>,
+      render: (packaging) => <div className="text-sm text-foreground">{packaging.packagingType || '-'}</div>,
     },
     {
       key: 'size',
       header: 'Size',
-      render: (packaging) => <div className="text-sm text-gray-700">{packaging.size || '-'}</div>,
+      render: (packaging) => <div className="text-sm text-foreground">{packaging.size || '-'}</div>,
     },
     {
       key: 'material',
       header: 'Material',
-      render: (packaging) => <div className="text-sm text-gray-700">{packaging.material || '-'}</div>,
+      render: (packaging) => <div className="text-sm text-foreground">{packaging.material || '-'}</div>,
     },
     {
       key: 'pricePerPiece',
       header: 'Price/Piece',
       render: (packaging) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {packaging.pricePerPiece ? formatCurrency(packaging.pricePerPiece) : '-'}
         </div>
       ),

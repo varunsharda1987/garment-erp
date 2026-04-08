@@ -108,7 +108,7 @@ const TRIM_CATEGORIES: CategoryConfig[] = [
   {
     category: 'FASTENERS_CLOSURES',
     label: 'Fasteners & Closures',
-    color: 'bg-blue-50 border-blue-200',
+    color: 'bg-info-muted border-info/20',
     trims: [
       { type: 'BUTTON', label: 'Button', icon: '🔘' },
       { type: 'ZIPPER', label: 'Zipper', icon: '🔗' },
@@ -123,7 +123,7 @@ const TRIM_CATEGORIES: CategoryConfig[] = [
   {
     category: 'THREADS_TAPES',
     label: 'Threads & Tapes',
-    color: 'bg-green-50 border-green-200',
+    color: 'bg-success-muted border-success/20',
     trims: [
       { type: 'THREAD', label: 'Thread', icon: '🧵' },
       { type: 'ELASTIC', label: 'Elastic', icon: '〰️' },
@@ -153,7 +153,7 @@ const TRIM_CATEGORIES: CategoryConfig[] = [
   {
     category: 'FUNCTIONAL',
     label: 'Functional',
-    color: 'bg-gray-50 border-gray-200',
+    color: 'bg-muted border-border',
     trims: [
       // Note: Labels are managed separately under Packaging (care labels, size labels, brand labels)
       { type: 'INTERLINING', label: 'Interlining', icon: '📄', isGeneric: true, genericKey: 'interlining' },
@@ -772,7 +772,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                     <button
                       type="button"
                       onClick={() => removeTrim(trim)}
-                      className="ml-1 hover:text-red-500 transition-colors"
+                      className="ml-1 hover:text-destructive transition-colors"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -786,7 +786,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
       {/* Empty state */}
       {selectedTrims.length === 0 && (
-        <div className="text-center py-6 text-gray-500 border border-dashed rounded-lg">
+        <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg">
           <p className="text-sm">No trims selected for this style.</p>
           <p className="text-xs mt-1">Click "Browse & Add" to add buttons, zippers, threads, and other trims.</p>
         </div>
@@ -819,7 +819,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
             <div className="relative mb-4">
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search all trims (name, code, color)..."
                     value={globalSearchQuery}
@@ -837,37 +837,35 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                 )}
               </div>
               {globalSearchQuery.length > 0 && globalSearchQuery.length < 2 && (
-                <p className="text-xs text-gray-500 mt-1">Type at least 2 characters to search...</p>
+                <p className="text-xs text-muted-foreground mt-1">Type at least 2 characters to search...</p>
               )}
             </div>
 
             {/* Global Search Results */}
             {isGlobalSearchMode && globalSearchQuery.length >= 2 && (
               <div className="border rounded-lg max-h-[400px] overflow-y-auto">
-                <div className="p-3 bg-gray-50 border-b flex items-center justify-between sticky top-0">
-                  <span className="text-sm font-medium text-gray-700">
+                <div className="p-3 bg-muted border-b flex items-center justify-between sticky top-0">
+                  <span className="text-sm font-medium text-foreground">
                     Search Results ({globalSearchResults.length})
                   </span>
-                  <button
-                    type="button"
-                    onClick={exitGlobalSearch}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
+                  <button type="button" onClick={exitGlobalSearch} className="text-sm text-info hover:text-info">
                     Back to Categories
                   </button>
                 </div>
                 {loading ? (
-                  <div className="p-4 text-center text-gray-500">Loading...</div>
+                  <div className="p-4 text-center text-muted-foreground">Loading...</div>
                 ) : globalSearchResults.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">No trims found matching "{globalSearchQuery}"</div>
+                  <div className="p-4 text-center text-muted-foreground">
+                    No trims found matching "{globalSearchQuery}"
+                  </div>
                 ) : (
                   <div className="divide-y">
                     {globalSearchResults.map((result, index) => (
                       <label
                         key={`${result.trimType}-${result.id}-${index}`}
                         className={cn(
-                          'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                          isGlobalResultSelected(result) && 'bg-blue-50 hover:bg-blue-100'
+                          'flex items-center gap-3 p-3 cursor-pointer hover:bg-muted transition-colors',
+                          isGlobalResultSelected(result) && 'bg-info-muted hover:bg-info-muted'
                         )}
                       >
                         <Checkbox
@@ -886,11 +884,11 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                             <Badge variant="secondary" className="text-xs">
                               {result.trimLabel}
                             </Badge>
-                            <span className="text-xs text-gray-400">{result.categoryLabel}</span>
+                            <span className="text-xs text-muted-foreground">{result.categoryLabel}</span>
                             {result.color && (
                               <div className="flex items-center gap-1">
                                 <Circle className="h-3 w-3" style={{ fill: result.color, stroke: result.color }} />
-                                <span className="text-xs text-gray-500">{result.color}</span>
+                                <span className="text-xs text-muted-foreground">{result.color}</span>
                               </div>
                             )}
                           </div>
@@ -947,7 +945,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                               'inline-flex items-center px-3 py-1.5 rounded-full text-sm border transition-colors',
                               activeTab === trim.type
                                 ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-white hover:bg-gray-50 border-gray-200'
+                                : 'bg-card hover:bg-muted border-border'
                             )}
                           >
                             <span className="mr-1.5">{trim.icon}</span>
@@ -967,7 +965,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
 
                     {/* Search */}
                     <div className="relative mb-3">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder={`Search ${currentTabInfo?.label.toLowerCase() || 'items'}...`}
                         value={searchQuery}
@@ -979,9 +977,9 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                     {/* Items list with checkboxes */}
                     <div className="border rounded-lg flex-1 overflow-y-auto max-h-[300px]">
                       {loading ? (
-                        <div className="p-4 text-center text-gray-500">Loading...</div>
+                        <div className="p-4 text-center text-muted-foreground">Loading...</div>
                       ) : filteredItems.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
+                        <div className="p-4 text-center text-muted-foreground">
                           {searchQuery
                             ? 'No matching items found'
                             : `No ${currentTabInfo?.label.toLowerCase() || 'items'} available`}
@@ -992,8 +990,8 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                             <label
                               key={item.id}
                               className={cn(
-                                'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                                isSelected(activeTab, item.id) && 'bg-blue-50 hover:bg-blue-100'
+                                'flex items-center gap-3 p-3 cursor-pointer hover:bg-muted transition-colors',
+                                isSelected(activeTab, item.id) && 'bg-info-muted hover:bg-info-muted'
                               )}
                             >
                               <Checkbox
@@ -1010,7 +1008,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                                 {item.color && (
                                   <div className="flex items-center gap-1 mt-1">
                                     <Circle className="h-3 w-3" style={{ fill: item.color, stroke: item.color }} />
-                                    <span className="text-xs text-gray-500">{item.color}</span>
+                                    <span className="text-xs text-muted-foreground">{item.color}</span>
                                   </div>
                                 )}
                               </div>
@@ -1021,7 +1019,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
                     </div>
 
                     {/* Selected count */}
-                    <div className="mt-2 text-sm text-gray-600">
+                    <div className="mt-2 text-sm text-muted-foreground">
                       {getSelectedCount(activeTab)} {currentTabInfo?.label.toLowerCase() || 'items'} selected
                     </div>
                   </TabsContent>

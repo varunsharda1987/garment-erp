@@ -17,13 +17,13 @@ import {
 
 // Category colors
 const CATEGORY_COLORS: Record<string, string> = {
-  fabricsRawMaterials: 'bg-blue-50 border-blue-200',
+  fabricsRawMaterials: 'bg-info-muted border-info/20',
   otherMaterials: 'bg-cyan-50 border-cyan-200',
-  fastenersClosures: 'bg-purple-50 border-purple-200',
-  threadsTapes: 'bg-green-50 border-green-200',
+  fastenersClosures: 'bg-accent/10 border-accent/20',
+  threadsTapes: 'bg-success-muted border-success/20',
   decorative: 'bg-pink-50 border-pink-200',
-  packagingLabels: 'bg-orange-50 border-orange-200',
-  functional: 'bg-gray-50 border-gray-200',
+  packagingLabels: 'bg-primary/10 border-orange-200',
+  functional: 'bg-muted border-border',
 };
 
 export default function MasterDataDashboard() {
@@ -173,13 +173,13 @@ export default function MasterDataDashboard() {
         <div className="space-y-4">
           {Object.entries(displaySummary).map(([key, categoryData]) => {
             const isExpanded = expandedCategories.includes(key);
-            const colorClass = CATEGORY_COLORS[key] || 'bg-gray-50 border-gray-200';
+            const colorClass = CATEGORY_COLORS[key] || 'bg-muted border-border';
 
             return (
               <Collapsible key={key} open={isExpanded} onOpenChange={() => toggleCategory(key)}>
                 <Card className={`border-2 ${colorClass}`}>
                   <CollapsibleTrigger className="w-full">
-                    <CardHeader className="cursor-pointer hover:bg-white/50 transition-colors">
+                    <CardHeader className="cursor-pointer hover:bg-card/50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Layers className="h-5 w-5" />
@@ -207,7 +207,7 @@ export default function MasterDataDashboard() {
                           <button
                             key={master.type}
                             onClick={() => navigate(master.route)}
-                            className="group relative flex items-center justify-between p-4 rounded-lg border-2 border-gray-200 hover:border-primary hover:bg-primary/5 transition-all"
+                            className="group relative flex items-center justify-between p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition-all"
                           >
                             <div className="flex-1 text-left">
                               <div className="font-medium group-hover:text-primary transition-colors">

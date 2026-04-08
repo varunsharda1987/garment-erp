@@ -27,8 +27,8 @@ export const GRNStatusLabels: Record<GRNStatus, string> = {
 
 export const GRNStatusColors: Record<GRNStatus, string> = {
   PENDING_QC: 'bg-yellow-100 text-yellow-800',
-  ACCEPTED: 'bg-green-100 text-green-800',
-  REJECTED: 'bg-red-100 text-red-800',
+  ACCEPTED: 'bg-success-muted text-success',
+  REJECTED: 'bg-destructive/10 text-destructive',
   PARTIALLY_ACCEPTED: 'bg-orange-100 text-orange-800',
 };
 

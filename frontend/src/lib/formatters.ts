@@ -14,8 +14,8 @@ export function formatMaterialType(type: string): string {
     PACKAGING: 'Packaging',
     MACHINE_PART: 'Machine Parts',
     OTHER: 'Other Materials',
-    GREIGE_FABRIC: 'Greige Fabric',
-    FINISHED_FABRIC: 'Finished Fabric',
+    GREIGE: 'Greige',
+    FABRIC: 'Fabric',
   };
   return mapping[type] || type;
 }

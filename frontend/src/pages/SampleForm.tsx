@@ -375,7 +375,7 @@ export default function SampleForm() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -389,10 +389,14 @@ export default function SampleForm() {
           Back
         </Button>
         <div className="flex items-center gap-3">
-          <TestTube className="h-8 w-8 text-indigo-600" />
+          <TestTube className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isEditing ? 'Edit Sample' : 'New Sample'}</h1>
-            <p className="text-gray-500">{isEditing ? 'Update sample details' : 'Create a new sample request'}</p>
+            <h1 className="text-2xl font-display font-medium text-foreground">
+              {isEditing ? 'Edit Sample' : 'New Sample'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isEditing ? 'Update sample details' : 'Create a new sample request'}
+            </p>
           </div>
         </div>
       </div>
@@ -581,7 +585,7 @@ export default function SampleForm() {
                     {measurements.length > 0 ? (
                       <div className="space-y-3">
                         {measurements.map((m, index) => (
-                          <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                             <div className="flex-1">
                               <Input
                                 placeholder="Measurement point (e.g., Chest)"
@@ -614,7 +618,7 @@ export default function SampleForm() {
                               variant="ghost"
                               size="sm"
                               onClick={() => removeMeasurement(index)}
-                              className="text-red-600"
+                              className="text-destructive"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -622,7 +626,7 @@ export default function SampleForm() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500 text-center py-8">
+                      <p className="text-muted-foreground text-center py-8">
                         No measurements added. Click "Add" to add measurement specs.
                       </p>
                     )}
@@ -651,13 +655,13 @@ export default function SampleForm() {
                     </CardHeader>
                     <CardContent>
                       {!selectedStyle?.colorOptions?.length ? (
-                        <p className="text-gray-500 text-center py-8">
+                        <p className="text-muted-foreground text-center py-8">
                           Select a style with color options to add colorways.
                         </p>
                       ) : colorways.length > 0 ? (
                         <div className="space-y-3">
                           {colorways.map((c, index) => (
-                            <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                            <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                               <div className="flex-1">
                                 <Select value={c.colorId} onValueChange={(v) => updateColorway(index, 'colorId', v)}>
                                   <SelectTrigger>
@@ -693,7 +697,7 @@ export default function SampleForm() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => removeColorway(index)}
-                                className="text-red-600"
+                                className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -701,7 +705,7 @@ export default function SampleForm() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-gray-500 text-center py-8">
+                        <p className="text-muted-foreground text-center py-8">
                           No colorways added. Click "Add" to add colorways.
                         </p>
                       )}
@@ -731,13 +735,13 @@ export default function SampleForm() {
                     </CardHeader>
                     <CardContent>
                       {!selectedStyle?.sizeOptions?.length || !selectedStyle?.colorOptions?.length ? (
-                        <p className="text-gray-500 text-center py-8">
+                        <p className="text-muted-foreground text-center py-8">
                           Select a style with size and color options to add size set entries.
                         </p>
                       ) : sizeSets.length > 0 ? (
                         <div className="space-y-3">
                           {sizeSets.map((s, index) => (
-                            <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                            <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                               <div className="flex-1">
                                 <Select value={s.sizeId} onValueChange={(v) => updateSizeSet(index, 'sizeId', v)}>
                                   <SelectTrigger>
@@ -780,7 +784,7 @@ export default function SampleForm() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => removeSizeSet(index)}
-                                className="text-red-600"
+                                className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -788,7 +792,7 @@ export default function SampleForm() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-gray-500 text-center py-8">
+                        <p className="text-muted-foreground text-center py-8">
                           No size set entries added. Click "Add" to add entries.
                         </p>
                       )}
@@ -822,7 +826,7 @@ export default function SampleForm() {
               <CardHeader>
                 <CardTitle className="text-sm">Sample Types</CardTitle>
               </CardHeader>
-              <CardContent className="text-xs text-gray-600 space-y-2">
+              <CardContent className="text-xs text-muted-foreground space-y-2">
                 <p>
                   <strong>FIT Sample:</strong> First sample with measurements. Buyer approval required.
                 </p>

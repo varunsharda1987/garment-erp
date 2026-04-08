@@ -336,12 +336,12 @@ const CostSheetList = () => {
                             variant="outline"
                             className={`text-xs ${
                               sheet.purpose === 'COSTING'
-                                ? 'border-blue-500 text-blue-600'
+                                ? 'border-info text-info'
                                 : sheet.purpose === 'RAW_MATERIAL_CALCULATION'
-                                  ? 'border-orange-500 text-orange-600'
+                                  ? 'border-primary text-primary'
                                   : sheet.purpose === 'PRODUCTION'
-                                    ? 'border-purple-500 text-purple-600'
-                                    : 'border-gray-500 text-gray-600'
+                                    ? 'border-accent text-accent'
+                                    : 'border-gray-500 text-muted-foreground'
                             }`}
                           >
                             {sheet.purpose === 'COSTING'
@@ -354,7 +354,7 @@ const CostSheetList = () => {
                           </Badge>
                         )}
                         {sheet.lockedForOrders && (
-                          <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
+                          <Badge variant="secondary" className="text-xs bg-warning/10 text-warning">
                             <Lock className="w-3 h-3 mr-1" />
                             Locked
                           </Badge>
@@ -364,8 +364,8 @@ const CostSheetList = () => {
                             variant="outline"
                             className={`text-xs ${
                               Number(sheet.costVariancePercent) > 0
-                                ? 'text-red-600 border-red-200'
-                                : 'text-green-600 border-green-200'
+                                ? 'text-destructive border-destructive/20'
+                                : 'text-success border-success/20'
                             }`}
                           >
                             {Number(sheet.costVariancePercent) > 0 ? '+' : ''}
@@ -374,49 +374,49 @@ const CostSheetList = () => {
                         )}
                       </div>
 
-                      <p className="text-gray-600 mb-2">{sheet.style?.styleName}</p>
+                      <p className="text-muted-foreground mb-2">{sheet.style?.styleName}</p>
                       {sheet.widthCombinationDescription && (
-                        <p className="text-xs text-blue-600 mb-3">Width: {sheet.widthCombinationDescription}</p>
+                        <p className="text-xs text-info mb-3">Width: {sheet.widthCombinationDescription}</p>
                       )}
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-500">Material Cost:</span>
+                          <span className="text-muted-foreground">Material Cost:</span>
                           <p className="font-semibold">₹{sheet.totalMaterialCost.toFixed(2)}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Processing Cost:</span>
+                          <span className="text-muted-foreground">Processing Cost:</span>
                           <p className="font-semibold">₹{sheet.totalProcessingCost.toFixed(2)}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Total Cost/Piece:</span>
+                          <span className="text-muted-foreground">Total Cost/Piece:</span>
                           <p className="font-semibold">₹{sheet.totalCostPerPiece.toFixed(2)}</p>
                         </div>
                         <div>
-                          <span className="text-gray-500">Selling Price:</span>
-                          <p className="font-semibold text-green-600">₹{sheet.sellingPricePerPiece.toFixed(2)}</p>
+                          <span className="text-muted-foreground">Selling Price:</span>
+                          <p className="font-semibold text-success">₹{sheet.sellingPricePerPiece.toFixed(2)}</p>
                         </div>
                       </div>
 
                       {sheet.notes && (
                         <div className="mt-3 pt-3 border-t">
-                          <p className="text-sm text-gray-600">{sheet.notes}</p>
+                          <p className="text-sm text-muted-foreground">{sheet.notes}</p>
                         </div>
                       )}
 
                       {sheet.approvalStatus === 'REJECTED' && sheet.rejectionNotes && (
-                        <div className="mt-3 pt-3 border-t bg-red-50 -mx-6 px-6 py-3 rounded-b-lg">
+                        <div className="mt-3 pt-3 border-t bg-destructive/10 -mx-6 px-6 py-3 rounded-b-lg">
                           <div className="flex items-start gap-2">
-                            <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
                             <div>
-                              <p className="text-sm font-medium text-red-700">Rejection Reason:</p>
-                              <p className="text-sm text-red-600">{sheet.rejectionNotes}</p>
+                              <p className="text-sm font-medium text-destructive">Rejection Reason:</p>
+                              <p className="text-sm text-destructive">{sheet.rejectionNotes}</p>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      <div className="mt-3 text-xs text-gray-500">
+                      <div className="mt-3 text-xs text-muted-foreground">
                         Created by: {sheet.createdBy?.firstName} {sheet.createdBy?.lastName}
                         {sheet.isApproved && sheet.approvedBy && (
                           <>
@@ -427,7 +427,7 @@ const CostSheetList = () => {
                       </div>
 
                       {/* Date Created */}
-                      <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+                      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         <span>
                           Created:{' '}
@@ -443,11 +443,11 @@ const CostSheetList = () => {
 
                       {/* Linked Orders */}
                       <div className="mt-2 flex items-center gap-2 text-xs">
-                        <Package className="h-3 w-3 text-blue-500" />
+                        <Package className="h-3 w-3 text-info" />
                         {sheet.order ? (
                           <Link
                             to={`/orders/${sheet.order.id}`}
-                            className="text-blue-600 hover:underline flex items-center gap-1"
+                            className="text-info hover:underline flex items-center gap-1"
                           >
                             Order #{sheet.order.orderNumber}
                             <Badge variant="outline" className="text-[10px] px-1 py-0">
@@ -457,7 +457,7 @@ const CostSheetList = () => {
                         ) : sheet.orderItem?.orders ? (
                           <Link
                             to={`/orders/${sheet.orderItem.orderId}`}
-                            className="text-blue-600 hover:underline flex items-center gap-1"
+                            className="text-info hover:underline flex items-center gap-1"
                           >
                             Order #{sheet.orderItem.orders.orderNumber}
                             <Badge variant="outline" className="text-[10px] px-1 py-0">
@@ -465,7 +465,7 @@ const CostSheetList = () => {
                             </Badge>
                           </Link>
                         ) : (
-                          <span className="text-gray-400">No linked order</span>
+                          <span className="text-muted-foreground">No linked order</span>
                         )}
                       </div>
                     </div>
@@ -496,7 +496,7 @@ const CostSheetList = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-green-50 hover:bg-green-100 text-green-700 flex items-center gap-2"
+                            className="bg-success-muted hover:bg-success-muted text-success flex items-center gap-2"
                             onClick={() => handleApproveClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
                           >
                             <CheckCircle className="h-4 w-4" />
@@ -505,7 +505,7 @@ const CostSheetList = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                            className="text-primary hover:bg-primary/10 flex items-center gap-2"
                             onClick={() => handleRejectClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
                           >
                             <XCircle className="h-4 w-4" />
@@ -514,7 +514,7 @@ const CostSheetList = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            className="text-destructive hover:bg-destructive/10 flex items-center gap-2"
                             onClick={() => handleDeleteClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -528,7 +528,7 @@ const CostSheetList = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                            className="text-info hover:bg-info-muted flex items-center gap-2"
                             onClick={() =>
                               handleCreateVersionClick(
                                 sheet.id,
@@ -543,7 +543,7 @@ const CostSheetList = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                            className="text-primary hover:bg-primary/10 flex items-center gap-2"
                             onClick={() => handleRevokeClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
                           >
                             <RefreshCw className="h-4 w-4" />
@@ -626,7 +626,7 @@ const CostSheetList = () => {
           </DialogHeader>
           <div className="py-4">
             <Label htmlFor="rejectionNotes" className="text-sm font-medium">
-              Rejection Notes <span className="text-red-500">*</span>
+              Rejection Notes <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="rejectionNotes"

@@ -183,8 +183,8 @@ export default function TemplateManager() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
@@ -192,7 +192,7 @@ export default function TemplateManager() {
                 ← Back
               </Button>
               <div className="text-2xl">📋</div>
-              <h1 className="text-xl font-bold text-gray-800">Export Template Manager</h1>
+              <h1 className="text-xl font-display font-medium text-foreground">Export Template Manager</h1>
             </div>
           </div>
         </div>
@@ -201,9 +201,9 @@ export default function TemplateManager() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Module Selector */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Select Module</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Select Module</label>
           <Select value={selectedModule} onValueChange={setSelectedModule}>
-            <SelectTrigger className="w-64 bg-white">
+            <SelectTrigger className="w-64 bg-card">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -229,23 +229,29 @@ export default function TemplateManager() {
           </CardHeader>
           <CardContent>
             {templates.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No templates found. Create your first template!</div>
+              <div className="text-center py-8 text-muted-foreground">
+                No templates found. Create your first template!
+              </div>
             ) : (
               <div className="space-y-3">
                 {templates.map((template) => (
                   <div
                     key={template.id}
-                    className="flex items-center justify-between p-4 bg-white border rounded-lg hover:shadow-md transition-shadow"
+                    className="flex items-center justify-between p-4 bg-card border rounded-lg hover:shadow-md transition-shadow"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-lg">{template.templateName}</h3>
                         {template.isDefault && (
-                          <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded">Default</span>
+                          <span className="px-2 py-0.5 text-xs bg-info-muted text-info rounded">Default</span>
                         )}
                       </div>
-                      {template.description && <p className="text-sm text-gray-600 mt-1">{template.description}</p>}
-                      <p className="text-xs text-gray-500 mt-2">{template.columnConfig.length} columns selected</p>
+                      {template.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{template.description}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {template.columnConfig.length} columns selected
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => handleEdit(template)}>
@@ -255,7 +261,7 @@ export default function TemplateManager() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDeleteClick(template.id, template.templateName)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         Delete
                       </Button>
@@ -272,16 +278,16 @@ export default function TemplateManager() {
           <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsFormOpen(false)} />
             <div className="flex items-center justify-center min-h-screen p-4">
-              <div className="relative bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="relative bg-card rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
                 <form onSubmit={handleSubmit}>
                   <div className="p-6">
-                    <h2 className="text-2xl font-bold mb-6">
+                    <h2 className="text-2xl font-display font-medium mb-6">
                       {editingTemplate ? 'Edit Template' : 'Create New Template'}
                     </h2>
 
                     {/* Template Name */}
                     <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Template Name *</label>
+                      <label className="block text-sm font-medium text-foreground mb-2">Template Name *</label>
                       <Input
                         value={formData.templateName}
                         onChange={(e) => setFormData({ ...formData, templateName: e.target.value })}
@@ -292,7 +298,7 @@ export default function TemplateManager() {
 
                     {/* Description */}
                     <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
+                      <label className="block text-sm font-medium text-foreground mb-2">Description (Optional)</label>
                       <Input
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -309,21 +315,21 @@ export default function TemplateManager() {
                           onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
                           className="rounded"
                         />
-                        <span className="text-sm font-medium text-gray-700">Set as default template</span>
+                        <span className="text-sm font-medium text-foreground">Set as default template</span>
                       </label>
                     </div>
 
                     {/* Column Selection */}
                     <div className="mb-6">
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                      <label className="block text-sm font-medium text-foreground mb-3">
                         Select Columns * ({selectedColumns.size} selected)
                       </label>
-                      <div className="border rounded-lg p-4 max-h-64 overflow-y-auto bg-gray-50">
+                      <div className="border rounded-lg p-4 max-h-64 overflow-y-auto bg-muted">
                         <div className="grid grid-cols-2 gap-3">
                           {availableColumns.map((column) => (
                             <label
                               key={column.fieldName}
-                              className="flex items-start gap-2 p-2 hover:bg-white rounded cursor-pointer"
+                              className="flex items-start gap-2 p-2 hover:bg-card rounded cursor-pointer"
                             >
                               <input
                                 type="checkbox"
@@ -333,7 +339,7 @@ export default function TemplateManager() {
                               />
                               <div>
                                 <div className="font-medium text-sm">{column.displayName}</div>
-                                <div className="text-xs text-gray-500">{column.fieldName}</div>
+                                <div className="text-xs text-muted-foreground">{column.fieldName}</div>
                               </div>
                             </label>
                           ))}

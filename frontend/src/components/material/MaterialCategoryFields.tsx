@@ -87,7 +87,7 @@ export default function MaterialCategoryFields({ categoryName, data, onChange }:
 function ClosuresFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Closures Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Closures Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -148,7 +148,7 @@ function ClosuresFields({ data, updateField }: CategoryFieldProps) {
 function LabelsTagsFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Labels & Tags Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Labels & Tags Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -209,7 +209,7 @@ function LabelsTagsFields({ data, updateField }: CategoryFieldProps) {
 function ElasticTapesFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Elastic & Tapes Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Elastic & Tapes Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -267,7 +267,7 @@ function ElasticTapesFields({ data, updateField }: CategoryFieldProps) {
 function DecorativeFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Decorative Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Decorative Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -314,7 +314,7 @@ function DecorativeFields({ data, updateField }: CategoryFieldProps) {
 function HardwareFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Hardware Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Hardware Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -383,7 +383,7 @@ function HardwareFields({ data, updateField }: CategoryFieldProps) {
 function SewingThreadFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Sewing Thread Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Sewing Thread Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -438,7 +438,7 @@ function SewingThreadFields({ data, updateField }: CategoryFieldProps) {
 function EmbroideryThreadFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Embroidery Thread Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Embroidery Thread Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -483,7 +483,7 @@ function EmbroideryThreadFields({ data, updateField }: CategoryFieldProps) {
 function SpecialtyThreadFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Specialty Thread Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Specialty Thread Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -532,7 +532,7 @@ function SpecialtyThreadFields({ data, updateField }: CategoryFieldProps) {
 function PrimaryPackagingFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Primary Packaging Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Primary Packaging Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -597,7 +597,7 @@ function PrimaryPackagingFields({ data, updateField }: CategoryFieldProps) {
 function SecondaryPackagingFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Secondary Packaging Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Secondary Packaging Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -645,7 +645,7 @@ function SecondaryPackagingFields({ data, updateField }: CategoryFieldProps) {
 function LabelingFields({ data, updateField }: CategoryFieldProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Labeling Details</h3>
+      <h3 className="text-lg font-semibold text-foreground">Labeling Details</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>

@@ -51,6 +51,7 @@ import {
   IndianRupee,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { differenceInCalendarDays } from 'date-fns';
 
 // Local type definition for DataTable
 type Column<T> = {
@@ -322,11 +323,11 @@ export default function DyeingList() {
         <div>
           {item.style ? (
             <>
-              <div className="text-sm font-medium text-gray-900">{item.style.styleCode}</div>
-              <div className="text-xs text-gray-500 line-clamp-1">{item.style.styleName}</div>
+              <div className="text-sm font-medium text-foreground">{item.style.styleCode}</div>
+              <div className="text-xs text-muted-foreground line-clamp-1">{item.style.styleName}</div>
             </>
           ) : (
-            <span className="text-gray-400">-</span>
+            <span className="text-muted-foreground">-</span>
           )}
         </div>
       ),
@@ -334,7 +335,7 @@ export default function DyeingList() {
     {
       key: 'fabric',
       header: 'Fabric',
-      render: (item) => <div className="text-sm text-gray-700">{item.fabric?.fabricCode || '-'}</div>,
+      render: (item) => <div className="text-sm text-foreground">{item.fabric?.fabricCode || '-'}</div>,
     },
     {
       key: 'targetColor',
@@ -343,13 +344,13 @@ export default function DyeingList() {
         <div className="text-sm">
           {item.targetColor ? (
             <div className="flex items-center gap-2">
-              <Palette className="h-4 w-4 text-gray-400" />
+              <Palette className="h-4 w-4 text-muted-foreground" />
               <span>{item.targetColor.colorName}</span>
             </div>
           ) : item.colorReference ? (
-            <div className="text-xs text-gray-500">{item.colorReference}</div>
+            <div className="text-xs text-muted-foreground">{item.colorReference}</div>
           ) : (
-            <span className="text-gray-400">-</span>
+            <span className="text-muted-foreground">-</span>
           )}
         </div>
       ),
@@ -357,12 +358,12 @@ export default function DyeingList() {
     {
       key: 'mill',
       header: 'Mill',
-      render: (item) => <div className="text-sm text-gray-700">{item.mill?.name || '-'}</div>,
+      render: (item) => <div className="text-sm text-foreground">{item.mill?.name || '-'}</div>,
     },
     {
       key: 'submissionDate',
       header: 'Submitted',
-      render: (item) => <div className="text-sm text-gray-700">{formatDate(item.submissionDate)}</div>,
+      render: (item) => <div className="text-sm text-foreground">{formatDate(item.submissionDate)}</div>,
     },
     {
       key: 'colorMatchRating',
@@ -373,7 +374,7 @@ export default function DyeingList() {
             {ColorMatchRatingLabels[item.colorMatchRating] || item.colorMatchRating}
           </Badge>
         ) : (
-          <span className="text-gray-400">-</span>
+          <span className="text-muted-foreground">-</span>
         ),
     },
     {
@@ -421,7 +422,7 @@ export default function DyeingList() {
                   e.stopPropagation();
                   handleDeleteClick(item.id, item.labDipNumber, 'labDip');
                 }}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 title="Delete"
               >
                 <Trash2 className="h-4 w-4" />
@@ -467,11 +468,11 @@ export default function DyeingList() {
           <div>
             {style ? (
               <>
-                <div className="text-sm font-medium text-gray-900">{style.styleCode}</div>
-                <div className="text-xs text-gray-500 line-clamp-1">{style.styleName}</div>
+                <div className="text-sm font-medium text-foreground">{style.styleCode}</div>
+                <div className="text-xs text-muted-foreground line-clamp-1">{style.styleName}</div>
               </>
             ) : (
-              <span className="text-gray-400">-</span>
+              <span className="text-muted-foreground">-</span>
             )}
           </div>
         );
@@ -480,7 +481,7 @@ export default function DyeingList() {
     {
       key: 'supplier',
       header: 'Mill / Supplier',
-      render: (item) => <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>,
+      render: (item) => <div className="text-sm text-foreground">{item.supplier?.name || '-'}</div>,
     },
     {
       key: 'fabric',
@@ -495,9 +496,9 @@ export default function DyeingList() {
               </Badge>
             )}
             {jwo?.finishedFabric ? (
-              <span className="text-gray-700">{jwo.finishedFabric.fabricName}</span>
+              <span className="text-foreground">{jwo.finishedFabric.fabricName}</span>
             ) : (
-              <span className="text-gray-400">-</span>
+              <span className="text-muted-foreground">-</span>
             )}
           </div>
         );
@@ -510,9 +511,9 @@ export default function DyeingList() {
         const jwo = item.jobWorkOrder;
         return (
           <div className="text-sm">
-            <div className="text-gray-700">Sent: {jwo?.qtySentMeters?.toFixed(2) || '-'}</div>
+            <div className="text-foreground">Sent: {jwo?.qtySentMeters?.toFixed(2) || '-'}</div>
             {(jwo?.qtyReceivedMeters || jwo?.calculatedActualMeters) && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-muted-foreground">
                 Rcvd: {(jwo.qtyReceivedMeters || Number(jwo.calculatedActualMeters))?.toFixed(2)}
               </div>
             )}
@@ -524,22 +525,60 @@ export default function DyeingList() {
       key: 'totalAmount',
       header: 'Amount',
       render: (item) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {item.totalAmount != null ? (
             <span className="flex items-center gap-0.5">
               <IndianRupee className="h-3 w-3" />
               {Number(item.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           ) : (
-            <span className="text-gray-400">-</span>
+            <span className="text-muted-foreground">-</span>
           )}
         </div>
       ),
     },
     {
-      key: 'poDate',
-      header: 'PO Date',
-      render: (item) => <div className="text-sm text-gray-700">{formatDate(item.poDate)}</div>,
+      key: 'sentDate',
+      header: 'Sent Date',
+      render: (item) => (
+        <div className="text-sm text-foreground">
+          {item.jobWorkOrder?.sentDate ? formatDate(item.jobWorkOrder.sentDate) : '—'}
+        </div>
+      ),
+    },
+    {
+      key: 'returnDate',
+      header: 'Return Date',
+      render: (item) => {
+        const jwo = item.jobWorkOrder;
+        if (jwo?.receivedDate) return <div className="text-sm text-foreground">{formatDate(jwo.receivedDate)}</div>;
+        if (jwo?.expectedReturnDate) {
+          const overdue = new Date(jwo.expectedReturnDate) < new Date();
+          return (
+            <div className={`text-sm ${overdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+              {formatDate(jwo.expectedReturnDate)}
+              {overdue ? ' (Overdue)' : ''}
+            </div>
+          );
+        }
+        return <div className="text-sm text-muted-foreground">—</div>;
+      },
+    },
+    {
+      key: 'days',
+      header: 'Days',
+      render: (item) => {
+        const jwo = item.jobWorkOrder;
+        if (!jwo?.sentDate) return <div className="text-sm text-center text-muted-foreground">—</div>;
+        const endDate = jwo.receivedDate ? new Date(jwo.receivedDate) : new Date();
+        const days = Math.max(1, differenceInCalendarDays(endDate, new Date(jwo.sentDate)));
+        return (
+          <div className="text-sm text-center font-medium">
+            {days}
+            {!jwo.receivedDate ? '...' : ''}
+          </div>
+        );
+      },
     },
     {
       key: 'status',
@@ -578,7 +617,7 @@ export default function DyeingList() {
                   e.stopPropagation();
                   handleSendToMill(item);
                 }}
-                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                className="text-info hover:text-info hover:bg-info-muted"
                 title="Send to Mill"
               >
                 <Send className="h-4 w-4" />
@@ -608,7 +647,7 @@ export default function DyeingList() {
                   e.stopPropagation();
                   navigate(`/manufacturing/dyeing/process-po/${item.id}/qc`);
                 }}
-                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                className="text-primary hover:text-primary hover:bg-primary/10"
                 title="Quality Check"
               >
                 <CheckCircle className="h-4 w-4" />
@@ -623,7 +662,7 @@ export default function DyeingList() {
                   e.stopPropagation();
                   openUpdateStockDialog(item);
                 }}
-                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                className="text-success hover:text-success hover:bg-success-muted"
                 title="Update Stock"
               >
                 <PackageCheck className="h-4 w-4" />
@@ -638,7 +677,7 @@ export default function DyeingList() {
                   e.stopPropagation();
                   navigate(`/manufacturing/dyeing/process-po/${item.id}/return`);
                 }}
-                className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                className="text-warning hover:text-yellow-700 hover:bg-warning-muted"
                 title="Return Unprocessed"
               >
                 <Undo className="h-4 w-4" />
@@ -653,7 +692,7 @@ export default function DyeingList() {
                   e.stopPropagation();
                   handleDeleteClick(item.id, item.poNumber, 'processPO');
                 }}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 title="Delete"
               >
                 <Trash2 className="h-4 w-4" />
@@ -670,10 +709,10 @@ export default function DyeingList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Droplets className="h-8 w-8 text-blue-600" />
+          <Droplets className="h-8 w-8 text-info" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dyeing</h1>
-            <p className="text-gray-500">Manage lab dips and process POs</p>
+            <h1 className="text-2xl font-display font-medium text-foreground">Dyeing</h1>
+            <p className="text-muted-foreground">Manage lab dips and process POs</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -694,11 +733,11 @@ export default function DyeingList() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Droplets className="h-5 w-5 text-blue-600" />
+                <div className="p-2 bg-info-muted rounded-lg">
+                  <Droplets className="h-5 w-5 text-info" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Total Jobs</p>
+                  <p className="text-sm text-muted-foreground">Total Jobs</p>
                   <p className="text-2xl font-bold">{summary.total}</p>
                 </div>
               </div>
@@ -708,10 +747,10 @@ export default function DyeingList() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+                  <Clock className="h-5 w-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Lab Dips Pending</p>
+                  <p className="text-sm text-muted-foreground">Lab Dips Pending</p>
                   <p className="text-2xl font-bold">{summary.labDipsPending}</p>
                 </div>
               </div>
@@ -720,12 +759,12 @@ export default function DyeingList() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 rounded-lg">
-                  <Factory className="h-5 w-5 text-indigo-600" />
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Factory className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">At Mill</p>
-                  <p className="text-2xl font-bold text-indigo-600">{summary.atMill}</p>
+                  <p className="text-sm text-muted-foreground">At Mill</p>
+                  <p className="text-2xl font-bold text-primary">{summary.atMill}</p>
                 </div>
               </div>
             </CardContent>
@@ -737,7 +776,7 @@ export default function DyeingList() {
                   <Package className="h-5 w-5 text-teal-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Received</p>
+                  <p className="text-sm text-muted-foreground">Received</p>
                   <p className="text-2xl font-bold text-teal-600">{summary.received}</p>
                 </div>
               </div>
@@ -746,12 +785,12 @@ export default function DyeingList() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="p-2 bg-success-muted rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">QC Checked</p>
-                  <p className="text-2xl font-bold text-green-600">{summary.qualityChecked}</p>
+                  <p className="text-sm text-muted-foreground">QC Checked</p>
+                  <p className="text-2xl font-bold text-success">{summary.qualityChecked}</p>
                 </div>
               </div>
             </CardContent>
@@ -822,7 +861,7 @@ export default function DyeingList() {
             <CardContent className="p-0">
               {error ? (
                 <div className="p-8 text-center">
-                  <p className="text-red-600">{error}</p>
+                  <p className="text-destructive">{error}</p>
                   <Button variant="outline" onClick={fetchLabDips} className="mt-4">
                     Try Again
                   </Button>
@@ -904,7 +943,7 @@ export default function DyeingList() {
             <CardContent className="p-0">
               {error ? (
                 <div className="p-8 text-center">
-                  <p className="text-red-600">{error}</p>
+                  <p className="text-destructive">{error}</p>
                   <Button variant="outline" onClick={fetchProcessPOs} className="mt-4">
                     Try Again
                   </Button>
@@ -966,20 +1005,20 @@ export default function DyeingList() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             {/* Sent info summary */}
-            <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+            <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
               <div className="flex justify-between">
-                <span className="text-gray-500">Sent Qty:</span>
+                <span className="text-muted-foreground">Sent Qty:</span>
                 <span className="font-medium">
                   {selectedPOForReceive?.jobWorkOrder?.qtySentMeters?.toFixed(2)} mtrs
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Sent Width:</span>
+                <span className="text-muted-foreground">Sent Width:</span>
                 <span className="font-medium">{selectedPOForReceive?.jobWorkOrder?.sentWidthInches}"</span>
               </div>
               {selectedPOForReceive?.jobWorkOrder?.finishedFabric && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Finished Fabric:</span>
+                  <span className="text-muted-foreground">Finished Fabric:</span>
                   <span className="font-medium">{selectedPOForReceive.jobWorkOrder.finishedFabric.fabricCode}</span>
                 </div>
               )}
@@ -987,7 +1026,7 @@ export default function DyeingList() {
 
             {/* Than / Fold "L" measurement */}
             <div className="border rounded-lg p-3 space-y-3">
-              <p className="text-sm font-medium text-gray-700">Than / Fold Measurement</p>
+              <p className="text-sm font-medium text-foreground">Than / Fold Measurement</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="thanCount">No. of Thans</Label>
@@ -1014,9 +1053,9 @@ export default function DyeingList() {
                 </div>
               </div>
               {calculatedActualMeters && (
-                <div className="bg-blue-50 rounded p-2 text-sm flex justify-between items-center">
-                  <span className="text-blue-700">Calculated Actual Meters:</span>
-                  <span className="font-bold text-blue-900">{calculatedActualMeters} m</span>
+                <div className="bg-info-muted rounded p-2 text-sm flex justify-between items-center">
+                  <span className="text-info">Calculated Actual Meters:</span>
+                  <span className="font-bold text-info">{calculatedActualMeters} m</span>
                 </div>
               )}
             </div>
@@ -1032,7 +1071,7 @@ export default function DyeingList() {
                 value={receiveForm.qtyReceivedMeters}
                 onChange={(e) => setReceiveForm((f) => ({ ...f, qtyReceivedMeters: e.target.value }))}
               />
-              <p className="text-xs text-gray-400 mt-1">Leave blank to use calculated value from thans x L</p>
+              <p className="text-xs text-muted-foreground mt-1">Leave blank to use calculated value from thans x L</p>
             </div>
 
             {/* Width received */}
@@ -1052,7 +1091,7 @@ export default function DyeingList() {
                     parseFloat(receiveForm.receivedWidthInches) - selectedPOForReceive.jobWorkOrder.sentWidthInches;
                   if (diff === 0 || isNaN(diff)) return null;
                   return (
-                    <p className={`text-xs mt-1 ${diff < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                    <p className={`text-xs mt-1 ${diff < 0 ? 'text-destructive' : 'text-success'}`}>
                       {diff > 0 ? '+' : ''}
                       {diff.toFixed(1)}" vs sent width
                     </p>
@@ -1124,17 +1163,17 @@ export default function DyeingList() {
               const jwo = selectedPOForStock.jobWorkOrder;
               return (
                 <div className="space-y-3 py-2">
-                  <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+                  <div className="bg-muted rounded-lg p-3 text-sm space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">PO:</span>
+                      <span className="text-muted-foreground">PO:</span>
                       <span className="font-medium">{selectedPOForStock.poNumber}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Finished Fabric:</span>
+                      <span className="text-muted-foreground">Finished Fabric:</span>
                       <span className="font-medium">{jwo?.finishedFabric?.fabricCode || '-'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Qty Received:</span>
+                      <span className="text-muted-foreground">Qty Received:</span>
                       <span className="font-medium">
                         {(jwo?.qtyReceivedMeters || Number(jwo?.calculatedActualMeters) || 0).toFixed(2)} mtrs
                       </span>
@@ -1142,12 +1181,12 @@ export default function DyeingList() {
                     {jwo?.defectMeters != null && jwo.defectMeters > 0 && (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Defect Meters:</span>
-                          <span className="font-medium text-red-600">{jwo.defectMeters} mtrs</span>
+                          <span className="text-muted-foreground">Defect Meters:</span>
+                          <span className="font-medium text-destructive">{jwo.defectMeters} mtrs</span>
                         </div>
                         <div className="flex justify-between border-t pt-1">
-                          <span className="text-gray-500">Good Qty:</span>
-                          <span className="font-bold text-green-700">
+                          <span className="text-muted-foreground">Good Qty:</span>
+                          <span className="font-bold text-success">
                             {(
                               (jwo.qtyReceivedMeters || Number(jwo.calculatedActualMeters) || 0) -
                               (jwo.defectMeters || 0)
@@ -1158,15 +1197,15 @@ export default function DyeingList() {
                       </>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Quality Grade:</span>
+                      <span className="text-muted-foreground">Quality Grade:</span>
                       <Badge variant="outline">{jwo?.qualityGrade || '-'}</Badge>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Width:</span>
+                      <span className="text-muted-foreground">Width:</span>
                       <span className="font-medium">{jwo?.receivedWidthInches}"</span>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     This will create a fabric stock entry for{' '}
                     <strong>{jwo?.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above
                     quantities.
@@ -1178,7 +1217,7 @@ export default function DyeingList() {
             <Button variant="outline" onClick={() => setUpdateStockDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateStock} disabled={stockLoading} className="bg-green-600 hover:bg-green-700">
+            <Button onClick={handleUpdateStock} disabled={stockLoading} className="bg-success hover:bg-success">
               {stockLoading ? 'Creating Stock...' : 'Confirm & Create Stock'}
             </Button>
           </DialogFooter>

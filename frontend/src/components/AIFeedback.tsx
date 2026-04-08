@@ -75,7 +75,7 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
 
   if (submitted && compact) {
     return (
-      <div className="flex items-center gap-1 text-xs text-gray-500">
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
         <span>Thanks for your feedback!</span>
       </div>
     );
@@ -85,13 +85,13 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
     <div className="flex flex-col gap-2">
       {/* Rating Buttons */}
       <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500">Was this helpful?</span>
+        <span className="text-xs text-muted-foreground">Was this helpful?</span>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => handleRating('HELPFUL')}
           disabled={submitting}
-          className={cn('h-7 px-2', rating === 'HELPFUL' && 'bg-green-100 text-green-700 hover:bg-green-100')}
+          className={cn('h-7 px-2', rating === 'HELPFUL' && 'bg-success-muted text-success hover:bg-success-muted')}
         >
           <ThumbsUp className="h-3.5 w-3.5" />
         </Button>
@@ -100,7 +100,10 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
           size="sm"
           onClick={() => handleRating('NOT_HELPFUL')}
           disabled={submitting}
-          className={cn('h-7 px-2', rating === 'NOT_HELPFUL' && 'bg-red-100 text-red-700 hover:bg-red-100')}
+          className={cn(
+            'h-7 px-2',
+            rating === 'NOT_HELPFUL' && 'bg-destructive/10 text-destructive hover:bg-destructive/10'
+          )}
         >
           <ThumbsDown className="h-3.5 w-3.5" />
         </Button>
@@ -108,16 +111,16 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
 
       {/* Feedback Details Form */}
       {showDetails && !submitted && (
-        <div className="bg-gray-50 rounded-lg p-3 space-y-3 border">
+        <div className="bg-muted rounded-lg p-3 space-y-3 border">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Tell us more</span>
+            <span className="text-sm font-medium text-foreground">Tell us more</span>
             <Button variant="ghost" size="sm" onClick={() => setShowDetails(false)} className="h-6 w-6 p-0">
               <X className="h-4 w-4" />
             </Button>
           </div>
 
           <Select value={issueType} onValueChange={setIssueType}>
-            <SelectTrigger className="w-full bg-white">
+            <SelectTrigger className="w-full bg-card">
               <SelectValue placeholder="What was the issue?" />
             </SelectTrigger>
             <SelectContent>
@@ -134,7 +137,7 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={2}
-            className="bg-white"
+            className="bg-card"
           />
 
           <div className="flex justify-end gap-2">
@@ -149,7 +152,7 @@ export function AIFeedback({ messageId, existingRating, compact = true }: AIFeed
       )}
 
       {submitted && !compact && (
-        <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
+        <div className="flex items-center gap-2 text-sm text-success bg-success-muted px-3 py-2 rounded-lg">
           <MessageSquare className="h-4 w-4" />
           <span>Thanks for your feedback! It helps us improve.</span>
         </div>

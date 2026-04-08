@@ -478,8 +478,8 @@ export default function CADPlanningPage() {
     return (
       <div className="p-6 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading CAD planning data...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading CAD planning data...</p>
         </div>
       </div>
     );
@@ -490,7 +490,7 @@ export default function CADPlanningPage() {
       <div className="p-6">
         <div className="text-center py-12">
           <AlertCircle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Style not found</h2>
+          <h2 className="text-xl font-display font-semibold mb-2">Style not found</h2>
           <Button onClick={() => navigate('/cad-planning')}>Back to CAD Planning</Button>
         </div>
       </div>
@@ -514,15 +514,15 @@ export default function CADPlanningPage() {
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">CAD Planning</h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <h1 className="text-3xl font-display font-medium">CAD Planning</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               {style.styleCode} - {style.styleName}
             </p>
           </div>
         </div>
         <Badge
           variant={isApproved ? 'default' : style.cadStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'}
-          className={cn('text-sm px-3 py-1', isApproved && 'bg-green-600')}
+          className={cn('text-sm px-3 py-1', isApproved && 'bg-success')}
         >
           {isApproved && <CheckCircle2 className="h-4 w-4 mr-1" />}
           {style.cadStatus}
@@ -530,23 +530,23 @@ export default function CADPlanningPage() {
       </div>
 
       {/* Info Banner - Compact */}
-      <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-center gap-3">
-        <Grid3X3 className="h-4 w-4 text-purple-600 flex-shrink-0" />
-        <p className="text-sm text-purple-700">
-          <span className="font-medium text-purple-900">Spreadsheet CAD Planning:</span> Each row = one CAD entry.
-          Select greige, width, enter size breakdown → CAD auto-calculates.
+      <div className="mb-4 p-3 bg-accent/10 border border-accent/20 rounded-lg flex items-center gap-3">
+        <Grid3X3 className="h-4 w-4 text-accent flex-shrink-0" />
+        <p className="text-sm text-accent">
+          <span className="font-medium text-accent">Spreadsheet CAD Planning:</span> Each row = one CAD entry. Select
+          greige, width, enter size breakdown → CAD auto-calculates.
         </p>
       </div>
 
       {/* Status Card for Approved - Compact */}
       {isApproved && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-300 rounded-lg flex items-center justify-between gap-3">
+        <div className="mb-4 p-3 bg-success-muted border border-success/25 rounded-lg flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
             <div className="text-sm">
-              <span className="font-medium text-green-900">CAD Plan Approved</span>
+              <span className="font-medium text-success">CAD Plan Approved</span>
               {style.approvedCadDate && (
-                <span className="text-green-700 ml-2">on {new Date(style.approvedCadDate).toLocaleDateString()}</span>
+                <span className="text-success ml-2">on {new Date(style.approvedCadDate).toLocaleDateString()}</span>
               )}
             </div>
           </div>
@@ -596,15 +596,17 @@ export default function CADPlanningPage() {
           {loadingTableData ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-blue-600" />
-                <p className="text-gray-600">Loading CAD spreadsheet data...</p>
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-info" />
+                <p className="text-muted-foreground">Loading CAD spreadsheet data...</p>
               </div>
             </div>
           ) : tableDataError || !cadTableData || !cadTableData.components ? (
             <Card className="p-8 text-center">
               <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Unable to load spreadsheet data</h3>
-              <p className="text-gray-600 mb-4">There was an error loading the CAD spreadsheet. Please try again.</p>
+              <p className="text-muted-foreground mb-4">
+                There was an error loading the CAD spreadsheet. Please try again.
+              </p>
               <Button onClick={loadCADTableData} variant="outline">
                 <Loader2 className="h-4 w-4 mr-2" />
                 Retry
@@ -637,16 +639,16 @@ export default function CADPlanningPage() {
 
               {/* Actions */}
               {!isApproved && cadTableData.cadRows.length > 0 && (
-                <div className="mt-6 flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600">
+                <div className="mt-6 flex justify-between items-center p-4 bg-muted rounded-lg">
+                  <div className="text-sm text-muted-foreground">
                     {canApprove ? (
-                      <div className="flex items-center gap-2 text-green-700">
+                      <div className="flex items-center gap-2 text-success">
                         <CheckCircle2 className="h-5 w-5" />
                         <span>All CAD entries complete. Ready to approve!</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <AlertCircle className="h-5 w-5 text-yellow-600" />
+                        <AlertCircle className="h-5 w-5 text-warning" />
                         <span>Complete all CAD entries before approval</span>
                       </div>
                     )}
@@ -656,7 +658,7 @@ export default function CADPlanningPage() {
                     type="button"
                     onClick={() => setShowApproveDialog(true)}
                     disabled={!canApprove || saving}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-success hover:bg-success"
                   >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     Approve CAD Plan
@@ -707,7 +709,7 @@ export default function CADPlanningPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+              <FileSpreadsheet className="h-5 w-5 text-info" />
               Push to Fabric Costing
             </DialogTitle>
             <DialogDescription>Create fabric costing records from CAD planning data</DialogDescription>
@@ -715,14 +717,14 @@ export default function CADPlanningPage() {
 
           {pushStatus && (
             <div className="py-4 space-y-3">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 This will create fabric costing records from your CAD data with greige costs pre-populated from
                 procurement records.
               </p>
 
               <div className="space-y-2">
                 {pushStatus.newCount > 0 && (
-                  <div className="flex items-center gap-2 text-green-700 bg-green-50 p-2 rounded">
+                  <div className="flex items-center gap-2 text-success bg-success-muted p-2 rounded">
                     <CheckCircle2 className="h-4 w-4" />
                     <span className="text-sm font-medium">
                       {pushStatus.newCount} new record{pushStatus.newCount > 1 ? 's' : ''} will be created
@@ -731,7 +733,7 @@ export default function CADPlanningPage() {
                 )}
 
                 {pushStatus.existingCount > 0 && (
-                  <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-2 rounded">
+                  <div className="flex items-center gap-2 text-muted-foreground bg-muted p-2 rounded">
                     <Info className="h-4 w-4" />
                     <span className="text-sm">
                       {pushStatus.existingCount} record{pushStatus.existingCount > 1 ? 's' : ''} already exist (will be
@@ -741,7 +743,7 @@ export default function CADPlanningPage() {
                 )}
 
                 {pushStatus.newCount === 0 && pushStatus.existingCount > 0 && (
-                  <div className="text-sm text-amber-700 bg-amber-50 p-2 rounded">
+                  <div className="text-sm text-warning bg-warning-muted p-2 rounded">
                     All CAD rows already have fabric costing records. You can view them in the Fabric Costing page.
                   </div>
                 )}
@@ -798,8 +800,8 @@ function CADHistoryView({ cadHistory, loading, onRefresh }: CADHistoryViewProps)
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-blue-600" />
-          <p className="text-gray-600">Loading CAD history...</p>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-info" />
+          <p className="text-muted-foreground">Loading CAD history...</p>
         </div>
       </div>
     );
@@ -810,7 +812,7 @@ function CADHistoryView({ cadHistory, loading, onRefresh }: CADHistoryViewProps)
       <Card className="p-8 text-center">
         <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
         <h3 className="text-lg font-semibold mb-2">No CAD history available</h3>
-        <p className="text-gray-600 mb-4">CAD history will appear here once fabric groups are set up.</p>
+        <p className="text-muted-foreground mb-4">CAD history will appear here once fabric groups are set up.</p>
         <Button onClick={onRefresh} variant="outline">
           <Loader2 className="h-4 w-4 mr-2" />
           Refresh
@@ -828,21 +830,21 @@ function CADHistoryView({ cadHistory, loading, onRefresh }: CADHistoryViewProps)
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">{summary.totalFabricGroups}</p>
-              <p className="text-sm text-gray-600">Fabric Groups</p>
+              <p className="text-2xl font-bold text-info">{summary.totalFabricGroups}</p>
+              <p className="text-sm text-muted-foreground">Fabric Groups</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">{summary.groupsWithSelectedCAD}</p>
-              <p className="text-sm text-gray-600">With Selected CAD</p>
+              <p className="text-2xl font-bold text-success">{summary.groupsWithSelectedCAD}</p>
+              <p className="text-sm text-muted-foreground">With Selected CAD</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-purple-600">{summary.totalCADOptions}</p>
-              <p className="text-sm text-gray-600">Total CAD Options</p>
+              <p className="text-2xl font-bold text-accent">{summary.totalCADOptions}</p>
+              <p className="text-sm text-muted-foreground">Total CAD Options</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             {summary.isFullyApproved && (
-              <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
+              <Badge className="bg-success-muted text-success hover:bg-success-muted">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Approved
               </Badge>
@@ -860,7 +862,7 @@ function CADHistoryView({ cadHistory, loading, onRefresh }: CADHistoryViewProps)
         <Card className="p-8 text-center">
           <History className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No CAD records yet</h3>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             CAD options will appear here once greige is selected and CAD values are entered.
           </p>
         </Card>
@@ -883,12 +885,12 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <Card className={cn('overflow-hidden', group.hasEmbroidery && 'border-purple-200')}>
+    <Card className={cn('overflow-hidden', group.hasEmbroidery && 'border-accent/20')}>
       {/* Header */}
       <div
         className={cn(
           'p-4 cursor-pointer flex items-center justify-between',
-          group.hasEmbroidery ? 'bg-purple-50' : 'bg-gray-50'
+          group.hasEmbroidery ? 'bg-accent/10' : 'bg-muted'
         )}
         onClick={() => setExpanded(!expanded)}
       >
@@ -901,26 +903,26 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
             {group.genericGreigeName} - {group.fabricFinishType}
           </h4>
           {group.hasEmbroidery && group.embroidery && (
-            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 text-xs">
+            <Badge className="bg-accent/10 text-accent hover:bg-accent/10 text-xs">
               <Sparkles className="h-3 w-3 mr-1" />
               {group.embroidery.designName}
             </Badge>
           )}
           {group.selectedCADId && (
-            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">
+            <Badge className="bg-success-muted text-success hover:bg-success-muted text-xs">
               <CheckCircle2 className="h-3 w-3 mr-1" />
               CAD Selected
             </Badge>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {group.cadOptions.length} CAD option{group.cadOptions.length !== 1 ? 's' : ''}
           </span>
           {expanded ? (
-            <TrendingUp className="h-4 w-4 text-gray-400 rotate-180" />
+            <TrendingUp className="h-4 w-4 text-muted-foreground rotate-180" />
           ) : (
-            <TrendingDown className="h-4 w-4 text-gray-400 rotate-180" />
+            <TrendingDown className="h-4 w-4 text-muted-foreground rotate-180" />
           )}
         </div>
       </div>
@@ -930,16 +932,16 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
         <div className="p-4 border-t">
           {/* Greige Info */}
           {group.greige && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
-              <span className="font-medium text-amber-900">Greige: </span>
-              <span className="text-amber-800">
+            <div className="mb-4 p-3 bg-warning-muted border border-warning/20 rounded-lg text-sm">
+              <span className="font-medium text-warning">Greige: </span>
+              <span className="text-warning">
                 {group.greige.greigeCode} - {group.greige.greigeName} ({group.greige.greigeWidth}")
               </span>
             </div>
           )}
 
           {/* Components */}
-          <div className="mb-4 text-sm text-gray-600">
+          <div className="mb-4 text-sm text-muted-foreground">
             <span className="font-medium">Components: </span>
             {group.components.join(', ')}
           </div>
@@ -949,7 +951,7 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50">
+                  <tr className="bg-muted">
                     <th className="p-2 text-left border-b">Status</th>
                     <th className="p-2 text-left border-b">Cut Width</th>
                     <th className="p-2 text-left border-b">CAD (m)</th>
@@ -965,20 +967,20 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
                     <tr
                       key={cad.id}
                       className={cn(
-                        'hover:bg-gray-50',
-                        cad.isSelected && 'bg-green-50 border-l-4 border-l-green-600',
-                        cad.isPreferred && !cad.isSelected && 'bg-blue-50'
+                        'hover:bg-muted',
+                        cad.isSelected && 'bg-success-muted border-l-4 border-l-green-600',
+                        cad.isPreferred && !cad.isSelected && 'bg-info-muted'
                       )}
                     >
                       <td className="p-2 border-b">
                         <div className="flex items-center gap-1">
                           {cad.isSelected ? (
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-xs">
+                            <Badge className="bg-success-muted text-success hover:bg-success-muted text-xs">
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Selected
                             </Badge>
                           ) : cad.isPreferred ? (
-                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 text-xs">Preferred</Badge>
+                            <Badge className="bg-info-muted text-info hover:bg-info-muted text-xs">Preferred</Badge>
                           ) : (
                             <Badge variant="outline" className="text-xs">
                               Option
@@ -989,16 +991,16 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
                       <td className="p-2 border-b font-semibold">{cad.cutableWidth}"</td>
                       <td className="p-2 border-b">
                         {cad.cadMeters ? (
-                          <span className="font-medium text-green-700">{cad.cadMeters.toFixed(3)} m</span>
+                          <span className="font-medium text-success">{cad.cadMeters.toFixed(3)} m</span>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="p-2 border-b text-gray-600">{cad.piecesPerMarker || '-'}</td>
-                      <td className="p-2 border-b text-gray-600">
+                      <td className="p-2 border-b text-muted-foreground">{cad.piecesPerMarker || '-'}</td>
+                      <td className="p-2 border-b text-muted-foreground">
                         {cad.markerLengthMeters ? `${cad.markerLengthMeters.toFixed(2)} m` : '-'}
                       </td>
-                      <td className="p-2 border-b text-gray-600">
+                      <td className="p-2 border-b text-muted-foreground">
                         {cad.markerEfficiency ? `${cad.markerEfficiency.toFixed(1)}%` : '-'}
                       </td>
                       <td className="p-2 border-b">
@@ -1011,10 +1013,10 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="p-2 border-b text-gray-500 text-xs">
+                      <td className="p-2 border-b text-muted-foreground text-xs">
                         {new Date(cad.updatedAt).toLocaleDateString()}
                       </td>
                     </tr>
@@ -1023,7 +1025,7 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
               </table>
             </div>
           ) : (
-            <div className="text-center py-6 text-gray-500">No CAD options calculated yet</div>
+            <div className="text-center py-6 text-muted-foreground">No CAD options calculated yet</div>
           )}
 
           {/* Notes for selected CAD */}
@@ -1031,7 +1033,7 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
             const selectedCad = group.cadOptions.find((c) => c.isSelected);
             if (selectedCad?.notes) {
               return (
-                <div className="mt-3 p-3 bg-gray-50 border rounded-lg text-sm">
+                <div className="mt-3 p-3 bg-muted border rounded-lg text-sm">
                   <span className="font-medium">Notes: </span>
                   {selectedCad.notes}
                 </div>

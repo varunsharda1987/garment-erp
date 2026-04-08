@@ -295,6 +295,11 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   materialRequisitions: 'materialRequisitions',
   materialRequisitionItems: 'items',
 
+  // External Process (Smocking, Handwork, Embroidery Piece-Level)
+  externalProcessSendOuts: 'externalProcessSendOuts',
+  externalProcessSendOutsCreated: 'externalProcessSendOutsCreated',
+  skuBreakdown: 'skuBreakdown',
+
   // Financial relations
   paymentTerms: 'paymentTerms',
   bankAccounts: 'bankAccounts',

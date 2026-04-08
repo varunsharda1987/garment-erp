@@ -325,13 +325,13 @@ export const SampleStatusLabels: Record<SampleStatus, string> = {
 };
 
 export const SampleStatusColors: Record<SampleStatus, string> = {
-  REQUESTED: 'bg-gray-100 text-gray-700',
-  IN_PROGRESS: 'bg-blue-100 text-blue-700',
-  SUBMITTED: 'bg-purple-100 text-purple-700',
-  APPROVED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
-  SENT: 'bg-indigo-100 text-indigo-700',
+  REQUESTED: 'bg-muted text-foreground',
+  IN_PROGRESS: 'bg-info-muted text-info',
+  SUBMITTED: 'bg-accent/10 text-accent',
+  APPROVED: 'bg-success-muted text-success',
+  REJECTED: 'bg-destructive/10 text-destructive',
+  SENT: 'bg-primary/10 text-primary',
   FEEDBACK_PENDING: 'bg-yellow-100 text-yellow-700',
-  REVISION_NEEDED: 'bg-orange-100 text-orange-700',
+  REVISION_NEEDED: 'bg-orange-100 text-primary',
   APPROVED_WITH_COMMENTS: 'bg-emerald-100 text-emerald-700',
 };

@@ -97,7 +97,7 @@ export default function Settings() {
   if (!currentUser) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -105,8 +105,8 @@ export default function Settings() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-500 mt-1">Manage your account settings and preferences</p>
+        <h1 className="text-3xl font-display font-medium text-foreground">Settings</h1>
+        <p className="text-muted-foreground mt-1">Manage your account settings and preferences</p>
       </div>
 
       <div className="grid gap-6">
@@ -119,11 +119,11 @@ export default function Settings() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Security Notice */}
-              <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-900">
+              <div className="flex items-start gap-3 p-4 bg-info-muted border border-info/20 rounded-lg">
+                <AlertCircle className="h-5 w-5 text-info mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-info">
                   <p className="font-medium">Password Requirements:</p>
-                  <ul className="mt-2 space-y-1 list-disc list-inside text-blue-800">
+                  <ul className="mt-2 space-y-1 list-disc list-inside text-info">
                     <li>Must be at least 6 characters long</li>
                     <li>Must be different from your current password</li>
                   </ul>
@@ -133,79 +133,79 @@ export default function Settings() {
               {/* Current Password */}
               <div>
                 <Label htmlFor="currentPassword">
-                  Current Password <span className="text-red-500">*</span>
+                  Current Password <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative mt-1">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="currentPassword"
                     type={showCurrentPassword ? 'text' : 'password'}
                     value={passwordData.currentPassword}
                     onChange={(e) => handleChange('currentPassword', e.target.value)}
-                    className={`pl-10 pr-10 ${errors.currentPassword ? 'border-red-500' : ''}`}
+                    className={`pl-10 pr-10 ${errors.currentPassword ? 'border-destructive' : ''}`}
                     placeholder="Enter your current password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.currentPassword && <p className="mt-1 text-sm text-red-600">{errors.currentPassword}</p>}
+                {errors.currentPassword && <p className="mt-1 text-sm text-destructive">{errors.currentPassword}</p>}
               </div>
 
               {/* New Password */}
               <div>
                 <Label htmlFor="newPassword">
-                  New Password <span className="text-red-500">*</span>
+                  New Password <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative mt-1">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="newPassword"
                     type={showNewPassword ? 'text' : 'password'}
                     value={passwordData.newPassword}
                     onChange={(e) => handleChange('newPassword', e.target.value)}
-                    className={`pl-10 pr-10 ${errors.newPassword ? 'border-red-500' : ''}`}
+                    className={`pl-10 pr-10 ${errors.newPassword ? 'border-destructive' : ''}`}
                     placeholder="Enter your new password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.newPassword && <p className="mt-1 text-sm text-red-600">{errors.newPassword}</p>}
+                {errors.newPassword && <p className="mt-1 text-sm text-destructive">{errors.newPassword}</p>}
               </div>
 
               {/* Confirm New Password */}
               <div>
                 <Label htmlFor="confirmPassword">
-                  Confirm New Password <span className="text-red-500">*</span>
+                  Confirm New Password <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative mt-1">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={passwordData.confirmPassword}
                     onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                    className={`pl-10 pr-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
+                    className={`pl-10 pr-10 ${errors.confirmPassword ? 'border-destructive' : ''}`}
                     placeholder="Confirm your new password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
+                {errors.confirmPassword && <p className="mt-1 text-sm text-destructive">{errors.confirmPassword}</p>}
               </div>
 
               {/* Action Buttons */}
@@ -313,7 +313,7 @@ function WastageDefaultsCard() {
     return (
       <Card>
         <CardContent className="flex justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -347,9 +347,9 @@ function WastageDefaultsCard() {
                   onChange={(e) => handleValueChange(key, e.target.value)}
                   className="w-24"
                 />
-                <span className="text-sm text-gray-500">%</span>
+                <span className="text-sm text-muted-foreground">%</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">{description}</p>
+              <p className="text-xs text-muted-foreground mt-1">{description}</p>
             </div>
           ))}
         </div>

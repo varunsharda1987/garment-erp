@@ -174,7 +174,7 @@ const CostSheetDetail = () => {
       <div className="p-6">
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-red-500 mb-4">{error || 'Cost sheet not found'}</p>
+            <p className="text-destructive mb-4">{error || 'Cost sheet not found'}</p>
             <Button onClick={() => navigate('/cost-sheets')}>Back to Cost Sheets</Button>
           </CardContent>
         </Card>
@@ -208,14 +208,14 @@ const CostSheetDetail = () => {
             <>
               <Button
                 variant="outline"
-                className="text-blue-600 hover:bg-blue-50"
+                className="text-info hover:bg-info-muted"
                 onClick={() => setCreateVersionDialogOpen(true)}
               >
                 <Copy className="h-4 w-4 mr-2" />
                 New Version
               </Button>
               <Button
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-success hover:bg-success"
                 onClick={() => navigate(`/order-bom?costSheetId=${costSheet.id}&styleId=${costSheet.styleId}`)}
               >
                 <Package className="h-4 w-4 mr-2" />
@@ -232,7 +232,7 @@ const CostSheetDetail = () => {
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-2xl font-bold">{costSheet.style?.styleCode || 'N/A'}</h2>
+                <h2 className="text-2xl font-display font-medium">{costSheet.style?.styleCode || 'N/A'}</h2>
                 <Badge variant="outline" className="text-sm">
                   <GitBranch className="w-3 h-3 mr-1" />v{costSheet.version || 1}
                 </Badge>
@@ -241,17 +241,17 @@ const CostSheetDetail = () => {
                   variant={isApproved ? 'success' : isRejected ? 'destructive' : 'warning'}
                 />
                 {costSheet.lockedForOrders && (
-                  <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                  <Badge variant="secondary" className="bg-warning/10 text-warning">
                     <Lock className="w-3 h-3 mr-1" />
                     Locked
                   </Badge>
                 )}
               </div>
-              <p className="text-gray-600 text-lg">{costSheet.style?.styleName}</p>
+              <p className="text-muted-foreground text-lg">{costSheet.style?.styleName}</p>
               {costSheet.widthCombinationDescription && (
-                <p className="text-sm text-blue-600 mt-1">Width: {costSheet.widthCombinationDescription}</p>
+                <p className="text-sm text-info mt-1">Width: {costSheet.widthCombinationDescription}</p>
               )}
-              <div className="mt-3 text-sm text-gray-500">
+              <div className="mt-3 text-sm text-muted-foreground">
                 Created by: {costSheet.createdBy?.firstName} {costSheet.createdBy?.lastName}
                 {isApproved && costSheet.approvedBy && (
                   <>
@@ -267,14 +267,14 @@ const CostSheetDetail = () => {
               {/* Pending/Rejected - Can Approve/Reject */}
               {(isPending || isRejected) && (
                 <>
-                  <Button className="bg-green-600 hover:bg-green-700" onClick={() => setApproveDialogOpen(true)}>
+                  <Button className="bg-success hover:bg-success" onClick={() => setApproveDialogOpen(true)}>
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Approve
                   </Button>
                   {isPending && (
                     <Button
                       variant="outline"
-                      className="text-orange-600 hover:bg-orange-50"
+                      className="text-primary hover:bg-primary/10"
                       onClick={() => setRejectDialogOpen(true)}
                     >
                       <XCircle className="h-4 w-4 mr-2" />
@@ -289,14 +289,14 @@ const CostSheetDetail = () => {
                 <>
                   <Button
                     variant="outline"
-                    className="text-orange-600 hover:bg-orange-50"
+                    className="text-primary hover:bg-primary/10"
                     onClick={() => setRevokeDialogOpen(true)}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Revoke Approval
                   </Button>
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-info hover:bg-info"
                     onClick={() => {
                       const params = new URLSearchParams({
                         costSheetId: costSheet.id,
@@ -316,12 +316,12 @@ const CostSheetDetail = () => {
 
           {/* Rejection Notes */}
           {isRejected && costSheet.rejectionNotes && (
-            <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
+            <div className="mt-4 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-red-700">Rejection Reason:</p>
-                  <p className="text-red-600">{costSheet.rejectionNotes}</p>
+                  <p className="font-medium text-destructive">Rejection Reason:</p>
+                  <p className="text-destructive">{costSheet.rejectionNotes}</p>
                 </div>
               </div>
             </div>
@@ -333,26 +333,26 @@ const CostSheetDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-gray-500">Material Cost</p>
+            <p className="text-sm text-muted-foreground">Material Cost</p>
             <p className="text-2xl font-bold">{formatCurrency(costSheet.totalMaterialCost)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-gray-500">Processing Cost</p>
+            <p className="text-sm text-muted-foreground">Processing Cost</p>
             <p className="text-2xl font-bold">{formatCurrency(costSheet.totalProcessingCost)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-gray-500">Total Cost/Piece</p>
+            <p className="text-sm text-muted-foreground">Total Cost/Piece</p>
             <p className="text-2xl font-bold">{formatCurrency(costSheet.totalCostPerPiece)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-gray-500">Selling Price</p>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(costSheet.sellingPricePerPiece)}</p>
+            <p className="text-sm text-muted-foreground">Selling Price</p>
+            <p className="text-2xl font-bold text-success">{formatCurrency(costSheet.sellingPricePerPiece)}</p>
           </CardContent>
         </Card>
       </div>
@@ -366,17 +366,21 @@ const CostSheetDetail = () => {
           {costSheet.fabricDetails && costSheet.fabricDetails.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fabric Name</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Width</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Average (m)</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rate</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                      Fabric Name
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Width</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                      Average (m)
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Rate</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Total</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-card divide-y divide-gray-200">
                   {costSheet.fabricDetails.map((fabric, index) => (
                     <tr key={index}>
                       <td className="px-4 py-3 text-sm">{index + 1}</td>
@@ -390,7 +394,7 @@ const CostSheetDetail = () => {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-gray-50">
+                <tfoot className="bg-muted">
                   <tr>
                     <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-right">
                       Fabric Total:
@@ -401,7 +405,7 @@ const CostSheetDetail = () => {
               </table>
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No fabric details available</p>
+            <p className="text-muted-foreground text-center py-4">No fabric details available</p>
           )}
         </CardContent>
       </Card>
@@ -415,16 +419,20 @@ const CostSheetDetail = () => {
           {costSheet.trimsDetails && costSheet.trimsDetails.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trim Name</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rate</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                      Trim Name
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                      Quantity
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Rate</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Total</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-card divide-y divide-gray-200">
                   {costSheet.trimsDetails.map((trim, index) => (
                     <tr key={index}>
                       <td className="px-4 py-3 text-sm">{index + 1}</td>
@@ -435,7 +443,7 @@ const CostSheetDetail = () => {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-gray-50">
+                <tfoot className="bg-muted">
                   <tr>
                     <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">
                       Trims Total:
@@ -446,7 +454,7 @@ const CostSheetDetail = () => {
               </table>
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">No trims details available</p>
+            <p className="text-muted-foreground text-center py-4">No trims details available</p>
           )}
         </CardContent>
       </Card>
@@ -458,29 +466,29 @@ const CostSheetDetail = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Cutting</p>
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">Cutting</p>
               <p className="text-lg font-semibold">{formatCurrency(costSheet.cuttingCost)}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Stitching</p>
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">Stitching</p>
               <p className="text-lg font-semibold">{formatCurrency(costSheet.stitchingCost)}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Finishing</p>
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">Finishing</p>
               <p className="text-lg font-semibold">{formatCurrency(costSheet.finishingCost)}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Button Attachment</p>
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">Button Attachment</p>
               <p className="text-lg font-semibold">{formatCurrency(costSheet.buttonAttachmentCost)}</p>
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Handwork</p>
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">Handwork</p>
               <p className="text-lg font-semibold">{formatCurrency(costSheet.handworkCmtCost)}</p>
             </div>
           </div>
           <div className="mt-4 pt-4 border-t text-right">
-            <span className="text-gray-600 mr-4">CMT Total:</span>
+            <span className="text-muted-foreground mr-4">CMT Total:</span>
             <span className="text-xl font-bold">{formatCurrency(costSheet.cmtTotal)}</span>
           </div>
         </CardContent>
@@ -495,16 +503,18 @@ const CostSheetDetail = () => {
           <CardContent>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Average</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rate</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Name</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                      Average
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Rate</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Total</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-card divide-y divide-gray-200">
                   {costSheet.embroideryDetails.map((embr, index) => (
                     <tr key={index}>
                       <td className="px-4 py-3 text-sm">{index + 1}</td>
@@ -517,7 +527,7 @@ const CostSheetDetail = () => {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-gray-50">
+                <tfoot className="bg-muted">
                   <tr>
                     <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">
                       Embroidery Total:
@@ -542,16 +552,18 @@ const CostSheetDetail = () => {
           <CardContent>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rate</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Name</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                      Quantity
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Rate</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Total</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-card divide-y divide-gray-200">
                   {costSheet.accessoriesDetails.map((acc, index) => (
                     <tr key={index}>
                       <td className="px-4 py-3 text-sm">{index + 1}</td>
@@ -564,7 +576,7 @@ const CostSheetDetail = () => {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-gray-50">
+                <tfoot className="bg-muted">
                   <tr>
                     <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-right">
                       Accessories Total:
@@ -588,23 +600,23 @@ const CostSheetDetail = () => {
         <CardContent>
           <div className="space-y-3 max-w-lg mx-auto">
             <div className="flex justify-between py-2">
-              <span className="text-gray-600">Fabric Total:</span>
+              <span className="text-muted-foreground">Fabric Total:</span>
               <span className="font-semibold">{formatCurrency(costSheet.fabricTotal)}</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-gray-600">Trims Total:</span>
+              <span className="text-muted-foreground">Trims Total:</span>
               <span className="font-semibold">{formatCurrency(costSheet.trimsTotal)}</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-gray-600">CMT Total:</span>
+              <span className="text-muted-foreground">CMT Total:</span>
               <span className="font-semibold">{formatCurrency(costSheet.cmtTotal)}</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-gray-600">Embroidery Total:</span>
+              <span className="text-muted-foreground">Embroidery Total:</span>
               <span className="font-semibold">{formatCurrency(costSheet.embroideryTotal)}</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-gray-600">Accessories Total:</span>
+              <span className="text-muted-foreground">Accessories Total:</span>
               <span className="font-semibold">{formatCurrency(costSheet.accessoriesTotal)}</span>
             </div>
             <div className="flex justify-between py-2 border-t pt-3">
@@ -612,16 +624,16 @@ const CostSheetDetail = () => {
               <span className="font-semibold text-lg">{formatCurrency(costSheet.subtotal)}</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-gray-600">Value Loss ({costSheet.valueLossPercent}%):</span>
-              <span className="font-semibold text-orange-600">+ {formatCurrency(costSheet.valueLossAmount)}</span>
+              <span className="text-muted-foreground">Value Loss ({costSheet.valueLossPercent}%):</span>
+              <span className="font-semibold text-primary">+ {formatCurrency(costSheet.valueLossAmount)}</span>
             </div>
             <div className="flex justify-between py-2">
-              <span className="text-gray-600">Markup ({costSheet.markupPercent}%):</span>
-              <span className="font-semibold text-green-600">+ {formatCurrency(costSheet.markupAmount)}</span>
+              <span className="text-muted-foreground">Markup ({costSheet.markupPercent}%):</span>
+              <span className="font-semibold text-success">+ {formatCurrency(costSheet.markupAmount)}</span>
             </div>
-            <div className="flex justify-between py-3 border-t-2 border-gray-300">
+            <div className="flex justify-between py-3 border-t-2 border-border">
               <span className="font-bold text-lg">Total Product Cost:</span>
-              <span className="font-bold text-2xl text-green-600">{formatCurrency(costSheet.totalProductCost)}</span>
+              <span className="font-bold text-2xl text-success">{formatCurrency(costSheet.totalProductCost)}</span>
             </div>
           </div>
         </CardContent>
@@ -629,9 +641,9 @@ const CostSheetDetail = () => {
 
       {/* Closed Cost - Final Agreed Price (only shown if set) */}
       {costSheet.closedCost && (
-        <Card className="mb-6 border-2 border-blue-500 bg-blue-50">
+        <Card className="mb-6 border-2 border-info bg-info-muted">
           <CardHeader className="pb-2">
-            <CardTitle className="text-blue-700 flex items-center gap-2">
+            <CardTitle className="text-info flex items-center gap-2">
               <span>💰</span>
               Final Agreed Price (Closed Cost)
             </CardTitle>
@@ -640,20 +652,20 @@ const CostSheetDetail = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-blue-700">{formatCurrency(costSheet.closedCost)}</span>
-                  <span className="text-sm text-gray-500">per piece (excl. tax)</span>
+                  <span className="text-3xl font-bold text-info">{formatCurrency(costSheet.closedCost)}</span>
+                  <span className="text-sm text-muted-foreground">per piece (excl. tax)</span>
                 </div>
                 {costSheet.closedCostNotes && (
-                  <p className="text-sm text-gray-600 mt-2 italic">"{costSheet.closedCostNotes}"</p>
+                  <p className="text-sm text-muted-foreground mt-2 italic">"{costSheet.closedCostNotes}"</p>
                 )}
               </div>
               {costSheet.totalProductCost && costSheet.closedCost !== costSheet.totalProductCost && (
                 <div
-                  className={`px-4 py-2 rounded-lg ${costSheet.closedCost > costSheet.totalProductCost ? 'bg-green-100' : 'bg-amber-100'}`}
+                  className={`px-4 py-2 rounded-lg ${costSheet.closedCost > costSheet.totalProductCost ? 'bg-success-muted' : 'bg-warning/10'}`}
                 >
-                  <p className="text-xs text-gray-500">Variance from Calculated</p>
+                  <p className="text-xs text-muted-foreground">Variance from Calculated</p>
                   <p
-                    className={`text-lg font-semibold ${costSheet.closedCost > costSheet.totalProductCost ? 'text-green-700' : 'text-amber-700'}`}
+                    className={`text-lg font-semibold ${costSheet.closedCost > costSheet.totalProductCost ? 'text-success' : 'text-warning'}`}
                   >
                     {costSheet.closedCost > costSheet.totalProductCost ? '+' : ''}
                     {(((costSheet.closedCost - costSheet.totalProductCost) / costSheet.totalProductCost) * 100).toFixed(
@@ -664,9 +676,11 @@ const CostSheetDetail = () => {
                 </div>
               )}
             </div>
-            <div className="mt-4 pt-4 border-t border-blue-200 flex justify-between text-sm">
-              <span className="text-gray-600">Calculated Cost: {formatCurrency(costSheet.totalProductCost)}</span>
-              <span className="text-gray-600">
+            <div className="mt-4 pt-4 border-t border-info/20 flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                Calculated Cost: {formatCurrency(costSheet.totalProductCost)}
+              </span>
+              <span className="text-muted-foreground">
                 Difference: {costSheet.closedCost >= costSheet.totalProductCost ? '+' : ''}
                 {formatCurrency(costSheet.closedCost - costSheet.totalProductCost)}
               </span>
@@ -682,7 +696,7 @@ const CostSheetDetail = () => {
             <CardTitle>Notes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700 whitespace-pre-wrap">{costSheet.notes}</p>
+            <p className="text-foreground whitespace-pre-wrap">{costSheet.notes}</p>
           </CardContent>
         </Card>
       )}
@@ -735,7 +749,7 @@ const CostSheetDetail = () => {
           </DialogHeader>
           <div className="py-4">
             <Label htmlFor="rejectionNotes" className="text-sm font-medium">
-              Rejection Notes <span className="text-red-500">*</span>
+              Rejection Notes <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="rejectionNotes"

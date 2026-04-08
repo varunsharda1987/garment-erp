@@ -9,9 +9,9 @@ export const DocumentStatusLabels: Record<DocumentStatus, string> = {
 };
 
 export const DocumentStatusColors: Record<DocumentStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  APPROVED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  DRAFT: 'bg-muted text-foreground',
+  APPROVED: 'bg-success-muted text-success',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
 export type CreditNoteReason = 'SALES_RETURN' | 'RATE_DIFFERENCE' | 'QUALITY_ISSUE' | 'QUANTITY_DIFFERENCE' | 'OTHER';

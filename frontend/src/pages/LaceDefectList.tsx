@@ -197,8 +197,8 @@ export default function LaceDefectList() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Lace Defects</h1>
-          <p className="text-gray-500 mt-1">Track defects, manage claims, and record replacements</p>
+          <h1 className="text-3xl font-display font-medium">Lace Defects</h1>
+          <p className="text-muted-foreground mt-1">Track defects, manage claims, and record replacements</p>
         </div>
         <Button onClick={() => navigate('/lace-defects/new')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -213,9 +213,9 @@ export default function LaceDefectList() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold">{summary.total}</div>
-                <div className="text-sm text-gray-500">Total Defects</div>
+                <div className="text-sm text-muted-foreground">Total Defects</div>
               </div>
-              <AlertTriangle className="h-8 w-8 text-red-200" />
+              <AlertTriangle className="h-8 w-8 text-destructive" />
             </div>
           </CardContent>
         </Card>
@@ -227,8 +227,8 @@ export default function LaceDefectList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-gray-600">{summary.pending}</div>
-                <div className="text-sm text-gray-500">Pending Claims</div>
+                <div className="text-2xl font-bold text-muted-foreground">{summary.pending}</div>
+                <div className="text-sm text-muted-foreground">Pending Claims</div>
               </div>
               <Clock className="h-8 w-8 text-gray-200" />
             </div>
@@ -242,10 +242,10 @@ export default function LaceDefectList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-blue-600">{summary.submitted}</div>
-                <div className="text-sm text-gray-500">Claims Submitted</div>
+                <div className="text-2xl font-bold text-info">{summary.submitted}</div>
+                <div className="text-sm text-muted-foreground">Claims Submitted</div>
               </div>
-              <FileText className="h-8 w-8 text-blue-200" />
+              <FileText className="h-8 w-8 text-info" />
             </div>
           </CardContent>
         </Card>
@@ -257,10 +257,10 @@ export default function LaceDefectList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-green-600">{summary.resolved}</div>
-                <div className="text-sm text-gray-500">Resolved</div>
+                <div className="text-2xl font-bold text-success">{summary.resolved}</div>
+                <div className="text-sm text-muted-foreground">Resolved</div>
               </div>
-              <CheckCircle2 className="h-8 w-8 text-green-200" />
+              <CheckCircle2 className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -269,7 +269,7 @@ export default function LaceDefectList() {
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by description, claim reference..."
             value={searchTerm}
@@ -342,31 +342,31 @@ export default function LaceDefectList() {
           {loading ? (
             <div className="text-center py-12">Loading...</div>
           ) : defects.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">No defects found</div>
+            <div className="text-center py-12 text-muted-foreground">No defects found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-muted border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Defect Type
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Discovered At
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Quantity
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Claim Status
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Claim Amount
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Date
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -375,13 +375,13 @@ export default function LaceDefectList() {
                   {defects.map((defect) => {
                     const nextStatuses = CLAIM_STATUS_TRANSITIONS[defect.claimStatus] || [];
                     return (
-                      <tr key={defect.id} className="hover:bg-gray-50">
+                      <tr key={defect.id} className="hover:bg-muted">
                         <td className="px-4 py-4">
                           <Badge className={`${DEFECT_TYPE_COLORS[defect.defectType]} border`}>
                             {DEFECT_TYPE_LABELS[defect.defectType]}
                           </Badge>
                           {defect.defectDescription && (
-                            <div className="text-xs text-gray-500 mt-1 max-w-[200px] truncate">
+                            <div className="text-xs text-muted-foreground mt-1 max-w-[200px] truncate">
                               {defect.defectDescription}
                             </div>
                           )}
@@ -390,14 +390,16 @@ export default function LaceDefectList() {
                           <span className="text-sm">{DISCOVERED_AT_LABELS[defect.discoveredAt]}</span>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <span className="font-medium text-red-600">{defect.defectQuantity.toLocaleString()}m</span>
+                          <span className="font-medium text-destructive">
+                            {defect.defectQuantity.toLocaleString()}m
+                          </span>
                         </td>
                         <td className="px-4 py-4 text-center">
                           <Badge className={`${CLAIM_STATUS_COLORS[defect.claimStatus]} border`}>
                             {CLAIM_STATUS_LABELS[defect.claimStatus]}
                           </Badge>
                           {defect.claimReference && (
-                            <div className="text-xs text-gray-500 mt-1 font-mono">{defect.claimReference}</div>
+                            <div className="text-xs text-muted-foreground mt-1 font-mono">{defect.claimReference}</div>
                           )}
                         </td>
                         <td className="px-4 py-4 text-right">{formatCurrency(defect.claimAmount)}</td>
@@ -427,7 +429,7 @@ export default function LaceDefectList() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleUpdateStatus(defect, 'APPROVED')}
-                                className="text-green-600"
+                                className="text-success"
                                 title="Approve"
                               >
                                 <CheckCircle2 className="h-4 w-4" />
@@ -438,7 +440,7 @@ export default function LaceDefectList() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleUpdateStatus(defect, 'REJECTED')}
-                                className="text-red-600"
+                                className="text-destructive"
                                 title="Reject"
                               >
                                 <XCircle className="h-4 w-4" />
@@ -467,7 +469,7 @@ export default function LaceDefectList() {
           >
             Previous
           </Button>
-          <span className="px-4 py-2 text-sm text-gray-600">
+          <span className="px-4 py-2 text-sm text-muted-foreground">
             Page {pagination.page} of {pagination.totalPages}
           </span>
           <Button
@@ -489,7 +491,7 @@ export default function LaceDefectList() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             {selectedDefect && (
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 <p>
                   <strong>Defect:</strong> {DEFECT_TYPE_LABELS[selectedDefect.defectType]}
                 </p>

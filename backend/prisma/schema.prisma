@@ -2616,6 +2616,7 @@ model users {
   goods_receiving_notes_goods_receiving_notes_receivedByIdTousers goods_receiving_notes[]           @relation("goods_receiving_notes_receivedByIdTousers")
   greige_masters_created                                          greige_master[]                   @relation("greige_master_createdBy")
   greigeStockCreated                                              greige_stock[]                    @relation("greige_stock_createdBy")
+  greigeStockTransactions                                         greige_stock_transaction[]         @relation("greige_stock_transaction_performedBy")
   hook_eye_master                                                 hook_eye_master[]
   interlining_master                                              interlining_master[]
   invoices                                                        invoices[]
@@ -3133,6 +3134,8 @@ model stock_movements {
   toLocation      String?
   rate            Decimal?     @db.Decimal(10, 2)
   value           Decimal?     @db.Decimal(12, 2)
+  foldLengthCm    Decimal?     @db.Decimal(5, 2) // "L" - fold length in cm (for fabric/greige)
+  thanCount       Int?                            // Number of thans (folded bundles)
   remarks         String?
   performedById   String
   movementDate    DateTime     @default(now())
@@ -3767,8 +3770,10 @@ model greige_stock {
   weightedAvgCost Decimal? @db.Decimal(10, 2)
 
   // Source tracking
-  procurementId String? @db.VarChar(50)
-  supplierId    String? @db.VarChar(50)
+  procurementId   String? @db.VarChar(50)
+  supplierId      String? @db.VarChar(50)
+  sourceChallanId String? @db.VarChar(50)
+  sourceType      String? @db.VarChar(20) // 'GRN', 'TRANSFER', 'ADJUSTMENT'
 
   // Warehouse
   warehouseLocation String? @db.VarChar(100)
@@ -3781,8 +3786,8 @@ model greige_stock {
   agingDays        Int       @default(0)
 
   // Status
-  status    String @default("AVAILABLE") @db.VarChar(20)
-  stockType String @default("GENERIC") @db.VarChar(20)
+  status    StockStatus    @default(AVAILABLE)
+  stockType StockEntryType @default(GENERIC)
 
   // Audit
   createdById String   @db.VarChar(50)
@@ -3793,14 +3798,40 @@ model greige_stock {
   greige        greige_master       @relation(fields: [greigeId], references: [id])
   procurement   fabric_procurement? @relation("GreigeStockProcurement", fields: [procurementId], references: [id])
   supplier      suppliers?          @relation("GreigeStockSupplier", fields: [supplierId], references: [id])
+  sourceChallan challans?           @relation("GreigeStockSourceChallan", fields: [sourceChallanId], references: [id])
   createdBy     users               @relation("greige_stock_createdBy", fields: [createdById], references: [id])
-  challanItems  challan_items[]
-  jobWorkOrders job_work_orders[]
+  challanItems   challan_items[]
+  jobWorkOrders  job_work_orders[]
+  transactions   greige_stock_transaction[]
 
-  @@unique([greigeId, procurementId, greigeWidth, qualityGrade])
+  @@unique([greigeId, procurementId, greigeWidth, qualityGrade, supplierId])
   @@index([greigeId])
   @@index([status])
   @@index([receivedDate])
+}
+
+/// Greige Stock Transaction - Audit trail for greige stock adjustments and consumption
+model greige_stock_transaction {
+  id              String                            @id @default(uuid()) @db.VarChar(50)
+  stockId         String                            @db.VarChar(50)
+  transactionType SpecializedStockTransactionType
+  quantity        Decimal                           @db.Decimal(12, 4)
+  balanceAfter    Decimal                           @db.Decimal(12, 4)
+  costPerUnit     Decimal?                          @db.Decimal(12, 4)
+  totalValue      Decimal?                          @db.Decimal(12, 4)
+  referenceType   TransactionReferenceType?
+  referenceId     String?                           @db.VarChar(50)
+  notes           String?  @db.Text
+  performedById   String   @db.VarChar(50)
+  transactionDate DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  stock       greige_stock @relation(fields: [stockId], references: [id])
+  performedBy users        @relation("greige_stock_transaction_performedBy", fields: [performedById], references: [id])
+
+  @@index([stockId])
+  @@index([transactionType])
+  @@index([transactionDate])
 }
 
 /// Fabric Master - Finished, ready-to-use fabrics
@@ -4214,8 +4245,8 @@ model fabric_stock {
   procurementId                String?
   originStyleId                String?
   originOrderId                String?
-  status                       String                       @default("AVAILABLE")
-  stockType                    String                       @default("EXCESS")
+  status                       StockStatus                  @default(AVAILABLE)
+  stockType                    StockEntryType               @default(EXCESS)
   plannedCad                   Decimal?                     @db.Decimal(10, 4)
   actualCad                    Decimal?                     @db.Decimal(10, 4)
   varianceReason               String?
@@ -4238,6 +4269,7 @@ model fabric_stock {
   cutableWidth                 Decimal                      @map("cutableWidth") @db.Decimal(10, 2)
   patternPartId                String?                      @map("pattern_part_id")
   fabricFinishType             FabricFinishType?
+  needsEmbroidery              Boolean                      @default(false)
   cutting_batches              cutting_batches[]
   cuttingBatchFabrics          cutting_batch_fabrics[]
   embroideryResultOf           embroidery_send_out?         @relation("EmbroideryResultStock")
@@ -4270,6 +4302,7 @@ model fabric_stock {
   @@index([embroideryId])
   @@index([patternPartId])
   @@index([fabricFinishType])
+  @@index([needsEmbroidery, status])
   // Performance: composite index for procurement queries
   @@index([procurementId, status])
 }
@@ -4370,10 +4403,10 @@ model fabric_stock_allocation {
 model fabric_stock_transaction {
   id               String       @id @default(uuid())
   stockId          String
-  transactionType  String
+  transactionType  SpecializedStockTransactionType
   quantity         Decimal      @db.Decimal(10, 2)
   unit             String       @default("meters")
-  referenceType    String?
+  referenceType    TransactionReferenceType?
   referenceId      String?
   costPerUnit      Decimal      @db.Decimal(10, 2)
   weightedAvgCost  Decimal      @db.Decimal(10, 2)
@@ -7081,8 +7114,8 @@ model lace_stock {
 
   // Quality & Status
   qualityGrade String @default("A") // A | B | DEFECT
-  status       String @default("AVAILABLE") // AVAILABLE | RESERVED | ISSUED | PENDING_RETURN
-  stockType    String @default("PLANNED_STOCK") // PLANNED_STOCK | EXCESS | EXCESS_MOQ | RETURNED
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(PLANNED_STOCK)
 
   // Dates
   receivedDate     DateTime
@@ -7175,7 +7208,7 @@ model lace_stock_allocation {
 model lace_stock_transaction {
   id              String @id @default(uuid())
   stockId         String
-  transactionType String // STOCK_IN | TRANSFER_OUT | TRANSFER_IN | ALLOCATION | CONSUMPTION | RETURN | ADJUSTMENT | QUALITY_DOWNGRADE
+  transactionType SpecializedStockTransactionType
 
   quantity     Decimal @db.Decimal(10, 2)
   balanceAfter Decimal @db.Decimal(10, 2)
@@ -7190,7 +7223,7 @@ model lace_stock_transaction {
   qualityGradeFrom String?
   qualityGradeTo   String?
 
-  referenceType String? // ORDER | ALLOCATION | MANUAL | PROCESSING_BATCH | GRN
+  referenceType TransactionReferenceType?
   referenceId   String?
   notes         String?
 
@@ -7243,8 +7276,8 @@ model thread_stock {
 
   // Quality & Status
   qualityGrade String @default("A") // A | B | DEFECT
-  status       String @default("AVAILABLE") // AVAILABLE | RESERVED | ISSUED
-  stockType    String @default("PLANNED_STOCK") // PLANNED_STOCK | EXCESS | RETURNED
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(PLANNED_STOCK)
 
   // Dates
   receivedDate     DateTime
@@ -7272,12 +7305,12 @@ model thread_stock {
 model thread_stock_transaction {
   id              String @id @default(uuid())
   stockId         String
-  transactionType String // STOCK_IN | ALLOCATION | CONSUMPTION | RETURN | ADJUSTMENT
+  transactionType SpecializedStockTransactionType
 
   quantity     Decimal @db.Decimal(10, 2)
   balanceAfter Decimal @db.Decimal(10, 2)
 
-  referenceType String? // GRN | ORDER | MANUAL
+  referenceType TransactionReferenceType?
   referenceId   String?
   notes         String?
 
@@ -7621,11 +7654,12 @@ model challans {
   receivedBy           users?                @relation("ChallanReceivedBy", fields: [receivedById], references: [id])
   items                challan_items[]
   // Back-references from existing models
-  jobWorkOutward       job_work_orders[]     @relation("JobWorkOutwardChallan")
-  jobWorkInward        job_work_orders[]     @relation("JobWorkInwardChallan")
-  processingMovements  processing_movement[]
-  processingDeliveries processing_delivery[]
-  cuttingBatchReturn   cutting_batches?      @relation("CuttingReturnChallan")
+  jobWorkOutward        job_work_orders[]     @relation("JobWorkOutwardChallan")
+  jobWorkInward         job_work_orders[]     @relation("JobWorkInwardChallan")
+  processingMovements   processing_movement[]
+  processingDeliveries  processing_delivery[]
+  cuttingBatchReturn    cutting_batches?      @relation("CuttingReturnChallan")
+  greigeStockTransfers  greige_stock[]        @relation("GreigeStockSourceChallan")
 
   @@index([orderId])
   @@index([productionRunId])
@@ -7660,6 +7694,10 @@ model challan_items {
 
   // Rate (if applicable, for reference)
   rate Decimal? @db.Decimal(10, 2)
+
+  // Measurement (fabric/greige)
+  foldLengthCm Decimal? @db.Decimal(5, 2) // "L" - fold length in cm
+  thanCount    Int?                        // Number of thans (folded bundles)
 
   // Component & color traceability
   componentName         String? // Garment component (Top, Shirt) — for material movement tracking
@@ -8108,6 +8146,66 @@ enum TransactionType {
   TRANSFER
 }
 
+// Unified stock status across all specialized stock tables
+enum StockStatus {
+  AVAILABLE
+  RESERVED
+  EXHAUSTED
+  ISSUED
+  PENDING_RETURN
+}
+
+// Stock entry source/type classification
+enum StockEntryType {
+  GENERIC
+  PLANNED_STOCK
+  EXCESS
+  EXCESS_MOQ
+  CROSS_STYLE_REUSE
+  RETURNED
+  VARIANCE_UNUSED
+}
+
+// Transaction types for specialized stock transaction tables
+enum SpecializedStockTransactionType {
+  STOCK_IN
+  CONSUMPTION
+  RETURN
+  RETURN_TO_SUPPLIER
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  ALLOCATION
+  TRANSFER
+  TRANSFER_OUT
+  TRANSFER_IN
+  ISSUE
+  RECEIPT
+  PRICE_CORRECTION
+  EMBROIDERY_SEND_OUT
+  EMBROIDERY_RECEIPT
+  EMBROIDERY_CANCELLED
+  QUALITY_DOWNGRADE
+}
+
+// Reference types for stock transaction audit trails
+enum TransactionReferenceType {
+  MANUAL
+  MANUAL_ADJUSTMENT
+  CHALLAN
+  GRN
+  GRN_REJECTION
+  PROCESSING_BATCH
+  ORDER
+  TRANSFER
+  ALLOCATION
+  ISSUE_NOTE
+  EMBROIDERY_SEND_OUT
+  MATERIAL_REQUIREMENT
+  PROCESSING_DELIVERY
+  PROCUREMENT
+  ADJUSTMENT
+}
+
 enum Unit {
   METER
   PIECE
@@ -8124,8 +8222,6 @@ enum Unit {
 
 enum MaterialType {
   GENERIC
-  GREIGE_FABRIC
-  FINISHED_FABRIC
   TRIMS
   LACE
   BUTTON

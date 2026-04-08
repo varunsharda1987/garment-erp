@@ -685,7 +685,7 @@ export default function ProcessorRateCardPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold">Processor Rate Cards</h1>
+          <h1 className="text-2xl font-display font-medium">Processor Rate Cards</h1>
         </div>
 
         {/* Default Rates Toggle */}
@@ -694,7 +694,7 @@ export default function ProcessorRateCardPage() {
             <Button
               variant={isDefaultRatesMode ? 'default' : 'outline'}
               onClick={toggleDefaultRatesMode}
-              className={isDefaultRatesMode ? 'bg-amber-600 hover:bg-amber-700' : ''}
+              className={isDefaultRatesMode ? 'bg-warning hover:bg-warning' : ''}
             >
               {isDefaultRatesMode ? '✓ Default Rates Mode' : 'Default Rates'}
             </Button>
@@ -715,7 +715,7 @@ export default function ProcessorRateCardPage() {
 
       {/* Material Type Toggle */}
       <div className="flex gap-2 mb-4 pb-4 border-b">
-        <span className="text-sm font-medium text-gray-700 self-center mr-2">Material Type:</span>
+        <span className="text-sm font-medium text-foreground self-center mr-2">Material Type:</span>
         <Button
           variant={materialType === 'FABRIC' ? 'default' : 'outline'}
           onClick={() => {
@@ -726,7 +726,7 @@ export default function ProcessorRateCardPage() {
             setMaterialType('FABRIC');
             setProcessingType('DYEING');
           }}
-          className={materialType === 'FABRIC' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+          className={materialType === 'FABRIC' ? 'bg-info hover:bg-info' : ''}
         >
           Fabric
         </Button>
@@ -740,7 +740,7 @@ export default function ProcessorRateCardPage() {
             setMaterialType('LACE');
             setProcessingType('DYEING'); // Lace only supports DYEING
           }}
-          className={materialType === 'LACE' ? 'bg-purple-600 hover:bg-purple-700' : ''}
+          className={materialType === 'LACE' ? 'bg-accent hover:bg-accent' : ''}
         >
           Lace
         </Button>
@@ -765,13 +765,13 @@ export default function ProcessorRateCardPage() {
               Printing
             </Button>
             {hasUnsavedChanges && (
-              <span className="text-sm text-gray-500 ml-2 self-center">Save changes before switching</span>
+              <span className="text-sm text-muted-foreground ml-2 self-center">Save changes before switching</span>
             )}
           </div>
 
           {/* Printing Type Sub-Tabs (only visible when PRINTING is selected) */}
           {processingType === 'PRINTING' && (
-            <div className="flex gap-2 mb-4 ml-4 border-l-2 border-gray-200 pl-4">
+            <div className="flex gap-2 mb-4 ml-4 border-l-2 border-border pl-4">
               {PRINTING_TYPES.map((type) => (
                 <Button
                   key={type}
@@ -779,7 +779,7 @@ export default function ProcessorRateCardPage() {
                   size="sm"
                   onClick={() => setPrintingType(type)}
                   disabled={hasUnsavedChanges}
-                  className={printingType === type ? 'bg-purple-600 hover:bg-purple-700' : ''}
+                  className={printingType === type ? 'bg-accent hover:bg-accent' : ''}
                 >
                   {PRINTING_TYPE_LABELS[type]}
                 </Button>
@@ -791,9 +791,9 @@ export default function ProcessorRateCardPage() {
 
       {/* Lace Mode Info Banner */}
       {materialType === 'LACE' && (
-        <div className="flex items-center gap-4 mb-4 bg-purple-50 border border-purple-200 rounded-lg px-4 py-2">
-          <span className="text-purple-800 font-medium">Lace Dyeing Rates</span>
-          <span className="text-purple-600 text-sm">Configure dyeing rates for greige lace processing</span>
+        <div className="flex items-center gap-4 mb-4 bg-accent/10 border border-accent/20 rounded-lg px-4 py-2">
+          <span className="text-accent font-medium">Lace Dyeing Rates</span>
+          <span className="text-accent text-sm">Configure dyeing rates for greige lace processing</span>
         </div>
       )}
 
@@ -801,9 +801,9 @@ export default function ProcessorRateCardPage() {
       <div className="flex items-center gap-4 mb-6">
         {isDefaultRatesMode ? (
           // Show banner when in Default Rates mode
-          <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-            <span className="text-amber-800 font-medium">Editing Default Processing Rates</span>
-            <span className="text-amber-600 text-sm">
+          <div className="flex items-center gap-4 bg-warning-muted border border-warning/20 rounded-lg px-4 py-2">
+            <span className="text-warning font-medium">Editing Default Processing Rates</span>
+            <span className="text-warning text-sm">
               These rates are used when no specific processor is selected in Fabric Costing
             </span>
           </div>
@@ -843,7 +843,7 @@ export default function ProcessorRateCardPage() {
       </div>
 
       {/* Loading State */}
-      {loading && <div className="text-center py-8 text-gray-500">Loading rate matrix...</div>}
+      {loading && <div className="text-center py-8 text-muted-foreground">Loading rate matrix...</div>}
 
       {/* Summary Dashboard (when no processor selected) */}
       {!selectedProcessorId && !loading && (
@@ -857,35 +857,35 @@ export default function ProcessorRateCardPage() {
 
       {/* Matrix Table */}
       {selectedProcessorId && !loading && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-card rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted">
                 <tr>
                   {materialType === 'FABRIC' ? (
                     <>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-48">
                         Generic Greige Name
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-64">
                         Greige Name
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
                         Shrinkage %
                       </th>
                     </>
                   ) : (
                     <>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-32">
                         Lace Code
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-64">
                         Lace Name
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
                         Width
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
                         Shrinkage %
                       </th>
                     </>
@@ -893,7 +893,7 @@ export default function ProcessorRateCardPage() {
                   {slabs.map((slab, index) => (
                     <th
                       key={getSlabId(slab)}
-                      className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-32 relative group"
+                      className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-32 relative group"
                     >
                       {editingSlabId === getSlabId(slab) ? (
                         <div className="flex items-center gap-1">
@@ -923,7 +923,7 @@ export default function ProcessorRateCardPage() {
                               setEditingSlabId(null);
                             }}
                           >
-                            <Check className="h-3 w-3 text-green-600" />
+                            <Check className="h-3 w-3 text-success" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -931,12 +931,12 @@ export default function ProcessorRateCardPage() {
                             className="h-6 w-6 p-0"
                             onClick={() => setEditingSlabId(null)}
                           >
-                            <X className="h-3 w-3 text-red-600" />
+                            <X className="h-3 w-3 text-destructive" />
                           </Button>
                         </div>
                       ) : (
                         <div
-                          className="cursor-pointer hover:bg-gray-100 rounded px-2 py-1"
+                          className="cursor-pointer hover:bg-muted rounded px-2 py-1"
                           onClick={() => {
                             setEditingSlabId(getSlabId(slab));
                             setTempSlabValues({ min: slab.minQuantity, max: slab.maxQuantity });
@@ -944,7 +944,7 @@ export default function ProcessorRateCardPage() {
                         >
                           {slab.slabLabel || `${slab.minQuantity}-${slab.maxQuantity}m`}
                           <button
-                            className="ml-2 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
+                            className="ml-2 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSlabDeleteClick(index, slab);
@@ -956,26 +956,26 @@ export default function ProcessorRateCardPage() {
                       )}
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                    <Button variant="ghost" size="sm" onClick={addSlab} className="text-blue-600 hover:text-blue-800">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
+                    <Button variant="ghost" size="sm" onClick={addSlab} className="text-info hover:text-info">
                       <Plus className="h-4 w-4 mr-1" />
                       Add Slab
                     </Button>
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-32">
                     <div className="flex flex-col items-center gap-1">
                       <span>Actions</span>
                       {copiedRowData && (
                         <div className="flex items-center gap-1">
                           <span
-                            className="text-xs text-green-600 font-normal normal-case truncate max-w-24"
+                            className="text-xs text-success font-normal normal-case truncate max-w-24"
                             title={`Copied: ${copiedRowData.sourceGreigeName}`}
                           >
                             📋 Copied
                           </span>
                           <button
                             onClick={clearCopiedRowData}
-                            className="text-gray-400 hover:text-red-500"
+                            className="text-muted-foreground hover:text-destructive"
                             title="Clear clipboard"
                           >
                             <X className="h-3 w-3" />
@@ -986,12 +986,12 @@ export default function ProcessorRateCardPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-gray-200">
                 {materialType === 'FABRIC' ? (
                   /* Fabric Mode */
                   greiges.length === 0 ? (
                     <tr>
-                      <td colSpan={slabs.length + 4} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={slabs.length + 4} className="px-4 py-8 text-center text-muted-foreground">
                         {slabs.length === 0
                           ? 'Add quantity slabs first, then add greige rows'
                           : 'No greige fabrics added. Click "Add Greige Row" to add fabrics.'}
@@ -999,11 +999,11 @@ export default function ProcessorRateCardPage() {
                     </tr>
                   ) : (
                     greiges.map((greige) => (
-                      <tr key={greige.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                      <tr key={greige.id} className="hover:bg-muted">
+                        <td className="px-4 py-3 text-sm text-foreground font-medium">
                           {greige.genericGreigeName || '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{greige.greigeName}</td>
+                        <td className="px-4 py-3 text-sm text-foreground">{greige.greigeName}</td>
                         <td className="px-4 py-3 text-center">
                           <Input
                             type="number"
@@ -1041,7 +1041,7 @@ export default function ProcessorRateCardPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteClick(greige)}
-                              className="text-red-500 hover:text-red-700"
+                              className="text-destructive hover:text-destructive"
                               title="Remove greige row"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1050,7 +1050,7 @@ export default function ProcessorRateCardPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => copyRowData(greige)}
-                              className="text-blue-500 hover:text-blue-700"
+                              className="text-info hover:text-info"
                               title="Copy row (shrinkage + all rates)"
                             >
                               <Clipboard className="h-4 w-4" />
@@ -1060,7 +1060,7 @@ export default function ProcessorRateCardPage() {
                               size="sm"
                               onClick={() => pasteRowData(greige.id)}
                               disabled={!copiedRowData}
-                              className={copiedRowData ? 'text-green-500 hover:text-green-700' : 'text-gray-300'}
+                              className={copiedRowData ? 'text-success hover:text-success' : 'text-gray-300'}
                               title={
                                 copiedRowData ? `Paste from "${copiedRowData.sourceGreigeName}"` : 'Copy a row first'
                               }
@@ -1075,7 +1075,7 @@ export default function ProcessorRateCardPage() {
                 ) : /* Lace Mode */
                 laces.length === 0 ? (
                   <tr>
-                    <td colSpan={slabs.length + 5} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={slabs.length + 5} className="px-4 py-8 text-center text-muted-foreground">
                       {slabs.length === 0
                         ? 'Add quantity slabs first, then add lace rows'
                         : 'No greige laces added. Click "Add Lace Row" to add laces.'}
@@ -1083,13 +1083,13 @@ export default function ProcessorRateCardPage() {
                   </tr>
                 ) : (
                   laces.map((lace) => (
-                    <tr key={lace.laceId} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900 font-mono">{lace.laceCode || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{lace.laceName}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-600">
+                    <tr key={lace.laceId} className="hover:bg-muted">
+                      <td className="px-4 py-3 text-sm text-foreground font-mono">{lace.laceCode || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{lace.laceName}</td>
+                      <td className="px-4 py-3 text-center text-sm text-muted-foreground">
                         {lace.width ? `${lace.width}"` : '-'}
                       </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-600">
+                      <td className="px-4 py-3 text-center text-sm text-muted-foreground">
                         {lace.expectedShrinkagePercent ? `${lace.expectedShrinkagePercent}%` : '-'}
                       </td>
                       {slabs.map((slab) => {
@@ -1114,7 +1114,7 @@ export default function ProcessorRateCardPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleLaceDeleteClick(lace)}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-destructive hover:text-destructive"
                             title="Remove lace row"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1133,9 +1133,9 @@ export default function ProcessorRateCardPage() {
       {/* Add Greige/Lace Modal */}
       {isAddGreigeModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg font-display font-semibold">
                 {materialType === 'FABRIC' ? 'Add Greige Fabrics' : 'Add Greige Laces'}
               </h2>
               <Button
@@ -1153,7 +1153,7 @@ export default function ProcessorRateCardPage() {
 
             <div className="p-4 border-b">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder={materialType === 'FABRIC' ? 'Search greige fabrics...' : 'Search greige laces...'}
                   value={greigeSearchTerm}
@@ -1176,10 +1176,10 @@ export default function ProcessorRateCardPage() {
                           key={greige.id}
                           className={`flex items-center p-3 border rounded-lg cursor-pointer ${
                             isExisting
-                              ? 'bg-gray-100 opacity-50 cursor-not-allowed'
+                              ? 'bg-muted opacity-50 cursor-not-allowed'
                               : isSelected
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'hover:bg-gray-50'
+                                ? 'border-info bg-info-muted'
+                                : 'hover:bg-muted'
                           }`}
                         >
                           <input
@@ -1199,11 +1199,11 @@ export default function ProcessorRateCardPage() {
                           />
                           <div className="flex-1">
                             <div className="font-medium">{greige.greigeName}</div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-muted-foreground">
                               {greige.genericGreigeName} | {greige.composition} | {greige.greigeWidth}"
                             </div>
                           </div>
-                          {isExisting && <span className="text-xs text-gray-500">Already added</span>}
+                          {isExisting && <span className="text-xs text-muted-foreground">Already added</span>}
                         </label>
                       );
                     })
@@ -1217,10 +1217,10 @@ export default function ProcessorRateCardPage() {
                           key={lace.id}
                           className={`flex items-center p-3 border rounded-lg cursor-pointer ${
                             isExisting
-                              ? 'bg-gray-100 opacity-50 cursor-not-allowed'
+                              ? 'bg-muted opacity-50 cursor-not-allowed'
                               : isSelected
-                                ? 'border-purple-500 bg-purple-50'
-                                : 'hover:bg-gray-50'
+                                ? 'border-accent bg-accent/10'
+                                : 'hover:bg-muted'
                           }`}
                         >
                           <input
@@ -1240,12 +1240,12 @@ export default function ProcessorRateCardPage() {
                           />
                           <div className="flex-1">
                             <div className="font-medium">{lace.name}</div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-muted-foreground">
                               {lace.code} | {lace.composition || 'N/A'} | {lace.width ? `${lace.width}"` : 'N/A'}
                               {lace.expectedShrinkagePercent && ` | Shrinkage: ${lace.expectedShrinkagePercent}%`}
                             </div>
                           </div>
-                          {isExisting && <span className="text-xs text-gray-500">Already added</span>}
+                          {isExisting && <span className="text-xs text-muted-foreground">Already added</span>}
                         </label>
                       );
                     })}
@@ -1277,9 +1277,9 @@ export default function ProcessorRateCardPage() {
       {/* Copy Modal */}
       {isCopyModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-md">
             <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Copy Rate Structure</h2>
+              <h2 className="text-lg font-display font-semibold">Copy Rate Structure</h2>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1295,14 +1295,14 @@ export default function ProcessorRateCardPage() {
 
             <div className="p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Source Processor</label>
-                <div className="p-2 bg-gray-100 rounded text-sm">
+                <label className="block text-sm font-medium text-foreground mb-1">Source Processor</label>
+                <div className="p-2 bg-muted rounded text-sm">
                   {processors.find((p) => p.id === selectedProcessorId)?.name}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Target Processor *</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Target Processor *</label>
                 <Select value={copyTargetProcessorId} onValueChange={setCopyTargetProcessorId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select target processor" />
@@ -1335,7 +1335,7 @@ export default function ProcessorRateCardPage() {
                 </label>
               </div>
 
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 Note: This will replace any existing rate structure for the target processor.
               </div>
             </div>

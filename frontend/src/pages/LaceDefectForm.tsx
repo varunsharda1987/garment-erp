@@ -163,7 +163,7 @@ export default function LaceDefectForm() {
   if (isViewMode && !defect) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
-        <div className="text-center py-12 text-gray-500">Defect not found</div>
+        <div className="text-center py-12 text-muted-foreground">Defect not found</div>
       </div>
     );
   }
@@ -179,8 +179,8 @@ export default function LaceDefectForm() {
             Back
           </Button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold">Defect Details</h1>
-            <p className="text-gray-500">Logged on {formatDate(defect.discoveredDate)}</p>
+            <h1 className="text-2xl font-display font-medium">Defect Details</h1>
+            <p className="text-muted-foreground">Logged on {formatDate(defect.discoveredDate)}</p>
           </div>
         </div>
 
@@ -192,7 +192,7 @@ export default function LaceDefectForm() {
           <Badge className={`${CLAIM_STATUS_COLORS[defect.claimStatus]} border text-sm`}>
             {CLAIM_STATUS_LABELS[defect.claimStatus]}
           </Badge>
-          <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-sm">
+          <Badge className="bg-muted text-foreground border-border text-sm">
             Discovered at {DISCOVERED_AT_LABELS[defect.discoveredAt]}
           </Badge>
         </div>
@@ -208,24 +208,24 @@ export default function LaceDefectForm() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Type</span>
+                <span className="text-muted-foreground">Type</span>
                 <span className="font-medium">{DEFECT_TYPE_LABELS[defect.defectType]}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Quantity</span>
-                <span className="font-bold text-red-600">{defect.defectQuantity.toLocaleString()}m</span>
+                <span className="text-muted-foreground">Quantity</span>
+                <span className="font-bold text-destructive">{defect.defectQuantity.toLocaleString()}m</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Discovered At</span>
+                <span className="text-muted-foreground">Discovered At</span>
                 <span>{DISCOVERED_AT_LABELS[defect.discoveredAt]}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Discovered Date</span>
+                <span className="text-muted-foreground">Discovered Date</span>
                 <span>{formatDate(defect.discoveredDate)}</span>
               </div>
               {defect.discoveredBy && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-gray-500">Discovered By</span>
+                  <span className="text-muted-foreground">Discovered By</span>
                   <span>
                     {defect.discoveredBy.firstName} {defect.discoveredBy.lastName}
                   </span>
@@ -233,7 +233,7 @@ export default function LaceDefectForm() {
               )}
               {defect.defectDescription && (
                 <div className="py-2">
-                  <span className="text-gray-500 block mb-1">Description</span>
+                  <span className="text-muted-foreground block mb-1">Description</span>
                   <p className="text-sm">{defect.defectDescription}</p>
                 </div>
               )}
@@ -249,44 +249,44 @@ export default function LaceDefectForm() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Status</span>
+                <span className="text-muted-foreground">Status</span>
                 <Badge className={`${CLAIM_STATUS_COLORS[defect.claimStatus]} border`}>
                   {CLAIM_STATUS_LABELS[defect.claimStatus]}
                 </Badge>
               </div>
               {defect.claimReference && (
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-500">Reference</span>
+                  <span className="text-muted-foreground">Reference</span>
                   <span className="font-mono">{defect.claimReference}</span>
                 </div>
               )}
               {defect.claimAmount !== null && defect.claimAmount !== undefined && (
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-500">Amount</span>
+                  <span className="text-muted-foreground">Amount</span>
                   <span className="font-bold">{formatCurrency(defect.claimAmount)}</span>
                 </div>
               )}
               {defect.claimSubmittedDate && (
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-500">Submitted Date</span>
+                  <span className="text-muted-foreground">Submitted Date</span>
                   <span>{formatDate(defect.claimSubmittedDate)}</span>
                 </div>
               )}
               {defect.claimResolvedDate && (
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-500">Resolved Date</span>
+                  <span className="text-muted-foreground">Resolved Date</span>
                   <span>{formatDate(defect.claimResolvedDate)}</span>
                 </div>
               )}
               {defect.claimResolution && (
                 <div className="py-2">
-                  <span className="text-gray-500 block mb-1">Resolution</span>
+                  <span className="text-muted-foreground block mb-1">Resolution</span>
                   <p className="text-sm">{defect.claimResolution}</p>
                 </div>
               )}
               {defect.replacementRequired && (
                 <div className="py-2 border-t">
-                  <div className="flex items-center gap-2 text-green-600">
+                  <div className="flex items-center gap-2 text-success">
                     <span>Replacement Required</span>
                     {defect.replacementQuantity && (
                       <span className="font-bold">{defect.replacementQuantity.toLocaleString()}m</span>
@@ -311,8 +311,8 @@ export default function LaceDefectForm() {
           Back
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">Log Defect</h1>
-          <p className="text-gray-500">Record a lace defect discovered during production</p>
+          <h1 className="text-2xl font-display font-medium">Log Defect</h1>
+          <p className="text-muted-foreground">Record a lace defect discovered during production</p>
         </div>
       </div>
 
@@ -342,7 +342,7 @@ export default function LaceDefectForm() {
                   </Select>
                 </div>
                 {selectedStock && (
-                  <div className="p-3 bg-gray-50 rounded-lg text-sm">
+                  <div className="p-3 bg-muted rounded-lg text-sm">
                     <p>
                       <strong>Lace:</strong> {selectedStock.laceMaster?.laceName}
                     </p>
@@ -455,7 +455,7 @@ export default function LaceDefectForm() {
                   placeholder="Related style ID"
                 />
               </div>
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              <div className="p-3 bg-warning-muted border border-warning/20 rounded-lg text-sm text-warning">
                 <p>After logging the defect, you can submit a claim from the defects list page.</p>
               </div>
             </CardContent>

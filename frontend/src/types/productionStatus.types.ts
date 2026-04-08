@@ -78,6 +78,7 @@ export interface ProductionStatusItem {
     inPrinting: number;
     inDying: number;
     inEmbroidery: number;
+    inSmocking: number;
     inHandwork: number;
     inCutting: number;
     inStitching: number;

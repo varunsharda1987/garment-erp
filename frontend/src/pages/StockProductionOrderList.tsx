@@ -42,11 +42,11 @@ interface StyleSearchResult {
 }
 
 const STATUS_COLORS: Record<StockProductionOrderStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  APPROVED: 'bg-blue-100 text-blue-800',
+  DRAFT: 'bg-muted text-foreground',
+  APPROVED: 'bg-info-muted text-info',
   IN_PRODUCTION: 'bg-yellow-100 text-yellow-800',
-  COMPLETED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  COMPLETED: 'bg-success-muted text-success',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
 export default function StockProductionOrderList() {
@@ -151,7 +151,7 @@ export default function StockProductionOrderList() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
             <Warehouse className="h-6 w-6" />
             Stock Production Orders
           </h1>
@@ -274,7 +274,7 @@ export default function StockProductionOrderList() {
                               setDeleteDialogOpen(true);
                             }}
                           >
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
                       </div>
@@ -407,7 +407,7 @@ export default function StockProductionOrderList() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive"
               onClick={() => spoToDelete && deleteMutation.mutate(spoToDelete.id)}
             >
               Delete

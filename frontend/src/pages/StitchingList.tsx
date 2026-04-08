@@ -194,9 +194,9 @@ export default function StitchingList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Shirt className="h-8 w-8 text-blue-600" />
+          <Shirt className="h-8 w-8 text-info" />
           <div>
-            <h1 className="text-2xl font-bold">Stitching Department</h1>
+            <h1 className="text-2xl font-display font-medium">Stitching Department</h1>
             <p className="text-muted-foreground">Track stitching issues, incoming from cutting, and size-wise status</p>
           </div>
         </div>
@@ -229,7 +229,7 @@ export default function StitchingList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending Receipt</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-600">{summary.pendingReceipt}</div>
+              <div className="text-2xl font-bold text-muted-foreground">{summary.pendingReceipt}</div>
             </CardContent>
           </Card>
           <Card>
@@ -237,7 +237,7 @@ export default function StitchingList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Received</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{summary.received}</div>
+              <div className="text-2xl font-bold text-warning">{summary.received}</div>
             </CardContent>
           </Card>
           <Card>
@@ -245,7 +245,7 @@ export default function StitchingList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{summary.inProgress}</div>
+              <div className="text-2xl font-bold text-info">{summary.inProgress}</div>
             </CardContent>
           </Card>
           <Card>
@@ -253,7 +253,7 @@ export default function StitchingList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
+              <div className="text-2xl font-bold text-success">{summary.completed}</div>
             </CardContent>
           </Card>
           <Card>
@@ -261,7 +261,7 @@ export default function StitchingList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Completed Pcs</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{summary.totalCompleted.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-accent">{summary.totalCompleted.toLocaleString()}</div>
             </CardContent>
           </Card>
         </div>
@@ -386,7 +386,7 @@ export default function StitchingList() {
                                 onClick={() => handleReceive(issue.id)}
                                 title="Receive from Cutting"
                               >
-                                <ClipboardCheck className="h-4 w-4 text-yellow-600" />
+                                <ClipboardCheck className="h-4 w-4 text-warning" />
                               </Button>
                             )}
                             {issue.status === 'RECEIVED' && (
@@ -396,7 +396,7 @@ export default function StitchingList() {
                                 onClick={() => handleStart(issue.id)}
                                 title="Start Stitching"
                               >
-                                <Play className="h-4 w-4 text-blue-600" />
+                                <Play className="h-4 w-4 text-info" />
                               </Button>
                             )}
                             {issue.status === 'IN_PROGRESS' && (
@@ -406,7 +406,7 @@ export default function StitchingList() {
                                 onClick={() => handleComplete(issue.id)}
                                 title="Complete Stitching"
                               >
-                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <CheckCircle className="h-4 w-4 text-success" />
                               </Button>
                             )}
                             {issue.status === 'COMPLETED' && (
@@ -416,7 +416,7 @@ export default function StitchingList() {
                                 onClick={() => handleGenerateTransferSlip(issue.id)}
                                 title="Issue to Finishing"
                               >
-                                <Truck className="h-4 w-4 text-purple-600" />
+                                <Truck className="h-4 w-4 text-accent" />
                               </Button>
                             )}
                           </div>
@@ -591,13 +591,13 @@ export default function StitchingList() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-sm mt-2">
-                    <span className="text-gray-500">
+                    <span className="text-muted-foreground">
                       Pending: <strong>{item.totalPending}</strong>
                     </span>
-                    <span className="text-blue-600">
+                    <span className="text-info">
                       Running: <strong>{item.totalInProgress}</strong>
                     </span>
-                    <span className="text-green-600">
+                    <span className="text-success">
                       Done: <strong>{item.totalCompleted}</strong>
                     </span>
                   </div>
@@ -617,21 +617,17 @@ export default function StitchingList() {
                       {item.sizes.map((size) => (
                         <TableRow key={size.sizeId}>
                           <TableCell className="font-medium">{size.sizeName}</TableCell>
-                          <TableCell className="text-right text-gray-600">{size.pending || '-'}</TableCell>
-                          <TableCell className="text-right text-blue-600 font-medium">
-                            {size.inProgress || '-'}
-                          </TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">
-                            {size.completed || '-'}
-                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">{size.pending || '-'}</TableCell>
+                          <TableCell className="text-right text-info font-medium">{size.inProgress || '-'}</TableCell>
+                          <TableCell className="text-right text-success font-medium">{size.completed || '-'}</TableCell>
                           <TableCell className="text-right font-bold">{size.total}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-bold border-t-2">
                         <TableCell>Total</TableCell>
-                        <TableCell className="text-right text-gray-600">{item.totalPending}</TableCell>
-                        <TableCell className="text-right text-blue-600">{item.totalInProgress}</TableCell>
-                        <TableCell className="text-right text-green-600">{item.totalCompleted}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.totalPending}</TableCell>
+                        <TableCell className="text-right text-info">{item.totalInProgress}</TableCell>
+                        <TableCell className="text-right text-success">{item.totalCompleted}</TableCell>
                         <TableCell className="text-right">
                           {item.totalPending + item.totalInProgress + item.totalCompleted}
                         </TableCell>

@@ -150,12 +150,12 @@ export default function LaceCostingSection({
   const laceTotal = laceDetails.filter((l) => !l.isNotApplicable).reduce((sum, l) => sum + (l.totalCost || 0), 0);
 
   return (
-    <div className="border rounded-lg p-4 bg-white">
+    <div className="border rounded-lg p-4 bg-card">
       {/* Section Header */}
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
           Lace Details
-          <span className="text-sm font-normal text-gray-500">
+          <span className="text-sm font-normal text-muted-foreground">
             ({laceDetails.length} item{laceDetails.length !== 1 ? 's' : ''})
           </span>
         </h3>
@@ -187,47 +187,47 @@ export default function LaceCostingSection({
 
       {/* Lace Table */}
       {laceDetails.length === 0 ? (
-        <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <p className="text-gray-500">No lace items added yet.</p>
-          <p className="text-sm text-gray-400 mt-1">
+        <div className="text-center py-8 bg-muted rounded-lg border-2 border-dashed border-border">
+          <p className="text-muted-foreground">No lace items added yet.</p>
+          <p className="text-sm text-muted-foreground mt-1">
             Select a lace from the dropdown above to add it to the cost sheet.
           </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-10">
                   #
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Lace Name
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
                   Qty/Garment
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-20">
                   Wastage
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
                   Effective
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Sourcing
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider w-24">
                   Cost
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider w-12">
                   N/A
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider w-20">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-gray-200">
               {laceDetails.map((lace, index) => (
                 <LaceCostingRow
                   key={lace.laceId + '-' + index}
@@ -251,12 +251,12 @@ export default function LaceCostingSection({
                 />
               ))}
             </tbody>
-            <tfoot className="bg-gray-50">
+            <tfoot className="bg-muted">
               <tr>
-                <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
+                <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-foreground text-right">
                   Total Lace Cost:
                 </td>
-                <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">₹{laceTotal.toFixed(2)}</td>
+                <td className="px-4 py-3 text-sm font-bold text-foreground text-right">₹{laceTotal.toFixed(2)}</td>
                 <td colSpan={2}></td>
               </tr>
             </tfoot>
@@ -265,7 +265,7 @@ export default function LaceCostingSection({
       )}
 
       {/* Helper Text */}
-      <div className="mt-3 text-xs text-gray-500">
+      <div className="mt-3 text-xs text-muted-foreground">
         <p>
           <strong>Sourcing Strategies:</strong> Stock Reuse (use existing inventory), Ready Lace (purchase finished
           lace), or Greige + Dyeing (buy raw lace and process).

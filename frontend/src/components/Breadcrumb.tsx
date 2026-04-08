@@ -32,9 +32,9 @@ export default function Breadcrumb() {
   }
 
   return (
-    <nav className="flex items-center space-x-1 text-sm text-gray-600">
+    <nav className="flex items-center space-x-1 text-sm text-muted-foreground">
       {/* Home */}
-      <Link to="/dashboard" className="flex items-center hover:text-indigo-600 transition-colors">
+      <Link to="/dashboard" className="flex items-center hover:text-primary transition-colors">
         <Home className="h-4 w-4" />
       </Link>
 
@@ -48,9 +48,9 @@ export default function Breadcrumb() {
           <div key={to} className="flex items-center">
             <ChevronRight className="h-4 w-4 mx-1" />
             {isLast ? (
-              <span className="font-medium text-gray-900">{label}</span>
+              <span className="font-medium text-foreground">{label}</span>
             ) : (
-              <Link to={to} className="hover:text-indigo-600 transition-colors">
+              <Link to={to} className="hover:text-primary transition-colors">
                 {label}
               </Link>
             )}

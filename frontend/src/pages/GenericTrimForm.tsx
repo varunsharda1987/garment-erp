@@ -156,7 +156,7 @@ export default function GenericTrimForm() {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="p-6 text-center">
-            <p className="text-gray-500">Invalid trim type specified.</p>
+            <p className="text-muted-foreground">Invalid trim type specified.</p>
             <Button variant="outline" className="mt-4" onClick={() => navigate('/trim-masters')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Trim Masters
@@ -205,7 +205,7 @@ export default function GenericTrimForm() {
       return (
         <div className="flex items-center space-x-2">
           <Switch checked={!!value} onCheckedChange={(checked) => handleInputChange(field.name, checked)} />
-          <span className="text-sm text-gray-600">{value ? 'Yes' : 'No'}</span>
+          <span className="text-sm text-muted-foreground">{value ? 'Yes' : 'No'}</span>
         </div>
       );
     }
@@ -241,10 +241,10 @@ export default function GenericTrimForm() {
           Back
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-display font-medium text-foreground">
             {isEditMode ? 'Edit' : 'Add New'} {config.label}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {isEditMode ? 'Update the details below' : 'Fill in the details below'}
           </p>
         </div>
@@ -257,13 +257,15 @@ export default function GenericTrimForm() {
           </CardHeader>
           <CardContent className="space-y-6">
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">{error}</div>
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
+                {error}
+              </div>
             )}
 
             {/* Name field (required) */}
             <div className="space-y-2">
               <Label htmlFor={config.nameField}>
-                {config.label} Name <span className="text-red-500">*</span>
+                {config.label} Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id={config.nameField}
@@ -280,7 +282,7 @@ export default function GenericTrimForm() {
                 <div key={field.name} className="space-y-2">
                   <Label htmlFor={field.name}>
                     {field.label}
-                    {field.required && <span className="text-red-500">*</span>}
+                    {field.required && <span className="text-destructive">*</span>}
                   </Label>
                   {renderField(field)}
                 </div>

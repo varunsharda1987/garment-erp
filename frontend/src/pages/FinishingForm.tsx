@@ -273,34 +273,34 @@ export default function FinishingForm() {
                   </SelectContent>
                 </Select>
                 {pendingTransferSlips.length === 0 && (
-                  <p className="text-sm text-amber-600 mt-2">
+                  <p className="text-sm text-warning mt-2">
                     No pending transfer slips from stitching. Complete stitching issues first.
                   </p>
                 )}
               </div>
 
               {selectedTransferSlip && (
-                <div className="bg-purple-50 p-4 rounded-lg space-y-2">
+                <div className="bg-accent/10 p-4 rounded-lg space-y-2">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-500">Work Order:</span>
+                      <span className="text-muted-foreground">Work Order:</span>
                       <div className="font-medium">{selectedTransferSlip.workOrderNumber}</div>
                     </div>
                     <div>
-                      <span className="text-gray-500">Style:</span>
+                      <span className="text-muted-foreground">Style:</span>
                       <div className="font-medium">
                         {selectedTransferSlip.styleCode || selectedTransferSlip.styleName}
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-500">Transfer Date:</span>
+                      <span className="text-muted-foreground">Transfer Date:</span>
                       <div className="font-medium">
                         {new Date(selectedTransferSlip.transferDate).toLocaleDateString()}
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-500">Total Pieces:</span>
-                      <div className="font-medium text-green-600">{selectedTransferSlip.totalGoodPieces}</div>
+                      <span className="text-muted-foreground">Total Pieces:</span>
+                      <div className="font-medium text-success">{selectedTransferSlip.totalGoodPieces}</div>
                     </div>
                   </div>
                 </div>
@@ -401,7 +401,7 @@ export default function FinishingForm() {
                         <TableRow key={`${sku.colorId || 'null'}-${sku.sizeId}`}>
                           <TableCell className="font-medium">{sku.colorName || '—'}</TableCell>
                           <TableCell>{sku.sizeName}</TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">{sku.availableQty}</TableCell>
+                          <TableCell className="text-right text-success font-medium">{sku.availableQty}</TableCell>
                           <TableCell className="text-right">
                             <Input
                               type="number"
@@ -415,20 +415,20 @@ export default function FinishingForm() {
                         </TableRow>
                       ))}
                     </TableBody>
-                    <tfoot className="bg-gray-50">
+                    <tfoot className="bg-muted">
                       <tr>
                         <td colSpan={2} className="px-4 py-3 text-sm font-semibold">
                           Total
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-green-600">{getTotalAvailable()}</td>
-                        <td className="px-4 py-3 text-sm text-right font-bold text-purple-600">{getTotalIssued()}</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-success">{getTotalAvailable()}</td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-accent">{getTotalIssued()}</td>
                       </tr>
                     </tfoot>
                   </Table>
                 </div>
 
                 {getTotalIssued() < getTotalAvailable() && (
-                  <p className="text-sm text-amber-600 mt-2">
+                  <p className="text-sm text-warning mt-2">
                     Note: You are issuing {getTotalIssued()} of {getTotalAvailable()} available pieces. Remaining pieces
                     can be issued later.
                   </p>
@@ -442,8 +442,8 @@ export default function FinishingForm() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <div className="text-sm text-gray-500">Total pieces to be issued for finishing</div>
-                  <div className="text-3xl font-bold text-purple-600">{getTotalIssued()}</div>
+                  <div className="text-sm text-muted-foreground">Total pieces to be issued for finishing</div>
+                  <div className="text-3xl font-bold text-accent">{getTotalIssued()}</div>
                 </div>
 
                 <div className="flex gap-4">

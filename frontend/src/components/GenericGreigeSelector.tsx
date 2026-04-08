@@ -181,14 +181,14 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
       {label && (
         <Label>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-destructive ml-1">*</span>}
         </Label>
       )}
 
       {/* Input with Dropdown */}
       <div className="relative" ref={dropdownRef}>
         <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
           </div>
           <Input
@@ -200,13 +200,13 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
-            className={cn('pl-10 pr-10', error && 'border-red-500 focus:ring-red-500')}
+            className={cn('pl-10 pr-10', error && 'border-destructive focus:ring-red-500')}
           />
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
             disabled={disabled}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
           >
             <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'transform rotate-180')} />
           </button>
@@ -214,7 +214,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
 
         {/* Dropdown List */}
         {isOpen && !disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-64 overflow-auto">
+          <div className="absolute z-50 w-full mt-1 bg-card border rounded-md shadow-lg max-h-64 overflow-auto">
             {filteredGreiges.length > 0 ? (
               <div className="py-1">
                 {filteredGreiges.map((greige, index) => (
@@ -226,27 +226,26 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
                     onMouseEnter={() => setHighlightedIndex(index)}
                     className={cn(
                       'w-full px-3 py-2 text-left text-sm flex items-center justify-between',
-                      'hover:bg-gray-100 focus:bg-gray-100 focus:outline-none',
-                      highlightedIndex === index && 'bg-gray-100',
-                      value === greige && 'bg-blue-50'
+                      'hover:bg-muted focus:bg-muted focus:outline-none',
+                      highlightedIndex === index && 'bg-muted',
+                      value === greige && 'bg-info-muted'
                     )}
                   >
                     <span className="flex items-center gap-2">
-                      <Layers className="h-3.5 w-3.5 text-gray-400" />
+                      <Layers className="h-3.5 w-3.5 text-muted-foreground" />
                       {greige}
                     </span>
-                    {value === greige && <Check className="h-4 w-4 text-blue-600" />}
+                    {value === greige && <Check className="h-4 w-4 text-info" />}
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="px-3 py-6 text-center text-sm text-gray-500">
+              <div className="px-3 py-6 text-center text-sm text-muted-foreground">
                 {searchQuery ? (
                   <div>
                     <p className="mb-2">No matching greige types found.</p>
                     <p className="text-xs">
-                      Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Enter</kbd> to use "{searchQuery}
-                      "
+                      Press <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs">Enter</kbd> to use "{searchQuery}"
                     </p>
                   </div>
                 ) : greigeTypes.length === 0 ? (
@@ -264,7 +263,7 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
       </div>
 
       {/* Error message only */}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 };

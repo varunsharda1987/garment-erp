@@ -319,7 +319,7 @@ export default function StitchingDetail() {
           else if (issue.status === 'COMPLETED' && hasTransferSlip) currentStep = 5;
 
           return (
-            <div className="bg-white border rounded-lg p-4">
+            <div className="bg-card border rounded-lg p-4">
               <div className="flex items-center justify-between">
                 {steps.map((step, idx) => (
                   <div key={idx} className="flex items-center flex-1">
@@ -327,26 +327,26 @@ export default function StitchingDetail() {
                       <div
                         className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
                           idx < currentStep
-                            ? 'bg-green-600 border-green-600 text-white'
+                            ? 'bg-success border-success text-white'
                             : idx === currentStep
-                              ? 'bg-blue-600 border-blue-600 text-white animate-pulse'
-                              : 'bg-gray-100 border-gray-300 text-gray-400'
+                              ? 'bg-info border-info text-white animate-pulse'
+                              : 'bg-muted border-border text-muted-foreground'
                         }`}
                       >
                         {idx < currentStep ? <Check className="h-4 w-4" /> : idx + 1}
                       </div>
                       <div className="text-center mt-1.5">
                         <div
-                          className={`text-xs font-medium ${idx <= currentStep ? 'text-gray-900' : 'text-gray-400'}`}
+                          className={`text-xs font-medium ${idx <= currentStep ? 'text-foreground' : 'text-muted-foreground'}`}
                         >
                           {step.label}
                         </div>
-                        <div className="text-[10px] text-gray-400">{step.desc}</div>
+                        <div className="text-[10px] text-muted-foreground">{step.desc}</div>
                       </div>
                     </div>
                     {idx < steps.length - 1 && (
                       <div
-                        className={`flex-1 h-0.5 mx-2 mt-[-20px] ${idx < currentStep ? 'bg-green-600' : 'bg-gray-200'}`}
+                        className={`flex-1 h-0.5 mx-2 mt-[-20px] ${idx < currentStep ? 'bg-success' : 'bg-gray-200'}`}
                       />
                     )}
                   </div>
@@ -365,16 +365,14 @@ export default function StitchingDetail() {
 
           if (issue.status === 'PENDING_RECEIPT') {
             return (
-              <Card className="border-blue-200 bg-blue-50">
+              <Card className="border-info/20 bg-info-muted">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <ClipboardCheck className="h-6 w-6 text-blue-600" />
+                      <ClipboardCheck className="h-6 w-6 text-info" />
                       <div>
-                        <div className="font-semibold text-blue-900">Step 1: Receive from Cutting</div>
-                        <div className="text-sm text-blue-700">
-                          Confirm receipt of items from the cutting department
-                        </div>
+                        <div className="font-semibold text-info">Step 1: Receive from Cutting</div>
+                        <div className="text-sm text-info">Confirm receipt of items from the cutting department</div>
                       </div>
                     </div>
                     <Button onClick={handleReceive} disabled={actionLoading}>
@@ -389,14 +387,14 @@ export default function StitchingDetail() {
 
           if (issue.status === 'RECEIVED') {
             return (
-              <Card className="border-blue-200 bg-blue-50">
+              <Card className="border-info/20 bg-info-muted">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Play className="h-6 w-6 text-blue-600" />
+                      <Play className="h-6 w-6 text-info" />
                       <div>
-                        <div className="font-semibold text-blue-900">Step 2: Start Stitching</div>
-                        <div className="text-sm text-blue-700">Begin production work on this issue</div>
+                        <div className="font-semibold text-info">Step 2: Start Stitching</div>
+                        <div className="text-sm text-info">Begin production work on this issue</div>
                       </div>
                     </div>
                     <Button onClick={handleStart} disabled={actionLoading}>
@@ -411,16 +409,16 @@ export default function StitchingDetail() {
 
           if (issue.status === 'IN_PROGRESS') {
             return (
-              <Card className={hasOutput ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}>
+              <Card className={hasOutput ? 'border-success/20 bg-success-muted' : 'border-warning/20 bg-warning-muted'}>
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Plus className={hasOutput ? 'h-6 w-6 text-green-600' : 'h-6 w-6 text-amber-600'} />
+                      <Plus className={hasOutput ? 'h-6 w-6 text-success' : 'h-6 w-6 text-warning'} />
                       <div>
-                        <div className={hasOutput ? 'font-semibold text-green-900' : 'font-semibold text-amber-900'}>
+                        <div className={hasOutput ? 'font-semibold text-success' : 'font-semibold text-warning'}>
                           {hasOutput ? 'Step 4: Complete or Record More' : 'Step 3: Record Daily Output'}
                         </div>
-                        <div className={hasOutput ? 'text-sm text-green-700' : 'text-sm text-amber-700'}>
+                        <div className={hasOutput ? 'text-sm text-success' : 'text-sm text-warning'}>
                           {hasOutput
                             ? `${getTotalCompleted()} of ${getTotalIssued()} pieces recorded. Record more output or mark complete.`
                             : 'Record the daily stitching output before completing this issue'}
@@ -447,14 +445,14 @@ export default function StitchingDetail() {
 
           if (issue.status === 'COMPLETED' && !hasTransferSlip) {
             return (
-              <Card className="border-purple-200 bg-purple-50">
+              <Card className="border-accent/20 bg-accent/10">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Truck className="h-6 w-6 text-purple-600" />
+                      <Truck className="h-6 w-6 text-accent" />
                       <div>
-                        <div className="font-semibold text-purple-900">Step 5: Transfer to Finishing</div>
-                        <div className="text-sm text-purple-700">
+                        <div className="font-semibold text-accent">Step 5: Transfer to Finishing</div>
+                        <div className="text-sm text-accent">
                           Generate a transfer slip to send {getTotalCompleted()} pieces to the finishing department
                         </div>
                       </div>
@@ -477,14 +475,14 @@ export default function StitchingDetail() {
 
           if (issue.status === 'COMPLETED' && hasTransferSlip) {
             return (
-              <Card className="border-green-200 bg-green-50">
+              <Card className="border-success/20 bg-success-muted">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
+                      <CheckCircle className="h-6 w-6 text-success" />
                       <div>
-                        <div className="font-semibold text-green-900">Transfer Slip Generated</div>
-                        <div className="text-sm text-green-700">
+                        <div className="font-semibold text-success">Transfer Slip Generated</div>
+                        <div className="text-sm text-success">
                           Slip <span className="font-medium">{transferSlip.slipNumber}</span> has been created. Create a
                           finishing issue from the Finishing page.
                         </div>
@@ -514,23 +512,23 @@ export default function StitchingDetail() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
               <div>
-                <div className="text-sm text-gray-500 mb-1">Status</div>
+                <div className="text-sm text-muted-foreground mb-1">Status</div>
                 {getStatusBadge(issue.status)}
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Total Issued</div>
+                <div className="text-sm text-muted-foreground mb-1">Total Issued</div>
                 <div className="text-2xl font-bold">{getTotalIssued()}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Completed</div>
-                <div className="text-2xl font-bold text-green-600">{getTotalCompleted()}</div>
+                <div className="text-sm text-muted-foreground mb-1">Completed</div>
+                <div className="text-2xl font-bold text-success">{getTotalCompleted()}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Defects</div>
-                <div className="text-2xl font-bold text-red-600">{getTotalDefects()}</div>
+                <div className="text-sm text-muted-foreground mb-1">Defects</div>
+                <div className="text-2xl font-bold text-destructive">{getTotalDefects()}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Progress</div>
+                <div className="text-sm text-muted-foreground mb-1">Progress</div>
                 <div className="text-2xl font-bold">{progress}%</div>
               </div>
             </div>
@@ -539,15 +537,15 @@ export default function StitchingDetail() {
             <div className="mt-6">
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
-                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-green-600' : 'bg-blue-600'}`}
+                  className={`h-3 rounded-full transition-all ${progress === 100 ? 'bg-success' : 'bg-info'}`}
                   style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
 
             {issue.status === 'COMPLETED' && getTotalCompleted() === 0 && (
-              <Alert className="mt-4 border-amber-200 bg-amber-50">
-                <AlertDescription className="text-amber-800">
+              <Alert className="mt-4 border-warning/20 bg-warning-muted">
+                <AlertDescription className="text-warning">
                   This issue was completed without recording output. New issues require output to be recorded before
                   completion.
                 </AlertDescription>
@@ -567,26 +565,26 @@ export default function StitchingDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Work Order</span>
+                <span className="text-muted-foreground">Work Order</span>
                 <span
-                  className="font-medium text-blue-600 cursor-pointer hover:underline"
+                  className="font-medium text-info cursor-pointer hover:underline"
                   onClick={() => navigate(`/production/work-orders/${issue.workOrderId}`)}
                 >
                   {issue.workOrder?.workOrderNumber || '-'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Style</span>
+                <span className="text-muted-foreground">Style</span>
                 <span className="font-medium">
                   {issue.workOrder?.style?.styleCode} - {issue.workOrder?.style?.styleName}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Customer</span>
+                <span className="text-muted-foreground">Customer</span>
                 <span className="font-medium">{issue.workOrder?.order?.customer?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Issue Date</span>
+                <span className="text-muted-foreground">Issue Date</span>
                 <span className="font-medium">{format(new Date(issue.issueDate), 'dd MMM yyyy')}</span>
               </div>
             </CardContent>
@@ -601,24 +599,24 @@ export default function StitchingDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-500">Contractor</span>
+                <span className="text-muted-foreground">Contractor</span>
                 <span className="font-medium">{issue.contractor?.name || issue.manager?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Expected Completion</span>
+                <span className="text-muted-foreground">Expected Completion</span>
                 <span className="font-medium">
                   {issue.expectedCompletionDate ? format(new Date(issue.expectedCompletionDate), 'dd MMM yyyy') : '-'}
                 </span>
               </div>
               {issue.startDate && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Started On</span>
+                  <span className="text-muted-foreground">Started On</span>
                   <span className="font-medium">{format(new Date(issue.startDate), 'dd MMM yyyy')}</span>
                 </div>
               )}
               {issue.endDate && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Completed On</span>
+                  <span className="text-muted-foreground">Completed On</span>
                   <span className="font-medium">{format(new Date(issue.endDate), 'dd MMM yyyy')}</span>
                 </div>
               )}
@@ -659,13 +657,13 @@ export default function StitchingDetail() {
                           <TableCell>{sku.size?.sizeName || '-'}</TableCell>
                           <TableCell className="text-right">{sku.availableQty}</TableCell>
                           <TableCell className="text-right font-medium">{sku.issuedQty}</TableCell>
-                          <TableCell className="text-right font-medium text-green-600">{completed}</TableCell>
-                          <TableCell className="text-right font-medium text-amber-600">{remaining}</TableCell>
+                          <TableCell className="text-right font-medium text-success">{completed}</TableCell>
+                          <TableCell className="text-right font-medium text-warning">{remaining}</TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
-                  <tfoot className="bg-gray-50">
+                  <tfoot className="bg-muted">
                     <tr>
                       <td colSpan={2} className="px-4 py-3 text-sm font-semibold">
                         Total
@@ -674,8 +672,8 @@ export default function StitchingDetail() {
                         {issue.skuBreakdown.reduce((sum, s) => sum + s.availableQty, 0)}
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-bold">{getTotalIssued()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-green-600">{getTotalCompleted()}</td>
-                      <td className="px-4 py-3 text-sm text-right font-bold text-amber-600">
+                      <td className="px-4 py-3 text-sm text-right font-bold text-success">{getTotalCompleted()}</td>
+                      <td className="px-4 py-3 text-sm text-right font-bold text-warning">
                         {getTotalIssued() - getTotalCompleted()}
                       </td>
                     </tr>
@@ -706,25 +704,25 @@ export default function StitchingDetail() {
                     <div key={output.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-400" />
+                          <Clock className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium">{format(new Date(output.outputDate), 'dd MMM yyyy')}</span>
                         </div>
                         <div className="flex items-center gap-4 text-sm">
-                          <span className="text-green-600">Good: {totalGood}</span>
-                          <span className="text-red-600">Defect: {totalDefect}</span>
+                          <span className="text-success">Good: {totalGood}</span>
+                          <span className="text-destructive">Defect: {totalDefect}</span>
                         </div>
                       </div>
                       {output.skuOutputs && output.skuOutputs.length > 0 && (
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-muted-foreground">
                           {output.skuOutputs.map((sku, idx) => (
                             <span key={idx} className="mr-4">
                               {sku.color?.colorName}/{sku.size?.sizeName}: {sku.goodQty}
-                              {sku.defectQty > 0 && <span className="text-red-500"> (-{sku.defectQty})</span>}
+                              {sku.defectQty > 0 && <span className="text-destructive"> (-{sku.defectQty})</span>}
                             </span>
                           ))}
                         </div>
                       )}
-                      {output.remarks && <p className="text-sm text-gray-500 mt-2 italic">{output.remarks}</p>}
+                      {output.remarks && <p className="text-sm text-muted-foreground mt-2 italic">{output.remarks}</p>}
                     </div>
                   );
                 })}
@@ -740,7 +738,7 @@ export default function StitchingDetail() {
               <CardTitle>Remarks</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700 whitespace-pre-wrap">{issue.remarks}</p>
+              <p className="text-foreground whitespace-pre-wrap">{issue.remarks}</p>
             </CardContent>
           </Card>
         )}
@@ -780,7 +778,7 @@ export default function StitchingDetail() {
                       <TableRow key={`${entry.colorId}-${entry.sizeId}`}>
                         <TableCell>{entry.colorName}</TableCell>
                         <TableCell>{entry.sizeName}</TableCell>
-                        <TableCell className="text-right text-amber-600 font-medium">{remaining}</TableCell>
+                        <TableCell className="text-right text-warning font-medium">{remaining}</TableCell>
                         <TableCell className="text-right">
                           <Input
                             type="number"
@@ -807,15 +805,15 @@ export default function StitchingDetail() {
                     );
                   })}
                 </TableBody>
-                <tfoot className="bg-gray-50">
+                <tfoot className="bg-muted">
                   <tr>
                     <td colSpan={3} className="px-4 py-2 font-semibold text-right">
                       Today's Total:
                     </td>
-                    <td className="px-4 py-2 text-right font-bold text-green-600">
+                    <td className="px-4 py-2 text-right font-bold text-success">
                       {outputEntries.reduce((sum, e) => sum + e.goodQty, 0)}
                     </td>
-                    <td className="px-4 py-2 text-right font-bold text-red-600">
+                    <td className="px-4 py-2 text-right font-bold text-destructive">
                       {outputEntries.reduce((sum, e) => sum + e.defectQty, 0)}
                     </td>
                   </tr>

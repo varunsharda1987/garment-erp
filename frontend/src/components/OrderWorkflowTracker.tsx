@@ -37,27 +37,27 @@ const statusStyles: Record<
 > = {
   completed: {
     icon: <Check className="h-4 w-4" />,
-    bg: 'bg-green-100',
-    text: 'text-green-700',
-    border: 'border-green-500',
+    bg: 'bg-success-muted',
+    text: 'text-success',
+    border: 'border-success',
   },
   in_progress: {
     icon: <Circle className="h-4 w-4 fill-current" />,
-    bg: 'bg-blue-100',
-    text: 'text-blue-700',
-    border: 'border-blue-500',
+    bg: 'bg-info-muted',
+    text: 'text-info',
+    border: 'border-info',
   },
   pending: {
     icon: <Circle className="h-4 w-4" />,
-    bg: 'bg-gray-100',
-    text: 'text-gray-500',
-    border: 'border-gray-300',
+    bg: 'bg-muted',
+    text: 'text-muted-foreground',
+    border: 'border-border',
   },
   blocked: {
     icon: <AlertCircle className="h-4 w-4" />,
-    bg: 'bg-gray-100',
-    text: 'text-gray-400',
-    border: 'border-gray-200',
+    bg: 'bg-muted',
+    text: 'text-muted-foreground',
+    border: 'border-border',
   },
 };
 
@@ -98,7 +98,9 @@ export function OrderWorkflowTracker({ steps, className }: OrderWorkflowTrackerP
                     </span>
                   </div>
                   <span className={cn('mt-2 text-sm font-medium', styles.text)}>{step.label}</span>
-                  <span className="text-xs text-gray-500 text-center mt-1 max-w-[100px]">{step.description}</span>
+                  <span className="text-xs text-muted-foreground text-center mt-1 max-w-[100px]">
+                    {step.description}
+                  </span>
                   {step.action && step.status !== 'blocked' && (
                     <Button
                       size="sm"
@@ -116,7 +118,7 @@ export function OrderWorkflowTracker({ steps, className }: OrderWorkflowTrackerP
                 {!isLast && (
                   <div className="flex-1 flex items-center justify-center px-2">
                     <ArrowRight
-                      className={cn('h-5 w-5', step.status === 'completed' ? 'text-green-500' : 'text-gray-300')}
+                      className={cn('h-5 w-5', step.status === 'completed' ? 'text-success' : 'text-gray-300')}
                     />
                   </div>
                 )}

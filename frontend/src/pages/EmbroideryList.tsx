@@ -114,13 +114,13 @@ export default function EmbroideryList() {
               loading="lazy"
             />
           ) : (
-            <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-gray-400" />
+            <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-muted-foreground" />
             </div>
           )}
           <div>
-            <div className="text-sm font-medium text-gray-900">{item.designName}</div>
-            {item.description && <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>}
+            <div className="text-sm font-medium text-foreground">{item.designName}</div>
+            {item.description && <div className="text-xs text-muted-foreground line-clamp-1">{item.description}</div>}
           </div>
         </div>
       ),
@@ -129,30 +129,30 @@ export default function EmbroideryList() {
       key: 'stitchCount',
       header: 'Stitches',
       render: (item) => (
-        <div className="text-sm text-gray-700">{item.stitchCount ? item.stitchCount.toLocaleString() : '-'}</div>
+        <div className="text-sm text-foreground">{item.stitchCount ? item.stitchCount.toLocaleString() : '-'}</div>
       ),
     },
     {
       key: 'threadColors',
       header: 'Colors',
-      render: (item) => <div className="text-sm text-gray-700">{item.threadColors || '-'}</div>,
+      render: (item) => <div className="text-sm text-foreground">{item.threadColors || '-'}</div>,
     },
     {
       key: 'usableWidthAfter',
       header: 'Usable Width',
       render: (item) => (
-        <div className="text-sm text-gray-700">{item.usableWidthAfter ? `${item.usableWidthAfter}"` : '-'}</div>
+        <div className="text-sm text-foreground">{item.usableWidthAfter ? `${item.usableWidthAfter}"` : '-'}</div>
       ),
     },
     {
       key: 'costPerMeter',
       header: 'Cost/Meter',
-      render: (item) => <div className="text-sm font-medium text-gray-900">{formatCurrency(item.costPerMeter)}</div>,
+      render: (item) => <div className="text-sm font-medium text-foreground">{formatCurrency(item.costPerMeter)}</div>,
     },
     {
       key: 'supplier',
       header: 'Supplier',
-      render: (item) => <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>,
+      render: (item) => <div className="text-sm text-foreground">{item.supplier?.name || '-'}</div>,
     },
     {
       key: 'usageCount',
@@ -204,7 +204,7 @@ export default function EmbroideryList() {
             }}
             disabled={item.usageCount !== undefined && item.usageCount > 0}
           >
-            <Trash2 className="h-4 w-4 text-red-500" />
+            <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
       ),
@@ -243,10 +243,10 @@ export default function EmbroideryList() {
           </div>
 
           {/* Error */}
-          {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">{error}</div>}
+          {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-4">{error}</div>}
 
           {/* Stats */}
-          <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
             <span>Total: {totalItems} designs</span>
           </div>
 

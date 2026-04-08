@@ -41,7 +41,7 @@ function getAgeBadge(days: number) {
       </Badge>
     );
   return (
-    <Badge variant="secondary" className="bg-green-100 text-green-800">
+    <Badge variant="secondary" className="bg-success-muted text-success">
       Fresh ({days}d)
     </Badge>
   );
@@ -50,7 +50,7 @@ function getAgeBadge(days: number) {
 function getQualityBadge(grade: string) {
   switch (grade) {
     case 'A':
-      return <Badge className="bg-green-100 text-green-800 border-green-200">A</Badge>;
+      return <Badge className="bg-success-muted text-success border-success/20">A</Badge>;
     case 'B':
       return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">B</Badge>;
     case 'DEFECT':
@@ -309,16 +309,16 @@ export default function GreigeAvailableStock() {
   return (
     <div className="mx-auto py-8 px-4 max-w-[1600px]">
       {/* Breadcrumb */}
-      <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">
+      <div className="mb-4 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-info">
           Home
         </Link>
         {' > '}
-        <Link to="/greige" className="hover:text-blue-600">
+        <Link to="/greige" className="hover:text-info">
           Greige Master
         </Link>
         {' > '}
-        <span className="font-medium text-gray-900">Stock View</span>
+        <span className="font-medium text-foreground">Stock View</span>
       </div>
 
       {/* Back Button */}
@@ -334,10 +334,10 @@ export default function GreigeAvailableStock() {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Package2 className="h-6 w-6 text-blue-600" />
+                <Package2 className="h-6 w-6 text-info" />
                 Generic Greige Stock
               </CardTitle>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Available greige fabric stock that can be allocated to any future style
               </p>
             </div>
@@ -356,29 +356,29 @@ export default function GreigeAvailableStock() {
         <CardContent>
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-2 text-sm text-blue-600 font-medium">
+            <div className="p-4 bg-info-muted rounded-lg border border-info/20">
+              <div className="flex items-center gap-2 text-sm text-info font-medium">
                 <Layers className="h-4 w-4" />
                 Total Greige Types
               </div>
-              <div className="text-2xl font-bold text-blue-900">{filteredStock.length}</div>
+              <div className="text-2xl font-bold text-info">{filteredStock.length}</div>
             </div>
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+            <div className="p-4 bg-success-muted rounded-lg border border-success/20">
+              <div className="flex items-center gap-2 text-sm text-success font-medium">
                 <Package2 className="h-4 w-4" />
                 Total Stock
               </div>
-              <div className="text-2xl font-bold text-green-900">{getTotalStock().toFixed(2)} m</div>
+              <div className="text-2xl font-bold text-success">{getTotalStock().toFixed(2)} m</div>
             </div>
-            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+            <div className="p-4 bg-accent/10 rounded-lg border border-accent/20">
+              <div className="flex items-center gap-2 text-sm text-accent font-medium">
                 <IndianRupee className="h-4 w-4" />
                 Total Value
               </div>
-              <div className="text-2xl font-bold text-purple-900">{formatCurrency(getTotalValue())}</div>
+              <div className="text-2xl font-bold text-accent">{formatCurrency(getTotalValue())}</div>
             </div>
-            <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-              <div className="flex items-center gap-2 text-sm text-orange-600 font-medium">
+            <div className="p-4 bg-primary/10 rounded-lg border border-orange-200">
+              <div className="flex items-center gap-2 text-sm text-primary font-medium">
                 <AlertTriangle className="h-4 w-4" />
                 Aged Stock (&gt;180d)
               </div>
@@ -389,7 +389,7 @@ export default function GreigeAvailableStock() {
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search greige code, name, composition..."
@@ -440,7 +440,7 @@ export default function GreigeAvailableStock() {
               <div className="text-lg">Loading greige stock...</div>
             </div>
           ) : filteredStock.length === 0 ? (
-            <div className="flex flex-col justify-center items-center h-64 text-gray-500">
+            <div className="flex flex-col justify-center items-center h-64 text-muted-foreground">
               <Package2 className="h-16 w-16 text-gray-300 mb-4" />
               <p>No greige stock found</p>
               <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/greige-stock-entry')}>
@@ -451,61 +451,79 @@ export default function GreigeAvailableStock() {
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-[1400px] w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
                       <th className="w-10 px-2 py-3"></th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Greige Code</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Composition</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Greige Code
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Composition
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                         Greige Quality
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weaver</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Width</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Stock</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Warehouse</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Value</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Age</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Avg Cost/m</th>
-                      <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase">Entries</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Weaver
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Width
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Total Stock
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Warehouse
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Total Value
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Age</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Avg Cost/m
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Entries
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-card divide-y divide-gray-200">
                     {paginatedStock.map((stock) => (
                       <>
                         {/* Aggregated row */}
                         <tr
                           key={stock.greigeId}
-                          className="hover:bg-gray-50 cursor-pointer"
+                          className="hover:bg-muted cursor-pointer"
                           onClick={() => toggleRowExpand(stock.greigeId)}
                         >
                           <td className="px-2 py-3 text-center">
                             {expandedRows.has(stock.greigeId) ? (
-                              <ChevronDown className="h-4 w-4 text-gray-500" />
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
                             ) : (
-                              <ChevronRight className="h-4 w-4 text-gray-500" />
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm font-medium">
                             <Link
                               to={`/greige/${stock.greigeId}`}
-                              className="text-blue-600 hover:text-blue-800 hover:underline"
+                              className="text-info hover:text-info hover:underline"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {stock.greigeCode}
                             </Link>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{stock.greigeName}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{stock.composition}</td>
+                          <td className="px-4 py-3 text-sm text-foreground">{stock.greigeName}</td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">{stock.composition}</td>
                           <td className="px-3 py-3 text-sm text-center">
                             {stock.greigeQuality ? (
                               <Badge
                                 variant="outline"
                                 className={
                                   stock.greigeQuality === 'SUPER_DYEING'
-                                    ? 'bg-purple-100 text-purple-800 border-purple-200'
+                                    ? 'bg-accent/10 text-accent border-accent/20'
                                     : stock.greigeQuality === 'DYEING'
-                                      ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                      ? 'bg-info-muted text-info border-info/20'
                                       : 'bg-orange-100 text-orange-800 border-orange-200'
                                 }
                               >
@@ -516,11 +534,11 @@ export default function GreigeAvailableStock() {
                                     : 'Printing'}
                               </Badge>
                             ) : (
-                              <span className="text-gray-400">-</span>
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {stock.weaver || <span className="text-gray-400">-</span>}
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
+                            {stock.weaver || <span className="text-muted-foreground">-</span>}
                           </td>
                           <td className="px-3 py-3 text-sm text-center">
                             {stock.greigeWidth != null ? (
@@ -532,16 +550,16 @@ export default function GreigeAvailableStock() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm text-right">
-                            <span className="font-semibold text-green-600">{stock.totalStock.toFixed(2)}</span>
+                            <span className="font-semibold text-success">{stock.totalStock.toFixed(2)}</span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
                             {(stock.warehouses || []).length > 0 ? (
                               <div className="flex items-center gap-1">
-                                <Warehouse className="h-3 w-3 text-gray-400" />
+                                <Warehouse className="h-3 w-3 text-muted-foreground" />
                                 <span>{stock.warehouses.join(', ')}</span>
                               </div>
                             ) : (
-                              <span className="text-gray-400">-</span>
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm text-right font-medium">
@@ -552,7 +570,7 @@ export default function GreigeAvailableStock() {
                             {stock.totalStock > 0 ? (
                               formatCurrency(stock.totalValue / stock.totalStock)
                             ) : (
-                              <span className="text-gray-400">-</span>
+                              <span className="text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-3 py-3 text-sm text-center">
@@ -564,15 +582,17 @@ export default function GreigeAvailableStock() {
                         {expandedRows.has(stock.greigeId) && (
                           <tr key={`${stock.greigeId}-expanded`}>
                             <td colSpan={13} className="px-0 py-0">
-                              <div className="bg-gray-50 border-t border-b border-gray-200 px-8 py-4">
+                              <div className="bg-muted border-t border-b border-border px-8 py-4">
                                 {loadingExpanded.has(stock.greigeId) ? (
-                                  <div className="text-center py-4 text-gray-500">Loading entries...</div>
+                                  <div className="text-center py-4 text-muted-foreground">Loading entries...</div>
                                 ) : (expandedRowData[stock.greigeId] || []).length === 0 ? (
-                                  <div className="text-center py-4 text-gray-500">No individual entries found</div>
+                                  <div className="text-center py-4 text-muted-foreground">
+                                    No individual entries found
+                                  </div>
                                 ) : (
                                   <table className="w-full text-sm">
                                     <thead>
-                                      <tr className="text-xs text-gray-500 uppercase border-b">
+                                      <tr className="text-xs text-muted-foreground uppercase border-b">
                                         <th className="px-3 py-2 text-right">Qty Avail</th>
                                         <th className="px-3 py-2 text-right">Qty Reserved</th>
                                         <th className="px-3 py-2 text-center">Width</th>
@@ -588,17 +608,17 @@ export default function GreigeAvailableStock() {
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                       {(expandedRowData[stock.greigeId] || []).map((entry) => (
-                                        <tr key={entry.id} className="hover:bg-white">
-                                          <td className="px-3 py-2 text-right font-medium text-green-600">
+                                        <tr key={entry.id} className="hover:bg-card">
+                                          <td className="px-3 py-2 text-right font-medium text-success">
                                             {entry.quantityAvailable.toFixed(2)}
                                           </td>
-                                          <td className="px-3 py-2 text-right text-orange-600">
+                                          <td className="px-3 py-2 text-right text-primary">
                                             {entry.quantityReserved > 0 ? entry.quantityReserved.toFixed(2) : '-'}
                                           </td>
                                           <td className="px-3 py-2 text-center">
                                             {entry.greigeWidth}"
                                             {entry.cutableWidth != null && (
-                                              <span className="text-xs text-gray-400 ml-1">
+                                              <span className="text-xs text-muted-foreground ml-1">
                                                 ({entry.cutableWidth}")
                                               </span>
                                             )}
@@ -606,14 +626,16 @@ export default function GreigeAvailableStock() {
                                           <td className="px-3 py-2 text-right">
                                             {entry.purchaseCost != null ? formatCurrency(entry.purchaseCost) : '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-gray-600">{entry.warehouseLocation || '-'}</td>
+                                          <td className="px-3 py-2 text-muted-foreground">
+                                            {entry.warehouseLocation || '-'}
+                                          </td>
                                           <td
-                                            className="px-3 py-2 text-gray-600 max-w-[150px] truncate"
+                                            className="px-3 py-2 text-muted-foreground max-w-[150px] truncate"
                                             title={entry.rollNumbers || ''}
                                           >
                                             {entry.rollNumbers || '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-gray-600">
+                                          <td className="px-3 py-2 text-muted-foreground">
                                             {entry.receivedDate
                                               ? new Date(entry.receivedDate).toLocaleDateString('en-IN')
                                               : '-'}
@@ -624,7 +646,7 @@ export default function GreigeAvailableStock() {
                                               {entry.status}
                                             </Badge>
                                           </td>
-                                          <td className="px-3 py-2 text-gray-600 text-xs">
+                                          <td className="px-3 py-2 text-muted-foreground text-xs">
                                             {entry.supplier?.name || '-'}
                                           </td>
                                           <td className="px-3 py-2 text-center">
@@ -643,7 +665,7 @@ export default function GreigeAvailableStock() {
                                               <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="h-7 w-7 p-0 text-orange-600 hover:text-orange-700"
+                                                className="h-7 w-7 p-0 text-primary hover:text-primary"
                                                 title="Adjust Stock"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
@@ -678,7 +700,7 @@ export default function GreigeAvailableStock() {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4 px-2">
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-muted-foreground">
                     Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filteredStock.length)} of{' '}
                     {filteredStock.length}
                   </div>
@@ -786,9 +808,9 @@ export default function GreigeAvailableStock() {
             <DialogTitle>Adjust Stock</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="p-3 bg-gray-50 rounded-lg text-sm">
-              <span className="text-gray-500">Current Available:</span>
-              <span className="ml-2 font-semibold text-green-600">
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <span className="text-muted-foreground">Current Available:</span>
+              <span className="ml-2 font-semibold text-success">
                 {adjustingEntry?.quantityAvailable.toFixed(2)} meters
               </span>
             </div>
@@ -820,7 +842,7 @@ export default function GreigeAvailableStock() {
                 adjustForm.quantity &&
                 adjustingEntry &&
                 parseFloat(adjustForm.quantity) > adjustingEntry.quantityAvailable && (
-                  <p className="text-xs text-red-500">Cannot decrease more than available stock</p>
+                  <p className="text-xs text-destructive">Cannot decrease more than available stock</p>
                 )}
             </div>
             <div className="space-y-2">

@@ -139,13 +139,13 @@ export default function CADPlanningList() {
   const getPurposeBadgeClass = (purpose: string | null) => {
     switch (purpose) {
       case 'PRODUCTION':
-        return 'bg-green-100 text-green-700 border-green-200';
+        return 'bg-success-muted text-success border-success/20';
       case 'RAW_MATERIAL_CALCULATION':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
+        return 'bg-info-muted text-info border-info/20';
       case 'COSTING':
-        return 'bg-amber-100 text-amber-700 border-amber-200';
+        return 'bg-warning/10 text-warning border-warning/20';
       default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -188,7 +188,7 @@ export default function CADPlanningList() {
 
     return (
       <div className="flex items-center justify-between px-4 py-3 border-t">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-muted-foreground">
           Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalStyles)} of {totalStyles}{' '}
           results
         </div>
@@ -224,7 +224,7 @@ export default function CADPlanningList() {
   // Render CAD details sub-table grouped by purpose
   const renderCADDetails = (cadDetails: CADWidthDetail[]) => {
     if (!cadDetails || cadDetails.length === 0) {
-      return <div className="text-center py-4 text-gray-500 text-sm">No CAD entries found for this style</div>;
+      return <div className="text-center py-4 text-muted-foreground text-sm">No CAD entries found for this style</div>;
     }
 
     // Group by purpose
@@ -246,29 +246,29 @@ export default function CADPlanningList() {
     const renderGroupTable = (items: CADWidthDetail[]) => (
       <Table className="border-0">
         <TableHeader>
-          <TableRow className="bg-gray-100/50 hover:bg-gray-100/50">
-            <TableHead className="text-xs font-medium text-gray-600 py-2">Width</TableHead>
-            <TableHead className="text-xs font-medium text-gray-600 py-2">Greige</TableHead>
-            <TableHead className="text-xs font-medium text-gray-600 py-2">Layer Length (m)</TableHead>
-            <TableHead className="text-xs font-medium text-gray-600 py-2">CAD Avg (m)</TableHead>
+          <TableRow className="bg-muted/50 hover:bg-muted/50">
+            <TableHead className="text-xs font-medium text-muted-foreground py-2">Width</TableHead>
+            <TableHead className="text-xs font-medium text-muted-foreground py-2">Greige</TableHead>
+            <TableHead className="text-xs font-medium text-muted-foreground py-2">Layer Length (m)</TableHead>
+            <TableHead className="text-xs font-medium text-muted-foreground py-2">CAD Avg (m)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((cad) => (
-            <TableRow key={cad.id} className="hover:bg-gray-50/50">
+            <TableRow key={cad.id} className="hover:bg-muted/50">
               <TableCell className="py-2">
                 <Badge variant="outline" className="font-mono">
                   {cad.cutableWidth}"
                 </Badge>
               </TableCell>
               <TableCell className="py-2 text-sm">
-                {cad.greigeName || <span className="text-gray-400">-</span>}
-                {cad.greigeCode && <span className="text-xs text-gray-400 ml-1">({cad.greigeCode})</span>}
+                {cad.greigeName || <span className="text-muted-foreground">-</span>}
+                {cad.greigeCode && <span className="text-xs text-muted-foreground ml-1">({cad.greigeCode})</span>}
               </TableCell>
               <TableCell className="py-2 text-sm font-mono">
                 {cad.layerLength ? cad.layerLength.toFixed(3) : '-'}
               </TableCell>
-              <TableCell className="py-2 text-sm font-mono font-semibold text-blue-600">
+              <TableCell className="py-2 text-sm font-mono font-semibold text-info">
                 {cad.cadAverage ? cad.cadAverage.toFixed(4) : '-'}
               </TableCell>
             </TableRow>
@@ -283,11 +283,11 @@ export default function CADPlanningList() {
           if (items.length === 0) return null;
           return (
             <div key={purpose} className="border rounded-md overflow-hidden">
-              <div className="bg-gray-50 px-3 py-2 flex items-center gap-2 border-b">
+              <div className="bg-muted px-3 py-2 flex items-center gap-2 border-b">
                 <Badge variant="outline" className={`text-xs ${getPurposeBadgeClass(purpose)}`}>
                   {getPurposeLabel(purpose)}
                 </Badge>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   ({items.length} width{items.length !== 1 ? 's' : ''})
                 </span>
               </div>
@@ -339,7 +339,7 @@ export default function CADPlanningList() {
               <CheckCircle2 className="h-4 w-4" />
               Approved
               {statusCounts.APPROVED > 0 && (
-                <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-success-muted text-success">
                   {statusCounts.APPROVED}
                 </span>
               )}
@@ -358,7 +358,9 @@ export default function CADPlanningList() {
                   className="max-w-lg"
                 />
                 {searchQuery && (
-                  <p className="text-xs text-gray-500 mt-1">Searching across both Pending and Approved styles</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Searching across both Pending and Approved styles
+                  </p>
                 )}
               </div>
 
@@ -371,7 +373,7 @@ export default function CADPlanningList() {
 
               {/* Error state */}
               {error && !isLoading && (
-                <div className="text-center py-12 text-red-600">
+                <div className="text-center py-12 text-destructive">
                   <p>{error}</p>
                   <Button variant="outline" className="mt-4" onClick={() => refetchStyles()}>
                     Retry
@@ -399,7 +401,7 @@ export default function CADPlanningList() {
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50">
+                      <TableRow className="bg-muted">
                         <TableHead className="w-10"></TableHead>
                         <TableHead className="w-16">Image</TableHead>
                         <TableHead>Style Code</TableHead>
@@ -415,10 +417,7 @@ export default function CADPlanningList() {
                       {styles.map((style) => (
                         <React.Fragment key={style.id}>
                           {/* Main Row */}
-                          <TableRow
-                            className="hover:bg-gray-50 cursor-pointer"
-                            onClick={() => toggleRowExpand(style.id)}
-                          >
+                          <TableRow className="hover:bg-muted cursor-pointer" onClick={() => toggleRowExpand(style.id)}>
                             {/* Expand/Collapse */}
                             <TableCell className="w-10 px-2">
                               <Button
@@ -440,7 +439,7 @@ export default function CADPlanningList() {
 
                             {/* Image */}
                             <TableCell className="w-16">
-                              <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                              <div className="w-12 h-12 rounded overflow-hidden bg-muted flex-shrink-0">
                                 {style.imageUrl ? (
                                   <img
                                     src={getUploadUrl(style.imageUrl)}
@@ -452,7 +451,7 @@ export default function CADPlanningList() {
                                     }}
                                   />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
                                     No img
                                   </div>
                                 )}
@@ -462,8 +461,11 @@ export default function CADPlanningList() {
                             {/* Style Code */}
                             <TableCell>
                               <div>
-                                <div className="font-medium text-blue-600">{style.styleCode}</div>
-                                <div className="text-sm text-gray-500 truncate max-w-[180px]" title={style.styleName}>
+                                <div className="font-medium text-info">{style.styleCode}</div>
+                                <div
+                                  className="text-sm text-muted-foreground truncate max-w-[180px]"
+                                  title={style.styleName}
+                                >
                                   {style.styleName}
                                 </div>
                               </div>
@@ -473,7 +475,7 @@ export default function CADPlanningList() {
                             <TableCell>
                               <div>
                                 <div className="font-medium">{style.buyerName || '-'}</div>
-                                <div className="text-sm text-gray-500">{style.brandName || '-'}</div>
+                                <div className="text-sm text-muted-foreground">{style.brandName || '-'}</div>
                               </div>
                             </TableCell>
 
@@ -511,8 +513,8 @@ export default function CADPlanningList() {
                                     variant="outline"
                                     className={`text-[10px] ${
                                       style.cadStatus === 'APPROVED'
-                                        ? 'bg-green-50 text-green-600 border-green-200'
-                                        : 'bg-yellow-50 text-yellow-600 border-yellow-200'
+                                        ? 'bg-success-muted text-success border-success/20'
+                                        : 'bg-warning-muted text-warning border-yellow-200'
                                     }`}
                                   >
                                     {style.cadStatus === 'APPROVED' ? 'Approved' : 'Pending'}
@@ -520,7 +522,7 @@ export default function CADPlanningList() {
                                 )}
                                 {/* Show CAD count if available */}
                                 {style.cadDetails && style.cadDetails.length > 0 && (
-                                  <span className="text-xs text-gray-500">
+                                  <span className="text-xs text-muted-foreground">
                                     {style.cadDetails.length} width{style.cadDetails?.length !== 1 ? 's' : ''}
                                   </span>
                                 )}
@@ -531,7 +533,7 @@ export default function CADPlanningList() {
                             <TableCell>
                               <div className="flex flex-wrap gap-1">
                                 {getPendingPurposes(style.cadDetails).length === 0 ? (
-                                  <span className="text-xs text-green-600 font-medium">All Complete</span>
+                                  <span className="text-xs text-success font-medium">All Complete</span>
                                 ) : (
                                   getPendingPurposes(style.cadDetails).map((purpose) => (
                                     <Badge key={purpose} variant="outline" className="text-xs text-muted-foreground">
@@ -575,10 +577,10 @@ export default function CADPlanningList() {
 
                           {/* Expanded Row - CAD Details */}
                           {expandedRows.has(style.id) && (
-                            <TableRow className="bg-gray-50/50">
+                            <TableRow className="bg-muted/50">
                               <TableCell colSpan={9} className="p-0">
                                 <div className="px-12 py-3 border-t border-gray-100">
-                                  <div className="text-xs font-medium text-gray-600 mb-2 uppercase tracking-wide">
+                                  <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                                     CAD Width Details
                                   </div>
                                   {renderCADDetails(style.cadDetails || [])}

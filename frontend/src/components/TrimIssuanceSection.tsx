@@ -95,8 +95,8 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
-          <span className="text-gray-500">Loading trim data...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-info mr-2" />
+          <span className="text-muted-foreground">Loading trim data...</span>
         </CardContent>
       </Card>
     );
@@ -114,7 +114,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Scissors className="h-5 w-5 text-blue-600" />
+              <Scissors className="h-5 w-5 text-info" />
               <CardTitle className="text-lg">Trim Issuance — Stitching</CardTitle>
             </div>
             {itemsWithStock.length > 0 && (
@@ -130,7 +130,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
               </Button>
             )}
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Issue trims, buttons, threads, and accessories from store to stitching department.
           </p>
         </CardHeader>
@@ -158,7 +158,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
                 return (
                   <TableRow
                     key={item.bomItemId}
-                    className={isSelected ? 'bg-blue-50' : hasStock ? 'cursor-pointer hover:bg-gray-50' : 'opacity-50'}
+                    className={isSelected ? 'bg-info-muted' : hasStock ? 'cursor-pointer hover:bg-muted' : 'opacity-50'}
                     onClick={() => {
                       if (item.materialId && hasStock && remaining > 0) {
                         setSelected((prev) => ({ ...prev, [item.materialId!]: !prev[item.materialId!] }));
@@ -187,10 +187,10 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
                     </TableCell>
                     <TableCell className="text-right">{item.qtyPerPiece}</TableCell>
                     <TableCell className="text-right">{item.requiredQty.toFixed(1)}</TableCell>
-                    <TableCell className="text-right text-green-600">
+                    <TableCell className="text-right text-success">
                       {item.alreadyIssued > 0 ? item.alreadyIssued.toFixed(1) : '-'}
                     </TableCell>
-                    <TableCell className={`text-right ${item.shortage > 0 ? 'text-red-600 font-medium' : ''}`}>
+                    <TableCell className={`text-right ${item.shortage > 0 ? 'text-destructive font-medium' : ''}`}>
                       {item.availableStock.toFixed(1)}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
@@ -203,7 +203,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
                           onChange={(e) => setQuantities((prev) => ({ ...prev, [item.materialId!]: e.target.value }))}
                         />
                       ) : (
-                        <span className="text-gray-400">{remaining <= 0 ? 'Done' : 'No stock'}</span>
+                        <span className="text-muted-foreground">{remaining <= 0 ? 'Done' : 'No stock'}</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -213,9 +213,9 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
           </Table>
 
           {hasShortage && (
-            <Alert className="bg-amber-50 border-amber-200 mt-3">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
+            <Alert className="bg-warning-muted border-warning/20 mt-3">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertDescription className="text-warning">
                 Some trims have insufficient stock. Ensure materials are procured before stitching begins.
               </AlertDescription>
             </Alert>
@@ -227,7 +227,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <CheckCircle className="h-5 w-5 text-success" />
               <CardTitle className="text-lg">Issued Trim Challans</CardTitle>
             </div>
           </CardHeader>
@@ -250,7 +250,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
                     <TableCell>
                       <Badge
                         className={
-                          challan.status === 'ISSUED' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                          challan.status === 'ISSUED' ? 'bg-info-muted text-info' : 'bg-success-muted text-success'
                         }
                       >
                         {challan.status}

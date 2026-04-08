@@ -381,6 +381,7 @@ export interface FabricIssuanceAnalysis {
   cadAverage: number;
   cadSet: boolean;
   availableStock: number;
+  issuedStock: number; // Meters already issued via challans
   maxPcsFromStock: number | null;
   requiredForOrder: number;
   shortfallMeters: number;

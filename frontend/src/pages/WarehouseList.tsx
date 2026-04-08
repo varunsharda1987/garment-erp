@@ -101,12 +101,12 @@ export default function WarehouseList() {
     {
       key: 'warehouseCode',
       header: 'Code',
-      render: (wh) => <div className="font-medium text-gray-900">{wh.warehouseCode}</div>,
+      render: (wh) => <div className="font-medium text-foreground">{wh.warehouseCode}</div>,
     },
     {
       key: 'warehouseName',
       header: 'Name',
-      render: (wh) => <div className="text-sm text-gray-900">{wh.warehouseName}</div>,
+      render: (wh) => <div className="text-sm text-foreground">{wh.warehouseName}</div>,
     },
     {
       key: 'warehouseType',
@@ -120,8 +120,8 @@ export default function WarehouseList() {
       header: 'Location',
       render: (wh) => (
         <div>
-          <div className="text-sm text-gray-900">{wh.city || '-'}</div>
-          {wh.state && <div className="text-xs text-gray-500">{wh.state}</div>}
+          <div className="text-sm text-foreground">{wh.city || '-'}</div>
+          {wh.state && <div className="text-xs text-muted-foreground">{wh.state}</div>}
         </div>
       ),
     },
@@ -130,8 +130,8 @@ export default function WarehouseList() {
       header: 'Contact',
       render: (wh) => (
         <div>
-          {wh.contactPerson && <div className="text-sm text-gray-900">{wh.contactPerson}</div>}
-          {wh.contactPhone && <div className="text-xs text-gray-500">{wh.contactPhone}</div>}
+          {wh.contactPerson && <div className="text-sm text-foreground">{wh.contactPerson}</div>}
+          {wh.contactPhone && <div className="text-xs text-muted-foreground">{wh.contactPhone}</div>}
         </div>
       ),
     },

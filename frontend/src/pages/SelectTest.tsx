@@ -11,12 +11,12 @@ export default function SelectTest() {
   ];
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-bold mb-8">Select Component Test</h1>
+    <div className="p-8 bg-muted min-h-screen">
+      <h1 className="text-2xl font-display font-medium mb-8">Select Component Test</h1>
 
       {/* Test 1: Basic Select with simple text */}
-      <div className="mb-8 p-6 bg-white rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Test 1: Basic Select</h2>
+      <div className="mb-8 p-6 bg-card rounded-lg shadow">
+        <h2 className="text-lg font-display font-semibold mb-4">Test 1: Basic Select</h2>
         <Select value={value} onValueChange={setValue}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select an option" />
@@ -31,8 +31,8 @@ export default function SelectTest() {
       </div>
 
       {/* Test 2: Select with inline styles */}
-      <div className="mb-8 p-6 bg-white rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Test 2: Select with Inline Styles</h2>
+      <div className="mb-8 p-6 bg-card rounded-lg shadow">
+        <h2 className="text-lg font-display font-semibold mb-4">Test 2: Select with Inline Styles</h2>
         <Select value={value} onValueChange={setValue}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select an option" />
@@ -48,8 +48,8 @@ export default function SelectTest() {
       </div>
 
       {/* Test 3: Plain HTML select as comparison */}
-      <div className="mb-8 p-6 bg-white rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Test 3: Native HTML Select (Comparison)</h2>
+      <div className="mb-8 p-6 bg-card rounded-lg shadow">
+        <h2 className="text-lg font-display font-semibold mb-4">Test 3: Native HTML Select (Comparison)</h2>
         <select className="w-full h-10 px-3 border rounded-md" onChange={(e) => setValue(e.target.value)}>
           <option value="">Select an option</option>
           {testData.map((item) => (
@@ -61,11 +61,11 @@ export default function SelectTest() {
       </div>
 
       {/* Test 4: Div with same styling */}
-      <div className="mb-8 p-6 bg-white rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Test 4: DIV Element Test (Should be visible)</h2>
+      <div className="mb-8 p-6 bg-card rounded-lg shadow">
+        <h2 className="text-lg font-display font-semibold mb-4">Test 4: DIV Element Test (Should be visible)</h2>
         <div className="border rounded-md p-2">
           {testData.map((item) => (
-            <div key={item.id} className="px-3 py-2 cursor-pointer hover:bg-gray-100" style={{ color: '#111827' }}>
+            <div key={item.id} className="px-3 py-2 cursor-pointer hover:bg-muted" style={{ color: '#111827' }}>
               {item.name} ({item.code})
             </div>
           ))}
@@ -73,7 +73,7 @@ export default function SelectTest() {
       </div>
 
       {/* Instructions */}
-      <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="p-6 bg-info-muted border border-info/20 rounded-lg">
         <h3 className="font-semibold mb-2">Diagnostic Instructions:</h3>
         <ol className="list-decimal list-inside space-y-2 text-sm">
           <li>Open browser DevTools (F12)</li>

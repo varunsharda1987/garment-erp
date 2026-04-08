@@ -407,7 +407,7 @@ async function calculateGreigeProcessingCost(
     where: {
       materials: {
         greigeId: fabric.greigeId,
-        materialType: 'GREIGE_FABRIC',
+        materialType: 'GREIGE',
       },
       quantity: { gt: 0 },
       valuationRate: { not: null },

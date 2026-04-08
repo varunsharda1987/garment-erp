@@ -178,7 +178,7 @@ export default function UnifiedRequirementsPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-2xl font-display font-medium flex items-center gap-2">
           <FileText className="h-6 w-6" />
           Procurement Requirements
         </h1>
@@ -209,8 +209,8 @@ export default function UnifiedRequirementsPage() {
                 <p className="text-xs text-muted-foreground">Total</p>
                 <p className="text-xl font-bold">{totalRequirements}</p>
               </div>
-              <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center">
-                <FileText className="h-4 w-4 text-blue-600" />
+              <div className="h-9 w-9 rounded-full bg-info-muted flex items-center justify-center">
+                <FileText className="h-4 w-4 text-info" />
               </div>
             </div>
           </CardContent>
@@ -221,10 +221,10 @@ export default function UnifiedRequirementsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Needs Assignment</p>
-                <p className="text-xl font-bold text-orange-600">{needsAssignment}</p>
+                <p className="text-xl font-bold text-primary">{needsAssignment}</p>
               </div>
               <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center">
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertTriangle className="h-4 w-4 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -235,10 +235,10 @@ export default function UnifiedRequirementsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">PO Generated</p>
-                <p className="text-xl font-bold text-green-600">{poGenerated}</p>
+                <p className="text-xl font-bold text-success">{poGenerated}</p>
               </div>
-              <div className="h-9 w-9 rounded-full bg-green-100 flex items-center justify-center">
-                <ClipboardCheck className="h-4 w-4 text-green-600" />
+              <div className="h-9 w-9 rounded-full bg-success-muted flex items-center justify-center">
+                <ClipboardCheck className="h-4 w-4 text-success" />
               </div>
             </div>
           </CardContent>
@@ -249,10 +249,10 @@ export default function UnifiedRequirementsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Overdue</p>
-                <p className="text-xl font-bold text-red-600">{overdueCount}</p>
+                <p className="text-xl font-bold text-destructive">{overdueCount}</p>
               </div>
-              <div className="h-9 w-9 rounded-full bg-red-100 flex items-center justify-center">
-                <Clock className="h-4 w-4 text-red-600" />
+              <div className="h-9 w-9 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Clock className="h-4 w-4 text-destructive" />
               </div>
             </div>
           </CardContent>
@@ -263,10 +263,10 @@ export default function UnifiedRequirementsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Est. Service Cost</p>
-                <p className="text-xl font-bold text-purple-600">{formatCurrency(estimatedValue)}</p>
+                <p className="text-xl font-bold text-accent">{formatCurrency(estimatedValue)}</p>
               </div>
-              <div className="h-9 w-9 rounded-full bg-purple-100 flex items-center justify-center">
-                <IndianRupee className="h-4 w-4 text-purple-600" />
+              <div className="h-9 w-9 rounded-full bg-accent/10 flex items-center justify-center">
+                <IndianRupee className="h-4 w-4 text-accent" />
               </div>
             </div>
           </CardContent>
@@ -545,17 +545,17 @@ function MaterialRequirementsTab({
     <>
       {/* PO Generation Success Banner */}
       {poGeneratedCount !== null && (
-        <Alert className="mb-4 bg-green-50 border-green-200">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
+        <Alert className="mb-4 bg-success-muted border-success/20">
+          <CheckCircle2 className="h-4 w-4 text-success" />
           <AlertDescription className="flex items-center justify-between">
-            <span className="text-green-800">
+            <span className="text-success">
               <strong>{poGeneratedCount} Purchase Order(s) Generated</strong> — View and download from Purchase Orders.
             </span>
             <div className="flex gap-2 ml-4 flex-shrink-0">
               <Button
                 size="sm"
                 variant="outline"
-                className="border-green-400 text-green-700 hover:bg-green-50"
+                className="border-success/50 text-success hover:bg-success-muted"
                 onClick={() => navigate('/procurement/purchase-orders')}
               >
                 View Purchase Orders <ArrowRight className="ml-1 h-3 w-3" />
@@ -575,7 +575,7 @@ function MaterialRequirementsTab({
             <Button
               size="sm"
               variant="outline"
-              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+              className="border-accent/25 text-accent hover:bg-accent/10"
               onClick={() => setSelectedIds(selectableRequirements.map((r) => r.id))}
             >
               Select All for Style ({selectableRequirements.length})
@@ -592,14 +592,14 @@ function MaterialRequirementsTab({
               <Button
                 size="sm"
                 variant="outline"
-                className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                className="border-orange-300 text-primary hover:bg-primary/10"
                 onClick={() => setShowVendorAllocation(true)}
               >
                 Assign Vendors ({selectedIds.length})
               </Button>
               <Button
                 size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-success hover:bg-success text-white"
                 onClick={() => setShowBulkPOGeneration(true)}
               >
                 Bulk Generate POs ({selectedIds.length})
@@ -761,9 +761,7 @@ function MaterialRequirementsTab({
                         {req.totalRequired} {req.unit}
                       </TableCell>
                       <TableCell className="text-right">
-                        <span
-                          className={`text-sm font-medium ${req.shortfall > 0 ? 'text-orange-600' : 'text-green-600'}`}
-                        >
+                        <span className={`text-sm font-medium ${req.shortfall > 0 ? 'text-primary' : 'text-success'}`}>
                           {req.shortfall > 0 ? req.shortfall : 'Fulfilled'}
                         </span>
                       </TableCell>
@@ -787,7 +785,7 @@ function MaterialRequirementsTab({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-blue-600 hover:text-blue-800 text-xs"
+                                className="text-info hover:text-info text-xs"
                                 onClick={() => openConvertGreigeDialog(req)}
                               >
                                 Greige Process
@@ -797,7 +795,7 @@ function MaterialRequirementsTab({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-red-600 hover:text-red-800"
+                              className="text-destructive hover:text-destructive"
                               onClick={() => {
                                 setRequirementToCancel(req.id);
                                 setCancelDialogOpen(true);
@@ -1137,13 +1135,13 @@ function ThreadRequirementsTab({
   const getStatusBadge = (status: ThreadRequirementStatus) => {
     const colorMap: Record<ThreadRequirementStatus, string> = {
       PENDING: 'bg-yellow-100 text-yellow-800',
-      PO_GENERATED: 'bg-blue-100 text-blue-800',
-      PARTIALLY_RECEIVED: 'bg-purple-100 text-purple-800',
-      RECEIVED: 'bg-green-100 text-green-800',
-      CANCELLED: 'bg-gray-100 text-gray-800',
+      PO_GENERATED: 'bg-info-muted text-info',
+      PARTIALLY_RECEIVED: 'bg-accent/10 text-accent',
+      RECEIVED: 'bg-success-muted text-success',
+      CANCELLED: 'bg-muted text-foreground',
     };
     return (
-      <Badge className={colorMap[status] || 'bg-gray-100 text-gray-800'}>
+      <Badge className={colorMap[status] || 'bg-muted text-foreground'}>
         {THREAD_REQUIREMENT_STATUS_LABELS[status] || status}
       </Badge>
     );
@@ -1232,7 +1230,7 @@ function ThreadRequirementsTab({
                 </TableRow>
               ) : (
                 requirements.map((req) => (
-                  <TableRow key={req.id} className={selectedIds.includes(req.id) ? 'bg-blue-50' : ''}>
+                  <TableRow key={req.id} className={selectedIds.includes(req.id) ? 'bg-info-muted' : ''}>
                     <TableCell>
                       <Checkbox
                         checked={selectedIds.includes(req.id)}
@@ -1242,7 +1240,7 @@ function ThreadRequirementsTab({
                     </TableCell>
                     <TableCell>
                       <button
-                        className="text-blue-600 hover:underline text-sm font-medium"
+                        className="text-info hover:underline text-sm font-medium"
                         onClick={() => navigate(`/orders/${req.orderId}`)}
                       >
                         {req.orderNumber || req.orderId.slice(0, 8)}
@@ -1503,7 +1501,7 @@ function OutsourcedWorkTab({
           quantity: `${req.totalRequired} ${req.unit}`,
           cost: req.processingCost ?? null,
           status: req.status,
-          statusColor: MaterialRequirementStatusColors[req.status] || 'bg-gray-100 text-gray-800',
+          statusColor: MaterialRequirementStatusColors[req.status] || 'bg-muted text-foreground',
           statusLabel: MaterialRequirementStatusLabels[req.status] || req.status,
           isSelectable: req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK',
           createdAt: req.createdAt,
@@ -1532,7 +1530,7 @@ function OutsourcedWorkTab({
           quantity: `${req.quantityRequired} ${req.unit}`,
           cost: req.estimatedTotal ?? null,
           status: req.status,
-          statusColor: ServiceRequirementStatusColors[req.status] || 'bg-gray-100 text-gray-800',
+          statusColor: ServiceRequirementStatusColors[req.status] || 'bg-muted text-foreground',
           statusLabel: ServiceRequirementStatusLabels[req.status] || req.status,
           isSelectable: req.status === 'PENDING',
           createdAt: req.createdAt,
@@ -1674,7 +1672,7 @@ function OutsourcedWorkTab({
         <div className="flex gap-2">
           {hasMixedSelection ? (
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-orange-600 border-orange-300 py-1">
+              <Badge variant="outline" className="text-primary border-orange-300 py-1">
                 Select items of the same type for bulk actions
               </Badge>
               <Button size="sm" variant="ghost" onClick={clearSelection}>
@@ -1686,14 +1684,14 @@ function OutsourcedWorkTab({
               <Button
                 size="sm"
                 variant="outline"
-                className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                className="border-accent/25 text-accent hover:bg-accent/10"
                 onClick={() => setShowProcessingAssign(true)}
               >
                 Assign Processors ({selectedProcessingIds.length})
               </Button>
               <Button
                 size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-success hover:bg-success text-white"
                 onClick={() => setShowBulkPOGeneration(true)}
               >
                 Bulk Generate POs ({selectedProcessingIds.length})
@@ -1707,14 +1705,14 @@ function OutsourcedWorkTab({
               <Button
                 size="sm"
                 variant="outline"
-                className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                className="border-accent/25 text-accent hover:bg-accent/10"
                 onClick={() => setShowProcessorAllocation(true)}
               >
                 Assign Processors ({selectedServiceIds.length})
               </Button>
               <Button
                 size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-success hover:bg-success text-white"
                 onClick={() => setShowBulkServicePO(true)}
               >
                 Bulk Generate POs ({selectedServiceIds.length})
@@ -1879,7 +1877,7 @@ function OutsourcedWorkTab({
                         variant="outline"
                         className={
                           row.source === 'PROCESSING'
-                            ? 'border-purple-300 text-purple-700 bg-purple-50'
+                            ? 'border-accent/25 text-accent bg-accent/10'
                             : 'border-teal-300 text-teal-700 bg-teal-50'
                         }
                       >
@@ -1910,7 +1908,7 @@ function OutsourcedWorkTab({
                     {sourceFilter !== 'service' && (
                       <TableCell>
                         {row.printingType ? (
-                          <span className="text-sm font-semibold text-purple-700">
+                          <span className="text-sm font-semibold text-accent">
                             {row.printingType.replace('_', ' ')}
                           </span>
                         ) : (
@@ -1921,7 +1919,7 @@ function OutsourcedWorkTab({
                     <TableCell>
                       {row.referenceLink ? (
                         <button
-                          className="text-sm text-blue-600 hover:underline font-medium"
+                          className="text-sm text-info hover:underline font-medium"
                           onClick={() => navigate(row.referenceLink!)}
                         >
                           {row.reference}
@@ -1932,14 +1930,14 @@ function OutsourcedWorkTab({
                     </TableCell>
                     {sourceFilter !== 'service' && (
                       <TableCell>
-                        <span className={`text-sm ${row.processorAssigned ? '' : 'text-orange-600'}`}>
+                        <span className={`text-sm ${row.processorAssigned ? '' : 'text-primary'}`}>
                           {row.processor}
                         </span>
                       </TableCell>
                     )}
                     <TableCell className="text-right text-sm">{row.quantity}</TableCell>
                     <TableCell className="text-right">
-                      <span className="text-sm font-medium text-purple-700">
+                      <span className="text-sm font-medium text-accent">
                         {row.cost != null ? formatCurrency(row.cost) : '-'}
                       </span>
                     </TableCell>

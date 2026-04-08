@@ -178,9 +178,9 @@ export default function CommandPalette() {
                     onSelect={() => handleSelect(item.path)}
                     className="cursor-pointer"
                   >
-                    {Icon && <Icon className="mr-2 h-4 w-4 text-gray-500" />}
+                    {Icon && <Icon className="mr-2 h-4 w-4 text-muted-foreground" />}
                     <span>{item.title}</span>
-                    <span className="ml-auto text-xs text-gray-400">{item.path}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{item.path}</span>
                   </CommandItem>
                 );
               })}

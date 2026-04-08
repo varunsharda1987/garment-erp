@@ -8,8 +8,8 @@ export const TDS_STATUS_LABELS: Record<TDSStatus, string> = {
 
 export const TDS_STATUS_COLORS: Record<TDSStatus, string> = {
   PENDING: 'bg-yellow-100 text-yellow-800',
-  CERTIFICATE_RECEIVED: 'bg-blue-100 text-blue-800',
-  VERIFIED: 'bg-green-100 text-green-800',
+  CERTIFICATE_RECEIVED: 'bg-info-muted text-info',
+  VERIFIED: 'bg-success-muted text-success',
 };
 
 export const TDS_SECTIONS = [

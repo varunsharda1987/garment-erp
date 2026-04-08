@@ -1786,7 +1786,7 @@ const CostSheetForm = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">{isEditMode ? 'Edit Cost Sheet' : 'Create Cost Sheet'}</h1>
+        <h1 className="text-3xl font-display font-medium">{isEditMode ? 'Edit Cost Sheet' : 'Create Cost Sheet'}</h1>
         <Button variant="outline" onClick={() => navigate('/cost-sheets')}>
           Back to List
         </Button>
@@ -1794,9 +1794,9 @@ const CostSheetForm = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Basic Information</h2>
+            <h2 className="text-xl font-display font-semibold">Basic Information</h2>
             {selectedStyleId && !isEditMode && (
               <div className="flex gap-2">
                 <Button
@@ -1822,7 +1822,7 @@ const CostSheetForm = () => {
                   size="sm"
                   onClick={handleAutoGenerate}
                   disabled={loading || !selectedStyle}
-                  className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 bg-gradient-to-r from-accent to-info hover:from-accent hover:to-info disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Generate cost sheet from CAD data (requires CAD Costing approved OR CAD Raw Material approved with Fabric Costing complete)"
                 >
                   <Sparkles className="h-4 w-4" />
@@ -1864,7 +1864,7 @@ const CostSheetForm = () => {
               <Input
                 value={displayCustomerName || (selectedStyleId ? 'Loading...' : 'Select a style first')}
                 disabled
-                className="bg-gray-50"
+                className="bg-muted"
               />
               <p className="text-xs text-muted-foreground mt-1">Auto-populated from selected style</p>
             </div>
@@ -1895,13 +1895,13 @@ const CostSheetForm = () => {
 
           {/* Costing Run Selector - Show when style has runs available */}
           {selectedStyleId && !isEditMode && costingRuns.length > 0 && (
-            <div className="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+            <div className="mt-4 p-4 border border-info/20 bg-info-muted rounded-lg">
               <div className="mb-3">
-                <label className="block text-sm font-medium text-blue-900 mb-1">
+                <label className="block text-sm font-medium text-info mb-1">
                   Select Costing Run
-                  <span className="text-blue-600 font-normal ml-2">({costingRuns.length} available)</span>
+                  <span className="text-info font-normal ml-2">({costingRuns.length} available)</span>
                 </label>
-                <p className="text-xs text-blue-700">
+                <p className="text-xs text-info">
                   Select a costing run to auto-populate all fabrics with their CAD averages and rates
                 </p>
               </div>
@@ -1914,14 +1914,14 @@ const CostSheetForm = () => {
                     onClick={() => setSelectedRunId(selectedRunId === run.id ? null : run.id)}
                     className={`p-3 border rounded-lg text-left transition-all ${
                       selectedRunId === run.id
-                        ? 'border-blue-500 bg-white ring-2 ring-blue-200 shadow-sm'
-                        : 'border-blue-200 bg-white hover:border-blue-300'
+                        ? 'border-info bg-card ring-2 ring-blue-200 shadow-sm'
+                        : 'border-info/20 bg-card hover:border-info/30'
                     }`}
                   >
                     <div className="flex justify-between items-start">
-                      <span className="text-base font-semibold text-gray-900">{run.runName}</span>
+                      <span className="text-base font-semibold text-foreground">{run.runName}</span>
                       {selectedRunId === run.id && (
-                        <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="h-5 w-5 text-info" fill="currentColor" viewBox="0 0 20 20">
                           <path
                             fillRule="evenodd"
                             d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -1931,31 +1931,33 @@ const CostSheetForm = () => {
                       )}
                     </div>
 
-                    <div className="mt-2 space-y-1 text-sm text-gray-600">
+                    <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                       <p>
                         {run.fabricCount} fabric{run.fabricCount !== 1 ? 's' : ''}
                       </p>
                       {run.totalFabricCost && (
-                        <p className="font-medium text-gray-900">₹{Number(run.totalFabricCost).toFixed(2)}/garment</p>
+                        <p className="font-medium text-foreground">₹{Number(run.totalFabricCost).toFixed(2)}/garment</p>
                       )}
                     </div>
 
                     <div className="mt-2 flex items-center gap-2">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          run.isComplete ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                          run.isComplete ? 'bg-success-muted text-success' : 'bg-warning/10 text-warning'
                         }`}
                       >
                         {run.isComplete ? '✓ Complete' : '⚠ Incomplete'}
                       </span>
-                      <span className="text-xs text-gray-400">{new Date(run.createdAt).toLocaleDateString()}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(run.createdAt).toLocaleDateString()}
+                      </span>
                     </div>
                   </button>
                 ))}
               </div>
 
               {selectedRunId && (
-                <p className="mt-3 text-sm text-blue-700">
+                <p className="mt-3 text-sm text-info">
                   Click "Auto-Generate from CAD" to populate fabrics from the selected run
                 </p>
               )}
@@ -1964,8 +1966,8 @@ const CostSheetForm = () => {
 
           {/* Loading indicator for runs */}
           {selectedStyleId && loadingRuns && (
-            <div className="mt-4 p-4 border border-gray-200 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2 text-gray-500">
+            <div className="mt-4 p-4 border border-border bg-muted rounded-lg">
+              <div className="flex items-center gap-2 text-muted-foreground">
                 <RefreshCw className="h-4 w-4 animate-spin" />
                 <span className="text-sm">Loading costing runs...</span>
               </div>
@@ -1974,14 +1976,14 @@ const CostSheetForm = () => {
 
           {/* Budget Tracking Section - Only for RAW_MATERIAL_CALCULATION or PRODUCTION modes */}
           {selectedStyleId && (costingMode === 'RAW_MATERIAL_CALCULATION' || costingMode === 'PRODUCTION') && (
-            <div className="mt-4 p-4 border border-purple-200 bg-purple-50 rounded-lg">
+            <div className="mt-4 p-4 border border-accent/20 bg-accent/10 rounded-lg">
               <div className="flex items-center gap-3 mb-4">
                 <Checkbox
                   id="enableBudgetTracking"
                   checked={enableBudgetTracking}
                   onCheckedChange={(checked) => setEnableBudgetTracking(checked as boolean)}
                 />
-                <Label htmlFor="enableBudgetTracking" className="font-medium text-purple-900">
+                <Label htmlFor="enableBudgetTracking" className="font-medium text-accent">
                   Enable Budget Tracking for Procurement
                 </Label>
               </div>
@@ -2097,13 +2099,13 @@ const CostSheetForm = () => {
                         type="number"
                         value={calculateTotalBudget()}
                         readOnly
-                        className="bg-purple-100 font-semibold"
+                        className="bg-accent/10 font-semibold"
                       />
                     </div>
                   </div>
 
                   {/* Buffer Percentages */}
-                  <div className="mt-4 pt-4 border-t border-purple-200">
+                  <div className="mt-4 pt-4 border-t border-accent/20">
                     <label className="block text-sm font-medium mb-2">Buffer Percentages</label>
                     <div className="grid grid-cols-5 gap-3">
                       <div>
@@ -2175,18 +2177,18 @@ const CostSheetForm = () => {
 
           {/* Customer/Brand Information (Read-only, auto-populated from style) */}
           {selectedStyleId && (displayCustomerCode || displayCustomerName || displayBrandName) && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-muted rounded-lg">
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-600">Customer Code</label>
-                <Input value={displayCustomerCode} readOnly className="bg-gray-100" placeholder="-" />
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">Customer Code</label>
+                <Input value={displayCustomerCode} readOnly className="bg-muted" placeholder="-" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-600">Customer Name</label>
-                <Input value={displayCustomerName} readOnly className="bg-gray-100" placeholder="-" />
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">Customer Name</label>
+                <Input value={displayCustomerName} readOnly className="bg-muted" placeholder="-" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-600">Brand Name</label>
-                <Input value={displayBrandName} readOnly className="bg-gray-100" placeholder="-" />
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">Brand Name</label>
+                <Input value={displayBrandName} readOnly className="bg-muted" placeholder="-" />
               </div>
             </div>
           )}
@@ -2216,14 +2218,14 @@ const CostSheetForm = () => {
             <div
               className={`mt-4 p-4 rounded-lg border ${
                 isCADApproved(selectedStyle.cadStatus)
-                  ? 'bg-green-50 border-green-300'
-                  : 'bg-yellow-50 border-yellow-300'
+                  ? 'bg-success-muted border-success/25'
+                  : 'bg-warning-muted border-yellow-300'
               }`}
             >
               <div className="flex items-start gap-3">
                 <AlertCircle
                   className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
-                    isCADApproved(selectedStyle.cadStatus) ? 'text-green-600' : 'text-yellow-600'
+                    isCADApproved(selectedStyle.cadStatus) ? 'text-success' : 'text-warning'
                   }`}
                 />
                 <div className="flex-1">
@@ -2232,9 +2234,7 @@ const CostSheetForm = () => {
                     <CADStatusBadge status={selectedStyle.cadStatus} size="sm" />
                   </div>
                   <p
-                    className={`text-sm ${
-                      isCADApproved(selectedStyle.cadStatus) ? 'text-green-800' : 'text-yellow-800'
-                    }`}
+                    className={`text-sm ${isCADApproved(selectedStyle.cadStatus) ? 'text-success' : 'text-yellow-800'}`}
                   >
                     {getCADWorkflowMessage(selectedStyle.cadStatus)}
                   </p>
@@ -2256,9 +2256,9 @@ const CostSheetForm = () => {
         </div>
 
         {/* Fabric Details */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Fabric Details</h2>
+            <h2 className="text-xl font-display font-semibold">Fabric Details</h2>
             <Button type="button" onClick={addFabricRow} size="sm">
               <Plus className="w-4 h-4 mr-1" /> Add Fabric
             </Button>
@@ -2267,24 +2267,24 @@ const CostSheetForm = () => {
           {/* Fabric Table with Sourcing Strategy */}
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-muted">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fabric</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">CAD (m)</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Width</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sourcing</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Fabric</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">CAD (m)</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Width</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Sourcing</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Cost</th>
                   <th
-                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase"
+                    className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase"
                     title="Not Applicable"
                   >
                     N/A
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-card divide-y divide-gray-200">
                 {fabricDetails.map((fabric, index) => (
                   <FabricCostingRow
                     key={index}
@@ -2314,11 +2314,11 @@ const CostSheetForm = () => {
 
         {/* Fabric Cost Comparison Table */}
         {fabricDetails.length > 0 && fabricDetails.some((f) => f.fabricId) && fabricCostResults.length > 0 && (
-          <CostComparisonTable fabricResults={fabricCostResults} className="bg-white" />
+          <CostComparisonTable fabricResults={fabricCostResults} className="bg-card" />
         )}
 
         {/* Lace Details */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow">
           <LaceCostingSection
             laceDetails={laceDetails}
             onLaceDetailsChange={setLaceDetails}
@@ -2328,9 +2328,9 @@ const CostSheetForm = () => {
         </div>
 
         {/* Trims Details */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Trims Details</h2>
+            <h2 className="text-xl font-display font-semibold">Trims Details</h2>
             <Button type="button" onClick={addTrimRow} size="sm">
               <Plus className="w-4 h-4 mr-1" /> Add Trim
             </Button>
@@ -2339,7 +2339,7 @@ const CostSheetForm = () => {
             {trimsDetails.map((trim, index) => (
               <div
                 key={index}
-                className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${trim.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}
+                className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${trim.isNotApplicable ? 'bg-muted opacity-60' : ''}`}
               >
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">Type</label>
@@ -2348,7 +2348,7 @@ const CostSheetForm = () => {
                     onValueChange={(val) => updateTrimRow(index, 'materialType', val)}
                     disabled={trim.isNotApplicable}
                   >
-                    <SelectTrigger className={trim.isNotApplicable ? 'bg-gray-100' : ''}>
+                    <SelectTrigger className={trim.isNotApplicable ? 'bg-muted' : ''}>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2365,7 +2365,7 @@ const CostSheetForm = () => {
                   <label className="block text-sm font-medium mb-2">
                     Trim Name
                     {hasTrimMasterLink(trim) ? (
-                      <Link2 className="inline-block w-3 h-3 ml-1 text-green-600" />
+                      <Link2 className="inline-block w-3 h-3 ml-1 text-success" />
                     ) : trim.materialType && trim.materialType !== 'OTHER' && trim.trimName ? (
                       <Unlink
                         className="inline-block w-3 h-3 ml-1 text-orange-500"
@@ -2380,7 +2380,7 @@ const CostSheetForm = () => {
                       onSelect={(selection) => handleTrimMasterSelect(index, selection)}
                       disabled={trim.isNotApplicable}
                       customerId={selectedCustomerId}
-                      className={trim.isNotApplicable ? 'bg-gray-100' : ''}
+                      className={trim.isNotApplicable ? 'bg-muted' : ''}
                     />
                   ) : (
                     <Input
@@ -2388,13 +2388,13 @@ const CostSheetForm = () => {
                       value={trim.trimName}
                       onChange={(e) => updateTrimRow(index, 'trimName', e.target.value)}
                       disabled={trim.isNotApplicable}
-                      className={trim.isNotApplicable ? 'bg-gray-100' : ''}
+                      className={trim.isNotApplicable ? 'bg-muted' : ''}
                     />
                   )}
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">
-                    Qty {trim.unit && <span className="text-xs text-gray-500">({trim.unit})</span>}
+                    Qty {trim.unit && <span className="text-xs text-muted-foreground">({trim.unit})</span>}
                   </label>
                   <Input
                     type="number"
@@ -2403,12 +2403,12 @@ const CostSheetForm = () => {
                     value={trim.trimQuantity || ''}
                     onChange={(e) => updateTrimRow(index, 'trimQuantity', parseFloat(e.target.value) || 0)}
                     disabled={trim.isNotApplicable}
-                    className={trim.isNotApplicable ? 'bg-gray-100' : ''}
+                    className={trim.isNotApplicable ? 'bg-muted' : ''}
                   />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">
-                    Rate {trim.unit && <span className="text-xs text-gray-500">(per {trim.unit})</span>}
+                    Rate {trim.unit && <span className="text-xs text-muted-foreground">(per {trim.unit})</span>}
                   </label>
                   <Input
                     type="number"
@@ -2417,7 +2417,7 @@ const CostSheetForm = () => {
                     value={trim.trimRate || ''}
                     onChange={(e) => updateTrimRow(index, 'trimRate', parseFloat(e.target.value) || 0)}
                     disabled={trim.isNotApplicable}
-                    className={trim.isNotApplicable ? 'bg-gray-100' : ''}
+                    className={trim.isNotApplicable ? 'bg-muted' : ''}
                   />
                 </div>
                 <div className="col-span-1">
@@ -2428,7 +2428,7 @@ const CostSheetForm = () => {
                     placeholder="0.00"
                     value={trim.isNotApplicable ? 'N/A' : trim.trimTotal.toFixed(2)}
                     disabled
-                    className={`bg-gray-100 ${trim.isNotApplicable ? 'line-through text-gray-400' : ''}`}
+                    className={`bg-muted ${trim.isNotApplicable ? 'line-through text-muted-foreground' : ''}`}
                   />
                 </div>
                 <div className="col-span-1 flex items-center justify-center">
@@ -2437,7 +2437,7 @@ const CostSheetForm = () => {
                       checked={trim.isNotApplicable || false}
                       onCheckedChange={(checked) => updateTrimRow(index, 'isNotApplicable', checked)}
                     />
-                    <span className="text-xs text-gray-500">N/A</span>
+                    <span className="text-xs text-muted-foreground">N/A</span>
                   </label>
                 </div>
                 <div className="col-span-1">
@@ -2454,8 +2454,8 @@ const CostSheetForm = () => {
         </div>
 
         {/* CMT Costs */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">CMT (Cut, Make, Trim) Costs</h2>
+        <div className="bg-card p-6 rounded-lg shadow">
+          <h2 className="text-xl font-display font-semibold mb-4">CMT (Cut, Make, Trim) Costs</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Cutting</label>
@@ -2524,21 +2524,23 @@ const CostSheetForm = () => {
         </div>
 
         {/* Embroidery Details */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Embroidery Details</h2>
+            <h2 className="text-xl font-display font-semibold">Embroidery Details</h2>
             <Button type="button" onClick={addEmbroideryRow} size="sm">
               <Plus className="w-4 h-4 mr-1" /> Add Embroidery
             </Button>
           </div>
           {embroideryDetails.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No embroidery added. Click "Add Embroidery" to start.</p>
+            <p className="text-muted-foreground text-center py-4">
+              No embroidery added. Click "Add Embroidery" to start.
+            </p>
           ) : (
             <div className="space-y-4">
               {embroideryDetails.map((embr, index) => (
                 <div
                   key={index}
-                  className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${embr.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}
+                  className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${embr.isNotApplicable ? 'bg-muted opacity-60' : ''}`}
                 >
                   <div className="col-span-3">
                     <label className="block text-sm font-medium mb-2">Embroidery {index + 1} Name</label>
@@ -2547,7 +2549,7 @@ const CostSheetForm = () => {
                       value={embr.embroideryName}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryName', e.target.value)}
                       disabled={embr.isNotApplicable}
-                      className={embr.isNotApplicable ? 'bg-gray-100' : ''}
+                      className={embr.isNotApplicable ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -2559,7 +2561,7 @@ const CostSheetForm = () => {
                       value={embr.embroideryAverage || ''}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryAverage', parseFloat(e.target.value) || 0)}
                       disabled={embr.isNotApplicable}
-                      className={embr.isNotApplicable ? 'bg-gray-100' : ''}
+                      className={embr.isNotApplicable ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -2571,7 +2573,7 @@ const CostSheetForm = () => {
                       value={embr.embroideryRate || ''}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryRate', parseFloat(e.target.value) || 0)}
                       disabled={embr.isNotApplicable}
-                      className={embr.isNotApplicable ? 'bg-gray-100' : ''}
+                      className={embr.isNotApplicable ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -2582,7 +2584,7 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={embr.isNotApplicable ? 'N/A' : embr.embroideryTotal.toFixed(2)}
                       disabled
-                      className={`bg-gray-100 ${embr.isNotApplicable ? 'line-through text-gray-400' : ''}`}
+                      className={`bg-muted ${embr.isNotApplicable ? 'line-through text-muted-foreground' : ''}`}
                     />
                   </div>
                   <div className="col-span-2 flex items-center justify-center">
@@ -2591,7 +2593,7 @@ const CostSheetForm = () => {
                         checked={embr.isNotApplicable || false}
                         onCheckedChange={(checked) => updateEmbroideryRow(index, 'isNotApplicable', checked)}
                       />
-                      <span className="text-xs text-gray-500">N/A</span>
+                      <span className="text-xs text-muted-foreground">N/A</span>
                     </label>
                   </div>
                   <div className="col-span-1">
@@ -2613,21 +2615,23 @@ const CostSheetForm = () => {
         </div>
 
         {/* Accessories Details */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Accessories Details</h2>
+            <h2 className="text-xl font-display font-semibold">Accessories Details</h2>
             <Button type="button" onClick={addAccessoryRow} size="sm">
               <Plus className="w-4 h-4 mr-1" /> Add Accessory
             </Button>
           </div>
           {accessoriesDetails.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No accessories added. Click "Add Accessory" to start.</p>
+            <p className="text-muted-foreground text-center py-4">
+              No accessories added. Click "Add Accessory" to start.
+            </p>
           ) : (
             <div className="space-y-4">
               {accessoriesDetails.map((acc, index) => (
                 <div
                   key={index}
-                  className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${acc.isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}
+                  className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${acc.isNotApplicable ? 'bg-muted opacity-60' : ''}`}
                 >
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-2">Type</label>
@@ -2636,7 +2640,7 @@ const CostSheetForm = () => {
                       onValueChange={(val) => updateAccessoryRow(index, 'materialType', val)}
                       disabled={acc.isNotApplicable}
                     >
-                      <SelectTrigger className={acc.isNotApplicable ? 'bg-gray-100' : ''}>
+                      <SelectTrigger className={acc.isNotApplicable ? 'bg-muted' : ''}>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2649,7 +2653,7 @@ const CostSheetForm = () => {
                     <label className="block text-sm font-medium mb-2">
                       Name
                       {hasAccessoryMasterLink(acc) ? (
-                        <Link2 className="inline-block w-3 h-3 ml-1 text-green-600" />
+                        <Link2 className="inline-block w-3 h-3 ml-1 text-success" />
                       ) : acc.materialType && acc.accessoryName ? (
                         <Unlink
                           className="inline-block w-3 h-3 ml-1 text-orange-500"
@@ -2664,7 +2668,7 @@ const CostSheetForm = () => {
                         onSelect={(selection) => handleAccessoryMasterSelect(index, selection)}
                         disabled={acc.isNotApplicable}
                         customerId={selectedCustomerId}
-                        className={acc.isNotApplicable ? 'bg-gray-100' : ''}
+                        className={acc.isNotApplicable ? 'bg-muted' : ''}
                       />
                     ) : (
                       <Input
@@ -2672,7 +2676,7 @@ const CostSheetForm = () => {
                         value={acc.accessoryName}
                         onChange={(e) => updateAccessoryRow(index, 'accessoryName', e.target.value)}
                         disabled={acc.isNotApplicable}
-                        className={acc.isNotApplicable ? 'bg-gray-100' : ''}
+                        className={acc.isNotApplicable ? 'bg-muted' : ''}
                       />
                     )}
                   </div>
@@ -2685,7 +2689,7 @@ const CostSheetForm = () => {
                       value={acc.accessoryQuantity || ''}
                       onChange={(e) => updateAccessoryRow(index, 'accessoryQuantity', parseFloat(e.target.value) || 0)}
                       disabled={acc.isNotApplicable}
-                      className={acc.isNotApplicable ? 'bg-gray-100' : ''}
+                      className={acc.isNotApplicable ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -2697,7 +2701,7 @@ const CostSheetForm = () => {
                       value={acc.accessoryRate || ''}
                       onChange={(e) => updateAccessoryRow(index, 'accessoryRate', parseFloat(e.target.value) || 0)}
                       disabled={acc.isNotApplicable}
-                      className={acc.isNotApplicable ? 'bg-gray-100' : ''}
+                      className={acc.isNotApplicable ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-1">
@@ -2708,7 +2712,7 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={acc.isNotApplicable ? 'N/A' : acc.accessoryTotal.toFixed(2)}
                       disabled
-                      className={`bg-gray-100 ${acc.isNotApplicable ? 'line-through text-gray-400' : ''}`}
+                      className={`bg-muted ${acc.isNotApplicable ? 'line-through text-muted-foreground' : ''}`}
                     />
                   </div>
                   <div className="col-span-1 flex items-center justify-center">
@@ -2717,7 +2721,7 @@ const CostSheetForm = () => {
                         checked={acc.isNotApplicable || false}
                         onCheckedChange={(checked) => updateAccessoryRow(index, 'isNotApplicable', checked)}
                       />
-                      <span className="text-xs text-gray-500">N/A</span>
+                      <span className="text-xs text-muted-foreground">N/A</span>
                     </label>
                   </div>
                   <div className="col-span-1">
@@ -2739,8 +2743,8 @@ const CostSheetForm = () => {
         </div>
 
         {/* Value Loss & Markup */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Value Loss & Markup</h2>
+        <div className="bg-card p-6 rounded-lg shadow">
+          <h2 className="text-xl font-display font-semibold mb-4">Value Loss & Markup</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium mb-2">Value Loss (%)</label>
@@ -2751,7 +2755,7 @@ const CostSheetForm = () => {
                 value={valueLossPercent}
                 onChange={(e) => setValueLossPercent(parseFloat(e.target.value) || 0)}
               />
-              <p className="text-sm text-gray-500 mt-1">Default: 2%</p>
+              <p className="text-sm text-muted-foreground mt-1">Default: 2%</p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Markup (%)</label>
@@ -2762,65 +2766,65 @@ const CostSheetForm = () => {
                 value={markupPercent}
                 onChange={(e) => setMarkupPercent(parseFloat(e.target.value) || 0)}
               />
-              <p className="text-sm text-gray-500 mt-1">Default: 15%</p>
+              <p className="text-sm text-muted-foreground mt-1">Default: 15%</p>
             </div>
           </div>
 
-          <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
+          <div className="space-y-3 bg-muted p-4 rounded-lg">
             <div className="flex justify-between">
-              <span className="text-gray-600">Fabric Total:</span>
+              <span className="text-muted-foreground">Fabric Total:</span>
               <span className="font-semibold">{formatCurrency(calculateFabricTotal())}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Trims Total:</span>
+              <span className="text-muted-foreground">Trims Total:</span>
               <span className="font-semibold">{formatCurrency(calculateTrimsTotal())}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Lace Total:</span>
+              <span className="text-muted-foreground">Lace Total:</span>
               <span className="font-semibold">{formatCurrency(calculateLaceTotal())}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">CMT Total:</span>
+              <span className="text-muted-foreground">CMT Total:</span>
               <span className="font-semibold">{formatCurrency(calculateCMTTotal())}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Embroidery Total:</span>
+              <span className="text-muted-foreground">Embroidery Total:</span>
               <span className="font-semibold">{formatCurrency(calculateEmbroideryTotal())}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Accessories Total:</span>
+              <span className="text-muted-foreground">Accessories Total:</span>
               <span className="font-semibold">{formatCurrency(calculateAccessoriesTotal())}</span>
             </div>
-            <div className="flex justify-between pt-3 border-t border-gray-300">
+            <div className="flex justify-between pt-3 border-t border-border">
               <span className="font-semibold">Subtotal:</span>
               <span className="font-semibold text-lg">{formatCurrency(calculateSubtotal())}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Value Loss ({valueLossPercent}%):</span>
-              <span className="font-semibold text-orange-600">+ {formatCurrency(calculateValueLossAmount())}</span>
+              <span className="text-muted-foreground">Value Loss ({valueLossPercent}%):</span>
+              <span className="font-semibold text-primary">+ {formatCurrency(calculateValueLossAmount())}</span>
             </div>
-            <div className="flex justify-between pt-3 border-t border-gray-300">
+            <div className="flex justify-between pt-3 border-t border-border">
               <span className="font-semibold">Total After Value Loss:</span>
               <span className="font-semibold text-lg">{formatCurrency(calculateTotalAfterValueLoss())}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Markup ({markupPercent}%):</span>
-              <span className="font-semibold text-green-600">+ {formatCurrency(calculateMarkupAmount())}</span>
+              <span className="text-muted-foreground">Markup ({markupPercent}%):</span>
+              <span className="font-semibold text-success">+ {formatCurrency(calculateMarkupAmount())}</span>
             </div>
             <div className="flex justify-between pt-3 border-t-2 border-gray-400">
               <span className="font-bold text-lg">Total Product Cost:</span>
-              <span className="font-bold text-2xl text-green-600">{formatCurrency(calculateTotalProductCost())}</span>
+              <span className="font-bold text-2xl text-success">{formatCurrency(calculateTotalProductCost())}</span>
             </div>
           </div>
         </div>
 
         {/* Closed Cost - Final Agreed Price with Customer */}
-        <div className="bg-white p-6 rounded-lg shadow border-2 border-blue-200">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <span className="text-blue-600">💰</span>
+        <div className="bg-card p-6 rounded-lg shadow border-2 border-info/20">
+          <h2 className="text-xl font-display font-semibold mb-4 flex items-center gap-2">
+            <span className="text-info">💰</span>
             Closed Cost (Final Agreed Price)
           </h2>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             Enter the final price agreed with the customer. This will be used for billing (exclusive of tax).
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2838,19 +2842,19 @@ const CostSheetForm = () => {
               {calculateTotalProductCost() > 0 && closedCost && (
                 <div className="text-xs mt-2">
                   {closedCost > calculateTotalProductCost() ? (
-                    <span className="text-green-600">
+                    <span className="text-success">
                       +₹{(closedCost - calculateTotalProductCost()).toFixed(2)} above calculated cost (
                       {(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}%
                       margin)
                     </span>
                   ) : closedCost < calculateTotalProductCost() ? (
-                    <span className="text-amber-600">
+                    <span className="text-warning">
                       ₹{(calculateTotalProductCost() - closedCost).toFixed(2)} below calculated cost (
                       {(((calculateTotalProductCost() - closedCost) / calculateTotalProductCost()) * 100).toFixed(1)}%
                       discount)
                     </span>
                   ) : (
-                    <span className="text-gray-500">Same as calculated cost</span>
+                    <span className="text-muted-foreground">Same as calculated cost</span>
                   )}
                 </div>
               )}
@@ -2868,20 +2872,20 @@ const CostSheetForm = () => {
 
           {/* Price Comparison Card */}
           {closedCost && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+            <div className="mt-4 p-4 bg-info-muted rounded-lg">
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-xs text-gray-500">Calculated Cost</p>
+                  <p className="text-xs text-muted-foreground">Calculated Cost</p>
                   <p className="text-lg font-semibold">{formatCurrency(calculateTotalProductCost())}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Closed Cost</p>
-                  <p className="text-lg font-bold text-blue-600">{formatCurrency(closedCost)}</p>
+                  <p className="text-xs text-muted-foreground">Closed Cost</p>
+                  <p className="text-lg font-bold text-info">{formatCurrency(closedCost)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Variance</p>
+                  <p className="text-xs text-muted-foreground">Variance</p>
                   <p
-                    className={`text-lg font-semibold ${closedCost >= calculateTotalProductCost() ? 'text-green-600' : 'text-amber-600'}`}
+                    className={`text-lg font-semibold ${closedCost >= calculateTotalProductCost() ? 'text-success' : 'text-warning'}`}
                   >
                     {closedCost >= calculateTotalProductCost() ? '+' : ''}
                     {(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}%
@@ -2893,8 +2897,8 @@ const CostSheetForm = () => {
         </div>
 
         {/* Notes */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Notes</h2>
+        <div className="bg-card p-6 rounded-lg shadow">
+          <h2 className="text-xl font-display font-semibold mb-4">Notes</h2>
           <textarea
             className="w-full border rounded-md p-3 min-h-[100px]"
             placeholder="Add any additional notes or comments..."

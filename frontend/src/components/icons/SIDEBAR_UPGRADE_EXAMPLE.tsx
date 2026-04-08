@@ -244,14 +244,14 @@ export default function SidebarUpgraded({ isOpen }: SidebarProps) {
   if (!isOpen) return null;
 
   return (
-    <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-white border-r shadow-sm overflow-y-auto">
+    <aside className="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-card border-r shadow-sm overflow-y-auto">
       <nav className="p-4">
         {/* Dashboard Link */}
         <NavLink
           to="/dashboard"
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2 rounded-md mb-2 transition-colors ${
-              isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
+              isActive ? 'bg-primary/5 text-primary font-medium' : 'text-foreground hover:bg-muted'
             }`
           }
         >
@@ -265,14 +265,14 @@ export default function SidebarUpgraded({ isOpen }: SidebarProps) {
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2 rounded-md mb-4 transition-colors ${
               isActive
-                ? 'bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 font-medium border border-blue-200'
-                : 'text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:border hover:border-blue-100'
+                ? 'bg-gradient-to-r from-info-muted to-accent/5 text-info font-medium border border-info/20'
+                : 'text-foreground hover:bg-gradient-to-r hover:from-info-muted hover:to-accent/5 hover:border hover:border-info/15'
             }`
           }
         >
           <ProductionIcons.Sparkles className={ICON_SIZES.md} />
           <span>AI Assistant</span>
-          <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">NEW</span>
+          <span className="ml-auto text-xs bg-info-muted text-info px-2 py-1 rounded-full">NEW</span>
         </NavLink>
 
         {/* Navigation Groups */}
@@ -281,7 +281,7 @@ export default function SidebarUpgraded({ isOpen }: SidebarProps) {
             {/* Group Header */}
             <button
               onClick={() => toggleGroup(group.title)}
-              className="flex items-center justify-between w-full px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
+              className="flex items-center justify-between w-full px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted rounded-md transition-colors"
             >
               <div className="flex items-center gap-2">
                 {group.icon}
@@ -302,9 +302,9 @@ export default function SidebarUpgraded({ isOpen }: SidebarProps) {
                     // Separator/Label
                     <div
                       key={`separator-${index}`}
-                      className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-default"
+                      className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-default"
                     >
-                      <span className="flex-1 border-b border-gray-200">{item.title}</span>
+                      <span className="flex-1 border-b border-border">{item.title}</span>
                     </div>
                   ) : (
                     // Regular NavLink
@@ -313,7 +313,7 @@ export default function SidebarUpgraded({ isOpen }: SidebarProps) {
                       to={item.path}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                          isActive ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+                          isActive ? 'bg-primary/5 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'
                         }`
                       }
                     >

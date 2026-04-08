@@ -2,11 +2,13 @@ import { Request, Response } from 'express';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { transformCuttingBatch, generateBatchNumber, batchIncludeOptions } from './cutting.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
 import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
 import { logInfo } from '../utils/logger';
+import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 
 // Re-export sub-controllers so existing imports from routes continue to work
 export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.controller';
@@ -134,6 +136,18 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     throw new ValidationError('Work order not found');
   }
 
+  // Validate stage transition blockers (material availability, sample approvals, FPT/GPT)
+  const stageValidation = await productionBlockingValidationService.validateStageTransition(
+    workOrderId,
+    'IN_CUTTING',
+    false // Not admin override
+  );
+
+  if (stageValidation.isBlocked) {
+    const blockerMessages = stageValidation.blockers.map((b) => b.message).join('; ');
+    throw new ValidationError(`Cannot create cutting batch: ${blockerMessages}`);
+  }
+
   // Validate SKU outputs
   if (!skuOutputs || skuOutputs.length === 0) {
     throw new ValidationError('At least one SKU output is required');
@@ -222,6 +236,28 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
         actualStartDate: new Date(),
       },
     });
+  }
+
+  // Auto-create production_tracking: IN_CUTTING
+  try {
+    const totalCutQty = (skuOutputs as Array<{ toCut?: number; plannedQty?: number }>).reduce(
+      (sum, s) => sum + (Number(s.toCut) || Number(s.plannedQty) || 0),
+      0
+    );
+    await prisma.production_tracking.create({
+      data: {
+        id: randomUUID(),
+        workOrderId,
+        productionStage: 'IN_CUTTING',
+        quantityCompleted: totalCutQty,
+        updatedById: userId,
+        updateDate: new Date(),
+      },
+    });
+  } catch (err) {
+    logInfo(
+      `Warning: Auto production_tracking failed for cutting batch ${batch.batchNumber}: ${(err as Error).message}`
+    );
   }
 
   // Auto-issue fabric: create INTERNAL challan for fabric lots used in this batch
@@ -337,25 +373,87 @@ export const updateCuttingBatch = async (req: Request, res: Response) => {
 export const deleteCuttingBatch = async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  // Check if batch exists and is in PENDING status
+  // Fetch batch with fabrics to restore stock
   const existing = await prisma.cutting_batches.findUnique({
     where: { id },
-    select: { status: true },
+    include: {
+      additionalFabrics: {
+        select: {
+          fabricStockId: true,
+          fabricConsumed: true,
+          fabricIssued: true,
+        },
+      },
+      lays: {
+        select: { id: true },
+      },
+    },
   });
 
   if (!existing) {
     throw new NotFoundError('CuttingBatch', id);
   }
 
-  if (existing.status !== 'PENDING') {
-    throw new ValidationError('Can only delete pending batches');
+  // Allow deletion for PENDING, ON_HOLD, or IN_PROGRESS batches
+  // But only if no actual cutting has happened (no lays recorded)
+  const allowedStatuses = ['PENDING', 'ON_HOLD', 'IN_PROGRESS'];
+  if (!allowedStatuses.includes(existing.status)) {
+    throw new ValidationError('Cannot delete completed batches');
   }
 
-  await prisma.cutting_batches.delete({
-    where: { id },
+  // Check if any cutting lays have been recorded
+  if (existing.lays && existing.lays.length > 0) {
+    throw new ValidationError('Cannot delete batch with cutting lays. Remove all lays first or complete the batch.');
+  }
+
+  // Use transaction to ensure atomicity
+  const fabricsRestored: Array<{ fabricStockId: string; quantityRestored: number }> = [];
+
+  await prisma.$transaction(async (tx) => {
+    // Restore primary fabric stock (from fabricStockId on batch)
+    const primaryQuantity = Number(existing.fabricIssued || existing.fabricConsumed || 0);
+    if (primaryQuantity > 0) {
+      await tx.fabric_stock.update({
+        where: { id: existing.fabricStockId },
+        data: {
+          quantityAvailable: { increment: primaryQuantity },
+          quantityConsumed: { decrement: primaryQuantity },
+          status: 'AVAILABLE',
+        },
+      });
+      fabricsRestored.push({ fabricStockId: existing.fabricStockId, quantityRestored: primaryQuantity });
+      logInfo(`Restored ${primaryQuantity}m to primary fabric stock ${existing.fabricStockId}`);
+    }
+
+    // Restore additional fabrics (from additionalFabrics relation)
+    for (const fabric of existing.additionalFabrics) {
+      const quantityToRestore = Number(fabric.fabricIssued || fabric.fabricConsumed || 0);
+
+      if (quantityToRestore > 0) {
+        await tx.fabric_stock.update({
+          where: { id: fabric.fabricStockId },
+          data: {
+            quantityAvailable: { increment: quantityToRestore },
+            quantityConsumed: { decrement: quantityToRestore },
+            status: 'AVAILABLE',
+          },
+        });
+        fabricsRestored.push({ fabricStockId: fabric.fabricStockId, quantityRestored: quantityToRestore });
+        logInfo(`Restored ${quantityToRestore}m to additional fabric stock ${fabric.fabricStockId}`);
+      }
+    }
+
+    // Delete the batch (cascade will delete cutting_batch_fabrics, lays, skus)
+    await tx.cutting_batches.delete({
+      where: { id },
+    });
   });
 
-  res.json({ message: 'Cutting batch deleted successfully' });
+  res.json({
+    message: 'Cutting batch deleted successfully',
+    fabricRestored: fabricsRestored.length > 0,
+    fabricsRestored,
+  });
 };
 
 // ============================================

@@ -1,6 +1,7 @@
 // Stock Movement Service - Handle all stock movements and integrate with stock levels
 import { MovementType, StockTransactionType, Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import stockLevelService from './stockLevel.service';
 
@@ -18,6 +19,8 @@ export interface CreateStockMovementDTO {
   toLocation?: string;
   remarks?: string;
   performedById: string;
+  foldLengthCm?: Decimal;
+  thanCount?: number;
 }
 
 export interface StockTransferDTO {
@@ -47,6 +50,26 @@ export interface MovementFilters {
   endDate?: Date;
   referenceType?: string;
   referenceId?: string;
+}
+
+// Bulk stock-in DTOs
+export interface BulkStockInItemDTO {
+  materialId: string;
+  quantity: Decimal;
+  unit: Unit;
+  rate?: Decimal;
+  foldLengthCm?: Decimal;
+  thanCount?: number;
+  remarks?: string;
+}
+
+export interface BulkStockInDTO {
+  warehouseId: string;
+  referenceType?: string;
+  referenceNumber?: string;
+  remarks?: string;
+  performedById: string;
+  items: BulkStockInItemDTO[];
 }
 
 class StockMovementService {
@@ -164,6 +187,8 @@ class StockMovementService {
           referenceNumber: data.referenceNumber,
           remarks: data.remarks,
           performedById: data.performedById,
+          foldLengthCm: data.foldLengthCm,
+          thanCount: data.thanCount,
         },
         include: {
           materials: {
@@ -205,6 +230,88 @@ class StockMovementService {
       await this.increaseStockInTx(tx, data.materialId, data.warehouseId, data.quantity, data.unit, data.rate);
 
       return movement;
+    });
+  }
+
+  /**
+   * Create multiple stock-in movements in a single transaction (bulk receipt)
+   * All items share a batchId for traceability
+   */
+  async createBulkStockIn(data: BulkStockInDTO) {
+    const batchId = randomUUID();
+
+    return await prisma.$transaction(async (tx) => {
+      const movements = [];
+
+      for (const item of data.items) {
+        // Create stock movement record
+        const movement = await tx.stock_movements.create({
+          data: {
+            movementType: 'STOCK_IN',
+            materialId: item.materialId,
+            warehouseId: data.warehouseId,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: item.rate,
+            value: item.rate ? new Decimal(item.quantity.toString()).mul(item.rate.toString()) : null,
+            referenceType: data.referenceType || 'BULK_STOCK_IN',
+            referenceId: batchId,
+            referenceNumber: data.referenceNumber,
+            remarks: item.remarks || data.remarks,
+            performedById: data.performedById,
+            foldLengthCm: item.foldLengthCm,
+            thanCount: item.thanCount,
+          },
+          include: {
+            materials: {
+              select: {
+                code: true,
+                name: true,
+              },
+            },
+            warehouses: {
+              select: {
+                warehouseCode: true,
+                warehouseName: true,
+              },
+            },
+          },
+        });
+
+        // Create stock transaction for valuation
+        if (item.rate) {
+          await tx.stock_transactions.create({
+            data: {
+              materialId: item.materialId,
+              warehouseId: data.warehouseId,
+              transactionType: 'IN',
+              quantity: item.quantity,
+              unit: item.unit,
+              rate: item.rate,
+              value: new Decimal(item.quantity.toString()).mul(item.rate.toString()),
+              balanceQuantity: item.quantity,
+              balanceValue: new Decimal(item.quantity.toString()).mul(item.rate.toString()),
+              referenceType: data.referenceType || 'BULK_STOCK_IN',
+              referenceId: batchId,
+              referenceNumber: data.referenceNumber,
+            },
+          });
+        }
+
+        // Update stock level inside transaction for atomicity
+        await this.increaseStockInTx(tx, item.materialId, data.warehouseId, item.quantity, item.unit, item.rate);
+
+        movements.push(movement);
+      }
+
+      return {
+        batchId,
+        movements,
+        itemCount: movements.length,
+        totalQuantity: data.items
+          .reduce((sum, item) => sum.add(new Decimal(item.quantity.toString())), new Decimal(0))
+          .toString(),
+      };
     });
   }
 

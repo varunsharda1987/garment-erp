@@ -284,7 +284,7 @@ export default function MaterialRequirementsList() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
             <FileText className="h-6 w-6" />
             Material Requirements
           </h1>
@@ -297,8 +297,8 @@ export default function MaterialRequirementsList() {
                 onClick={() => setShowVendorAllocation(true)}
                 className={
                   unassignedCount > 0
-                    ? 'border-orange-500 text-orange-600 hover:bg-orange-50'
-                    : 'border-purple-500 text-purple-600 hover:bg-purple-50'
+                    ? 'border-primary text-primary hover:bg-primary/10'
+                    : 'border-accent text-accent hover:bg-accent/10'
                 }
               >
                 <Users className="h-4 w-4 mr-2" />
@@ -309,7 +309,7 @@ export default function MaterialRequirementsList() {
               <Button
                 variant="default"
                 onClick={() => setShowBulkPOGeneration(true)}
-                className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                className="bg-success hover:bg-success text-white disabled:opacity-50"
                 disabled={assignedCount === 0}
               >
                 <ShoppingCart className="h-4 w-4 mr-2" />
@@ -476,7 +476,7 @@ export default function MaterialRequirementsList() {
                         {RequirementTypeLabels[req.requirementType || 'MATERIAL']}
                       </Badge>
                       {req.requirementType === 'PROCESSING' && req.linkedRequirementId && (
-                        <div className="text-xs text-purple-600 mt-1">→ Linked to Greige</div>
+                        <div className="text-xs text-accent mt-1">→ Linked to Greige</div>
                       )}
                     </TableCell>
                     <TableCell>
@@ -514,7 +514,7 @@ export default function MaterialRequirementsList() {
                       {req.totalRequired.toLocaleString()} {req.unit}
                     </TableCell>
                     <TableCell
-                      className={`text-right ${req.shortfall > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}`}
+                      className={`text-right ${req.shortfall > 0 ? 'text-primary font-medium' : 'text-success'}`}
                     >
                       {req.shortfall > 0 ? `${req.shortfall.toLocaleString()} ${req.unit}` : 'Fulfilled'}
                     </TableCell>
@@ -528,24 +528,24 @@ export default function MaterialRequirementsList() {
                           (req.requirementType === 'PROCESSING' ? (
                             // PROCESSING requirements check processor
                             req.processorId ? (
-                              <div className="text-xs text-purple-600 flex items-center gap-1">
+                              <div className="text-xs text-accent flex items-center gap-1">
                                 <CheckCircle className="h-3 w-3" />
                                 Processor Ready
                               </div>
                             ) : (
-                              <div className="text-xs text-orange-600 flex items-center gap-1">
+                              <div className="text-xs text-primary flex items-center gap-1">
                                 <AlertTriangle className="h-3 w-3" />
                                 Needs Processor
                               </div>
                             )
                           ) : // MATERIAL requirements check supplier
                           req.preferredSupplierId ? (
-                            <div className="text-xs text-green-600 flex items-center gap-1">
+                            <div className="text-xs text-success flex items-center gap-1">
                               <CheckCircle className="h-3 w-3" />
                               Vendor Ready
                             </div>
                           ) : (
-                            <div className="text-xs text-orange-600 flex items-center gap-1">
+                            <div className="text-xs text-primary flex items-center gap-1">
                               <AlertTriangle className="h-3 w-3" />
                               Needs Vendor
                             </div>
@@ -556,23 +556,23 @@ export default function MaterialRequirementsList() {
                       {req.requirementType === 'PROCESSING' ? (
                         // PROCESSING requirements show processor
                         req.processor ? (
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                          <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             {req.processor.name}
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-500">
+                          <Badge variant="outline" className="bg-muted text-muted-foreground">
                             No Processor
                           </Badge>
                         )
                       ) : // MATERIAL requirements show supplier
                       req.preferredSupplier ? (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        <Badge variant="outline" className="bg-success-muted text-success border-success/20">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           {req.preferredSupplier.name}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-gray-50 text-gray-500">
+                        <Badge variant="outline" className="bg-muted text-muted-foreground">
                           Not Assigned
                         </Badge>
                       )}

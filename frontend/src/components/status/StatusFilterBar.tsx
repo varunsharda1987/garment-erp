@@ -35,7 +35,7 @@ export default function StatusFilterBar({
   setSortOrder,
 }: StatusFilterBarProps) {
   return (
-    <div className="bg-white p-4 rounded-lg border border-gray-200 mb-6 space-y-4">
+    <div className="bg-card p-4 rounded-lg border border-border mb-6 space-y-4">
       {/* Search and Primary Filters */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         {/* Search */}
@@ -44,7 +44,7 @@ export default function StatusFilterBar({
             Search
           </Label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="search"
               placeholder="Search by style code, buyer, brand..."
@@ -166,7 +166,7 @@ export default function StatusFilterBar({
         <button
           type="button"
           onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          className="text-sm text-info hover:text-info font-medium"
         >
           {sortOrder === 'asc' ? '↑ Ascending' : '↓ Descending'}
         </button>

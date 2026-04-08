@@ -163,11 +163,11 @@ export default function QuotationList() {
               e.stopPropagation();
               navigate(`/quotations/${quotation.id}`);
             }}
-            className="text-sm font-medium text-blue-600 hover:underline"
+            className="text-sm font-medium text-info hover:underline"
           >
             {quotation.quotationNumber}
           </button>
-          <div className="text-xs text-gray-500 mt-0.5">{formatDate(quotation.quotationDate)}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{formatDate(quotation.quotationDate)}</div>
         </div>
       ),
     },
@@ -176,10 +176,10 @@ export default function QuotationList() {
       header: 'Customer',
       render: (quotation) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-sm font-medium text-foreground">
             {quotation.customer?.billingName || quotation.customer?.name || 'N/A'}
           </div>
-          <div className="text-xs text-gray-500">{quotation.customer?.code}</div>
+          <div className="text-xs text-muted-foreground">{quotation.customer?.code}</div>
         </div>
       ),
     },
@@ -192,7 +192,7 @@ export default function QuotationList() {
           quotation.status !== 'ACCEPTED' &&
           quotation.status !== 'REJECTED';
         return (
-          <div className={`text-sm ${isExpired ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+          <div className={`text-sm ${isExpired ? 'text-destructive font-medium' : 'text-foreground'}`}>
             {formatDate(quotation.validUntil)}
           </div>
         );
@@ -201,13 +201,13 @@ export default function QuotationList() {
     {
       key: 'items',
       header: 'Items',
-      render: (quotation) => <div className="text-sm text-gray-700">{quotation.items?.length || 0} item(s)</div>,
+      render: (quotation) => <div className="text-sm text-foreground">{quotation.items?.length || 0} item(s)</div>,
     },
     {
       key: 'totalAmount',
       header: 'Total Amount',
       render: (quotation) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {quotation.totalAmount ? formatCurrency(quotation.totalAmount) : 'N/A'}
         </div>
       ),
@@ -244,7 +244,7 @@ export default function QuotationList() {
                 e.stopPropagation();
                 handleDeleteClick(quotation.id, quotation.quotationNumber);
               }}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               Delete
             </Button>
@@ -259,12 +259,12 @@ export default function QuotationList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <FileText className="h-6 w-6 text-purple-600" />
+          <div className="p-2 bg-accent/10 rounded-lg">
+            <FileText className="h-6 w-6 text-accent" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Quotations</h1>
-            <p className="text-sm text-gray-500">Manage customer quotations and proforma invoices</p>
+            <h1 className="text-2xl font-display font-medium text-foreground">Quotations</h1>
+            <p className="text-sm text-muted-foreground">Manage customer quotations and proforma invoices</p>
           </div>
         </div>
         <Button onClick={() => navigate('/quotations/new')} className="gap-2">
@@ -278,44 +278,44 @@ export default function QuotationList() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.total}</div>
-              <p className="text-xs text-gray-500 mt-1">{formatCurrency(summary.totalValue)}</p>
+              <p className="text-xs text-muted-foreground mt-1">{formatCurrency(summary.totalValue)}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Draft</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Draft</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-600">{summary.draft}</div>
+              <div className="text-2xl font-bold text-muted-foreground">{summary.draft}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Sent</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Sent</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{summary.sent}</div>
+              <div className="text-2xl font-bold text-info">{summary.sent}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Accepted</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Accepted</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{summary.accepted}</div>
-              <p className="text-xs text-gray-500 mt-1">Value: {formatCurrency(summary.acceptedValue)}</p>
+              <div className="text-2xl font-bold text-success">{summary.accepted}</div>
+              <p className="text-xs text-muted-foreground mt-1">Value: {formatCurrency(summary.acceptedValue)}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Rejected</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Rejected</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{summary.rejected}</div>
+              <div className="text-2xl font-bold text-destructive">{summary.rejected}</div>
             </CardContent>
           </Card>
         </div>

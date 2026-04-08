@@ -119,10 +119,10 @@ export default function CustomerDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading customer details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading customer details...</p>
         </div>
       </div>
     );
@@ -130,8 +130,8 @@ export default function CustomerDetail() {
 
   if (error || !customer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <header className="bg-white shadow-sm">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+        <header className="bg-card shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => navigate('/customers')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -142,7 +142,7 @@ export default function CustomerDetail() {
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600">{error || 'Customer not found'}</p>
+              <p className="text-destructive">{error || 'Customer not found'}</p>
               <Button onClick={() => navigate('/customers')} className="mt-4">
                 Return to Customers
               </Button>
@@ -154,8 +154,8 @@ export default function CustomerDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Button variant="ghost" onClick={() => navigate('/customers')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -184,10 +184,10 @@ export default function CustomerDetail() {
                     variant={customer.isActive ? 'success' : 'secondary'}
                   />
                 </div>
-                <p className="text-gray-600">Customer Code: {customer.code}</p>
+                <p className="text-muted-foreground">Customer Code: {customer.code}</p>
               </div>
               {customer._count && (
-                <div className="text-right text-sm text-gray-600">
+                <div className="text-right text-sm text-muted-foreground">
                   <div>Orders: {customer._count.orders}</div>
                   <div>Quotations: {customer._count.quotations}</div>
                   <div>Invoices: {customer._count.invoices}</div>
@@ -209,26 +209,26 @@ export default function CustomerDetail() {
             <CardContent className="space-y-4">
               {customer.contactPerson && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Contact Person</label>
-                  <p className="text-gray-900">{customer.contactPerson}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Contact Person</label>
+                  <p className="text-foreground">{customer.contactPerson}</p>
                 </div>
               )}
               {customer.email && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                     <Mail className="h-4 w-4" />
                     Email
                   </label>
-                  <p className="text-gray-900">{customer.email}</p>
+                  <p className="text-foreground">{customer.email}</p>
                 </div>
               )}
               {customer.phone && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                     <Phone className="h-4 w-4" />
                     Phone
                   </label>
-                  <p className="text-gray-900">{customer.phone}</p>
+                  <p className="text-foreground">{customer.phone}</p>
                 </div>
               )}
             </CardContent>
@@ -242,11 +242,11 @@ export default function CustomerDetail() {
             <CardContent className="space-y-3">
               {groupedBrandCategories && Object.keys(groupedBrandCategories).length > 0 ? (
                 Object.entries(groupedBrandCategories).map(([brandName, categories]) => (
-                  <div key={brandName} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="font-medium text-gray-900 mb-1">{brandName}</p>
+                  <div key={brandName} className="p-3 bg-muted rounded-lg border border-border">
+                    <p className="font-medium text-foreground mb-1">{brandName}</p>
                     <div className="flex flex-wrap gap-1">
                       {categories.map((cat, idx) => (
-                        <span key={idx} className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                        <span key={idx} className="inline-block px-2 py-1 bg-info-muted text-info text-xs rounded">
                           {cat}
                         </span>
                       ))}
@@ -255,17 +255,17 @@ export default function CustomerDetail() {
                 ))
               ) : customer.brandNames ? (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Brand Names</label>
-                  <p className="text-gray-900 whitespace-pre-line">{customer.brandNames}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Brand Names</label>
+                  <p className="text-foreground whitespace-pre-line">{customer.brandNames}</p>
                   {customer.categories && (
                     <>
-                      <label className="text-sm font-medium text-gray-600 mt-3 block">Categories</label>
-                      <p className="text-gray-900 whitespace-pre-line">{customer.categories}</p>
+                      <label className="text-sm font-medium text-muted-foreground mt-3 block">Categories</label>
+                      <p className="text-foreground whitespace-pre-line">{customer.categories}</p>
                     </>
                   )}
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No brand information available</p>
+                <p className="text-muted-foreground text-sm">No brand information available</p>
               )}
             </CardContent>
           </Card>
@@ -282,27 +282,27 @@ export default function CustomerDetail() {
               {customer.customerGstNumbers && customer.customerGstNumbers.length > 0 ? (
                 <div className="space-y-3">
                   {customer.customerGstNumbers.map((gst) => (
-                    <div key={gst.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div key={gst.id} className="p-4 bg-info-muted rounded-lg border border-info/20">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-medium text-gray-600">State</label>
-                          <p className="text-gray-900">
+                          <label className="text-xs font-medium text-muted-foreground">State</label>
+                          <p className="text-foreground">
                             {gst.stateName} {gst.stateCode && `(${gst.stateCode})`}
                             {gst.isPrimary && (
-                              <span className="ml-2 inline-block px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded">
+                              <span className="ml-2 inline-block px-2 py-0.5 bg-success-muted text-success text-xs rounded">
                                 Primary
                               </span>
                             )}
                           </p>
                         </div>
                         <div>
-                          <label className="text-xs font-medium text-gray-600">GST Number</label>
-                          <p className="text-gray-900 font-mono">{gst.gstNumber}</p>
+                          <label className="text-xs font-medium text-muted-foreground">GST Number</label>
+                          <p className="text-foreground font-mono">{gst.gstNumber}</p>
                         </div>
                         {gst.billingAddress && (
                           <div className="md:col-span-2">
-                            <label className="text-xs font-medium text-gray-600">Billing Address</label>
-                            <p className="text-gray-900">{gst.billingAddress}</p>
+                            <label className="text-xs font-medium text-muted-foreground">Billing Address</label>
+                            <p className="text-foreground">{gst.billingAddress}</p>
                           </div>
                         )}
                       </div>
@@ -311,11 +311,11 @@ export default function CustomerDetail() {
                 </div>
               ) : customer.gstNumber ? (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">GST Number</label>
-                  <p className="text-gray-900 font-mono">{customer.gstNumber}</p>
+                  <label className="text-sm font-medium text-muted-foreground">GST Number</label>
+                  <p className="text-foreground font-mono">{customer.gstNumber}</p>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No GST information available</p>
+                <p className="text-muted-foreground text-sm">No GST information available</p>
               )}
             </CardContent>
           </Card>
@@ -330,9 +330,9 @@ export default function CustomerDetail() {
             </CardHeader>
             <CardContent>
               {customer.billingAddress ? (
-                <p className="text-gray-900 whitespace-pre-line">{customer.billingAddress}</p>
+                <p className="text-foreground whitespace-pre-line">{customer.billingAddress}</p>
               ) : (
-                <p className="text-gray-500 text-sm">No billing address available</p>
+                <p className="text-muted-foreground text-sm">No billing address available</p>
               )}
             </CardContent>
           </Card>
@@ -346,9 +346,9 @@ export default function CustomerDetail() {
             </CardHeader>
             <CardContent>
               {customer.shippingAddress ? (
-                <p className="text-gray-900 whitespace-pre-line">{customer.shippingAddress}</p>
+                <p className="text-foreground whitespace-pre-line">{customer.shippingAddress}</p>
               ) : (
-                <p className="text-gray-500 text-sm">No shipping address available</p>
+                <p className="text-muted-foreground text-sm">No shipping address available</p>
               )}
             </CardContent>
           </Card>
@@ -363,14 +363,14 @@ export default function CustomerDetail() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-gray-600">Credit Limit</label>
-                <p className="text-gray-900 text-xl font-semibold">
+                <label className="text-sm font-medium text-muted-foreground">Credit Limit</label>
+                <p className="text-foreground text-xl font-semibold">
                   {customer.creditLimit ? formatCurrency(customer.creditLimit, { decimals: 0 }) : 'Not set'}
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Credit Days</label>
-                <p className="text-gray-900 text-xl font-semibold">
+                <label className="text-sm font-medium text-muted-foreground">Credit Days</label>
+                <p className="text-foreground text-xl font-semibold">
                   {customer.creditDays ? `${customer.creditDays} days` : 'Not set'}
                 </p>
               </div>
@@ -388,19 +388,19 @@ export default function CustomerDetail() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Agent</label>
-                  <p className="text-gray-900 font-medium">
+                  <label className="text-sm font-medium text-muted-foreground">Agent</label>
+                  <p className="text-foreground font-medium">
                     {customer.agent.code} - {customer.agent.name}
                   </p>
-                  {customer.agent.phone && <p className="text-sm text-gray-600">{customer.agent.phone}</p>}
+                  {customer.agent.phone && <p className="text-sm text-muted-foreground">{customer.agent.phone}</p>}
                 </div>
                 {customer.agentCommissionPercent != null && (
                   <div>
-                    <label className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                    <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                       <Percent className="h-4 w-4" />
                       Commission
                     </label>
-                    <p className="text-gray-900 text-xl font-semibold">{customer.agentCommissionPercent}%</p>
+                    <p className="text-foreground text-xl font-semibold">{customer.agentCommissionPercent}%</p>
                   </div>
                 )}
               </CardContent>
@@ -414,12 +414,12 @@ export default function CustomerDetail() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-gray-600">Created At</label>
-                <p className="text-gray-900">{new Date(customer.createdAt).toLocaleString()}</p>
+                <label className="text-sm font-medium text-muted-foreground">Created At</label>
+                <p className="text-foreground">{new Date(customer.createdAt).toLocaleString()}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                <p className="text-gray-900">{new Date(customer.updatedAt).toLocaleString()}</p>
+                <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                <p className="text-foreground">{new Date(customer.updatedAt).toLocaleString()}</p>
               </div>
             </CardContent>
           </Card>

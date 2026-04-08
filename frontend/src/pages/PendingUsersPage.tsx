@@ -102,17 +102,17 @@ export default function PendingUsersPage() {
       header: 'Name',
       render: (user) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-sm font-medium text-foreground">
             {user.firstName} {user.lastName}
           </div>
-          {user.phone && <div className="text-xs text-gray-500">{user.phone}</div>}
+          {user.phone && <div className="text-xs text-muted-foreground">{user.phone}</div>}
         </div>
       ),
     },
     {
       key: 'email',
       header: 'Email',
-      render: (user) => <div className="text-sm text-gray-700">{user.email}</div>,
+      render: (user) => <div className="text-sm text-foreground">{user.email}</div>,
     },
     {
       key: 'role',
@@ -123,7 +123,7 @@ export default function PendingUsersPage() {
       key: 'createdAt',
       header: 'Registered',
       render: (user) => (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-muted-foreground">
           {user.createdAt ? formatDistanceToNow(new Date(user.createdAt), { addSuffix: true }) : '-'}
         </div>
       ),
@@ -138,7 +138,7 @@ export default function PendingUsersPage() {
           <Button
             variant="default"
             size="sm"
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-success hover:bg-success"
             onClick={(e) => {
               e.stopPropagation();
               handleApproveClick(user.id, `${user.firstName} ${user.lastName}`);
@@ -169,8 +169,8 @@ export default function PendingUsersPage() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Clock className="h-6 w-6 text-amber-600" />
+              <div className="p-2 bg-warning/10 rounded-lg">
+                <Clock className="h-6 w-6 text-warning" />
               </div>
               <div>
                 <CardTitle>Pending User Approvals</CardTitle>
@@ -187,7 +187,7 @@ export default function PendingUsersPage() {
             loading={isLoading}
             error={error}
             emptyState={{
-              icon: <UserCheck className="h-16 w-16 text-green-500" />,
+              icon: <UserCheck className="h-16 w-16 text-success" />,
               title: 'No pending approvals',
               description: 'All user registrations have been processed. New requests will appear here.',
             }}

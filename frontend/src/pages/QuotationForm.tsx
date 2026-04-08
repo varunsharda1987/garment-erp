@@ -200,12 +200,14 @@ export default function QuotationForm() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <FileText className="h-6 w-6 text-purple-600" />
+          <div className="p-2 bg-accent/10 rounded-lg">
+            <FileText className="h-6 w-6 text-accent" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Quotation' : 'Create Quotation'}</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-2xl font-display font-medium text-foreground">
+              {isEditMode ? 'Edit Quotation' : 'Create Quotation'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
               {isEditMode ? 'Update quotation details' : 'Generate a new quotation for a customer'}
             </p>
           </div>
@@ -223,7 +225,7 @@ export default function QuotationForm() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="customerId">
-                  Customer <span className="text-red-500">*</span>
+                  Customer <span className="text-destructive">*</span>
                 </Label>
                 <Select value={customerId} onValueChange={setCustomerId} disabled={isEditMode}>
                   <SelectTrigger id="customerId">
@@ -251,7 +253,7 @@ export default function QuotationForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="validUntil">
-                  Valid Until <span className="text-red-500">*</span>
+                  Valid Until <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="validUntil"
@@ -302,14 +304,14 @@ export default function QuotationForm() {
             {items.map((item, index) => (
               <div key={item.tempId} className="p-4 border rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-sm text-gray-700">Item {index + 1}</h4>
+                  <h4 className="font-medium text-sm text-foreground">Item {index + 1}</h4>
                   {items.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRemoveItem(item.tempId)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -319,7 +321,7 @@ export default function QuotationForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>
-                      Style <span className="text-red-500">*</span>
+                      Style <span className="text-destructive">*</span>
                     </Label>
                     <Select
                       value={item.styleId}
@@ -340,7 +342,7 @@ export default function QuotationForm() {
 
                   <div className="space-y-2">
                     <Label>
-                      Quantity <span className="text-red-500">*</span>
+                      Quantity <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       type="number"
@@ -353,7 +355,7 @@ export default function QuotationForm() {
 
                   <div className="space-y-2">
                     <Label>
-                      Unit Price (₹) <span className="text-red-500">*</span>
+                      Unit Price (₹) <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       type="number"
@@ -389,28 +391,28 @@ export default function QuotationForm() {
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t">
-                  <div className="text-sm text-gray-600">Item Total:</div>
+                  <div className="text-sm text-muted-foreground">Item Total:</div>
                   <div className="text-lg font-semibold">{formatCurrency(item.totalQuantity * item.unitPrice)}</div>
                 </div>
               </div>
             ))}
 
             {/* Total */}
-            <div className="flex justify-end pt-4 border-t-2 border-gray-300">
+            <div className="flex justify-end pt-4 border-t-2 border-border">
               <div className="w-72 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
+                  <span className="text-muted-foreground">Subtotal</span>
                   <span className="font-medium">{formatCurrency(calculateTotal())}</span>
                 </div>
-                <div className="flex justify-between text-xs text-gray-400">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>GST (auto-calculated on save)</span>
                   <span>—</span>
                 </div>
                 <div className="flex justify-between font-semibold text-lg pt-2 border-t">
                   <span>Quotation Total</span>
-                  <span className="text-purple-600">{formatCurrency(calculateTotal())}</span>
+                  <span className="text-accent">{formatCurrency(calculateTotal())}</span>
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   GST will be estimated automatically based on customer's state and HSN codes.
                 </p>
               </div>

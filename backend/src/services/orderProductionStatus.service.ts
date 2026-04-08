@@ -187,7 +187,7 @@ class OrderProductionStatusService {
       });
 
       // Process each order item to build production status
-      let statusItems = orderItems.map((orderItem) => this.buildOrderStatusItem(orderItem));
+      let statusItems = await Promise.all(orderItems.map((orderItem) => this.buildOrderStatusItem(orderItem)));
 
       // Apply status filter
       if (status && status !== 'all') {
@@ -314,7 +314,7 @@ class OrderProductionStatusService {
   /**
    * Build order-level production status item
    */
-  private buildOrderStatusItem(orderItem: any): any {
+  private async buildOrderStatusItem(orderItem: any): Promise<any> {
     const now = new Date();
     const order = orderItem.orders;
     const style = orderItem.styles;
@@ -406,17 +406,18 @@ class OrderProductionStatusService {
           }
         : null;
 
-    // Stage breakdown (simplified)
+    // Stage breakdown — derive piece counts from currentStage
     const stageStr = currentStage as string;
     const stageBreakdown = {
       ordersReceived: 1,
       pendingCosting: styleCosting ? 0 : 1,
-      pendingGreige: 0,
-      trimsNotOrdered: 0,
-      inPrinting: 0,
-      inDying: 0,
-      inEmbroidery: 0,
-      inHandwork: 0,
+      pendingGreige: stageStr === 'PENDING_GREIGE_ORDER' ? 1 : 0,
+      trimsNotOrdered: stageStr === 'TRIMS_NOT_ORDERED' ? 1 : 0,
+      inPrinting: stageStr === 'IN_PRINTING' ? piecesInStage : 0,
+      inDying: stageStr === 'IN_DYING' ? piecesInStage : 0,
+      inEmbroidery: stageStr === 'IN_EMBROIDERY' ? piecesInStage : 0,
+      inSmocking: stageStr === 'IN_SMOCKING' ? piecesInStage : 0,
+      inHandwork: stageStr === 'IN_HANDWORK' ? piecesInStage : 0,
       inCutting: stageStr === 'IN_CUTTING' ? piecesInStage : 0,
       inStitching: stageStr === 'IN_STITCHING' ? piecesInStage : 0,
       inFinishing: stageStr === 'IN_FINISHING' ? piecesInStage : 0,
@@ -425,13 +426,8 @@ class OrderProductionStatusService {
       completed: stageStr === 'COMPLETED' ? piecesInStage : 0,
     };
 
-    // Material status (simplified)
-    const materialStatus = {
-      fabricsOrdered: false,
-      fabricsReceived: false,
-      trimsOrdered: false,
-      trimsReceived: false,
-    };
+    // Material status from MRP requirements
+    const materialStatus = await this.getMaterialStatus(orderItem.orderId);
 
     return {
       // Order Item Core
@@ -562,6 +558,51 @@ class OrderProductionStatusService {
       return 'APPROVED';
     }
     return 'PENDING';
+  }
+
+  /**
+   * Get material readiness status from MRP requirements for an order
+   */
+  private async getMaterialStatus(orderId: string): Promise<{
+    fabricsOrdered: boolean;
+    fabricsReceived: boolean;
+    trimsOrdered: boolean;
+    trimsReceived: boolean;
+  }> {
+    const FABRIC_TYPES = ['FABRIC', 'GREIGE'];
+    const defaultStatus = { fabricsOrdered: false, fabricsReceived: false, trimsOrdered: false, trimsReceived: false };
+
+    try {
+      const requirements = await prisma.material_requirements.findMany({
+        where: {
+          orderId,
+          requirementType: 'MATERIAL',
+          status: { not: 'CANCELLED' },
+        },
+        select: {
+          status: true,
+          materials: { select: { materialType: true } },
+        },
+      });
+
+      if (requirements.length === 0) return defaultStatus;
+
+      const fabricReqs = requirements.filter((r) => FABRIC_TYPES.includes(r.materials?.materialType || ''));
+      const trimReqs = requirements.filter((r) => !FABRIC_TYPES.includes(r.materials?.materialType || ''));
+
+      const PO_ORDERED_STATUSES = ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED', 'RECEIVED'];
+      const RECEIVED_STATUSES = ['RECEIVED', 'FULFILLED_STOCK'];
+
+      return {
+        fabricsOrdered: fabricReqs.length > 0 && fabricReqs.some((r) => PO_ORDERED_STATUSES.includes(r.status)),
+        fabricsReceived: fabricReqs.length > 0 && fabricReqs.every((r) => RECEIVED_STATUSES.includes(r.status)),
+        trimsOrdered: trimReqs.length > 0 && trimReqs.some((r) => PO_ORDERED_STATUSES.includes(r.status)),
+        trimsReceived: trimReqs.length > 0 && trimReqs.every((r) => RECEIVED_STATUSES.includes(r.status)),
+      };
+    } catch (err) {
+      console.error('Failed to get material status:', err);
+      return defaultStatus;
+    }
   }
 
   /**

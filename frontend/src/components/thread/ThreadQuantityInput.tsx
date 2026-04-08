@@ -131,9 +131,9 @@ const ThreadQuantityInput: React.FC<ThreadQuantityInputProps> = ({
           disabled={disabled}
           min={0}
           step={inputType === 'UNITS' ? 1 : 0.1}
-          className={error ? 'border-red-500' : ''}
+          className={error ? 'border-destructive' : ''}
         />
-        {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-sm text-destructive mt-1">{error}</p>}
       </div>
 
       {/* Conversion Display */}
@@ -144,13 +144,13 @@ const ThreadQuantityInput: React.FC<ThreadQuantityInputProps> = ({
         </div>
       )}
 
-      {conversionError && <p className="text-sm text-amber-600">⚠️ {conversionError}</p>}
+      {conversionError && <p className="text-sm text-warning">⚠️ {conversionError}</p>}
 
       {conversion && !loading && !conversionError && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="pt-4 pb-3">
             <p className="text-sm font-medium text-primary mb-1">Conversion:</p>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-foreground">
               <strong>{formatNumber(conversion.totalBoxes)}</strong> boxes ={' '}
               <strong>{formatNumber(conversion.totalUnits)}</strong> units ={' '}
               <strong>{formatNumber(conversion.totalMeters)}</strong> meters

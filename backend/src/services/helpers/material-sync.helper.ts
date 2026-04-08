@@ -1,0 +1,113 @@
+/**
+ * Material Sync Helper
+ *
+ * Centralizes two critical operations that EVERY stock service must perform:
+ * 1. ensureMaterialRecord() — Guarantees a `materials` record exists for a given master
+ * 2. syncStockLevelQuantity() — Keeps `stock_levels` in sync after any stock change
+ *
+ * MANDATORY PATTERN: Every stock service that creates/adjusts/consumes stock MUST
+ * import and use these helpers. See CLAUDE.md "Stock Service Pattern" section.
+ */
+
+import prisma from '../../config/database';
+import { materialService } from '../material.service';
+import { logInfo, logError } from '../../utils/logger';
+
+// Master table configuration for each material type
+const MASTER_CONFIG: Record<string, { table: string; codeField: string; nameField: string; fkField: string }> = {
+  GREIGE: { table: 'greige_master', codeField: 'greigeCode', nameField: 'greigeName', fkField: 'greigeId' },
+  FABRIC: { table: 'fabric_master', codeField: 'fabricCode', nameField: 'fabricName', fkField: 'fabricId' },
+  LACE: { table: 'lace_master', codeField: 'laceCode', nameField: 'laceName', fkField: 'laceId' },
+  THREAD: { table: 'thread_master', codeField: 'threadCode', nameField: 'threadName', fkField: 'threadId' },
+  BUTTON: { table: 'button_master', codeField: 'buttonCode', nameField: 'buttonName', fkField: 'buttonId' },
+  ZIPPER: { table: 'zipper_master', codeField: 'zipperCode', nameField: 'zipperName', fkField: 'zipperId' },
+  ELASTIC: { table: 'elastic_master', codeField: 'elasticCode', nameField: 'elasticName', fkField: 'elasticId' },
+  LABEL: { table: 'label_master', codeField: 'labelCode', nameField: 'labelName', fkField: 'labelId' },
+  PACKAGING: {
+    table: 'packaging_master',
+    codeField: 'packagingCode',
+    nameField: 'packagingName',
+    fkField: 'packagingId',
+  },
+};
+
+/**
+ * Ensures a `materials` record exists for a given master record.
+ * If missing, creates it via materialService.createFromMaster().
+ *
+ * @param masterId - The ID of the master record (greige_master.id, fabric_master.id, etc.)
+ * @param masterType - The type of master (GREIGE, FABRIC, LACE, THREAD, etc.)
+ * @returns The materialId (same as masterId by convention from createFromMaster)
+ */
+export async function ensureMaterialRecord(masterId: string, masterType: string): Promise<string> {
+  const config = MASTER_CONFIG[masterType];
+  if (!config) throw new Error(`Unknown master type: ${masterType}`);
+
+  // Check if materials record already exists
+  const existing = await prisma.materials.findFirst({
+    where: { [config.fkField]: masterId },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  // Fetch master record for code/name
+  const master = await (prisma as any)[config.table].findUnique({
+    where: { id: masterId },
+    select: { id: true, [config.codeField]: true, [config.nameField]: true },
+  });
+  if (!master) {
+    throw new Error(`${masterType} master not found: ${masterId}`);
+  }
+
+  // Create materials record (handles P2002 race condition)
+  try {
+    const material = await materialService.createFromMaster(
+      { id: master.id, code: master[config.codeField], name: master[config.nameField] },
+      masterType as any
+    );
+    logInfo(`[MaterialSync] Created materials record for ${masterType} ${master[config.codeField]} (${masterId})`);
+    return material.id;
+  } catch (err: any) {
+    if (err.code === 'P2002') {
+      // Race condition — record was just created by another process
+      const retried = await prisma.materials.findFirst({
+        where: { [config.fkField]: masterId },
+        select: { id: true },
+      });
+      if (retried) return retried.id;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Syncs stock_levels after a stock quantity change.
+ * Uses updateMany so it's a no-op if no stock_levels entry exists yet.
+ *
+ * @param materialId - The materials.id (= masterId by convention)
+ * @param change - Positive for increase, negative for decrease
+ * @param tx - Optional Prisma transaction client for atomicity
+ */
+export async function syncStockLevelQuantity(materialId: string, change: number, tx?: any): Promise<void> {
+  if (change === 0) return;
+
+  const client = tx || prisma;
+
+  try {
+    if (change > 0) {
+      await client.stock_levels.updateMany({
+        where: { materialId },
+        data: { quantity: { increment: change }, lastUpdated: new Date() },
+      });
+    } else {
+      await client.stock_levels.updateMany({
+        where: { materialId },
+        data: { quantity: { decrement: Math.abs(change) }, lastUpdated: new Date() },
+      });
+    }
+  } catch (err) {
+    logError(`[MaterialSync] Failed to sync stock_levels for material ${materialId}, change: ${change}`, err);
+    // Don't throw — stock_levels sync failure shouldn't block the primary operation
+    // The stock_levels entry might not exist yet (e.g., first stock entry before GRN)
+  }
+}

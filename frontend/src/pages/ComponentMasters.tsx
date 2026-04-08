@@ -171,8 +171,8 @@ export default function ComponentMasters() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Component Masters</h1>
-          <p className="text-gray-600 mt-1">Manage garment component types (Blouse, Top, Pajama, etc.)</p>
+          <h1 className="text-3xl font-display font-medium">Component Masters</h1>
+          <p className="text-muted-foreground mt-1">Manage garment component types (Blouse, Top, Pajama, etc.)</p>
         </div>
         <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
@@ -183,7 +183,7 @@ export default function ComponentMasters() {
       {/* Search */}
       <div className="mb-4 max-w-sm">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search components..."
@@ -216,7 +216,7 @@ export default function ComponentMasters() {
               </TableRow>
             ) : components.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No component masters found
                 </TableCell>
               </TableRow>
@@ -230,16 +230,16 @@ export default function ComponentMasters() {
                     ) : component.componentCategory ? (
                       <Badge variant="secondary">{component.componentCategory}</Badge>
                     ) : (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
                   <TableCell className="max-w-md truncate">
-                    {component.description || <span className="text-gray-400">—</span>}
+                    {component.description || <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>{component.sortOrder}</TableCell>
                   <TableCell>
                     {component.isActive ? (
-                      <Badge variant="default" className="bg-green-500">
+                      <Badge variant="default" className="bg-success-muted0">
                         Active
                       </Badge>
                     ) : (
@@ -251,7 +251,7 @@ export default function ComponentMasters() {
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(component.id, component.name)}>
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -277,7 +277,7 @@ export default function ComponentMasters() {
             <div className="space-y-4 py-4">
               <div>
                 <Label htmlFor="name">
-                  Name <span className="text-red-500">*</span>
+                  Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="name"
@@ -290,7 +290,7 @@ export default function ComponentMasters() {
 
               <div>
                 <Label htmlFor="componentGroupId">
-                  Component Group <span className="text-red-500">*</span>
+                  Component Group <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={formData.componentGroupId}
@@ -308,7 +308,7 @@ export default function ComponentMasters() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Component Group determines which pattern parts (Front, Back, Sleeve, etc.) are available for CAD
                   planning
                 </p>

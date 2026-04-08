@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Combobox } from '../components/ui/combobox';
 import { fabricService } from '../services/fabricGreigeService';
+import { warehouseService } from '../services/warehouse.service';
 import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FabricMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
@@ -34,6 +35,9 @@ export default function FabricStockEntry() {
     notes: '',
   });
 
+  const [warehouses, setWarehouses] = useState<
+    Array<{ id: string; warehouseCode: string; warehouseName: string; isVirtual?: boolean }>
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +50,21 @@ export default function FabricStockEntry() {
   const loadFabricList = async () => {
     try {
       setIsLoading(true);
-      const response = await fabricService.getAll({ limit: 200, isActive: 'true' });
-      setFabricList(response.data || []);
+      const [fabricResponse, warehouseData] = await Promise.all([
+        fabricService.getAll({ limit: 200, isActive: 'true' }),
+        warehouseService.getAll({ isActive: true }),
+      ]);
+      setFabricList(fabricResponse.data || []);
+      setWarehouses(warehouseData);
+
+      // Set default warehouse to "Kashaya Fabs"
+      const kashayaFabs = warehouseData.find((wh) => wh.warehouseName === 'Kashaya Fabs');
+      if (kashayaFabs) {
+        setFormData((prev) => ({ ...prev, warehouseLocation: kashayaFabs.warehouseName }));
+      }
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      const errorMsg = error.response?.data?.message || 'Failed to load fabric list';
+      const errorMsg = error.response?.data?.message || 'Failed to load data';
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -183,16 +197,16 @@ export default function FabricStockEntry() {
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
-      <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">
+      <div className="mb-4 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-info">
           Home
         </Link>
         {' > '}
-        <Link to="/fabric" className="hover:text-blue-600">
+        <Link to="/fabric" className="hover:text-info">
           Finished Fabric
         </Link>
         {' > '}
-        <span className="font-medium text-gray-900">Stock Entry</span>
+        <span className="font-medium text-foreground">Stock Entry</span>
       </div>
 
       {/* Back Button */}
@@ -206,17 +220,17 @@ export default function FabricStockEntry() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package2 className="h-6 w-6 text-blue-600" />
+            <Package2 className="h-6 w-6 text-info" />
             Finished Fabric Stock Entry
           </CardTitle>
-          <p className="text-sm text-gray-500 mt-2">Add finished fabric stock to inventory</p>
+          <p className="text-sm text-muted-foreground mt-2">Add finished fabric stock to inventory</p>
         </CardHeader>
         <CardContent>
           {/* Success Alert */}
           {success && (
-            <Alert className="mb-6 bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="mb-6 bg-success-muted border-success/20">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success">
                 Stock entry saved successfully! Redirecting to stock view...
               </AlertDescription>
             </Alert>
@@ -224,9 +238,9 @@ export default function FabricStockEntry() {
 
           {/* Error Alert */}
           {error && (
-            <Alert className="mb-6 bg-red-50 border-red-200">
-              <XCircle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            <Alert className="mb-6 bg-destructive/10 border-destructive/20">
+              <XCircle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-destructive">{error}</AlertDescription>
             </Alert>
           )}
 
@@ -234,7 +248,7 @@ export default function FabricStockEntry() {
             {/* Fabric Selection */}
             <div>
               <Label>
-                Select Finished Fabric <span className="text-red-500">*</span>
+                Select Finished Fabric <span className="text-destructive">*</span>
               </Label>
               <Combobox
                 options={fabricList.map((fabric) => ({
@@ -250,54 +264,54 @@ export default function FabricStockEntry() {
                 disabled={isLoading}
                 className="mt-1"
               />
-              {isLoading && <p className="text-sm text-gray-500 mt-1">Loading fabrics...</p>}
+              {isLoading && <p className="text-sm text-muted-foreground mt-1">Loading fabrics...</p>}
             </div>
 
             {/* Fabric Details Panel */}
             {selectedFabric && (
-              <Card className="bg-blue-50 border-blue-200">
+              <Card className="bg-info-muted border-info/20">
                 <CardContent className="pt-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Fabric Details</h4>
+                  <h4 className="font-medium text-foreground mb-3">Fabric Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-600">Code:</span>
+                      <span className="text-muted-foreground">Code:</span>
                       <p className="font-medium">{selectedFabric.fabricCode}</p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Name:</span>
+                      <span className="text-muted-foreground">Name:</span>
                       <p className="font-medium">{selectedFabric.fabricName}</p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Finish Type:</span>
+                      <span className="text-muted-foreground">Finish Type:</span>
                       <p className="font-medium">{selectedFabric.finishType || 'N/A'}</p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Color:</span>
+                      <span className="text-muted-foreground">Color:</span>
                       <p className="font-medium">{selectedFabric.colorName || 'N/A'}</p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Actual Width:</span>
+                      <span className="text-muted-foreground">Actual Width:</span>
                       <p className="font-medium">{selectedFabric.actualWidth}"</p>
                     </div>
                     <div>
-                      <span className="text-gray-600">Cutable Width:</span>
+                      <span className="text-muted-foreground">Cutable Width:</span>
                       <p className="font-medium">{selectedFabric.cutableWidth || 'N/A'}"</p>
                     </div>
                     {selectedFabric.finishedConstruction && (
                       <div>
-                        <span className="text-gray-600">Construction:</span>
+                        <span className="text-muted-foreground">Construction:</span>
                         <p className="font-medium">{selectedFabric.finishedConstruction}</p>
                       </div>
                     )}
                     {selectedFabric.valueAddition && (
                       <div>
-                        <span className="text-gray-600">Value Addition:</span>
+                        <span className="text-muted-foreground">Value Addition:</span>
                         <p className="font-medium">{selectedFabric.valueAddition}</p>
                       </div>
                     )}
                     {selectedFabric.styleReference && (
                       <div>
-                        <span className="text-gray-600">Style Reference:</span>
+                        <span className="text-muted-foreground">Style Reference:</span>
                         <p className="font-medium">{selectedFabric.styleReference}</p>
                       </div>
                     )}
@@ -305,10 +319,10 @@ export default function FabricStockEntry() {
 
                   {/* Collapsible Greige Details */}
                   {selectedFabric.greige && (
-                    <div className="mt-4 pt-4 border-t border-blue-300">
+                    <div className="mt-4 pt-4 border-t border-info/30">
                       <button
                         onClick={() => setShowGreigeDetails(!showGreigeDetails)}
-                        className="flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900"
+                        className="flex items-center gap-2 text-sm font-medium text-info hover:text-info"
                       >
                         {showGreigeDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         Greige Base Details
@@ -316,31 +330,31 @@ export default function FabricStockEntry() {
                       {showGreigeDetails && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mt-3">
                           <div>
-                            <span className="text-gray-600">Greige Code:</span>
+                            <span className="text-muted-foreground">Greige Code:</span>
                             <p className="font-medium">{selectedFabric.greige.greigeCode}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Greige Name:</span>
+                            <span className="text-muted-foreground">Greige Name:</span>
                             <p className="font-medium">{selectedFabric.greige.greigeName}</p>
                           </div>
                           <div>
-                            <span className="text-gray-600">Composition:</span>
+                            <span className="text-muted-foreground">Composition:</span>
                             <p className="font-medium">{selectedFabric.greige.composition}</p>
                           </div>
                           {selectedFabric.greige.yarnCount && (
                             <div>
-                              <span className="text-gray-600">Yarn Count:</span>
+                              <span className="text-muted-foreground">Yarn Count:</span>
                               <p className="font-medium">{selectedFabric.greige.yarnCount}</p>
                             </div>
                           )}
                           {selectedFabric.greige.construction && (
                             <div>
-                              <span className="text-gray-600">Construction:</span>
+                              <span className="text-muted-foreground">Construction:</span>
                               <p className="font-medium">{selectedFabric.greige.construction}</p>
                             </div>
                           )}
                           <div>
-                            <span className="text-gray-600">Greige Width:</span>
+                            <span className="text-muted-foreground">Greige Width:</span>
                             <p className="font-medium">{Number(selectedFabric.greige.greigeWidth)}"</p>
                           </div>
                         </div>
@@ -355,7 +369,7 @@ export default function FabricStockEntry() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label htmlFor="quantity">
-                  Quantity (meters) <span className="text-red-500">*</span>
+                  Quantity (meters) <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="quantity"
@@ -370,7 +384,7 @@ export default function FabricStockEntry() {
 
               <div>
                 <Label htmlFor="width">
-                  Width (inches) <span className="text-red-500">*</span>
+                  Width (inches) <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="width"
@@ -379,7 +393,7 @@ export default function FabricStockEntry() {
                   value={formData.width}
                   onChange={(e) => handleFieldChange('width', e.target.value)}
                   placeholder="Auto-filled from fabric"
-                  className="mt-1 bg-gray-50"
+                  className="mt-1 bg-muted"
                   readOnly
                 />
               </div>
@@ -410,7 +424,7 @@ export default function FabricStockEntry() {
 
               <div>
                 <Label htmlFor="qualityGrade">
-                  Quality Grade <span className="text-red-500">*</span>
+                  Quality Grade <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={formData.qualityGrade}
@@ -450,13 +464,22 @@ export default function FabricStockEntry() {
 
               <div>
                 <Label htmlFor="warehouseLocation">Warehouse Location</Label>
-                <Input
-                  id="warehouseLocation"
+                <Select
                   value={formData.warehouseLocation}
-                  onChange={(e) => handleFieldChange('warehouseLocation', e.target.value)}
-                  placeholder="e.g., Warehouse A"
-                  className="mt-1"
-                />
+                  onValueChange={(v) => handleFieldChange('warehouseLocation', v)}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select warehouse" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map((wh) => (
+                      <SelectItem key={wh.id} value={wh.warehouseName}>
+                        {wh.warehouseCode} - {wh.warehouseName}
+                        {wh.isVirtual ? ' (Virtual)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -488,7 +511,7 @@ export default function FabricStockEntry() {
                   value={formData.notes}
                   onChange={(e) => handleFieldChange('notes', e.target.value)}
                   placeholder="Additional notes..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                  className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
                   rows={3}
                 />
               </div>
@@ -496,11 +519,11 @@ export default function FabricStockEntry() {
 
             {/* Summary */}
             {totalValue > 0 && (
-              <Card className="bg-gray-50">
+              <Card className="bg-muted">
                 <CardContent className="pt-4">
                   <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-700">Total Stock Value:</span>
-                    <span className="text-2xl font-bold text-blue-600">{formatCurrency(totalValue)}</span>
+                    <span className="font-medium text-foreground">Total Stock Value:</span>
+                    <span className="text-2xl font-bold text-info">{formatCurrency(totalValue)}</span>
                   </div>
                 </CardContent>
               </Card>

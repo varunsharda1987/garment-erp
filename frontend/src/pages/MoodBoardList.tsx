@@ -29,9 +29,9 @@ import { formatDistanceToNow } from 'date-fns';
 
 // Status badge colors
 const STATUS_COLORS: Record<MoodBoardStatus, string> = {
-  DRAFT: 'bg-gray-500',
-  ACTIVE: 'bg-green-500',
-  ARCHIVED: 'bg-orange-500',
+  DRAFT: 'bg-muted0',
+  ACTIVE: 'bg-success-muted0',
+  ARCHIVED: 'bg-primary/100',
 };
 
 // Mood board card component
@@ -46,7 +46,7 @@ function MoodBoardCard({ moodBoard, onDelete }: { moodBoard: MoodBoard; onDelete
     <Card className="group relative overflow-hidden hover:shadow-lg transition-shadow">
       {/* Cover Image / Placeholder */}
       <div
-        className="aspect-video relative bg-gray-100 cursor-pointer"
+        className="aspect-video relative bg-muted cursor-pointer"
         onClick={() => navigate(`/mood-boards/${moodBoard.id}`)}
       >
         {coverImage?.imageUrl ? (
@@ -98,8 +98,8 @@ function MoodBoardCard({ moodBoard, onDelete }: { moodBoard: MoodBoard; onDelete
       {/* Info */}
       <CardContent className="p-4">
         <h3 className="font-semibold truncate">{moodBoard.name}</h3>
-        {moodBoard.description && <p className="text-sm text-gray-500 truncate">{moodBoard.description}</p>}
-        <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
+        {moodBoard.description && <p className="text-sm text-muted-foreground truncate">{moodBoard.description}</p>}
+        <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
           {moodBoard.season && (
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
@@ -178,11 +178,11 @@ export function MoodBoardList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
             <LayoutGrid className="h-6 w-6" />
             Mood Boards
           </h1>
-          <p className="text-gray-500">Collect inspiration for your designs</p>
+          <p className="text-muted-foreground">Collect inspiration for your designs</p>
         </div>
         <Button onClick={() => navigate('/mood-boards/new')}>
           <Plus className="h-4 w-4 mr-2" />
@@ -195,7 +195,7 @@ export function MoodBoardList() {
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search mood boards..."
                 value={search}
@@ -232,8 +232,10 @@ export function MoodBoardList() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center h-64">
             <LayoutGrid className="h-12 w-12 text-gray-300 mb-4" />
-            <p className="text-gray-500 mb-2">No mood boards yet</p>
-            <p className="text-sm text-gray-400 mb-4">Create your first mood board to start collecting inspiration</p>
+            <p className="text-muted-foreground mb-2">No mood boards yet</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create your first mood board to start collecting inspiration
+            </p>
             <Button onClick={() => navigate('/mood-boards/new')}>
               <Plus className="h-4 w-4 mr-2" />
               Create Mood Board

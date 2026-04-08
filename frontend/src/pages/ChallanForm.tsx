@@ -101,7 +101,7 @@ export default function ChallanForm() {
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
-        <h1 className="text-2xl font-bold">New Challan</h1>
+        <h1 className="text-2xl font-display font-medium">New Challan</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -310,7 +310,7 @@ export default function ChallanForm() {
                     size="sm"
                     onClick={() => removeItem(index)}
                     disabled={form.items.length <= 1}
-                    className="text-red-500 hover:text-red-700"
+                    className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

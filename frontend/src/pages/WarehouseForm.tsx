@@ -177,7 +177,7 @@ export default function WarehouseForm() {
               {/* Warehouse Type */}
               <div className="space-y-2">
                 <Label htmlFor="warehouseType">
-                  Warehouse Type <span className="text-red-500">*</span>
+                  Warehouse Type <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={formData.warehouseType}
@@ -200,7 +200,7 @@ export default function WarehouseForm() {
               {/* Warehouse Code */}
               <div className="space-y-2">
                 <Label htmlFor="warehouseCode">
-                  Warehouse Code <span className="text-red-500">*</span>
+                  Warehouse Code <span className="text-destructive">*</span>
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -227,7 +227,7 @@ export default function WarehouseForm() {
               {/* Warehouse Name */}
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="warehouseName">
-                  Warehouse Name <span className="text-red-500">*</span>
+                  Warehouse Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="warehouseName"

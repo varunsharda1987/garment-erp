@@ -35,12 +35,12 @@ export function DashboardLayout({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          {subtitle && <p className="text-gray-500 mt-1">{subtitle}</p>}
+          <h1 className="text-2xl font-display font-medium text-foreground">{title}</h1>
+          {subtitle && <p className="text-muted-foreground mt-1">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-3">
           {lastUpdated && (
-            <span className="text-sm text-gray-500 flex items-center gap-1">
+            <span className="text-sm text-muted-foreground flex items-center gap-1">
               <Calendar className="h-4 w-4" />
               Updated {lastUpdated.toLocaleTimeString()}
             </span>
@@ -80,7 +80,7 @@ export function DashboardSection({
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
           <CardTitle className="text-lg">{title}</CardTitle>
-          {description && <p className="text-sm text-gray-500">{description}</p>}
+          {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
         {action}
       </CardHeader>

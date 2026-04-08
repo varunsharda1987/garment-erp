@@ -51,17 +51,17 @@ export default function ChartOfAccountsList() {
   const getAccountTypeColor = (type: string) => {
     switch (type) {
       case 'ASSET':
-        return 'text-green-600 bg-green-50';
+        return 'text-success bg-success-muted';
       case 'LIABILITY':
-        return 'text-red-600 bg-red-50';
+        return 'text-destructive bg-destructive/10';
       case 'EQUITY':
-        return 'text-purple-600 bg-purple-50';
+        return 'text-accent bg-accent/10';
       case 'REVENUE':
-        return 'text-blue-600 bg-blue-50';
+        return 'text-info bg-info-muted';
       case 'EXPENSE':
-        return 'text-orange-600 bg-orange-50';
+        return 'text-primary bg-primary/10';
       default:
-        return 'text-gray-600 bg-gray-50';
+        return 'text-muted-foreground bg-muted';
     }
   };
 
@@ -72,12 +72,12 @@ export default function ChartOfAccountsList() {
 
     return (
       <div key={account.id} className="border-b last:border-b-0">
-        <div className={`flex items-center justify-between py-3 px-4 hover:bg-gray-50 ${indentClass}`}>
+        <div className={`flex items-center justify-between py-3 px-4 hover:bg-muted ${indentClass}`}>
           <div className="flex items-center flex-1">
             {hasChildren ? (
               <button
                 onClick={() => toggleNode(account.id)}
-                className="mr-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                className="mr-2 text-muted-foreground hover:text-foreground focus:outline-none"
               >
                 {isExpanded ? '▼' : '▶'}
               </button>
@@ -87,16 +87,16 @@ export default function ChartOfAccountsList() {
 
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm text-gray-600">{account.accountCode}</span>
+                <span className="font-mono text-sm text-muted-foreground">{account.accountCode}</span>
                 <span className="font-medium">{account.accountName}</span>
                 {account.isSystem && (
-                  <span className="text-xs px-2 py-0.5 bg-gray-200 text-gray-700 rounded">System</span>
+                  <span className="text-xs px-2 py-0.5 bg-gray-200 text-foreground rounded">System</span>
                 )}
                 {!account.isActive && (
-                  <span className="text-xs px-2 py-0.5 bg-red-200 text-red-700 rounded">Inactive</span>
+                  <span className="text-xs px-2 py-0.5 bg-destructive/15 text-destructive rounded">Inactive</span>
                 )}
               </div>
-              {account.description && <p className="text-xs text-gray-500 mt-1">{account.description}</p>}
+              {account.description && <p className="text-xs text-muted-foreground mt-1">{account.description}</p>}
             </div>
           </div>
 
@@ -104,7 +104,7 @@ export default function ChartOfAccountsList() {
             <span className={`text-xs px-3 py-1 rounded-full font-medium ${getAccountTypeColor(account.accountType)}`}>
               {account.accountType}
             </span>
-            <span className="text-xs text-gray-500 px-2">{account.accountGroup.replace(/_/g, ' ')}</span>
+            <span className="text-xs text-muted-foreground px-2">{account.accountGroup.replace(/_/g, ' ')}</span>
             {!account.isSystem && (
               <Button variant="outline" size="sm" onClick={() => navigate(`/chart-of-accounts/${account.id}/edit`)}>
                 Edit
@@ -114,7 +114,7 @@ export default function ChartOfAccountsList() {
         </div>
 
         {hasChildren && isExpanded && account.childAccounts && (
-          <div className="bg-gray-50">{account.childAccounts.map((child) => renderAccount(child, level + 1))}</div>
+          <div className="bg-muted">{account.childAccounts.map((child) => renderAccount(child, level + 1))}</div>
         )}
       </div>
     );
@@ -122,14 +122,14 @@ export default function ChartOfAccountsList() {
 
   return (
     <>
-      <div className="bg-white shadow-sm border-b mb-6">
+      <div className="bg-card shadow-sm border-b mb-6">
         <div className="flex justify-between items-center h-16 px-6">
           <div className="flex items-center space-x-3">
             <Button variant="ghost" onClick={() => navigate('/dashboard')}>
               ← Back
             </Button>
             <div className="text-2xl">💼</div>
-            <h1 className="text-xl font-bold text-gray-800">Chart of Accounts</h1>
+            <h1 className="text-xl font-display font-medium text-foreground">Chart of Accounts</h1>
           </div>
           <div className="flex gap-2">
             <ExportButton module="chart_of_accounts" />
@@ -150,13 +150,13 @@ export default function ChartOfAccountsList() {
           <CardContent>
             {loading && (
               <div className="text-center py-12">
-                <div className="text-gray-500">Loading chart of accounts...</div>
+                <div className="text-muted-foreground">Loading chart of accounts...</div>
               </div>
             )}
 
             {error && (
               <div className="text-center py-12">
-                <div className="text-red-600">{error}</div>
+                <div className="text-destructive">{error}</div>
                 <Button onClick={fetchAccounts} className="mt-4" variant="outline">
                   Retry
                 </Button>
@@ -165,7 +165,7 @@ export default function ChartOfAccountsList() {
 
             {!loading && !error && accounts.length === 0 && (
               <div className="text-center py-12">
-                <div className="text-gray-500 mb-4">No accounts found</div>
+                <div className="text-muted-foreground mb-4">No accounts found</div>
                 <Button onClick={() => navigate('/chart-of-accounts/new')}>Create First Account</Button>
               </div>
             )}
@@ -184,7 +184,7 @@ export default function ChartOfAccountsList() {
             return (
               <Card key={type}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">{type}</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{type}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className={`text-2xl font-bold ${getAccountTypeColor(type)}`}>{count}</div>

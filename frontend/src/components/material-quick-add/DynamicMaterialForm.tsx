@@ -71,7 +71,7 @@ export const DynamicMaterialForm: React.FC<DynamicMaterialFormProps> = ({
           placeholder="Leave empty to auto-generate from attributes"
           autoFocus
         />
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           If left empty, name will be auto-generated from selected attributes (e.g., "Black Polyester 4-Hole Button
           15mm")
         </p>
@@ -198,7 +198,7 @@ const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {
     <div className="space-y-2">
       <Label htmlFor={field.name}>
         {field.label}
-        {field.required && <span className="text-red-500 ml-1">*</span>}
+        {field.required && <span className="text-destructive ml-1">*</span>}
       </Label>
       {renderInput()}
     </div>

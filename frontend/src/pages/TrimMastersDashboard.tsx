@@ -44,7 +44,7 @@ const ORIGINAL_TRIM_TYPES = [
     icon: CircleDot,
     path: '/materials/button',
     formPath: '/materials/button/new',
-    color: 'bg-blue-100 text-blue-800',
+    color: 'bg-info-muted text-info',
     category: 'FASTENERS_CLOSURES',
   },
   {
@@ -53,7 +53,7 @@ const ORIGINAL_TRIM_TYPES = [
     icon: ToggleRight,
     path: '/materials/zipper',
     formPath: '/materials/zipper/new',
-    color: 'bg-purple-100 text-purple-800',
+    color: 'bg-accent/10 text-accent',
     category: 'FASTENERS_CLOSURES',
   },
   {
@@ -71,7 +71,7 @@ const ORIGINAL_TRIM_TYPES = [
     icon: Cable,
     path: '/materials/thread',
     formPath: '/materials/thread/new',
-    color: 'bg-green-100 text-green-800',
+    color: 'bg-success-muted text-success',
     category: 'THREADS_TAPES',
   },
   {
@@ -103,7 +103,7 @@ const NEW_TRIM_TYPES = [
     icon: CircleDot,
     path: '/materials/snap_button',
     formPath: '/materials/snap_button/new',
-    color: 'bg-indigo-100 text-indigo-800',
+    color: 'bg-primary/10 text-primary',
     category: 'FASTENERS_CLOSURES',
   },
   {
@@ -112,7 +112,7 @@ const NEW_TRIM_TYPES = [
     icon: Lock,
     path: '/materials/buckle',
     formPath: '/materials/buckle/new',
-    color: 'bg-amber-100 text-amber-800',
+    color: 'bg-warning/10 text-warning',
     category: 'FASTENERS_CLOSURES',
   },
   {
@@ -193,7 +193,7 @@ const NEW_TRIM_TYPES = [
     icon: Sparkles,
     path: '/materials/motif',
     formPath: '/materials/motif/new',
-    color: 'bg-purple-100 text-purple-800',
+    color: 'bg-accent/10 text-accent',
     category: 'DECORATIVE',
   },
   {
@@ -211,7 +211,7 @@ const NEW_TRIM_TYPES = [
     icon: Layers,
     path: '/materials/interlining',
     formPath: '/materials/interlining/new',
-    color: 'bg-gray-100 text-gray-800',
+    color: 'bg-muted text-foreground',
     category: 'FUNCTIONAL',
   },
   {
@@ -239,10 +239,10 @@ const ALL_TRIM_TYPES = [...ORIGINAL_TRIM_TYPES, ...NEW_TRIM_TYPES];
 
 // Category configuration
 const CATEGORY_CONFIG = {
-  FASTENERS_CLOSURES: { label: 'Fasteners & Closures', color: 'bg-blue-50 border-blue-200' },
-  THREADS_TAPES: { label: 'Threads & Tapes', color: 'bg-green-50 border-green-200' },
+  FASTENERS_CLOSURES: { label: 'Fasteners & Closures', color: 'bg-info-muted border-info/20' },
+  THREADS_TAPES: { label: 'Threads & Tapes', color: 'bg-success-muted border-success/20' },
   DECORATIVE: { label: 'Decorative', color: 'bg-pink-50 border-pink-200' },
-  FUNCTIONAL: { label: 'Functional', color: 'bg-gray-50 border-gray-200' },
+  FUNCTIONAL: { label: 'Functional', color: 'bg-muted border-border' },
 };
 
 // Map trim type to summary key (API returns plural keys like 'buttons', 'zippers', etc.)
@@ -531,7 +531,7 @@ export default function TrimMastersDashboard() {
                           >
                             <CardContent className="pt-3 pb-3 px-3">
                               <div className="flex items-center gap-2 mb-1">
-                                <Icon className="h-4 w-4 text-gray-500" />
+                                <Icon className="h-4 w-4 text-muted-foreground" />
                                 <Badge className={`text-[10px] px-1.5 py-0 ${trim.color}`}>{count}</Badge>
                               </div>
                               <p className="text-sm font-medium truncate">{trim.label}</p>

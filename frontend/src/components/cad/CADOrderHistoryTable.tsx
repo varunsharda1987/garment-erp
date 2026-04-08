@@ -150,7 +150,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
 
     return (
       <div
-        className={`flex items-center gap-1 ${isZero ? 'text-gray-500' : isPositive ? 'text-amber-600' : 'text-red-600'}`}
+        className={`flex items-center gap-1 ${isZero ? 'text-muted-foreground' : isPositive ? 'text-warning' : 'text-destructive'}`}
       >
         {!isZero && (isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />)}
         <span>
@@ -166,7 +166,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
     switch (status) {
       case 'APPROVED':
         return (
-          <Badge variant="default" className="bg-green-100 text-green-800">
+          <Badge variant="default" className="bg-success-muted text-success">
             <CheckCircle className="h-3 w-3 mr-1" />
             Approved
           </Badge>
@@ -201,7 +201,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
   if (error) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-red-600">{error}</CardContent>
+        <CardContent className="py-8 text-center text-destructive">{error}</CardContent>
       </Card>
     );
   }
@@ -310,7 +310,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
                               size="sm"
                               onClick={() => handleCloneClick(item)}
                               title="Clone to new Raw Material CAD"
-                              className="text-blue-600 hover:bg-blue-50"
+                              className="text-info hover:bg-info-muted"
                             >
                               <Copy className="h-3 w-3 mr-1" />
                               Clone
@@ -402,7 +402,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Copy className="h-5 w-5 text-blue-500" />
+              <Copy className="h-5 w-5 text-info" />
               Clone CAD to Raw Material
             </DialogTitle>
             <DialogDescription>
@@ -411,26 +411,26 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
           </DialogHeader>
           {cloneSource && (
             <div className="py-4 space-y-3">
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              <div className="bg-muted rounded-lg p-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Source Order:</span>
+                  <span className="text-muted-foreground">Source Order:</span>
                   <span className="font-medium">{cloneSource.orderNumber}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Customer:</span>
+                  <span className="text-muted-foreground">Customer:</span>
                   <span className="font-medium">{cloneSource.customerName}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Width:</span>
+                  <span className="text-muted-foreground">Width:</span>
                   <span className="font-mono">{cloneSource.cutableWidth ? `${cloneSource.cutableWidth}"` : '-'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">CAD Meters:</span>
+                  <span className="text-muted-foreground">CAD Meters:</span>
                   <span className="font-mono">{cloneSource.cadMeters ? cloneSource.cadMeters.toFixed(2) : '-'}</span>
                 </div>
                 {cloneSource.stockLot && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Stock Lot:</span>
+                    <span className="text-muted-foreground">Stock Lot:</span>
                     <Badge variant="outline" className="text-xs">
                       {cloneSource.stockLot}
                     </Badge>
@@ -453,7 +453,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
             >
               Cancel
             </Button>
-            <Button onClick={confirmClone} disabled={cloning} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={confirmClone} disabled={cloning} className="bg-info hover:bg-info">
               {cloning ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

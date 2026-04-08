@@ -177,18 +177,18 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* PART INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Part Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Part Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Part Code - Auto-generated */}
                 <div className="md:col-span-2">
                   <Label>
                     Part Code
                     {isNewPart && (
-                      <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                      <span className="ml-2 text-xs bg-info-muted text-info px-2 py-0.5 rounded">Auto-generated</span>
                     )}
                   </Label>
                   {!isNewPart && partCode ? (
@@ -196,7 +196,7 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
                       {partCode}
                     </Badge>
                   ) : (
-                    <p className="text-sm text-gray-500 mt-1">Will be generated automatically</p>
+                    <p className="text-sm text-muted-foreground mt-1">Will be generated automatically</p>
                   )}
                 </div>
 
@@ -208,7 +208,7 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
                     {...register('partName', { required: 'Part name is required' })}
                     placeholder="e.g., Needle Set Industrial, Bobbin Case"
                   />
-                  {errors.partName && <p className="text-red-500 text-sm mt-1">{errors.partName.message}</p>}
+                  {errors.partName && <p className="text-destructive text-sm mt-1">{errors.partName.message}</p>}
                 </div>
 
                 {/* Part Number */}
@@ -274,7 +274,7 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
             {/* SUPPLIERS */}
             <div>
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <h3 className="text-lg font-semibold text-foreground">Suppliers</h3>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
@@ -282,11 +282,11 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
               </div>
 
               {suppliers.length === 0 ? (
-                <p className="text-sm text-gray-500">No suppliers added. Click "Add Supplier" to add one.</p>
+                <p className="text-sm text-muted-foreground">No suppliers added. Click "Add Supplier" to add one.</p>
               ) : (
                 <div className="space-y-4">
                   {suppliers.map((supplier, index) => (
-                    <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                    <div key={index} className="p-4 border rounded-lg bg-muted">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                           <Label>Supplier *</Label>

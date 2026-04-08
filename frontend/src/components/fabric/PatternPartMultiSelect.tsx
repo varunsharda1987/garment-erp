@@ -113,21 +113,21 @@ export function PatternPartMultiSelect({
   const getPartStyles = (part: PatternPartOption & { source: 'cad' | 'master' }) => {
     if (part.goesToEmbroidery) {
       return {
-        badge: 'bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-200',
-        listItem: 'hover:bg-purple-50',
-        indicator: 'bg-purple-500',
+        badge: 'bg-accent/10 text-accent border-accent/25 hover:bg-accent/15',
+        listItem: 'hover:bg-accent/10',
+        indicator: 'bg-accent/100',
       };
     }
     if (part.source === 'cad') {
       return {
-        badge: 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200',
-        listItem: 'hover:bg-blue-50',
-        indicator: 'bg-blue-500',
+        badge: 'bg-info-muted text-info border-info/30 hover:bg-info/15',
+        listItem: 'hover:bg-info-muted',
+        indicator: 'bg-info-muted0',
       };
     }
     return {
-      badge: 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200',
-      listItem: 'hover:bg-gray-50',
+      badge: 'bg-muted text-foreground border-border hover:bg-gray-200',
+      listItem: 'hover:bg-muted',
       indicator: 'bg-gray-400',
     };
   };
@@ -138,9 +138,9 @@ export function PatternPartMultiSelect({
         {/* Input container with dropdown trigger */}
         <div
           className={cn(
-            'flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-md border border-input bg-white',
+            'flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-md border border-input bg-card',
             'focus-within:ring-1 focus-within:ring-ring',
-            disabled && 'opacity-50 cursor-not-allowed bg-gray-50',
+            disabled && 'opacity-50 cursor-not-allowed bg-muted',
             isOpen && 'ring-1 ring-ring'
           )}
           onClick={() => {
@@ -150,7 +150,7 @@ export function PatternPartMultiSelect({
             }
           }}
         >
-          <Search className="h-4 w-4 text-gray-400 shrink-0" />
+          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input
             ref={inputRef}
             type="text"
@@ -162,19 +162,22 @@ export function PatternPartMultiSelect({
             disabled={disabled}
             className="border-0 p-0 h-6 focus-visible:ring-0 shadow-none flex-1"
           />
-          <span className="text-xs text-gray-500 shrink-0">
+          <span className="text-xs text-muted-foreground shrink-0">
             {selectedIds.length > 0 && `${selectedIds.length} selected`}
           </span>
           <ChevronDown
-            className={cn('h-4 w-4 text-gray-400 transition-transform shrink-0', isOpen && 'transform rotate-180')}
+            className={cn(
+              'h-4 w-4 text-muted-foreground transition-transform shrink-0',
+              isOpen && 'transform rotate-180'
+            )}
           />
         </div>
 
         {/* Dropdown */}
         {isOpen && !disabled && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-60 overflow-auto">
             {filteredParts.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-gray-500 text-center">
+              <div className="px-3 py-4 text-sm text-muted-foreground text-center">
                 {searchTerm ? 'No pattern parts found matching your search' : 'No pattern parts available'}
               </div>
             ) : (
@@ -182,7 +185,7 @@ export function PatternPartMultiSelect({
                 {/* CAD parts section */}
                 {filteredParts.filter((p) => p.source === 'cad').length > 0 && (
                   <>
-                    <li className="px-3 py-1 text-xs font-semibold text-blue-600 bg-blue-50">CAD-Defined Parts</li>
+                    <li className="px-3 py-1 text-xs font-semibold text-info bg-info-muted">CAD-Defined Parts</li>
                     {filteredParts
                       .filter((p) => p.source === 'cad')
                       .map((part) => {
@@ -195,7 +198,7 @@ export function PatternPartMultiSelect({
                             className={cn(
                               'px-3 py-2 cursor-pointer flex items-center justify-between',
                               styles.listItem,
-                              isSelected && 'bg-blue-50'
+                              isSelected && 'bg-info-muted'
                             )}
                           >
                             <div className="flex items-center gap-2">
@@ -203,11 +206,11 @@ export function PatternPartMultiSelect({
                               <span className="text-sm">{part.name}</span>
                               {part.goesToEmbroidery && (
                                 <span title="Goes to embroidery">
-                                  <Sparkles className="h-3 w-3 text-purple-500" />
+                                  <Sparkles className="h-3 w-3 text-accent" />
                                 </span>
                               )}
                             </div>
-                            {isSelected && <Check className="h-4 w-4 text-blue-600" />}
+                            {isSelected && <Check className="h-4 w-4 text-info" />}
                           </li>
                         );
                       })}
@@ -217,7 +220,9 @@ export function PatternPartMultiSelect({
                 {/* Master parts section */}
                 {filteredParts.filter((p) => p.source === 'master').length > 0 && (
                   <>
-                    <li className="px-3 py-1 text-xs font-semibold text-gray-600 bg-gray-50 border-t">Master Parts</li>
+                    <li className="px-3 py-1 text-xs font-semibold text-muted-foreground bg-muted border-t">
+                      Master Parts
+                    </li>
                     {filteredParts
                       .filter((p) => p.source === 'master')
                       .map((part) => {
@@ -230,14 +235,14 @@ export function PatternPartMultiSelect({
                             className={cn(
                               'px-3 py-2 cursor-pointer flex items-center justify-between',
                               styles.listItem,
-                              isSelected && 'bg-gray-100'
+                              isSelected && 'bg-muted'
                             )}
                           >
                             <div className="flex items-center gap-2">
                               <div className={cn('w-2 h-2 rounded-full', styles.indicator)} />
                               <span className="text-sm">{part.name}</span>
                             </div>
-                            {isSelected && <Check className="h-4 w-4 text-gray-600" />}
+                            {isSelected && <Check className="h-4 w-4 text-muted-foreground" />}
                           </li>
                         );
                       })}
@@ -261,7 +266,7 @@ export function PatternPartMultiSelect({
                 className={cn('flex items-center gap-1 px-2 py-0.5 text-xs', styles.badge)}
               >
                 <span>{part.name}</span>
-                {part.goesToEmbroidery && <Sparkles className="h-3 w-3 text-purple-500" />}
+                {part.goesToEmbroidery && <Sparkles className="h-3 w-3 text-accent" />}
                 {!disabled && (
                   <button
                     type="button"

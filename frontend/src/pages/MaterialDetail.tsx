@@ -44,10 +44,10 @@ export default function MaterialDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading material details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading material details...</p>
         </div>
       </div>
     );
@@ -55,8 +55,8 @@ export default function MaterialDetail() {
 
   if (error || !material) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <header className="bg-white shadow-sm">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+        <header className="bg-card shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => navigate('/materials')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -67,7 +67,7 @@ export default function MaterialDetail() {
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600">{error || 'Material not found'}</p>
+              <p className="text-destructive">{error || 'Material not found'}</p>
               <Button onClick={() => navigate('/materials')} className="mt-4">
                 Return to Materials
               </Button>
@@ -79,8 +79,8 @@ export default function MaterialDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Button variant="ghost" onClick={() => navigate('/materials')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -108,8 +108,10 @@ export default function MaterialDetail() {
                     variant={material.isActive ? 'success' : 'secondary'}
                   />
                 </div>
-                <p className="text-gray-600">Material Code: {material.code}</p>
-                {material.category && <p className="text-gray-500 text-sm">Category: {material.category.name}</p>}
+                <p className="text-muted-foreground">Material Code: {material.code}</p>
+                {material.category && (
+                  <p className="text-muted-foreground text-sm">Category: {material.category.name}</p>
+                )}
               </div>
               {material.image && (
                 <img
@@ -134,15 +136,15 @@ export default function MaterialDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-600">Unit</label>
-                <p className="text-gray-900">{UnitLabels[material.unit] || material.unit}</p>
+                <label className="text-sm font-medium text-muted-foreground">Unit</label>
+                <p className="text-foreground">{UnitLabels[material.unit] || material.unit}</p>
               </div>
               {material.reorderLevel && (
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-yellow-500" />
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Reorder Level</label>
-                    <p className="text-gray-900">
+                    <label className="text-sm font-medium text-muted-foreground">Reorder Level</label>
+                    <p className="text-foreground">
                       {material.reorderLevel} {UnitLabels[material.unit] || material.unit}
                     </p>
                   </div>
@@ -150,8 +152,8 @@ export default function MaterialDetail() {
               )}
               {material.specifications && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Specifications</label>
-                  <p className="text-gray-900 whitespace-pre-line">{material.specifications}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Specifications</label>
+                  <p className="text-foreground whitespace-pre-line">{material.specifications}</p>
                 </div>
               )}
             </CardContent>
@@ -175,8 +177,8 @@ export default function MaterialDetail() {
                     .trim();
                   return (
                     <div key={key}>
-                      <label className="text-sm font-medium text-gray-600">{displayKey}</label>
-                      <p className="text-gray-900">{String(value)}</p>
+                      <label className="text-sm font-medium text-muted-foreground">{displayKey}</label>
+                      <p className="text-foreground">{String(value)}</p>
                     </div>
                   );
                 })}
@@ -198,11 +200,11 @@ export default function MaterialDetail() {
               {material.supplier && material.supplier.length > 0 ? (
                 <div className="space-y-3">
                   {material.supplier.map((supplierRel, index) => (
-                    <div key={index} className="p-3 bg-gray-50 rounded-lg border">
+                    <div key={index} className="p-3 bg-muted rounded-lg border">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">{supplierRel.supplier.name}</p>
-                          <p className="text-sm text-gray-500">{supplierRel.supplier.code}</p>
+                          <p className="font-medium text-foreground">{supplierRel.supplier.name}</p>
+                          <p className="text-sm text-muted-foreground">{supplierRel.supplier.code}</p>
                         </div>
                         <div className="flex gap-2">
                           {supplierRel.isPreferred && (
@@ -215,14 +217,18 @@ export default function MaterialDetail() {
                         </div>
                       </div>
                       {supplierRel.supplier.contactPerson && (
-                        <p className="text-sm text-gray-600 mt-1">Contact: {supplierRel.supplier.contactPerson}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Contact: {supplierRel.supplier.contactPerson}
+                        </p>
                       )}
-                      {supplierRel.notes && <p className="text-sm text-gray-500 mt-1 italic">{supplierRel.notes}</p>}
+                      {supplierRel.notes && (
+                        <p className="text-sm text-muted-foreground mt-1 italic">{supplierRel.notes}</p>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No suppliers assigned</p>
+                <p className="text-muted-foreground text-sm">No suppliers assigned</p>
               )}
             </CardContent>
           </Card>
@@ -239,19 +245,19 @@ export default function MaterialDetail() {
               <CardContent>
                 <div className="space-y-3">
                   {material.inventoryStock.map((stock) => (
-                    <div key={stock.id} className="p-3 bg-gray-50 rounded-lg border">
+                    <div key={stock.id} className="p-3 bg-muted rounded-lg border">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-foreground">
                             {stock.location?.locationName || 'Unknown Location'}
                           </p>
-                          <p className="text-sm text-gray-500">{stock.location?.locationCode}</p>
+                          <p className="text-sm text-muted-foreground">{stock.location?.locationCode}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-semibold text-gray-900">
+                          <p className="text-xl font-semibold text-foreground">
                             {stock.quantity.toLocaleString('en-IN')}
                           </p>
-                          <p className="text-sm text-gray-500">{UnitLabels[stock.unit] || stock.unit}</p>
+                          <p className="text-sm text-muted-foreground">{UnitLabels[stock.unit] || stock.unit}</p>
                         </div>
                       </div>
                     </div>
@@ -271,7 +277,7 @@ export default function MaterialDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-900 whitespace-pre-line">{material.description}</p>
+                <p className="text-foreground whitespace-pre-line">{material.description}</p>
               </CardContent>
             </Card>
           )}
@@ -284,12 +290,12 @@ export default function MaterialDetail() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Created At</label>
-                  <p className="text-gray-900">{new Date(material.createdAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Created At</label>
+                  <p className="text-foreground">{new Date(material.createdAt).toLocaleString()}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                  <p className="text-gray-900">{new Date(material.updatedAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                  <p className="text-foreground">{new Date(material.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>

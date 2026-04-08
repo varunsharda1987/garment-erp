@@ -52,8 +52,8 @@ export function ListPageHeader({ title, subtitle, createButton, actions, classNa
   return (
     <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 ${className}`}>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+        <h1 className="text-2xl font-display font-medium text-foreground">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-2">
         {actions}

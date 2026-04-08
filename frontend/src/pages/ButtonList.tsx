@@ -119,21 +119,21 @@ export default function ButtonList() {
       header: 'Button Name',
       render: (button) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{button.buttonName}</div>
-          {button.description && <div className="text-xs text-gray-500 line-clamp-1">{button.description}</div>}
+          <div className="text-sm font-medium text-foreground">{button.buttonName}</div>
+          {button.description && <div className="text-xs text-muted-foreground line-clamp-1">{button.description}</div>}
         </div>
       ),
     },
     {
       key: 'size',
       header: 'Size',
-      render: (button) => <div className="text-sm text-gray-700">{button.size || '-'}</div>,
+      render: (button) => <div className="text-sm text-foreground">{button.size || '-'}</div>,
     },
     {
       key: 'holes',
       header: 'Holes',
       render: (button) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {button.holes !== null && button.holes !== undefined ? button.holes : '-'}
         </div>
       ),
@@ -141,12 +141,12 @@ export default function ButtonList() {
     {
       key: 'color',
       header: 'Color',
-      render: (button) => <div className="text-sm text-gray-700">{button.color || '-'}</div>,
+      render: (button) => <div className="text-sm text-foreground">{button.color || '-'}</div>,
     },
     {
       key: 'material',
       header: 'Material',
-      render: (button) => <div className="text-sm text-gray-700">{button.material || '-'}</div>,
+      render: (button) => <div className="text-sm text-foreground">{button.material || '-'}</div>,
     },
     {
       key: 'styleCodes',
@@ -160,7 +160,7 @@ export default function ButtonList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
         </div>
       ),
@@ -168,7 +168,7 @@ export default function ButtonList() {
     {
       key: 'shape',
       header: 'Shape',
-      render: (button) => <div className="text-sm text-gray-700">{button.shape || '-'}</div>,
+      render: (button) => <div className="text-sm text-foreground">{button.shape || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -188,7 +188,7 @@ export default function ButtonList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
           {button.buttonSuppliers && button.buttonSuppliers.length > 2 && (
             <Badge variant="outline" className="text-xs">
@@ -202,7 +202,7 @@ export default function ButtonList() {
       key: 'pricePerPiece',
       header: 'Price/Piece',
       render: (button) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {button.pricePerPiece ? formatCurrency(button.pricePerPiece) : '-'}
         </div>
       ),

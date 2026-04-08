@@ -106,8 +106,8 @@ export default function ServiceRequirementsDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Zap className="h-6 w-6 text-purple-600" />
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
+            <Zap className="h-6 w-6 text-accent" />
             Service Requirements
           </h1>
           <p className="text-muted-foreground">
@@ -133,7 +133,7 @@ export default function ServiceRequirementsDashboard() {
           value={stats?.totalServices || 0}
           description="Across all work orders"
           icon={Package}
-          color="text-blue-600"
+          color="text-info"
           onClick={() => navigate('/service-requirements/list')}
         />
         <StatCard
@@ -141,7 +141,7 @@ export default function ServiceRequirementsDashboard() {
           value={stats?.pendingServices || 0}
           description="Awaiting PO generation"
           icon={Clock}
-          color="text-orange-600"
+          color="text-primary"
           onClick={() => navigate('/service-requirements/list?status=PENDING')}
         />
         <StatCard
@@ -149,7 +149,7 @@ export default function ServiceRequirementsDashboard() {
           value={stats?.poGeneratedServices || 0}
           description="Purchase orders created"
           icon={CheckCircle}
-          color="text-green-600"
+          color="text-success"
           onClick={() => navigate('/service-requirements/list?status=PO_GENERATED')}
         />
         <StatCard
@@ -157,7 +157,7 @@ export default function ServiceRequirementsDashboard() {
           value={stats?.inProgressServices || 0}
           description="Services being executed"
           icon={RefreshCw}
-          color="text-yellow-600"
+          color="text-warning"
           onClick={() => navigate('/service-requirements/list?status=IN_PROGRESS')}
         />
       </div>
@@ -177,7 +177,7 @@ export default function ServiceRequirementsDashboard() {
           value={stats?.servicesWithoutProcessor || 0}
           description="Needs processor assignment"
           icon={AlertTriangle}
-          color="text-red-600"
+          color="text-destructive"
           onClick={() => navigate('/service-requirements/list?unassigned=true')}
         />
         <StatCard
@@ -185,15 +185,15 @@ export default function ServiceRequirementsDashboard() {
           value={`₹${(stats?.totalEstimatedCost || 0).toLocaleString()}`}
           description="Total service cost estimate"
           icon={DollarSign}
-          color="text-purple-600"
+          color="text-accent"
         />
       </div>
 
       {/* Quick Actions Card */}
-      <Card className="border-green-200">
+      <Card className="border-success/20">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Zap className="h-5 w-5 text-green-600" />
+            <Zap className="h-5 w-5 text-success" />
             Quick Actions
           </CardTitle>
           <CardDescription>Common service requirement operations</CardDescription>
@@ -202,7 +202,7 @@ export default function ServiceRequirementsDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Button
               variant="outline"
-              className="w-full justify-start border-purple-500 text-purple-600 hover:bg-purple-50"
+              className="w-full justify-start border-accent text-accent hover:bg-accent/10"
               onClick={() => navigate('/work-orders')}
             >
               <Zap className="h-4 w-4 mr-2" />
@@ -210,7 +210,7 @@ export default function ServiceRequirementsDashboard() {
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start border-blue-500 text-blue-600 hover:bg-blue-50"
+              className="w-full justify-start border-info text-info hover:bg-info-muted"
               onClick={() => navigate('/service-requirements/list?status=PENDING')}
             >
               <UserCheck className="h-4 w-4 mr-2" />
@@ -218,7 +218,7 @@ export default function ServiceRequirementsDashboard() {
             </Button>
             <Button
               variant="outline"
-              className="w-full justify-start border-green-500 text-green-600 hover:bg-green-50"
+              className="w-full justify-start border-success text-success hover:bg-success-muted"
               onClick={() => navigate('/service-requirements/list?status=PENDING')}
             >
               <ShoppingCart className="h-4 w-4 mr-2" />
@@ -287,7 +287,7 @@ export default function ServiceRequirementsDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
                   Overdue Service Requirements
                 </CardTitle>
                 <CardDescription>Services behind schedule</CardDescription>
@@ -363,9 +363,7 @@ export default function ServiceRequirementsDashboard() {
                     >
                       <TableCell className="font-medium">{ServiceTypeLabels[item.serviceType]}</TableCell>
                       <TableCell className="text-right">{item.count}</TableCell>
-                      <TableCell className="text-right text-purple-600">
-                        ₹{item.estimatedCost.toLocaleString()}
-                      </TableCell>
+                      <TableCell className="text-right text-accent">₹{item.estimatedCost.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -399,7 +397,7 @@ export default function ServiceRequirementsDashboard() {
                     >
                       <TableCell className="font-medium">{item.processorName}</TableCell>
                       <TableCell className="text-right">{item.requirementCount}</TableCell>
-                      <TableCell className="text-right text-green-600">₹{item.totalValue.toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-success">₹{item.totalValue.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

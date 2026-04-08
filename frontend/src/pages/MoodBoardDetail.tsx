@@ -330,14 +330,14 @@ export function MoodBoardDetail() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-white">
+      <div className="flex items-center justify-between p-4 border-b bg-card">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate('/mood-boards')}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
           <div className="flex items-center gap-2">
-            <LayoutGrid className="h-5 w-5 text-gray-600" />
+            <LayoutGrid className="h-5 w-5 text-muted-foreground" />
             <span className="font-semibold">{moodBoard ? moodBoard.name : 'New Mood Board'}</span>
             {moodBoard && <Badge variant="secondary">{moodBoard.status}</Badge>}
           </div>
@@ -354,7 +354,7 @@ export function MoodBoardDetail() {
       {/* Main Content */}
       <div className="flex-1 flex">
         {/* Toolbar */}
-        <div className="w-16 border-r bg-gray-50 flex flex-col items-center py-4 gap-2">
+        <div className="w-16 border-r bg-muted flex flex-col items-center py-4 gap-2">
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
 
           <Button
@@ -422,7 +422,7 @@ export function MoodBoardDetail() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-12 h-12 flex flex-col items-center justify-center text-red-500"
+                className="w-12 h-12 flex flex-col items-center justify-center text-destructive"
                 onClick={() => handleItemDelete(selectedItemId)}
                 title="Delete"
               >
@@ -447,7 +447,7 @@ export function MoodBoardDetail() {
               onItemSelect={setSelectedItemId}
             />
           ) : (
-            <div className="h-full flex items-center justify-center text-gray-500">
+            <div className="h-full flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <LayoutGrid className="h-16 w-16 mx-auto mb-4 text-gray-300" />
                 <p>Create a mood board to get started</p>
@@ -568,7 +568,7 @@ export function MoodBoardDetail() {
               <Label>Color</Label>
               <div className="flex items-center gap-4">
                 <div
-                  className="w-16 h-16 rounded-lg border-2 border-gray-200"
+                  className="w-16 h-16 rounded-lg border-2 border-border"
                   style={{ backgroundColor: selectedColor }}
                 />
                 <Input
@@ -593,7 +593,7 @@ export function MoodBoardDetail() {
                   <button
                     key={color}
                     className={`w-8 h-8 rounded-lg border-2 ${
-                      selectedColor === color ? 'border-blue-500' : 'border-gray-200'
+                      selectedColor === color ? 'border-info' : 'border-border'
                     }`}
                     style={{ backgroundColor: color }}
                     onClick={() => setSelectedColor(color)}

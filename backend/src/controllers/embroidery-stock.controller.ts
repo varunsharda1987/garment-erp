@@ -230,3 +230,19 @@ export const getStockSummary = async (_req: Request, res: Response): Promise<voi
 
   res.json({ data: summary });
 };
+
+/**
+ * Get fabric stock pending embroidery
+ * GET /api/embroidery-stock/pending-embroidery
+ */
+export const getPendingEmbroideryStock = async (req: Request, res: Response): Promise<void> => {
+  const { styleId, page, limit } = req.query;
+
+  const result = await embroideryStockService.getStockPendingEmbroidery({
+    styleId: styleId as string | undefined,
+    page: page ? Number(page) : undefined,
+    limit: limit ? Number(limit) : undefined,
+  });
+
+  res.json(result);
+};

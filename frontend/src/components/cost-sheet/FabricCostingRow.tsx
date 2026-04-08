@@ -94,13 +94,13 @@ export default function FabricCostingRow({
   const getStrategyBadgeColor = (strategy?: string) => {
     switch (strategy) {
       case 'STOCK_REUSE':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-success-muted text-success border-success/20';
       case 'READY_FABRIC':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-info-muted text-info border-info/20';
       case 'GREIGE_PROCESSED':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
+        return 'bg-accent/10 text-accent border-accent/20';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-foreground border-border';
     }
   };
 
@@ -135,21 +135,21 @@ export default function FabricCostingRow({
 
   return (
     <>
-      <tr className={`border-b hover:bg-gray-50 ${isNotApplicable ? 'bg-gray-50 opacity-60' : ''}`}>
+      <tr className={`border-b hover:bg-muted ${isNotApplicable ? 'bg-muted opacity-60' : ''}`}>
         {/* Index */}
-        <td className="px-4 py-3 text-sm text-gray-900">{index + 1}</td>
+        <td className="px-4 py-3 text-sm text-foreground">{index + 1}</td>
 
         {/* Fabric Name */}
         <td className="px-4 py-3">
-          <div className="text-sm font-medium text-gray-900">{fabricName}</div>
-          {fabricId && <div className="text-xs text-gray-500">ID: {fabricId.slice(0, 8)}...</div>}
+          <div className="text-sm font-medium text-foreground">{fabricName}</div>
+          {fabricId && <div className="text-xs text-muted-foreground">ID: {fabricId.slice(0, 8)}...</div>}
         </td>
 
         {/* CAD Meters */}
-        <td className="px-4 py-3 text-sm text-gray-900 text-center">{cadMeters.toFixed(2)}m</td>
+        <td className="px-4 py-3 text-sm text-foreground text-center">{cadMeters.toFixed(2)}m</td>
 
         {/* Width */}
-        <td className="px-4 py-3 text-sm text-gray-900 text-center">{width}"</td>
+        <td className="px-4 py-3 text-sm text-foreground text-center">{width}"</td>
 
         {/* Sourcing Strategy */}
         <td className="px-4 py-3">
@@ -165,7 +165,7 @@ export default function FabricCostingRow({
               <button
                 onClick={handleOpenModal}
                 disabled={isLoading || !hasRequiredFields}
-                className="text-blue-600 hover:text-blue-800 text-xs underline disabled:opacity-50"
+                className="text-info hover:text-info text-xs underline disabled:opacity-50"
                 title={getButtonTooltip()}
               >
                 {isLoading ? 'Loading...' : 'Change'}
@@ -173,7 +173,7 @@ export default function FabricCostingRow({
             </div>
           ) : !isFabricLinked ? (
             <div className="flex flex-col">
-              <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+              <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-muted text-muted-foreground border border-border">
                 <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
@@ -184,11 +184,11 @@ export default function FabricCostingRow({
                 </svg>
                 Not Linked
               </span>
-              <span className="text-xs text-orange-600 mt-1">Link fabric in Style Form</span>
+              <span className="text-xs text-primary mt-1">Link fabric in Style Form</span>
             </div>
           ) : !hasRequiredFields ? (
             <div className="flex flex-col">
-              <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-warning-muted text-warning border border-warning/20">
                 <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
@@ -199,18 +199,18 @@ export default function FabricCostingRow({
                 </svg>
                 Missing Data
               </span>
-              <span className="text-xs text-amber-600 mt-1">{cadMeters <= 0 ? 'No CAD data' : 'No width data'}</span>
+              <span className="text-xs text-warning mt-1">{cadMeters <= 0 ? 'No CAD data' : 'No width data'}</span>
             </div>
           ) : (
             <button
               onClick={handleOpenModal}
               disabled={isLoading || !hasRequiredFields}
-              className="inline-flex items-center px-3 py-1 border border-blue-300 text-xs font-medium rounded text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50"
+              className="inline-flex items-center px-3 py-1 border border-info/30 text-xs font-medium rounded text-info bg-info-muted hover:bg-info-muted disabled:opacity-50"
               title={getButtonTooltip()}
             >
               {isLoading ? (
                 <>
-                  <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-blue-700" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-info" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path
                       className="opacity-75"
@@ -239,7 +239,7 @@ export default function FabricCostingRow({
 
         {/* Cost */}
         <td
-          className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+          className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-muted-foreground line-through' : 'text-foreground'}`}
         >
           {isNotApplicable ? 'N/A' : formatCurrency(currentCost)}
         </td>
@@ -252,7 +252,7 @@ export default function FabricCostingRow({
                 type="checkbox"
                 checked={isNotApplicable}
                 onChange={(e) => onNotApplicableChange(e.target.checked)}
-                className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                className="w-4 h-4 text-primary border-border rounded focus:ring-orange-500"
                 title={isNotApplicable ? 'Item marked as Not Applicable' : 'Mark as Not Applicable'}
               />
             </label>
@@ -265,7 +265,7 @@ export default function FabricCostingRow({
             <button
               onClick={handleOpenModal}
               disabled={isLoading}
-              className="text-gray-600 hover:text-gray-900 disabled:opacity-50"
+              className="text-muted-foreground hover:text-foreground disabled:opacity-50"
               title="View cost breakdown"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -278,7 +278,7 @@ export default function FabricCostingRow({
               </svg>
             </button>
             {onRemove && (
-              <button onClick={onRemove} className="text-red-600 hover:text-red-800" title="Remove fabric">
+              <button onClick={onRemove} className="text-destructive hover:text-destructive" title="Remove fabric">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
@@ -296,8 +296,8 @@ export default function FabricCostingRow({
       {/* Error Row */}
       {error && (
         <tr>
-          <td colSpan={8} className="px-4 py-2 bg-red-50">
-            <div className="flex items-center text-red-700 text-sm">
+          <td colSpan={8} className="px-4 py-2 bg-destructive/10">
+            <div className="flex items-center text-destructive text-sm">
               <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"

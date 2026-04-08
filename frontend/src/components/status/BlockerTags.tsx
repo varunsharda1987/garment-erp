@@ -14,34 +14,34 @@ export default function BlockerTags({ blockers }: BlockerTagsProps) {
     switch (severity) {
       case 'HIGH':
         return {
-          bg: 'bg-red-50',
-          border: 'border-red-300',
-          text: 'text-red-800',
+          bg: 'bg-destructive/10',
+          border: 'border-destructive/25',
+          text: 'text-destructive',
           icon: AlertTriangle,
-          iconColor: 'text-red-600',
+          iconColor: 'text-destructive',
         };
       case 'MEDIUM':
         return {
-          bg: 'bg-amber-50',
-          border: 'border-amber-300',
-          text: 'text-amber-800',
+          bg: 'bg-warning-muted',
+          border: 'border-warning/25',
+          text: 'text-warning',
           icon: AlertCircle,
-          iconColor: 'text-amber-600',
+          iconColor: 'text-warning',
         };
       default:
         return {
-          bg: 'bg-gray-50',
-          border: 'border-gray-300',
-          text: 'text-gray-800',
+          bg: 'bg-muted',
+          border: 'border-border',
+          text: 'text-foreground',
           icon: Info,
-          iconColor: 'text-gray-600',
+          iconColor: 'text-muted-foreground',
         };
     }
   };
 
   return (
     <div className="flex flex-wrap gap-2">
-      <span className="text-xs font-semibold text-gray-600 self-center">BLOCKERS:</span>
+      <span className="text-xs font-semibold text-muted-foreground self-center">BLOCKERS:</span>
       {blockers.map((blocker, index) => {
         const config = getSeverityConfig(blocker.severity);
         const Icon = config.icon;

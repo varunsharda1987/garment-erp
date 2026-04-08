@@ -1098,6 +1098,30 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
       }
 
+      // Auto-sync: Ensure EMBROIDERY process exists if any fabric has hasEmbroidery=true
+      const styleFabricsForEmbSync = await tx.style_fabrics.findMany({
+        where: { style_components: { styleId: id } },
+        select: { hasEmbroidery: true },
+      });
+      const anyFabricHasEmbroidery = styleFabricsForEmbSync.some((f) => f.hasEmbroidery);
+      if (anyFabricHasEmbroidery) {
+        const existingEmbProcess = await tx.style_processes.findFirst({
+          where: { styleId: id, processType: 'EMBROIDERY' },
+        });
+        if (!existingEmbProcess) {
+          await tx.style_processes.create({
+            data: {
+              id: randomUUID(),
+              styleId: id,
+              processName: 'Embroidery',
+              processType: 'EMBROIDERY',
+              isRequired: true,
+              sortOrder: 99,
+            },
+          });
+        }
+      }
+
       // Handle SKU variants replacement if provided
       if (data.skuVariants !== undefined) {
         // Delete existing variants (but keep size_options for now)

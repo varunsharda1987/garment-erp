@@ -73,8 +73,8 @@ export function FormPageHeader({
             </Button>
           )}
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-            {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+            <h1 className="text-2xl font-display font-medium text-foreground">{title}</h1>
+            {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
           </div>
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}

@@ -25,10 +25,10 @@ export default function QuickStartChecklist() {
   };
 
   const phaseColors = {
-    foundation: 'bg-blue-100 text-blue-700 border-blue-200',
-    business: 'bg-green-100 text-green-700 border-green-200',
-    masters: 'bg-purple-100 text-purple-700 border-purple-200',
-    quality: 'bg-orange-100 text-orange-700 border-orange-200',
+    foundation: 'bg-info-muted text-info border-info/20',
+    business: 'bg-success-muted text-success border-success/20',
+    masters: 'bg-accent/10 text-accent border-accent/20',
+    quality: 'bg-orange-100 text-primary border-orange-200',
     finance: 'bg-pink-100 text-pink-700 border-pink-200',
   };
 
@@ -40,11 +40,11 @@ export default function QuickStartChecklist() {
   }));
 
   return (
-    <Card className="border-2 border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50">
+    <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-info-muted">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2 text-indigo-900">
+            <CardTitle className="flex items-center gap-2 text-primary">
               <CheckCircle2 className="h-5 w-5" />
               Quick Start Checklist
             </CardTitle>
@@ -54,7 +54,7 @@ export default function QuickStartChecklist() {
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-indigo-700 hover:text-indigo-900 hover:bg-indigo-100"
+            className="text-primary hover:text-primary hover:bg-primary/10"
           >
             {isExpanded ? (
               <>
@@ -75,7 +75,7 @@ export default function QuickStartChecklist() {
         <CardContent className="space-y-6">
           {groupedItems.map(({ phase, label, color, items }) => (
             <div key={phase} className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span className={`px-2 py-1 rounded text-xs font-medium border ${color}`}>
                   Phase {phaseOrder.indexOf(phase) + 1}
                 </span>
@@ -86,17 +86,17 @@ export default function QuickStartChecklist() {
                   <Link
                     key={item.id}
                     to={item.path}
-                    className="group flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50 transition-all"
+                    className="group flex items-start gap-3 p-3 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-all"
                   >
                     <div className="flex-shrink-0 mt-0.5">{item.icon}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900 group-hover:text-indigo-700">
+                        <span className="text-sm font-medium text-foreground group-hover:text-primary">
                           {item.title}
                         </span>
-                        <ExternalLink className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">{item.description}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>
                     </div>
                   </Link>
                 ))}
@@ -104,8 +104,8 @@ export default function QuickStartChecklist() {
             </div>
           ))}
 
-          <div className="pt-4 border-t border-indigo-200">
-            <p className="text-sm text-indigo-700 font-medium">
+          <div className="pt-4 border-t border-primary/20">
+            <p className="text-sm text-primary font-medium">
               Complete these steps before creating your first style to ensure smooth workflow.
             </p>
           </div>

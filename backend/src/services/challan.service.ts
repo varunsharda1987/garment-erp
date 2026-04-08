@@ -6,6 +6,7 @@ import { logWarn } from '../utils/logger';
 import greigeStockService from './greige-stock.service';
 import fabricStockService from './fabric-stock.service';
 import stockMovementService from './stockMovement.service';
+import { syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 // ============================================
 // TYPES
@@ -28,6 +29,8 @@ export interface CreateChallanItemInput {
   threadStockId?: string;
   materialRequirementId?: string;
   serviceRequirementId?: string;
+  foldLengthCm?: number;
+  thanCount?: number;
 }
 
 export interface CreateChallanInput {
@@ -168,6 +171,8 @@ export async function createChallan(input: CreateChallanInput) {
             serviceRequirementId: item.serviceRequirementId,
             componentName: (item as any).componentName || null,
             colorName: (item as any).colorName || null,
+            foldLengthCm: item.foldLengthCm,
+            thanCount: item.thanCount,
           })),
         },
       },
@@ -202,9 +207,64 @@ export async function issueChallan(id: string, userId?: string) {
       for (const item of existing.items) {
         const qty = Number(item.quantity);
 
-        // 1. Greige stock deduction
+        // 1. Greige stock deduction + transfer to processor warehouse
         if (item.greigeStockId) {
+          // Get original stock details before consuming
+          const originalStock = await tx.greige_stock.findUnique({
+            where: { id: item.greigeStockId },
+            include: { greige: true },
+          });
+
+          // Consume from source warehouse
           await greigeStockService.consumeGreigeStock(item.greigeStockId, qty, effectiveUserId);
+
+          // If OUTWARD to a processor, create stock at processor's warehouse
+          if (existing.challanType === 'OUTWARD' && existing.toType === 'SUPPLIER' && existing.toId && originalStock) {
+            // Find processor's warehouse (linked by supplierId)
+            const processorWarehouse = await tx.warehouses.findFirst({
+              where: { supplierId: existing.toId },
+            });
+
+            if (processorWarehouse) {
+              // Create new greige stock entry at processor's warehouse
+              await tx.greige_stock.create({
+                data: {
+                  greigeId: originalStock.greigeId,
+                  quantityAvailable: new Prisma.Decimal(qty),
+                  quantityReserved: new Prisma.Decimal(0),
+                  quantityConsumed: new Prisma.Decimal(0),
+                  unit: originalStock.unit,
+                  greigeWidth: originalStock.greigeWidth,
+                  cutableWidth: originalStock.cutableWidth,
+                  purchaseCost: originalStock.purchaseCost,
+                  weightedAvgCost: originalStock.weightedAvgCost,
+                  supplierId: existing.toId,
+                  sourceChallanId: existing.id,
+                  sourceType: 'TRANSFER',
+                  warehouseLocation: processorWarehouse.warehouseName,
+                  qualityGrade: originalStock.qualityGrade,
+                  receivedDate: new Date(),
+                  status: 'AVAILABLE',
+                  stockType: 'GENERIC',
+                  createdById: effectiveUserId,
+                },
+              });
+
+              // Create audit trail for the transfer
+              await tx.greige_stock_transaction.create({
+                data: {
+                  stockId: item.greigeStockId,
+                  transactionType: 'TRANSFER_OUT',
+                  quantity: new Prisma.Decimal(-qty),
+                  balanceAfter: new Prisma.Decimal(0), // Will be updated by consumeGreigeStock
+                  referenceType: 'CHALLAN',
+                  referenceId: existing.id,
+                  notes: `Transferred to processor ${existing.toName} via challan ${existing.challanNumber}`,
+                  performedById: effectiveUserId,
+                },
+              });
+            }
+          }
         }
 
         // 2. Fabric stock deduction
@@ -228,6 +288,13 @@ export async function issueChallan(id: string, userId?: string) {
               status: newAvailable <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
             },
           });
+
+          // Sync stock_levels
+          const fabMaterial = await tx.materials.findFirst({
+            where: { fabricId: fabricStock.fabricId },
+            select: { id: true },
+          });
+          if (fabMaterial) await syncStockLevelQuantity(fabMaterial.id, -qty, tx);
         }
 
         // 3. Lace stock deduction
@@ -263,6 +330,9 @@ export async function issueChallan(id: string, userId?: string) {
               performedById: effectiveUserId,
             },
           });
+
+          // Sync stock_levels
+          if (laceStock.laceId) await syncStockLevelQuantity(laceStock.laceId, -qty, tx);
         }
 
         // 4. Thread stock deduction
@@ -313,6 +383,9 @@ export async function issueChallan(id: string, userId?: string) {
               performedById: effectiveUserId,
             },
           });
+
+          // Sync stock_levels
+          if (threadStock.threadId) await syncStockLevelQuantity(threadStock.threadId, -qty, tx);
         }
 
         // 5. General material (trims/accessories) — deduct via stock_movements + stock_levels
@@ -331,7 +404,7 @@ export async function issueChallan(id: string, userId?: string) {
                 materialId: item.materialId,
                 warehouseId: warehouse.id,
                 quantity: new Decimal(qty),
-                unit: (item.unit || 'PCS') as Unit,
+                unit: (item.unit || 'PIECE') as Unit,
                 referenceType: 'CHALLAN',
                 referenceId: existing.id,
                 referenceNumber: existing.challanNumber,
@@ -544,6 +617,10 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
 
         // Fabric stock credit (return to stock)
         if (item.fabricStockId) {
+          const fabricStock = await tx.fabric_stock.findUnique({
+            where: { id: item.fabricStockId },
+            select: { fabricId: true },
+          });
           await tx.fabric_stock.update({
             where: { id: item.fabricStockId },
             data: {
@@ -551,10 +628,23 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
               status: 'AVAILABLE',
             },
           });
+
+          // Sync stock_levels
+          if (fabricStock?.fabricId) {
+            const fabMat = await tx.materials.findFirst({
+              where: { fabricId: fabricStock.fabricId },
+              select: { id: true },
+            });
+            if (fabMat) await syncStockLevelQuantity(fabMat.id, receivedQty, tx);
+          }
         }
 
         // Lace stock credit (return to stock)
         if (item.laceStockId) {
+          const laceStock = await tx.lace_stock.findUnique({
+            where: { id: item.laceStockId },
+            select: { laceId: true },
+          });
           await tx.lace_stock.update({
             where: { id: item.laceStockId },
             data: {
@@ -576,6 +666,9 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
               performedById: input.receivedById,
             },
           });
+
+          // Sync stock_levels
+          if (laceStock?.laceId) await syncStockLevelQuantity(laceStock.laceId, receivedQty, tx);
         }
 
         // General material credit (trims/accessories) via stock_movements
@@ -593,7 +686,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
                 materialId: item.materialId,
                 warehouseId: warehouse.id,
                 quantity: new Decimal(receivedQty),
-                unit: (item.unit || 'PCS') as Unit,
+                unit: (item.unit || 'PIECE') as Unit,
                 referenceType: 'CHALLAN',
                 referenceId: id,
                 remarks: `Received via challan`,
@@ -797,7 +890,7 @@ export async function createGreigeOutwardChallan(input: CreateGreigeOutwardChall
       const allocate = Math.min(available, remaining);
 
       itemsToCreate.push({
-        itemType: 'GREIGE_FABRIC',
+        itemType: 'GREIGE',
         description: `${processing.greigeMaster.greigeName} (${processing.greigeMaster.greigeCode})`,
         quantity: allocate,
         unit: 'MTR',

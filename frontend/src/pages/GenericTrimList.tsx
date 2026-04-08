@@ -104,7 +104,7 @@ export default function GenericTrimList() {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="p-6 text-center">
-            <p className="text-gray-500">Invalid trim type specified.</p>
+            <p className="text-muted-foreground">Invalid trim type specified.</p>
             <Button variant="outline" className="mt-4" onClick={() => navigate('/trim-masters')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Trim Masters
@@ -131,8 +131,8 @@ export default function GenericTrimList() {
       header: 'Name',
       render: (item) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{getFieldValue(item, config.nameField)}</div>
-          {item.description && <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>}
+          <div className="text-sm font-medium text-foreground">{getFieldValue(item, config.nameField)}</div>
+          {item.description && <div className="text-xs text-muted-foreground line-clamp-1">{item.description}</div>}
         </div>
       ),
     },
@@ -148,9 +148,9 @@ export default function GenericTrimList() {
         render: (item) => {
           const value = getFieldValue(item, field.name);
           if (field.type === 'boolean') {
-            return value ? <Badge variant="outline">Yes</Badge> : <span className="text-gray-400">No</span>;
+            return value ? <Badge variant="outline">Yes</Badge> : <span className="text-muted-foreground">No</span>;
           }
-          return <div className="text-sm text-gray-700">{value || '-'}</div>;
+          return <div className="text-sm text-foreground">{value || '-'}</div>;
         },
       });
     }
@@ -164,7 +164,7 @@ export default function GenericTrimList() {
       header: priceField.label,
       render: (item) => {
         const price = getFieldValue(item, priceField.name);
-        return <div className="text-sm font-medium text-gray-900">{price ? formatCurrency(price) : '-'}</div>;
+        return <div className="text-sm font-medium text-foreground">{price ? formatCurrency(price) : '-'}</div>;
       },
     });
   }
@@ -173,7 +173,7 @@ export default function GenericTrimList() {
   columns.push({
     key: 'supplier',
     header: 'Supplier',
-    render: (item) => <div className="text-sm text-gray-700">{item.supplier?.name || '-'}</div>,
+    render: (item) => <div className="text-sm text-foreground">{item.supplier?.name || '-'}</div>,
   });
 
   // Add status column
@@ -213,8 +213,8 @@ export default function GenericTrimList() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{config.label} Master</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-2xl font-display font-medium text-foreground">{config.label} Master</h1>
+            <p className="text-sm text-muted-foreground">
               Manage {config.label.toLowerCase()} items ({totalItems} total)
             </p>
           </div>
@@ -248,7 +248,7 @@ export default function GenericTrimList() {
         <CardContent>
           {error ? (
             <div className="text-center py-8">
-              <p className="text-red-500">{error}</p>
+              <p className="text-destructive">{error}</p>
               <Button variant="outline" className="mt-4" onClick={fetchItems}>
                 Retry
               </Button>

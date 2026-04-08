@@ -239,11 +239,11 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* PACKAGING INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Packaging Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Packaging Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Packaging Code - Read Only for Edit */}
                 {!isNewPackaging && packagingCode && (
@@ -253,7 +253,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                       <Badge variant="secondary" className="font-mono text-sm">
                         {packagingCode}
                       </Badge>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
@@ -268,7 +268,9 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                     {...register('packagingName', { required: 'Packaging name is required' })}
                     placeholder="e.g., Poly Bag 12x18 inch Transparent"
                   />
-                  {errors.packagingName && <p className="text-sm text-red-600 mt-1">{errors.packagingName.message}</p>}
+                  {errors.packagingName && (
+                    <p className="text-sm text-destructive mt-1">{errors.packagingName.message}</p>
+                  )}
                 </div>
 
                 {/* Customer */}
@@ -287,7 +289,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Link this packaging to a specific customer for customer-specific pricing/design
                   </p>
                 </div>
@@ -316,12 +318,14 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                       </SelectContent>
                     </Select>
                     {!availableBrands.length && (
-                      <p className="text-xs text-yellow-600 mt-1">
+                      <p className="text-xs text-warning mt-1">
                         This customer has no brands configured. Add brands in Customer form.
                       </p>
                     )}
                     {availableBrands.length > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">Link to a specific brand within this customer</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Link to a specific brand within this customer
+                      </p>
                     )}
                   </div>
                 )}
@@ -414,7 +418,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
             {/* SUPPLIERS SECTION - Multi-supplier support */}
             <div className="border-t pt-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Suppliers</h3>
+                <h3 className="text-lg font-semibold text-foreground">Suppliers</h3>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddSupplier}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Supplier
@@ -422,21 +426,21 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
               </div>
 
               {suppliers.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <p className="text-gray-500">No suppliers added yet.</p>
-                  <p className="text-sm text-gray-400 mt-1">
+                <div className="text-center py-8 bg-muted rounded-lg border-2 border-dashed border-border">
+                  <p className="text-muted-foreground">No suppliers added yet.</p>
+                  <p className="text-sm text-muted-foreground mt-1">
                     Click "Add Supplier" to add one or more suppliers for this packaging item.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {suppliers.map((supplier, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div key={index} className="border border-border rounded-lg p-4 bg-muted">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Supplier Select */}
                         <div className="md:col-span-2">
                           <Label>
-                            Supplier <span className="text-red-500">*</span>
+                            Supplier <span className="text-destructive">*</span>
                           </Label>
                           <Select
                             value={supplier.supplierId}
@@ -474,7 +478,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                             variant="outline"
                             size="icon"
                             onClick={() => handleRemoveSupplier(index)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -487,9 +491,9 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                               type="checkbox"
                               checked={supplier.isPreferred}
                               onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                              className="h-4 w-4 text-info rounded border-border focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Preferred Supplier</span>
+                            <span className="ml-2 text-sm text-foreground">Preferred Supplier</span>
                           </label>
 
                           <label className="flex items-center cursor-pointer">
@@ -497,9 +501,9 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                               type="checkbox"
                               checked={supplier.isActive}
                               onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
-                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                              className="h-4 w-4 text-info rounded border-border focus:ring-blue-500"
                             />
-                            <span className="ml-2 text-sm text-gray-700">Active</span>
+                            <span className="ml-2 text-sm text-foreground">Active</span>
                           </label>
                         </div>
 
@@ -521,7 +525,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
 
             {/* SUPPLIER REFERENCE CODE */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Reference Codes</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Reference Codes</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="supplierCode">Supplier Reference Code</Label>
@@ -536,7 +540,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
 
             {/* DESCRIPTION */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Additional Information</h3>
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea

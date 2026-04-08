@@ -253,6 +253,8 @@ export interface CreateStockInDTO {
   referenceId?: string;
   referenceNumber?: string;
   remarks?: string;
+  foldLengthCm?: number;
+  thanCount?: number;
 }
 
 export interface CreateStockOutDTO {

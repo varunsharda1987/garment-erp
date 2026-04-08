@@ -52,7 +52,7 @@ export const MaterialTypeSelector: React.FC<MaterialTypeSelectorProps> = ({ doma
     <div className="space-y-4">
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
           placeholder="Search material types..."
@@ -65,7 +65,7 @@ export const MaterialTypeSelector: React.FC<MaterialTypeSelectorProps> = ({ doma
       {/* Category Sections */}
       <div className="space-y-6 max-h-[60vh] overflow-y-auto">
         {visibleCategories.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">No material types found matching "{searchQuery}"</div>
+          <div className="text-center text-muted-foreground py-8">No material types found matching "{searchQuery}"</div>
         ) : (
           visibleCategories.map((category) => (
             <CategorySection
@@ -97,7 +97,7 @@ const CategorySection: React.FC<CategorySectionProps> = ({ category, configs, se
   return (
     <div className="space-y-3">
       {/* Category Header */}
-      <h3 className="text-sm font-semibold text-gray-700">
+      <h3 className="text-sm font-semibold text-foreground">
         {category.label} ({configs.length})
       </h3>
 
@@ -138,7 +138,7 @@ const MaterialTypeCard: React.FC<MaterialTypeCardProps> = ({ config, isSelected,
         ${
           isSelected
             ? 'border-primary bg-primary/10 ring-2 ring-primary'
-            : 'border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300'
+            : 'border-border bg-card hover:bg-muted hover:border-border'
         }
       `}
     >
@@ -146,7 +146,7 @@ const MaterialTypeCard: React.FC<MaterialTypeCardProps> = ({ config, isSelected,
       <div className="text-3xl">{config.icon}</div>
 
       {/* Label */}
-      <div className="text-sm font-medium text-gray-900 text-center">{config.label}</div>
+      <div className="text-sm font-medium text-foreground text-center">{config.label}</div>
     </button>
   );
 };

@@ -10,16 +10,16 @@ export default function ProcessingBatchDetail() {
       <div className="mb-8">
         <button
           onClick={() => navigate('/processing/batches')}
-          className="mb-4 text-indigo-600 hover:text-indigo-800 flex items-center gap-2"
+          className="mb-4 text-primary hover:text-primary flex items-center gap-2"
         >
           ← Back to Batches
         </button>
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Processing Batch Details</h2>
-        <p className="text-gray-600">Batch ID: {id}</p>
+        <h2 className="text-3xl font-display font-medium text-foreground mb-2">Processing Batch Details</h2>
+        <p className="text-muted-foreground">Batch ID: {id}</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center text-gray-500 py-8">Loading batch details...</div>
+      <div className="bg-card rounded-lg shadow p-6">
+        <div className="text-center text-muted-foreground py-8">Loading batch details...</div>
       </div>
     </div>
   );

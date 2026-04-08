@@ -1,6 +1,7 @@
 // Processing Stage Service - Manage individual processing stages within batches
-import { Prisma } from '@prisma/client';
+import { Prisma, ProductionStage } from '@prisma/client';
 import prisma from '../config/database';
+import { randomUUID } from 'crypto';
 
 export interface CreateProcessingStageDTO {
   batchId: string;
@@ -84,6 +85,8 @@ class ProcessingStageService {
             id: true,
             batchNumber: true,
             materialType: true,
+            workOrderId: true,
+            createdById: true,
           },
         },
         _count: {
@@ -94,6 +97,31 @@ class ProcessingStageService {
         },
       },
     });
+
+    // Auto-update production_tracking if batch is linked to a work order
+    if (batch.workOrderId) {
+      const processingTypeUpper = data.processingType.toUpperCase();
+      const productionStage: ProductionStage | null =
+        processingTypeUpper === 'DYEING' ? 'IN_DYING' : processingTypeUpper === 'PRINTING' ? 'IN_PRINTING' : null;
+
+      if (productionStage) {
+        try {
+          await prisma.production_tracking.create({
+            data: {
+              id: randomUUID(),
+              workOrderId: batch.workOrderId,
+              productionStage,
+              quantityCompleted: Math.round(data.quantitySent),
+              updatedById: batch.createdById,
+              updateDate: new Date(),
+            },
+          });
+        } catch (err) {
+          // Non-critical: don't fail stage creation if tracking fails
+          console.error('Failed to create production_tracking for processing stage:', err);
+        }
+      }
+    }
 
     return stage;
   }

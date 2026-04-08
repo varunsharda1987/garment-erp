@@ -295,11 +295,11 @@ export interface LaceStockUtilizationReport {
 
 // Status badge colors
 export const LACE_STOCK_STATUS_COLORS: Record<LaceStockStatus, string> = {
-  AVAILABLE: 'bg-green-100 text-green-800 border-green-200',
-  RESERVED: 'bg-blue-100 text-blue-800 border-blue-200',
-  ISSUED: 'bg-purple-100 text-purple-800 border-purple-200',
-  CONSUMED: 'bg-gray-100 text-gray-800 border-gray-200',
-  PENDING_RETURN: 'bg-amber-100 text-amber-800 border-amber-200',
+  AVAILABLE: 'bg-success-muted text-success border-success/20',
+  RESERVED: 'bg-info-muted text-info border-info/20',
+  ISSUED: 'bg-accent/10 text-accent border-accent/20',
+  CONSUMED: 'bg-muted text-foreground border-border',
+  PENDING_RETURN: 'bg-warning/10 text-warning border-warning/20',
   RETURNED: 'bg-orange-100 text-orange-800 border-orange-200',
 };
 
@@ -315,9 +315,9 @@ export const LACE_STOCK_STATUS_LABELS: Record<LaceStockStatus, string> = {
 
 // Quality grade colors
 export const LACE_QUALITY_GRADE_COLORS: Record<LaceQualityGrade, string> = {
-  A: 'bg-green-100 text-green-800 border-green-200',
+  A: 'bg-success-muted text-success border-success/20',
   B: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  DEFECT: 'bg-red-100 text-red-800 border-red-200',
+  DEFECT: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
 // Stock type labels
@@ -343,8 +343,8 @@ export const LACE_TRANSACTION_TYPE_LABELS: Record<LaceTransactionType, string> =
 
 // Aging bucket colors
 export const AGING_BUCKET_COLORS: Record<string, string> = {
-  '0-30': 'bg-green-100 text-green-800',
+  '0-30': 'bg-success-muted text-success',
   '31-60': 'bg-yellow-100 text-yellow-800',
   '61-90': 'bg-orange-100 text-orange-800',
-  '90+': 'bg-red-100 text-red-800',
+  '90+': 'bg-destructive/10 text-destructive',
 };

@@ -4,11 +4,14 @@ import stockMovementService, {
   CreateStockMovementDTO,
   StockTransferDTO,
   StockAdjustmentDTO,
+  BulkStockInDTO,
+  BulkStockInItemDTO,
 } from '../services/stockMovement.service';
 import { MovementType, Unit } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
+import greigeStockService from '../services/greige-stock.service';
 
 // Map polymorphic item types to their FK field in the materials table
 const ITEM_TYPE_TO_FK: Record<string, string> = {
@@ -89,6 +92,8 @@ export const createStockIn = async (req: Request, res: Response) => {
     referenceId,
     referenceNumber,
     remarks,
+    foldLengthCm,
+    thanCount,
   } = req.body;
 
   // Resolve materialId from polymorphic itemType/itemId if not provided directly
@@ -123,6 +128,8 @@ export const createStockIn = async (req: Request, res: Response) => {
     referenceNumber,
     remarks,
     performedById: userId,
+    foldLengthCm: foldLengthCm ? new Decimal(foldLengthCm) : undefined,
+    thanCount: thanCount ? parseInt(thanCount) : undefined,
   };
 
   const movement = await stockMovementService.createStockIn(movementData);
@@ -131,6 +138,88 @@ export const createStockIn = async (req: Request, res: Response) => {
     success: true,
     message: 'Stock in movement created successfully',
     data: movement,
+  });
+};
+
+/**
+ * @route POST /api/stock-movements/bulk-stock-in
+ * @desc Create multiple stock in movements in a single transaction
+ * @access Private
+ */
+export const createBulkStockIn = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.userId;
+
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
+  }
+
+  const { warehouseId, referenceType, referenceNumber, remarks, items } = req.body;
+
+  // Validate basic fields
+  if (!warehouseId || !items || !Array.isArray(items) || items.length === 0) {
+    throw new ValidationError('warehouseId and at least one item are required');
+  }
+
+  if (items.length > 50) {
+    throw new ValidationError('Maximum 50 items allowed per bulk operation');
+  }
+
+  // Resolve materialIds and validate items
+  const resolvedItems: BulkStockInItemDTO[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+
+    // Validate item fields
+    if (!item.quantity || !item.unit) {
+      throw new ValidationError(`Item ${i + 1}: quantity and unit are required`);
+    }
+
+    // Resolve materialId from polymorphic itemType/itemId if needed
+    let resolvedMaterialId = item.materialId;
+    if (!resolvedMaterialId && item.itemType && item.itemId) {
+      const fkField = ITEM_TYPE_TO_FK[item.itemType];
+      if (fkField) {
+        const material = await prisma.materials.findFirst({
+          where: { [fkField]: item.itemId },
+          select: { id: true },
+        });
+        if (material) {
+          resolvedMaterialId = material.id;
+        }
+      }
+    }
+
+    if (!resolvedMaterialId) {
+      throw new ValidationError(`Item ${i + 1}: materialId or valid itemType+itemId is required`);
+    }
+
+    resolvedItems.push({
+      materialId: resolvedMaterialId,
+      quantity: new Decimal(item.quantity),
+      unit: item.unit as Unit,
+      rate: item.rate ? new Decimal(item.rate) : undefined,
+      foldLengthCm: item.foldLengthCm ? new Decimal(item.foldLengthCm) : undefined,
+      thanCount: item.thanCount ? parseInt(item.thanCount) : undefined,
+      remarks: item.remarks,
+    });
+  }
+
+  const bulkData: BulkStockInDTO = {
+    warehouseId,
+    referenceType,
+    referenceNumber,
+    remarks,
+    performedById: userId,
+    items: resolvedItems,
+  };
+
+  const result = await stockMovementService.createBulkStockIn(bulkData);
+
+  res.status(201).json({
+    success: true,
+    message: `${result.itemCount} item(s) received successfully`,
+    data: result,
   });
 };
 
@@ -337,5 +426,60 @@ export const getStockLedger = async (req: Request, res: Response) => {
     success: true,
     data: ledger,
     count: ledger.length,
+  });
+};
+
+/**
+ * @route POST /api/stock-movements/processor-return
+ * @desc Receive partial goods from processor (consumes from processor's greige stock)
+ * @access Private
+ *
+ * NOTE: This is a PARTIAL receipt - processor may return in multiple batches.
+ * Shrinkage is NOT calculated here. It's a reconciliation exercise done separately
+ * when all material is accounted for.
+ */
+export const createProcessorReturn = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.userId;
+
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
+  }
+
+  const { greigeStockId, receivedQuantity, warehouseId, remarks } = req.body;
+
+  // Validation
+  if (!greigeStockId || receivedQuantity === undefined || !warehouseId) {
+    throw new ValidationError('greigeStockId, receivedQuantity, and warehouseId are required');
+  }
+
+  if (Number(receivedQuantity) <= 0) {
+    throw new ValidationError('Received quantity must be greater than 0');
+  }
+
+  // Check available stock at processor
+  const stock = await greigeStockService.getGreigeStockById(greigeStockId);
+  if (!stock) {
+    throw new ValidationError('Greige stock not found');
+  }
+
+  if (Number(receivedQuantity) > stock.quantityAvailable) {
+    throw new ValidationError(
+      `Received quantity (${receivedQuantity}) exceeds available at processor (${stock.quantityAvailable})`
+    );
+  }
+
+  // Consume the received quantity from processor's stock (partial receipt)
+  const result = await greigeStockService.receiveFromProcessor(greigeStockId, Number(receivedQuantity), userId, {
+    notes: remarks,
+    referenceType: 'STOCK_IN',
+  });
+
+  res.status(201).json({
+    success: true,
+    message: `Received ${result.receivedQuantity} MTR from processor. Remaining at processor: ${result.remainingAtProcessor} MTR`,
+    data: {
+      receivedQuantity: result.receivedQuantity,
+      remainingAtProcessor: result.remainingAtProcessor,
+    },
   });
 };

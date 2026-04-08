@@ -20,19 +20,19 @@ export default function QuickActions({ actions }: QuickActionsProps) {
         return {
           variant: 'destructive' as const,
           icon: AlertOctagon,
-          className: 'bg-red-600 hover:bg-red-700',
+          className: 'bg-destructive hover:bg-destructive',
         };
       case 'HIGH':
         return {
           variant: 'default' as const,
           icon: Zap,
-          className: 'bg-orange-600 hover:bg-orange-700',
+          className: 'bg-primary hover:bg-primary/90',
         };
       case 'MEDIUM':
         return {
           variant: 'default' as const,
           icon: TrendingUp,
-          className: 'bg-blue-600 hover:bg-blue-700',
+          className: 'bg-info hover:bg-info',
         };
       default:
         return {
@@ -51,7 +51,7 @@ export default function QuickActions({ actions }: QuickActionsProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-semibold text-gray-600">ACTIONS:</span>
+      <span className="text-xs font-semibold text-muted-foreground">ACTIONS:</span>
       {sortedActions.map((action, index) => {
         const config = getPriorityConfig(action.priority);
         const Icon = config.icon;

@@ -18,8 +18,10 @@ router.get('/:id', asyncHandler(stockMovementController.getMovementById));
 
 // POST routes
 router.post('/stock-in', asyncHandler(stockMovementController.createStockIn));
+router.post('/bulk-stock-in', asyncHandler(stockMovementController.createBulkStockIn));
 router.post('/stock-out', asyncHandler(stockMovementController.createStockOut));
 router.post('/transfer', asyncHandler(stockMovementController.createStockTransfer));
 router.post('/adjustment', asyncHandler(stockMovementController.createStockAdjustment));
+router.post('/processor-return', asyncHandler(stockMovementController.createProcessorReturn));
 
 export default router;

@@ -17,9 +17,9 @@ import { Plus, Search, RefreshCw, Eye, Factory, Package, Clock, CheckCircle2, La
 
 // Status colors
 const STATUS_COLORS: Record<BatchStatus, string> = {
-  ACTIVE: 'bg-blue-100 text-blue-800 border-blue-200',
-  COMPLETED: 'bg-green-100 text-green-800 border-green-200',
-  CANCELLED: 'bg-red-100 text-red-800 border-red-200',
+  ACTIVE: 'bg-info-muted text-info border-info/20',
+  COMPLETED: 'bg-success-muted text-success border-success/20',
+  CANCELLED: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
 // Material type labels
@@ -129,8 +129,8 @@ export default function ProcessingBatchList() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Processing Batches</h1>
-          <p className="text-gray-500 mt-1">Manage job work processing for fabric and lace dyeing/printing</p>
+          <h1 className="text-3xl font-display font-medium">Processing Batches</h1>
+          <p className="text-muted-foreground mt-1">Manage job work processing for fabric and lace dyeing/printing</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/processing/job-work')}>
@@ -153,10 +153,10 @@ export default function ProcessingBatchList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-blue-600">{summary.active}</div>
-                <div className="text-sm text-gray-500">Active Batches</div>
+                <div className="text-2xl font-bold text-info">{summary.active}</div>
+                <div className="text-sm text-muted-foreground">Active Batches</div>
               </div>
-              <Clock className="h-8 w-8 text-blue-200" />
+              <Clock className="h-8 w-8 text-info" />
             </div>
           </CardContent>
         </Card>
@@ -168,10 +168,10 @@ export default function ProcessingBatchList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
-                <div className="text-sm text-gray-500">Completed</div>
+                <div className="text-2xl font-bold text-success">{summary.completed}</div>
+                <div className="text-sm text-muted-foreground">Completed</div>
               </div>
-              <CheckCircle2 className="h-8 w-8 text-green-200" />
+              <CheckCircle2 className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -180,10 +180,10 @@ export default function ProcessingBatchList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-purple-600">{summary.inProcess.toLocaleString()}m</div>
-                <div className="text-sm text-gray-500">In Process</div>
+                <div className="text-2xl font-bold text-accent">{summary.inProcess.toLocaleString()}m</div>
+                <div className="text-sm text-muted-foreground">In Process</div>
               </div>
-              <Layers className="h-8 w-8 text-purple-200" />
+              <Layers className="h-8 w-8 text-accent" />
             </div>
           </CardContent>
         </Card>
@@ -192,8 +192,8 @@ export default function ProcessingBatchList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-orange-600">{summary.inTransit.toLocaleString()}m</div>
-                <div className="text-sm text-gray-500">In Transit</div>
+                <div className="text-2xl font-bold text-primary">{summary.inTransit.toLocaleString()}m</div>
+                <div className="text-sm text-muted-foreground">In Transit</div>
               </div>
               <Package className="h-8 w-8 text-orange-200" />
             </div>
@@ -204,7 +204,7 @@ export default function ProcessingBatchList() {
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by batch number..."
             value={searchTerm}
@@ -256,53 +256,53 @@ export default function ProcessingBatchList() {
           {loading ? (
             <div className="text-center py-12">Loading...</div>
           ) : batches.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">No processing batches found</div>
+            <div className="text-center py-12 text-muted-foreground">No processing batches found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-muted border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Batch #
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Material
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Type
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Sent
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       In Process
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Received
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Created
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {batches.map((batch) => (
-                    <tr key={batch.id} className="hover:bg-gray-50">
+                    <tr key={batch.id} className="hover:bg-muted">
                       <td className="px-4 py-4">
                         <span className="font-mono font-medium">{batch.batchNumber}</span>
                         {batch.materialType === 'LACE' && batch.colorToApply && (
-                          <div className="text-xs text-purple-600">Target: {batch.colorToApply}</div>
+                          <div className="text-xs text-accent">Target: {batch.colorToApply}</div>
                         )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="font-medium">{getMaterialName(batch)}</div>
-                        <div className="text-xs text-gray-500 font-mono">{getMaterialCode(batch)}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{getMaterialCode(batch)}</div>
                       </td>
                       <td className="px-4 py-4 text-center">
                         <Badge
@@ -310,8 +310,8 @@ export default function ProcessingBatchList() {
                             batch.materialType === 'LACE'
                               ? 'bg-pink-100 text-pink-800 border-pink-200'
                               : batch.materialType === 'GREIGE'
-                                ? 'bg-amber-100 text-amber-800 border-amber-200'
-                                : 'bg-gray-100 text-gray-800 border-gray-200'
+                                ? 'bg-warning/10 text-warning border-warning/20'
+                                : 'bg-muted text-foreground border-border'
                           } border`}
                         >
                           {MATERIAL_LABELS[batch.materialType]}
@@ -319,10 +319,10 @@ export default function ProcessingBatchList() {
                       </td>
                       <td className="px-4 py-4 text-right">{batch.totalQuantitySent.toLocaleString()}m</td>
                       <td className="px-4 py-4 text-right">
-                        <span className="text-purple-600">{batch.quantityInProcess.toLocaleString()}m</span>
+                        <span className="text-accent">{batch.quantityInProcess.toLocaleString()}m</span>
                       </td>
                       <td className="px-4 py-4 text-right">
-                        <span className="text-green-600">{batch.totalQuantityReceived.toLocaleString()}m</span>
+                        <span className="text-success">{batch.totalQuantityReceived.toLocaleString()}m</span>
                       </td>
                       <td className="px-4 py-4 text-center">
                         <Badge className={`${STATUS_COLORS[batch.overallStatus]} border`}>{batch.overallStatus}</Badge>

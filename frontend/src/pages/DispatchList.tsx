@@ -171,9 +171,9 @@ export default function DispatchList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Truck className="h-8 w-8 text-indigo-600" />
+          <Truck className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Dispatch</h1>
+            <h1 className="text-2xl font-display font-medium">Dispatch</h1>
             <p className="text-muted-foreground">Manage delivery notes, ASN applications, and shipments</p>
           </div>
         </div>
@@ -212,7 +212,7 @@ export default function DispatchList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-600">{summary.pending}</div>
+              <div className="text-2xl font-bold text-muted-foreground">{summary.pending}</div>
             </CardContent>
           </Card>
           <Card>
@@ -220,7 +220,7 @@ export default function DispatchList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">In Transit</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{summary.inTransit}</div>
+              <div className="text-2xl font-bold text-info">{summary.inTransit}</div>
             </CardContent>
           </Card>
           <Card>
@@ -228,7 +228,7 @@ export default function DispatchList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Delivered</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{summary.delivered}</div>
+              <div className="text-2xl font-bold text-success">{summary.delivered}</div>
             </CardContent>
           </Card>
           <Card>
@@ -236,7 +236,7 @@ export default function DispatchList() {
               <CardTitle className="text-sm font-medium text-muted-foreground">ASN Pending</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{summary.asnSummary?.pending || 0}</div>
+              <div className="text-2xl font-bold text-primary">{summary.asnSummary?.pending || 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -332,13 +332,13 @@ export default function DispatchList() {
                             <div className="text-sm">
                               <div className="font-medium">{dn.ext.pod.customerGrnNumber}</div>
                               {dn.ext.pod.customerGrnDate && (
-                                <div className="text-gray-500 text-xs">
+                                <div className="text-muted-foreground text-xs">
                                   {format(new Date(dn.ext.pod.customerGrnDate), 'dd MMM yyyy')}
                                 </div>
                               )}
                             </div>
                           ) : (
-                            <span className="text-gray-400">-</span>
+                            <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
@@ -355,13 +355,13 @@ export default function DispatchList() {
                                 onClick={() => handleDispatch(dn.id)}
                                 title="Dispatch"
                               >
-                                <Send className="h-4 w-4 text-blue-600" />
+                                <Send className="h-4 w-4 text-info" />
                               </Button>
                             )}
                             {dn.status === 'IN_TRANSIT' && (
                               <Button variant="ghost" size="icon" title="Record POD" asChild>
                                 <Link to={`/manufacturing/dispatch/delivery/${dn.id}/pod`}>
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <CheckCircle className="h-4 w-4 text-success" />
                                 </Link>
                               </Button>
                             )}
@@ -496,13 +496,13 @@ export default function DispatchList() {
                                 onClick={() => handleApplyASN(asn.id)}
                                 title="Apply ASN"
                               >
-                                <Send className="h-4 w-4 text-blue-600" />
+                                <Send className="h-4 w-4 text-info" />
                               </Button>
                             )}
                             {asn.status === 'APPROVED' && (
                               <Button variant="ghost" size="icon" title="Create Delivery Note" asChild>
                                 <Link to={`/manufacturing/dispatch/delivery/new?asnId=${asn.id}`}>
-                                  <Package className="h-4 w-4 text-green-600" />
+                                  <Package className="h-4 w-4 text-success" />
                                 </Link>
                               </Button>
                             )}

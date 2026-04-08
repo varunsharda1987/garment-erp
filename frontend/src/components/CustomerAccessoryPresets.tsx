@@ -256,45 +256,45 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
         </div>
 
         {presetItems.length === 0 ? (
-          <div className="text-center py-6 border-2 border-dashed rounded-lg text-gray-500">
-            <Package className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+          <div className="text-center py-6 border-2 border-dashed rounded-lg text-muted-foreground">
+            <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm">No items added yet</p>
             <p className="text-xs mt-1">Click "Add Item" to add accessories</p>
           </div>
         ) : (
           <div className="space-y-2 max-h-60 overflow-auto">
             {presetItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+              <div key={item.id} className="flex items-center justify-between p-3 bg-muted rounded-lg border">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
                       className={cn(
                         'text-xs',
-                        item.materialType === 'LABEL' ? 'bg-blue-50 border-blue-200 text-blue-700' : ''
+                        item.materialType === 'LABEL' ? 'bg-info-muted border-info/20 text-info' : ''
                       )}
                     >
                       {item.materialType}
                     </Badge>
                     <span className="font-medium text-sm">{item.itemName}</span>
                     {item.specification && (
-                      <span className="text-xs text-gray-400 font-mono">{item.specification}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{item.specification}</span>
                     )}
                   </div>
                   {item.materialType === 'LABEL' ? (
-                    <p className="text-xs text-gray-600 mt-1">
-                      {item.componentName && <span className="text-blue-600">{item.componentName}</span>}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {item.componentName && <span className="text-info">{item.componentName}</span>}
                       {item.componentName && item.extraPercentage != null && <span> · </span>}
                       {item.extraPercentage != null && <span>+{item.extraPercentage}% buffer</span>}
                     </p>
                   ) : (
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Qty: {item.quantity} {item.unit} · {item.usageCategory}
                     </p>
                   )}
                 </div>
                 <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveItem(item.id)}>
-                  <Trash2 className="h-4 w-4 text-red-500" />
+                  <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
             ))}
@@ -331,9 +331,9 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                 New Preset
               </Button>
               {expanded ? (
-                <ChevronUp className="h-5 w-5 text-gray-500" />
+                <ChevronUp className="h-5 w-5 text-muted-foreground" />
               ) : (
-                <ChevronDown className="h-5 w-5 text-gray-500" />
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
               )}
             </div>
           </div>
@@ -343,11 +343,11 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
           <CardContent>
             {loading ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-600">Loading presets...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-info mx-auto"></div>
+                <p className="mt-2 text-sm text-muted-foreground">Loading presets...</p>
               </div>
             ) : presets.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                 <p className="font-medium">No accessory presets</p>
                 <p className="text-sm mt-1">Create a preset to define standard accessories for {customerName}</p>
@@ -359,7 +359,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                     key={preset.id}
                     className={cn(
                       'p-4 rounded-lg border transition-all',
-                      preset.isDefault ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 hover:border-gray-300'
+                      preset.isDefault ? 'border-yellow-400 bg-warning-muted' : 'border-border hover:border-border'
                     )}
                   >
                     <div className="flex items-start justify-between">
@@ -376,8 +376,10 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                             </Badge>
                           )}
                         </div>
-                        {preset.description && <p className="text-sm text-gray-600 mt-1">{preset.description}</p>}
-                        <p className="text-xs text-gray-500 mt-2">{preset.items?.length || 0} items</p>
+                        {preset.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{preset.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">{preset.items?.length || 0} items</p>
                       </div>
                       <div className="flex items-center gap-1">
                         {!preset.isDefault && (
@@ -407,7 +409,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                           onClick={() => handleDeletePreset(preset)}
                           title="Delete preset"
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>
@@ -422,7 +424,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                               variant="outline"
                               className={cn(
                                 'text-xs',
-                                item.materialType === 'LABEL' ? 'bg-blue-50 border-blue-200' : ''
+                                item.materialType === 'LABEL' ? 'bg-info-muted border-info/20' : ''
                               )}
                             >
                               {item.materialType === 'LABEL'
@@ -497,7 +499,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

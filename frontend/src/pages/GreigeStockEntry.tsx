@@ -153,16 +153,16 @@ export default function GreigeStockEntry() {
   return (
     <div className="container mx-auto py-8 px-4">
       {/* Breadcrumb */}
-      <div className="mb-4 text-sm text-gray-600">
-        <Link to="/" className="hover:text-blue-600">
+      <div className="mb-4 text-sm text-muted-foreground">
+        <Link to="/" className="hover:text-info">
           Home
         </Link>
         {' > '}
-        <Link to="/greige" className="hover:text-blue-600">
+        <Link to="/greige" className="hover:text-info">
           Greige Master
         </Link>
         {' > '}
-        <span className="font-medium text-gray-900">Stock Entry</span>
+        <span className="font-medium text-foreground">Stock Entry</span>
       </div>
 
       {/* Back Button */}
@@ -176,19 +176,19 @@ export default function GreigeStockEntry() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package2 className="h-6 w-6 text-blue-600" />
+            <Package2 className="h-6 w-6 text-info" />
             Generic Greige Stock Entry
           </CardTitle>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             Add generic greige fabric stock that can be allocated to any future style
           </p>
         </CardHeader>
         <CardContent>
           {/* Success Alert */}
           {success && (
-            <Alert className="mb-6 bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="mb-6 bg-success-muted border-success/20">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success">
                 Greige stock entry saved successfully! Redirecting...
               </AlertDescription>
             </Alert>
@@ -203,9 +203,9 @@ export default function GreigeStockEntry() {
           )}
 
           {/* Info Panel */}
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="font-medium text-blue-900 mb-2">About Generic Greige Stock</h3>
-            <ul className="text-sm text-blue-700 space-y-1">
+          <div className="mb-6 p-4 bg-info-muted rounded-lg border border-info/20">
+            <h3 className="font-medium text-info mb-2">About Generic Greige Stock</h3>
+            <ul className="text-sm text-info space-y-1">
               <li>• Generic greige is NOT tied to any specific style</li>
               <li>• Can be allocated to any future style when an order comes</li>
               <li>• Will be processed (dyed/printed) based on style requirements</li>
@@ -236,42 +236,42 @@ export default function GreigeStockEntry() {
 
             {/* Greige Details */}
             {selectedGreige && (
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 className="font-medium text-gray-900 mb-3">Greige Details</h3>
+              <div className="p-4 bg-muted rounded-lg border border-border">
+                <h3 className="font-medium text-foreground mb-3">Greige Details</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Code:</span>
+                    <span className="text-muted-foreground">Code:</span>
                     <span className="ml-2 font-medium">{selectedGreige.greigeCode}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Composition:</span>
+                    <span className="text-muted-foreground">Composition:</span>
                     <span className="ml-2 font-medium">{selectedGreige.composition}</span>
                   </div>
                   {selectedGreige.yarnCount && (
                     <div>
-                      <span className="text-gray-500">Yarn Count:</span>
+                      <span className="text-muted-foreground">Yarn Count:</span>
                       <span className="ml-2 font-medium">{selectedGreige.yarnCount}</span>
                     </div>
                   )}
                   {selectedGreige.construction && (
                     <div>
-                      <span className="text-gray-500">Construction:</span>
+                      <span className="text-muted-foreground">Construction:</span>
                       <span className="ml-2 font-medium">{selectedGreige.construction}</span>
                     </div>
                   )}
                   {selectedGreige.weaveType && (
                     <div>
-                      <span className="text-gray-500">Weave:</span>
+                      <span className="text-muted-foreground">Weave:</span>
                       <span className="ml-2 font-medium">{selectedGreige.weaveType}</span>
                     </div>
                   )}
                   <div>
-                    <span className="text-gray-500">Width:</span>
+                    <span className="text-muted-foreground">Width:</span>
                     <span className="ml-2 font-medium">{Number(selectedGreige.greigeWidth)}"</span>
                   </div>
                   {selectedGreige.greigeQuality && (
                     <div>
-                      <span className="text-gray-500">Greige Quality:</span>
+                      <span className="text-muted-foreground">Greige Quality:</span>
                       <span className="ml-2 font-medium">
                         {selectedGreige.greigeQuality === 'SUPER_DYEING'
                           ? 'Super Dyeing'
@@ -283,7 +283,7 @@ export default function GreigeStockEntry() {
                   )}
                   {selectedGreige.weaver && (
                     <div>
-                      <span className="text-gray-500">Weaver:</span>
+                      <span className="text-muted-foreground">Weaver:</span>
                       <span className="ml-2 font-medium">{selectedGreige.weaver}</span>
                     </div>
                   )}
@@ -293,8 +293,8 @@ export default function GreigeStockEntry() {
 
             {/* Stock Entry Form */}
             {selectedGreigeId && (
-              <div className="border border-gray-300 rounded-lg p-6 bg-white">
-                <h3 className="font-medium text-gray-900 mb-4">Stock Entry Details</h3>
+              <div className="border border-border rounded-lg p-6 bg-card">
+                <h3 className="font-medium text-foreground mb-4">Stock Entry Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <Label>Quantity (meters) *</Label>
@@ -311,7 +311,7 @@ export default function GreigeStockEntry() {
                   <div>
                     <Label>
                       Width (inches)
-                      <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                      <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                         Auto-filled from Greige Master
                       </span>
                     </Label>
@@ -321,7 +321,7 @@ export default function GreigeStockEntry() {
                       value={formData.width}
                       readOnly
                       disabled
-                      className="mt-1 bg-gray-50 cursor-not-allowed"
+                      className="mt-1 bg-muted cursor-not-allowed"
                     />
                   </div>
 
@@ -396,10 +396,10 @@ export default function GreigeStockEntry() {
 
                 {/* Stock Value Calculation */}
                 {formData.quantity && formData.purchaseCost && (
-                  <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="mt-6 p-4 bg-accent/10 rounded-lg border border-accent/20">
                     <div className="flex justify-between items-center">
-                      <span className="text-purple-700 font-medium">Total Stock Value:</span>
-                      <span className="text-2xl font-bold text-purple-900">
+                      <span className="text-accent font-medium">Total Stock Value:</span>
+                      <span className="text-2xl font-bold text-accent">
                         {formatCurrency(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost))}
                       </span>
                     </div>
@@ -428,49 +428,49 @@ export default function GreigeStockEntry() {
             <DialogTitle>Confirm Stock Entry</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-4">
-            <p className="text-sm text-gray-500">Please review the details before saving:</p>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+            <p className="text-sm text-muted-foreground">Please review the details before saving:</p>
+            <div className="bg-muted rounded-lg p-4 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Greige:</span>
+                <span className="text-muted-foreground">Greige:</span>
                 <span className="font-medium">{selectedGreige?.greigeName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Quantity:</span>
+                <span className="text-muted-foreground">Quantity:</span>
                 <span className="font-medium">{formData.quantity} meters</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Width:</span>
+                <span className="text-muted-foreground">Width:</span>
                 <span className="font-medium">{formData.width}"</span>
               </div>
               {formData.purchaseCost && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Cost/meter:</span>
+                  <span className="text-muted-foreground">Cost/meter:</span>
                   <span className="font-medium">{formatCurrency(parseFloat(formData.purchaseCost))}</span>
                 </div>
               )}
               {formData.purchaseCost && formData.quantity && (
                 <div className="flex justify-between border-t pt-2 mt-2">
-                  <span className="text-gray-500 font-medium">Total Value:</span>
-                  <span className="font-bold text-purple-700">
+                  <span className="text-muted-foreground font-medium">Total Value:</span>
+                  <span className="font-bold text-accent">
                     {formatCurrency(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost))}
                   </span>
                 </div>
               )}
               {formData.warehouseLocation && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Warehouse:</span>
+                  <span className="text-muted-foreground">Warehouse:</span>
                   <span className="font-medium">{formData.warehouseLocation}</span>
                 </div>
               )}
               {selectedSupplierId && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Supplier:</span>
+                  <span className="text-muted-foreground">Supplier:</span>
                   <span className="font-medium">{suppliers.find((s) => s.id === selectedSupplierId)?.name || '-'}</span>
                 </div>
               )}
               {formData.receivedDate && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Received Date:</span>
+                  <span className="text-muted-foreground">Received Date:</span>
                   <span className="font-medium">{new Date(formData.receivedDate).toLocaleDateString('en-IN')}</span>
                 </div>
               )}

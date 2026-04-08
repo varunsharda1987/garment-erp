@@ -131,16 +131,16 @@ export default function SplitProductionModal({
 
         <div className="space-y-4">
           {/* Current Work Order Info */}
-          <div className="bg-gray-50 rounded-lg p-3 text-sm">
+          <div className="bg-muted rounded-lg p-3 text-sm">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <span className="text-gray-500">Style:</span>{' '}
+                <span className="text-muted-foreground">Style:</span>{' '}
                 <span className="font-medium">
                   {workOrder.style?.styleCode} - {workOrder.style?.styleName}
                 </span>
               </div>
               <div>
-                <span className="text-gray-500">Total Qty:</span>{' '}
+                <span className="text-muted-foreground">Total Qty:</span>{' '}
                 <span className="font-medium">{workOrder.totalQuantity} pcs</span>
               </div>
             </div>
@@ -163,17 +163,21 @@ export default function SplitProductionModal({
             <Label>Select Quantities to Split</Label>
             <div className="border rounded-lg mt-2 overflow-hidden">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Available</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Split Qty</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Color</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Size</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Available
+                    </th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Split Qty
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {breakupEntries.map((entry, index) => (
-                    <tr key={`${entry.colorId}-${entry.sizeId}`} className="hover:bg-gray-50">
+                    <tr key={`${entry.colorId}-${entry.sizeId}`} className="hover:bg-muted">
                       <td className="px-4 py-2 text-sm">{entry.colorName}</td>
                       <td className="px-4 py-2 text-sm">{entry.sizeName}</td>
                       <td className="px-4 py-2 text-sm text-right font-medium">{entry.availableQuantity}</td>
@@ -191,12 +195,12 @@ export default function SplitProductionModal({
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="bg-gray-50">
+                <tfoot className="bg-muted">
                   <tr>
                     <td colSpan={3} className="px-4 py-2 text-right font-medium">
                       Total to Split:
                     </td>
-                    <td className="px-4 py-2 text-right font-bold text-blue-600">{getTotalSplitQuantity()} pcs</td>
+                    <td className="px-4 py-2 text-right font-bold text-info">{getTotalSplitQuantity()} pcs</td>
                   </tr>
                 </tfoot>
               </table>
@@ -205,13 +209,13 @@ export default function SplitProductionModal({
 
           {/* Summary */}
           {getTotalSplitQuantity() > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-              <div className="font-medium text-blue-900 mb-1">Split Summary</div>
-              <div className="text-blue-700">
+            <div className="bg-info-muted border border-info/20 rounded-lg p-3 text-sm">
+              <div className="font-medium text-info mb-1">Split Summary</div>
+              <div className="text-info">
                 Moving <strong>{getTotalSplitQuantity()}</strong> pieces to a new production run with dispatch date{' '}
                 <strong>{new Date(plannedDispatchDate).toLocaleDateString()}</strong>
               </div>
-              <div className="text-blue-600 mt-1">
+              <div className="text-info mt-1">
                 Remaining in {workOrder.workOrderNumber}:{' '}
                 <strong>{workOrder.totalQuantity - getTotalSplitQuantity()}</strong> pieces
               </div>

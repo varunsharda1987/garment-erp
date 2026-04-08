@@ -549,13 +549,13 @@ export const ICON_SIZES = {
  * Common icon color classes
  */
 export const ICON_COLORS = {
-  primary: 'text-blue-500',
-  secondary: 'text-gray-500',
-  success: 'text-green-500',
+  primary: 'text-info',
+  secondary: 'text-muted-foreground',
+  success: 'text-success',
   warning: 'text-yellow-500',
-  error: 'text-red-500',
-  info: 'text-blue-500',
-  muted: 'text-gray-400',
+  error: 'text-destructive',
+  info: 'text-info',
+  muted: 'text-muted-foreground',
   white: 'text-white',
   black: 'text-black',
 } as const;

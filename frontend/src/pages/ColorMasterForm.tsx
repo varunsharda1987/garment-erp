@@ -160,7 +160,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
 
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-700 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* Color Code (auto-generated, display only) */}
             {!isNewColor && (
@@ -170,7 +170,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                   <Badge variant="outline" className="font-mono text-sm py-1 px-3">
                     {colorCode}
                   </Badge>
-                  <span className="text-xs text-gray-500">(Auto-generated)</span>
+                  <span className="text-xs text-muted-foreground">(Auto-generated)</span>
                 </div>
               </div>
             )}
@@ -180,14 +180,14 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
               {/* Color Name */}
               <div className="space-y-2">
                 <Label htmlFor="colorName">
-                  Color Name <span className="text-red-500">*</span>
+                  Color Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="colorName"
                   {...register('colorName', { required: 'Color name is required' })}
                   placeholder="e.g., Navy Blue"
                 />
-                {errors.colorName && <span className="text-sm text-red-500">{errors.colorName.message}</span>}
+                {errors.colorName && <span className="text-sm text-destructive">{errors.colorName.message}</span>}
               </div>
 
               {/* Hex Code with Preview */}
@@ -195,7 +195,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                 <Label htmlFor="hexCode">Hex Code</Label>
                 <div className="flex items-center gap-3">
                   <div
-                    className="h-10 w-10 rounded border-2 border-gray-200 flex-shrink-0"
+                    className="h-10 w-10 rounded border-2 border-border flex-shrink-0"
                     style={{ backgroundColor: previewColor }}
                   />
                   <Input id="hexCode" {...register('hexCode')} placeholder="#000080" className="font-mono" />
@@ -206,11 +206,11 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                       setValue('hexCode', e.target.value.toUpperCase());
                       setPreviewColor(e.target.value);
                     }}
-                    className="h-10 w-10 cursor-pointer rounded border border-gray-200"
+                    className="h-10 w-10 cursor-pointer rounded border border-border"
                     title="Pick a color"
                   />
                 </div>
-                <span className="text-xs text-gray-500">Enter hex code manually or use the color picker</span>
+                <span className="text-xs text-muted-foreground">Enter hex code manually or use the color picker</span>
               </div>
             </div>
 
@@ -233,7 +233,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                   ))}
                 </SelectContent>
               </Select>
-              <span className="text-xs text-gray-500">Group colors by family for easier filtering</span>
+              <span className="text-xs text-muted-foreground">Group colors by family for easier filtering</span>
             </div>
 
             {/* Description */}
@@ -254,7 +254,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
                 <Label htmlFor="isActive" className="cursor-pointer">
                   Active
                 </Label>
-                <span className="text-xs text-gray-500">Inactive colors won't appear in dropdowns</span>
+                <span className="text-xs text-muted-foreground">Inactive colors won't appear in dropdowns</span>
               </div>
             )}
 

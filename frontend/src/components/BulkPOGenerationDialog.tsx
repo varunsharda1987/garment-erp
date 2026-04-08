@@ -346,8 +346,8 @@ export default function BulkPOGenerationDialog({
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <ShoppingCart className="h-6 w-6 text-green-600" />
+            <div className="p-2 bg-success-muted rounded-lg">
+              <ShoppingCart className="h-6 w-6 text-success" />
             </div>
             <div>
               <DialogTitle>{step === 'grouping' ? 'Bulk PO Generation' : 'Review Prices & GST'}</DialogTitle>
@@ -374,26 +374,26 @@ export default function BulkPOGenerationDialog({
               <>
                 {groupedData && (
                   <div className="grid grid-cols-3 gap-3 mb-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                    <div className="bg-info-muted border border-info/20 rounded-lg p-3 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
-                        <Package className="h-4 w-4 text-blue-600" />
-                        <div className="text-2xl font-bold text-blue-700">{groupedData.summary.totalRequirements}</div>
+                        <Package className="h-4 w-4 text-info" />
+                        <div className="text-2xl font-bold text-info">{groupedData.summary.totalRequirements}</div>
                       </div>
-                      <div className="text-xs text-blue-600">Total Requirements</div>
+                      <div className="text-xs text-info">Total Requirements</div>
                     </div>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                    <div className="bg-success-muted border border-success/20 rounded-lg p-3 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
-                        <Users className="h-4 w-4 text-green-600" />
-                        <div className="text-2xl font-bold text-green-700">{groupedData.summary.totalSuppliers}</div>
+                        <Users className="h-4 w-4 text-success" />
+                        <div className="text-2xl font-bold text-success">{groupedData.summary.totalSuppliers}</div>
                       </div>
-                      <div className="text-xs text-green-600">Suppliers</div>
+                      <div className="text-xs text-success">Suppliers</div>
                     </div>
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
+                    <div className="bg-primary/10 border border-orange-200 rounded-lg p-3 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
-                        <AlertCircle className="h-4 w-4 text-orange-600" />
-                        <div className="text-2xl font-bold text-orange-700">{groupedData.summary.unassignedCount}</div>
+                        <AlertCircle className="h-4 w-4 text-primary" />
+                        <div className="text-2xl font-bold text-primary">{groupedData.summary.unassignedCount}</div>
                       </div>
-                      <div className="text-xs text-orange-600">Unassigned</div>
+                      <div className="text-xs text-primary">Unassigned</div>
                     </div>
                   </div>
                 )}
@@ -561,11 +561,11 @@ export default function BulkPOGenerationDialog({
                         </CardTitle>
                         <div className="flex items-center gap-2">
                           {group.isInterstate ? (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                            <span className="text-xs bg-info-muted text-info px-2 py-0.5 rounded">
                               Interstate (IGST)
                             </span>
                           ) : (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                            <span className="text-xs bg-success-muted text-success px-2 py-0.5 rounded">
                               Intra-state (CGST+SGST)
                             </span>
                           )}
@@ -601,7 +601,7 @@ export default function BulkPOGenerationDialog({
                                 editedPrices[group.supplierId]?.[item.materialId] ??
                                 item.unitPrice;
                               const isZeroPrice = currentPrice <= 0;
-                              const rowClass = item.isGreige ? 'bg-orange-50' : isZeroPrice ? 'bg-red-50' : '';
+                              const rowClass = item.isGreige ? 'bg-primary/10' : isZeroPrice ? 'bg-destructive/10' : '';
 
                               const rowKey = item.requirementIds?.[0] || `${item.materialId}-${itemIdx}`;
 
@@ -624,17 +624,17 @@ export default function BulkPOGenerationDialog({
                                         </span>
                                       )}
                                       {item.colorName && (
-                                        <span className="text-[10px] bg-purple-100 text-purple-800 px-1 rounded">
+                                        <span className="text-[10px] bg-accent/10 text-accent px-1 rounded">
                                           {item.colorName}
                                         </span>
                                       )}
                                       {item.processingType && (
-                                        <span className="text-[10px] bg-blue-100 text-blue-800 px-1 rounded">
+                                        <span className="text-[10px] bg-info-muted text-info px-1 rounded">
                                           {item.processingType}
                                         </span>
                                       )}
                                       {item.fabricWidth && (
-                                        <span className="text-[10px] bg-gray-100 text-gray-700 px-1 rounded">
+                                        <span className="text-[10px] bg-muted text-foreground px-1 rounded">
                                           {item.fabricWidth}&quot; CW
                                         </span>
                                       )}
@@ -665,7 +665,7 @@ export default function BulkPOGenerationDialog({
                                       min="0"
                                       step="0.01"
                                       className={`h-7 text-xs text-right w-[100px] ${
-                                        isZeroPrice ? 'border-red-400 bg-red-50' : ''
+                                        isZeroPrice ? 'border-destructive/30 bg-destructive/10' : ''
                                       }`}
                                       value={currentPrice || ''}
                                       onChange={(e) => handlePriceChange(group.supplierId, itemKey, e.target.value)}

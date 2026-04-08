@@ -121,10 +121,10 @@ export default function MaterialMasterList() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
-          <Layers className="h-8 w-8 text-gray-600" />
+          <Layers className="h-8 w-8 text-muted-foreground" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Material Masters</h1>
-            <p className="text-sm text-gray-500">Unified management for all material types</p>
+            <h1 className="text-3xl font-display font-medium text-foreground">Material Masters</h1>
+            <p className="text-sm text-muted-foreground">Unified management for all material types</p>
           </div>
         </div>
         <Button onClick={() => navigate('/material-master/new')}>
@@ -183,7 +183,7 @@ export default function MaterialMasterList() {
             <div className="md:col-span-2">
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search materials by code, name, or description..."
                     value={searchTerm}
@@ -223,7 +223,7 @@ export default function MaterialMasterList() {
       {/* Results */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium text-gray-500">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
             Showing {materials.length} material{materials.length !== 1 ? 's' : ''}
             {selectedType && ` (${MaterialTypeLabels[selectedType]})`}
           </CardTitle>
@@ -234,9 +234,9 @@ export default function MaterialMasterList() {
               <LoadingSpinner />
             </div>
           ) : error ? (
-            <div className="text-center py-8 text-red-600">{error}</div>
+            <div className="text-center py-8 text-destructive">{error}</div>
           ) : materials.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No materials found. Try adjusting your filters or create a new material.
             </div>
           ) : (
@@ -263,7 +263,7 @@ export default function MaterialMasterList() {
                         <div>
                           <div className="font-medium">{material.name}</div>
                           {material.description && (
-                            <div className="text-sm text-gray-500 truncate max-w-xs">
+                            <div className="text-sm text-muted-foreground truncate max-w-xs">
                               {material.description.substring(0, 50)}
                               {material.description.length > 50 && '...'}
                             </div>
@@ -279,14 +279,14 @@ export default function MaterialMasterList() {
 
                       <TableCell>
                         {material.specifications && Object.keys(material.specifications).length > 0 ? (
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-muted-foreground">
                             {Object.entries(material.specifications)
                               .slice(0, 2)
                               .map(([key, value]) => `${key}: ${value}`)
                               .join(', ')}
                           </div>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
 
@@ -321,7 +321,7 @@ export default function MaterialMasterList() {
                             size="sm"
                             onClick={() => handleDelete(material.id, material.name)}
                             title="Delete"
-                            className="text-red-600 hover:text-red-700"
+                            className="text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

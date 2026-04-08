@@ -16,8 +16,6 @@ import { NotFoundError, BusinessError } from '../errors';
 
 const MaterialTypeEnum = z.enum([
   'GENERIC',
-  'GREIGE_FABRIC',
-  'FINISHED_FABRIC',
   'TRIMS',
   'LACE',
   'BUTTON',

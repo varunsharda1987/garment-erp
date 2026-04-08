@@ -49,8 +49,8 @@ export default function TestingLabs() {
     return (
       <div className="p-6">
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-500 mt-4">Loading testing labs...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading testing labs...</p>
         </div>
       </div>
     );
@@ -61,11 +61,11 @@ export default function TestingLabs() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Building2 className="h-8 w-8 text-green-600" />
+          <h1 className="text-3xl font-display font-medium text-foreground flex items-center gap-3">
+            <Building2 className="h-8 w-8 text-success" />
             Testing Labs
           </h1>
-          <p className="text-gray-500 mt-1">Manage external testing laboratory information</p>
+          <p className="text-muted-foreground mt-1">Manage external testing laboratory information</p>
         </div>
         <Button onClick={() => navigate('/testing-labs/new')} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
@@ -77,7 +77,7 @@ export default function TestingLabs() {
       <Card className="p-4">
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by lab code, name, city..."
               value={search}
@@ -91,9 +91,9 @@ export default function TestingLabs() {
       {/* Labs List */}
       {labs.length === 0 ? (
         <Card className="p-12 text-center">
-          <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Testing Labs Found</h3>
-          <p className="text-gray-500 mb-4">Get started by adding your first testing lab</p>
+          <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Testing Labs Found</h3>
+          <p className="text-muted-foreground mb-4">Get started by adding your first testing lab</p>
           <Button onClick={() => navigate('/testing-labs/new')}>
             <Plus className="h-4 w-4 mr-2" />
             Add Testing Lab
@@ -106,64 +106,64 @@ export default function TestingLabs() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-lg font-semibold text-gray-900">{lab.labName}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{lab.labName}</h3>
                     {lab.isActive ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-300">
+                      <Badge className="bg-success-muted text-success border-success/25">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Active
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                      <Badge variant="outline" className="bg-muted text-muted-foreground">
                         <XCircle className="h-3 w-3 mr-1" />
                         Inactive
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 font-mono">{lab.labCode}</p>
+                  <p className="text-sm text-muted-foreground font-mono">{lab.labCode}</p>
                 </div>
               </div>
 
               <div className="space-y-2 text-sm mb-4">
                 {lab.contactPerson && (
                   <div className="flex items-start">
-                    <span className="text-gray-500 w-24">Contact:</span>
-                    <span className="text-gray-900 font-medium">{lab.contactPerson}</span>
+                    <span className="text-muted-foreground w-24">Contact:</span>
+                    <span className="text-foreground font-medium">{lab.contactPerson}</span>
                   </div>
                 )}
                 {lab.contactPhone && (
                   <div className="flex items-start">
-                    <span className="text-gray-500 w-24">Phone:</span>
-                    <span className="text-gray-900">{lab.contactPhone}</span>
+                    <span className="text-muted-foreground w-24">Phone:</span>
+                    <span className="text-foreground">{lab.contactPhone}</span>
                   </div>
                 )}
                 {lab.contactEmail && (
                   <div className="flex items-start">
-                    <span className="text-gray-500 w-24">Email:</span>
-                    <span className="text-gray-900 text-xs">{lab.contactEmail}</span>
+                    <span className="text-muted-foreground w-24">Email:</span>
+                    <span className="text-foreground text-xs">{lab.contactEmail}</span>
                   </div>
                 )}
                 {lab.city && (
                   <div className="flex items-start">
-                    <span className="text-gray-500 w-24">Location:</span>
-                    <span className="text-gray-900">
+                    <span className="text-muted-foreground w-24">Location:</span>
+                    <span className="text-foreground">
                       {lab.city}
                       {lab.state && `, ${lab.state}`}
                     </span>
                   </div>
                 )}
                 <div className="flex items-start">
-                  <span className="text-gray-500 w-24">Turnaround:</span>
-                  <span className="text-gray-900 font-medium">{lab.averageTurnaroundDays} days</span>
+                  <span className="text-muted-foreground w-24">Turnaround:</span>
+                  <span className="text-foreground font-medium">{lab.averageTurnaroundDays} days</span>
                 </div>
               </div>
 
               {/* Accreditations */}
               {lab.accreditations && lab.accreditations.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-xs text-gray-500 mb-2">Accreditations:</p>
+                  <p className="text-xs text-muted-foreground mb-2">Accreditations:</p>
                   <div className="flex flex-wrap gap-1">
                     {lab.accreditations.map((acc, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs bg-blue-50">
+                      <Badge key={idx} variant="outline" className="text-xs bg-info-muted">
                         {acc}
                       </Badge>
                     ))}
@@ -172,7 +172,7 @@ export default function TestingLabs() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-2 pt-4 border-t border-gray-200">
+              <div className="flex gap-2 pt-4 border-t border-border">
                 <Button
                   variant="outline"
                   size="sm"
@@ -197,7 +197,7 @@ export default function TestingLabs() {
           <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
             Previous
           </Button>
-          <span className="px-4 py-2 text-sm text-gray-600">
+          <span className="px-4 py-2 text-sm text-muted-foreground">
             Page {page} of {totalPages}
           </span>
           <Button

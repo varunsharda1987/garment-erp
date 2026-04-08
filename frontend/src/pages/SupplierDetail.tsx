@@ -81,10 +81,10 @@ export default function SupplierDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading supplier details...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading supplier details...</p>
         </div>
       </div>
     );
@@ -92,8 +92,8 @@ export default function SupplierDetail() {
 
   if (error || !supplier) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <header className="bg-white shadow-sm">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+        <header className="bg-card shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4">
             <Button variant="ghost" onClick={() => navigate('/suppliers')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -104,7 +104,7 @@ export default function SupplierDetail() {
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card>
             <CardContent className="py-8 text-center">
-              <p className="text-red-600">{error || 'Supplier not found'}</p>
+              <p className="text-destructive">{error || 'Supplier not found'}</p>
               <Button onClick={() => navigate('/suppliers')} className="mt-4">
                 Return to Suppliers
               </Button>
@@ -116,8 +116,8 @@ export default function SupplierDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10">
+      <header className="bg-card shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <Button variant="ghost" onClick={() => navigate('/suppliers')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -148,10 +148,10 @@ export default function SupplierDetail() {
                     variant={supplier.isActive ? 'success' : 'secondary'}
                   />
                 </div>
-                <p className="text-gray-600">Supplier Code: {supplier.code}</p>
+                <p className="text-muted-foreground">Supplier Code: {supplier.code}</p>
               </div>
               {supplier._count && (
-                <div className="text-right text-sm text-gray-600">
+                <div className="text-right text-sm text-muted-foreground">
                   <div>Purchase Orders: {supplier._count.purchaseOrders}</div>
                   <div>Materials: {supplier._count.materials}</div>
                   <div>GRNs: {supplier._count.goodsReceivingNotes}</div>
@@ -173,30 +173,30 @@ export default function SupplierDetail() {
             <CardContent className="space-y-4">
               {supplier.contactPerson && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Contact Person</label>
-                  <p className="text-gray-900">{supplier.contactPerson}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Contact Person</label>
+                  <p className="text-foreground">{supplier.contactPerson}</p>
                 </div>
               )}
               {supplier.email && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                     <Mail className="h-4 w-4" />
                     Email
                   </label>
-                  <p className="text-gray-900">{supplier.email}</p>
+                  <p className="text-foreground">{supplier.email}</p>
                 </div>
               )}
               {supplier.phone && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                     <Phone className="h-4 w-4" />
                     Phone
                   </label>
-                  <p className="text-gray-900">{supplier.phone}</p>
+                  <p className="text-foreground">{supplier.phone}</p>
                 </div>
               )}
               {!supplier.contactPerson && !supplier.email && !supplier.phone && (
-                <p className="text-gray-500 text-sm">No contact information available</p>
+                <p className="text-muted-foreground text-sm">No contact information available</p>
               )}
             </CardContent>
           </Card>
@@ -212,7 +212,7 @@ export default function SupplierDetail() {
             <CardContent>
               <div className="flex items-center gap-3">
                 {renderStars(supplier.rating)}
-                <span className="text-lg font-semibold text-gray-700">
+                <span className="text-lg font-semibold text-foreground">
                   {supplier.rating ? `${supplier.rating}/5` : 'Not rated'}
                 </span>
               </div>
@@ -229,9 +229,9 @@ export default function SupplierDetail() {
             </CardHeader>
             <CardContent>
               {supplier.address ? (
-                <p className="text-gray-900 whitespace-pre-line">{supplier.address}</p>
+                <p className="text-foreground whitespace-pre-line">{supplier.address}</p>
               ) : (
-                <p className="text-gray-500 text-sm">No address available</p>
+                <p className="text-muted-foreground text-sm">No address available</p>
               )}
             </CardContent>
           </Card>
@@ -247,18 +247,18 @@ export default function SupplierDetail() {
             <CardContent className="space-y-4">
               {supplier.gstNumbers && supplier.gstNumbers.length > 0 && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">GST Number(s)</label>
-                  <p className="text-gray-900 font-mono">{supplier.gstNumbers.map((g) => g.gstNumber).join(', ')}</p>
+                  <label className="text-sm font-medium text-muted-foreground">GST Number(s)</label>
+                  <p className="text-foreground font-mono">{supplier.gstNumbers.map((g) => g.gstNumber).join(', ')}</p>
                 </div>
               )}
               {supplier.paymentTerms && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Payment Terms</label>
-                  <p className="text-gray-900">{supplier.paymentTerms}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Payment Terms</label>
+                  <p className="text-foreground">{supplier.paymentTerms}</p>
                 </div>
               )}
               {(!supplier.gstNumbers || supplier.gstNumbers.length === 0) && !supplier.paymentTerms && (
-                <p className="text-gray-500 text-sm">No business details available</p>
+                <p className="text-muted-foreground text-sm">No business details available</p>
               )}
             </CardContent>
           </Card>
@@ -273,14 +273,14 @@ export default function SupplierDetail() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-gray-600">Credit Limit</label>
-                <p className="text-gray-900 text-xl font-semibold">
+                <label className="text-sm font-medium text-muted-foreground">Credit Limit</label>
+                <p className="text-foreground text-xl font-semibold">
                   {supplier.creditLimit ? formatCurrency(supplier.creditLimit, { decimals: 0 }) : 'Not set'}
                 </p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-600">Credit Days</label>
-                <p className="text-gray-900 text-xl font-semibold">
+                <label className="text-sm font-medium text-muted-foreground">Credit Days</label>
+                <p className="text-foreground text-xl font-semibold">
                   {supplier.creditDays ? `${supplier.creditDays} days` : 'Not set'}
                 </p>
               </div>
@@ -298,24 +298,24 @@ export default function SupplierDetail() {
             <CardContent className="space-y-4">
               {supplier.bankName && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Bank Name</label>
-                  <p className="text-gray-900">{supplier.bankName}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Bank Name</label>
+                  <p className="text-foreground">{supplier.bankName}</p>
                 </div>
               )}
               {supplier.bankAccountNumber && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Account Number</label>
-                  <p className="text-gray-900 font-mono">{supplier.bankAccountNumber}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Account Number</label>
+                  <p className="text-foreground font-mono">{supplier.bankAccountNumber}</p>
                 </div>
               )}
               {supplier.ifscCode && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">IFSC Code</label>
-                  <p className="text-gray-900 font-mono">{supplier.ifscCode}</p>
+                  <label className="text-sm font-medium text-muted-foreground">IFSC Code</label>
+                  <p className="text-foreground font-mono">{supplier.ifscCode}</p>
                 </div>
               )}
               {!supplier.bankName && !supplier.bankAccountNumber && !supplier.ifscCode && (
-                <p className="text-gray-500 text-sm">No bank details available</p>
+                <p className="text-muted-foreground text-sm">No bank details available</p>
               )}
             </CardContent>
           </Card>
@@ -351,9 +351,9 @@ export default function SupplierDetail() {
                     }
 
                     return (
-                      <div key={key} className="p-3 bg-gray-50 rounded-lg">
-                        <label className="text-xs font-medium text-gray-600">{displayKey}</label>
-                        <p className="text-gray-900 text-sm mt-1">{displayValue}</p>
+                      <div key={key} className="p-3 bg-muted rounded-lg">
+                        <label className="text-xs font-medium text-muted-foreground">{displayKey}</label>
+                        <p className="text-foreground text-sm mt-1">{displayValue}</p>
                       </div>
                     );
                   })}
@@ -370,17 +370,17 @@ export default function SupplierDetail() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Created At</label>
-                  <p className="text-gray-900">{new Date(supplier.createdAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Created At</label>
+                  <p className="text-foreground">{new Date(supplier.createdAt).toLocaleString()}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Last Updated</label>
-                  <p className="text-gray-900">{new Date(supplier.updatedAt).toLocaleString()}</p>
+                  <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
+                  <p className="text-foreground">{new Date(supplier.updatedAt).toLocaleString()}</p>
                 </div>
                 {supplier.createdBy && (
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Created By</label>
-                    <p className="text-gray-900">
+                    <label className="text-sm font-medium text-muted-foreground">Created By</label>
+                    <p className="text-foreground">
                       {supplier.createdBy.firstName} {supplier.createdBy.lastName}
                     </p>
                   </div>

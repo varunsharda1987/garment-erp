@@ -48,11 +48,11 @@ interface ApiError {
 }
 
 const STATUS_COLORS: Record<StockProductionOrderStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-800',
-  APPROVED: 'bg-blue-100 text-blue-800',
+  DRAFT: 'bg-muted text-foreground',
+  APPROVED: 'bg-info-muted text-info',
   IN_PRODUCTION: 'bg-yellow-100 text-yellow-800',
-  COMPLETED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-red-100 text-red-800',
+  COMPLETED: 'bg-success-muted text-success',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
 export default function StockProductionOrderDetail() {
@@ -183,7 +183,7 @@ export default function StockProductionOrderDetail() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="text-2xl font-display font-medium flex items-center gap-2">
               <Warehouse className="h-6 w-6" />
               {spo.spoNumber}
             </h1>
@@ -298,7 +298,7 @@ export default function StockProductionOrderDetail() {
                     {isDraft && (
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={() => removeItemMutation.mutate(idx)}>
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
                     )}

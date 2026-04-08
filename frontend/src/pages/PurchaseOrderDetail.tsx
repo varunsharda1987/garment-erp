@@ -210,7 +210,7 @@ export default function PurchaseOrderDetail() {
       <div className="container mx-auto py-8 px-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center text-red-600">{error || 'Purchase order not found'}</div>
+            <div className="text-center text-destructive">{error || 'Purchase order not found'}</div>
             <div className="text-center mt-4">
               <Button onClick={() => navigate('/procurement/purchase-orders')}>Back to Purchase Orders</Button>
             </div>
@@ -238,8 +238,8 @@ export default function PurchaseOrderDetail() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{purchaseOrder.poNumber}</h1>
-            <p className="text-sm text-gray-500">Created on {formatDate(purchaseOrder.createdAt)}</p>
+            <h1 className="text-2xl font-display font-medium">{purchaseOrder.poNumber}</h1>
+            <p className="text-sm text-muted-foreground">Created on {formatDate(purchaseOrder.createdAt)}</p>
           </div>
           <StatusBadge
             status={PurchaseOrderStatusLabels[purchaseOrder.status]}
@@ -290,25 +290,25 @@ export default function PurchaseOrderDetail() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Total Amount</div>
+            <div className="text-sm text-muted-foreground">Total Amount</div>
             <div className="text-2xl font-bold">{formatCurrency(purchaseOrder.totalAmount)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Items</div>
+            <div className="text-sm text-muted-foreground">Items</div>
             <div className="text-2xl font-bold">{purchaseOrder.items?.length || 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Expected Delivery</div>
+            <div className="text-sm text-muted-foreground">Expected Delivery</div>
             <div className="text-2xl font-bold">{formatDate(purchaseOrder.expectedDeliveryDate)}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-gray-500">Receiving Progress</div>
+            <div className="text-sm text-muted-foreground">Receiving Progress</div>
             <div className="flex items-center gap-2">
               <Progress value={receivingProgress} className="h-2 flex-1" />
               <span className="text-sm font-medium">{receivingProgress}%</span>
@@ -324,21 +324,21 @@ export default function PurchaseOrderDetail() {
             <div className="flex items-center gap-4 flex-wrap">
               {purchaseOrder.poCategory && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">Category</div>
-                  <Badge className={PO_CATEGORY_COLORS[purchaseOrder.poCategory] || 'bg-gray-100 text-gray-800'}>
+                  <div className="text-xs text-muted-foreground mb-1">Category</div>
+                  <Badge className={PO_CATEGORY_COLORS[purchaseOrder.poCategory] || 'bg-muted text-foreground'}>
                     {PO_CATEGORY_LABELS[purchaseOrder.poCategory] || purchaseOrder.poCategory}
                   </Badge>
                 </div>
               )}
               {purchaseOrder.poSource && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">Source</div>
+                  <div className="text-xs text-muted-foreground mb-1">Source</div>
                   <Badge variant="outline">{POSourceLabels[purchaseOrder.poSource] || purchaseOrder.poSource}</Badge>
                 </div>
               )}
               {linkedStyles.length > 0 && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-1">Style(s)</div>
+                  <div className="text-xs text-muted-foreground mb-1">Style(s)</div>
                   <div className="flex gap-1">
                     {linkedStyles.map((s) => (
                       <Badge key={s} variant="outline" className="text-xs">
@@ -351,7 +351,7 @@ export default function PurchaseOrderDetail() {
               {(purchaseOrder as ExtendedPurchaseOrder).poSourceLinks?.length &&
                 (purchaseOrder as ExtendedPurchaseOrder).poSourceLinks!.length > 0 && (
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Linked To</div>
+                    <div className="text-xs text-muted-foreground mb-1">Linked To</div>
                     <div className="flex gap-1">
                       {(purchaseOrder as ExtendedPurchaseOrder).poSourceLinks!.map((link) => (
                         <Badge key={link.id} variant="secondary" className="text-xs">
@@ -377,26 +377,26 @@ export default function PurchaseOrderDetail() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
-              <div className="text-sm text-gray-500">Supplier Name</div>
+              <div className="text-sm text-muted-foreground">Supplier Name</div>
               <div className="font-medium">{purchaseOrder.supplier?.name || '-'}</div>
-              <div className="text-sm text-gray-500">{purchaseOrder.supplier?.code}</div>
+              <div className="text-sm text-muted-foreground">{purchaseOrder.supplier?.code}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Contact Person</div>
+              <div className="text-sm text-muted-foreground">Contact Person</div>
               <div className="font-medium">{purchaseOrder.supplier?.contactPerson || '-'}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Email</div>
+              <div className="text-sm text-muted-foreground">Email</div>
               <div className="font-medium">{purchaseOrder.supplier?.email || '-'}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500">Phone</div>
+              <div className="text-sm text-muted-foreground">Phone</div>
               <div className="font-medium">{purchaseOrder.supplier?.phone || '-'}</div>
             </div>
           </div>
           {purchaseOrder.paymentTerms && (
             <div className="mt-4 pt-4 border-t">
-              <div className="text-sm text-gray-500">Payment Terms</div>
+              <div className="text-sm text-muted-foreground">Payment Terms</div>
               <div className="font-medium">{purchaseOrder.paymentTerms}</div>
             </div>
           )}
@@ -443,7 +443,7 @@ export default function PurchaseOrderDetail() {
                         {item.materials ? (
                           <>
                             <div className="font-medium">{item.materials.code}</div>
-                            <div className="text-sm text-gray-500">{item.materials.name}</div>
+                            <div className="text-sm text-muted-foreground">{item.materials.name}</div>
                           </>
                         ) : item.serviceDescription ? (
                           <>
@@ -455,10 +455,10 @@ export default function PurchaseOrderDetail() {
                             )}
                           </>
                         ) : (
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                         {item.printingType && (
-                          <div className="text-xs text-purple-700 mt-0.5">{item.printingType.replace('_', ' ')}</div>
+                          <div className="text-xs text-accent mt-0.5">{item.printingType.replace('_', ' ')}</div>
                         )}
                       </div>
                     </TableCell>
@@ -486,11 +486,11 @@ export default function PurchaseOrderDetail() {
                     <TableCell className="text-right font-medium">{formatCurrency(lineWithTax)}</TableCell>
                     <TableCell>
                       {isFullyReceived ? (
-                        <span className="text-green-600 text-sm">Received</span>
+                        <span className="text-success text-sm">Received</span>
                       ) : isPartiallyReceived ? (
-                        <span className="text-yellow-600 text-sm">Partial</span>
+                        <span className="text-warning text-sm">Partial</span>
                       ) : (
-                        <span className="text-gray-500 text-sm">Pending</span>
+                        <span className="text-muted-foreground text-sm">Pending</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -504,7 +504,7 @@ export default function PurchaseOrderDetail() {
             <div className="w-64 space-y-1">
               {purchaseOrder.subtotal != null && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatCurrency(purchaseOrder.subtotal)}</span>
                 </div>
               )}
@@ -512,7 +512,7 @@ export default function PurchaseOrderDetail() {
                 purchaseOrder.totalIgst != null &&
                 Number(purchaseOrder.totalIgst) > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">IGST</span>
+                    <span className="text-muted-foreground">IGST</span>
                     <span>{formatCurrency(purchaseOrder.totalIgst)}</span>
                   </div>
                 )
@@ -520,13 +520,13 @@ export default function PurchaseOrderDetail() {
                 <>
                   {purchaseOrder.totalCgst != null && Number(purchaseOrder.totalCgst) > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">CGST</span>
+                      <span className="text-muted-foreground">CGST</span>
                       <span>{formatCurrency(purchaseOrder.totalCgst)}</span>
                     </div>
                   )}
                   {purchaseOrder.totalSgst != null && Number(purchaseOrder.totalSgst) > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">SGST</span>
+                      <span className="text-muted-foreground">SGST</span>
                       <span>{formatCurrency(purchaseOrder.totalSgst)}</span>
                     </div>
                   )}
@@ -534,7 +534,7 @@ export default function PurchaseOrderDetail() {
               )}
               {purchaseOrder.totalTax != null && Number(purchaseOrder.totalTax) > 0 && (
                 <div className="flex justify-between text-sm border-t pt-1">
-                  <span className="text-gray-500">Total Tax</span>
+                  <span className="text-muted-foreground">Total Tax</span>
                   <span>{formatCurrency(purchaseOrder.totalTax)}</span>
                 </div>
               )}
@@ -601,7 +601,7 @@ export default function PurchaseOrderDetail() {
             <CardTitle>Notes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700 whitespace-pre-wrap">{purchaseOrder.remarks}</p>
+            <p className="text-foreground whitespace-pre-wrap">{purchaseOrder.remarks}</p>
           </CardContent>
         </Card>
       )}

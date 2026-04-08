@@ -97,7 +97,7 @@ export default function MRPDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+          <h1 className="text-2xl font-display font-medium flex items-center gap-2">
             <Calculator className="h-6 w-6" />
             Material Requirement Planning
           </h1>
@@ -122,7 +122,7 @@ export default function MRPDashboard() {
           value={stats?.totalPendingRequirements || 0}
           description="Awaiting processing"
           icon={Package}
-          color="text-blue-600"
+          color="text-info"
           onClick={() => navigate('/mrp/requirements?status=PENDING,PO_REQUIRED,PARTIAL_STOCK')}
         />
         <StatCard
@@ -130,7 +130,7 @@ export default function MRPDashboard() {
           value={stats?.totalShortfall?.toLocaleString() || '0'}
           description="Units needed across all materials"
           icon={AlertTriangle}
-          color="text-orange-600"
+          color="text-primary"
           onClick={() => navigate('/mrp/requirements?hasShortfall=true')}
         />
         <StatCard
@@ -138,7 +138,7 @@ export default function MRPDashboard() {
           value={stats?.requirementsNeedingPO || 0}
           description="Requirements awaiting purchase orders"
           icon={ShoppingCart}
-          color="text-yellow-600"
+          color="text-warning"
           onClick={() => navigate('/mrp/requirements?status=PO_REQUIRED,PARTIAL_STOCK')}
         />
         <StatCard
@@ -146,7 +146,7 @@ export default function MRPDashboard() {
           value={stats?.overdueRequirements || 0}
           description="Past required date"
           icon={Clock}
-          color="text-red-600"
+          color="text-destructive"
           onClick={() => navigate('/mrp/requirements?overdue=true')}
         />
       </div>
@@ -158,7 +158,7 @@ export default function MRPDashboard() {
           value={stats?.poInProgress || 0}
           description="Draft POs created"
           icon={FileText}
-          color="text-indigo-600"
+          color="text-primary"
           onClick={() => navigate('/mrp/requirements?status=PO_GENERATED')}
         />
         <StatCard
@@ -166,19 +166,19 @@ export default function MRPDashboard() {
           value={stats?.awaitingReceipt || 0}
           description="POs sent, pending delivery"
           icon={Truck}
-          color="text-purple-600"
+          color="text-accent"
           onClick={() => navigate('/mrp/requirements?status=PO_SENT')}
         />
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <TrendingUp className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent className="space-y-2">
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-start border-green-500 text-green-600 hover:bg-green-50"
+              className="w-full justify-start border-success text-success hover:bg-success-muted"
               onClick={() => navigate('/mrp/requirements?status=PO_REQUIRED,PARTIAL_STOCK')}
             >
               <Package className="h-4 w-4 mr-2" />
@@ -247,7 +247,7 @@ export default function MRPDashboard() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-medium text-orange-600">
+                      <TableCell className="text-right font-medium text-primary">
                         {req.shortfall.toLocaleString()} {req.unit}
                       </TableCell>
                       <TableCell>
@@ -269,7 +269,7 @@ export default function MRPDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
                   Overdue Requirements
                 </CardTitle>
                 <CardDescription>Requirements past their required date</CardDescription>
@@ -306,7 +306,7 @@ export default function MRPDashboard() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-red-600">
+                      <TableCell className="text-destructive">
                         {new Date(req.requiredDate).toLocaleDateString('en-IN')}
                       </TableCell>
                       <TableCell>
@@ -346,7 +346,7 @@ export default function MRPDashboard() {
                     <TableRow key={item.materialType}>
                       <TableCell className="font-medium">{item.materialType.replace(/_/g, ' ')}</TableCell>
                       <TableCell className="text-right">{item.count}</TableCell>
-                      <TableCell className="text-right text-orange-600">{item.shortfall.toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-primary">{item.shortfall.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

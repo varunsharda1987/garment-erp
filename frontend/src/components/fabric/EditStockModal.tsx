@@ -173,25 +173,25 @@ export const EditStockModal: React.FC<EditStockModalProps> = ({ isOpen, stockId,
 
         <div className="space-y-6">
           {/* Read-only Fabric Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Fabric Details</h3>
+          <div className="bg-info-muted border border-info/20 rounded-lg p-4">
+            <h3 className="font-medium text-foreground mb-2">Fabric Details</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-gray-600">Code:</span>
+                <span className="text-muted-foreground">Code:</span>
                 <p className="font-medium">{currentData.fabricCode}</p>
               </div>
               <div>
-                <span className="text-gray-600">Name:</span>
+                <span className="text-muted-foreground">Name:</span>
                 <p className="font-medium">{currentData.fabricName}</p>
               </div>
               {currentData.colorName && (
                 <div>
-                  <span className="text-gray-600">Color:</span>
+                  <span className="text-muted-foreground">Color:</span>
                   <p className="font-medium">{currentData.colorName}</p>
                 </div>
               )}
               <div>
-                <span className="text-gray-600">Quantity:</span>
+                <span className="text-muted-foreground">Quantity:</span>
                 <p className="font-medium">{currentData.quantityAvailable} meters</p>
               </div>
             </div>
@@ -202,7 +202,7 @@ export const EditStockModal: React.FC<EditStockModalProps> = ({ isOpen, stockId,
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="purchaseCost">
-                  Purchase Cost (₹ per meter) <span className="text-red-500">*</span>
+                  Purchase Cost (₹ per meter) <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="purchaseCost"
@@ -217,7 +217,7 @@ export const EditStockModal: React.FC<EditStockModalProps> = ({ isOpen, stockId,
 
               <div>
                 <Label htmlFor="weightedAvgCost">
-                  Weighted Avg Cost (₹ per meter) <span className="text-red-500">*</span>
+                  Weighted Avg Cost (₹ per meter) <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="weightedAvgCost"
@@ -289,16 +289,16 @@ export const EditStockModal: React.FC<EditStockModalProps> = ({ isOpen, stockId,
 
           {/* Value Preview */}
           {totalValue > 0 && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="font-medium text-gray-700 mb-2">Value Preview</h3>
+            <div className="bg-muted border border-border rounded-lg p-4">
+              <h3 className="font-medium text-foreground mb-2">Value Preview</h3>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-600">Current Total Value:</span>
+                  <span className="text-muted-foreground">Current Total Value:</span>
                   <p className="font-medium">{formatCurrency(oldTotalValue)}</p>
                 </div>
                 <div>
-                  <span className="text-gray-600">New Total Value:</span>
-                  <p className="font-medium text-blue-600">{formatCurrency(totalValue)}</p>
+                  <span className="text-muted-foreground">New Total Value:</span>
+                  <p className="font-medium text-info">{formatCurrency(totalValue)}</p>
                 </div>
               </div>
             </div>
@@ -306,8 +306,8 @@ export const EditStockModal: React.FC<EditStockModalProps> = ({ isOpen, stockId,
 
           {/* Large Price Change Warning */}
           {hasLargePriceChange && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+            <div className="bg-warning-muted border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-warning mt-0.5" />
               <div className="text-sm text-yellow-800">
                 <strong>Large Price Change Detected:</strong> Price is changing by {priceChangePercent.toFixed(0)}%.
                 Please verify this is correct.

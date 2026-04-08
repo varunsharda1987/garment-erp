@@ -252,8 +252,8 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
         </div>
 
         {selectedCategory && (
-          <div className="p-3 bg-gray-50 rounded-lg border">
-            <p className="text-xs font-medium text-gray-600 mb-2">
+          <div className="p-3 bg-muted rounded-lg border">
+            <p className="text-xs font-medium text-muted-foreground mb-2">
               Size Preview ({selectedCategory.sizes.length} sizes):
             </p>
             <div className="flex flex-wrap gap-1">
@@ -296,9 +296,9 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                 New Preset
               </Button>
               {expanded ? (
-                <ChevronUp className="h-5 w-5 text-gray-500" />
+                <ChevronUp className="h-5 w-5 text-muted-foreground" />
               ) : (
-                <ChevronDown className="h-5 w-5 text-gray-500" />
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
               )}
             </div>
           </div>
@@ -308,11 +308,11 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
           <CardContent>
             {loading ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-600">Loading presets...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-info mx-auto"></div>
+                <p className="mt-2 text-sm text-muted-foreground">Loading presets...</p>
               </div>
             ) : presets.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <Ruler className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                 <p className="font-medium">No size category presets</p>
                 <p className="text-sm mt-1">Create a preset to define standard sizes for {customerName}</p>
@@ -324,7 +324,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                     key={preset.id}
                     className={cn(
                       'p-4 rounded-lg border transition-all',
-                      preset.isDefault ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200 hover:border-gray-300'
+                      preset.isDefault ? 'border-yellow-400 bg-warning-muted' : 'border-border hover:border-border'
                     )}
                   >
                     <div className="flex items-start justify-between">
@@ -341,8 +341,10 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                             </Badge>
                           )}
                         </div>
-                        {preset.description && <p className="text-sm text-gray-600 mt-1">{preset.description}</p>}
-                        <p className="text-xs text-gray-500 mt-2">
+                        {preset.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{preset.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
                           {preset.sizeCategory.name} · {preset.sizeCategory.sizes.length} sizes
                         </p>
                       </div>
@@ -383,7 +385,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                           onClick={() => handleDeletePreset(preset)}
                           title="Delete preset"
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>
@@ -464,7 +466,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

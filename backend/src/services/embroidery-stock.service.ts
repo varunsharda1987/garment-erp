@@ -105,13 +105,14 @@ class EmbroideryStockService {
         throw new Error('Supplier not found');
       }
 
-      // 4. Deduct from source stock
+      // 4. Deduct from source stock and clear needsEmbroidery flag
       await tx.fabric_stock.update({
         where: { id: data.sourceFabricStockId },
         data: {
           quantityAvailable: {
             decrement: data.quantitySent,
           },
+          needsEmbroidery: false,
         },
       });
 
@@ -594,6 +595,40 @@ class EmbroideryStockService {
         totalQuantity: pendingSendOuts._sum.quantitySent,
         count: pendingSendOuts._count.id,
       },
+    };
+  }
+  /**
+   * Get fabric stock that needs embroidery but hasn't been sent yet
+   */
+  async getStockPendingEmbroidery(params?: { styleId?: string; page?: number; limit?: number }) {
+    const where: any = {
+      needsEmbroidery: true,
+      status: 'AVAILABLE',
+      quantityAvailable: { gt: 0 },
+    };
+    if (params?.styleId) where.originStyleId = params.styleId;
+
+    const page = params?.page || 1;
+    const limit = params?.limit || 20;
+
+    const [data, total] = await Promise.all([
+      prisma.fabric_stock.findMany({
+        where,
+        include: {
+          fabricMaster: { select: { fabricCode: true, fabricName: true, colorName: true } },
+          originStyle: { select: { id: true, styleCode: true, styleName: true } },
+          originOrder: { select: { id: true, orderNumber: true } },
+        },
+        orderBy: { receivedDate: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.fabric_stock.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
 }

@@ -251,7 +251,7 @@ export default function TCSList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">TCS Tracking</h1>
+          <h1 className="text-2xl font-display font-medium tracking-tight">TCS Tracking</h1>
           <p className="text-muted-foreground text-sm">
             Tax Collected at Source - Track collections and quarterly deposits
           </p>
@@ -285,7 +285,7 @@ export default function TCSList() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total TCS</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatAmount(summary.totalTCS)}</div>
+            <div className="text-2xl font-bold text-info">{formatAmount(summary.totalTCS)}</div>
           </CardContent>
         </Card>
       </div>
@@ -407,7 +407,7 @@ export default function TCSList() {
                     <TableCell className="text-right font-mono">
                       {Number(entry.saleAmount).toLocaleString('en-IN')}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-blue-600">
+                    <TableCell className="text-right font-mono text-info">
                       {Number(entry.tcsAmount).toLocaleString('en-IN')}
                     </TableCell>
                     <TableCell>
@@ -554,7 +554,7 @@ export default function TCSList() {
                   step="0.01"
                   value={formData.tcsAmount}
                   readOnly
-                  className="bg-muted font-medium text-blue-600"
+                  className="bg-muted font-medium text-info"
                 />
               </div>
             </div>

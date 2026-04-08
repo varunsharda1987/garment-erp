@@ -2,6 +2,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { ensureMaterialRecord } from './helpers/material-sync.helper';
 
 export interface CreateStyleStockDTO {
   styleId: string;
@@ -37,8 +38,13 @@ export interface StyleFabricStock {
   requiredPerGarment: number;
   availableStock: number;
   reservedStock: number;
+  consumedStock: number;
   canMakeGarments: number;
 }
+
+// Valid status filter values for getStockByStyle
+// Maps to Prisma StockStatus enum: AVAILABLE, RESERVED, EXHAUSTED, ISSUED, PENDING_RETURN
+export type StockStatusFilter = 'AVAILABLE' | 'RESERVED' | 'EXHAUSTED' | 'ALL';
 
 export interface FabricUsageByStyle {
   styleId: string;
@@ -100,17 +106,9 @@ class FabricStockService {
         },
       });
 
-      // Update material stock levels if fabric has material record
-      const material = await prisma.materials.findFirst({
-        where: {
-          fabricId: data.fabricId,
-          materialType: 'FINISHED_FABRIC',
-        },
-      });
-
-      if (material) {
-        await this.updateMaterialStockLevel(material.id, 'DEFAULT_WAREHOUSE', data.quantity, data.purchaseCost);
-      }
+      // Ensure materials record exists, then update stock_levels
+      const materialId = await ensureMaterialRecord(data.fabricId, 'FABRIC');
+      await this.updateMaterialStockLevel(materialId, 'DEFAULT_WAREHOUSE', data.quantity, data.purchaseCost);
 
       return fabricStock;
     } catch (error: unknown) {
@@ -247,9 +245,18 @@ class FabricStockService {
 
   /**
    * Get stock for a specific style (all fabrics)
+   * @param styleId - The style ID
+   * @param statusFilter - Filter by stock status: AVAILABLE, RESERVED, EXHAUSTED, or ALL (default: AVAILABLE)
    */
-  async getStockByStyle(styleId: string): Promise<StyleFabricStock[]> {
+  async getStockByStyle(styleId: string, statusFilter: StockStatusFilter = 'AVAILABLE'): Promise<StyleFabricStock[]> {
     try {
+      // Build status filter condition
+      // Cast to Prisma StockStatus enum type
+      const statusCondition =
+        statusFilter === 'ALL'
+          ? {}
+          : { status: statusFilter as 'AVAILABLE' | 'RESERVED' | 'EXHAUSTED' | 'ISSUED' | 'PENDING_RETURN' };
+
       // Get all components and their fabrics (including placeholders for CAD data)
       const components = await prisma.style_components.findMany({
         where: { styleId },
@@ -259,9 +266,7 @@ class FabricStockService {
               fabric: {
                 include: {
                   fabricStock: {
-                    where: {
-                      status: 'AVAILABLE',
-                    },
+                    where: statusCondition,
                   },
                 },
               },
@@ -272,6 +277,7 @@ class FabricStockService {
                   purpose: true,
                   cadMeters: true,
                   cadAverage: true,
+                  fabricStockId: true,
                 },
                 orderBy: { createdAt: 'desc' },
               },
@@ -279,6 +285,59 @@ class FabricStockService {
           },
         },
       });
+
+      // Also get PRODUCTION CAD records that link directly to fabric_stock (for when fabricId differs)
+      const productionCads = await prisma.fabric_width_cad.findMany({
+        where: {
+          styleFabric: { style_components: { styleId } },
+          purpose: 'PRODUCTION',
+          fabricStockId: { not: null },
+        },
+        include: {
+          fabricStock: {
+            include: {
+              fabricMaster: true,
+            },
+          },
+          styleFabric: {
+            include: {
+              style_components: true,
+            },
+          },
+        },
+      });
+
+      // Build a map of styleFabricId -> PRODUCTION CAD stock (for stock with different fabricId)
+      const productionStockMap = new Map<
+        string,
+        {
+          available: number;
+          reserved: number;
+          consumed: number;
+          fabricCode: string;
+          fabricName: string;
+        }
+      >();
+
+      for (const cad of productionCads) {
+        if (!cad.fabricStock || !cad.styleFabricId) continue;
+        const stock = cad.fabricStock;
+        const existing = productionStockMap.get(cad.styleFabricId);
+
+        if (existing) {
+          existing.available += Number(stock.quantityAvailable);
+          existing.reserved += Number(stock.quantityReserved);
+          existing.consumed += Number(stock.quantityConsumed);
+        } else {
+          productionStockMap.set(cad.styleFabricId, {
+            available: Number(stock.quantityAvailable),
+            reserved: Number(stock.quantityReserved),
+            consumed: Number(stock.quantityConsumed),
+            fabricCode: stock.fabricMaster?.fabricCode || '',
+            fabricName: stock.fabricMaster?.fabricName || '',
+          });
+        }
+      }
 
       const result: StyleFabricStock[] = [];
 
@@ -295,16 +354,29 @@ class FabricStockService {
         for (const styleFabric of component.style_fabrics) {
           if (!styleFabric.fabricId || !styleFabric.fabric) continue;
 
-          // Calculate total stock
-          const totalAvailable = styleFabric.fabric.fabricStock.reduce(
+          // Calculate total stock from style_fabrics.fabric.fabricStock
+          let totalAvailable = styleFabric.fabric.fabricStock.reduce(
             (sum, stock) => sum + Number(stock.quantityAvailable),
             0
           );
 
-          const totalReserved = styleFabric.fabric.fabricStock.reduce(
+          let totalReserved = styleFabric.fabric.fabricStock.reduce(
             (sum, stock) => sum + Number(stock.quantityReserved),
             0
           );
+
+          let totalConsumed = styleFabric.fabric.fabricStock.reduce(
+            (sum, stock) => sum + Number(stock.quantityConsumed),
+            0
+          );
+
+          // Also include stock from PRODUCTION CAD that links to stock with different fabricId
+          const productionStock = productionStockMap.get(styleFabric.id);
+          if (productionStock) {
+            totalAvailable += productionStock.available;
+            totalReserved += productionStock.reserved;
+            totalConsumed += productionStock.consumed;
+          }
 
           // Resolve consumption: PRODUCTION → RAW_MATERIAL_CALCULATION → COSTING
           // Check both purposeEnum (enum) and purpose (string) fields
@@ -335,14 +407,25 @@ class FabricStockService {
 
           const canMakeGarments = requiredPerGarment > 0 ? Math.floor(totalAvailable / requiredPerGarment) : 0;
 
+          // Use production stock fabric info if available and style fabric stock is empty
+          const fabricCode =
+            productionStock && totalAvailable === productionStock.available
+              ? productionStock.fabricCode || styleFabric.fabric.fabricCode
+              : styleFabric.fabric.fabricCode;
+          const fabricName =
+            productionStock && totalAvailable === productionStock.available
+              ? productionStock.fabricName || styleFabric.fabric.fabricName
+              : styleFabric.fabric.fabricName;
+
           result.push({
             fabricId: styleFabric.fabric.id,
-            fabricCode: styleFabric.fabric.fabricCode,
-            fabricName: styleFabric.fabric.fabricName,
+            fabricCode,
+            fabricName,
             componentName: component.componentName,
             requiredPerGarment,
             availableStock: totalAvailable,
             reservedStock: totalReserved,
+            consumedStock: totalConsumed,
             canMakeGarments,
           });
         }
@@ -357,9 +440,11 @@ class FabricStockService {
 
   /**
    * Get available stock for a style (can make X garments)
+   * @param styleId - The style ID
+   * @param statusFilter - Filter by stock status: AVAILABLE, RESERVED, CONSUMED, or ALL (default: AVAILABLE)
    */
-  async getAvailableStockForStyle(styleId: string) {
-    const fabricStocks = await this.getStockByStyle(styleId);
+  async getAvailableStockForStyle(styleId: string, statusFilter: StockStatusFilter = 'AVAILABLE') {
+    const fabricStocks = await this.getStockByStyle(styleId, statusFilter);
 
     // The bottleneck fabric determines how many garments can be made
     const canMakeGarments = fabricStocks.length > 0 ? Math.min(...fabricStocks.map((f) => f.canMakeGarments)) : 0;
@@ -368,6 +453,7 @@ class FabricStockService {
       canMakeGarments,
       fabricStocks,
       bottleneckFabric: fabricStocks.find((f) => f.canMakeGarments === canMakeGarments),
+      statusFilter, // Include filter in response for frontend reference
     };
   }
 

@@ -36,16 +36,16 @@ function StageCard({
         <span className="font-medium text-sm">{title}</span>
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-        <span className="text-gray-500">In:</span>
+        <span className="text-muted-foreground">In:</span>
         <span className="font-medium text-right">{received.toLocaleString()}</span>
-        <span className="text-gray-500">Done:</span>
-        <span className="font-medium text-right text-green-600">{produced.toLocaleString()}</span>
-        <span className="text-gray-500">WIP:</span>
-        <span className="font-semibold text-right text-orange-600">{wip.toLocaleString()}</span>
+        <span className="text-muted-foreground">Done:</span>
+        <span className="font-medium text-right text-success">{produced.toLocaleString()}</span>
+        <span className="text-muted-foreground">WIP:</span>
+        <span className="font-semibold text-right text-primary">{wip.toLocaleString()}</span>
         {defects > 0 && (
           <>
-            <span className="text-gray-500">Defects:</span>
-            <span className="font-medium text-right text-red-600">{defects.toLocaleString()}</span>
+            <span className="text-muted-foreground">Defects:</span>
+            <span className="font-medium text-right text-destructive">{defects.toLocaleString()}</span>
           </>
         )}
       </div>
@@ -55,7 +55,7 @@ function StageCard({
           style={{ width: `${progressPercent}%` }}
         />
       </div>
-      <span className="text-xs text-gray-400">{progressPercent}% complete</span>
+      <span className="text-xs text-muted-foreground">{progressPercent}% complete</span>
     </div>
   );
 }
@@ -63,9 +63,9 @@ function StageCard({
 function TransferArrow({ issued, pending }: { issued: number; pending: number }) {
   return (
     <div className="flex flex-col items-center justify-center px-1 min-w-[50px]">
-      <ArrowRight className="h-4 w-4 text-gray-400" />
-      <span className="text-xs text-gray-500 font-medium">{issued.toLocaleString()}</span>
-      {pending > 0 && <span className="text-xs text-amber-500">{pending} pending</span>}
+      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+      <span className="text-xs text-muted-foreground font-medium">{issued.toLocaleString()}</span>
+      {pending > 0 && <span className="text-xs text-warning">{pending} pending</span>}
     </div>
   );
 }
@@ -93,8 +93,8 @@ export default function WipSummarySection({ workOrderId }: WipSummarySectionProp
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-6">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400 mr-2" />
-          <span className="text-gray-500 text-sm">Loading WIP...</span>
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+          <span className="text-muted-foreground text-sm">Loading WIP...</span>
         </CardContent>
       </Card>
     );
@@ -110,10 +110,10 @@ export default function WipSummarySection({ workOrderId }: WipSummarySectionProp
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Package className="h-5 w-5 text-gray-600" />
+          <Package className="h-5 w-5 text-muted-foreground" />
           WIP Inventory — Production Pipeline
         </CardTitle>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Order: {data.orderQty.toLocaleString()} pcs — track pieces through each production stage
         </p>
       </CardHeader>
@@ -133,7 +133,7 @@ export default function WipSummarySection({ workOrderId }: WipSummarySectionProp
           <StageCard
             icon={Shirt}
             title="Stitching"
-            color="text-blue-500"
+            color="text-info"
             received={data.stitching.received}
             produced={data.stitching.produced}
             defects={data.stitching.defects}
@@ -144,7 +144,7 @@ export default function WipSummarySection({ workOrderId }: WipSummarySectionProp
           <StageCard
             icon={CheckSquare}
             title="Finishing"
-            color="text-green-500"
+            color="text-success"
             received={data.finishing.received}
             produced={data.finishing.produced}
             defects={data.finishing.defects}
@@ -153,11 +153,9 @@ export default function WipSummarySection({ workOrderId }: WipSummarySectionProp
           />
           <TransferArrow issued={data.finishingToDispatch.issued} pending={data.finishingToDispatch.pending} />
           <div className="flex flex-col items-center justify-center border rounded-lg p-4 min-w-[80px]">
-            <Package className="h-5 w-5 text-purple-500 mb-1" />
+            <Package className="h-5 w-5 text-accent mb-1" />
             <span className="text-xs font-medium">Dispatch</span>
-            <span className="text-lg font-bold text-purple-600">
-              {data.finishingToDispatch.issued.toLocaleString()}
-            </span>
+            <span className="text-lg font-bold text-accent">{data.finishingToDispatch.issued.toLocaleString()}</span>
           </div>
         </div>
       </CardContent>

@@ -29,7 +29,7 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({ ope
       description: 'Unfinished/raw fabric',
       route: '/greige/new',
       icon: <Layers className="h-6 w-6" />,
-      color: 'bg-gray-100 hover:bg-gray-200 border-gray-300',
+      color: 'bg-muted hover:bg-gray-200 border-border',
     },
     {
       id: 'fabric',
@@ -37,7 +37,7 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({ ope
       description: 'Finished/processed fabric',
       route: '/fabric/new',
       icon: <Shirt className="h-6 w-6" />,
-      color: 'bg-blue-100 hover:bg-blue-200 border-blue-300',
+      color: 'bg-info-muted hover:bg-info/15 border-info/30',
     },
     {
       id: 'lace',
@@ -53,7 +53,7 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({ ope
       description: 'Button materials',
       route: '/materials/button/new',
       icon: <Package className="h-6 w-6" />,
-      color: 'bg-purple-100 hover:bg-purple-200 border-purple-300',
+      color: 'bg-accent/10 hover:bg-accent/15 border-accent/25',
     },
     {
       id: 'thread',
@@ -61,7 +61,7 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({ ope
       description: 'Sewing thread materials',
       route: '/materials/thread/new',
       icon: <Scissors className="h-6 w-6" />,
-      color: 'bg-green-100 hover:bg-green-200 border-green-300',
+      color: 'bg-success-muted hover:bg-success/15 border-success/25',
     },
     {
       id: 'zipper',
@@ -85,7 +85,7 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({ ope
       description: 'Label materials',
       route: '/materials/label/new',
       icon: <Tag className="h-6 w-6" />,
-      color: 'bg-indigo-100 hover:bg-indigo-200 border-indigo-300',
+      color: 'bg-primary/10 hover:bg-primary/15 border-primary/30',
     },
     {
       id: 'packaging',
@@ -101,7 +101,7 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({ ope
       description: 'Other materials',
       route: '/materials/new',
       icon: <Package className="h-6 w-6" />,
-      color: 'bg-gray-100 hover:bg-gray-200 border-gray-300',
+      color: 'bg-muted hover:bg-gray-200 border-border',
     },
   ];
 
@@ -125,9 +125,9 @@ const MaterialCategorySelector: React.FC<MaterialCategorySelectorProps> = ({ ope
               onClick={() => handleCategorySelect(category.route)}
               className={`flex flex-col items-center p-4 rounded-lg border-2 transition-colors ${category.color}`}
             >
-              <div className="mb-2 text-gray-700">{category.icon}</div>
-              <div className="text-sm font-medium text-gray-900 mb-1">{category.name}</div>
-              <div className="text-xs text-gray-600 text-center">{category.description}</div>
+              <div className="mb-2 text-foreground">{category.icon}</div>
+              <div className="text-sm font-medium text-foreground mb-1">{category.name}</div>
+              <div className="text-xs text-muted-foreground text-center">{category.description}</div>
             </button>
           ))}
         </div>

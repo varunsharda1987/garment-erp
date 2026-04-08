@@ -116,12 +116,12 @@ export default function StockLevelList() {
     {
       key: 'code',
       header: 'Material Code',
-      render: (stock) => <div className="font-medium text-gray-900">{stock.materials?.code}</div>,
+      render: (stock) => <div className="font-medium text-foreground">{stock.materials?.code}</div>,
     },
     {
       key: 'name',
       header: 'Material Name',
-      render: (stock) => <div className="text-sm text-gray-900">{stock.materials?.name}</div>,
+      render: (stock) => <div className="text-sm text-foreground">{stock.materials?.name}</div>,
     },
     {
       key: 'materialType',
@@ -133,8 +133,8 @@ export default function StockLevelList() {
       header: 'Warehouse',
       render: (stock) => (
         <div>
-          <div className="text-sm text-gray-900">{stock.warehouses?.warehouseCode}</div>
-          <div className="text-xs text-gray-500">{stock.warehouses?.warehouseName}</div>
+          <div className="text-sm text-foreground">{stock.warehouses?.warehouseCode}</div>
+          <div className="text-xs text-muted-foreground">{stock.warehouses?.warehouseName}</div>
         </div>
       ),
     },
@@ -147,7 +147,7 @@ export default function StockLevelList() {
         const status = getStockStatus(stock);
         const isLow = status.variant === 'destructive' || status.variant === 'warning';
         return (
-          <div className={`font-medium ${isLow ? 'text-red-600' : 'text-gray-900'}`}>
+          <div className={`font-medium ${isLow ? 'text-destructive' : 'text-foreground'}`}>
             {Number(stock.quantity).toFixed(2)} {stock.unit}
           </div>
         );
@@ -158,7 +158,7 @@ export default function StockLevelList() {
       header: 'Valuation Rate',
       headerClassName: 'text-right',
       className: 'text-right',
-      render: (stock) => <div className="text-sm text-gray-900">₹{Number(stock.valuationRate).toFixed(2)}</div>,
+      render: (stock) => <div className="text-sm text-foreground">₹{Number(stock.valuationRate).toFixed(2)}</div>,
     },
     {
       key: 'stockValue',
@@ -166,7 +166,7 @@ export default function StockLevelList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (stock) => (
-        <div className="font-medium text-gray-900">₹{Number(stock.stockValue).toLocaleString('en-IN')}</div>
+        <div className="font-medium text-foreground">₹{Number(stock.stockValue).toLocaleString('en-IN')}</div>
       ),
     },
     {
@@ -175,7 +175,9 @@ export default function StockLevelList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (stock) => (
-        <div className="text-sm text-gray-700">{stock.reorderLevel ? Number(stock.reorderLevel).toFixed(2) : '-'}</div>
+        <div className="text-sm text-foreground">
+          {stock.reorderLevel ? Number(stock.reorderLevel).toFixed(2) : '-'}
+        </div>
       ),
     },
     {
@@ -186,7 +188,7 @@ export default function StockLevelList() {
         return (
           <div className="flex items-center gap-1">
             {(status.variant === 'destructive' || status.variant === 'warning') && (
-              <TrendingDown className="h-3 w-3 text-red-600" />
+              <TrendingDown className="h-3 w-3 text-destructive" />
             )}
             <StatusBadge status={status.label} variant={status.variant} />
           </div>

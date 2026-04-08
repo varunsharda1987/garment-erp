@@ -213,7 +213,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
         {/* Quantity Input */}
         <div className="space-y-2">
           <Label htmlFor="quantity">
-            Quantity Completed * <span className="text-xs text-gray-500">/ {totalQuantity}</span>
+            Quantity Completed * <span className="text-xs text-muted-foreground">/ {totalQuantity}</span>
           </Label>
           <Input
             id="quantity"
@@ -241,7 +241,7 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
 
       {/* Validation Status */}
       {isValidating && (
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Validating stage transition...
         </div>
@@ -249,28 +249,28 @@ const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> 
 
       {/* Validation Blockers */}
       {!isValidating && validationBlockers.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <h4 className="font-semibold text-red-900 text-sm mb-2 flex items-center gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+          <h4 className="font-semibold text-destructive text-sm mb-2 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             Validation Issues
           </h4>
           <ul className="space-y-1">
             {validationBlockers.map((blocker, idx) => (
-              <li key={idx} className="text-sm text-red-800 flex gap-2">
-                <span className="text-red-600">•</span>
+              <li key={idx} className="text-sm text-destructive flex gap-2">
+                <span className="text-destructive">•</span>
                 <span>{blocker.message}</span>
               </li>
             ))}
           </ul>
           {user?.role === 'ADMIN' && (
-            <p className="text-xs text-red-700 mt-2">As an admin, you can override these blocks by proceeding.</p>
+            <p className="text-xs text-destructive mt-2">As an admin, you can override these blocks by proceeding.</p>
           )}
         </div>
       )}
 
       {/* Success Indicator */}
       {!isValidating && validationBlockers.length === 0 && selectedStage && (
-        <div className="flex items-center gap-2 text-sm text-green-700">
+        <div className="flex items-center gap-2 text-sm text-success">
           <CheckCircle className="h-4 w-4" />
           Stage transition is valid
         </div>

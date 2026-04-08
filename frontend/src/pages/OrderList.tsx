@@ -234,11 +234,11 @@ export default function OrderList() {
               e.stopPropagation();
               navigate(`/orders/${order.id}`);
             }}
-            className="text-sm font-medium text-blue-600 hover:underline"
+            className="text-sm font-medium text-info hover:underline"
           >
             {order.orderNumber}
           </button>
-          <div className="text-xs text-gray-500 mt-0.5">{formatDate(order.orderDate)}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{formatDate(order.orderDate)}</div>
         </div>
       ),
     },
@@ -247,8 +247,8 @@ export default function OrderList() {
       header: 'Customer',
       render: (order) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{order.customer?.name || 'N/A'}</div>
-          <div className="text-xs text-gray-500">{order.customer?.code}</div>
+          <div className="text-sm font-medium text-foreground">{order.customer?.name || 'N/A'}</div>
+          <div className="text-xs text-muted-foreground">{order.customer?.code}</div>
         </div>
       ),
     },
@@ -258,11 +258,11 @@ export default function OrderList() {
       render: (order) => {
         const styleCodes = (order.orderItems?.map((item) => item.style?.styleCode).filter(Boolean) as string[]) || [];
         const unique = [...new Set(styleCodes)];
-        if (unique.length === 0) return <span className="text-xs text-gray-400">-</span>;
+        if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
         return (
           <div className="flex flex-wrap gap-1">
             {unique.map((code) => (
-              <span key={code} className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
+              <span key={code} className="text-xs bg-muted text-foreground px-1.5 py-0.5 rounded">
                 {code}
               </span>
             ))}
@@ -273,13 +273,13 @@ export default function OrderList() {
     {
       key: 'expectedDeliveryDate',
       header: 'Delivery Date',
-      render: (order) => <div className="text-sm text-gray-700">{formatDate(order.expectedDeliveryDate)}</div>,
+      render: (order) => <div className="text-sm text-foreground">{formatDate(order.expectedDeliveryDate)}</div>,
     },
     {
       key: 'quantity',
       header: 'Quantity',
       render: (order) => (
-        <div className="text-sm font-medium text-gray-900">{order.totalQuantity?.toLocaleString() || 0} pcs</div>
+        <div className="text-sm font-medium text-foreground">{order.totalQuantity?.toLocaleString() || 0} pcs</div>
       ),
     },
     {
@@ -288,9 +288,9 @@ export default function OrderList() {
       render: (order) => (
         <div className="text-sm font-medium">
           {Number(order.totalAmount) > 0 ? (
-            <span className="text-gray-900">{formatCurrency(order.totalAmount)}</span>
+            <span className="text-foreground">{formatCurrency(order.totalAmount)}</span>
           ) : (
-            <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-xs">Price TBD</span>
+            <span className="text-warning bg-warning-muted px-2 py-0.5 rounded text-xs">Price TBD</span>
           )}
         </div>
       ),

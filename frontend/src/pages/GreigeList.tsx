@@ -160,7 +160,7 @@ export default function GreigeList() {
       render: (greige) => (
         <Link
           to={`/greige/${greige.id}`}
-          className="text-blue-600 hover:text-blue-800 font-medium"
+          className="text-info hover:text-info font-medium"
           onClick={(e) => e.stopPropagation()}
         >
           {greige.greigeCode}
@@ -170,22 +170,22 @@ export default function GreigeList() {
     {
       key: 'genericGreigeName',
       header: 'Generic Greige Name',
-      render: (greige) => <div className="text-sm text-gray-900">{greige.genericGreigeName || '-'}</div>,
+      render: (greige) => <div className="text-sm text-foreground">{greige.genericGreigeName || '-'}</div>,
     },
     {
       key: 'greigeName',
       header: 'Greige Name',
       render: (greige) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{greige.greigeName}</div>
-          {greige.weaveType && <div className="text-xs text-gray-500">{greige.weaveType}</div>}
+          <div className="text-sm font-medium text-foreground">{greige.greigeName}</div>
+          {greige.weaveType && <div className="text-xs text-muted-foreground">{greige.weaveType}</div>}
         </div>
       ),
     },
     {
       key: 'composition',
       header: 'Composition',
-      render: (greige) => <div className="text-sm text-gray-900">{greige.composition}</div>,
+      render: (greige) => <div className="text-sm text-foreground">{greige.composition}</div>,
     },
     {
       key: 'greigeQuality',
@@ -196,9 +196,9 @@ export default function GreigeList() {
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                 greige.greigeQuality === 'SUPER_DYEING'
-                  ? 'bg-purple-100 text-purple-800'
+                  ? 'bg-accent/10 text-accent'
                   : greige.greigeQuality === 'DYEING'
-                    ? 'bg-blue-100 text-blue-800'
+                    ? 'bg-info-muted text-info'
                     : 'bg-orange-100 text-orange-800'
               }`}
             >
@@ -209,7 +209,7 @@ export default function GreigeList() {
                   : 'Printing'}
             </span>
           ) : (
-            <span className="text-gray-400">-</span>
+            <span className="text-muted-foreground">-</span>
           )}
         </div>
       ),
@@ -218,19 +218,21 @@ export default function GreigeList() {
       key: 'weaver',
       header: 'Weaver',
       render: (greige) => (
-        <div className="text-sm text-gray-900">{greige.weaver || <span className="text-gray-400">-</span>}</div>
+        <div className="text-sm text-foreground">
+          {greige.weaver || <span className="text-muted-foreground">-</span>}
+        </div>
       ),
     },
     {
       key: 'greigeWidth',
       header: 'Width (")',
-      render: (greige) => <div className="text-sm text-gray-900">{Number(greige.greigeWidth)}"</div>,
+      render: (greige) => <div className="text-sm text-foreground">{Number(greige.greigeWidth)}"</div>,
     },
     {
       key: 'shrinkage',
       header: 'Shrinkage (%)',
       render: (greige) => (
-        <div className="text-sm text-gray-900">{Number(greige.averageShrinkagePercent).toFixed(1)}%</div>
+        <div className="text-sm text-foreground">{Number(greige.averageShrinkagePercent).toFixed(1)}%</div>
       ),
     },
     {
@@ -352,7 +354,7 @@ export default function GreigeList() {
 
       {/* Results Summary */}
       {!loading && greigeMasters.length > 0 && (
-        <div className="mb-4 text-sm text-gray-600">
+        <div className="mb-4 text-sm text-muted-foreground">
           Showing {greigeMasters.length} of {total} greige masters
         </div>
       )}

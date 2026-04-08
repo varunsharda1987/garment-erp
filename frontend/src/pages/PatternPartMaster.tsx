@@ -181,8 +181,8 @@ export default function PatternPartMaster() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Pattern Parts</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-display font-medium">Pattern Parts</h1>
+          <p className="text-muted-foreground mt-1">
             Manage individual pattern pieces that make up garment components (Sleeve, Collar, Pocket, etc.)
           </p>
         </div>
@@ -195,7 +195,7 @@ export default function PatternPartMaster() {
       {/* Search */}
       <div className="mb-4 max-w-sm">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder="Search pattern parts..."
@@ -229,7 +229,7 @@ export default function PatternPartMaster() {
               </TableRow>
             ) : patternParts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No pattern parts found
                 </TableCell>
               </TableRow>
@@ -252,16 +252,16 @@ export default function PatternPartMaster() {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-gray-400">-</span>
+                      <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell className="max-w-xs truncate">
-                    {patternPart.description || <span className="text-gray-400">-</span>}
+                    {patternPart.description || <span className="text-muted-foreground">-</span>}
                   </TableCell>
                   <TableCell>{patternPart.sortOrder}</TableCell>
                   <TableCell>
                     {patternPart.isActive ? (
-                      <Badge variant="default" className="bg-green-500">
+                      <Badge variant="default" className="bg-success-muted0">
                         Active
                       </Badge>
                     ) : (
@@ -277,7 +277,7 @@ export default function PatternPartMaster() {
                       size="sm"
                       onClick={() => handleDeleteClick(patternPart.id, patternPart.name)}
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -303,7 +303,7 @@ export default function PatternPartMaster() {
             <div className="space-y-4 py-4">
               <div>
                 <Label htmlFor="code">
-                  Code <span className="text-red-500">*</span>
+                  Code <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="code"
@@ -313,12 +313,12 @@ export default function PatternPartMaster() {
                   required
                   className="font-mono"
                 />
-                <p className="text-xs text-gray-500 mt-1">Unique identifier code (auto-uppercased)</p>
+                <p className="text-xs text-muted-foreground mt-1">Unique identifier code (auto-uppercased)</p>
               </div>
 
               <div>
                 <Label htmlFor="name">
-                  Name <span className="text-red-500">*</span>
+                  Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="name"
@@ -331,8 +331,10 @@ export default function PatternPartMaster() {
 
               <div>
                 <Label>Component Groups</Label>
-                <p className="text-xs text-gray-500 mb-2">Select which garment types this pattern part applies to</p>
-                <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-gray-50">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select which garment types this pattern part applies to
+                </p>
+                <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted">
                   {componentGroups.map((group) => {
                     const isSelected = formData.componentGroupIds?.includes(group.id);
                     return (
@@ -340,7 +342,7 @@ export default function PatternPartMaster() {
                         key={group.id}
                         variant={isSelected ? 'default' : 'outline'}
                         className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-200'
+                          isSelected ? 'bg-info hover:bg-info' : 'hover:bg-gray-200'
                         }`}
                         onClick={() => toggleGroupSelection(group.id)}
                       >
@@ -350,7 +352,9 @@ export default function PatternPartMaster() {
                   })}
                 </div>
                 {formData.componentGroupIds && formData.componentGroupIds.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">{formData.componentGroupIds.length} group(s) selected</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.componentGroupIds.length} group(s) selected
+                  </p>
                 )}
               </div>
 

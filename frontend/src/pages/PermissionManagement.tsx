@@ -31,14 +31,14 @@ import type { PermissionMatrixResponse, PermissionAuditEntry } from '@/types/per
 
 // Role display names and colors
 const ROLE_CONFIG: Record<UserRole, { name: string; color: string }> = {
-  [UserRole.ADMIN]: { name: 'Admin', color: 'bg-purple-100 text-purple-800' },
-  [UserRole.MERCHANDISER]: { name: 'Merchandiser', color: 'bg-blue-100 text-blue-800' },
-  [UserRole.PRODUCTION_MANAGER]: { name: 'Production Mgr', color: 'bg-green-100 text-green-800' },
+  [UserRole.ADMIN]: { name: 'Admin', color: 'bg-accent/10 text-accent' },
+  [UserRole.MERCHANDISER]: { name: 'Merchandiser', color: 'bg-info-muted text-info' },
+  [UserRole.PRODUCTION_MANAGER]: { name: 'Production Mgr', color: 'bg-success-muted text-success' },
   [UserRole.SALES]: { name: 'Sales', color: 'bg-yellow-100 text-yellow-800' },
   [UserRole.ACCOUNTS]: { name: 'Accounts', color: 'bg-orange-100 text-orange-800' },
   [UserRole.INVENTORY]: { name: 'Inventory', color: 'bg-cyan-100 text-cyan-800' },
   [UserRole.QUALITY]: { name: 'Quality', color: 'bg-pink-100 text-pink-800' },
-  [UserRole.PURCHASE]: { name: 'Purchase', color: 'bg-indigo-100 text-indigo-800' },
+  [UserRole.PURCHASE]: { name: 'Purchase', color: 'bg-primary/10 text-primary' },
   [UserRole.FACTORY_SUPERVISOR]: { name: 'Factory Sup.', color: 'bg-teal-100 text-teal-800' },
 };
 
@@ -223,7 +223,7 @@ export default function PermissionManagement() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -233,8 +233,8 @@ export default function PermissionManagement() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Permission Management</h1>
-          <p className="text-gray-500 mt-1">Configure which roles can access each feature in the system</p>
+          <h1 className="text-2xl font-display font-medium text-foreground">Permission Management</h1>
+          <p className="text-muted-foreground mt-1">Configure which roles can access each feature in the system</p>
         </div>
         <div className="flex gap-2">
           <AlertDialog>
@@ -274,14 +274,14 @@ export default function PermissionManagement() {
             onClick={() => setSelectedRole(selectedRole === role ? 'all' : role)}
           >
             <CardContent className="p-4">
-              <Badge className={ROLE_CONFIG[role]?.color || 'bg-gray-100'}>{ROLE_CONFIG[role]?.name || role}</Badge>
-              <div className="mt-2 text-sm text-gray-500">
-                <span className="font-medium text-green-600">{roleStats[role]?.enabled || 0}</span>
+              <Badge className={ROLE_CONFIG[role]?.color || 'bg-muted'}>{ROLE_CONFIG[role]?.name || role}</Badge>
+              <div className="mt-2 text-sm text-muted-foreground">
+                <span className="font-medium text-success">{roleStats[role]?.enabled || 0}</span>
                 {' / '}
                 <span>{roleStats[role]?.total || 0}</span>
                 <span className="ml-1">modules</span>
               </div>
-              {selectedRole === role && <div className="mt-1 text-xs text-blue-600">Click to clear filter</div>}
+              {selectedRole === role && <div className="mt-1 text-xs text-info">Click to clear filter</div>}
             </CardContent>
           </Card>
         ))}
@@ -361,10 +361,10 @@ export default function PermissionManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[200px] sticky left-0 bg-white z-10">Permission</TableHead>
+                  <TableHead className="w-[200px] sticky left-0 bg-card z-10">Permission</TableHead>
                   {displayRoles.map((role) => (
                     <TableHead key={role} className="text-center min-w-[100px]">
-                      <Badge className={ROLE_CONFIG[role]?.color || 'bg-gray-100'}>
+                      <Badge className={ROLE_CONFIG[role]?.color || 'bg-muted'}>
                         {ROLE_CONFIG[role]?.name || role}
                       </Badge>
                     </TableHead>
@@ -374,10 +374,10 @@ export default function PermissionManagement() {
               <TableBody>
                 {filteredPermissions.map((perm) => (
                   <TableRow key={perm.permissionKey}>
-                    <TableCell className="font-medium sticky left-0 bg-white z-10">
+                    <TableCell className="font-medium sticky left-0 bg-card z-10">
                       <div>
                         <div>{perm.displayName}</div>
-                        <div className="text-xs text-gray-400">{perm.moduleGroup}</div>
+                        <div className="text-xs text-muted-foreground">{perm.moduleGroup}</div>
                       </div>
                     </TableCell>
                     {displayRoles.map((role) => {
@@ -390,7 +390,7 @@ export default function PermissionManagement() {
                         <TableCell key={role} className="text-center">
                           <div className="flex justify-center items-center">
                             {isSaving ? (
-                              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                             ) : (
                               <Switch
                                 checked={perm.roles[role]}
@@ -407,7 +407,7 @@ export default function PermissionManagement() {
                 ))}
                 {filteredPermissions.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={displayRoles.length + 1} className="text-center text-gray-500 py-8">
+                    <TableCell colSpan={displayRoles.length + 1} className="text-center text-muted-foreground py-8">
                       No permissions found matching your filters
                     </TableCell>
                   </TableRow>
@@ -422,7 +422,7 @@ export default function PermissionManagement() {
       <Collapsible open={showAuditLog} onOpenChange={handleAuditToggle}>
         <Card>
           <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-gray-50">
+            <CardHeader className="cursor-pointer hover:bg-muted">
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <History className="h-5 w-5" />
@@ -436,28 +436,28 @@ export default function PermissionManagement() {
             <CardContent>
               {loadingAudit ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : auditLogs.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">No permission changes recorded yet</div>
+                <div className="text-center text-muted-foreground py-8">No permission changes recorded yet</div>
               ) : (
                 <div className="space-y-3">
                   {auditLogs.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={log.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div>
                         <div className="font-medium">
                           {log.newValues?.allowed ? 'Enabled' : 'Disabled'}{' '}
-                          <span className="text-blue-600">{log.newValues?.permissionKey}</span>
+                          <span className="text-info">{log.newValues?.permissionKey}</span>
                           {' for '}
-                          <Badge className={ROLE_CONFIG[log.newValues?.role as UserRole]?.color || 'bg-gray-100'}>
+                          <Badge className={ROLE_CONFIG[log.newValues?.role as UserRole]?.color || 'bg-muted'}>
                             {ROLE_CONFIG[log.newValues?.role as UserRole]?.name || log.newValues?.role}
                           </Badge>
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           by {log.user?.firstName} {log.user?.lastName}
                         </div>
                       </div>
-                      <div className="text-sm text-gray-400">{new Date(log.createdAt).toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</div>
                     </div>
                   ))}
                 </div>

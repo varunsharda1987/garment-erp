@@ -173,10 +173,10 @@ export const DEFECT_TYPE_LABELS: Record<DefectType, string> = {
 
 // Defect type colors
 export const DEFECT_TYPE_COLORS: Record<DefectType, string> = {
-  WEAVE_DEFECT: 'bg-red-100 text-red-800 border-red-200',
-  COLOR_VARIATION: 'bg-purple-100 text-purple-800 border-purple-200',
+  WEAVE_DEFECT: 'bg-destructive/10 text-destructive border-destructive/20',
+  COLOR_VARIATION: 'bg-accent/10 text-accent border-accent/20',
   WIDTH_VARIATION: 'bg-orange-100 text-orange-800 border-orange-200',
-  DAMAGE: 'bg-red-100 text-red-800 border-red-200',
+  DAMAGE: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
 // Discovered at labels
@@ -198,11 +198,11 @@ export const CLAIM_STATUS_LABELS: Record<ClaimStatus, string> = {
 
 // Claim status colors
 export const CLAIM_STATUS_COLORS: Record<ClaimStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-800 border-gray-200',
-  SUBMITTED: 'bg-blue-100 text-blue-800 border-blue-200',
-  APPROVED: 'bg-green-100 text-green-800 border-green-200',
-  REJECTED: 'bg-red-100 text-red-800 border-red-200',
-  RESOLVED: 'bg-purple-100 text-purple-800 border-purple-200',
+  PENDING: 'bg-muted text-foreground border-border',
+  SUBMITTED: 'bg-info-muted text-info border-info/20',
+  APPROVED: 'bg-success-muted text-success border-success/20',
+  REJECTED: 'bg-destructive/10 text-destructive border-destructive/20',
+  RESOLVED: 'bg-accent/10 text-accent border-accent/20',
 };
 
 // Valid claim status transitions

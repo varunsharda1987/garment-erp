@@ -204,7 +204,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                   style={{ gridTemplateColumns: `repeat(${visibleTypes.length}, minmax(0, 1fr))` }}
                 >
                   {visibleTypes.map((type) => (
-                    <TabsTrigger key={type} value={type} className="text-xs py-2 data-[state=active]:bg-blue-100">
+                    <TabsTrigger key={type} value={type} className="text-xs py-2 data-[state=active]:bg-info-muted">
                       {MaterialTypeLabels[type]}
                     </TabsTrigger>
                   ))}
@@ -212,9 +212,9 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
               </div>
 
               {/* Search Bar */}
-              <div className="px-4 py-3 border-b bg-gray-50">
+              <div className="px-4 py-3 border-b bg-muted">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="text"
                     placeholder={`Search ${MaterialTypeLabels[activeTab]}...`}
@@ -229,12 +229,12 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
               {visibleTypes.map((type) => (
                 <TabsContent key={type} value={type} className="flex-1 overflow-auto p-4 m-0">
                   {isLoading ? (
-                    <div className="text-center py-12 text-gray-500">
+                    <div className="text-center py-12 text-muted-foreground">
                       <Package className="h-12 w-12 mx-auto mb-3 animate-pulse" />
                       <p>Loading materials...</p>
                     </div>
                   ) : materials.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
+                    <div className="text-center py-12 text-muted-foreground">
                       <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                       <p className="font-medium">No materials found</p>
                       {searchQuery && <p className="text-sm mt-1">Try a different search term</p>}
@@ -248,10 +248,10 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                           onClick={() => handleMaterialClick(material)}
                           className={cn(
                             'w-full p-3 border rounded-lg text-left transition-all',
-                            'hover:border-blue-400 hover:bg-blue-50',
+                            'hover:border-info/50 hover:bg-info-muted',
                             selectedMaterial?.materialCode === material.materialCode
-                              ? 'border-blue-500 bg-blue-50 shadow-sm'
-                              : 'border-gray-200'
+                              ? 'border-info bg-info-muted shadow-sm'
+                              : 'border-border'
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -262,24 +262,24 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                                 </Badge>
                                 <span className="font-medium text-sm truncate">{material.materialName}</span>
                               </div>
-                              <div className="text-xs text-gray-600 space-y-0.5">
+                              <div className="text-xs text-muted-foreground space-y-0.5">
                                 {getSpecificationsSummary(material).map((spec, idx) => (
                                   <div key={idx}>{spec}</div>
                                 ))}
                                 {material.supplierName && (
-                                  <div className="text-gray-500">Supplier: {material.supplierName}</div>
+                                  <div className="text-muted-foreground">Supplier: {material.supplierName}</div>
                                 )}
                               </div>
                             </div>
                             <div className="text-right flex-shrink-0">
-                              <div className="font-semibold text-sm text-blue-600">
+                              <div className="font-semibold text-sm text-info">
                                 {formatPrice(parsePrice(material.pricePerUnit))}
                               </div>
-                              <div className="text-xs text-gray-500">per {material.unit}</div>
+                              <div className="text-xs text-muted-foreground">per {material.unit}</div>
                             </div>
                           </div>
                           {selectedMaterial?.materialCode === material.materialCode && (
-                            <div className="mt-2 pt-2 border-t flex items-center gap-1 text-blue-600 text-xs font-medium">
+                            <div className="mt-2 pt-2 border-t flex items-center gap-1 text-info text-xs font-medium">
                               <Check className="h-3 w-3" />
                               Selected
                             </div>
@@ -294,17 +294,17 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
           </div>
 
           {/* Right Panel: Configuration */}
-          <div className="w-1/3 p-6 bg-gray-50 overflow-auto">
+          <div className="w-1/3 p-6 bg-muted overflow-auto">
             {selectedMaterial ? (
               <div className="space-y-4">
                 <div>
                   <h3 className="font-semibold text-sm mb-2">Selected Material</h3>
-                  <div className="p-3 bg-white rounded-lg border">
+                  <div className="p-3 bg-card rounded-lg border">
                     <Badge variant="secondary" className="text-xs mb-2">
                       {selectedMaterial.materialCode}
                     </Badge>
                     <p className="font-medium text-sm">{selectedMaterial.materialName}</p>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {selectedMaterial.unit} · {formatPrice(parsePrice(selectedMaterial.pricePerUnit))}
                     </p>
                   </div>
@@ -320,7 +320,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                     onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
                     placeholder="0.00"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Total cost: {formatPrice(quantity * parsePrice(selectedMaterial.pricePerUnit))}
                   </p>
                 </div>
@@ -352,7 +352,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                     onChange={(e) => setComponentName(e.target.value)}
                     placeholder="e.g., Front Panel, Collar"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Specify which component uses this material</p>
+                  <p className="text-xs text-muted-foreground mt-1">Specify which component uses this material</p>
                 </div>
 
                 <Button
@@ -366,7 +366,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
+              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                 <Package className="h-16 w-16 mb-3" />
                 <p className="text-sm font-medium">No material selected</p>
                 <p className="text-xs mt-1 px-4">Select a material from the list to configure quantity and usage</p>
@@ -375,10 +375,10 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t bg-gray-50">
-          <div className="flex-1 text-sm text-gray-600">
+        <DialogFooter className="px-6 py-4 border-t bg-muted">
+          <div className="flex-1 text-sm text-muted-foreground">
             {addedCount > 0 && (
-              <span className="text-green-600 font-medium">
+              <span className="text-success font-medium">
                 {addedCount} item{addedCount > 1 ? 's' : ''} added
               </span>
             )}

@@ -201,8 +201,8 @@ export default function ProductionStatus() {
       {/* Header with View Toggle */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Production Status Dashboard</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-display font-medium text-foreground">Production Status Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
             {viewMode === 'order'
               ? 'Monitor all orders, track progress, and manage CAD widths per order'
               : 'Monitor all running styles, track progress, and identify blockers'}
@@ -226,10 +226,10 @@ export default function ProductionStatus() {
 
       {/* Last Updated & Refresh */}
       {!loading && (
-        <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between bg-card p-3 rounded-lg border border-border">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-gray-500" />
-            <span className="text-sm text-gray-600">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
               Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
             </span>
           </div>
@@ -257,7 +257,7 @@ export default function ProductionStatus() {
 
       {/* Results Count */}
       {!loading && (
-        <div className="flex items-center justify-between text-sm text-gray-600">
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div>
             Showing {items.length === 0 ? 0 : (page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of{' '}
             {total} {viewMode === 'order' ? 'orders' : 'styles'}
@@ -271,18 +271,18 @@ export default function ProductionStatus() {
       {/* Loading State */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <span className="ml-3 text-gray-600">Loading production status...</span>
+          <Loader2 className="h-8 w-8 animate-spin text-info" />
+          <span className="ml-3 text-muted-foreground">Loading production status...</span>
         </div>
       )}
 
       {/* Empty State */}
       {!loading && items.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-lg">
+        <div className="text-center py-12 bg-card rounded-lg border border-border">
+          <p className="text-muted-foreground text-lg">
             No {viewMode === 'order' ? 'orders' : 'styles'} found matching your filters.
           </p>
-          <p className="text-gray-500 text-sm mt-2">Try adjusting your search or filter criteria.</p>
+          <p className="text-muted-foreground text-sm mt-2">Try adjusting your search or filter criteria.</p>
         </div>
       )}
 
@@ -314,7 +314,7 @@ export default function ProductionStatus() {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between bg-card p-4 rounded-lg border border-border">
           <Button
             variant="outline"
             onClick={handlePreviousPage}

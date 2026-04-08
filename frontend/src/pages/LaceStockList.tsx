@@ -136,8 +136,10 @@ export default function LaceStockList() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Lace Stock</h1>
-          <p className="text-gray-500 mt-1">Manage lace inventory with FIFO tracking and cross-style allocation</p>
+          <h1 className="text-3xl font-display font-medium">Lace Stock</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage lace inventory with FIFO tracking and cross-style allocation
+          </p>
         </div>
         <Button onClick={() => navigate('/lace-stock/aging-report')}>
           <Clock className="h-4 w-4 mr-2" />
@@ -151,10 +153,10 @@ export default function LaceStockList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-green-600">{summary.totalAvailable.toLocaleString()}m</div>
-                <div className="text-sm text-gray-500">Available Stock</div>
+                <div className="text-2xl font-bold text-success">{summary.totalAvailable.toLocaleString()}m</div>
+                <div className="text-sm text-muted-foreground">Available Stock</div>
               </div>
-              <Package className="h-8 w-8 text-green-200" />
+              <Package className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -163,10 +165,10 @@ export default function LaceStockList() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold text-blue-600">{summary.totalReserved.toLocaleString()}m</div>
-                <div className="text-sm text-gray-500">Reserved Stock</div>
+                <div className="text-2xl font-bold text-info">{summary.totalReserved.toLocaleString()}m</div>
+                <div className="text-sm text-muted-foreground">Reserved Stock</div>
               </div>
-              <ArrowRightLeft className="h-8 w-8 text-blue-200" />
+              <ArrowRightLeft className="h-8 w-8 text-info" />
             </div>
           </CardContent>
         </Card>
@@ -176,23 +178,23 @@ export default function LaceStockList() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-2xl font-bold">{formatCurrency(summary.totalValue)}</div>
-                <div className="text-sm text-gray-500">Total Value</div>
+                <div className="text-sm text-muted-foreground">Total Value</div>
               </div>
               <TrendingDown className="h-8 w-8 text-gray-200" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className={summary.agingAlert > 0 ? 'border-amber-300 bg-amber-50' : ''}>
+        <Card className={summary.agingAlert > 0 ? 'border-warning/25 bg-warning-muted' : ''}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className={`text-2xl font-bold ${summary.agingAlert > 0 ? 'text-amber-600' : ''}`}>
+                <div className={`text-2xl font-bold ${summary.agingAlert > 0 ? 'text-warning' : ''}`}>
                   {summary.agingAlert}
                 </div>
-                <div className="text-sm text-gray-500">Aging Alert (&gt;60d)</div>
+                <div className="text-sm text-muted-foreground">Aging Alert (&gt;60d)</div>
               </div>
-              <AlertTriangle className={`h-8 w-8 ${summary.agingAlert > 0 ? 'text-amber-400' : 'text-gray-200'}`} />
+              <AlertTriangle className={`h-8 w-8 ${summary.agingAlert > 0 ? 'text-warning' : 'text-gray-200'}`} />
             </div>
           </CardContent>
         </Card>
@@ -201,7 +203,7 @@ export default function LaceStockList() {
       {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-6">
         <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by lace, lot number, style..."
             value={searchTerm}
@@ -272,37 +274,37 @@ export default function LaceStockList() {
           {loading ? (
             <div className="text-center py-12">Loading...</div>
           ) : stocks.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">No lace stock found.</div>
+            <div className="text-center py-12 text-muted-foreground">No lace stock found.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-muted border-b">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Lace / Lot
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Origin Style
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Available
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Reserved
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       WAC
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Grade
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Aging
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -311,28 +313,26 @@ export default function LaceStockList() {
                   {stocks.map((stock) => {
                     const agingBucket = getAgingBucket(stock.agingDays);
                     return (
-                      <tr key={stock.id} className="hover:bg-gray-50">
+                      <tr key={stock.id} className="hover:bg-muted">
                         <td className="px-4 py-4">
                           <div className="font-medium">{stock.laceMaster?.laceName || 'Unknown Lace'}</div>
-                          <div className="text-xs text-gray-500 font-mono">{getDisplayName(stock)}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{getDisplayName(stock)}</div>
                           {stock.dyeLotNumber && (
-                            <div className="text-xs text-purple-600">Dye Lot: {stock.dyeLotNumber}</div>
+                            <div className="text-xs text-accent">Dye Lot: {stock.dyeLotNumber}</div>
                           )}
                         </td>
                         <td className="px-4 py-4">
                           {stock.originStyleCode ? (
                             <span className="font-mono text-sm">{stock.originStyleCode}</span>
                           ) : (
-                            <span className="text-gray-400 text-sm">Generic</span>
+                            <span className="text-muted-foreground text-sm">Generic</span>
                           )}
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <span className="font-medium text-green-600">
-                            {stock.quantityAvailable.toLocaleString()}m
-                          </span>
+                          <span className="font-medium text-success">{stock.quantityAvailable.toLocaleString()}m</span>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <span className="text-blue-600">{stock.quantityReserved.toLocaleString()}m</span>
+                          <span className="text-info">{stock.quantityReserved.toLocaleString()}m</span>
                         </td>
                         <td className="px-4 py-4 text-right">{formatCurrency(stock.weightedAvgCost)}</td>
                         <td className="px-4 py-4 text-center">
@@ -391,7 +391,7 @@ export default function LaceStockList() {
           >
             Previous
           </Button>
-          <span className="px-4 py-2 text-sm text-gray-600">
+          <span className="px-4 py-2 text-sm text-muted-foreground">
             Page {pagination.page} of {pagination.pages}
           </span>
           <Button

@@ -135,12 +135,12 @@ export interface LabDipListFilters {
 
 // Status badge colors
 export const LAB_DIP_STATUS_COLORS: Record<LabDipStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-800 border-gray-200',
-  SENT_TO_PROCESSOR: 'bg-blue-100 text-blue-800 border-blue-200',
-  SAMPLE_RECEIVED: 'bg-purple-100 text-purple-800 border-purple-200',
-  AWAITING_BUYER_APPROVAL: 'bg-amber-100 text-amber-800 border-amber-200',
-  APPROVED: 'bg-green-100 text-green-800 border-green-200',
-  REJECTED: 'bg-red-100 text-red-800 border-red-200',
+  PENDING: 'bg-muted text-foreground border-border',
+  SENT_TO_PROCESSOR: 'bg-info-muted text-info border-info/20',
+  SAMPLE_RECEIVED: 'bg-accent/10 text-accent border-accent/20',
+  AWAITING_BUYER_APPROVAL: 'bg-warning/10 text-warning border-warning/20',
+  APPROVED: 'bg-success-muted text-success border-success/20',
+  REJECTED: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
 // Status labels

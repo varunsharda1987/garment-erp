@@ -50,7 +50,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
@@ -62,7 +62,9 @@ export default function Login() {
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">{error}</div>
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">
+                {error}
+              </div>
             )}
 
             <div className="space-y-2">
@@ -74,7 +76,7 @@ export default function Login() {
                 {...register('email')}
                 disabled={isLoading}
               />
-              {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -86,16 +88,16 @@ export default function Login() {
                 {...register('password')}
                 disabled={isLoading}
               />
-              {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
-            <p className="text-sm text-center text-gray-600">
+            <p className="text-sm text-center text-muted-foreground">
               Don't have an account?{' '}
-              <Link to="/register" className="text-blue-600 hover:underline">
+              <Link to="/register" className="text-info hover:underline">
                 Sign up
               </Link>
             </p>

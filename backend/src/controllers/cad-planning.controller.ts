@@ -2791,6 +2791,7 @@ export async function addCADTableRow(req: Request, res: Response) {
       // For PRODUCTION: use width from stock; otherwise start at 0 (set when greige selected)
       cutableWidth: purpose === 'PRODUCTION' && stockCutableWidth !== null ? stockCutableWidth : 0,
       purpose,
+      purposeEnum: purpose as any, // Sync enum field with string field for validation
       approvalStatus: 'PENDING', // ✅ FIX: Set explicit default instead of NULL
       // If "All Parts" pattern part exists, use its ID; otherwise fall back to legacy handling
       patternPartId: allPartsPatternPart ? allPartsPatternPart.id : isAllParts ? undefined : partId || undefined,
@@ -3038,6 +3039,7 @@ export async function addCombinedCADRow(req: Request, res: Response) {
       // For PRODUCTION: use width from stock; otherwise start at 0
       cutableWidth: purpose === 'PRODUCTION' && stockCutableWidth !== null ? stockCutableWidth : 0,
       purpose,
+      purposeEnum: purpose as any, // Sync enum field with string field for validation
       patternPartId: allPartsPatternPart?.id || undefined,
       isEmbroidery: hasEmbroidery,
       componentName: 'Combined: ' + combinedComponents,

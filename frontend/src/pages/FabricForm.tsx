@@ -844,7 +844,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     return (
       <>
         <div className="flex items-center justify-center h-64">
-          <p className="text-gray-500">Loading...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </>
     );
@@ -864,13 +864,13 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             <div className="grid grid-cols-12 gap-4">
               {/* Fabric Source - smaller width */}
               <div className="col-span-12 sm:col-span-4 lg:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Source <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Source <span className="text-destructive">*</span>
                 </label>
                 <select
                   value={fabricSource}
                   onChange={(e) => handleFabricSourceChange(e.target.value as FabricSource)}
-                  className="w-full h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-10 px-3 py-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-info"
                   disabled={mode === 'edit'}
                 >
                   <option value="style_linked">Style-Linked</option>
@@ -881,8 +881,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               {/* Style searchable dropdown */}
               {fabricSource === 'style_linked' && (
                 <div className="col-span-12 sm:col-span-4 lg:col-span-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Style <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Style <span className="text-destructive">*</span>
                   </label>
                   <StyleCombobox
                     value={selectedStyleId}
@@ -896,13 +896,13 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               {/* Component dropdown */}
               {fabricSource === 'style_linked' && selectedStyleId && (
                 <div className="col-span-12 sm:col-span-4 lg:col-span-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Component <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Component <span className="text-destructive">*</span>
                   </label>
                   <select
                     value={selectedComponentId}
                     onChange={(e) => handleComponentChange(e.target.value)}
-                    className="w-full h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full h-10 px-3 py-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-info"
                     required
                   >
                     <option value="">Select component...</option>
@@ -918,16 +918,16 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
             {/* Embroidery Section - Shows when component uses embroidery */}
             {fabricSource === 'style_linked' && selectedComponentId && componentUsesEmbroidery && (
-              <div className="border-l-4 border-purple-500 pl-4 py-3 bg-purple-50 rounded-r">
+              <div className="border-l-4 border-l-accent pl-4 py-3 bg-accent/10 rounded-r">
                 <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="h-4 w-4 text-purple-600" />
-                  <span className="text-sm font-medium text-purple-700">
+                  <Sparkles className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-medium text-accent">
                     This component has embroidered fabric requirements
                   </span>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <Label htmlFor="hasEmbroidery" className="text-sm text-purple-800">
+                    <Label htmlFor="hasEmbroidery" className="text-sm text-accent">
                       This fabric will be embroidered
                     </Label>
                     <Select
@@ -939,7 +939,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                         }
                       }}
                     >
-                      <SelectTrigger className="w-24 h-8 border-purple-300 focus:ring-purple-500">
+                      <SelectTrigger className="w-24 h-8 border-accent/25 focus:ring-purple-500">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -951,12 +951,12 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
                   {hasEmbroidery && (
                     <div className="mt-3">
-                      <label className="block text-xs font-medium text-purple-700 mb-1">Embroidery Design</label>
+                      <label className="block text-xs font-medium text-accent mb-1">Embroidery Design</label>
                       <select
                         value={selectedEmbroideryId || ''}
                         onChange={(e) => setSelectedEmbroideryId(e.target.value || null)}
                         disabled={loadingEmbroidery}
-                        className="w-full max-w-md h-10 px-3 py-2 text-sm border border-purple-300 rounded-md bg-white focus:ring-purple-500 focus:border-purple-500"
+                        className="w-full max-w-md h-10 px-3 py-2 text-sm border border-accent/25 rounded-md bg-card focus:ring-purple-500 focus:border-accent"
                       >
                         <option value="">Select embroidery design (optional)...</option>
                         {embroideryDesigns.map((design) => (
@@ -965,7 +965,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                           </option>
                         ))}
                       </select>
-                      <p className="text-xs text-purple-600 mt-1">Design can be selected later if not yet finalized</p>
+                      <p className="text-xs text-accent mt-1">Design can be selected later if not yet finalized</p>
                     </div>
                   )}
                 </div>
@@ -976,14 +976,14 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             <div className="grid grid-cols-12 gap-4 items-start">
               {/* Finish Type */}
               <div className="col-span-6 sm:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Finish Type <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Finish Type <span className="text-destructive">*</span>
                 </label>
                 <select
                   name="finishType"
                   value={formData.finishType}
                   onChange={handleChange}
-                  className="w-full h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full h-10 px-3 py-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-info"
                   required
                 >
                   {FABRIC_FINISH_TYPES.map((ft) => (
@@ -996,10 +996,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
               {/* Pattern Parts */}
               <div className="col-span-12 sm:col-span-5">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pattern Parts</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Pattern Parts</label>
                 {fabricSource === 'style_linked' && selectedComponentId ? (
                   loadingPatternParts ? (
-                    <span className="text-xs text-gray-500">Loading pattern parts...</span>
+                    <span className="text-xs text-muted-foreground">Loading pattern parts...</span>
                   ) : cadPatternParts.length > 0 || masterPatternParts.length > 0 ? (
                     <PatternPartMultiSelect
                       cadPatternParts={cadPatternParts}
@@ -1009,7 +1009,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                       placeholder="Search and select pattern parts..."
                     />
                   ) : (
-                    <span className="text-xs text-gray-500 italic">No pattern parts defined</span>
+                    <span className="text-xs text-muted-foreground italic">No pattern parts defined</span>
                   )
                 ) : (
                   <Input type="text" disabled placeholder="Select a style & component first" className="text-sm" />
@@ -1018,7 +1018,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
               {/* Color */}
               <div className="col-span-12 sm:col-span-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Color</label>
                 <ColorPicker
                   value={selectedColorId}
                   onChange={(colorId, color) => {
@@ -1047,7 +1047,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             {formData.finishType === 'PRINTED' && (
               <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-12 sm:col-span-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Print Design</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Print Design</label>
                   <Input
                     type="text"
                     name="printDesign"
@@ -1071,9 +1071,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             <div className="grid grid-cols-12 gap-4">
               {/* Row 1 */}
               <div className="col-span-12 sm:col-span-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Code <span className="text-red-500">*</span>
-                  <span className="text-xs text-blue-500 ml-1">(auto)</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Code <span className="text-destructive">*</span>
+                  <span className="text-xs text-info ml-1">(auto)</span>
                 </label>
                 <Input
                   type="text"
@@ -1083,14 +1083,14 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                   placeholder="FAB-XXX-001"
                   required
                   readOnly
-                  className="text-sm bg-gray-100 cursor-not-allowed"
+                  className="text-sm bg-muted cursor-not-allowed"
                 />
               </div>
 
               <div className="col-span-12 sm:col-span-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fabric Name <span className="text-red-500">*</span>
-                  <span className="text-xs text-green-600 ml-1">(auto-generated)</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Fabric Name <span className="text-destructive">*</span>
+                  <span className="text-xs text-success ml-1">(auto-generated)</span>
                 </label>
                 <Input
                   type="text"
@@ -1100,16 +1100,16 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                   placeholder='e.g., STY-001 - Cambric - Dyed - Navy Blue - 56"'
                   required
                   readOnly
-                  className="text-sm bg-gray-100 cursor-not-allowed"
+                  className="text-sm bg-muted cursor-not-allowed"
                 />
               </div>
 
               {/* Row 2 */}
               <div className="col-span-12 sm:col-span-6">
-                <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
-                  Generic Greige Name {!formData.greigeId && <span className="text-red-500">*</span>}
+                <label className="flex items-center gap-1 text-sm font-medium text-foreground mb-1">
+                  Generic Greige Name {!formData.greigeId && <span className="text-destructive">*</span>}
                   <span title="Simple category like 'Cambric', 'Poplin' - auto-filled when Greige Name is selected">
-                    <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                   </span>
                 </label>
                 <GenericGreigeSelector
@@ -1122,19 +1122,19 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               </div>
 
               <div className="col-span-12 sm:col-span-6">
-                <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
+                <label className="flex items-center gap-1 text-sm font-medium text-foreground mb-1">
                   Greige Name
                   <span title="Select from Greige Master - enables CAD planning and processor rate lookups">
-                    <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                    <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                   </span>
-                  {formData.genericGreigeName && <span className="text-xs text-gray-500 ml-1">(filtered)</span>}
+                  {formData.genericGreigeName && <span className="text-xs text-muted-foreground ml-1">(filtered)</span>}
                 </label>
                 <div className="flex gap-2">
                   <select
                     name="greigeId"
                     value={formData.greigeId}
                     onChange={handleChange}
-                    className="flex-1 h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="flex-1 h-10 px-3 py-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-info"
                   >
                     <option value="">Select greige...</option>
                     {greigeMasters
@@ -1177,8 +1177,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Width" <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Width" <span className="text-destructive">*</span>
                 </label>
                 <Input
                   type="number"
@@ -1194,12 +1194,12 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
               {/* Cutable */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Cutable"{' '}
                   {hasEmbroidery ? (
-                    <span className="text-xs text-purple-600">(manual)</span>
+                    <span className="text-xs text-accent">(manual)</span>
                   ) : (
-                    <span className="text-xs text-green-600">(auto)</span>
+                    <span className="text-xs text-success">(auto)</span>
                   )}
                 </label>
                 <Input
@@ -1209,13 +1209,13 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                   onChange={handleChange}
                   placeholder={hasEmbroidery ? 'Enter width' : 'W-2'}
                   step="0.1"
-                  className={`text-sm ${hasEmbroidery ? 'border-purple-300 focus:border-purple-500' : ''}`}
+                  className={`text-sm ${hasEmbroidery ? 'border-accent/25 focus:border-accent' : ''}`}
                 />
               </div>
 
               {/* GSM */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">GSM</label>
+                <label className="block text-sm font-medium text-foreground mb-1">GSM</label>
                 <Input
                   type="number"
                   name="actualGSM"
@@ -1229,7 +1229,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
               {/* Yarn Count */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Yarn Count</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Yarn Count</label>
                 <Input
                   type="text"
                   name="yarnCount"
@@ -1242,7 +1242,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
               {/* Construction */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Construction</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Construction</label>
                 <Input
                   type="text"
                   name="finishedConstruction"
@@ -1255,7 +1255,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
               {/* Composition */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Composition</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Composition</label>
                 <Input
                   type="text"
                   name="composition"
@@ -1282,17 +1282,17 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           </CardHeader>
           <CardContent>
             {formData.suppliers.length === 0 ? (
-              <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed border-gray-300">
-                <p className="text-sm text-gray-500">No suppliers added yet</p>
+              <div className="text-center py-6 bg-muted rounded-md border border-dashed border-border">
+                <p className="text-sm text-muted-foreground">No suppliers added yet</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {formData.suppliers.map((supplier, index) => (
-                  <div key={index} className="flex flex-wrap items-center gap-3 p-3 border rounded-md bg-gray-50">
+                  <div key={index} className="flex flex-wrap items-center gap-3 p-3 border rounded-md bg-muted">
                     <select
                       value={supplier.supplierId}
                       onChange={(e) => handleSupplierChange(index, 'supplierId', e.target.value)}
-                      className="flex-1 min-w-[200px] h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 min-w-[200px] h-10 px-3 py-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-blue-500"
                       required
                     >
                       <option value="">Select supplier...</option>
@@ -1307,7 +1307,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                         type="checkbox"
                         checked={supplier.isPreferred}
                         onChange={(e) => handleSupplierChange(index, 'isPreferred', e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        className="h-4 w-4 rounded border-border text-info"
                       />
                       Preferred
                     </label>
@@ -1316,7 +1316,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                         type="checkbox"
                         checked={supplier.isActive}
                         onChange={(e) => handleSupplierChange(index, 'isActive', e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        className="h-4 w-4 rounded border-border text-info"
                       />
                       Active
                     </label>
@@ -1330,7 +1330,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                     <button
                       type="button"
                       onClick={() => handleRemoveSupplier(index)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded p-1"
                       title="Remove supplier"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1374,7 +1374,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-12 gap-4 items-end">
               <div className="col-span-12 sm:col-span-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Image URL</label>
                 <Input
                   type="text"
                   name="imageUrl"
@@ -1385,26 +1385,26 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 />
               </div>
               <div className="col-span-12 sm:col-span-6">
-                <label className="flex items-center gap-2 h-10 px-3 border border-gray-300 rounded-md bg-white cursor-pointer hover:bg-gray-50 w-full">
+                <label className="flex items-center gap-2 h-10 px-3 border border-border rounded-md bg-card cursor-pointer hover:bg-muted w-full">
                   <input
                     type="checkbox"
                     name="isActive"
                     checked={formData.isActive}
                     onChange={handleChange}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="h-4 w-4 rounded border-border text-info focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">Active</span>
+                  <span className="text-sm text-foreground">Active</span>
                 </label>
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes / Description</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Notes / Description</label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
                 rows={2}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-info"
                 placeholder="Optional notes about this fabric..."
               />
             </div>
@@ -1453,9 +1453,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-              <p className="font-medium text-blue-800">Greige will be created with:</p>
-              <ul className="mt-2 text-blue-700 space-y-1">
+            <div className="bg-info-muted border border-info/20 rounded-lg p-3 text-sm">
+              <p className="font-medium text-info">Greige will be created with:</p>
+              <ul className="mt-2 text-info space-y-1">
                 <li>
                   Name:{' '}
                   <span className="font-medium">

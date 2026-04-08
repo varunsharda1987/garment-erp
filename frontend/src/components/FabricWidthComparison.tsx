@@ -56,10 +56,10 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
   const preferred = comparisons.find((c) => c.isPreferred);
 
   return (
-    <Card className="mt-4 border-blue-200 bg-blue-50/30">
+    <Card className="mt-4 border-info/20 bg-info-muted/30">
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
-          <span className="text-blue-600">📊</span>
+          <span className="text-info">📊</span>
           Width Comparison for {fabricName}
           {materialRate > 0 && (
             <Badge variant="outline" className="ml-auto">
@@ -72,7 +72,7 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-white/50">
+              <tr className="border-b bg-card/50">
                 <th className="text-left p-3 font-semibold">Width</th>
                 <th className="text-right p-3 font-semibold">Consumption</th>
                 <th className="text-right p-3 font-semibold">Wastage</th>
@@ -88,13 +88,13 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                 const isCheapest = comp.width === cheapest.width;
                 const isSelected = selectedWidth === comp.width;
                 const rowClass = isSelected
-                  ? 'bg-green-100 border-green-300'
+                  ? 'bg-success-muted border-success/25'
                   : isCheapest
-                    ? 'bg-yellow-50'
-                    : 'bg-white';
+                    ? 'bg-warning-muted'
+                    : 'bg-card';
 
                 return (
-                  <tr key={comp.width} className={`border-b hover:bg-gray-50 transition-colors ${rowClass}`}>
+                  <tr key={comp.width} className={`border-b hover:bg-muted transition-colors ${rowClass}`}>
                     <td className="p-3 font-medium">
                       {comp.width}"
                       {comp.isPreferred && (
@@ -113,13 +113,13 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                     {orderQuantity > 1 && <td className="text-right p-3 font-medium">₹{comp.totalCost.toFixed(2)}</td>}
                     <td className="text-center p-3">
                       {isCheapest && (
-                        <Badge className="gap-1 bg-yellow-500">
+                        <Badge className="gap-1 bg-warning-muted0">
                           <TrendingDown className="h-3 w-3" />
                           Cheapest
                         </Badge>
                       )}
                       {isSelected && !isCheapest && (
-                        <Badge variant="default" className="gap-1 bg-green-600">
+                        <Badge variant="default" className="gap-1 bg-success">
                           <Check className="h-3 w-3" />
                           Selected
                         </Badge>
@@ -131,7 +131,7 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                           type="button"
                           onClick={() => onSelectWidth(comp.width, comp.consumption)}
                           className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                            isSelected ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                            isSelected ? 'bg-success text-white' : 'bg-gray-200 hover:bg-gray-300 text-foreground'
                           }`}
                         >
                           {isSelected ? 'Selected' : 'Use This'}
@@ -147,29 +147,29 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
 
         {/* Savings Analysis */}
         {comparisons.length > 1 && materialRate > 0 && (
-          <div className="mt-4 p-3 bg-white rounded border border-green-200">
+          <div className="mt-4 p-3 bg-card rounded border border-success/20">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">💰 Cost Savings Analysis</p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-sm font-medium text-foreground">💰 Cost Savings Analysis</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   Comparing cheapest ({cheapest.width}") vs preferred ({preferred?.width || 'N/A'}")
                 </p>
               </div>
               <div className="text-right">
                 {preferred && preferred.width !== cheapest.width ? (
                   <>
-                    <p className="text-lg font-bold text-green-600">
+                    <p className="text-lg font-bold text-success">
                       ₹{(preferred.costPerPiece - cheapest.costPerPiece).toFixed(2)}
                     </p>
-                    <p className="text-xs text-gray-600">savings per piece</p>
+                    <p className="text-xs text-muted-foreground">savings per piece</p>
                     {orderQuantity > 1 && (
-                      <p className="text-xs font-semibold text-green-700 mt-1">
+                      <p className="text-xs font-semibold text-success mt-1">
                         ₹{((preferred.costPerPiece - cheapest.costPerPiece) * orderQuantity).toFixed(2)} total savings
                       </p>
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-green-600 font-medium">✓ Using optimal width</p>
+                  <p className="text-sm text-success font-medium">✓ Using optimal width</p>
                 )}
               </div>
             </div>
@@ -179,11 +179,11 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
         {/* Notes Display */}
         {comparisons.some((c) => c.notes) && (
           <div className="mt-3 space-y-1">
-            <p className="text-xs font-semibold text-gray-600">Notes:</p>
+            <p className="text-xs font-semibold text-muted-foreground">Notes:</p>
             {comparisons
               .filter((c) => c.notes)
               .map((c) => (
-                <p key={c.width} className="text-xs text-gray-500 pl-2">
+                <p key={c.width} className="text-xs text-muted-foreground pl-2">
                   • {c.width}": {c.notes}
                 </p>
               ))}

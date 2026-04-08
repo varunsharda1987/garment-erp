@@ -179,7 +179,7 @@ export function DocumentShareMenu({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setWhatsappDialogOpen(true)} className="cursor-pointer">
-                <MessageCircle className="mr-2 h-4 w-4 text-green-600" />
+                <MessageCircle className="mr-2 h-4 w-4 text-success" />
                 Share via WhatsApp
               </DropdownMenuItem>
             </>
@@ -192,7 +192,7 @@ export function DocumentShareMenu({
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-600" />
+              <MessageCircle className="h-5 w-5 text-success" />
               Share via WhatsApp
             </DialogTitle>
             <DialogDescription>
@@ -211,7 +211,9 @@ export function DocumentShareMenu({
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Enter phone number (e.g., 9876543210)"
               />
-              <p className="text-xs text-gray-500">Include country code without + (e.g., 919876543210 for India)</p>
+              <p className="text-xs text-muted-foreground">
+                Include country code without + (e.g., 919876543210 for India)
+              </p>
             </div>
           </div>
 
@@ -222,7 +224,7 @@ export function DocumentShareMenu({
             <Button
               onClick={handleShareWhatsApp}
               disabled={isDownloading || !phone.trim()}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-success hover:bg-success"
             >
               {isDownloading ? (
                 <>

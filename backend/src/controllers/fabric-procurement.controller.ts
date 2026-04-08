@@ -301,7 +301,7 @@ export const planProcurement = async (req: Request, res: Response) => {
                 include: {
                   items: {
                     where: {
-                      materialType: { in: ['GREIGE_FABRIC', 'FINISHED_FABRIC'] },
+                      materialType: { in: ['GREIGE', 'FABRIC'] },
                     },
                     include: {
                       material: {
@@ -338,7 +338,7 @@ export const planProcurement = async (req: Request, res: Response) => {
         for (const bomItem of bom.items) {
           const material = bomItem.material;
 
-          if (!material || !['GREIGE_FABRIC', 'FINISHED_FABRIC'].includes(material.materialType)) {
+          if (!material || !['GREIGE', 'FABRIC'].includes(material.materialType)) {
             continue;
           }
 

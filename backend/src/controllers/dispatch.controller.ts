@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import crypto from 'crypto';
 import { NotFoundError, ValidationError } from '../errors';
 
 // ============================================
@@ -355,6 +356,30 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
         });
       }
       // If no FG stock found, still allow dispatch (backward compat for existing orders without FG stock)
+    }
+  }
+
+  // Auto-create production_tracking: SHIPPED for all work orders of this order
+  if (orderId) {
+    try {
+      const workOrders = await prisma.work_orders.findMany({
+        where: { orderId },
+        select: { id: true, totalQuantity: true },
+      });
+      for (const wo of workOrders) {
+        await prisma.production_tracking.create({
+          data: {
+            id: crypto.randomUUID(),
+            workOrderId: wo.id,
+            productionStage: 'SHIPPED',
+            quantityCompleted: items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0,
+            updatedById: userId,
+            updateDate: new Date(),
+          },
+        });
+      }
+    } catch (err) {
+      console.error('Failed to create production_tracking for dispatch:', err);
     }
   }
 

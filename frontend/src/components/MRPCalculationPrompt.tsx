@@ -92,8 +92,8 @@ export default function MRPCalculationPrompt({
             </ul>
           </div>
 
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3 rounded-md">
-            <p className="text-xs text-blue-800 dark:text-blue-200">
+          <div className="bg-info-muted dark:bg-info/20 border border-info/20 dark:border-info p-3 rounded-md">
+            <p className="text-xs text-info dark:text-info">
               <strong>Tip:</strong> You can also calculate MRP manually later from the BOM detail page if you skip this
               step.
             </p>

@@ -78,7 +78,7 @@ export default function Profile() {
   if (!currentUser) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -86,8 +86,8 @@ export default function Profile() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-        <p className="text-gray-500 mt-1">Manage your personal information</p>
+        <h1 className="text-3xl font-display font-medium text-foreground">My Profile</h1>
+        <p className="text-muted-foreground mt-1">Manage your personal information</p>
       </div>
 
       <div className="grid gap-6">
@@ -102,10 +102,10 @@ export default function Profile() {
               {/* First Name */}
               <div>
                 <Label htmlFor="firstName">
-                  First Name <span className="text-red-500">*</span>
+                  First Name <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative mt-1">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="firstName"
                     type="text"
@@ -121,7 +121,7 @@ export default function Profile() {
               <div>
                 <Label htmlFor="lastName">Last Name</Label>
                 <div className="relative mt-1">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="lastName"
                     type="text"
@@ -135,10 +135,10 @@ export default function Profile() {
               {/* Email */}
               <div>
                 <Label htmlFor="email">
-                  Email Address <span className="text-red-500">*</span>
+                  Email Address <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative mt-1">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
@@ -154,7 +154,7 @@ export default function Profile() {
               <div>
                 <Label htmlFor="phone">Phone Number</Label>
                 <div className="relative mt-1">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="phone"
                     type="tel"
@@ -205,10 +205,10 @@ export default function Profile() {
             {/* Role */}
             <div className="flex items-center justify-between py-3 border-b">
               <div className="flex items-center gap-3">
-                <Shield className="h-5 w-5 text-gray-400" />
+                <Shield className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Role</p>
-                  <p className="text-xs text-gray-500">Your access level</p>
+                  <p className="text-sm font-medium text-foreground">Role</p>
+                  <p className="text-xs text-muted-foreground">Your access level</p>
                 </div>
               </div>
               <Badge variant="secondary">{currentUser.role}</Badge>
@@ -217,26 +217,26 @@ export default function Profile() {
             {/* User ID */}
             <div className="flex items-center justify-between py-3 border-b">
               <div className="flex items-center gap-3">
-                <User className="h-5 w-5 text-gray-400" />
+                <User className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">User ID</p>
-                  <p className="text-xs text-gray-500">Unique identifier</p>
+                  <p className="text-sm font-medium text-foreground">User ID</p>
+                  <p className="text-xs text-muted-foreground">Unique identifier</p>
                 </div>
               </div>
-              <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">{currentUser.id.slice(0, 8)}...</code>
+              <code className="text-xs bg-muted px-2 py-1 rounded font-mono">{currentUser.id.slice(0, 8)}...</code>
             </div>
 
             {/* Created Date */}
             {currentUser.createdAt && (
               <div className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-gray-400" />
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Member Since</p>
-                    <p className="text-xs text-gray-500">Account creation date</p>
+                    <p className="text-sm font-medium text-foreground">Member Since</p>
+                    <p className="text-xs text-muted-foreground">Account creation date</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {new Date(currentUser.createdAt).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',

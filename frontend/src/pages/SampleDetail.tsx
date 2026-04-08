@@ -155,7 +155,7 @@ export default function SampleDetail() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -163,8 +163,8 @@ export default function SampleDetail() {
   if (error || !sample) {
     return (
       <div className="p-8 text-center">
-        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <p className="text-red-600">{error || 'Sample not found'}</p>
+        <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+        <p className="text-destructive">{error || 'Sample not found'}</p>
         <Button variant="outline" onClick={() => navigate('/samples')} className="mt-4">
           Back to Samples
         </Button>
@@ -186,10 +186,10 @@ export default function SampleDetail() {
             Back
           </Button>
           <div className="flex items-center gap-3">
-            <TestTube className="h-8 w-8 text-indigo-600" />
+            <TestTube className="h-8 w-8 text-primary" />
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900">{sample.sampleNumber}</h1>
+                <h1 className="text-2xl font-display font-medium text-foreground">{sample.sampleNumber}</h1>
                 <Badge className={SampleStatusColors[sample.status]}>{SampleStatusLabels[sample.status]}</Badge>
                 {isOverdue && (
                   <Badge variant="destructive" className="flex items-center gap-1">
@@ -198,7 +198,7 @@ export default function SampleDetail() {
                   </Badge>
                 )}
               </div>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 {SampleTypeLabels[sample.sampleType]}
                 {sample.sampleType === 'FIT_SAMPLE' && ` (Version ${sample.version})`}
               </p>
@@ -260,7 +260,7 @@ export default function SampleDetail() {
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-6">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Style</Label>
+                <Label className="text-xs text-muted-foreground">Style</Label>
                 {sample.style ? (
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{sample.style.styleCode}</span>
@@ -274,40 +274,40 @@ export default function SampleDetail() {
                     </Button>
                   </div>
                 ) : (
-                  <span className="text-gray-400">No style linked</span>
+                  <span className="text-muted-foreground">No style linked</span>
                 )}
-                {sample.style && <p className="text-sm text-gray-500">{sample.style.styleName}</p>}
+                {sample.style && <p className="text-sm text-muted-foreground">{sample.style.styleName}</p>}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Customer</Label>
+                <Label className="text-xs text-muted-foreground">Customer</Label>
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-gray-400" />
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{sample.customer?.name}</span>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Request Date</Label>
+                <Label className="text-xs text-muted-foreground">Request Date</Label>
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span>{formatDate(sample.requestDate)}</span>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Required By</Label>
-                <div className={`flex items-center gap-2 ${isOverdue ? 'text-red-600' : ''}`}>
+                <Label className="text-xs text-muted-foreground">Required By</Label>
+                <div className={`flex items-center gap-2 ${isOverdue ? 'text-destructive' : ''}`}>
                   <Clock className="h-4 w-4" />
                   <span className={isOverdue ? 'font-medium' : ''}>{formatDate(sample.requiredDate)}</span>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Created By</Label>
+                <Label className="text-xs text-muted-foreground">Created By</Label>
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-gray-400" />
+                  <User className="h-4 w-4 text-muted-foreground" />
                   <span>{sample.createdBy?.name}</span>
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Created On</Label>
+                <Label className="text-xs text-muted-foreground">Created On</Label>
                 <span>{formatDate(sample.createdAt)}</span>
               </div>
             </CardContent>
@@ -355,7 +355,7 @@ export default function SampleDetail() {
                         </thead>
                         <tbody>
                           {sample.measurements.map((m) => (
-                            <tr key={m.id} className="border-b hover:bg-gray-50">
+                            <tr key={m.id} className="border-b hover:bg-muted">
                               <td className="py-2 px-3 font-medium">{m.measurementPoint}</td>
                               <td className="py-2 px-3 text-right">{m.specValue}"</td>
                               <td className="py-2 px-3 text-right">{m.actualValue ? `${m.actualValue}"` : '-'}</td>
@@ -366,7 +366,7 @@ export default function SampleDetail() {
                                     {m.status}
                                   </Badge>
                                 ) : (
-                                  <span className="text-gray-400">-</span>
+                                  <span className="text-muted-foreground">-</span>
                                 )}
                               </td>
                             </tr>
@@ -375,7 +375,7 @@ export default function SampleDetail() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">No measurements recorded yet.</p>
+                    <p className="text-muted-foreground text-center py-8">No measurements recorded yet.</p>
                   )}
                 </CardContent>
               </Card>
@@ -402,7 +402,7 @@ export default function SampleDetail() {
                         </thead>
                         <tbody>
                           {sample.colorways.map((c) => (
-                            <tr key={c.id} className="border-b hover:bg-gray-50">
+                            <tr key={c.id} className="border-b hover:bg-muted">
                               <td className="py-2 px-3 font-medium">{c.color?.colorName}</td>
                               <td className="py-2 px-3">{c.size?.sizeName || '-'}</td>
                               <td className="py-2 px-3">{c.fabricLot || '-'}</td>
@@ -427,7 +427,7 @@ export default function SampleDetail() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">No colorways recorded.</p>
+                    <p className="text-muted-foreground text-center py-8">No colorways recorded.</p>
                   )}
                 </CardContent>
               </Card>
@@ -453,7 +453,7 @@ export default function SampleDetail() {
                         </thead>
                         <tbody>
                           {sample.sizeSets.map((s) => (
-                            <tr key={s.id} className="border-b hover:bg-gray-50">
+                            <tr key={s.id} className="border-b hover:bg-muted">
                               <td className="py-2 px-3 font-medium">{s.size?.sizeName}</td>
                               <td className="py-2 px-3">{s.color?.colorName}</td>
                               <td className="py-2 px-3 text-center">{s.qty}</td>
@@ -477,7 +477,7 @@ export default function SampleDetail() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">No size set recorded.</p>
+                    <p className="text-muted-foreground text-center py-8">No size set recorded.</p>
                   )}
                 </CardContent>
               </Card>
@@ -497,18 +497,18 @@ export default function SampleDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Sent Date</Label>
+                <Label className="text-xs text-muted-foreground">Sent Date</Label>
                 <p className="font-medium">{formatDate(sample.sentDate) || '-'}</p>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Courier Mode</Label>
+                <Label className="text-xs text-muted-foreground">Courier Mode</Label>
                 <p>{sample.courierMode || '-'}</p>
               </div>
               {sample.trackingNumber && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Tracking Number</Label>
+                  <Label className="text-xs text-muted-foreground">Tracking Number</Label>
                   <div className="flex items-center gap-2">
-                    <code className="bg-gray-100 px-2 py-1 rounded text-sm">{sample.trackingNumber}</code>
+                    <code className="bg-muted px-2 py-1 rounded text-sm">{sample.trackingNumber}</code>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -521,7 +521,7 @@ export default function SampleDetail() {
                 </div>
               )}
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Received Date</Label>
+                <Label className="text-xs text-muted-foreground">Received Date</Label>
                 <p>{formatDate(sample.receivedDate) || '-'}</p>
               </div>
             </CardContent>
@@ -537,19 +537,19 @@ export default function SampleDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1">
-                <Label className="text-xs text-gray-500">Feedback Date</Label>
+                <Label className="text-xs text-muted-foreground">Feedback Date</Label>
                 <p>{formatDate(sample.feedbackDate) || '-'}</p>
               </div>
               {sample.customerFeedback && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Comments</Label>
-                  <p className="text-sm bg-gray-50 p-3 rounded-lg">{sample.customerFeedback}</p>
+                  <Label className="text-xs text-muted-foreground">Comments</Label>
+                  <p className="text-sm bg-muted p-3 rounded-lg">{sample.customerFeedback}</p>
                 </div>
               )}
               {sample.measurementComments && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Measurement Notes</Label>
-                  <p className="text-sm bg-gray-50 p-3 rounded-lg">{sample.measurementComments}</p>
+                  <Label className="text-xs text-muted-foreground">Measurement Notes</Label>
+                  <p className="text-sm bg-muted p-3 rounded-lg">{sample.measurementComments}</p>
                 </div>
               )}
               {sample.revisionRequired && (
@@ -572,11 +572,11 @@ export default function SampleDetail() {
                     <button
                       key={rel.id}
                       onClick={() => navigate(`/samples/${rel.id}`)}
-                      className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                      className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors text-left"
                     >
                       <div>
                         <span className="font-medium text-sm">{rel.sampleNumber}</span>
-                        <span className="text-xs text-gray-500 ml-2">{SampleTypeLabels[rel.sampleType]}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{SampleTypeLabels[rel.sampleType]}</span>
                       </div>
                       <Badge variant="outline" className="text-xs">
                         {rel.status}
@@ -595,7 +595,7 @@ export default function SampleDetail() {
                 <CardTitle className="text-lg">Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-700">{sample.remarks}</p>
+                <p className="text-sm text-foreground">{sample.remarks}</p>
               </CardContent>
             </Card>
           )}

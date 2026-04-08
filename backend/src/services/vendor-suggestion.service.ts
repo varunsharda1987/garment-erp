@@ -51,11 +51,9 @@ export function getSupplierCategoriesForMaterial(materialType: string | null): S
   const mapping: Record<string, SupplierCategory[]> = {
     // Greige (raw fabric)
     GREIGE: [SupplierCategory.GREIGE_SUPPLIER],
-    GREIGE_FABRIC: [SupplierCategory.GREIGE_SUPPLIER],
 
     // Fabric (finished)
     FABRIC: [SupplierCategory.FABRIC_SUPPLIER],
-    FINISHED_FABRIC: [SupplierCategory.FABRIC_SUPPLIER],
 
     // Trims (all types)
     BUTTON: [SupplierCategory.TRIMS_SUPPLIER],

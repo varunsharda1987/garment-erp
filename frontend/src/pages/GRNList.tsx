@@ -123,7 +123,7 @@ export default function GRNList() {
             e.stopPropagation();
             navigate(`/procurement/grn/${grn.id}`);
           }}
-          className="text-sm font-medium text-blue-600 hover:underline"
+          className="text-sm font-medium text-info hover:underline"
         >
           {grn.grnNumber}
         </button>
@@ -132,7 +132,7 @@ export default function GRNList() {
     {
       key: 'inwardDate',
       header: 'Inward Date',
-      render: (grn) => <div className="text-sm text-gray-700">{formatDate(grn.receivingDate)}</div>,
+      render: (grn) => <div className="text-sm text-foreground">{formatDate(grn.receivingDate)}</div>,
     },
     {
       key: 'poNumber',
@@ -143,7 +143,7 @@ export default function GRNList() {
             e.stopPropagation();
             navigate(`/procurement/purchase-orders/${grn.poId}`);
           }}
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-info hover:underline"
         >
           {grn.purchaseOrders?.poNumber || '-'}
         </button>
@@ -154,20 +154,20 @@ export default function GRNList() {
       header: 'Supplier',
       render: (grn) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{grn.supplier?.name || 'N/A'}</div>
-          <div className="text-xs text-gray-500">{grn.supplier?.code}</div>
+          <div className="text-sm font-medium text-foreground">{grn.supplier?.name || 'N/A'}</div>
+          <div className="text-xs text-muted-foreground">{grn.supplier?.code}</div>
         </div>
       ),
     },
     {
       key: 'invoiceNumber',
       header: 'Invoice #',
-      render: (grn) => <div className="text-sm text-gray-700">{grn.invoiceNumber || '-'}</div>,
+      render: (grn) => <div className="text-sm text-foreground">{grn.invoiceNumber || '-'}</div>,
     },
     {
       key: 'items',
       header: 'Items',
-      render: (grn) => <div className="text-sm text-gray-700">{grn.itemCount || grn.items?.length || 0} items</div>,
+      render: (grn) => <div className="text-sm text-foreground">{grn.itemCount || grn.items?.length || 0} items</div>,
     },
     {
       key: 'status',

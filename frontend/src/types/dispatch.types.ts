@@ -15,9 +15,9 @@ export const DeliveryStatusLabels: Record<DeliveryStatus, string> = {
 };
 
 export const DeliveryStatusColors: Record<DeliveryStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-800',
-  IN_TRANSIT: 'bg-blue-100 text-blue-800',
-  DELIVERED: 'bg-green-100 text-green-800',
+  PENDING: 'bg-muted text-foreground',
+  IN_TRANSIT: 'bg-info-muted text-info',
+  DELIVERED: 'bg-success-muted text-success',
 };
 
 export type ASNStatus = 'PENDING' | 'APPLIED' | 'APPROVED' | 'REJECTED' | 'RESCHEDULE';
@@ -31,10 +31,10 @@ export const ASNStatusLabels: Record<ASNStatus, string> = {
 };
 
 export const ASNStatusColors: Record<ASNStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-800',
-  APPLIED: 'bg-blue-100 text-blue-800',
-  APPROVED: 'bg-green-100 text-green-800',
-  REJECTED: 'bg-red-100 text-red-800',
+  PENDING: 'bg-muted text-foreground',
+  APPLIED: 'bg-info-muted text-info',
+  APPROVED: 'bg-success-muted text-success',
+  REJECTED: 'bg-destructive/10 text-destructive',
   RESCHEDULE: 'bg-yellow-100 text-yellow-800',
 };
 

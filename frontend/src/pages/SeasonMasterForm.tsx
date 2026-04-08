@@ -151,7 +151,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
         <div className="flex items-center gap-3">
           <Calendar className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">{isNewSeason ? 'Add New Season' : 'Edit Season'}</h1>
+            <h1 className="text-2xl font-display font-medium">{isNewSeason ? 'Add New Season' : 'Edit Season'}</h1>
             {!isNewSeason && watchCode && (
               <Badge variant="outline" className="mt-1 font-mono">
                 {watchCode}
@@ -161,7 +161,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
         </div>
       </div>
 
-      {error && <div className="bg-red-50 text-red-700 p-4 rounded-md mb-6">{error}</div>}
+      {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-6">{error}</div>}
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <Card>
@@ -173,7 +173,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="seasonType">
-                  Season Type <span className="text-red-500">*</span>
+                  Season Type <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={seasonType}
@@ -191,8 +191,8 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
                             variant="outline"
                             className={
                               type === 'SS'
-                                ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                : 'bg-blue-50 text-blue-700 border-blue-200'
+                                ? 'bg-warning-muted text-yellow-700 border-yellow-200'
+                                : 'bg-info-muted text-info border-info/20'
                             }
                           >
                             {type}
@@ -208,7 +208,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
 
               <div className="space-y-2">
                 <Label htmlFor="year">
-                  Year <span className="text-red-500">*</span>
+                  Year <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={watchYear?.toString() || ''}
@@ -233,7 +233,7 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="code">
-                  Season Code <span className="text-red-500">*</span>
+                  Season Code <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="code"
@@ -242,20 +242,20 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
                   className="font-mono uppercase"
                   disabled={!isNewSeason}
                 />
-                {errors.code && <p className="text-sm text-red-500">{errors.code.message}</p>}
+                {errors.code && <p className="text-sm text-destructive">{errors.code.message}</p>}
                 <p className="text-xs text-muted-foreground">Auto-generated from type and year</p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="name">
-                  Season Name <span className="text-red-500">*</span>
+                  Season Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="name"
                   {...register('name', { required: 'Season name is required' })}
                   placeholder="e.g., Spring/Summer 2026"
                 />
-                {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+                {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
               </div>
             </div>
 
@@ -278,8 +278,8 @@ export default function SeasonMasterForm({ mode = 'create' }: SeasonMasterFormPr
                   variant="outline"
                   className={
                     seasonType === 'SS'
-                      ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                      : 'bg-blue-50 text-blue-700 border-blue-200'
+                      ? 'bg-warning-muted text-yellow-700 border-yellow-200'
+                      : 'bg-info-muted text-info border-info/20'
                   }
                 >
                   {watchCode || `${seasonType}XX`}

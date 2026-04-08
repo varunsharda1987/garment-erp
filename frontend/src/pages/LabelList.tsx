@@ -119,8 +119,8 @@ export default function LabelList() {
       header: 'Label Name',
       render: (label) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{label.labelName}</div>
-          {label.description && <div className="text-xs text-gray-500 line-clamp-1">{label.description}</div>}
+          <div className="text-sm font-medium text-foreground">{label.labelName}</div>
+          {label.description && <div className="text-xs text-muted-foreground line-clamp-1">{label.description}</div>}
         </div>
       ),
     },
@@ -128,11 +128,11 @@ export default function LabelList() {
       key: 'customer',
       header: 'Customer',
       render: (label) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {label.customer ? (
             <span className="font-medium">{label.customer.name}</span>
           ) : (
-            <span className="text-gray-400 italic">Generic</span>
+            <span className="text-muted-foreground italic">Generic</span>
           )}
         </div>
       ),
@@ -141,16 +141,16 @@ export default function LabelList() {
       key: 'brand',
       header: 'Brand',
       render: (label) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {label.brandCategory ? (
             <div>
               <div className="font-medium">{label.brandCategory.brandName}</div>
               {label.brandCategory.category && (
-                <div className="text-xs text-gray-500">{label.brandCategory.category}</div>
+                <div className="text-xs text-muted-foreground">{label.brandCategory.category}</div>
               )}
             </div>
           ) : (
-            <span className="text-gray-400 italic">-</span>
+            <span className="text-muted-foreground italic">-</span>
           )}
         </div>
       ),
@@ -158,13 +158,13 @@ export default function LabelList() {
     {
       key: 'labelType',
       header: 'Type',
-      render: (label) => <div className="text-sm text-gray-700">{label.labelType || '-'}</div>,
+      render: (label) => <div className="text-sm text-foreground">{label.labelType || '-'}</div>,
     },
     {
       key: 'size',
       header: 'Size / Stock',
       render: (label) => (
-        <div className="text-sm text-gray-700">
+        <div className="text-sm text-foreground">
           {label.sizeVariants && label.sizeVariants.length > 0 ? (
             <div>
               <div className="flex flex-wrap gap-1">
@@ -191,7 +191,7 @@ export default function LabelList() {
                   </Badge>
                 )}
               </div>
-              <div className="text-xs text-gray-500 mt-1">{label.sizeVariants.length} size variants</div>
+              <div className="text-xs text-muted-foreground mt-1">{label.sizeVariants.length} size variants</div>
             </div>
           ) : label.size ? (
             <span>{label.size}</span>
@@ -204,7 +204,7 @@ export default function LabelList() {
     {
       key: 'color',
       header: 'Color',
-      render: (label) => <div className="text-sm text-gray-700">{label.color || '-'}</div>,
+      render: (label) => <div className="text-sm text-foreground">{label.color || '-'}</div>,
     },
     {
       key: 'suppliers',
@@ -224,7 +224,7 @@ export default function LabelList() {
               </Badge>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-muted-foreground">-</span>
           )}
           {label.labelSuppliers && label.labelSuppliers.length > 2 && (
             <Badge variant="outline" className="text-xs">
@@ -238,7 +238,7 @@ export default function LabelList() {
       key: 'pricePerPiece',
       header: 'Price/Piece',
       render: (label) => (
-        <div className="text-sm font-medium text-gray-900">
+        <div className="text-sm font-medium text-foreground">
           {label.pricePerPiece ? formatCurrency(label.pricePerPiece) : '-'}
         </div>
       ),

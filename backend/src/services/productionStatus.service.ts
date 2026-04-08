@@ -337,17 +337,18 @@ class ProductionStatusService {
         }
       : null;
 
-    // Stage breakdown (simplified)
+    // Stage breakdown — derive piece counts from currentStage
     const stageStr = currentStage as string;
     const stageBreakdown = {
       ordersReceived: orderData.orderCount,
       pendingCosting: style.style_costing ? 0 : 1,
-      pendingGreige: 0,
-      trimsNotOrdered: 0,
-      inPrinting: 0,
-      inDying: 0,
-      inEmbroidery: 0,
-      inHandwork: 0,
+      pendingGreige: stageStr === 'PENDING_GREIGE_ORDER' ? 1 : 0,
+      trimsNotOrdered: stageStr === 'TRIMS_NOT_ORDERED' ? 1 : 0,
+      inPrinting: stageStr === 'IN_PRINTING' ? piecesInStage : 0,
+      inDying: stageStr === 'IN_DYING' ? piecesInStage : 0,
+      inEmbroidery: stageStr === 'IN_EMBROIDERY' ? piecesInStage : 0,
+      inSmocking: stageStr === 'IN_SMOCKING' ? piecesInStage : 0,
+      inHandwork: stageStr === 'IN_HANDWORK' ? piecesInStage : 0,
       inCutting: stageStr === 'IN_CUTTING' ? piecesInStage : 0,
       inStitching: stageStr === 'IN_STITCHING' ? piecesInStage : 0,
       inFinishing: stageStr === 'IN_FINISHING' ? piecesInStage : 0,

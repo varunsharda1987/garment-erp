@@ -62,14 +62,14 @@ const IMAGE_TYPE_LABELS: Record<StyleImageType, string> = {
 
 // Badge colors for image types
 const IMAGE_TYPE_COLORS: Record<StyleImageType, string> = {
-  MAIN: 'bg-blue-500',
-  SKETCH_FRONT: 'bg-green-500',
-  SKETCH_BACK: 'bg-green-400',
-  SKETCH_SIDE: 'bg-green-300',
-  TECHNICAL_FLAT: 'bg-purple-500',
-  DETAIL_VIEW: 'bg-orange-500',
-  CONSTRUCTION: 'bg-red-500',
-  OTHER: 'bg-gray-500',
+  MAIN: 'bg-info-muted0',
+  SKETCH_FRONT: 'bg-success-muted0',
+  SKETCH_BACK: 'bg-success',
+  SKETCH_SIDE: 'bg-success/25',
+  TECHNICAL_FLAT: 'bg-accent/100',
+  DETAIL_VIEW: 'bg-primary/100',
+  CONSTRUCTION: 'bg-destructive/100',
+  OTHER: 'bg-muted0',
 };
 
 // Sortable image item component
@@ -98,7 +98,7 @@ function SortableImageItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative group rounded-lg border overflow-hidden bg-white ${isDragging ? 'z-50 shadow-lg' : ''}`}
+      className={`relative group rounded-lg border overflow-hidden bg-card ${isDragging ? 'z-50 shadow-lg' : ''}`}
     >
       {/* Image */}
       <div className="aspect-square relative">
@@ -129,9 +129,9 @@ function SortableImageItem({
           <div
             {...attributes}
             {...listeners}
-            className="absolute top-2 left-2 p-1 bg-white/80 rounded cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-2 left-2 p-1 bg-card/80 rounded cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            <GripVertical className="h-4 w-4 text-gray-600" />
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
           </div>
         )}
       </div>
@@ -141,7 +141,7 @@ function SortableImageItem({
         <Badge className={`${IMAGE_TYPE_COLORS[image.imageType]} text-white text-xs`}>
           {IMAGE_TYPE_LABELS[image.imageType]}
         </Badge>
-        {image.caption && <p className="text-xs text-gray-500 truncate">{image.caption}</p>}
+        {image.caption && <p className="text-xs text-muted-foreground truncate">{image.caption}</p>}
       </div>
     </div>
   );
@@ -377,7 +377,7 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
         </CardHeader>
         <CardContent>
           {images.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
               <ImageIcon className="h-12 w-12 mb-2 opacity-50" />
               <p>No images yet</p>
               {editable && (
@@ -444,8 +444,8 @@ export function StyleGallery({ styleId, editable = true }: StyleGalleryProps) {
                     id="image-upload"
                   />
                   <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center">
-                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Click to select an image</span>
+                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                    <span className="text-sm text-muted-foreground">Click to select an image</span>
                   </label>
                 </div>
               )}

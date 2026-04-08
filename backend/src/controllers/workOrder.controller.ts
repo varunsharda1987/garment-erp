@@ -433,30 +433,8 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
     };
   });
 
-  // Recalculate analysis with available stock (not issued)
-  const fabricAnalysisForIssuance = chartData.fabrics.map((f: any) => {
-    const stocks = f.fabricId ? availableStockMap.get(f.fabricId) || [] : [];
-    const availableStock = stocks.reduce((sum: number, s: any) => sum + Number(s.quantityAvailable), 0);
-    const cadAvg = f.productionAverage || f.rawMatCalcAverage || f.costingAverage || 0;
-    const cadSet = cadAvg > 0;
-    const maxPcs = cadSet ? Math.floor(availableStock / cadAvg) : null;
-    const totalOrderQty = chartData.totalOrderQty || 0;
-    const requiredMeters = totalOrderQty * cadAvg;
-    const shortfallMeters = cadSet ? Math.max(0, requiredMeters - availableStock) : 0;
-    return {
-      part: f.part,
-      fabricId: f.fabricId,
-      fabricName: f.fabricName,
-      cadAverage: cadAvg,
-      cadSet,
-      availableStock,
-      maxPcsFromStock: maxPcs,
-      requiredForOrder: requiredMeters,
-      shortfallMeters,
-    };
-  });
-
   // Fetch existing INTERNAL challans for this work order (fabric issuance records)
+  // Moved up so we can use issued quantities in analysis calculation
   const issuedChallans = await prisma.challans.findMany({
     where: { productionRunId: id, challanType: 'INTERNAL' },
     include: {
@@ -481,6 +459,44 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
       },
     },
     orderBy: { challanDate: 'desc' },
+  });
+
+  // Calculate issued meters per fabric from challans
+  const issuedMetersByFabric = new Map<string, number>();
+  for (const challan of issuedChallans) {
+    for (const item of challan.items) {
+      const fabricId = item.fabricId || item.fabricStock?.fabricId;
+      if (fabricId) {
+        const current = issuedMetersByFabric.get(fabricId) || 0;
+        issuedMetersByFabric.set(fabricId, current + Number(item.quantity));
+      }
+    }
+  }
+
+  // Recalculate analysis with available stock AND issued quantities
+  const fabricAnalysisForIssuance = chartData.fabrics.map((f: any) => {
+    const stocks = f.fabricId ? availableStockMap.get(f.fabricId) || [] : [];
+    const availableStock = stocks.reduce((sum: number, s: any) => sum + Number(s.quantityAvailable), 0);
+    const issuedStock = f.fabricId ? issuedMetersByFabric.get(f.fabricId) || 0 : 0;
+    const cadAvg = f.productionAverage || f.rawMatCalcAverage || f.costingAverage || 0;
+    const cadSet = cadAvg > 0;
+    const maxPcs = cadSet ? Math.floor(availableStock / cadAvg) : null;
+    const totalOrderQty = chartData.totalOrderQty || 0;
+    const requiredMeters = totalOrderQty * cadAvg;
+    // Shortfall = required - available - already issued
+    const shortfallMeters = cadSet ? Math.max(0, requiredMeters - availableStock - issuedStock) : 0;
+    return {
+      part: f.part,
+      fabricId: f.fabricId,
+      fabricName: f.fabricName,
+      cadAverage: cadAvg,
+      cadSet,
+      availableStock,
+      issuedStock, // NEW: track what's already been issued
+      maxPcsFromStock: maxPcs,
+      requiredForOrder: requiredMeters,
+      shortfallMeters,
+    };
   });
 
   res.json({

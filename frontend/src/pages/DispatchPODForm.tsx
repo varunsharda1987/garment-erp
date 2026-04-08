@@ -135,7 +135,7 @@ export default function DispatchPODForm() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-gray-500">Loading delivery note...</div>
+        <div className="text-muted-foreground">Loading delivery note...</div>
       </div>
     );
   }
@@ -143,7 +143,7 @@ export default function DispatchPODForm() {
   if (!deliveryNote) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-gray-500">Delivery note not found</div>
+        <div className="text-muted-foreground">Delivery note not found</div>
       </div>
     );
   }
@@ -157,8 +157,8 @@ export default function DispatchPODForm() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Record Proof of Delivery</h1>
-            <p className="text-gray-500">DN# {deliveryNote.deliveryNumber}</p>
+            <h1 className="text-2xl font-display font-medium">Record Proof of Delivery</h1>
+            <p className="text-muted-foreground">DN# {deliveryNote.deliveryNumber}</p>
           </div>
         </div>
       </div>
@@ -175,21 +175,21 @@ export default function DispatchPODForm() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <Label className="text-gray-500">Delivery Number</Label>
+                <Label className="text-muted-foreground">Delivery Number</Label>
                 <p className="font-medium">{deliveryNote.deliveryNumber}</p>
               </div>
               <div>
-                <Label className="text-gray-500">Order</Label>
+                <Label className="text-muted-foreground">Order</Label>
                 <p className="font-medium">{deliveryNote.order?.orderNumber || '-'}</p>
               </div>
               <div>
-                <Label className="text-gray-500">Customer</Label>
+                <Label className="text-muted-foreground">Customer</Label>
                 <p className="font-medium">
                   {deliveryNote.customer?.billingName || deliveryNote.customer?.name || '-'}
                 </p>
               </div>
               <div>
-                <Label className="text-gray-500">Dispatch Date</Label>
+                <Label className="text-muted-foreground">Dispatch Date</Label>
                 <p className="font-medium">
                   {deliveryNote.deliveryDate ? format(new Date(deliveryNote.deliveryDate), 'dd MMM yyyy') : '-'}
                 </p>
@@ -201,15 +201,15 @@ export default function DispatchPODForm() {
               <div className="mt-4 pt-4 border-t">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-gray-500">Vehicle Number</Label>
+                    <Label className="text-muted-foreground">Vehicle Number</Label>
                     <p className="font-medium">{deliveryNote.vehicleNumber}</p>
                   </div>
                   <div>
-                    <Label className="text-gray-500">Driver Name</Label>
+                    <Label className="text-muted-foreground">Driver Name</Label>
                     <p className="font-medium">{deliveryNote.driverName || '-'}</p>
                   </div>
                   <div>
-                    <Label className="text-gray-500">Driver Phone</Label>
+                    <Label className="text-muted-foreground">Driver Phone</Label>
                     <p className="font-medium">{deliveryNote.driverPhone || '-'}</p>
                   </div>
                 </div>
@@ -244,7 +244,7 @@ export default function DispatchPODForm() {
                   <TableRow key={item.id}>
                     <TableCell>
                       {item.style?.styleCode || '-'}
-                      <span className="text-gray-500 ml-2">{item.style?.styleName}</span>
+                      <span className="text-muted-foreground ml-2">{item.style?.styleName}</span>
                     </TableCell>
                     <TableCell>{item.color?.colorName || '-'}</TableCell>
                     <TableCell>{item.size?.sizeName || '-'}</TableCell>
@@ -387,7 +387,9 @@ export default function DispatchPODForm() {
                   onChange={(e) => setCustomerGrnNumber(e.target.value)}
                   placeholder="Enter customer's GRN number"
                 />
-                <p className="text-xs text-gray-500">The GRN number issued by the customer upon receiving goods</p>
+                <p className="text-xs text-muted-foreground">
+                  The GRN number issued by the customer upon receiving goods
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="customerGrnDate">Customer GRN Date</Label>
@@ -397,7 +399,7 @@ export default function DispatchPODForm() {
                   value={customerGrnDate}
                   onChange={(e) => setCustomerGrnDate(e.target.value)}
                 />
-                <p className="text-xs text-gray-500">The date when customer issued the GRN</p>
+                <p className="text-xs text-muted-foreground">The date when customer issued the GRN</p>
               </div>
             </div>
           </CardContent>

@@ -292,7 +292,7 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
               <TabsTrigger value="LABEL" className="relative">
                 🏷️ Labels
                 {getSelectedCountForTab('LABEL') > 0 && (
-                  <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
+                  <span className="ml-2 bg-info-muted0 text-white text-xs rounded-full px-2 py-0.5">
                     {getSelectedCountForTab('LABEL')}
                   </span>
                 )}
@@ -300,7 +300,7 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
               <TabsTrigger value="PACKAGING" className="relative">
                 📦 Packaging
                 {getSelectedCountForTab('PACKAGING') > 0 && (
-                  <span className="ml-2 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5">
+                  <span className="ml-2 bg-info-muted0 text-white text-xs rounded-full px-2 py-0.5">
                     {getSelectedCountForTab('PACKAGING')}
                   </span>
                 )}
@@ -309,7 +309,7 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
 
             {/* Search */}
             <div className="relative mt-4 mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder={`Search ${activeTab === 'LABEL' ? 'labels' : 'packaging'} by name, code, or brand...`}
                 value={searchQuery}
@@ -322,11 +322,11 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
             <TabsContent value="LABEL" className="flex-1 min-h-0 overflow-y-auto mt-0">
               {loading ? (
                 <div className="flex justify-center items-center py-8">
-                  <div className="text-gray-500">Loading labels...</div>
+                  <div className="text-muted-foreground">Loading labels...</div>
                 </div>
               ) : filteredItems.length === 0 ? (
                 <div className="flex justify-center items-center py-8">
-                  <div className="text-gray-500">
+                  <div className="text-muted-foreground">
                     {searchQuery ? 'No labels found matching your search' : 'No labels available'}
                   </div>
                 </div>
@@ -354,11 +354,11 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
             <TabsContent value="PACKAGING" className="flex-1 min-h-0 overflow-y-auto mt-0">
               {loading ? (
                 <div className="flex justify-center items-center py-8">
-                  <div className="text-gray-500">Loading packaging...</div>
+                  <div className="text-muted-foreground">Loading packaging...</div>
                 </div>
               ) : filteredItems.length === 0 ? (
                 <div className="flex justify-center items-center py-8">
-                  <div className="text-gray-500">
+                  <div className="text-muted-foreground">
                     {searchQuery ? 'No packaging found matching your search' : 'No packaging available'}
                   </div>
                 </div>
@@ -430,7 +430,7 @@ function ItemRow({
   return (
     <div
       className={`border rounded-lg p-3 transition-colors ${
-        isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+        isSelected ? 'border-info bg-info-muted' : 'border-border hover:border-border'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -442,23 +442,23 @@ function ItemRow({
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h4 className="font-medium text-gray-900 truncate">{item.name}</h4>
+                <h4 className="font-medium text-foreground truncate">{item.name}</h4>
                 {/* Brand/Customer Badge - helps identify which brand the item belongs to */}
                 {brandDisplay && (
-                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
+                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-warning/10 text-warning border border-warning/20 flex-shrink-0">
                     {brandDisplay}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-1 text-sm text-gray-600 flex-wrap">
+              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground flex-wrap">
                 {item.labelCategory && (
                   <span
                     className={`px-1.5 py-0.5 rounded text-xs font-medium ${
                       item.labelCategory === 'SEWN_IN'
-                        ? 'bg-blue-100 text-blue-700'
+                        ? 'bg-info-muted text-info'
                         : item.labelCategory === 'HANGTAG'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-purple-100 text-purple-700'
+                          ? 'bg-success-muted text-success'
+                          : 'bg-accent/10 text-accent'
                     }`}
                   >
                     {item.labelCategory === 'SEWN_IN'
@@ -468,16 +468,16 @@ function ItemRow({
                         : 'Price Tag'}
                   </span>
                 )}
-                {item.subType && <span className="text-gray-500">{item.subType}</span>}
-                <span className="text-gray-400">•</span>
-                <span className="font-mono text-xs text-gray-500">{item.code}</span>
+                {item.subType && <span className="text-muted-foreground">{item.subType}</span>}
+                <span className="text-muted-foreground">•</span>
+                <span className="font-mono text-xs text-muted-foreground">{item.code}</span>
               </div>
             </div>
 
             {/* Quantity Input (for packaging only) */}
             {isSelected && !isLabel && (
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Label htmlFor={`qty-${item.id}`} className="text-sm text-gray-600 whitespace-nowrap">
+                <Label htmlFor={`qty-${item.id}`} className="text-sm text-muted-foreground whitespace-nowrap">
                   Qty:
                 </Label>
                 <Input
@@ -494,16 +494,16 @@ function ItemRow({
 
           {/* Label-specific fields */}
           {isSelected && isLabel && (
-            <div className="mt-3 pt-3 border-t border-blue-200 grid grid-cols-2 gap-3">
+            <div className="mt-3 pt-3 border-t border-info/20 grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor={`comp-${item.id}`} className="text-xs text-gray-600">
+                <Label htmlFor={`comp-${item.id}`} className="text-xs text-muted-foreground">
                   Component Location
                 </Label>
                 <select
                   id={`comp-${item.id}`}
                   value={componentName || 'Back Neck'}
                   onChange={(e) => onComponentNameChange?.(e.target.value)}
-                  className="w-full h-8 text-sm rounded border border-gray-300 px-2 mt-1"
+                  className="w-full h-8 text-sm rounded border border-border px-2 mt-1"
                 >
                   {COMPONENT_LOCATIONS.map((loc) => (
                     <option key={loc} value={loc}>
@@ -513,7 +513,7 @@ function ItemRow({
                 </select>
               </div>
               <div>
-                <Label htmlFor={`extra-${item.id}`} className="text-xs text-gray-600">
+                <Label htmlFor={`extra-${item.id}`} className="text-xs text-muted-foreground">
                   Extra % (Buffer)
                 </Label>
                 <Input

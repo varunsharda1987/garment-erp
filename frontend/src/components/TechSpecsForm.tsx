@@ -152,7 +152,7 @@ export function TechSpecsForm({ styleId, styleCode, editable = true }: TechSpecs
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         </CardContent>
       </Card>
@@ -186,7 +186,7 @@ export function TechSpecsForm({ styleId, styleCode, editable = true }: TechSpecs
       <CardContent className="space-y-6">
         {/* Measurements Section */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
             <Ruler className="h-4 w-4" />
             Basic Measurements
           </h3>
@@ -259,7 +259,7 @@ export function TechSpecsForm({ styleId, styleCode, editable = true }: TechSpecs
 
         {/* Style Details Section */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
             <Shirt className="h-4 w-4" />
             Style Details
           </h3>
@@ -366,7 +366,7 @@ export function TechSpecsForm({ styleId, styleCode, editable = true }: TechSpecs
 
         {/* Notes Section */}
         <div>
-          <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Notes
           </h3>

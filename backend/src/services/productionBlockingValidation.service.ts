@@ -7,7 +7,7 @@ import prisma from '../config/database';
 const SHORTFALL_TOLERANCE_PERCENT = 0.005;
 
 // Material type groupings for stage-aware stock validation
-const FABRIC_MATERIAL_TYPES = ['FABRIC', 'GREIGE', 'GREIGE_FABRIC', 'FINISHED_FABRIC'];
+const FABRIC_MATERIAL_TYPES = ['FABRIC', 'GREIGE'];
 const TRIM_MATERIAL_TYPES = [
   'BUTTON',
   'THREAD',

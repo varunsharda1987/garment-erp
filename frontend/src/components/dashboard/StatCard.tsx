@@ -40,8 +40,8 @@ export function StatCard({
   value,
   description,
   icon: Icon,
-  iconColor = 'text-indigo-600',
-  iconBgColor = 'bg-indigo-100',
+  iconColor = 'text-primary',
+  iconBgColor = 'bg-primary/10',
   trend,
   onClick,
   className,
@@ -49,16 +49,20 @@ export function StatCard({
   const TrendIcon = trend?.direction === 'up' ? TrendingUp : trend?.direction === 'down' ? TrendingDown : Minus;
 
   const trendColor =
-    trend?.direction === 'up' ? 'text-green-600' : trend?.direction === 'down' ? 'text-red-600' : 'text-gray-500';
+    trend?.direction === 'up'
+      ? 'text-success'
+      : trend?.direction === 'down'
+        ? 'text-destructive'
+        : 'text-muted-foreground';
 
   return (
     <Card className={cn('transition-shadow', onClick && 'cursor-pointer hover:shadow-md', className)} onClick={onClick}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-sm font-medium text-gray-500">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-            {description && <p className="text-sm text-gray-500 mt-1">{description}</p>}
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <p className="text-2xl font-bold text-foreground mt-1">{value}</p>
+            {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
             {trend && (
               <div className={cn('flex items-center gap-1 mt-2', trendColor)}>
                 <TrendIcon className="h-4 w-4" />
@@ -66,7 +70,7 @@ export function StatCard({
                   {trend.direction !== 'neutral' && (trend.direction === 'up' ? '+' : '-')}
                   {trend.value}%
                 </span>
-                {trend.label && <span className="text-xs text-gray-500 ml-1">{trend.label}</span>}
+                {trend.label && <span className="text-xs text-muted-foreground ml-1">{trend.label}</span>}
               </div>
             )}
           </div>
@@ -86,20 +90,20 @@ export function StatCardCompact({
   title,
   value,
   icon: Icon,
-  iconColor = 'text-indigo-600',
+  iconColor = 'text-primary',
   onClick,
 }: Pick<StatCardProps, 'title' | 'value' | 'icon' | 'iconColor' | 'onClick'>) {
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-4 bg-white rounded-lg border',
-        onClick && 'cursor-pointer hover:bg-gray-50'
+        'flex items-center gap-3 p-4 bg-card rounded-lg border',
+        onClick && 'cursor-pointer hover:bg-muted'
       )}
       onClick={onClick}
     >
       <Icon className={cn('h-5 w-5', iconColor)} />
       <div>
-        <p className="text-sm text-gray-500">{title}</p>
+        <p className="text-sm text-muted-foreground">{title}</p>
         <p className="text-lg font-semibold">{value}</p>
       </div>
     </div>

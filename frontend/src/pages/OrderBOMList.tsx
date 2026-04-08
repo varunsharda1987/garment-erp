@@ -65,7 +65,7 @@ const OrderBOMList = () => {
         <CardContent className="pt-6">
           <div className="flex gap-4 items-end">
             <div className="w-48">
-              <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
+              <label className="text-sm font-medium text-foreground mb-1 block">Status</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Statuses" />
@@ -78,7 +78,7 @@ const OrderBOMList = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               {totalItems} Order BOM{totalItems !== 1 ? 's' : ''} found
             </div>
           </div>
@@ -91,7 +91,7 @@ const OrderBOMList = () => {
       ) : error ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-red-500 mb-4">{error}</p>
+            <p className="text-destructive mb-4">{error}</p>
             <Button onClick={fetchBOMs}>Retry</Button>
           </CardContent>
         </Card>
@@ -107,25 +107,37 @@ const OrderBOMList = () => {
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Style</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Version</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Items</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Cost</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Order</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Style</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Version
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Items
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Total Cost
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Created
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-card divide-y divide-gray-200">
                     {boms.map((bom) => (
-                      <tr key={bom.id} className="hover:bg-gray-50">
+                      <tr key={bom.id} className="hover:bg-muted">
                         <td className="px-4 py-3 text-sm font-medium">{bom.order?.orderNumber || '-'}</td>
                         <td className="px-4 py-3 text-sm">
                           <div className="font-medium">{bom.style?.styleCode || '-'}</div>
-                          <div className="text-gray-500 text-xs">{bom.style?.styleName}</div>
+                          <div className="text-muted-foreground text-xs">{bom.style?.styleName}</div>
                         </td>
                         <td className="px-4 py-3 text-sm text-center">
                           <Badge variant="outline">v{bom.version}</Badge>
@@ -141,7 +153,7 @@ const OrderBOMList = () => {
                         <td className="px-4 py-3 text-sm text-right font-medium">
                           {bom.totalMaterialCost ? formatCurrency(bom.totalMaterialCost) : '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
+                        <td className="px-4 py-3 text-sm text-muted-foreground">
                           {new Date(bom.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3 text-center">

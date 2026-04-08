@@ -973,8 +973,10 @@ export default function OrderForm() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">{isEditMode ? 'Edit Order' : 'Create New Order'}</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-xl font-display font-semibold text-foreground">
+            {isEditMode ? 'Edit Order' : 'Create New Order'}
+          </h1>
+          <p className="text-sm text-muted-foreground">
             Fill in the details below to {isEditMode ? 'update' : 'create'} an order
           </p>
         </div>
@@ -983,7 +985,7 @@ export default function OrderForm() {
       {/* Error Alert */}
       {error && (
         <div className="mb-6">
-          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className="flex items-center gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
             <p className="text-sm">{error}</p>
           </div>
@@ -993,7 +995,7 @@ export default function OrderForm() {
       {/* Downstream dependency warning */}
       {isEditMode && hasDownstreamDeps && (
         <div className="mb-6">
-          <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800">
+          <div className="flex items-center gap-3 p-4 bg-warning-muted border border-warning/20 rounded-lg text-warning">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
             <p className="text-sm">
               This order has approved BOMs or active material requirements. Style, quantity, and size breakdown cannot
@@ -1006,13 +1008,13 @@ export default function OrderForm() {
       {/* Main Content */}
       <form onSubmit={handleSubmit}>
         {/* Order Basics Card - All inline */}
-        <div className="bg-white rounded-xl border shadow-sm mb-6">
+        <div className="bg-card rounded-xl border shadow-sm mb-6">
           <div className="px-6 py-5">
             <div className="flex flex-wrap items-end gap-4">
               {/* Customer Name Selection */}
               <div className="w-[250px]">
-                <Label className="text-sm font-medium text-gray-700">
-                  Customer Name <span className="text-red-500">*</span>
+                <Label className="text-sm font-medium text-foreground">
+                  Customer Name <span className="text-destructive">*</span>
                 </Label>
                 <CustomerCombobox
                   value={customerId}
@@ -1024,11 +1026,11 @@ export default function OrderForm() {
 
               {/* Style Selection - Searchable dropdown */}
               <div className="flex-1 min-w-[250px] max-w-[350px]">
-                <Label className="text-sm font-medium text-gray-700">
-                  Style <span className="text-red-500">*</span>
+                <Label className="text-sm font-medium text-foreground">
+                  Style <span className="text-destructive">*</span>
                 </Label>
                 <div className="relative mt-1.5">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
                   <Select
                     value={selectedStyleId}
                     onValueChange={(value) => handleStyleSelect(value)}
@@ -1051,12 +1053,12 @@ export default function OrderForm() {
                         <SelectItem key={style.id} value={style.id}>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{style.styleCode}</span>
-                            <span className="text-gray-500 text-xs">{style.styleName}</span>
+                            <span className="text-muted-foreground text-xs">{style.styleName}</span>
                           </div>
                         </SelectItem>
                       ))}
                       {filteredStyles.length === 0 && (
-                        <div className="py-4 text-center text-sm text-gray-500">
+                        <div className="py-4 text-center text-sm text-muted-foreground">
                           {searchingStyles ? 'Searching...' : styleSearch ? 'No styles found' : 'Type to search styles'}
                         </div>
                       )}
@@ -1067,8 +1069,8 @@ export default function OrderForm() {
 
               {/* Total Quantity Input - Right next to Style */}
               <div className="w-[120px]">
-                <Label className="text-sm font-medium text-gray-700">
-                  Total Qty <span className="text-red-500">*</span>
+                <Label className="text-sm font-medium text-foreground">
+                  Total Qty <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   type="number"
@@ -1083,7 +1085,7 @@ export default function OrderForm() {
 
               {/* Order Date - Editable, allows past dates */}
               <div className="w-[140px]">
-                <Label className="text-sm font-medium text-gray-700">Order Date</Label>
+                <Label className="text-sm font-medium text-foreground">Order Date</Label>
                 <Input
                   type="date"
                   value={orderDate}
@@ -1094,8 +1096,8 @@ export default function OrderForm() {
 
               {/* Expected Delivery */}
               <div className="w-[140px]">
-                <Label className="text-sm font-medium text-gray-700">
-                  Delivery <span className="text-red-500">*</span>
+                <Label className="text-sm font-medium text-foreground">
+                  Delivery <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   type="date"
@@ -1108,8 +1110,8 @@ export default function OrderForm() {
               {/* Customer Code - Auto populated */}
               {selectedCustomer && (
                 <div className="w-[120px]">
-                  <Label className="text-sm font-medium text-gray-500">Cust. Code</Label>
-                  <div className="mt-1.5 h-10 px-3 bg-gray-100 border border-gray-200 rounded-md flex items-center text-sm font-mono text-gray-600">
+                  <Label className="text-sm font-medium text-muted-foreground">Cust. Code</Label>
+                  <div className="mt-1.5 h-10 px-3 bg-muted border border-border rounded-md flex items-center text-sm font-mono text-muted-foreground">
                     {selectedCustomer.code}
                   </div>
                 </div>
@@ -1118,8 +1120,8 @@ export default function OrderForm() {
               {/* Brand Name - Auto populated from style */}
               {displayBrandName && (
                 <div className="w-[150px]">
-                  <Label className="text-sm font-medium text-gray-500">Brand</Label>
-                  <div className="mt-1.5 h-10 px-3 bg-gray-100 border border-gray-200 rounded-md flex items-center text-sm text-gray-600 truncate">
+                  <Label className="text-sm font-medium text-muted-foreground">Brand</Label>
+                  <div className="mt-1.5 h-10 px-3 bg-muted border border-border rounded-md flex items-center text-sm text-muted-foreground truncate">
                     {displayBrandName}
                   </div>
                 </div>
@@ -1128,12 +1130,12 @@ export default function OrderForm() {
 
             {/* Cost Sheet Validation Warning */}
             {selectedStyleId && hasApprovedCostSheet === false && !costSheetValidationLoading && (
-              <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+              <div className="mt-4 p-4 bg-destructive/10 border-l-4 border-l-destructive rounded-r-lg">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-semibold text-red-800">No Approved Cost Sheet</p>
-                    <p className="text-sm text-red-700 mt-1">
+                    <p className="font-semibold text-destructive">No Approved Cost Sheet</p>
+                    <p className="text-sm text-destructive mt-1">
                       This style requires an approved cost sheet before orders can be created. Please create and approve
                       a cost sheet first.
                     </p>
@@ -1141,7 +1143,7 @@ export default function OrderForm() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="mt-3 text-red-700 border-red-300 hover:bg-red-100"
+                      className="mt-3 text-destructive border-destructive/25 hover:bg-destructive/10"
                       onClick={() => navigate(`/cost-sheets/new?styleId=${selectedStyleId}`)}
                     >
                       <Calculator className="h-4 w-4 mr-2" />
@@ -1154,8 +1156,8 @@ export default function OrderForm() {
 
             {/* Cost Sheet Validation Loading */}
             {selectedStyleId && costSheetValidationLoading && (
-              <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <div className="flex items-center gap-2 text-gray-600 text-sm">
+              <div className="mt-4 p-3 bg-muted border border-border rounded-lg">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <span className="animate-spin">⏳</span>
                   Checking cost sheet status...
                 </div>
@@ -1164,9 +1166,9 @@ export default function OrderForm() {
 
             {/* Cost Sheet Available Success */}
             {selectedStyleId && hasApprovedCostSheet === true && !costSheetValidationLoading && (
-              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="mt-4 p-3 bg-success-muted border border-success/20 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-green-700 text-sm">
+                  <div className="flex items-center gap-2 text-success text-sm">
                     <CheckCircle2 className="h-4 w-4" />
                     <span>
                       {costSheets.length} approved cost sheet{costSheets.length > 1 ? 's' : ''} available
@@ -1176,7 +1178,7 @@ export default function OrderForm() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="text-green-700 border-green-300 hover:bg-green-100"
+                    className="text-success border-success/25 hover:bg-success-muted"
                     onClick={handleOpenCostSheetSelector}
                   >
                     <Calculator className="h-4 w-4 mr-1" />
@@ -1189,18 +1191,18 @@ export default function OrderForm() {
         </div>
 
         {/* Quantity & Pricing Section */}
-        <div className="bg-white rounded-xl border shadow-sm mb-6 overflow-hidden">
+        <div className="bg-card rounded-xl border shadow-sm mb-6 overflow-hidden">
           <button
             type="button"
             onClick={() => toggleSection('quantity')}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted transition-colors"
           >
             <div className="flex items-center gap-3">
               <div
                 className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                   validation.quantity && validation.hasPricing
-                    ? 'bg-green-100 text-green-600'
-                    : 'bg-orange-100 text-orange-600'
+                    ? 'bg-success-muted text-success'
+                    : 'bg-orange-100 text-primary'
                 }`}
               >
                 {validation.quantity && validation.hasPricing ? (
@@ -1211,37 +1213,37 @@ export default function OrderForm() {
               </div>
               <div className="text-left flex-1">
                 <div className="flex items-center gap-4 flex-wrap">
-                  <h3 className="font-semibold text-gray-900">Quantity & Pricing</h3>
+                  <h3 className="font-semibold text-foreground">Quantity & Pricing</h3>
                   {enteredTotalQty > 0 && (
-                    <div className="flex items-center gap-3 text-sm text-gray-600">
-                      <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded font-medium">
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <span className="px-2 py-0.5 bg-primary/10 text-primary rounded font-medium">
                         {enteredTotalQty.toLocaleString()} pcs
                       </span>
                       {distributedQuantity > 0 && distributedQuantity !== enteredTotalQty && (
-                        <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded text-xs">
+                        <span className="px-2 py-0.5 bg-warning-muted text-yellow-700 rounded text-xs">
                           Distributed: {distributedQuantity.toLocaleString()}
                         </span>
                       )}
                       {unitPrice && Number(unitPrice) > 0 && (
                         <>
-                          <span className="text-gray-400">•</span>
+                          <span className="text-muted-foreground">•</span>
                           <span>@ {formatCurrency(unitPrice, { decimals: 0 })}/pc</span>
-                          <span className="text-gray-400">•</span>
-                          <span className="font-semibold text-green-600">Total: {formatCurrency(totalAmount)}</span>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="font-semibold text-success">Total: {formatCurrency(totalAmount)}</span>
                         </>
                       )}
                     </div>
                   )}
                 </div>
                 {enteredTotalQty === 0 && (
-                  <p className="text-sm text-gray-500">Enter total quantity above, then distribute per size</p>
+                  <p className="text-sm text-muted-foreground">Enter total quantity above, then distribute per size</p>
                 )}
               </div>
             </div>
             {expandedSections.quantity ? (
-              <ChevronUp className="h-5 w-5 text-gray-400" />
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-gray-400" />
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
             )}
           </button>
 
@@ -1250,7 +1252,7 @@ export default function OrderForm() {
               <div className="pt-6">
                 {/* Size Preset Override (Optional) */}
                 {selectedStyleId && customerSizePresets.length > 0 && (
-                  <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="mb-6 p-4 bg-accent/10 rounded-lg border border-accent/20">
                     <Label className="text-sm font-medium mb-2 block">Size Override (Optional)</Label>
                     <Select value={selectedSizePresetId} onValueChange={handleApplySizePreset}>
                       <SelectTrigger className="w-full">
@@ -1266,7 +1268,7 @@ export default function OrderForm() {
                       </SelectContent>
                     </Select>
                     {sizeOverrideActive && (
-                      <div className="mt-2 flex items-center gap-2 text-xs text-purple-600">
+                      <div className="mt-2 flex items-center gap-2 text-xs text-accent">
                         <AlertCircle className="h-4 w-4" />
                         <span>This order is using custom sizes different from the style's default sizes</span>
                       </div>
@@ -1275,12 +1277,12 @@ export default function OrderForm() {
                 )}
 
                 {!selectedStyleId ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     <p>Please select a style first</p>
                   </div>
                 ) : sizes.length === 0 ? (
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-amber-700">
+                  <div className="p-4 bg-warning-muted border border-warning/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-warning">
                       <AlertCircle className="h-5 w-5" />
                       <p className="text-sm">
                         This style has no size options. Please add SKU variants in Style Master first.
@@ -1290,14 +1292,14 @@ export default function OrderForm() {
                 ) : (
                   <>
                     {/* Mode Toggle & Distribution Controls */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 p-4 bg-muted rounded-lg">
                       {/* Mode Toggle */}
-                      <div className="flex items-center gap-1 p-1 bg-white rounded-lg border">
+                      <div className="flex items-center gap-1 p-1 bg-card rounded-lg border">
                         <button
                           type="button"
                           onClick={() => handleModeChange('absolute')}
                           className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                            quantityMode === 'absolute' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                            quantityMode === 'absolute' ? 'bg-info text-white' : 'text-muted-foreground hover:bg-muted'
                           }`}
                         >
                           Absolute
@@ -1306,7 +1308,9 @@ export default function OrderForm() {
                           type="button"
                           onClick={() => handleModeChange('percentage')}
                           className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                            quantityMode === 'percentage' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                            quantityMode === 'percentage'
+                              ? 'bg-info text-white'
+                              : 'text-muted-foreground hover:bg-muted'
                           }`}
                         >
                           Percentage
@@ -1315,7 +1319,7 @@ export default function OrderForm() {
                           type="button"
                           onClick={() => handleModeChange('ratio')}
                           className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                            quantityMode === 'ratio' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                            quantityMode === 'ratio' ? 'bg-info text-white' : 'text-muted-foreground hover:bg-muted'
                           }`}
                         >
                           Ratio
@@ -1353,7 +1357,7 @@ export default function OrderForm() {
 
                     {/* Mode Help Text */}
                     {quantityMode !== 'absolute' && (
-                      <p className="text-xs text-gray-500 mb-4 -mt-2">
+                      <p className="text-xs text-muted-foreground mb-4 -mt-2">
                         {quantityMode === 'percentage'
                           ? 'Enter percentage for each size. Actual quantities will auto-calculate based on Total Qty.'
                           : 'Enter ratio values (e.g., 1:2:3). Actual quantities will auto-calculate based on Total Qty.'}
@@ -1362,10 +1366,10 @@ export default function OrderForm() {
 
                     {/* Section Label */}
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-foreground">
                         {colors.length > 0 ? 'Quantity by Color & Size' : 'Quantity by Size'}
                         {quantityMode !== 'absolute' && (
-                          <span className="ml-2 text-xs text-blue-600">
+                          <span className="ml-2 text-xs text-info">
                             ({quantityMode === 'percentage' ? 'Enter %' : 'Enter ratios'})
                           </span>
                         )}
@@ -1377,17 +1381,19 @@ export default function OrderForm() {
                       <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                           <thead>
-                            <tr className="bg-gray-50">
-                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 border">Color</th>
+                            <tr className="bg-muted">
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground border">
+                                Color
+                              </th>
                               {sizes.map((size) => (
                                 <th
                                   key={size.id}
-                                  className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border min-w-[80px]"
+                                  className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground border min-w-[80px]"
                                 >
                                   {size.sizeName}
                                 </th>
                               ))}
-                              <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 border bg-gray-100">
+                              <th className="px-3 py-2 text-center text-xs font-semibold text-muted-foreground border bg-muted">
                                 Total
                               </th>
                             </tr>
@@ -1399,8 +1405,8 @@ export default function OrderForm() {
                                 .reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
 
                               return (
-                                <tr key={color.id} className="hover:bg-gray-50">
-                                  <td className="px-3 py-2 text-sm font-medium text-gray-900 border">
+                                <tr key={color.id} className="hover:bg-muted">
+                                  <td className="px-3 py-2 text-sm font-medium text-foreground border">
                                     {color.colorName}
                                   </td>
                                   {sizes.map((size) => {
@@ -1444,7 +1450,7 @@ export default function OrderForm() {
                                               placeholder={quantityMode === 'percentage' ? '%' : '#'}
                                               className="text-center h-7 text-xs"
                                             />
-                                            <div className="text-center text-xs font-medium text-green-700 bg-green-50 rounded">
+                                            <div className="text-center text-xs font-medium text-success bg-success-muted rounded">
                                               = {breakupItem?.quantity || 0}
                                             </div>
                                           </div>
@@ -1452,25 +1458,25 @@ export default function OrderForm() {
                                       </td>
                                     );
                                   })}
-                                  <td className="px-3 py-2 text-center text-sm font-semibold text-gray-900 border bg-gray-50">
+                                  <td className="px-3 py-2 text-center text-sm font-semibold text-foreground border bg-muted">
                                     {rowTotal}
                                   </td>
                                 </tr>
                               );
                             })}
-                            <tr className="bg-gray-100 font-semibold">
-                              <td className="px-3 py-2 text-sm text-gray-900 border">Total</td>
+                            <tr className="bg-muted font-semibold">
+                              <td className="px-3 py-2 text-sm text-foreground border">Total</td>
                               {sizes.map((size) => {
                                 const colTotal = breakup
                                   .filter((b) => b.sizeId === size.id)
                                   .reduce((sum, b) => sum + (Number(b.quantity) || 0), 0);
                                 return (
-                                  <td key={size.id} className="px-3 py-2 text-center text-sm text-gray-900 border">
+                                  <td key={size.id} className="px-3 py-2 text-center text-sm text-foreground border">
                                     {colTotal}
                                   </td>
                                 );
                               })}
-                              <td className="px-3 py-2 text-center text-sm text-blue-600 border font-bold">
+                              <td className="px-3 py-2 text-center text-sm text-info border font-bold">
                                 {distributedQuantity}
                               </td>
                             </tr>
@@ -1488,7 +1494,7 @@ export default function OrderForm() {
                             const distValue = getDistributionValue(size.id, '');
                             return (
                               <div key={size.id} className="w-24 flex-shrink-0 space-y-1">
-                                <label className="block text-center text-sm font-medium text-gray-700">
+                                <label className="block text-center text-sm font-medium text-foreground">
                                   {size.sizeName}
                                 </label>
                                 {quantityMode === 'absolute' ? (
@@ -1519,11 +1525,11 @@ export default function OrderForm() {
                                         placeholder={quantityMode === 'percentage' ? '%' : '#'}
                                         className="text-center h-8 text-sm"
                                       />
-                                      <span className="text-xs text-gray-500">
+                                      <span className="text-xs text-muted-foreground">
                                         {quantityMode === 'percentage' ? '%' : ''}
                                       </span>
                                     </div>
-                                    <div className="text-center text-xs font-medium text-green-700 bg-green-50 rounded px-1 py-0.5">
+                                    <div className="text-center text-xs font-medium text-success bg-success-muted rounded px-1 py-0.5">
                                       = {breakupItem?.quantity || 0}
                                     </div>
                                   </div>
@@ -1533,11 +1539,11 @@ export default function OrderForm() {
                           })}
                           {/* Total Column */}
                           <div className="w-24 flex-shrink-0 space-y-1">
-                            <label className="block text-center text-sm font-semibold text-gray-900">
+                            <label className="block text-center text-sm font-semibold text-foreground">
                               {quantityMode === 'absolute' ? 'Distributed' : 'Total'}
                             </label>
                             {quantityMode !== 'absolute' && (
-                              <div className="text-center text-xs text-gray-500">
+                              <div className="text-center text-xs text-muted-foreground">
                                 {quantityMode === 'percentage'
                                   ? `${Object.values(distributionValues).reduce((s, v) => s + v, 0)}%`
                                   : `Ratio: ${Object.values(distributionValues).reduce((s, v) => s + v, 0)}`}
@@ -1546,8 +1552,8 @@ export default function OrderForm() {
                             <div
                               className={`h-10 flex items-center justify-center rounded-md font-bold ${
                                 quantityMode === 'absolute'
-                                  ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                                  : 'bg-green-50 border border-green-200 text-green-700'
+                                  ? 'bg-info-muted border border-info/20 text-info'
+                                  : 'bg-success-muted border border-success/20 text-success'
                               }`}
                             >
                               {distributedQuantity.toLocaleString()}
@@ -1559,7 +1565,7 @@ export default function OrderForm() {
 
                     {/* Size Distribution Info (Optional - not blocking) */}
                     {sizeDistributionStatus === 'pending' && (
-                      <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-blue-50 border-blue-200 text-blue-800">
+                      <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-info-muted border-info/20 text-info">
                         <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                         <div>
                           <p className="font-medium">Size distribution optional</p>
@@ -1577,7 +1583,7 @@ export default function OrderForm() {
 
                     {/* Quantity Mismatch Warning (informational, not blocking) */}
                     {quantityMismatch === 'mismatch' && (
-                      <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-amber-50 border-amber-200 text-amber-800">
+                      <div className="mt-4 p-4 rounded-lg border flex items-start gap-3 bg-warning-muted border-warning/20 text-warning">
                         <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                         <div>
                           <p className="font-medium">Quantity mismatch detected</p>
@@ -1585,12 +1591,12 @@ export default function OrderForm() {
                             Total Order Qty: <strong>{enteredTotalQty.toLocaleString()}</strong> pcs, but size
                             distribution totals: <strong>{distributedQuantity.toLocaleString()}</strong> pcs.
                             {distributedQuantity > enteredTotalQty ? (
-                              <span className="text-red-700">
+                              <span className="text-destructive">
                                 {' '}
                                 (Exceeds by {(distributedQuantity - enteredTotalQty).toLocaleString()})
                               </span>
                             ) : (
-                              <span className="text-amber-700">
+                              <span className="text-warning">
                                 {' '}
                                 (Short by {(enteredTotalQty - distributedQuantity).toLocaleString()})
                               </span>
@@ -1606,7 +1612,7 @@ export default function OrderForm() {
 
                     {/* Quantity Match Success */}
                     {!quantityMismatch && enteredTotalQty > 0 && distributedQuantity > 0 && (
-                      <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200 flex items-center gap-2 text-green-700">
+                      <div className="mt-4 p-3 rounded-lg bg-success-muted border border-success/20 flex items-center gap-2 text-success">
                         <CheckCircle2 className="h-5 w-5" />
                         <span className="text-sm font-medium">
                           Quantity distributed correctly: {distributedQuantity.toLocaleString()} pcs
@@ -1617,11 +1623,11 @@ export default function OrderForm() {
                     {/* Pricing Section - Dark Theme */}
                     <div className="mt-6 bg-gray-900 rounded-xl p-6 text-white">
                       <div className="mb-4">
-                        <h4 className="text-sm font-medium text-gray-400">Pricing Summary</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground">Pricing Summary</h4>
                       </div>
                       <div className="grid grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">Unit Price (₹)</label>
+                          <label className="block text-xs text-muted-foreground mb-1">Unit Price (₹)</label>
                           <div className="flex gap-2">
                             <Input
                               type="number"
@@ -1636,19 +1642,19 @@ export default function OrderForm() {
                             />
                           </div>
                           {selectedCostSheetId && (
-                            <p className="text-xs text-blue-400 mt-1">
+                            <p className="text-xs text-info mt-1">
                               <Calculator className="w-3 h-3 inline mr-1" />
                               From Cost Sheet
                             </p>
                           )}
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1">Total Amount</label>
+                          <label className="block text-xs text-muted-foreground mb-1">Total Amount</label>
                           <div
                             className={`h-10 px-3 rounded-md flex items-center text-lg font-bold ${
                               validation.hasPricing
-                                ? 'bg-green-900/50 border border-green-700 text-green-400'
-                                : 'bg-amber-900/30 border border-amber-700 text-amber-400'
+                                ? 'bg-success/50 border border-success text-success'
+                                : 'bg-warning/30 border border-warning text-warning'
                             }`}
                           >
                             {validation.hasPricing ? formatCurrency(totalAmount) : 'Pending'}
@@ -1665,18 +1671,18 @@ export default function OrderForm() {
       </form>
 
       {/* Sticky Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20">
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-lg z-20">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Validation Status */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 {validation.isComplete ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <CheckCircle2 className="h-5 w-5 text-success" />
                 ) : (
-                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  <AlertCircle className="h-5 w-5 text-warning" />
                 )}
-                <span className={`text-sm font-medium ${validation.isComplete ? 'text-green-700' : 'text-amber-700'}`}>
+                <span className={`text-sm font-medium ${validation.isComplete ? 'text-success' : 'text-warning'}`}>
                   {validation.completedCount}/{validation.totalChecks} required fields
                 </span>
               </div>
@@ -1685,21 +1691,21 @@ export default function OrderForm() {
               <div className="hidden sm:flex items-center gap-2">
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full ${
-                    validation.customer ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    validation.customer ? 'bg-success-muted text-success' : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   Customer
                 </span>
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full ${
-                    validation.style ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    validation.style ? 'bg-success-muted text-success' : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   Style
                 </span>
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full ${
-                    validation.quantity ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    validation.quantity ? 'bg-success-muted text-success' : 'bg-muted text-muted-foreground'
                   }`}
                   title={
                     enteredTotalQty > 0 ? `Total: ${enteredTotalQty.toLocaleString()} pcs` : 'Enter total quantity'
@@ -1711,10 +1717,10 @@ export default function OrderForm() {
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full ${
                     validation.isFullyDistributed
-                      ? 'bg-green-100 text-green-700'
+                      ? 'bg-success-muted text-success'
                       : sizeDistributionStatus === 'partial'
-                        ? 'bg-amber-50 text-amber-600 border border-amber-200'
-                        : 'bg-blue-50 text-blue-600 border border-blue-200'
+                        ? 'bg-warning-muted text-warning border border-warning/20'
+                        : 'bg-info-muted text-info border border-info/20'
                   }`}
                   title={
                     validation.isFullyDistributed
@@ -1734,12 +1740,12 @@ export default function OrderForm() {
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full ${
                     costSheetValidationLoading
-                      ? 'bg-gray-100 text-gray-500'
+                      ? 'bg-muted text-muted-foreground'
                       : hasApprovedCostSheet === true
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-success-muted text-success'
                         : hasApprovedCostSheet === false
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-gray-100 text-gray-500'
+                          ? 'bg-destructive/10 text-destructive'
+                          : 'bg-muted text-muted-foreground'
                   }`}
                   title={
                     costSheetValidationLoading
@@ -1763,8 +1769,8 @@ export default function OrderForm() {
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full ${
                     validation.hasPricing
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-amber-50 text-amber-600 border border-amber-200'
+                      ? 'bg-success-muted text-success'
+                      : 'bg-warning-muted text-warning border border-warning/20'
                   }`}
                   title={validation.hasPricing ? 'Price set' : 'Price pending (optional)'}
                 >

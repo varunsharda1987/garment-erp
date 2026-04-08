@@ -178,7 +178,7 @@ export default function AIAssistant() {
   if (!aiStatus) {
     return (
       <div className="p-6 h-screen flex items-center justify-center">
-        <div className="flex items-center gap-3 text-gray-500">
+        <div className="flex items-center gap-3 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Checking AI availability...</span>
         </div>
@@ -193,8 +193,8 @@ export default function AIAssistant() {
         <div className="flex items-center gap-3 mb-6">
           <Sparkles className="h-6 w-6" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">AI Assistant</h1>
-            <p className="text-sm text-gray-500">AI-powered help for your ERP system</p>
+            <h1 className="text-3xl font-display font-medium text-foreground">AI Assistant</h1>
+            <p className="text-sm text-muted-foreground">AI-powered help for your ERP system</p>
           </div>
         </div>
 
@@ -208,7 +208,7 @@ export default function AIAssistant() {
   }
 
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-100">
+    <div className="h-screen flex overflow-hidden bg-muted">
       {/* Conversation Sidebar */}
       {sidebarOpen && (
         <div className="w-72 flex-shrink-0">
@@ -223,23 +223,25 @@ export default function AIAssistant() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="bg-white border-b px-4 py-3 flex items-center justify-between">
+        <div className="bg-card border-b px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="h-8 w-8 p-0">
               {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
             </Button>
             <div>
-              <h1 className="font-semibold text-gray-900 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-blue-600" />
+              <h1 className="font-display font-semibold text-foreground flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-info" />
                 AI Assistant
               </h1>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Powered by {aiStatus.provider} ({aiStatus.model})
               </p>
             </div>
           </div>
 
-          {activeConversation && <div className="text-sm text-gray-500">{activeConversation.title || 'New Chat'}</div>}
+          {activeConversation && (
+            <div className="text-sm text-muted-foreground">{activeConversation.title || 'New Chat'}</div>
+          )}
         </div>
 
         {/* Messages Area */}
@@ -247,20 +249,20 @@ export default function AIAssistant() {
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
               <Bot className="h-16 w-16 text-gray-300 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">How can I help you today?</h3>
-              <p className="text-gray-500 mb-8 max-w-md">
+              <h3 className="text-xl font-semibold text-foreground mb-2">How can I help you today?</h3>
+              <p className="text-muted-foreground mb-8 max-w-md">
                 Ask me anything about the ERP system - styles, orders, materials, production, and more.
               </p>
 
               {suggestions.length > 0 && (
                 <div className="space-y-2 w-full max-w-md">
-                  <p className="text-sm text-gray-600 font-medium">Try asking:</p>
+                  <p className="text-sm text-muted-foreground font-medium">Try asking:</p>
                   <div className="grid gap-2">
                     {suggestions.map((suggestion, index) => (
                       <button
                         key={index}
                         onClick={() => setInput(suggestion)}
-                        className="text-left px-4 py-3 bg-white hover:bg-gray-50 rounded-lg border text-sm text-gray-700 transition-colors shadow-sm"
+                        className="text-left px-4 py-3 bg-card hover:bg-muted rounded-lg border text-sm text-foreground transition-colors shadow-sm"
                       >
                         {suggestion}
                       </button>
@@ -280,13 +282,13 @@ export default function AIAssistant() {
                   <div
                     className={cn(
                       'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
-                      message.role === 'USER' ? 'bg-blue-600' : 'bg-gray-200'
+                      message.role === 'USER' ? 'bg-info' : 'bg-gray-200'
                     )}
                   >
                     {message.role === 'USER' ? (
                       <User className="h-4 w-4 text-white" />
                     ) : (
-                      <Bot className="h-4 w-4 text-gray-600" />
+                      <Bot className="h-4 w-4 text-muted-foreground" />
                     )}
                   </div>
 
@@ -295,7 +297,7 @@ export default function AIAssistant() {
                     <div
                       className={cn(
                         'rounded-2xl px-4 py-3',
-                        message.role === 'USER' ? 'bg-blue-600 text-white' : 'bg-white border shadow-sm'
+                        message.role === 'USER' ? 'bg-info text-white' : 'bg-card border shadow-sm'
                       )}
                     >
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -308,9 +310,11 @@ export default function AIAssistant() {
                         message.role === 'USER' ? 'flex-row-reverse' : ''
                       )}
                     >
-                      <span className="text-xs text-gray-400">{formatTime(message.createdAt)}</span>
+                      <span className="text-xs text-muted-foreground">{formatTime(message.createdAt)}</span>
 
-                      {message.latencyMs && <span className="text-xs text-gray-400">{message.latencyMs}ms</span>}
+                      {message.latencyMs && (
+                        <span className="text-xs text-muted-foreground">{message.latencyMs}ms</span>
+                      )}
 
                       {/* Feedback for assistant messages */}
                       {message.role === 'ASSISTANT' && !message.id.startsWith('error-') && (
@@ -325,9 +329,9 @@ export default function AIAssistant() {
               {loading && (
                 <div className="flex gap-4">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-gray-600" />
+                    <Bot className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <div className="bg-white border rounded-2xl px-4 py-3 shadow-sm">
+                  <div className="bg-card border rounded-2xl px-4 py-3 shadow-sm">
                     <div className="flex gap-1">
                       <div
                         className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -352,7 +356,7 @@ export default function AIAssistant() {
         </div>
 
         {/* Input Area */}
-        <div className="bg-white border-t p-4">
+        <div className="bg-card border-t p-4">
           <div className="max-w-4xl mx-auto">
             <div className="flex gap-3">
               <textarea
@@ -373,7 +377,9 @@ export default function AIAssistant() {
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               </Button>
             </div>
-            <p className="text-xs text-gray-400 mt-2 text-center">Press Enter to send, Shift+Enter for new line</p>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Press Enter to send, Shift+Enter for new line
+            </p>
           </div>
         </div>
       </div>

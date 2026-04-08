@@ -275,26 +275,26 @@ export function AccessorySelector({
                     variant="secondary"
                     className={cn(
                       'flex items-center gap-1.5 py-1.5 px-2.5',
-                      isFromPreset && 'bg-purple-100 border-purple-300',
-                      isStyleSpecific && !isFromPreset && 'bg-blue-100 border-blue-300'
+                      isFromPreset && 'bg-accent/10 border-accent/25',
+                      isStyleSpecific && !isFromPreset && 'bg-info-muted border-info/30'
                     )}
                   >
                     <span className="font-mono text-xs">{accessory.masterCode}</span>
                     <span className="text-xs">{accessory.masterName}</span>
-                    {accessory.subType && <span className="text-[10px] text-gray-500">({accessory.subType})</span>}
+                    {accessory.subType && (
+                      <span className="text-[10px] text-muted-foreground">({accessory.subType})</span>
+                    )}
                     {isFromPreset && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full">
-                        Preset
-                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-accent/15 text-accent rounded-full">Preset</span>
                     )}
                     {isStyleSpecific && !isFromPreset && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full">Added</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-info/15 text-info rounded-full">Added</span>
                     )}
                     {!disabled && (
                       <button
                         type="button"
                         onClick={() => removeAccessory(accessory)}
-                        className="ml-1 hover:text-red-500 transition-colors"
+                        className="ml-1 hover:text-destructive transition-colors"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -309,7 +309,7 @@ export function AccessorySelector({
 
       {/* Empty state */}
       {selectedAccessories.length === 0 && (
-        <div className="text-center py-6 text-gray-500 border border-dashed rounded-lg">
+        <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg">
           <p className="text-sm">No accessories selected for this style.</p>
           <p className="text-xs mt-1">Click "Browse & Add" to add labels and packaging.</p>
         </div>
@@ -364,7 +364,7 @@ export function AccessorySelector({
                 <TabsContent key={tab.type} value={tab.type} className="flex-1 flex flex-col mt-4 overflow-hidden">
                   {/* Search */}
                   <div className="relative mb-3">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder={`Search ${tab.label.toLowerCase()}...`}
                       value={searchQuery}
@@ -376,9 +376,9 @@ export function AccessorySelector({
                   {/* Items list with checkboxes */}
                   <div className="border rounded-lg flex-1 overflow-y-auto max-h-[400px]">
                     {loading ? (
-                      <div className="p-4 text-center text-gray-500">Loading...</div>
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
                     ) : filteredItems.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500">
+                      <div className="p-4 text-center text-muted-foreground">
                         {searchQuery ? 'No matching items found' : `No ${tab.label.toLowerCase()} available`}
                       </div>
                     ) : (
@@ -393,9 +393,9 @@ export function AccessorySelector({
                             <label
                               key={item.id}
                               className={cn(
-                                'flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors',
-                                selected && isStyleSpecific && 'bg-blue-50 hover:bg-blue-100',
-                                selected && isFromPreset && 'bg-purple-50 hover:bg-purple-100'
+                                'flex items-center gap-3 p-3 cursor-pointer hover:bg-muted transition-colors',
+                                selected && isStyleSpecific && 'bg-info-muted hover:bg-info-muted',
+                                selected && isFromPreset && 'bg-accent/10 hover:bg-accent/10'
                               )}
                             >
                               <Checkbox checked={selected} onCheckedChange={() => toggleItem(item)} />
@@ -406,12 +406,12 @@ export function AccessorySelector({
                                   </Badge>
                                   <span className="font-medium text-sm truncate">{item.name}</span>
                                   {selected && isFromPreset && (
-                                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-200 text-purple-700 rounded-full">
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-accent/15 text-accent rounded-full">
                                       Preset
                                     </span>
                                   )}
                                   {selected && isStyleSpecific && !isFromPreset && (
-                                    <span className="text-[10px] px-1.5 py-0.5 bg-blue-200 text-blue-700 rounded-full">
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-info/15 text-info rounded-full">
                                       Selected
                                     </span>
                                   )}
@@ -432,7 +432,7 @@ export function AccessorySelector({
                   </div>
 
                   {/* Selected count */}
-                  <div className="mt-2 text-sm text-gray-600">
+                  <div className="mt-2 text-sm text-muted-foreground">
                     {getSelectedCount(tab.type)} {tab.label.toLowerCase()} selected
                   </div>
                 </TabsContent>

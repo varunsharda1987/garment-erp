@@ -34,7 +34,7 @@ const CAD_STATUS_CONFIG: Record<
     label: 'CAD Approved',
     icon: <CheckCircle className="h-3.5 w-3.5" />,
     variant: 'default',
-    className: 'bg-green-100 text-green-800 border-green-300 hover:bg-green-100',
+    className: 'bg-success-muted text-success border-success/25 hover:bg-success-muted',
   },
   IN_PROGRESS: {
     label: 'CAD In Progress',
@@ -46,13 +46,13 @@ const CAD_STATUS_CONFIG: Record<
     label: 'CAD Pending',
     icon: <AlertCircle className="h-3.5 w-3.5" />,
     variant: 'outline',
-    className: 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-100',
+    className: 'bg-muted text-foreground border-border hover:bg-muted',
   },
   UNKNOWN: {
     label: 'No CAD Status',
     icon: <Circle className="h-3.5 w-3.5" />,
     variant: 'outline',
-    className: 'bg-gray-50 text-gray-500 border-gray-200',
+    className: 'bg-muted text-muted-foreground border-border',
   },
 };
 

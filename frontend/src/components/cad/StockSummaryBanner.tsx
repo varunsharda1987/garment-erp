@@ -79,28 +79,28 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
     switch (item.productionCadStatus) {
       case 'APPROVED':
         return (
-          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300 ml-1">
+          <Badge variant="outline" className="text-xs bg-success-muted text-success border-success/25 ml-1">
             <CheckCircle className="h-3 w-3 mr-0.5" />
             CAD
           </Badge>
         );
       case 'PENDING':
         return (
-          <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300 ml-1">
+          <Badge variant="outline" className="text-xs bg-warning-muted text-yellow-700 border-yellow-300 ml-1">
             <Clock className="h-3 w-3 mr-0.5" />
             CAD
           </Badge>
         );
       case 'REJECTED':
         return (
-          <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300 ml-1">
+          <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/25 ml-1">
             <AlertTriangle className="h-3 w-3 mr-0.5" />
             CAD
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 ml-1">
+          <Badge variant="outline" className="text-xs bg-muted text-muted-foreground ml-1">
             CAD
           </Badge>
         );
@@ -119,21 +119,21 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
   };
 
   return (
-    <Card className="mb-4 border-green-200 bg-green-50">
+    <Card className="mb-4 border-success/20 bg-success-muted">
       <div className="p-3">
         <div className="flex items-center gap-2 mb-2">
-          <Package className="h-4 w-4 text-green-600" />
-          <span className="font-semibold text-sm text-green-800">Fabric Stock Available</span>
-          <Badge variant="outline" className="text-xs bg-white border-green-300">
+          <Package className="h-4 w-4 text-success" />
+          <span className="font-semibold text-sm text-success">Fabric Stock Available</span>
+          <Badge variant="outline" className="text-xs bg-card border-success/25">
             {stockSummary.length} lot{stockSummary.length > 1 ? 's' : ''} ({totalQuantity.toLocaleString()}m)
           </Badge>
           {withCad > 0 && (
-            <Badge variant="outline" className="text-xs bg-green-100 border-green-400 text-green-700">
+            <Badge variant="outline" className="text-xs bg-success-muted border-success/50 text-success">
               {withCad} with CAD
             </Badge>
           )}
           {withoutCad > 0 && onCreateProductionCAD && (
-            <Badge variant="outline" className="text-xs bg-amber-100 border-amber-400 text-amber-700">
+            <Badge variant="outline" className="text-xs bg-warning/10 border-warning/50 text-warning">
               {withoutCad} need CAD
             </Badge>
           )}
@@ -141,7 +141,7 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
         <div className="flex flex-col gap-2">
           {Object.entries(byGreige).map(([greige, items]) => (
             <div key={greige} className="space-y-1.5">
-              <span className="font-medium text-sm text-gray-700">{greige}:</span>
+              <span className="font-medium text-sm text-foreground">{greige}:</span>
               {items.map((item) => {
                 // Build a descriptive label: prefer backend fields, fall back to parsing fabricName
                 const finishLabel = item.fabricFinishType
@@ -158,13 +158,13 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
 
                 return (
                   <div key={item.id} className="flex items-center gap-2 pl-2" title={getTooltipText(item)}>
-                    {stockLabel && <span className="text-xs text-gray-600 min-w-[120px]">{stockLabel}</span>}
+                    {stockLabel && <span className="text-xs text-muted-foreground min-w-[120px]">{stockLabel}</span>}
                     <Badge
                       variant="secondary"
                       className={`cursor-help ${
                         item.hasProductionCad
-                          ? 'bg-green-100 text-green-800 border-green-200'
-                          : 'bg-amber-100 text-amber-800 border-amber-200'
+                          ? 'bg-success-muted text-success border-success/20'
+                          : 'bg-warning/10 text-warning border-warning/20'
                       }`}
                     >
                       {item.cutableWidth}" &bull; {item.quantityAvailable.toLocaleString()}m
@@ -178,7 +178,7 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 px-3 text-sm font-medium bg-white hover:bg-green-50 border-green-400 text-green-700"
+                        className="h-8 px-3 text-sm font-medium bg-card hover:bg-success-muted border-success/50 text-success"
                         onClick={() => handleCreateCAD(item)}
                         disabled={creatingCadFor === item.id}
                         title="Create PRODUCTION CAD from this stock"

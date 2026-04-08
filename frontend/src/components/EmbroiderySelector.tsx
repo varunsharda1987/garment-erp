@@ -126,7 +126,7 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-600" />
+            <Sparkles className="h-5 w-5 text-accent" />
             Select or Create Embroidery Design
           </DialogTitle>
         </DialogHeader>
@@ -135,7 +135,7 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
           <div className="space-y-4">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search embroidery designs..."
                 value={searchQuery}
@@ -148,10 +148,10 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
             <div className="border rounded-lg max-h-[300px] overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : searchResults.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <Sparkles className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                   <p>No embroidery designs found</p>
                   <p className="text-sm mt-1">Try a different search or create a new one</p>
@@ -159,7 +159,7 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
               ) : (
                 <RadioGroup value={selectedId || ''} onValueChange={setSelectedId} className="divide-y">
                   {searchResults.map((emb) => (
-                    <label key={emb.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
+                    <label key={emb.id} className="flex items-center gap-3 p-3 hover:bg-muted cursor-pointer">
                       <RadioGroupItem value={emb.id} />
                       {emb.designImage ? (
                         <img
@@ -169,8 +169,8 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
                           loading="lazy"
                         />
                       ) : (
-                        <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center">
-                          <Sparkles className="h-5 w-5 text-gray-400" />
+                        <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                          <Sparkles className="h-5 w-5 text-muted-foreground" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
@@ -180,7 +180,7 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
                           </Badge>
                           <span className="font-medium text-sm truncate">{emb.designName}</span>
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-muted-foreground mt-1">
                           {emb.stitchCount ? `${emb.stitchCount.toLocaleString()} stitches` : 'N/A'} ·{' '}
                           {emb.threadColors ? `${emb.threadColors} colors` : 'N/A'} ·{' '}
                           {emb.usableWidthAfter ? `${emb.usableWidthAfter}"` : 'N/A'} usable ·{' '}
@@ -217,7 +217,7 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
         ) : (
           /* Create Form */
           <div className="space-y-4">
-            <div className="text-sm text-gray-600 mb-4">
+            <div className="text-sm text-muted-foreground mb-4">
               Create a new embroidery design. Required fields marked with *.
             </div>
 

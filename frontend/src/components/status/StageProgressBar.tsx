@@ -38,6 +38,7 @@ interface StageProgressBarProps {
     inPrinting: number;
     inDying: number;
     inEmbroidery: number;
+    inSmocking: number;
     inHandwork: number;
     inCutting: number;
     inStitching: number;
@@ -76,7 +77,10 @@ const FULL_STAGE_ORDER: StageItem[] = [
   { key: 'IN_DYING', label: 'Dying', type: 'production', stage: 'IN_DYING' },
   { key: 'SIZE_SET_SAMPLE', label: 'Size Set', type: 'sample', sampleKey: 'sizeSetSample' },
   { key: 'IN_CUTTING', label: 'Cutting', type: 'production', stage: 'IN_CUTTING' },
+  { key: 'IN_EMBROIDERY', label: 'Embroidery', type: 'production', stage: 'IN_EMBROIDERY' },
+  { key: 'IN_SMOCKING', label: 'Smocking', type: 'production', stage: 'IN_SMOCKING' },
   { key: 'IN_STITCHING', label: 'Stitching', type: 'production', stage: 'IN_STITCHING' },
+  { key: 'IN_HANDWORK', label: 'Handwork', type: 'production', stage: 'IN_HANDWORK' },
   { key: 'INLINE_QC', label: 'Inline QC', type: 'inspection', inspectionKey: 'inlineQC' },
   { key: 'IN_FINISHING', label: 'Finishing', type: 'production', stage: 'IN_FINISHING' },
   { key: 'FINAL_QC', label: 'Final QC', type: 'inspection', inspectionKey: 'finalQC' },
@@ -162,30 +166,30 @@ export default function StageProgressBar({
     const size = 'h-5 w-5';
     switch (status) {
       case 'completed':
-        return <CheckCircle className={`${size} text-green-600`} />;
+        return <CheckCircle className={`${size} text-success`} />;
       case 'active':
-        return <Loader2 className={`${size} text-blue-600 animate-spin`} />;
+        return <Loader2 className={`${size} text-info animate-spin`} />;
       case 'blocked':
-        return <AlertCircle className={`${size} text-amber-600`} />;
+        return <AlertCircle className={`${size} text-warning`} />;
       case 'rejected':
-        return <XCircle className={`${size} text-red-600`} />;
+        return <XCircle className={`${size} text-destructive`} />;
       default:
-        return <Circle className={`${size} text-gray-300`} />;
+        return <Circle className={`${size} text-border`} />;
     }
   };
 
   const getStatusTextColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'text-green-700';
+        return 'text-success';
       case 'active':
-        return 'text-blue-700';
+        return 'text-info';
       case 'blocked':
-        return 'text-amber-700';
+        return 'text-warning';
       case 'rejected':
-        return 'text-red-700';
+        return 'text-destructive';
       default:
-        return 'text-gray-400';
+        return 'text-muted-foreground';
     }
   };
 
@@ -193,34 +197,34 @@ export default function StageProgressBar({
     if (type === 'sample') {
       switch (status) {
         case 'completed':
-          return 'bg-green-100 border-green-300';
+          return 'bg-success-muted border-success/25';
         case 'active':
-          return 'bg-blue-100 border-blue-300';
+          return 'bg-info-muted border-info/30';
         case 'blocked':
-          return 'bg-amber-100 border-amber-300';
+          return 'bg-warning/10 border-warning/25';
         case 'rejected':
-          return 'bg-red-100 border-red-300';
+          return 'bg-destructive/10 border-destructive/25';
         default:
-          return 'bg-purple-50 border-purple-200';
+          return 'bg-accent/10 border-accent/20';
       }
     }
     if (type === 'inspection') {
       switch (status) {
         case 'completed':
-          return 'bg-green-100 border-green-300';
+          return 'bg-success-muted border-success/25';
         case 'active':
-          return 'bg-blue-100 border-blue-300';
+          return 'bg-info-muted border-info/30';
         case 'rejected':
-          return 'bg-red-100 border-red-300';
+          return 'bg-destructive/10 border-destructive/25';
         default:
-          return 'bg-orange-50 border-orange-200';
+          return 'bg-primary/10 border-primary/20';
       }
     }
     return '';
   };
 
   const getConnectorColor = (status: string) => {
-    return status === 'completed' ? 'bg-green-500' : 'bg-gray-200';
+    return status === 'completed' ? 'bg-success/20' : 'bg-muted';
   };
 
   const getStageStatus = (stageItem: StageItem) => {
@@ -236,7 +240,7 @@ export default function StageProgressBar({
   return (
     <div className="space-y-4">
       {/* Stage Timeline - Expanded and Full Width */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="bg-card rounded-lg border border-border p-4">
         <div className="flex items-center justify-between gap-1 overflow-x-auto">
           {FULL_STAGE_ORDER.map((stageItem, index) => {
             const status = getStageStatus(stageItem);
@@ -260,7 +264,7 @@ export default function StageProgressBar({
                       {stageItem.label}
                     </span>
                     {isSpecial && (
-                      <span className={`text-[9px] ${isSample ? 'text-purple-500' : 'text-orange-500'}`}>
+                      <span className={`text-[9px] ${isSample ? 'text-accent' : 'text-primary'}`}>
                         {isSample ? 'Sample' : 'QC'}
                       </span>
                     )}
@@ -280,26 +284,26 @@ export default function StageProgressBar({
       </div>
 
       {/* Progress Bar - Larger */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="bg-card rounded-lg border border-border p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-          <span className="text-lg font-bold text-gray-900">{overallProgress}%</span>
+          <span className="text-sm font-medium text-foreground">Overall Progress</span>
+          <span className="text-lg font-bold text-foreground">{overallProgress}%</span>
         </div>
-        <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-4 bg-muted rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               overallProgress >= 80
-                ? 'bg-gradient-to-r from-green-500 to-green-600'
+                ? 'bg-success'
                 : overallProgress >= 50
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                  ? 'bg-info'
                   : overallProgress >= 25
-                    ? 'bg-gradient-to-r from-amber-500 to-amber-600'
-                    : 'bg-gradient-to-r from-gray-400 to-gray-500'
+                    ? 'bg-warning'
+                    : 'bg-muted-foreground'
             }`}
             style={{ width: `${overallProgress}%` }}
           />
         </div>
-        <div className="flex justify-between mt-2 text-xs text-gray-500">
+        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
           <span>Pre-Production</span>
           <span>Fabric Processing</span>
           <span>Manufacturing</span>

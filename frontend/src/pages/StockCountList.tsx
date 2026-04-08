@@ -99,12 +99,12 @@ export default function StockCountList() {
     {
       key: 'countNumber',
       header: 'Count Number',
-      render: (count) => <div className="font-medium text-gray-900">{count.countNumber}</div>,
+      render: (count) => <div className="font-medium text-foreground">{count.countNumber}</div>,
     },
     {
       key: 'warehouse',
       header: 'Warehouse',
-      render: (count) => <div className="text-sm text-gray-900">{count.warehouses?.warehouseName}</div>,
+      render: (count) => <div className="text-sm text-foreground">{count.warehouses?.warehouseName}</div>,
     },
     {
       key: 'countType',
@@ -114,7 +114,9 @@ export default function StockCountList() {
     {
       key: 'countDate',
       header: 'Count Date',
-      render: (count) => <div className="text-sm text-gray-900">{new Date(count.countDate).toLocaleDateString()}</div>,
+      render: (count) => (
+        <div className="text-sm text-foreground">{new Date(count.countDate).toLocaleDateString()}</div>
+      ),
     },
     {
       key: 'progress',
@@ -122,7 +124,7 @@ export default function StockCountList() {
       render: (count) => (
         <div className="flex items-center gap-2 min-w-[150px]">
           <Progress value={getProgressPercentage(count)} className="flex-1" />
-          <span className="text-xs text-gray-500 whitespace-nowrap">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
             {count.countedItems}/{count.totalItems}
           </span>
         </div>
@@ -135,7 +137,7 @@ export default function StockCountList() {
         count.varianceItems > 0 ? (
           <StatusBadge status={count.varianceItems.toString()} variant="warning" />
         ) : (
-          <span className="text-sm text-gray-500">-</span>
+          <span className="text-sm text-muted-foreground">-</span>
         ),
     },
     {

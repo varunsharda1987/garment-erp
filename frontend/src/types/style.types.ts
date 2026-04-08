@@ -8,6 +8,7 @@ export const ProductionStage = {
   IN_PRINTING: 'IN_PRINTING',
   IN_DYING: 'IN_DYING',
   IN_EMBROIDERY: 'IN_EMBROIDERY',
+  IN_SMOCKING: 'IN_SMOCKING',
   IN_HANDWORK: 'IN_HANDWORK',
   IN_CUTTING: 'IN_CUTTING',
   IN_STITCHING: 'IN_STITCHING',
@@ -263,6 +264,7 @@ export interface StyleProductionTracking {
   piecesInPrinting: number;
   piecesInDying: number;
   piecesInEmbroidery: number;
+  piecesInSmocking: number;
   piecesInHandwork: number;
   piecesInCutting: number;
   piecesInStitching: number;
@@ -475,6 +477,7 @@ export const PRODUCTION_STAGE_LABELS: Record<ProductionStage, string> = {
   [ProductionStage.IN_PRINTING]: 'In Printing',
   [ProductionStage.IN_DYING]: 'In Dying',
   [ProductionStage.IN_EMBROIDERY]: 'In Embroidery',
+  [ProductionStage.IN_SMOCKING]: 'In Smocking',
   [ProductionStage.IN_HANDWORK]: 'In Handwork',
   [ProductionStage.IN_CUTTING]: 'In Cutting',
   [ProductionStage.IN_STITCHING]: 'In Stitching',

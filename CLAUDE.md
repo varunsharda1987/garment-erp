@@ -64,6 +64,27 @@ export function MyComponent() {
 import { Dialog, Button } from '@mui/material';
 ```
 
+## CRITICAL: Stock Service Pattern (MANDATORY)
+
+**Every stock service that creates/adjusts/consumes stock MUST use the material-sync helper.**
+
+```typescript
+import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+```
+
+### Rules:
+1. **Before creating stock**: Call `ensureMaterialRecord(masterId, type)` to guarantee a `materials` record exists
+2. **After every quantity change**: Call `syncStockLevelQuantity(materialId, change, tx?)` to keep `stock_levels` in sync
+3. **Applies to ALL stock types**: greige_stock, fabric_stock, lace_stock, thread_stock, and any future specialized stock tables
+4. **The pre-commit hook validates** that any `*stock*.service.ts` file imports `material-sync.helper`
+
+### Why:
+- The system has two stock tracking layers: specialized tables (greige_stock, fabric_stock, etc.) and centralized `stock_levels`
+- Both are populated during GRN receipt and must stay in sync
+- Without sync, the Stock Levels page shows stale/missing data
+
+### Helper location: `backend/src/services/helpers/material-sync.helper.ts`
+
 ## Critical: API Response Serialization
 
 The backend uses a serializer (`backend/src/utils/serializer.ts`) that automatically converts ALL snake_case keys to camelCase before sending responses to the frontend.

@@ -157,7 +157,7 @@ export default function HSNSACMasterList() {
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">HSN/SAC Codes</h1>
+          <h1 className="text-2xl font-display font-medium tracking-tight">HSN/SAC Codes</h1>
           <p className="text-muted-foreground text-sm">
             Manage HSN codes for goods and SAC codes for services with default GST rates
           </p>

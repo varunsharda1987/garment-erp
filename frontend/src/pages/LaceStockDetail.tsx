@@ -213,7 +213,7 @@ export default function LaceStockDetail() {
   if (!stock) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
-        <div className="text-center py-12 text-gray-500">Stock not found</div>
+        <div className="text-center py-12 text-muted-foreground">Stock not found</div>
       </div>
     );
   }
@@ -229,8 +229,8 @@ export default function LaceStockDetail() {
           Back to List
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">{stock.laceMaster?.laceName || 'Unknown Lace'}</h1>
-          <p className="text-gray-500 font-mono">
+          <h1 className="text-2xl font-display font-medium">{stock.laceMaster?.laceName || 'Unknown Lace'}</h1>
+          <p className="text-muted-foreground font-mono">
             {stock.laceMaster?.laceCode || ''}
             {stock.lotNumber && ` / Lot: ${stock.lotNumber}`}
             {stock.dyeLotNumber && ` / Dye Lot: ${stock.dyeLotNumber}`}
@@ -268,7 +268,7 @@ export default function LaceStockDetail() {
         <Badge className={`${LACE_QUALITY_GRADE_COLORS[stock.qualityGrade]} border text-sm`}>
           Grade {stock.qualityGrade}
         </Badge>
-        <Badge className="bg-gray-100 text-gray-800 border-gray-200 text-sm">
+        <Badge className="bg-muted text-foreground border-border text-sm">
           {LACE_STOCK_TYPE_LABELS[stock.stockType]}
         </Badge>
         <Badge className={`${AGING_BUCKET_COLORS[agingBucket]} border text-sm`}>{stock.agingDays} days old</Badge>
@@ -279,8 +279,8 @@ export default function LaceStockDetail() {
         <button
           className={`px-4 py-2 -mb-px border-b-2 ${
             activeTab === 'overview'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-info text-info'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('overview')}
         >
@@ -290,8 +290,8 @@ export default function LaceStockDetail() {
         <button
           className={`px-4 py-2 -mb-px border-b-2 ${
             activeTab === 'allocations'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-info text-info'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('allocations')}
         >
@@ -301,8 +301,8 @@ export default function LaceStockDetail() {
         <button
           className={`px-4 py-2 -mb-px border-b-2 ${
             activeTab === 'history'
-              ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-info text-info'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('history')}
         >
@@ -321,19 +321,19 @@ export default function LaceStockDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Available</span>
-                <span className="font-bold text-green-600 text-lg">{stock.quantityAvailable.toLocaleString()}m</span>
+                <span className="text-muted-foreground">Available</span>
+                <span className="font-bold text-success text-lg">{stock.quantityAvailable.toLocaleString()}m</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Reserved</span>
-                <span className="font-bold text-blue-600">{stock.quantityReserved.toLocaleString()}m</span>
+                <span className="text-muted-foreground">Reserved</span>
+                <span className="font-bold text-info">{stock.quantityReserved.toLocaleString()}m</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Consumed</span>
-                <span className="font-bold text-gray-600">{stock.quantityConsumed.toLocaleString()}m</span>
+                <span className="text-muted-foreground">Consumed</span>
+                <span className="font-bold text-muted-foreground">{stock.quantityConsumed.toLocaleString()}m</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-gray-500">Total Original</span>
+                <span className="text-muted-foreground">Total Original</span>
                 <span className="font-bold">
                   {(stock.quantityAvailable + stock.quantityReserved + stock.quantityConsumed).toLocaleString()}m
                 </span>
@@ -351,15 +351,15 @@ export default function LaceStockDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Weighted Avg Cost</span>
+                <span className="text-muted-foreground">Weighted Avg Cost</span>
                 <span className="font-bold">{formatCurrency(stock.weightedAvgCost)}/m</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Purchase Cost</span>
+                <span className="text-muted-foreground">Purchase Cost</span>
                 <span className="font-bold">{formatCurrency(stock.purchaseCost)}/m</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-gray-500">Total Value (Available)</span>
+                <span className="text-muted-foreground">Total Value (Available)</span>
                 <span className="font-bold text-lg">
                   {formatCurrency(stock.quantityAvailable * stock.weightedAvgCost)}
                 </span>
@@ -375,30 +375,30 @@ export default function LaceStockDetail() {
             <CardContent className="space-y-4">
               {stock.originStyleCode && (
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-500">Origin Style</span>
+                  <span className="text-muted-foreground">Origin Style</span>
                   <span className="font-mono">{stock.originStyleCode}</span>
                 </div>
               )}
               {stock.originOrder && (
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-500">Origin Order</span>
+                  <span className="text-muted-foreground">Origin Order</span>
                   <span className="font-mono">{stock.originOrder.orderNumber}</span>
                 </div>
               )}
               {stock.procurementId && (
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-500">Procurement Ref</span>
+                  <span className="text-muted-foreground">Procurement Ref</span>
                   <span className="font-mono text-sm">{stock.procurementId}</span>
                 </div>
               )}
               {stock.processingBatchId && (
                 <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-500">Processing Batch</span>
+                  <span className="text-muted-foreground">Processing Batch</span>
                   <span className="font-mono text-sm">{stock.processingBatchId}</span>
                 </div>
               )}
               {!stock.originStyleCode && !stock.procurementId && (
-                <div className="text-gray-400 text-center py-4">Generic stock - no origin tracking</div>
+                <div className="text-muted-foreground text-center py-4">Generic stock - no origin tracking</div>
               )}
             </CardContent>
           </Card>
@@ -413,19 +413,19 @@ export default function LaceStockDetail() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Warehouse</span>
+                <span className="text-muted-foreground">Warehouse</span>
                 <span>{stock.warehouseLocation || '-'}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Rack</span>
+                <span className="text-muted-foreground">Rack</span>
                 <span>{stock.rackNumber || '-'}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b">
-                <span className="text-gray-500">Received Date</span>
+                <span className="text-muted-foreground">Received Date</span>
                 <span>{formatDate(stock.receivedDate)}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-gray-500">Last Consumed</span>
+                <span className="text-muted-foreground">Last Consumed</span>
                 <span>{formatDate(stock.lastConsumedDate)}</span>
               </div>
             </CardContent>
@@ -437,33 +437,41 @@ export default function LaceStockDetail() {
         <Card>
           <CardContent className="p-0">
             {allocations.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">No allocations found</div>
+              <div className="text-center py-12 text-muted-foreground">No allocations found</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-muted border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Style</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Allocated</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Consumed</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Style</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Order</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Type
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Allocated
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Consumed
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {allocations.map((alloc) => (
-                      <tr key={alloc.id} className="hover:bg-gray-50">
+                      <tr key={alloc.id} className="hover:bg-muted">
                         <td className="px-4 py-4">
                           <span className="font-mono">{alloc.styleCode}</span>
                           {alloc.originalStyleCode && alloc.originalStyleCode !== alloc.styleCode && (
-                            <div className="text-xs text-gray-500">From: {alloc.originalStyleCode}</div>
+                            <div className="text-xs text-muted-foreground">From: {alloc.originalStyleCode}</div>
                           )}
                         </td>
                         <td className="px-4 py-4">{alloc.order?.orderNumber || '-'}</td>
                         <td className="px-4 py-4 text-center">
-                          <Badge className="bg-gray-100 text-gray-800">{alloc.allocationType.replace(/_/g, ' ')}</Badge>
+                          <Badge className="bg-muted text-foreground">{alloc.allocationType.replace(/_/g, ' ')}</Badge>
                         </td>
                         <td className="px-4 py-4 text-right">{alloc.quantityAllocated.toLocaleString()}m</td>
                         <td className="px-4 py-4 text-right">{alloc.quantityConsumed.toLocaleString()}m</td>
@@ -471,9 +479,9 @@ export default function LaceStockDetail() {
                           <Badge
                             className={
                               alloc.allocationStatus === 'CONSUMED'
-                                ? 'bg-gray-100 text-gray-800'
+                                ? 'bg-muted text-foreground'
                                 : alloc.allocationStatus === 'IN_USE'
-                                  ? 'bg-blue-100 text-blue-800'
+                                  ? 'bg-info-muted text-info'
                                   : 'bg-yellow-100 text-yellow-800'
                             }
                           >
@@ -495,20 +503,20 @@ export default function LaceStockDetail() {
         <Card>
           <CardContent className="p-0">
             {transactions.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">No transaction history</div>
+              <div className="text-center py-12 text-muted-foreground">No transaction history</div>
             ) : (
               <div className="divide-y divide-gray-200">
                 {transactions.map((txn) => (
-                  <div key={txn.id} className="p-4 hover:bg-gray-50">
+                  <div key={txn.id} className="p-4 hover:bg-muted">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Badge
                           className={
                             txn.transactionType.includes('IN') || txn.transactionType === 'RETURN'
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-success-muted text-success'
                               : txn.transactionType.includes('OUT') || txn.transactionType === 'CONSUMPTION'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-muted text-foreground'
                           }
                         >
                           {LACE_TRANSACTION_TYPE_LABELS[txn.transactionType]}
@@ -518,12 +526,12 @@ export default function LaceStockDetail() {
                             ? `-${txn.quantity.toLocaleString()}m`
                             : `+${txn.quantity.toLocaleString()}m`}
                         </span>
-                        <span className="text-gray-500">→ Balance: {txn.balanceAfter.toLocaleString()}m</span>
+                        <span className="text-muted-foreground">→ Balance: {txn.balanceAfter.toLocaleString()}m</span>
                       </div>
-                      <span className="text-sm text-gray-500">{formatDateTime(txn.transactionDate)}</span>
+                      <span className="text-sm text-muted-foreground">{formatDateTime(txn.transactionDate)}</span>
                     </div>
                     {(txn.fromStyleCode || txn.toStyleCode || txn.notes) && (
-                      <div className="mt-2 text-sm text-gray-600">
+                      <div className="mt-2 text-sm text-muted-foreground">
                         {txn.fromStyleCode && txn.toStyleCode && (
                           <span>
                             Transfer: {txn.fromStyleCode} → {txn.toStyleCode}
@@ -533,7 +541,7 @@ export default function LaceStockDetail() {
                       </div>
                     )}
                     {txn.performedBy && (
-                      <div className="mt-1 text-xs text-gray-400">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         By: {txn.performedBy.firstName} {txn.performedBy.lastName}
                       </div>
                     )}
@@ -552,7 +560,7 @@ export default function LaceStockDetail() {
             <DialogTitle>Transfer Stock</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="text-sm text-gray-500">Available: {stock.quantityAvailable.toLocaleString()}m</div>
+            <div className="text-sm text-muted-foreground">Available: {stock.quantityAvailable.toLocaleString()}m</div>
             <div>
               <Label>Target Style ID</Label>
               <Input
@@ -650,9 +658,9 @@ export default function LaceStockDetail() {
             <DialogTitle>Downgrade Quality</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <span className="text-sm text-amber-800">This action cannot be undone</span>
+            <div className="flex items-center gap-2 p-3 bg-warning-muted border border-warning/20 rounded">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <span className="text-sm text-warning">This action cannot be undone</span>
             </div>
             <div>
               <Label>New Grade</Label>

@@ -192,9 +192,9 @@ export default function LaceLabDipForm() {
       case 'AWAITING_BUYER_APPROVAL':
         return <UserCheck className="h-5 w-5" />;
       case 'APPROVED':
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
+        return <CheckCircle className="h-5 w-5 text-success" />;
       case 'REJECTED':
-        return <XCircle className="h-5 w-5 text-red-600" />;
+        return <XCircle className="h-5 w-5 text-destructive" />;
       default:
         return null;
     }
@@ -206,8 +206,8 @@ export default function LaceLabDipForm() {
   if (loading && isEditMode && !labDip) {
     return (
       <div className="p-6 text-center">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
-        <p className="mt-4 text-gray-500">Loading...</p>
+        <div className="animate-spin h-8 w-8 border-4 border-info border-t-transparent rounded-full mx-auto"></div>
+        <p className="mt-4 text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -221,8 +221,10 @@ export default function LaceLabDipForm() {
           Back
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">{isEditMode ? 'Lab Dip Details' : 'New Lab Dip Request'}</h1>
-          {labDip && <p className="text-gray-500">{labDip.labDipNumber}</p>}
+          <h1 className="text-3xl font-display font-medium">
+            {isEditMode ? 'Lab Dip Details' : 'New Lab Dip Request'}
+          </h1>
+          {labDip && <p className="text-muted-foreground">{labDip.labDipNumber}</p>}
         </div>
       </div>
 
@@ -238,7 +240,7 @@ export default function LaceLabDipForm() {
           <CardContent>
             {/* Current Status */}
             <div className="flex items-center gap-4 mb-6">
-              <span className="text-gray-600">Current Status:</span>
+              <span className="text-muted-foreground">Current Status:</span>
               <Badge className={`${LAB_DIP_STATUS_COLORS[labDip.status]} border text-base px-4 py-1`}>
                 {LAB_DIP_STATUS_LABELS[labDip.status]}
               </Badge>
@@ -247,23 +249,23 @@ export default function LaceLabDipForm() {
             {/* Timeline */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 text-sm">
               <div>
-                <span className="text-gray-500">Request Date:</span>
+                <span className="text-muted-foreground">Request Date:</span>
                 <p className="font-medium">{formatDate(labDip.requestDate)}</p>
               </div>
               <div>
-                <span className="text-gray-500">Sent to Processor:</span>
+                <span className="text-muted-foreground">Sent to Processor:</span>
                 <p className="font-medium">{formatDate(labDip.sentToProcessorDate)}</p>
               </div>
               <div>
-                <span className="text-gray-500">Sample Received:</span>
+                <span className="text-muted-foreground">Sample Received:</span>
                 <p className="font-medium">{formatDate(labDip.sampleReceivedDate)}</p>
               </div>
               <div>
-                <span className="text-gray-500">Sent to Buyer:</span>
+                <span className="text-muted-foreground">Sent to Buyer:</span>
                 <p className="font-medium">{formatDate(labDip.sentToBuyerDate)}</p>
               </div>
               <div>
-                <span className="text-gray-500">Buyer Decision:</span>
+                <span className="text-muted-foreground">Buyer Decision:</span>
                 <p className="font-medium">{formatDate(labDip.buyerDecisionDate)}</p>
               </div>
             </div>
@@ -324,12 +326,12 @@ export default function LaceLabDipForm() {
 
             {/* Approved/Rejected info */}
             {labDip.status === 'APPROVED' && labDip.approvalReference && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-                <p className="text-green-800">
+              <div className="bg-success-muted border border-success/20 rounded-lg p-4 mt-4">
+                <p className="text-success">
                   <strong>Approval Reference:</strong> {labDip.approvalReference}
                 </p>
                 {labDip.buyerRemarks && (
-                  <p className="text-green-700 mt-2">
+                  <p className="text-success mt-2">
                     <strong>Remarks:</strong> {labDip.buyerRemarks}
                   </p>
                 )}
@@ -337,8 +339,8 @@ export default function LaceLabDipForm() {
             )}
 
             {labDip.status === 'REJECTED' && labDip.rejectionReason && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
-                <p className="text-red-800">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mt-4">
+                <p className="text-destructive">
                   <strong>Rejection Reason:</strong> {labDip.rejectionReason}
                 </p>
               </div>
@@ -358,7 +360,7 @@ export default function LaceLabDipForm() {
               {/* Greige Lace */}
               <div>
                 <Label>
-                  Greige Lace <span className="text-red-500">*</span>
+                  Greige Lace <span className="text-destructive">*</span>
                 </Label>
                 <Select value={greigeLaceId} onValueChange={setGreigeLaceId} disabled={isEditMode}>
                   <SelectTrigger>
@@ -377,7 +379,7 @@ export default function LaceLabDipForm() {
               {/* Processor */}
               <div>
                 <Label>
-                  Processor <span className="text-red-500">*</span>
+                  Processor <span className="text-destructive">*</span>
                 </Label>
                 <Select value={processorId} onValueChange={setProcessorId} disabled={isEditMode}>
                   <SelectTrigger>
@@ -396,7 +398,7 @@ export default function LaceLabDipForm() {
               {/* Target Color */}
               <div>
                 <Label>
-                  Target Color <span className="text-red-500">*</span>
+                  Target Color <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   value={targetColor}

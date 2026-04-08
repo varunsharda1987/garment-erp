@@ -86,8 +86,10 @@ export default function SizeCategoryList() {
       header: 'Category Name',
       render: (category) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{category.name}</div>
-          {category.description && <div className="text-xs text-gray-500 line-clamp-1">{category.description}</div>}
+          <div className="text-sm font-medium text-foreground">{category.name}</div>
+          {category.description && (
+            <div className="text-xs text-muted-foreground line-clamp-1">{category.description}</div>
+          )}
         </div>
       ),
     },
@@ -110,7 +112,7 @@ export default function SizeCategoryList() {
               )}
             </>
           ) : (
-            <span className="text-sm text-gray-400">No sizes</span>
+            <span className="text-sm text-muted-foreground">No sizes</span>
           )}
         </div>
       ),
@@ -119,7 +121,7 @@ export default function SizeCategoryList() {
       key: 'sizeCount',
       header: 'Total Sizes',
       render: (category) => (
-        <div className="text-sm text-gray-700">{Array.isArray(category.sizes) ? category.sizes.length : 0}</div>
+        <div className="text-sm text-foreground">{Array.isArray(category.sizes) ? category.sizes.length : 0}</div>
       ),
     },
     {

@@ -135,8 +135,8 @@ export default function TestingDashboard() {
     return (
       <div className="p-6">
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-500 mt-4">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -146,45 +146,47 @@ export default function TestingDashboard() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-          <FlaskConical className="h-8 w-8 text-blue-600" />
+        <h1 className="text-3xl font-display font-medium text-foreground flex items-center gap-3">
+          <FlaskConical className="h-8 w-8 text-info" />
           Testing Module Dashboard
         </h1>
-        <p className="text-gray-500 mt-1">Manage fabric and garment physical testing, labs, and test templates</p>
+        <p className="text-muted-foreground mt-1">
+          Manage fabric and garment physical testing, labs, and test templates
+        </p>
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* FPT Card */}
         <Card
-          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-blue-500"
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-info"
           onClick={() => navigate('/fabric-physical-tests')}
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Fabric Tests (FPT)</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats?.fpt.total || 0}</p>
+              <p className="text-sm text-muted-foreground font-medium">Fabric Tests (FPT)</p>
+              <p className="text-3xl font-bold text-foreground mt-1">{stats?.fpt.total || 0}</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <FileText className="h-6 w-6 text-blue-600" />
+            <div className="p-3 bg-info-muted rounded-lg">
+              <FileText className="h-6 w-6 text-info" />
             </div>
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Pending</span>
-              <Badge variant="outline" className="bg-amber-50">
+              <span className="text-muted-foreground">Pending</span>
+              <Badge variant="outline" className="bg-warning-muted">
                 {stats?.fpt.pending || 0}
               </Badge>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Passed</span>
-              <Badge variant="outline" className="bg-green-50">
+              <span className="text-muted-foreground">Passed</span>
+              <Badge variant="outline" className="bg-success-muted">
                 {stats?.fpt.passed || 0}
               </Badge>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Failed</span>
-              <Badge variant="outline" className="bg-red-50">
+              <span className="text-muted-foreground">Failed</span>
+              <Badge variant="outline" className="bg-destructive/10">
                 {stats?.fpt.failed || 0}
               </Badge>
             </div>
@@ -193,34 +195,34 @@ export default function TestingDashboard() {
 
         {/* GPT Card */}
         <Card
-          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-purple-500"
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-accent"
           onClick={() => navigate('/garment-physical-tests')}
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Garment Tests (GPT)</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats?.gpt.total || 0}</p>
+              <p className="text-sm text-muted-foreground font-medium">Garment Tests (GPT)</p>
+              <p className="text-3xl font-bold text-foreground mt-1">{stats?.gpt.total || 0}</p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Shirt className="h-6 w-6 text-purple-600" />
+            <div className="p-3 bg-accent/10 rounded-lg">
+              <Shirt className="h-6 w-6 text-accent" />
             </div>
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Pending</span>
-              <Badge variant="outline" className="bg-amber-50">
+              <span className="text-muted-foreground">Pending</span>
+              <Badge variant="outline" className="bg-warning-muted">
                 {stats?.gpt.pending || 0}
               </Badge>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Buyer Approval</span>
-              <Badge variant="outline" className="bg-orange-50">
+              <span className="text-muted-foreground">Buyer Approval</span>
+              <Badge variant="outline" className="bg-primary/10">
                 {stats?.gpt.pendingBuyerApproval || 0}
               </Badge>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Failed</span>
-              <Badge variant="outline" className="bg-red-50">
+              <span className="text-muted-foreground">Failed</span>
+              <Badge variant="outline" className="bg-destructive/10">
                 {stats?.gpt.failed || 0}
               </Badge>
             </div>
@@ -229,22 +231,22 @@ export default function TestingDashboard() {
 
         {/* Testing Labs Card */}
         <Card
-          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-green-500"
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-success"
           onClick={() => navigate('/testing-labs')}
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Testing Labs</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats?.labs.total || 0}</p>
+              <p className="text-sm text-muted-foreground font-medium">Testing Labs</p>
+              <p className="text-3xl font-bold text-foreground mt-1">{stats?.labs.total || 0}</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Building2 className="h-6 w-6 text-green-600" />
+            <div className="p-3 bg-success-muted rounded-lg">
+              <Building2 className="h-6 w-6 text-success" />
             </div>
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Active Labs</span>
-              <Badge variant="outline" className="bg-green-50">
+              <span className="text-muted-foreground">Active Labs</span>
+              <Badge variant="outline" className="bg-success-muted">
                 {stats?.labs.active || 0}
               </Badge>
             </div>
@@ -253,28 +255,28 @@ export default function TestingDashboard() {
 
         {/* Test Templates Card */}
         <Card
-          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-orange-500"
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-primary"
           onClick={() => navigate('/test-templates')}
         >
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Test Templates</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats?.templates.total || 0}</p>
+              <p className="text-sm text-muted-foreground font-medium">Test Templates</p>
+              <p className="text-3xl font-bold text-foreground mt-1">{stats?.templates.total || 0}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
-              <FileText className="h-6 w-6 text-orange-600" />
+              <FileText className="h-6 w-6 text-primary" />
             </div>
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">FPT Templates</span>
-              <Badge variant="outline" className="bg-blue-50">
+              <span className="text-muted-foreground">FPT Templates</span>
+              <Badge variant="outline" className="bg-info-muted">
                 {stats?.templates.fpt || 0}
               </Badge>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">GPT Templates</span>
-              <Badge variant="outline" className="bg-purple-50">
+              <span className="text-muted-foreground">GPT Templates</span>
+              <Badge variant="outline" className="bg-accent/10">
                 {stats?.templates.gpt || 0}
               </Badge>
             </div>
@@ -284,19 +286,19 @@ export default function TestingDashboard() {
 
       {/* Action Needed Section */}
       {((stats?.fpt.failed || 0) > 0 || (stats?.gpt.failed || 0) > 0 || (stats?.gpt.pendingBuyerApproval || 0) > 0) && (
-        <Card className="p-6 border-l-4 border-red-500">
+        <Card className="p-6 border-l-4 border-l-destructive">
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-red-100 rounded-lg">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
+            <div className="p-3 bg-destructive/10 rounded-lg">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Action Required</h2>
+              <h2 className="text-lg font-display font-semibold text-foreground mb-2">Action Required</h2>
               <div className="space-y-2">
                 {(stats?.fpt.failed || 0) > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-red-50 rounded">
+                  <div className="flex items-center justify-between p-3 bg-destructive/10 rounded">
                     <div className="flex items-center gap-2">
-                      <XCircle className="h-5 w-5 text-red-600" />
-                      <span className="text-sm font-medium text-gray-900">
+                      <XCircle className="h-5 w-5 text-destructive" />
+                      <span className="text-sm font-medium text-foreground">
                         {stats?.fpt.failed} Fabric Test{stats?.fpt.failed !== 1 ? 's' : ''} Failed
                       </span>
                     </div>
@@ -306,10 +308,10 @@ export default function TestingDashboard() {
                   </div>
                 )}
                 {(stats?.gpt.failed || 0) > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-red-50 rounded">
+                  <div className="flex items-center justify-between p-3 bg-destructive/10 rounded">
                     <div className="flex items-center gap-2">
-                      <XCircle className="h-5 w-5 text-red-600" />
-                      <span className="text-sm font-medium text-gray-900">
+                      <XCircle className="h-5 w-5 text-destructive" />
+                      <span className="text-sm font-medium text-foreground">
                         {stats?.gpt.failed} Garment Test{stats?.gpt.failed !== 1 ? 's' : ''} Failed
                       </span>
                     </div>
@@ -319,10 +321,10 @@ export default function TestingDashboard() {
                   </div>
                 )}
                 {(stats?.gpt.pendingBuyerApproval || 0) > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-orange-50 rounded">
+                  <div className="flex items-center justify-between p-3 bg-primary/10 rounded">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-orange-600" />
-                      <span className="text-sm font-medium text-gray-900">
+                      <Clock className="h-5 w-5 text-primary" />
+                      <span className="text-sm font-medium text-foreground">
                         {stats?.gpt.pendingBuyerApproval} Garment Test{stats?.gpt.pendingBuyerApproval !== 1 ? 's' : ''}{' '}
                         Pending Buyer Approval
                       </span>
@@ -345,7 +347,7 @@ export default function TestingDashboard() {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Fabric Testing</h2>
+          <h2 className="text-lg font-display font-semibold text-foreground mb-4">Fabric Testing</h2>
           <div className="space-y-3">
             <Button
               className="w-full justify-start"
@@ -367,7 +369,7 @@ export default function TestingDashboard() {
         </Card>
 
         <Card className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Garment Testing</h2>
+          <h2 className="text-lg font-display font-semibold text-foreground mb-4">Garment Testing</h2>
           <div className="space-y-3">
             <Button
               className="w-full justify-start"

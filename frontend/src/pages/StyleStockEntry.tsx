@@ -188,7 +188,7 @@ export default function StyleStockEntry() {
   if (!style) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="text-lg text-red-600">Style not found</div>
+        <div className="text-lg text-destructive">Style not found</div>
       </div>
     );
   }
@@ -198,7 +198,7 @@ export default function StyleStockEntry() {
       <Card>
         <CardHeader>
           <CardTitle>Fabric Stock Entry - {style.styleCode}</CardTitle>
-          <div className="text-sm text-gray-500 mt-2 space-y-1">
+          <div className="text-sm text-muted-foreground mt-2 space-y-1">
             <p>Style Name: {style.styleName}</p>
             {style.customerName && <p>Buyer: {style.customerName}</p>}
             {style.season && <p>Season: {style.season}</p>}
@@ -207,9 +207,9 @@ export default function StyleStockEntry() {
         <CardContent>
           {/* Success Alert */}
           {success && (
-            <Alert className="mb-6 bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="mb-6 bg-success-muted border-success/20">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success">
                 Stock entries saved successfully! Redirecting...
               </AlertDescription>
             </Alert>
@@ -225,28 +225,28 @@ export default function StyleStockEntry() {
 
           {/* Summary Panel */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-sm text-blue-600 font-medium">Total Fabrics</div>
-              <div className="text-2xl font-bold text-blue-900">
+            <div className="p-4 bg-info-muted rounded-lg border border-info/20">
+              <div className="text-sm text-info font-medium">Total Fabrics</div>
+              <div className="text-2xl font-bold text-info">
                 {components.reduce((sum, c) => sum + c.fabrics.length, 0)}
               </div>
             </div>
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-sm text-green-600 font-medium">Total Meters</div>
-              <div className="text-2xl font-bold text-green-900">{getTotalMeters().toFixed(2)}</div>
+            <div className="p-4 bg-success-muted rounded-lg border border-success/20">
+              <div className="text-sm text-success font-medium">Total Meters</div>
+              <div className="text-2xl font-bold text-success">{getTotalMeters().toFixed(2)}</div>
             </div>
-            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <div className="text-sm text-purple-600 font-medium">Total Value</div>
-              <div className="text-2xl font-bold text-purple-900">{formatCurrency(getTotalValue())}</div>
+            <div className="p-4 bg-accent/10 rounded-lg border border-accent/20">
+              <div className="text-sm text-accent font-medium">Total Value</div>
+              <div className="text-2xl font-bold text-accent">{formatCurrency(getTotalValue())}</div>
             </div>
           </div>
 
           {/* Stock Entry Form */}
           <div className="space-y-6">
             {components.map((component) => (
-              <div key={component.componentName} className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Package className="h-5 w-5 text-blue-600" />
+              <div key={component.componentName} className="border border-border rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Package className="h-5 w-5 text-info" />
                   {component.componentName} ({component.componentType})
                 </h3>
 
@@ -259,12 +259,12 @@ export default function StyleStockEntry() {
                     const patternParts = parentComponent?.patternParts || [];
 
                     return (
-                      <div key={fabric.fabricId} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                      <div key={fabric.fabricId} className="border border-border rounded-lg p-4 bg-muted">
                         <div className="mb-3">
-                          <h4 className="font-medium text-gray-900">{fabric.fabricCode}</h4>
-                          <p className="text-sm text-gray-600">{fabric.fabricName}</p>
+                          <h4 className="font-medium text-foreground">{fabric.fabricCode}</h4>
+                          <p className="text-sm text-muted-foreground">{fabric.fabricName}</p>
                           {fabric.widthCADs && fabric.widthCADs.length > 0 && (
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               CAD: {fabric.widthCADs[0].cadMeters?.toFixed(2)} meters @{' '}
                               {fabric.widthCADs[0].availableWidth}" width
                             </p>

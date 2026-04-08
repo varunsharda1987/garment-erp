@@ -82,7 +82,9 @@ export default function StockMovementList() {
       key: 'performedAt',
       header: 'Date',
       render: (mov) => (
-        <div className="text-sm text-gray-900">{new Date(mov.movementDate || mov.createdAt).toLocaleDateString()}</div>
+        <div className="text-sm text-foreground">
+          {new Date(mov.movementDate || mov.createdAt).toLocaleDateString()}
+        </div>
       ),
     },
     {
@@ -100,15 +102,15 @@ export default function StockMovementList() {
       header: 'Material',
       render: (mov) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{mov.materials?.code}</div>
-          <div className="text-xs text-gray-500">{mov.materials?.name}</div>
+          <div className="text-sm font-medium text-foreground">{mov.materials?.code}</div>
+          <div className="text-xs text-muted-foreground">{mov.materials?.name}</div>
         </div>
       ),
     },
     {
       key: 'warehouse',
       header: 'Warehouse',
-      render: (mov) => <div className="text-sm text-gray-900">{mov.warehouses?.warehouseName || '-'}</div>,
+      render: (mov) => <div className="text-sm text-foreground">{mov.warehouses?.warehouseName || '-'}</div>,
     },
     {
       key: 'quantity',
@@ -118,7 +120,7 @@ export default function StockMovementList() {
       render: (mov) => {
         const isInbound = mov.movementType.includes('IN');
         return (
-          <div className={`font-medium ${isInbound ? 'text-green-600' : 'text-red-600'}`}>
+          <div className={`font-medium ${isInbound ? 'text-success' : 'text-destructive'}`}>
             {isInbound ? '+' : '-'}
             {Number(mov.quantity).toFixed(2)} {mov.unit}
           </div>
@@ -128,13 +130,13 @@ export default function StockMovementList() {
     {
       key: 'reference',
       header: 'Reference',
-      render: (mov) => <div className="text-sm text-gray-900">{mov.referenceNumber || '-'}</div>,
+      render: (mov) => <div className="text-sm text-foreground">{mov.referenceNumber || '-'}</div>,
     },
     {
       key: 'performedBy',
       header: 'Performed By',
       render: (mov) => (
-        <div className="text-sm text-gray-900">
+        <div className="text-sm text-foreground">
           {mov.performedBy?.firstName || mov.performedById || '-'} {mov.performedBy?.lastName || ''}
         </div>
       ),

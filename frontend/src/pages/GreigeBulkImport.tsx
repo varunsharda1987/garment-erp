@@ -380,8 +380,8 @@ export default function GreigeBulkImport() {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Step 1: Download Template</h4>
-                <p className="text-sm text-gray-600 mb-3">
+                <h4 className="font-medium text-foreground mb-2">Step 1: Download Template</h4>
+                <p className="text-sm text-muted-foreground mb-3">
                   Download the Excel template with the correct format and sample data.
                 </p>
                 <Button onClick={downloadTemplate} variant="outline">
@@ -391,19 +391,19 @@ export default function GreigeBulkImport() {
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Step 2: Fill Data</h4>
-                <p className="text-sm text-gray-600">
+                <h4 className="font-medium text-foreground mb-2">Step 2: Fill Data</h4>
+                <p className="text-sm text-muted-foreground">
                   Open the template and fill in your greige master data. Required fields:
                 </p>
-                <ul className="text-sm text-gray-600 list-disc list-inside mt-2 space-y-1">
+                <ul className="text-sm text-muted-foreground list-disc list-inside mt-2 space-y-1">
                   <li>Generic Greige Name (e.g., Cambric, Poplin, Denim)</li>
                   <li>Yarn Count (e.g., 40×40)</li>
                   <li>Construction (e.g., 92×88)</li>
                   <li>Greige Width in inches</li>
                   <li>Composition (e.g., 100% Cotton)</li>
                 </ul>
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-800">
+                <div className="mt-3 p-3 bg-info-muted rounded-lg border border-info/20">
+                  <p className="text-sm text-info">
                     <strong>Note:</strong> Greige Code and Greige Name will be auto-generated.
                     <br />
                     Format: GRG-XXXX and "{'{Generic Name} {Yarn Count} / {Construction} / {Width}"'}"
@@ -412,8 +412,10 @@ export default function GreigeBulkImport() {
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Step 3: Upload File</h4>
-                <p className="text-sm text-gray-600 mb-3">Upload the completed Excel file to import greige masters.</p>
+                <h4 className="font-medium text-foreground mb-2">Step 3: Upload File</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Upload the completed Excel file to import greige masters.
+                </p>
               </div>
             </div>
           </CardContent>
@@ -431,12 +433,12 @@ export default function GreigeBulkImport() {
                   type="file"
                   accept=".xlsx,.xls"
                   onChange={handleFileChange}
-                  className="block w-full text-sm text-gray-500
+                  className="block w-full text-sm text-muted-foreground
                     file:mr-4 file:py-2 file:px-4
                     file:rounded-md file:border-0
                     file:text-sm file:font-semibold
-                    file:bg-blue-50 file:text-blue-700
-                    hover:file:bg-blue-100"
+                    file:bg-info-muted file:text-info
+                    hover:file:bg-info-muted"
                 />
               </div>
 
@@ -451,19 +453,23 @@ export default function GreigeBulkImport() {
 
               {previewData.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Preview (First 5 rows)</h4>
+                  <h4 className="font-medium text-foreground mb-2">Preview (First 5 rows)</h4>
                   <div className="overflow-x-auto border rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-muted">
                         <tr>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Generic Name</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Yarn Count</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Construction</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Width</th>
-                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Composition</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                            Generic Name
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Yarn Count</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                            Construction
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Width</th>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Composition</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-card divide-y divide-gray-200">
                         {previewData.map((row, index) => (
                           <tr key={index}>
                             <td className="px-3 py-2 text-sm">{row['Generic Greige Name']}</td>
@@ -507,9 +513,9 @@ export default function GreigeBulkImport() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 {result.failed === 0 ? (
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <CheckCircle className="h-5 w-5 text-success" />
                 ) : (
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                  <AlertTriangle className="h-5 w-5 text-warning" />
                 )}
                 Import Results
               </CardTitle>
@@ -517,19 +523,19 @@ export default function GreigeBulkImport() {
             <CardContent>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="text-2xl font-bold text-green-700">{result.success}</div>
-                    <div className="text-sm text-green-600">Successfully Imported</div>
+                  <div className="p-4 bg-success-muted rounded-lg border border-success/20">
+                    <div className="text-2xl font-bold text-success">{result.success}</div>
+                    <div className="text-sm text-success">Successfully Imported</div>
                   </div>
-                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                    <div className="text-2xl font-bold text-red-700">{result.failed}</div>
-                    <div className="text-sm text-red-600">Failed</div>
+                  <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                    <div className="text-2xl font-bold text-destructive">{result.failed}</div>
+                    <div className="text-sm text-destructive">Failed</div>
                   </div>
                 </div>
 
                 {result.errors.length > 0 && (
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Errors:</h4>
+                    <h4 className="font-medium text-foreground mb-2">Errors:</h4>
                     <div className="space-y-2">
                       {result.errors.map((error, index) => (
                         <Alert key={index} variant="destructive">

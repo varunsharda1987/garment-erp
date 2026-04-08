@@ -174,11 +174,11 @@ export default function VendorAllocationDialog({
   const getConfidenceIcon = (confidence: 'high' | 'medium' | 'low') => {
     switch (confidence) {
       case 'high':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case 'medium':
-        return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+        return <AlertTriangle className="h-4 w-4 text-warning" />;
       case 'low':
-        return <HelpCircle className="h-4 w-4 text-gray-600" />;
+        return <HelpCircle className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -197,8 +197,8 @@ export default function VendorAllocationDialog({
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Sparkles className="h-6 w-6 text-purple-600" />
+            <div className="p-2 bg-accent/10 rounded-lg">
+              <Sparkles className="h-6 w-6 text-accent" />
             </div>
             <div>
               <DialogTitle>Vendor Allocation</DialogTitle>
@@ -219,21 +219,21 @@ export default function VendorAllocationDialog({
             {/* Statistics */}
             {stats && (
               <div className="grid grid-cols-4 gap-3 mb-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-green-700">{stats.high}</div>
-                  <div className="text-xs text-green-600">High Confidence</div>
+                <div className="bg-success-muted border border-success/20 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-success">{stats.high}</div>
+                  <div className="text-xs text-success">High Confidence</div>
                 </div>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                <div className="bg-warning-muted border border-yellow-200 rounded-lg p-3 text-center">
                   <div className="text-2xl font-bold text-yellow-700">{stats.medium}</div>
-                  <div className="text-xs text-yellow-600">Medium Confidence</div>
+                  <div className="text-xs text-warning">Medium Confidence</div>
                 </div>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-gray-700">{stats.low}</div>
-                  <div className="text-xs text-gray-600">Low Confidence</div>
+                <div className="bg-muted border border-border rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-foreground">{stats.low}</div>
+                  <div className="text-xs text-muted-foreground">Low Confidence</div>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-blue-700">{stats.withSuggestion}</div>
-                  <div className="text-xs text-blue-600">With Suggestion</div>
+                <div className="bg-info-muted border border-info/20 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-info">{stats.withSuggestion}</div>
+                  <div className="text-xs text-info">With Suggestion</div>
                 </div>
               </div>
             )}

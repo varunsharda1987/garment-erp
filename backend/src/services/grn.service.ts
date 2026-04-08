@@ -22,6 +22,7 @@ import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
 import { logInfo, logError } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
+import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 class GRNService {
   /**
@@ -616,6 +617,18 @@ class GRNService {
           const processType = jobWorkOrder.processType;
           const fabricFinishType = processType === 'PRINTING' ? 'PRINTED' : 'DYED';
 
+          // Check if origin style requires embroidery for this fabric
+          let styleNeedsEmbroidery = false;
+          if (jobWorkOrder.styleId) {
+            const embFabric = await tx.style_fabrics.findFirst({
+              where: {
+                style_components: { styleId: jobWorkOrder.styleId },
+                hasEmbroidery: true,
+              },
+            });
+            styleNeedsEmbroidery = !!embFabric;
+          }
+
           // Good quality fabric_stock
           if (goodQty > 0) {
             await tx.fabric_stock.create({
@@ -639,6 +652,7 @@ class GRNService {
                 receivedDate: jobWorkOrder.receivedDate || new Date(),
                 agingAlertSent: false,
                 agingDays: 0,
+                needsEmbroidery: styleNeedsEmbroidery,
                 createdById: userId,
               },
             });
@@ -667,9 +681,55 @@ class GRNService {
                 receivedDate: jobWorkOrder.receivedDate || new Date(),
                 agingAlertSent: false,
                 agingDays: 0,
+                needsEmbroidery: styleNeedsEmbroidery,
                 createdById: userId,
               },
             });
+          }
+
+          // Consume from processor's greige_stock (created when outward challan was issued)
+          if (jobWorkOrder.outwardChallanId) {
+            const processorGreigeStock = await tx.greige_stock.findFirst({
+              where: { sourceChallanId: jobWorkOrder.outwardChallanId },
+            });
+
+            if (processorGreigeStock) {
+              const processorAvailable = Number(processorGreigeStock.quantityAvailable);
+              const qtyToConsume = Math.min(qtyReceived, processorAvailable);
+
+              if (qtyToConsume > 0) {
+                const newAvailable = processorAvailable - qtyToConsume;
+                await tx.greige_stock.update({
+                  where: { id: processorGreigeStock.id },
+                  data: {
+                    quantityAvailable: newAvailable,
+                    quantityConsumed: Number(processorGreigeStock.quantityConsumed) + qtyToConsume,
+                    lastConsumedDate: new Date(),
+                    status: newAvailable <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
+                  },
+                });
+
+                // Create transaction record for audit trail
+                await tx.greige_stock_transaction.create({
+                  data: {
+                    stockId: processorGreigeStock.id,
+                    transactionType: 'PROCESSOR_RETURN',
+                    quantity: -qtyToConsume,
+                    balanceAfter: newAvailable,
+                    referenceType: 'GRN',
+                    referenceId: id,
+                    notes: `Consumed via GRN ${grn.grnNumber} - goods returned from processor`,
+                    performedById: userId,
+                  },
+                });
+
+                logInfo(`Consumed ${qtyToConsume}m from processor greige_stock`, {
+                  grnId: id,
+                  processorStockId: processorGreigeStock.id,
+                  remaining: newAvailable,
+                });
+              }
+            }
           }
 
           // Update job status to STOCK_UPDATED
@@ -922,6 +982,10 @@ class GRNService {
               },
             });
 
+            // Ensure materials record + sync stock_levels
+            await ensureMaterialRecord(fabric.id, 'FABRIC');
+            await syncStockLevelQuantity(fabric.id, acceptedQty);
+
             logInfo(
               `Auto-created fabric_stock from FABRIC GRN ${grn.grnNumber}: ${acceptedQty}m of fabricId=${fabric.id}`,
               {
@@ -980,6 +1044,10 @@ class GRNService {
                 createdById: userId,
               },
             });
+
+            // Ensure materials record + sync stock_levels
+            await ensureMaterialRecord(material.lace_master.id, 'LACE');
+            await syncStockLevelQuantity(material.lace_master.id, acceptedQty);
 
             logInfo(
               `Auto-created lace_stock from LACE GRN ${grn.grnNumber}: ${acceptedQty}m of laceId=${material.lace_master.id}`,
@@ -1098,6 +1166,10 @@ class GRNService {
                 data: { status: 'RECEIVED' },
               });
             }
+
+            // Ensure materials record + sync stock_levels
+            await ensureMaterialRecord(thread.id, 'THREAD');
+            await syncStockLevelQuantity(thread.id, acceptedQty);
 
             logInfo(
               `Auto-created thread_stock from THREAD GRN ${grn.grnNumber}: ${acceptedQty} ${poUnit} of threadId=${thread.id}`,

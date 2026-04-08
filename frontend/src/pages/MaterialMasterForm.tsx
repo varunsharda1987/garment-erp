@@ -130,9 +130,9 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
       </PageHeader>
 
       {error && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-destructive/20 bg-destructive/10">
           <CardContent className="pt-6">
-            <p className="text-red-600">{error}</p>
+            <p className="text-destructive">{error}</p>
           </CardContent>
         </Card>
       )}

@@ -91,8 +91,8 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
-          <span className="text-gray-500">Loading thread stock data...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-info mr-2" />
+          <span className="text-muted-foreground">Loading thread stock data...</span>
         </CardContent>
       </Card>
     );
@@ -106,7 +106,7 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Scissors className="h-5 w-5 text-purple-600" />
+              <Scissors className="h-5 w-5 text-accent" />
               <CardTitle className="text-lg">Thread Issuance — Stitching</CardTitle>
             </div>
             {data.items.length > 0 && (
@@ -122,7 +122,7 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
               </Button>
             )}
           </div>
-          <p className="text-sm text-gray-500">Issue thread cones/spools from store to stitching department.</p>
+          <p className="text-sm text-muted-foreground">Issue thread cones/spools from store to stitching department.</p>
         </CardHeader>
 
         {data.items.length > 0 && (
@@ -147,7 +147,7 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
                   return (
                     <TableRow
                       key={item.threadStockId}
-                      className={isSelected ? 'bg-purple-50' : 'cursor-pointer hover:bg-gray-50'}
+                      className={isSelected ? 'bg-accent/10' : 'cursor-pointer hover:bg-muted'}
                       onClick={() =>
                         setSelected((prev) => ({ ...prev, [item.threadStockId]: !prev[item.threadStockId] }))
                       }
@@ -208,7 +208,7 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
       {data.issuedChallans.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Issued Thread Challans ({data.issuedChallans.length})
             </CardTitle>
           </CardHeader>
@@ -220,7 +220,7 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
                     <Badge variant="secondary" className="text-xs">
                       {challan.challanNumber}
                     </Badge>
-                    <span className="text-gray-500">
+                    <span className="text-muted-foreground">
                       {new Date(challan.challanDate).toLocaleDateString()} — {challan.items.length} item(s)
                     </span>
                     <Badge variant={challan.status === 'ISSUED' ? 'default' : 'outline'} className="text-xs">

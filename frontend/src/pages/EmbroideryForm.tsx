@@ -204,18 +204,18 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {error && <div className="bg-red-50 text-red-600 p-4 rounded-md">{error}</div>}
+            {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md">{error}</div>}
 
             {/* BASIC INFORMATION */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Design Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Design Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Embroidery Code */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                  <label className="block text-sm font-medium text-foreground mb-1 flex items-center gap-2">
                     Embroidery Code
                     {isNewEmbroidery && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Auto-generated</span>
+                      <span className="text-xs bg-info-muted text-info px-2 py-0.5 rounded">Auto-generated</span>
                     )}
                   </label>
                   {!isNewEmbroidery && embroideryCode ? (
@@ -223,7 +223,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                       <Badge variant="secondary" className="font-mono text-sm">
                         {embroideryCode}
                       </Badge>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         This code is automatically generated and cannot be changed
                       </p>
                     </div>
@@ -233,9 +233,11 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                         value=""
                         readOnly
                         placeholder="Will be auto-generated (e.g., EMB-202512-0001)"
-                        className="bg-gray-50 cursor-not-allowed"
+                        className="bg-muted cursor-not-allowed"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Code will be automatically assigned upon creation</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Code will be automatically assigned upon creation
+                      </p>
                     </>
                   )}
                 </div>
@@ -248,28 +250,28 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                     {...register('designName', { required: 'Design name is required' })}
                     placeholder="e.g., Floral Vine Pattern, Geometric Border"
                   />
-                  {errors.designName && <p className="text-sm text-red-500 mt-1">{errors.designName.message}</p>}
+                  {errors.designName && <p className="text-sm text-destructive mt-1">{errors.designName.message}</p>}
                 </div>
 
                 {/* Design Image URL */}
                 <div>
                   <Label htmlFor="designImage">Design Image URL</Label>
                   <Input id="designImage" {...register('designImage')} placeholder="https://example.com/image.jpg" />
-                  <p className="text-xs text-gray-500 mt-1">URL to a preview image of the design</p>
+                  <p className="text-xs text-muted-foreground mt-1">URL to a preview image of the design</p>
                 </div>
 
                 {/* Design File URL */}
                 <div>
                   <Label htmlFor="designFile">Design File URL</Label>
                   <Input id="designFile" {...register('designFile')} placeholder="https://example.com/design.dst" />
-                  <p className="text-xs text-gray-500 mt-1">URL to the embroidery file (DST, PES, etc.)</p>
+                  <p className="text-xs text-muted-foreground mt-1">URL to the embroidery file (DST, PES, etc.)</p>
                 </div>
               </div>
             </div>
 
             {/* DESIGN SPECIFICATIONS */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Design Specifications</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Design Specifications</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Stitch Count */}
                 <div>
@@ -311,7 +313,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
 
             {/* WIDTH IMPACT */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Width Impact</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Width Impact</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Min Fabric Width */}
                 <div>
@@ -323,7 +325,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                     {...register('minFabricWidth')}
                     placeholder="e.g., 55"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Minimum input width needed for this design</p>
+                  <p className="text-xs text-muted-foreground mt-1">Minimum input width needed for this design</p>
                 </div>
 
                 {/* Usable Width After */}
@@ -336,9 +338,9 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                     {...register('usableWidthAfter', { required: 'Usable width is required' })}
                     placeholder="e.g., 50"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Cuttable width after embroidery is complete</p>
+                  <p className="text-xs text-muted-foreground mt-1">Cuttable width after embroidery is complete</p>
                   {errors.usableWidthAfter && (
-                    <p className="text-sm text-red-500 mt-1">{errors.usableWidthAfter.message}</p>
+                    <p className="text-sm text-destructive mt-1">{errors.usableWidthAfter.message}</p>
                   )}
                 </div>
               </div>
@@ -346,7 +348,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
 
             {/* COSTING */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Costing</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Costing</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Cost Per Meter */}
                 <div>
@@ -358,7 +360,9 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                     {...register('costPerMeter', { required: 'Cost per meter is required' })}
                     placeholder="e.g., 120.00"
                   />
-                  {errors.costPerMeter && <p className="text-sm text-red-500 mt-1">{errors.costPerMeter.message}</p>}
+                  {errors.costPerMeter && (
+                    <p className="text-sm text-destructive mt-1">{errors.costPerMeter.message}</p>
+                  )}
                 </div>
 
                 {/* Lead Time */}
@@ -371,7 +375,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
 
             {/* SUPPLIER INFORMATION */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Supplier Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Supplier Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Supplier */}
                 <div>
@@ -408,7 +412,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
 
             {/* DESCRIPTION */}
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Additional Information</h3>
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Additional Information</h3>
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -423,14 +427,16 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
             {/* STATUS (Edit mode only) */}
             {!isNewEmbroidery && (
               <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">Status</h3>
+                <h3 className="text-lg font-semibold mb-4 text-foreground">Status</h3>
                 <div className="flex items-center gap-3">
                   <Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} />
                   <Label htmlFor="isActive" className="cursor-pointer">
                     {isActive ? 'Active' : 'Inactive'}
                   </Label>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Inactive designs will not appear in selection dropdowns</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Inactive designs will not appear in selection dropdowns
+                </p>
               </div>
             )}
 

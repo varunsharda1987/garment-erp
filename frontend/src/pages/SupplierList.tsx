@@ -141,24 +141,24 @@ export default function SupplierList() {
 
   const getCategoryBadgeColor = (category: SupplierCategory) => {
     const colors: Record<string, string> = {
-      FABRIC_SUPPLIER: 'bg-blue-100 text-blue-800',
-      TRIMS_SUPPLIER: 'bg-purple-100 text-purple-800',
-      THREAD_SUPPLIER: 'bg-green-100 text-green-800',
+      FABRIC_SUPPLIER: 'bg-info-muted text-info',
+      TRIMS_SUPPLIER: 'bg-accent/10 text-accent',
+      THREAD_SUPPLIER: 'bg-success-muted text-success',
       PACKAGING_SUPPLIER: 'bg-teal-100 text-teal-800',
-      LACE_SUPPLIER: 'bg-indigo-100 text-indigo-800',
+      LACE_SUPPLIER: 'bg-primary/10 text-primary',
       DYEING_PRINTING: 'bg-yellow-100 text-yellow-800',
       EMBROIDERY: 'bg-pink-100 text-pink-800',
       HAND_WORK: 'bg-rose-100 text-rose-800',
-      SMOCKING: 'bg-amber-100 text-amber-800',
+      SMOCKING: 'bg-warning/10 text-warning',
       CMT_UNIT: 'bg-orange-100 text-orange-800',
       FINISHING_CONTRACTOR: 'bg-cyan-100 text-cyan-800',
       STITCHING_CONTRACTOR: 'bg-lime-100 text-lime-800',
       WASHING: 'bg-sky-100 text-sky-800',
       DORI_PIPING_CONTRACTOR: 'bg-violet-100 text-violet-800',
       MACHINE_PARTS_SUPPLIER: 'bg-slate-100 text-slate-800',
-      OTHER_SERVICES: 'bg-gray-100 text-gray-800',
+      OTHER_SERVICES: 'bg-muted text-foreground',
     };
-    return colors[category] || 'bg-gray-100 text-gray-800';
+    return colors[category] || 'bg-muted text-foreground';
   };
 
   // Define columns for DataTable
@@ -166,16 +166,16 @@ export default function SupplierList() {
     {
       key: 'code',
       header: 'Code',
-      render: (supplier) => <div className="text-sm font-medium text-gray-900">{supplier.code}</div>,
+      render: (supplier) => <div className="text-sm font-medium text-foreground">{supplier.code}</div>,
     },
     {
       key: 'name',
       header: 'Supplier Name',
       render: (supplier) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{supplier.name}</div>
+          <div className="text-sm font-medium text-foreground">{supplier.name}</div>
           {supplier.gstNumbers && supplier.gstNumbers.length > 0 && (
-            <div className="text-xs text-gray-500">GST: {supplier.gstNumbers[0].gstNumber}</div>
+            <div className="text-xs text-muted-foreground">GST: {supplier.gstNumbers[0].gstNumber}</div>
           )}
         </div>
       ),
@@ -198,9 +198,9 @@ export default function SupplierList() {
       header: 'Contact',
       render: (supplier) => (
         <div>
-          {supplier.contactPerson && <div className="text-sm text-gray-900">{supplier.contactPerson}</div>}
-          {supplier.email && <div className="text-xs text-gray-500">{supplier.email}</div>}
-          {supplier.phone && <div className="text-xs text-gray-500">{supplier.phone}</div>}
+          {supplier.contactPerson && <div className="text-sm text-foreground">{supplier.contactPerson}</div>}
+          {supplier.email && <div className="text-xs text-muted-foreground">{supplier.email}</div>}
+          {supplier.phone && <div className="text-xs text-muted-foreground">{supplier.phone}</div>}
         </div>
       ),
     },
@@ -212,14 +212,14 @@ export default function SupplierList() {
     {
       key: 'paymentTerms',
       header: 'Payment Terms',
-      render: (supplier) => <div className="text-sm text-gray-700">{supplier.paymentTerms || '-'}</div>,
+      render: (supplier) => <div className="text-sm text-foreground">{supplier.paymentTerms || '-'}</div>,
     },
     {
       key: 'stats',
       header: 'Stats',
       render: (supplier) =>
         supplier._count && (
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-muted-foreground">
             <div>POs: {supplier._count.purchaseOrders}</div>
             <div>Materials: {supplier._count.materials}</div>
           </div>
@@ -375,7 +375,7 @@ export default function SupplierList() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-warning" />
               Cannot Deactivate Supplier
             </DialogTitle>
             <DialogDescription>

@@ -1,11 +1,12 @@
 // Quick Issue Form - Issue materials via challan (Stock Out with proper tracking)
-import { useState, useEffect } from 'react';
+// 4-step wizard: Issue Type → Supplier/Dept → Add Items (multi-item) → Review & Submit
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, X, ArrowRightLeft, ArrowUpRight } from 'lucide-react';
+import { Send, X, ArrowRightLeft, ArrowUpRight, Info, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,12 +21,92 @@ import { getAllSuppliers } from '../services/supplier.service';
 import { fabricStockService } from '../services/fabricStock.service';
 import { greigeStockService } from '../services/greigeStock.service';
 import type { GreigeStockEntry } from '../services/greigeStock.service';
-import { SupplierCategory, SupplierCategoryLabels } from '../types/supplier.types';
+import { SupplierCategoryLabels } from '../types/supplier.types';
 import type { CreateChallanInput, ChallanType } from '../types/challan.types';
 import type { Warehouse, StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 
+// --- Material type tile system (matching Stock In) ---
+
+type MaterialType =
+  | 'GREIGE'
+  | 'FABRIC'
+  | 'LACE'
+  | 'BUTTON'
+  | 'THREAD'
+  | 'ZIPPER'
+  | 'ELASTIC'
+  | 'LABEL'
+  | 'LABEL_VARIANT'
+  | 'PACKAGING'
+  | 'MATERIAL';
+
+const MATERIAL_TYPE_LABELS: Record<MaterialType, string> = {
+  GREIGE: 'Greige Fabric',
+  FABRIC: 'Finished Fabric',
+  LACE: 'Lace',
+  BUTTON: 'Buttons',
+  THREAD: 'Threads',
+  ZIPPER: 'Zippers',
+  ELASTIC: 'Elastics',
+  LABEL: 'Labels',
+  LABEL_VARIANT: 'Label Size Variants',
+  PACKAGING: 'Packaging',
+  MATERIAL: 'Other Materials',
+};
+
 type StockType = 'GENERAL' | 'FABRIC' | 'GREIGE';
+
+// Map tile type to underlying stock source
+const MATERIAL_TO_STOCK_TYPE: Record<MaterialType, StockType> = {
+  GREIGE: 'GREIGE',
+  FABRIC: 'FABRIC',
+  LACE: 'GENERAL',
+  BUTTON: 'GENERAL',
+  THREAD: 'GENERAL',
+  ZIPPER: 'GENERAL',
+  ELASTIC: 'GENERAL',
+  LABEL: 'GENERAL',
+  LABEL_VARIANT: 'GENERAL',
+  PACKAGING: 'GENERAL',
+  MATERIAL: 'GENERAL',
+};
+
+// Map tile type to DB materialType enum values for filtering stock_levels
+const MATERIAL_TYPE_DB_FILTER: Record<string, string[]> = {
+  LACE: ['LACE'],
+  BUTTON: ['BUTTON', 'SNAP_BUTTON', 'HOOK_EYE'],
+  THREAD: ['THREAD'],
+  ZIPPER: ['ZIPPER'],
+  ELASTIC: ['ELASTIC'],
+  LABEL: ['LABEL'],
+  LABEL_VARIANT: ['LABEL'],
+  PACKAGING: ['PACKAGING'],
+  // "Other Materials" = everything not in the above specific types
+  MATERIAL: [
+    'GENERIC',
+    'TRIMS',
+    'ACCESSORIES',
+    'SERVICE',
+    'MACHINE_PART',
+    'OTHER',
+    'BUCKLE',
+    'BELT',
+    'VELCRO',
+    'DRAWSTRING',
+    'RIBBON',
+    'SEQUIN',
+    'BEAD',
+    'MOTIF',
+    'INTERLINING',
+    'PADDING',
+    'OTHER_FASTENER',
+    'OTHER_TAPE',
+    'OTHER_DECORATIVE',
+    'OTHER_FUNCTIONAL',
+    'OTHER_MATERIAL',
+  ],
+};
 
 const DEPARTMENTS = ['Cutting', 'Stitching', 'Finishing', 'Washing', 'Packing', 'Quality', 'Embroidery', 'Printing'];
 
@@ -39,6 +120,45 @@ interface FabricStockOption {
   purchaseCost: number;
 }
 
+// Line item interface for multi-item support
+interface LineItem {
+  tempId: string;
+  materialType: MaterialType | '';
+  stockType: StockType;
+  // Stock IDs
+  greigeStockId: string;
+  fabricStockId: string;
+  materialId: string;
+  // Details
+  materialDescription: string;
+  quantity: string;
+  unit: string;
+  availableQty: number | null;
+  rate: number | null;
+  // Fabric/greige specific
+  foldLengthCm: string;
+  thanCount: string;
+}
+
+// Create empty line item with unique temp ID
+function createEmptyLineItem(): LineItem {
+  return {
+    tempId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    materialType: '',
+    stockType: 'GENERAL',
+    greigeStockId: '',
+    fabricStockId: '',
+    materialId: '',
+    materialDescription: '',
+    quantity: '',
+    unit: '',
+    availableQty: null,
+    rate: null,
+    foldLengthCm: '',
+    thanCount: '',
+  };
+}
+
 export default function StockOutForm() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -47,11 +167,8 @@ export default function StockOutForm() {
 
   // Form state
   const [challanType, setChallanType] = useState<ChallanType>('OUTWARD');
-  const [stockType, setStockType] = useState<StockType>('GENERAL');
   const [warehouseId, setWarehouseId] = useState('');
   const [warehouseName, setWarehouseName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [unit, setUnit] = useState('');
   const [remarks, setRemarks] = useState('');
 
   // Destination
@@ -61,25 +178,156 @@ export default function StockOutForm() {
   const [department, setDepartment] = useState('');
   const [customDepartment, setCustomDepartment] = useState('');
 
-  // Material selection
-  const [materialId, setMaterialId] = useState('');
-  const [materialDescription, setMaterialDescription] = useState('');
-  const [fabricStockId, setFabricStockId] = useState('');
-  const [greigeStockId, setGreigeStockId] = useState('');
-  const [availableQty, setAvailableQty] = useState<number | null>(null);
-  const [rate, setRate] = useState<number | null>(null);
+  // Multi-item support: array of line items
+  const [lineItems, setLineItems] = useState<LineItem[]>([createEmptyLineItem()]);
 
   // Data lists
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
+  const [allStockLevels, setAllStockLevels] = useState<StockLevel[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<ComboboxOption[]>([]);
   const [fabricStocks, setFabricStocks] = useState<FabricStockOption[]>([]);
   const [greigeStocks, setGreigeStocks] = useState<GreigeStockEntry[]>([]);
   const [suppliersRaw, setSuppliersRaw] = useState<{ id: string; name: string; code?: string }[]>([]);
 
-  // Load warehouses on mount
+  // Compute tile counts for material type display
+  const tileCounts: Record<string, number> = {};
+  tileCounts['GREIGE'] = greigeStocks.length;
+  tileCounts['FABRIC'] = fabricStocks.length;
+  for (const sl of allStockLevels) {
+    const matType = (sl.materials as any)?.materialType || 'GENERIC';
+    for (const [tileType, dbTypes] of Object.entries(MATERIAL_TYPE_DB_FILTER)) {
+      if (dbTypes.includes(matType)) {
+        tileCounts[tileType] = (tileCounts[tileType] || 0) + 1;
+        break;
+      }
+    }
+  }
+
+  // Get filtered stock levels for a given material type
+  const getFilteredStockLevels = useCallback(
+    (materialType: MaterialType | ''): StockLevel[] => {
+      if (!materialType) return allStockLevels;
+      const stockType = MATERIAL_TO_STOCK_TYPE[materialType];
+      if (stockType !== 'GENERAL') return allStockLevels;
+      const dbTypes = MATERIAL_TYPE_DB_FILTER[materialType] || [];
+      return allStockLevels.filter((sl) => {
+        const matType = (sl.materials as any)?.materialType || 'GENERIC';
+        return dbTypes.includes(matType);
+      });
+    },
+    [allStockLevels]
+  );
+
+  // --- Line Item Management Functions ---
+  const addLineItem = () => {
+    setLineItems((prev) => [...prev, createEmptyLineItem()]);
+  };
+
+  const removeLineItem = (tempId: string) => {
+    if (lineItems.length <= 1) return;
+    setLineItems((prev) => prev.filter((item) => item.tempId !== tempId));
+  };
+
+  const updateLineItem = (tempId: string, field: keyof LineItem, value: any) => {
+    setLineItems((prev) => prev.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item)));
+  };
+
+  // Handle material type change for a line item
+  const handleLineItemMaterialTypeChange = (tempId: string, materialType: MaterialType) => {
+    const stockType = MATERIAL_TO_STOCK_TYPE[materialType];
+    setLineItems((prev) =>
+      prev.map((item) =>
+        item.tempId === tempId
+          ? {
+              ...item,
+              materialType,
+              stockType,
+              greigeStockId: '',
+              fabricStockId: '',
+              materialId: '',
+              materialDescription: '',
+              quantity: '',
+              unit: stockType === 'GREIGE' || stockType === 'FABRIC' ? 'MTR' : '',
+              availableQty: null,
+              rate: null,
+              foldLengthCm: '',
+              thanCount: '',
+            }
+          : item
+      )
+    );
+  };
+
+  // Handle greige stock selection for a line item
+  const handleLineItemGreigeChange = (tempId: string, gsId: string) => {
+    const gs = greigeStocks.find((g) => g.id === gsId);
+    if (!gs) return;
+    const widthStr = gs.greigeWidth ? ` / ${gs.greigeWidth}"` : '';
+    const constructionStr = gs.greige.construction ? ` / ${gs.greige.construction}` : '';
+    const description = `${gs.greige.greigeCode} - ${gs.greige.greigeName}${constructionStr}${widthStr} (${gs.greige.composition})`;
+    setLineItems((prev) =>
+      prev.map((item) =>
+        item.tempId === tempId
+          ? {
+              ...item,
+              greigeStockId: gsId,
+              materialDescription: description,
+              availableQty: Number(gs.quantityAvailable),
+              rate: Number(gs.purchaseCost || gs.weightedAvgCost) || null,
+              unit: 'MTR',
+            }
+          : item
+      )
+    );
+  };
+
+  // Handle fabric stock selection for a line item
+  const handleLineItemFabricChange = (tempId: string, fsId: string) => {
+    const fs = fabricStocks.find((f) => f.id === fsId);
+    if (!fs) return;
+    const description = `${fs.fabricCode} - ${fs.fabricName}${fs.colorName ? ` (${fs.colorName})` : ''}`;
+    setLineItems((prev) =>
+      prev.map((item) =>
+        item.tempId === tempId
+          ? {
+              ...item,
+              fabricStockId: fsId,
+              materialDescription: description,
+              availableQty: fs.quantityAvailable,
+              rate: fs.purchaseCost,
+              unit: 'MTR',
+            }
+          : item
+      )
+    );
+  };
+
+  // Handle general material selection for a line item
+  const handleLineItemMaterialChange = (tempId: string, matId: string, materialType: MaterialType | '') => {
+    const filteredLevels = getFilteredStockLevels(materialType);
+    const stock = filteredLevels.find((s) => s.materialId === matId);
+    if (!stock) return;
+    const description = `${stock.materials?.code || ''} - ${stock.materials?.name || ''}`;
+    setLineItems((prev) =>
+      prev.map((item) =>
+        item.tempId === tempId
+          ? {
+              ...item,
+              materialId: matId,
+              materialDescription: description,
+              availableQty: Number(stock.quantity),
+              rate: Number(stock.valuationRate) || null,
+              unit: stock.unit,
+            }
+          : item
+      )
+    );
+  };
+
+  // Load warehouses + fabric/greige stock on mount
   useEffect(() => {
     loadWarehouses();
+    loadFabricStock();
+    loadGreigeStock();
   }, []);
 
   // Load suppliers when OUTWARD selected or category changes
@@ -89,72 +337,34 @@ export default function StockOutForm() {
     }
   }, [challanType, supplierCategory]);
 
-  // Auto-set stock type based on supplier category
+  // Load stock levels when warehouse changes
   useEffect(() => {
-    if (!supplierCategory) return;
-    const categoryToStockType: Record<string, StockType | null> = {
-      FABRIC_SUPPLIER: 'FABRIC',
-      GREIGE_SUPPLIER: 'GREIGE',
-      TRIMS_SUPPLIER: 'GENERAL',
-      THREAD_SUPPLIER: 'GENERAL',
-      PACKAGING_SUPPLIER: 'GENERAL',
-      LACE_SUPPLIER: 'GENERAL',
-      MACHINE_PARTS_SUPPLIER: 'GENERAL',
-      OTHER_SERVICES: 'GENERAL',
-      // Processors — don't auto-set, user picks stock type
-      DYEING_PRINTING: null,
-      EMBROIDERY: null,
-      HAND_WORK: null,
-      SMOCKING: null,
-      CMT_UNIT: null,
-      FINISHING_CONTRACTOR: null,
-      STITCHING_CONTRACTOR: null,
-      WASHING: null,
-      DORI_PIPING_CONTRACTOR: null,
-    };
-    const mapped = categoryToStockType[supplierCategory];
-    if (mapped) {
-      setStockType(mapped);
-    }
-  }, [supplierCategory]);
-
-  // Load stock levels when warehouse changes (for GENERAL stock type)
-  useEffect(() => {
-    if (warehouseId && stockType === 'GENERAL') {
+    if (warehouseId) {
       loadStockLevels(warehouseId);
     }
-  }, [warehouseId, stockType]);
+  }, [warehouseId]);
 
-  // Load fabric stock when FABRIC selected
+  // When supplier category changes, pre-select material type for first line item (convenience)
   useEffect(() => {
-    if (stockType === 'FABRIC') {
-      loadFabricStock();
+    if (!supplierCategory) return;
+    if (lineItems.length === 1 && !lineItems[0].materialType) {
+      if (supplierCategory === 'FABRIC_SUPPLIER') {
+        handleLineItemMaterialTypeChange(lineItems[0].tempId, 'FABRIC');
+      } else if (supplierCategory === 'GREIGE_SUPPLIER') {
+        handleLineItemMaterialTypeChange(lineItems[0].tempId, 'GREIGE');
+      }
     }
-  }, [stockType]);
-
-  // Load greige stock when GREIGE selected
-  useEffect(() => {
-    if (stockType === 'GREIGE') {
-      loadGreigeStock();
-    }
-  }, [stockType]);
-
-  // Reset material selection when stock type changes
-  useEffect(() => {
-    setMaterialId('');
-    setFabricStockId('');
-    setGreigeStockId('');
-    setMaterialDescription('');
-    setAvailableQty(null);
-    setRate(null);
-    setUnit('');
-    setQuantity('');
-  }, [stockType]);
+  }, [supplierCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadWarehouses = async () => {
     try {
       const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
+      // Auto-select first RAW_MATERIAL warehouse, fallback to first active
+      const defaultWh = data.find((w: Warehouse) => w.warehouseType === 'RAW_MATERIAL') || data[0];
+      if (defaultWh && !warehouseId) {
+        setWarehouseId(defaultWh.id);
+        setWarehouseName(`${defaultWh.warehouseCode} - ${defaultWh.warehouseName}`);
+      }
     } catch (err) {
       logError('Failed to load warehouses:', err);
     }
@@ -188,7 +398,7 @@ export default function StockOutForm() {
   const loadStockLevels = async (whId: string) => {
     try {
       const data = await stockLevelService.getByWarehouse(whId);
-      setStockLevels(data.filter((s) => Number(s.quantity) > 0));
+      setAllStockLevels(data.filter((s) => Number(s.quantity) > 0));
     } catch (err) {
       logError('Failed to load stock levels:', err);
     }
@@ -225,54 +435,6 @@ export default function StockOutForm() {
     }
   };
 
-  const handleWarehouseChange = (whId: string) => {
-    setWarehouseId(whId);
-    const wh = warehouses.find((w) => w.id === whId);
-    setWarehouseName(wh ? `${wh.warehouseCode} - ${wh.warehouseName}` : '');
-    setMaterialId('');
-    setMaterialDescription('');
-    setAvailableQty(null);
-    setRate(null);
-    setUnit('');
-  };
-
-  const handleMaterialChange = (matId: string) => {
-    setMaterialId(matId);
-    const stock = stockLevels.find((s) => s.materialId === matId);
-    if (stock) {
-      setMaterialDescription(`${stock.materials?.code || ''} - ${stock.materials?.name || ''}`);
-      setAvailableQty(Number(stock.quantity));
-      setRate(Number(stock.valuationRate) || null);
-      setUnit(stock.unit);
-    }
-  };
-
-  const handleFabricStockChange = (fsId: string) => {
-    setFabricStockId(fsId);
-    const fs = fabricStocks.find((f) => f.id === fsId);
-    if (fs) {
-      setMaterialDescription(`${fs.fabricCode} - ${fs.fabricName}${fs.colorName ? ` (${fs.colorName})` : ''}`);
-      setAvailableQty(fs.quantityAvailable);
-      setRate(fs.purchaseCost);
-      setUnit('MTR');
-    }
-  };
-
-  const handleGreigeStockChange = (gsId: string) => {
-    setGreigeStockId(gsId);
-    const gs = greigeStocks.find((g) => g.id === gsId);
-    if (gs) {
-      const widthStr = gs.greigeWidth ? ` / ${gs.greigeWidth}"` : '';
-      const constructionStr = gs.greige.construction ? ` / ${gs.greige.construction}` : '';
-      setMaterialDescription(
-        `${gs.greige.greigeCode} - ${gs.greige.greigeName}${constructionStr}${widthStr} (${gs.greige.composition})`
-      );
-      setAvailableQty(Number(gs.quantityAvailable));
-      setRate(Number(gs.purchaseCost || gs.weightedAvgCost) || null);
-      setUnit('MTR');
-    }
-  };
-
   const handleSupplierChange = (supId: string) => {
     setSupplierId(supId);
     const sup = suppliersRaw.find((s) => s.id === supId);
@@ -288,22 +450,30 @@ export default function StockOutForm() {
     return challanType === 'OUTWARD' ? 'SUPPLIER' : 'DEPARTMENT';
   };
 
-  const isFormValid = (): boolean => {
-    if (!quantity || Number(quantity) <= 0) return false;
-    if (!getDestinationName()) return false;
+  // Validate a single line item
+  const isLineItemValid = (item: LineItem): boolean => {
+    if (!item.materialType) return false;
+    if (!item.quantity || Number(item.quantity) <= 0) return false;
 
-    if (stockType === 'GENERAL') {
-      if (!warehouseId || !materialId) return false;
-    } else if (stockType === 'FABRIC') {
-      if (!fabricStockId) return false;
-    } else if (stockType === 'GREIGE') {
-      if (!greigeStockId) return false;
-    }
+    if (item.stockType === 'GENERAL' && !item.materialId) return false;
+    if (item.stockType === 'FABRIC' && !item.fabricStockId) return false;
+    if (item.stockType === 'GREIGE' && !item.greigeStockId) return false;
 
-    if (availableQty !== null && Number(quantity) > availableQty) return false;
+    if (item.availableQty !== null && Number(item.quantity) > item.availableQty) return false;
 
     return true;
   };
+
+  // Form-level validation
+  const isFormValid = (): boolean => {
+    if (!getDestinationName()) return false;
+    if (lineItems.length === 0) return false;
+    return lineItems.every(isLineItemValid);
+  };
+
+  // Get count of valid items for display
+  const validItemCount = lineItems.filter(isLineItemValid).length;
+  const totalQuantity = lineItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,14 +481,53 @@ export default function StockOutForm() {
     setSuccess(null);
 
     if (!isFormValid()) {
-      setError('Please fill in all required fields and ensure quantity does not exceed available stock');
+      setError('Please fill in all required fields and ensure quantity does not exceed available stock for each item');
       return;
     }
 
     const destinationName = getDestinationName();
-    const qty = Number(quantity);
 
-    // Build challan input
+    // Build challan items from all line items
+    const challanItems = lineItems.map((item) => {
+      const qty = Number(item.quantity);
+      const itemFoldLengthCm = item.foldLengthCm ? Number(item.foldLengthCm) : undefined;
+      const itemThanCount = item.thanCount ? parseInt(item.thanCount) : undefined;
+
+      if (item.stockType === 'GREIGE') {
+        return {
+          itemType: 'GREIGE',
+          greigeStockId: item.greigeStockId,
+          description: item.materialDescription,
+          quantity: qty,
+          unit: 'MTR',
+          foldLengthCm: itemFoldLengthCm,
+          thanCount: itemThanCount,
+        };
+      } else if (item.stockType === 'FABRIC') {
+        const fs = fabricStocks.find((f) => f.id === item.fabricStockId);
+        return {
+          itemType: 'FABRIC',
+          fabricStockId: item.fabricStockId,
+          fabricId: fs?.fabricId,
+          description: item.materialDescription,
+          quantity: qty,
+          unit: 'MTR',
+          foldLengthCm: itemFoldLengthCm,
+          thanCount: itemThanCount,
+        };
+      } else {
+        // GENERAL stock
+        return {
+          itemType: 'TRIM',
+          materialId: item.materialId,
+          description: item.materialDescription,
+          quantity: qty,
+          unit: item.unit || 'PCS',
+        };
+      }
+    });
+
+    // Build challan input with all items
     const input: CreateChallanInput = {
       challanType,
       fromType: 'WAREHOUSE',
@@ -326,48 +535,16 @@ export default function StockOutForm() {
       toType: getDestinationType(),
       toId: challanType === 'OUTWARD' ? supplierId : undefined,
       toName: destinationName,
-      unit: unit || 'PCS',
+      unit: 'PCS',
       remarks: remarks || undefined,
-      items: [],
+      items: challanItems,
     };
-
-    // Build item based on stock type
-    if (stockType === 'GENERAL') {
-      input.items.push({
-        itemType: 'TRIM',
-        materialId,
-        description: materialDescription,
-        quantity: qty,
-        unit: unit || 'PCS',
-        rate: rate || undefined,
-      });
-    } else if (stockType === 'FABRIC') {
-      const fs = fabricStocks.find((f) => f.id === fabricStockId);
-      input.items.push({
-        itemType: 'FABRIC',
-        fabricStockId,
-        fabricId: fs?.fabricId,
-        description: materialDescription,
-        quantity: qty,
-        unit: 'MTR',
-        rate: rate || undefined,
-      });
-    } else if (stockType === 'GREIGE') {
-      input.items.push({
-        itemType: 'GREIGE',
-        greigeStockId,
-        description: materialDescription,
-        quantity: qty,
-        unit: 'MTR',
-        rate: rate || undefined,
-      });
-    }
 
     try {
       setLoading(true);
       const challan = await challanService.quickIssueChallan(input);
-      setSuccess(`Challan ${challan.challanNumber} created and issued successfully!`);
-      setTimeout(() => navigate(`/challans`), 2000);
+      setSuccess(`Challan ${challan.challanNumber} created with ${lineItems.length} item(s) and issued successfully!`);
+      setTimeout(() => navigate(`/manufacturing/challans`), 2000);
     } catch (err) {
       const errorMessage =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
@@ -389,52 +566,65 @@ export default function StockOutForm() {
       )}
 
       {success && (
-        <Alert className="mb-4 bg-green-50 text-green-900 border-green-200">
+        <Alert className="mb-4 bg-success-muted text-success border-success/20">
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Issue Type */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>
-                  Issue Type <span className="text-red-500">*</span>
-                </Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={challanType === 'OUTWARD' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setChallanType('OUTWARD');
-                      setSupplierId('');
-                      setSupplierName('');
-                    }}
-                    className="flex-1"
-                  >
-                    <ArrowUpRight className="mr-2 h-4 w-4" />
-                    Outward (To Supplier / Processor)
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={challanType === 'INTERNAL' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setChallanType('INTERNAL');
-                      setDepartment('');
-                    }}
-                    className="flex-1"
-                  >
-                    <ArrowRightLeft className="mr-2 h-4 w-4" />
-                    Internal (Dept to Dept)
-                  </Button>
-                </div>
+      <form onSubmit={handleSubmit}>
+        {/* Step 1: Issue Type */}
+        <Card className="mb-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Step 1: Issue Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label>
+                Issue Type <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={challanType === 'OUTWARD' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setChallanType('OUTWARD');
+                    setSupplierId('');
+                    setSupplierName('');
+                  }}
+                  className="flex-1"
+                >
+                  <ArrowUpRight className="mr-2 h-4 w-4" />
+                  Outward (To Supplier / Processor)
+                </Button>
+                <Button
+                  type="button"
+                  variant={challanType === 'INTERNAL' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setChallanType('INTERNAL');
+                    setDepartment('');
+                  }}
+                  className="flex-1"
+                >
+                  <ArrowRightLeft className="mr-2 h-4 w-4" />
+                  Internal (Dept to Dept)
+                </Button>
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Destination - Supplier (OUTWARD) */}
+        {/* Step 2: Select Destination (Supplier for OUTWARD, Department for INTERNAL) */}
+        {challanType && (
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">
+                Step 2: {challanType === 'OUTWARD' ? 'Select Supplier' : 'Select Department'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* OUTWARD: Supplier selection */}
               {challanType === 'OUTWARD' && (
-                <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Supplier Category</Label>
                     <Select
@@ -461,7 +651,7 @@ export default function StockOutForm() {
 
                   <div className="space-y-2">
                     <Label>
-                      Supplier / Processor <span className="text-red-500">*</span>
+                      Supplier / Processor <span className="text-destructive">*</span>
                     </Label>
                     <Combobox
                       options={supplierOptions}
@@ -472,14 +662,14 @@ export default function StockOutForm() {
                       emptyText="No suppliers found"
                     />
                   </div>
-                </>
+                </div>
               )}
 
-              {/* Destination - Department (INTERNAL) */}
+              {/* INTERNAL: Department selection */}
               {challanType === 'INTERNAL' && (
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-2 max-w-md">
                   <Label>
-                    Destination: Department <span className="text-red-500">*</span>
+                    Destination: Department <span className="text-destructive">*</span>
                   </Label>
                   <div className="flex gap-2">
                     <Select value={department} onValueChange={setDepartment}>
@@ -506,190 +696,277 @@ export default function StockOutForm() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
 
-              {/* Stock Type */}
-              <div className="space-y-2">
-                <Label>
-                  Stock Type <span className="text-red-500">*</span>
-                </Label>
-                <Select value={stockType} onValueChange={(v) => setStockType(v as StockType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GENERAL">General Material (Trim / Accessory)</SelectItem>
-                    <SelectItem value="FABRIC">Fabric</SelectItem>
-                    <SelectItem value="GREIGE">Greige</SelectItem>
-                  </SelectContent>
-                </Select>
+        {/* Step 3: Add Items (multi-item support) */}
+        {((challanType === 'OUTWARD' && supplierId) ||
+          (challanType === 'INTERNAL' && (department || customDepartment))) && (
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Step 3: Add Items</CardTitle>
+                <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Item
+                </Button>
               </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {lineItems.map((item, index) => {
+                const filteredLevels = getFilteredStockLevels(item.materialType);
+                const isFabricOrGreige = item.materialType === 'FABRIC' || item.materialType === 'GREIGE';
 
-              {/* Warehouse (for General materials) */}
-              {stockType === 'GENERAL' && (
-                <div className="space-y-2">
-                  <Label>
-                    Warehouse <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={warehouseId} onValueChange={handleWarehouseChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select warehouse" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {warehouses.map((wh) => (
-                        <SelectItem key={wh.id} value={wh.id}>
-                          {wh.warehouseCode} - {wh.warehouseName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                return (
+                  <div key={item.tempId} className="border rounded-lg p-4 space-y-4">
+                    {/* Item Header */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm text-muted-foreground">Item {index + 1}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeLineItem(item.tempId)}
+                        disabled={lineItems.length <= 1}
+                        className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Material Type Tiles */}
+                    <div className="space-y-2">
+                      <Label>
+                        Material Type <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                        {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).slice(0, 6).map((type) => {
+                          const count = tileCounts[type] || 0;
+                          const isSelected = item.materialType === type;
+                          return (
+                            <Button
+                              key={type}
+                              type="button"
+                              variant={isSelected ? 'default' : 'outline'}
+                              size="sm"
+                              className={`h-auto py-2 flex flex-col ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
+                              onClick={() => handleLineItemMaterialTypeChange(item.tempId, type)}
+                            >
+                              <span className="text-xs font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
+                              <span className="text-[10px] opacity-70">{count}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      {/* Show remaining types in second row */}
+                      <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                        {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).slice(6).map((type) => {
+                          const count = tileCounts[type] || 0;
+                          const isSelected = item.materialType === type;
+                          return (
+                            <Button
+                              key={type}
+                              type="button"
+                              variant={isSelected ? 'default' : 'outline'}
+                              size="sm"
+                              className={`h-auto py-2 flex flex-col ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
+                              onClick={() => handleLineItemMaterialTypeChange(item.tempId, type)}
+                            >
+                              <span className="text-xs font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
+                              <span className="text-[10px] opacity-70">{count}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Item Selection based on stock type */}
+                    {item.materialType && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Greige Stock Selection */}
+                        {item.stockType === 'GREIGE' && (
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>
+                              Greige Stock <span className="text-destructive">*</span>
+                            </Label>
+                            <Combobox
+                              options={greigeStocks.map((gs) => ({
+                                value: gs.id,
+                                label: `${gs.greige.greigeCode} - ${gs.greige.greigeName}${gs.greige.construction ? ' / ' + gs.greige.construction : ''}${gs.greigeWidth ? ' / ' + gs.greigeWidth + '"' : ''} (${gs.greige.composition}) — ${Number(gs.quantityAvailable).toFixed(2)} MTR`,
+                                searchText: `${gs.greige.greigeCode} ${gs.greige.greigeName} ${gs.greige.composition}`,
+                              }))}
+                              value={item.greigeStockId}
+                              onValueChange={(v) => handleLineItemGreigeChange(item.tempId, v)}
+                              placeholder="Select greige stock"
+                              searchPlaceholder="Search..."
+                              emptyText="No greige available"
+                            />
+                          </div>
+                        )}
+
+                        {/* Fabric Stock Selection */}
+                        {item.stockType === 'FABRIC' && (
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>
+                              Fabric Stock <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                              value={item.fabricStockId}
+                              onValueChange={(v) => handleLineItemFabricChange(item.tempId, v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select fabric stock" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {fabricStocks.map((fs) => (
+                                  <SelectItem key={fs.id} value={fs.id}>
+                                    {fs.fabricCode} - {fs.fabricName} — {fs.quantityAvailable.toFixed(2)} MTR
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {/* General Material Selection */}
+                        {item.stockType === 'GENERAL' && (
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>
+                              Material <span className="text-destructive">*</span>
+                            </Label>
+                            <Select
+                              value={item.materialId}
+                              onValueChange={(v) => handleLineItemMaterialChange(item.tempId, v, item.materialType)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select material" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {filteredLevels.map((stock) => (
+                                  <SelectItem key={stock.id} value={stock.materialId}>
+                                    {stock.materials?.code} - {stock.materials?.name} (
+                                    {Number(stock.quantity).toFixed(2)} {stock.unit})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {/* Quantity */}
+                        <div className="space-y-2">
+                          <Label>
+                            Quantity <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateLineItem(item.tempId, 'quantity', e.target.value)}
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                          {item.availableQty !== null && Number(item.quantity) > item.availableQty && (
+                            <p className="text-xs text-destructive">
+                              Exceeds available ({item.availableQty.toFixed(2)})
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Stock Info + Than/Fold fields for fabric/greige */}
+                        {item.availableQty !== null && (
+                          <div className="md:col-span-3">
+                            <Alert className="bg-muted/50 border-muted py-2">
+                              <Info className="h-3 w-3" />
+                              <AlertDescription className="text-xs">
+                                Available: {item.availableQty.toFixed(2)} {item.unit}
+                                {item.rate ? ` | Rate: ₹${item.rate.toFixed(2)}/${item.unit}` : ''}
+                              </AlertDescription>
+                            </Alert>
+                          </div>
+                        )}
+
+                        {/* Than Count & Fold Length (fabric/greige only) */}
+                        {isFabricOrGreige && (
+                          <>
+                            <div className="space-y-2">
+                              <Label>Than Count</Label>
+                              <Input
+                                type="number"
+                                value={item.thanCount}
+                                onChange={(e) => updateLineItem(item.tempId, 'thanCount', e.target.value)}
+                                placeholder="Thans"
+                                min="0"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Fold Length (cm)</Label>
+                              <Input
+                                type="number"
+                                value={item.foldLengthCm}
+                                onChange={(e) => updateLineItem(item.tempId, 'foldLengthCm', e.target.value)}
+                                placeholder="e.g. 97"
+                                step="0.01"
+                                min="0"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Item validation indicator */}
+                    {item.materialType && (
+                      <div className="text-xs">
+                        {isLineItemValid(item) ? (
+                          <span className="text-green-600">Item valid</span>
+                        ) : (
+                          <span className="text-muted-foreground">Select material and enter quantity</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Summary */}
+              <div className="border-t pt-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  {validItemCount} of {lineItems.length} item(s) valid | Total Qty: {totalQuantity.toFixed(2)}
                 </div>
-              )}
-
-              {/* Material Selection - General */}
-              {stockType === 'GENERAL' && (
-                <div className="space-y-2 md:col-span-2">
-                  <Label>
-                    Material <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={materialId} onValueChange={handleMaterialChange} disabled={!warehouseId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={warehouseId ? 'Select material' : 'Select warehouse first'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stockLevels.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No stock available
-                        </SelectItem>
-                      ) : (
-                        stockLevels.map((stock) => (
-                          <SelectItem key={stock.id} value={stock.materialId}>
-                            {stock.materials?.code} - {stock.materials?.name}
-                            {' (Avail: '}
-                            {Number(stock.quantity).toFixed(2)} {stock.unit})
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Material Selection - Fabric */}
-              {stockType === 'FABRIC' && (
-                <div className="space-y-2 md:col-span-2">
-                  <Label>
-                    Fabric Stock <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={fabricStockId} onValueChange={handleFabricStockChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select fabric stock" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fabricStocks.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No fabric stock available
-                        </SelectItem>
-                      ) : (
-                        fabricStocks.map((fs) => (
-                          <SelectItem key={fs.id} value={fs.id}>
-                            {fs.fabricCode} - {fs.fabricName}
-                            {fs.colorName ? ` (${fs.colorName})` : ''}
-                            {' — Avail: '}
-                            {fs.quantityAvailable.toFixed(2)} MTR
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Material Selection - Greige */}
-              {stockType === 'GREIGE' && (
-                <div className="space-y-2 md:col-span-2">
-                  <Label>
-                    Greige Stock <span className="text-red-500">*</span>
-                  </Label>
-                  <Combobox
-                    options={greigeStocks.map((gs) => ({
-                      value: gs.id,
-                      label: `${gs.greige.greigeCode} - ${gs.greige.greigeName}${gs.greige.construction ? ' / ' + gs.greige.construction : ''}${gs.greigeWidth ? ' / ' + gs.greigeWidth + '"' : ''} (${gs.greige.composition}) — ${Number(gs.quantityAvailable).toFixed(2)} MTR${gs.qualityGrade ? ' [' + gs.qualityGrade + ']' : ''}`,
-                      searchText: `${gs.greige.greigeCode} ${gs.greige.greigeName} ${gs.greige.composition} ${gs.greige.construction || ''} ${gs.greige.yarnCount || ''}`,
-                    }))}
-                    value={greigeStockId}
-                    onValueChange={handleGreigeStockChange}
-                    placeholder="Select greige stock"
-                    searchPlaceholder="Type to search greige stock..."
-                    emptyText="No greige stock available"
-                  />
-                </div>
-              )}
-
-              {/* Stock Info */}
-              {availableQty !== null && (
-                <div className="md:col-span-2">
-                  <Alert className="bg-blue-50 text-blue-900 border-blue-200">
-                    <AlertDescription>
-                      Available: {availableQty.toFixed(2)} {unit}
-                      {rate ? ` | Rate: ₹${rate.toFixed(2)} per ${unit}` : ''}
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              )}
-
-              {/* Quantity */}
-              <div className="space-y-2">
-                <Label>
-                  Quantity to Issue <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  required
-                />
-                {availableQty !== null && Number(quantity) > availableQty && (
-                  <p className="text-sm text-red-500">
-                    Exceeds available stock ({availableQty.toFixed(2)} {unit})
-                  </p>
-                )}
-              </div>
-
-              {/* Unit (readonly) */}
-              <div className="space-y-2">
-                <Label>Unit</Label>
-                <Input value={unit} disabled />
-                <p className="text-sm text-muted-foreground">Auto-filled from material</p>
+                <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Another Item
+                </Button>
               </div>
 
               {/* Remarks */}
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 pt-2">
                 <Label>Remarks</Label>
                 <Textarea
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
-                  rows={3}
+                  rows={2}
                   placeholder="Reason for issuance, processing details, etc."
                 />
               </div>
+            </CardContent>
+          </Card>
+        )}
 
-              {/* Actions */}
-              <div className="flex gap-2 justify-end md:col-span-2">
-                <Button type="button" variant="outline" onClick={() => navigate('/inventory/movements')}>
-                  <X className="mr-2 h-4 w-4" />
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading || !isFormValid()}>
-                  {loading ? <ButtonSpinner className="mr-2" /> : <Send className="mr-2 h-4 w-4" />}
-                  Issue via Challan
-                </Button>
-              </div>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+        {/* Actions */}
+        <div className="flex gap-2 justify-end">
+          <Button type="button" variant="outline" onClick={() => navigate('/inventory/movements')}>
+            <X className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading || !isFormValid()}>
+            {loading ? <ButtonSpinner className="mr-2" /> : <Send className="mr-2 h-4 w-4" />}
+            Issue {validItemCount} Item{validItemCount !== 1 ? 's' : ''} via Challan
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

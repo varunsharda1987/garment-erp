@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -74,6 +76,7 @@ export default function StyleList() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DRAFT'>('ALL');
   const stageFilter = searchParams.get('stage') || undefined;
 
   // Delete dialog state
@@ -105,12 +108,14 @@ export default function StyleList() {
   // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [location.pathname, stageFilter]);
+  }, [location.pathname, stageFilter, statusFilter]);
 
   const fetchStyles = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
+      // Pass undefined for 'ALL' to get both active and draft styles
+      const statusParam = statusFilter === 'ALL' ? undefined : statusFilter;
       const response = await styleService.getAllStyles(
         currentPage,
         pageSize,
@@ -118,7 +123,7 @@ export default function StyleList() {
         stageFilter,
         undefined,
         undefined,
-        'ACTIVE'
+        statusParam
       );
       setStyles(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -129,7 +134,7 @@ export default function StyleList() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, pageSize, searchQuery, stageFilter]);
+  }, [currentPage, pageSize, searchQuery, stageFilter, statusFilter]);
 
   // ✅ FIX: Add location.key to refetch when navigating back (e.g., after CAD changes)
   useEffect(() => {
@@ -352,12 +357,12 @@ export default function StyleList() {
                 const parent = (e.target as HTMLImageElement).parentElement;
                 if (parent) {
                   parent.innerHTML =
-                    '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>';
+                    '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-muted-foreground text-xs">No Image</div>';
                 }
               }}
             />
           ) : (
-            <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
+            <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-muted-foreground text-xs">
               No Image
             </div>
           )}
@@ -369,8 +374,17 @@ export default function StyleList() {
       header: 'Style Code',
       render: (style) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">{style.styleCode}</div>
-          {style.styleName && <div className="text-xs text-gray-500 truncate max-w-[150px]">{style.styleName}</div>}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{style.styleCode}</span>
+            {style.status === 'DRAFT' && (
+              <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/30">
+                Draft
+              </Badge>
+            )}
+          </div>
+          {style.styleName && (
+            <div className="text-xs text-muted-foreground truncate max-w-[150px]">{style.styleName}</div>
+          )}
         </div>
       ),
     },
@@ -379,8 +393,8 @@ export default function StyleList() {
       header: 'Buyer / Brand',
       render: (style) => (
         <div>
-          <div className="text-sm text-gray-900">{style.customerName}</div>
-          <div className="text-xs text-gray-500">{style.brandName}</div>
+          <div className="text-sm text-foreground">{style.customerName}</div>
+          <div className="text-xs text-muted-foreground">{style.brandName}</div>
         </div>
       ),
     },
@@ -388,7 +402,7 @@ export default function StyleList() {
       key: 'fabric',
       header: 'Fabric',
       render: (style) => (
-        <div className="text-sm text-gray-900 max-w-[150px] truncate" title={getFabricNames(style)}>
+        <div className="text-sm text-foreground max-w-[150px] truncate" title={getFabricNames(style)}>
           {getFabricNames(style)}
         </div>
       ),
@@ -396,13 +410,13 @@ export default function StyleList() {
     {
       key: 'productCategory',
       header: 'Product Category',
-      render: (style) => <div className="text-sm text-gray-900">{style.productCategory?.name || '-'}</div>,
+      render: (style) => <div className="text-sm text-foreground">{style.productCategory?.name || '-'}</div>,
     },
     {
       key: 'components',
       header: 'Components',
       render: (style) => (
-        <div className="text-sm text-gray-900 text-center">
+        <div className="text-sm text-foreground text-center">
           {style.numberOfComponents || style.components?.length || '-'}
         </div>
       ),
@@ -412,8 +426,8 @@ export default function StyleList() {
       header: 'Component Name',
       render: (style) => {
         const componentNames = style.components?.map((c) => c.componentName).filter(Boolean) || [];
-        if (componentNames.length === 0) return <div className="text-sm text-gray-500">-</div>;
-        return <div className="text-sm text-gray-900">{componentNames.join(', ')}</div>;
+        if (componentNames.length === 0) return <div className="text-sm text-muted-foreground">-</div>;
+        return <div className="text-sm text-foreground">{componentNames.join(', ')}</div>;
       },
     },
     {
@@ -429,7 +443,7 @@ export default function StyleList() {
     {
       key: 'cost',
       header: 'Cost',
-      render: (style) => <div className="text-sm text-gray-900 font-medium">{getCost(style)}</div>,
+      render: (style) => <div className="text-sm text-foreground font-medium">{getCost(style)}</div>,
     },
     {
       key: 'actions',
@@ -518,7 +532,7 @@ export default function StyleList() {
                 handlePublishClick(style.id, style.styleCode);
               }}
               disabled={publishing}
-              className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white"
+              className="flex items-center gap-1 bg-success hover:bg-success text-white"
             >
               <Send className="h-3 w-3" />
               Publish
@@ -560,12 +574,12 @@ export default function StyleList() {
                 const parent = (e.target as HTMLImageElement).parentElement;
                 if (parent) {
                   parent.innerHTML =
-                    '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Image</div>';
+                    '<div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-muted-foreground text-xs">No Image</div>';
                 }
               }}
             />
           ) : (
-            <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
+            <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-muted-foreground text-xs">
               No Image
             </div>
           )}
@@ -577,8 +591,8 @@ export default function StyleList() {
       header: 'Style Code',
       render: (style) => (
         <div>
-          <div className="text-sm font-medium text-gray-500">{style.styleCode}</div>
-          {style.internalCode && <div className="text-xs text-gray-400">{style.internalCode}</div>}
+          <div className="text-sm font-medium text-muted-foreground">{style.styleCode}</div>
+          {style.internalCode && <div className="text-xs text-muted-foreground">{style.internalCode}</div>}
         </div>
       ),
     },
@@ -587,8 +601,10 @@ export default function StyleList() {
       header: 'Style Name',
       render: (style) => (
         <div>
-          <div className="text-sm text-gray-500">{style.styleName}</div>
-          {style.description && <div className="text-xs text-gray-400 truncate max-w-xs">{style.description}</div>}
+          <div className="text-sm text-muted-foreground">{style.styleName}</div>
+          {style.description && (
+            <div className="text-xs text-muted-foreground truncate max-w-xs">{style.description}</div>
+          )}
         </div>
       ),
     },
@@ -597,8 +613,8 @@ export default function StyleList() {
       header: 'Buyer / Brand',
       render: (style) => (
         <div>
-          <div className="text-sm text-gray-500">{style.customerName}</div>
-          <div className="text-xs text-gray-400">{style.brandName}</div>
+          <div className="text-sm text-muted-foreground">{style.customerName}</div>
+          <div className="text-xs text-muted-foreground">{style.brandName}</div>
         </div>
       ),
     },
@@ -606,7 +622,7 @@ export default function StyleList() {
       key: 'deletedAt',
       header: 'Deleted',
       render: (style) => (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-muted-foreground">
           {style.updatedAt ? new Date(style.updatedAt).toLocaleDateString() : '-'}
         </div>
       ),
@@ -665,7 +681,11 @@ export default function StyleList() {
                     ? `Inactive/archived styles (${deletedTotalStyles} total)`
                     : activeTab === 'drafts'
                       ? `Unpublished styles in progress (${draftTotalStyles} total)`
-                      : `Published garment styles (${totalStyles} total)`}
+                      : statusFilter === 'ALL'
+                        ? `All styles - active and drafts (${totalStyles} total)`
+                        : statusFilter === 'DRAFT'
+                          ? `Draft styles only (${totalStyles} total)`
+                          : `Published garment styles (${totalStyles} total)`}
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -701,7 +721,7 @@ export default function StyleList() {
                 <FileEdit className="h-4 w-4" />
                 Drafts
                 {draftTotalStyles > 0 && (
-                  <span className="ml-1 text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full">
+                  <span className="ml-1 text-xs bg-warning-muted0/10 text-warning px-2 py-0.5 rounded-full">
                     {draftTotalStyles}
                   </span>
                 )}
@@ -719,7 +739,7 @@ export default function StyleList() {
 
             {/* Active Styles Tab */}
             <TabsContent value="active" className="mt-6">
-              {/* Search Bar */}
+              {/* Search Bar with Status Filter */}
               <div className="mb-6">
                 <div className="flex gap-4">
                   <div className="flex-1">
@@ -729,6 +749,16 @@ export default function StyleList() {
                       onChange={setSearchQuery}
                     />
                   </div>
+                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'ALL' | 'ACTIVE' | 'DRAFT')}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Styles</SelectItem>
+                      <SelectItem value="ACTIVE">Active Only</SelectItem>
+                      <SelectItem value="DRAFT">Drafts Only</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {stageFilter && (
                     <Button variant="outline" onClick={() => navigate('/styles')}>
                       Clear Filter
@@ -908,7 +938,7 @@ export default function StyleList() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-warning" />
               Cannot Archive Style
             </DialogTitle>
             <DialogDescription>

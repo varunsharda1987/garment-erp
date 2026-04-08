@@ -207,6 +207,23 @@ class WorkOrderService {
       },
     });
 
+    // Auto-create production_tracking: ORDER_RECEIVED
+    try {
+      await prisma.production_tracking.create({
+        data: {
+          id: randomUUID(),
+          workOrderId: workOrder.id,
+          productionStage: 'ORDER_RECEIVED',
+          quantityCompleted: data.totalQuantity,
+          updatedById: data.createdById,
+          updateDate: new Date(),
+        },
+      });
+    } catch (err) {
+      // Non-critical — don't fail work order creation
+      console.error('Failed to create initial production_tracking:', err);
+    }
+
     return workOrder;
   }
 

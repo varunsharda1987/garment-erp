@@ -139,9 +139,9 @@ export default function CuttingList() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Scissors className="h-8 w-8 text-orange-600" />
+          <Scissors className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Cutting</h1>
+            <h1 className="text-2xl font-display font-medium">Cutting</h1>
             <p className="text-muted-foreground">Manage cutting batches and track fabric consumption</p>
           </div>
         </div>
@@ -181,7 +181,7 @@ export default function CuttingList() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-gray-600">{summary.pending}</div>
+                  <div className="text-2xl font-bold text-muted-foreground">{summary.pending}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -189,7 +189,7 @@ export default function CuttingList() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{summary.inProgress}</div>
+                  <div className="text-2xl font-bold text-info">{summary.inProgress}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -197,7 +197,7 @@ export default function CuttingList() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
+                  <div className="text-2xl font-bold text-success">{summary.completed}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -205,7 +205,7 @@ export default function CuttingList() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">Fabric Used (m)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">{summary.totalFabricConsumed.toFixed(1)}</div>
+                  <div className="text-2xl font-bold text-primary">{summary.totalFabricConsumed.toFixed(1)}</div>
                 </CardContent>
               </Card>
             </div>
@@ -309,9 +309,9 @@ export default function CuttingList() {
                             <span
                               className={
                                 batch.variancePercent != null && batch.variancePercent > 0
-                                  ? 'text-red-600 font-medium'
+                                  ? 'text-destructive font-medium'
                                   : batch.variancePercent != null && batch.variancePercent < 0
-                                    ? 'text-green-600 font-medium'
+                                    ? 'text-success font-medium'
                                     : 'font-medium'
                               }
                             >
@@ -336,7 +336,7 @@ export default function CuttingList() {
                                 onClick={() => handleStartBatch(batch.id)}
                                 title="Start Cutting"
                               >
-                                <Play className="h-4 w-4 text-blue-600" />
+                                <Play className="h-4 w-4 text-info" />
                               </Button>
                             )}
                             {batch.status === 'IN_PROGRESS' && (
@@ -347,7 +347,7 @@ export default function CuttingList() {
                                   onClick={() => handleCompleteBatch(batch.id)}
                                   title="Complete Batch"
                                 >
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                  <CheckCircle className="h-4 w-4 text-success" />
                                 </Button>
                               </>
                             )}
@@ -366,7 +366,7 @@ export default function CuttingList() {
                                   }
                                 }}
                               >
-                                <Package className="h-4 w-4 text-purple-600" />
+                                <Package className="h-4 w-4 text-accent" />
                               </Button>
                             )}
                           </div>
@@ -446,13 +446,13 @@ export default function CuttingList() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4 text-sm mt-2">
-                    <span className="text-gray-500">
+                    <span className="text-muted-foreground">
                       Planned: <strong>{item.totalPlanned}</strong>
                     </span>
-                    <span className="text-blue-600">
+                    <span className="text-info">
                       Cut: <strong>{item.totalCut}</strong>
                     </span>
-                    <span className="text-green-600">
+                    <span className="text-success">
                       Good: <strong>{item.totalGoodPcs}</strong>
                     </span>
                   </div>
@@ -472,20 +472,18 @@ export default function CuttingList() {
                       {item.sizes.map((size) => (
                         <TableRow key={size.sizeId}>
                           <TableCell className="font-medium">{size.sizeName}</TableCell>
-                          <TableCell className="text-right text-gray-600">{size.planned || '-'}</TableCell>
-                          <TableCell className="text-right text-blue-600 font-medium">{size.cut || '-'}</TableCell>
-                          <TableCell className="text-right text-green-600 font-medium">{size.goodPcs || '-'}</TableCell>
-                          <TableCell className="text-right text-orange-600 font-medium">
-                            {size.pending || '-'}
-                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">{size.planned || '-'}</TableCell>
+                          <TableCell className="text-right text-info font-medium">{size.cut || '-'}</TableCell>
+                          <TableCell className="text-right text-success font-medium">{size.goodPcs || '-'}</TableCell>
+                          <TableCell className="text-right text-primary font-medium">{size.pending || '-'}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="font-bold border-t-2">
                         <TableCell>Total</TableCell>
-                        <TableCell className="text-right text-gray-600">{item.totalPlanned}</TableCell>
-                        <TableCell className="text-right text-blue-600">{item.totalCut}</TableCell>
-                        <TableCell className="text-right text-green-600">{item.totalGoodPcs}</TableCell>
-                        <TableCell className="text-right text-orange-600">
+                        <TableCell className="text-right text-muted-foreground">{item.totalPlanned}</TableCell>
+                        <TableCell className="text-right text-info">{item.totalCut}</TableCell>
+                        <TableCell className="text-right text-success">{item.totalGoodPcs}</TableCell>
+                        <TableCell className="text-right text-primary">
                           {item.sizes.reduce((sum, s) => sum + s.pending, 0)}
                         </TableCell>
                       </TableRow>

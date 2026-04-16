@@ -1055,6 +1055,9 @@ export const getAvailableWorkOrders = async (req: Request, res: Response) => {
                   fabricId: true,
                   fabricName: true,
                   componentId: true,
+                  fabricFinishType: true,
+                  printDesign: true,
+                  colorMaster: { select: { id: true, colorName: true } },
                 },
               },
             },
@@ -1144,7 +1147,14 @@ export const getAvailableFabricStock = async (req: Request, res: Response) => {
       qualityGrade: true,
       weightedAvgCost: true,
       fabricMaster: {
-        select: { id: true, fabricCode: true, fabricName: true },
+        select: {
+          id: true,
+          fabricCode: true,
+          fabricName: true,
+          finishType: true,
+          printDesign: true,
+          colorName: true,
+        },
       },
     },
   });
@@ -1159,6 +1169,9 @@ export const getAvailableFabricStock = async (req: Request, res: Response) => {
       qualityGrade: s.qualityGrade,
       weightedAvgCost: Number(s.weightedAvgCost),
       fabricName: s.fabricMaster?.fabricName || '',
+      finishType: s.fabricMaster?.finishType || null,
+      printDesign: s.fabricMaster?.printDesign || null,
+      colorName: s.fabricMaster?.colorName || null,
     })),
   });
 };

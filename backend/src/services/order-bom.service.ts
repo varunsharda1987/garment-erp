@@ -217,6 +217,10 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             },
           },
         },
+        // Include relational trim items (new - Phase 4)
+        trimItems: true,
+        // Include relational accessory items (new - Phase 4)
+        accessoryItems: true,
       },
     });
 
@@ -327,6 +331,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               otherTapeId: trim.otherTapeId || undefined,
               otherDecorativeId: trim.otherDecorativeId || undefined,
               otherFunctionalId: trim.otherFunctionalId || undefined,
+              // Generic fallback for new material types
+              masterId: trim.masterId || undefined,
             },
           });
         }
@@ -352,6 +358,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               labelId: acc.labelId || undefined,
               packagingId: acc.packagingId || undefined,
               materialId: acc.materialId || undefined,
+              // Generic fallback for new material types
+              masterId: acc.masterId || undefined,
             },
           });
         }
@@ -407,51 +415,110 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         rateCardId?: string;
       }>) || [];
 
+    // Phase 4: Prefer relational trimItems/accessoryItems, fall back to JSON for backwards compatibility
+    // The relational tables are the SINGLE SOURCE OF TRUTH (all FK fields preserved)
+    const trimItemsRelational = (costSheet as any).trimItems || [];
+    const accessoryItemsRelational = (costSheet as any).accessoryItems || [];
+
+    // Convert relational to the same shape as JSON for uniform downstream processing
     const trimsDetails =
-      (costSheet.trimsDetails as unknown as Array<{
-        trimName?: string;
-        trimRate?: number;
-        trimQuantity?: number;
-        trimTotal?: number;
-        bomId?: string;
-        unit?: string;
-        materialType?: string;
-        threadId?: string;
-        buttonId?: string;
-        zipperId?: string;
-        elasticId?: string;
-        labelId?: string;
-        packagingId?: string;
-        materialId?: string;
-        hookEyeId?: string;
-        snapButtonId?: string;
-        buckleId?: string;
-        beltId?: string;
-        velcroId?: string;
-        drawstringId?: string;
-        ribbonId?: string;
-        sequinId?: string;
-        beadId?: string;
-        motifId?: string;
-        interliningId?: string;
-        paddingId?: string;
-        otherFastenerId?: string;
-        otherTapeId?: string;
-        otherDecorativeId?: string;
-        otherFunctionalId?: string;
-      }>) || [];
+      trimItemsRelational.length > 0
+        ? trimItemsRelational.map((t: any) => ({
+            trimName: t.trimName,
+            trimRate: Number(t.trimRate) || 0,
+            trimQuantity: Number(t.trimQuantity) || 0,
+            trimTotal: Number(t.trimTotal) || 0,
+            bomId: t.bomId,
+            unit: t.unit,
+            materialType: t.materialType,
+            threadId: t.threadId,
+            buttonId: t.buttonId,
+            zipperId: t.zipperId,
+            elasticId: t.elasticId,
+            labelId: t.labelId,
+            packagingId: t.packagingId,
+            materialId: t.materialId,
+            hookEyeId: t.hookEyeId,
+            snapButtonId: t.snapButtonId,
+            buckleId: t.buckleId,
+            beltId: t.beltId,
+            velcroId: t.velcroId,
+            drawstringId: t.drawstringId,
+            ribbonId: t.ribbonId,
+            sequinId: t.sequinId,
+            beadId: t.beadId,
+            motifId: t.motifId,
+            interliningId: t.interliningId,
+            paddingId: t.paddingId,
+            otherFastenerId: t.otherFastenerId,
+            otherTapeId: t.otherTapeId,
+            otherDecorativeId: t.otherDecorativeId,
+            otherFunctionalId: t.otherFunctionalId,
+          }))
+        : // Fallback to JSON for old cost sheets without relational data
+          (costSheet.trimsDetails as unknown as Array<{
+            trimName?: string;
+            trimRate?: number;
+            trimQuantity?: number;
+            trimTotal?: number;
+            bomId?: string;
+            unit?: string;
+            materialType?: string;
+            threadId?: string;
+            buttonId?: string;
+            zipperId?: string;
+            elasticId?: string;
+            labelId?: string;
+            packagingId?: string;
+            materialId?: string;
+            hookEyeId?: string;
+            snapButtonId?: string;
+            buckleId?: string;
+            beltId?: string;
+            velcroId?: string;
+            drawstringId?: string;
+            ribbonId?: string;
+            sequinId?: string;
+            beadId?: string;
+            motifId?: string;
+            interliningId?: string;
+            paddingId?: string;
+            otherFastenerId?: string;
+            otherTapeId?: string;
+            otherDecorativeId?: string;
+            otherFunctionalId?: string;
+          }>) || [];
 
     const accessoriesDetails =
-      (costSheet.accessoriesDetails as unknown as Array<{
-        accessoryName?: string;
-        accessoryRate?: number;
-        accessoryQuantity?: number;
-        accessoryTotal?: number;
-        labelId?: string;
-        packagingId?: string;
-        materialId?: string;
-        materialType?: string;
-      }>) || [];
+      accessoryItemsRelational.length > 0
+        ? accessoryItemsRelational.map((a: any) => ({
+            accessoryName: a.accessoryName,
+            accessoryRate: Number(a.accessoryRate) || 0,
+            accessoryQuantity: Number(a.accessoryQuantity) || 0,
+            accessoryTotal: Number(a.accessoryTotal) || 0,
+            labelId: a.labelId,
+            packagingId: a.packagingId,
+            materialId: a.materialId,
+            materialType: a.materialType,
+          }))
+        : // Fallback to JSON for old cost sheets
+          (costSheet.accessoriesDetails as unknown as Array<{
+            accessoryName?: string;
+            accessoryRate?: number;
+            accessoryQuantity?: number;
+            accessoryTotal?: number;
+            labelId?: string;
+            packagingId?: string;
+            materialId?: string;
+            materialType?: string;
+          }>) || [];
+
+    logDebug('[OrderBOM] Trim/Accessory source', {
+      trimSource: trimItemsRelational.length > 0 ? 'relational' : 'JSON',
+      trimCount: trimsDetails.length,
+      accessorySource: accessoryItemsRelational.length > 0 ? 'relational' : 'JSON',
+      accessoryCount: accessoriesDetails.length,
+    });
 
     // Build BOM items from style material BOM + cost sheet prices
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -607,6 +674,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           otherTapeId: trim.otherTapeId || null,
           otherDecorativeId: trim.otherDecorativeId || null,
           otherFunctionalId: trim.otherFunctionalId || null,
+          // Generic fallback for new material types
+          masterId: trim.masterId || null,
         });
       }
 
@@ -641,6 +710,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           labelId: acc.labelId || null,
           packagingId: acc.packagingId || null,
           materialId: acc.materialId || null,
+          // Generic fallback for new material types
+          masterId: acc.masterId || null,
         });
       }
     }

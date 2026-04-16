@@ -335,7 +335,22 @@ export default function DyeingList() {
     {
       key: 'fabric',
       header: 'Fabric',
-      render: (item) => <div className="text-sm text-foreground">{item.fabric?.fabricCode || '-'}</div>,
+      render: (item) => {
+        const fabric = item.fabric;
+        if (!fabric) return <div className="text-sm text-foreground">-</div>;
+        const designColor = fabric.printDesign || fabric.colorName;
+        return (
+          <div className="text-sm text-foreground">
+            <div>{fabric.fabricCode}</div>
+            {fabric.finishType && (
+              <div className="text-xs text-muted-foreground">
+                {fabric.finishType}
+                {designColor && ` ${designColor}`}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'targetColor',

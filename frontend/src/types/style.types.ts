@@ -187,6 +187,16 @@ export interface StyleFabric {
   hasEmbroidery?: boolean;
   cutableWidth?: number | null;
 
+  // Design/Color identification
+  printDesign?: string | null; // For PRINTED/YARN_DYED fabrics
+  colorMasterId?: string | null; // For SOLID/DYED fabrics
+  colorMaster?: {
+    id: string;
+    colorCode: string;
+    colorName: string;
+    hexCode?: string | null;
+  } | null;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -341,12 +351,12 @@ export interface FabricWidthCADFormData {
 
 export interface FabricFormData {
   // NEW: Use fabric_master and fabric_width_cad references
-  fabricId?: string; // Reference to fabric_master
+  fabricId?: string | null; // Reference to fabric_master
   fabricCADId?: string; // Reference to fabric_width_cad
 
   // DEPRECATED: Legacy fields (still used during migration)
-  fabricName: string;
-  fabricType: string;
+  fabricName?: string;
+  fabricType?: string;
   fabricColor?: string;
   fabricGSM?: string;
   fabricWidth?: number;
@@ -354,12 +364,25 @@ export interface FabricFormData {
   cadAverageYards?: number;
   supplierName?: string;
   greigeName?: string;
+  genericGreigeName?: string | null;
+  fabricFinishType?: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null;
   cadAverages?: CadAverageFormData[]; // DEPRECATED
 
   // Component-specific fields
   quantityNeeded?: number;
   unitPrice?: number;
   notes?: string;
+
+  // Design/Color identification
+  printDesign?: string | null;
+  colorMasterId?: string | null;
+
+  // Embroidery support
+  hasEmbroidery?: boolean;
+  embroideryId?: string | null;
+
+  // Pattern parts
+  patternPartIds?: string[];
 }
 
 export interface AccessoryFormData {

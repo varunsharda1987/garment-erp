@@ -71,6 +71,9 @@ export interface LabDip {
     id: string;
     fabricCode: string;
     fabricName: string;
+    finishType?: string | null;
+    printDesign?: string | null;
+    colorName?: string | null;
   };
   targetColor?: {
     id: string;
@@ -206,6 +209,9 @@ export interface JobWorkOrder {
     id: string;
     fabricCode: string;
     fabricName: string;
+    finishType?: string | null;
+    printDesign?: string | null;
+    colorName?: string | null;
   };
   mill?: {
     id: string;

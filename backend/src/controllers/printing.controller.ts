@@ -65,6 +65,9 @@ const labDipInclude = {
       id: true,
       fabricCode: true,
       fabricName: true,
+      finishType: true,
+      printDesign: true,
+      colorName: true,
     },
   },
   targetColor: {

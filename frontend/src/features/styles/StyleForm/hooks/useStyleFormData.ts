@@ -445,16 +445,8 @@ export function useStyleFormData() {
           bulletPoints: bulletPoints || null,
           imageUrl: imageUrl || null,
           specifications: remarks || null,
-          fabrics: fabrics
-            .filter((f) => isDraft || f.genericGreigeName)
-            .map((f) => ({
-              componentName: f.componentName,
-              genericGreigeName: f.genericGreigeName || (isDraft ? '' : f.genericGreigeName),
-              fabricFinishType: f.fabricFinishType || null,
-              estimatedConsumption: f.estimatedConsumption || 0,
-              unit: f.unit,
-              notes: f.notes,
-            })),
+          // NOTE: fabrics are now ONLY sent via components[].fabrics[] (nested)
+          // The standalone fabrics[] array was removed to prevent duplicate data paths
           materialBOM: finalMaterialBOM,
           skuVariants: skuVariants.filter((v) => v.isActive),
           processes: processes

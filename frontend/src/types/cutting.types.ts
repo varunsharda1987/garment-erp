@@ -137,6 +137,9 @@ export interface CuttingBatch {
       id: string;
       fabricCode: string;
       fabricName: string;
+      finishType?: string | null;
+      printDesign?: string | null;
+      colorName?: string | null;
     };
   };
   cuttingOperator?: {
@@ -164,6 +167,9 @@ export interface CuttingBatch {
         id: string;
         fabricCode: string;
         fabricName: string;
+        finishType?: string | null;
+        printDesign?: string | null;
+        colorName?: string | null;
       };
     };
   }>;

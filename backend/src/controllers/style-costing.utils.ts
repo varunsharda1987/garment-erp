@@ -58,6 +58,8 @@ export interface TrimDetail {
   otherTapeId?: string;
   otherDecorativeId?: string;
   otherFunctionalId?: string;
+  // Generic fallback for NEW material types
+  masterId?: string;
 }
 
 export interface EmbroideryDetail {
@@ -74,6 +76,14 @@ export interface AccessoryDetail {
   accessoryRate: number;
   accessoryTotal: number;
   isNotApplicable?: boolean;
+  // Master FK fields
+  id?: string;
+  labelId?: string;
+  packagingId?: string;
+  materialId?: string;
+  materialType?: string;
+  // Generic fallback for NEW accessory types
+  masterId?: string;
 }
 
 // ============================================================================
@@ -116,6 +126,32 @@ export const TrimDetailSchema = z
     unit: z.string().optional(),
     bomId: z.string().optional(),
     materialType: z.string().optional(),
+    // Master FK fields - needed for MRP material resolution
+    materialId: z.string().uuid().optional().nullable(),
+    threadId: z.string().uuid().optional().nullable(),
+    buttonId: z.string().uuid().optional().nullable(),
+    zipperId: z.string().uuid().optional().nullable(),
+    elasticId: z.string().uuid().optional().nullable(),
+    labelId: z.string().uuid().optional().nullable(),
+    packagingId: z.string().uuid().optional().nullable(),
+    hookEyeId: z.string().uuid().optional().nullable(),
+    snapButtonId: z.string().uuid().optional().nullable(),
+    buckleId: z.string().uuid().optional().nullable(),
+    beltId: z.string().uuid().optional().nullable(),
+    velcroId: z.string().uuid().optional().nullable(),
+    drawstringId: z.string().uuid().optional().nullable(),
+    ribbonId: z.string().uuid().optional().nullable(),
+    sequinId: z.string().uuid().optional().nullable(),
+    beadId: z.string().uuid().optional().nullable(),
+    motifId: z.string().uuid().optional().nullable(),
+    interliningId: z.string().uuid().optional().nullable(),
+    paddingId: z.string().uuid().optional().nullable(),
+    otherFastenerId: z.string().uuid().optional().nullable(),
+    otherTapeId: z.string().uuid().optional().nullable(),
+    otherDecorativeId: z.string().uuid().optional().nullable(),
+    otherFunctionalId: z.string().uuid().optional().nullable(),
+    // Generic fallback for NEW material types (no dedicated FK column needed)
+    masterId: z.string().uuid().optional().nullable(),
   })
   .refine((data) => data.isNotApplicable || (data.trimRate > 0 && data.trimQuantity > 0), {
     message: 'Trim rate and quantity must be > 0 unless marked as Not Applicable (N/A)',
@@ -142,6 +178,14 @@ export const AccessoryDetailSchema = z
     accessoryRate: z.number().nonnegative('Accessory rate must be non-negative'),
     accessoryTotal: z.number().nonnegative('Accessory total must be non-negative'),
     isNotApplicable: z.boolean().optional().default(false),
+    // Master FK fields - needed for MRP material resolution
+    id: z.string().uuid().optional(),
+    labelId: z.string().uuid().optional().nullable(),
+    packagingId: z.string().uuid().optional().nullable(),
+    materialId: z.string().uuid().optional().nullable(),
+    materialType: z.string().optional().nullable(),
+    // Generic fallback for NEW accessory types
+    masterId: z.string().uuid().optional().nullable(),
   })
   .refine((data) => data.isNotApplicable || (data.accessoryRate > 0 && data.accessoryQuantity > 0), {
     message: 'Accessory rate and quantity must be > 0 unless marked as Not Applicable (N/A)',
@@ -183,6 +227,26 @@ export const CMTCostsSchema = z.object({
   finishingCost: z.number().nonnegative('Finishing cost must be non-negative').default(0),
   buttonAttachmentCost: z.number().nonnegative('Button attachment cost must be non-negative').default(0),
   handworkCost: z.number().nonnegative('Handwork cost must be non-negative').default(0),
+  smockingCost: z.number().nonnegative('Smocking cost must be non-negative').default(0),
+});
+
+// Lace Detail Schema - for lace items in cost sheet
+export const LaceDetailSchema = z.object({
+  laceName: z.string().min(1, 'Lace name is required'),
+  laceWidth: z.number().nonnegative('Lace width must be non-negative'),
+  laceAverage: z.number().nonnegative('Lace average must be non-negative'),
+  laceRate: z.number().nonnegative('Lace rate must be non-negative'),
+  laceTotal: z.number().nonnegative('Lace total must be non-negative'),
+  isNotApplicable: z.boolean().optional().default(false),
+  // Master FK fields - needed for PO generation
+  laceId: z.string().uuid().optional().nullable(),
+  greigeLaceId: z.string().uuid().optional().nullable(),
+  processorId: z.string().uuid().optional().nullable(),
+  rateCardId: z.string().uuid().optional().nullable(),
+  sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_LACE', 'GREIGE_LACE_PROCESSED']).optional(),
+  // Cost breakdown
+  greigeCost: z.number().optional(),
+  processingCost: z.number().optional(),
 });
 
 export const CreateCostSheetSchema = z.object({
@@ -199,6 +263,7 @@ export const CreateCostSheetSchema = z.object({
   // Dynamic arrays
   fabricDetails: z.array(FabricDetailSchema).min(1, 'At least one fabric is required'),
   trimsDetails: z.array(TrimDetailSchema).min(1, 'At least one trim is required'),
+  laceDetails: z.array(LaceDetailSchema).optional().default([]),
   cmtCosts: CMTCostsSchema,
   embroideryDetails: z.array(EmbroideryDetailSchema).default([]),
   accessoriesDetails: z.array(AccessoryDetailSchema).default([]),

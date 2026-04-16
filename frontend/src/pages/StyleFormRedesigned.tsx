@@ -50,8 +50,10 @@ import {
 } from '../components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
 import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
+import { DebouncedInput } from '../components/DebouncedInput';
 // MaterialBOMPicker removed - using TrimSelector and AccessorySelector instead
 import { EmbroiderySelector } from '../components/EmbroiderySelector';
+import ColorPicker from '../components/ColorPicker';
 import SeasonSelector from '../components/SeasonSelector';
 import type { SeasonSearchResult } from '../types/season.types';
 import { TrimSelector } from '../components/TrimSelector';
@@ -108,6 +110,10 @@ interface FabricEntry {
   embroideryId?: string | null;
   embroideryName?: string | null;
   embroideryCode?: string | null;
+  // Design/Color identification
+  printDesign?: string | null; // For PRINTED/YARN_DYED fabrics (mandatory)
+  colorMasterId?: string | null; // For SOLID/DYED fabrics (mandatory)
+  colorName?: string | null; // Display only, from colorMaster lookup
   // Pattern parts (read-only, set via Fabric Master allocation or CAD Planning)
   patternParts?: Array<{
     id: string;
@@ -132,14 +138,30 @@ interface FabricMasterSelectorProps {
   fabricId: string | null;
   fabricCode: string | null;
   fabricName: string | null;
-  onSelect: (id: string, code: string, name: string, finishType?: string) => void;
+  onSelect: (
+    id: string,
+    code: string,
+    name: string,
+    finishType?: string,
+    printDesign?: string | null,
+    colorMasterId?: string | null,
+    colorName?: string | null
+  ) => void;
   onClear: () => void;
 }
 
 function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onClear }: FabricMasterSelectorProps) {
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<
-    Array<{ id: string; fabricCode: string; fabricName: string; colorName?: string; finishType?: string }>
+    Array<{
+      id: string;
+      fabricCode: string;
+      fabricName: string;
+      colorName?: string;
+      finishType?: string;
+      printDesign?: string | null;
+      colorMasterId?: string | null;
+    }>
   >([]);
   const [loading, setLoading] = React.useState(false);
   const [open, setOpen] = React.useState(false);
@@ -220,7 +242,15 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
                   key={f.id}
                   type="button"
                   onClick={() => {
-                    onSelect(f.id, f.fabricCode, f.fabricName, f.finishType);
+                    onSelect(
+                      f.id,
+                      f.fabricCode,
+                      f.fabricName,
+                      f.finishType,
+                      f.printDesign,
+                      f.colorMasterId,
+                      f.colorName
+                    );
                     setOpen(false);
                     setQuery('');
                   }}
@@ -316,7 +346,9 @@ export default function StyleFormRedesigned() {
   const [componentMasters, setComponentMasters] = useState<ComponentMaster[]>([]);
   const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [, setComponentCategories] = useState<string[]>([]);
-  const [selectedComponents, setSelectedComponents] = useState<Array<{ category: string; componentId: string }>>([]);
+  const [selectedComponents, setSelectedComponents] = useState<
+    Array<{ category: string; componentId: string; _originalName?: string }>
+  >([]);
   const [openComponentPopovers, setOpenComponentPopovers] = useState<Record<number, boolean>>({});
   const [categoryComponentIds, setCategoryComponentIds] = useState<Set<string>>(new Set()); // Components allowed for selected category
 
@@ -1101,7 +1133,19 @@ export default function StyleFormRedesigned() {
         embroideryId?: string;
         embroidery?: { designName?: string; embroideryCode?: string };
         fabricId?: string;
-        fabric?: { id?: string; fabricCode?: string; fabricName?: string; finishType?: string };
+        fabric?: {
+          id?: string;
+          fabricCode?: string;
+          fabricName?: string;
+          finishType?: string;
+          printDesign?: string | null;
+          colorMasterId?: string | null;
+          colorName?: string | null;
+        };
+        // Design/Color identification
+        printDesign?: string | null;
+        colorMasterId?: string | null;
+        colorMaster?: { colorName?: string | null };
       }>;
       if (fabricsData.length > 0) {
         // Map component names to indices based on loaded components
@@ -1131,6 +1175,10 @@ export default function StyleFormRedesigned() {
               fabricCode: sf.fabric?.fabricCode || null,
               fabricName: sf.fabric?.fabricName || null,
               fabricFinishType: (sf.fabricFinishType || sf.fabric?.finishType || '') as FabricFinishType | '',
+              // Design/Color identification
+              printDesign: sf.printDesign || sf.fabric?.printDesign || null,
+              colorMasterId: sf.colorMasterId || sf.fabric?.colorMasterId || null,
+              colorName: sf.colorMaster?.colorName || sf.fabric?.colorName || null,
               // Embroidery support
               hasEmbroidery: sf.hasEmbroidery || false,
               embroideryId: sf.embroideryId || null,
@@ -1375,11 +1423,20 @@ export default function StyleFormRedesigned() {
         // Map style components to selectedComponents format
         // Need to find the matching component master for each to get the componentId
         const loadedComponents = style.components.map((sc: { componentName?: string; componentType?: string }) => {
-          // Find the component master by name
-          const matchingMaster = componentMasters.find((cm) => cm.name === sc.componentName);
+          // Find the component master by name (case-insensitive, trimmed)
+          const normalizedName = sc.componentName?.trim().toLowerCase();
+          const matchingMaster = componentMasters.find((cm) => cm.name?.trim().toLowerCase() === normalizedName);
+          if (!matchingMaster && sc.componentName) {
+            console.warn(
+              `[Style Load] Component "${sc.componentName}" not found in masters. Available:`,
+              componentMasters.map((cm) => cm.name)
+            );
+          }
           return {
             category: sc.componentType || '',
             componentId: matchingMaster?.id || '',
+            // Preserve original name for debugging
+            _originalName: sc.componentName,
           };
         });
 
@@ -1388,7 +1445,7 @@ export default function StyleFormRedesigned() {
         if (loadedComponents.length < savedNumComponents) {
           // Pad with empty components
           while (loadedComponents.length < savedNumComponents) {
-            loadedComponents.push({ category: '', componentId: '' });
+            loadedComponents.push({ category: '', componentId: '', _originalName: undefined });
           }
         } else if (loadedComponents.length > savedNumComponents) {
           // Trim to numberOfComponents (keep first N)
@@ -1398,7 +1455,13 @@ export default function StyleFormRedesigned() {
         setSelectedComponents(loadedComponents);
       } else {
         // No saved components - initialize with numberOfComponents empty slots
-        setSelectedComponents(Array.from({ length: savedNumComponents }, () => ({ category: '', componentId: '' })));
+        setSelectedComponents(
+          Array.from({ length: savedNumComponents }, () => ({
+            category: '',
+            componentId: '',
+            _originalName: undefined,
+          }))
+        );
       }
 
       notify.success('Style loaded successfully');
@@ -1596,6 +1659,7 @@ export default function StyleFormRedesigned() {
       {
         category: nightgownMaster.componentGroup?.code || 'FULL',
         componentId: nightgownMaster.id,
+        _originalName: nightgownMaster.name,
       },
     ]);
 
@@ -1901,6 +1965,26 @@ export default function StyleFormRedesigned() {
         notify.error('At least one fabric with a greige name or ready fabric selection is required');
         return;
       }
+
+      // Validate Design/Color fields based on finish type
+      if (shouldValidateFabrics) {
+        for (const fabric of fabrics) {
+          const finishType = fabric.fabricFinishType;
+          const componentName = fabric.componentName || `Component ${fabric.componentIndex + 1}`;
+
+          // PRINTED/YARN_DYED: Design is mandatory
+          if ((finishType === 'PRINTED' || finishType === 'YARN_DYED') && !fabric.printDesign?.trim()) {
+            notify.error(`Design name is required for ${finishType} fabric in ${componentName}`);
+            return;
+          }
+
+          // DYED (Solid/Dyed): Color is mandatory
+          if (finishType === 'DYED' && !fabric.colorMasterId) {
+            notify.error(`Color is required for Solid/Dyed fabric in ${componentName}`);
+            return;
+          }
+        }
+      }
     }
 
     try {
@@ -1951,34 +2035,41 @@ export default function StyleFormRedesigned() {
       // Use map with index to preserve original component positions for fabric matching
       const components = selectedComponents
         .map((sc, componentIndex) => {
-          // Skip components that haven't been selected
-          if (!sc.componentId) return null;
-
           // Find the component master to get the name
           const componentMaster = componentMasters.find((cm) => cm.id === sc.componentId);
-          if (!componentMaster) {
-            // Component master not found - skip this component
+
+          // Get component name: prefer master name, fall back to original loaded name
+          const componentName = componentMaster?.name || (sc as { _originalName?: string })._originalName;
+
+          // Skip only if we have no component name AND no fabrics for this index
+          const componentFabricsForIndex = fabrics.filter((f) => f.componentIndex === componentIndex);
+          if (!componentName && componentFabricsForIndex.length === 0) {
             return null;
           }
 
+          // If no component name but has fabrics, use the fabric's componentName
+          const finalComponentName =
+            componentName || componentFabricsForIndex[0]?.componentName || `Component ${componentIndex + 1}`;
+
           // Find fabrics for this component using componentIndex (not name)
           // This ensures fabrics stay matched even if component selection changes
-          const componentFabrics = fabrics
-            .filter((f) => f.componentIndex === componentIndex)
-            .map((f) => ({
-              fabricName: f.sourcingMode === 'READY_FABRIC' ? f.fabricName || '' : f.genericGreigeName,
-              fabricId: f.sourcingMode === 'READY_FABRIC' ? f.fabricId || null : null,
-              genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : f.genericGreigeName || null,
-              fabricType: f.sourcingMode === 'READY_FABRIC' ? 'FABRIC' : 'GENERIC',
-              fabricFinishType: f.fabricFinishType || null,
-              hasEmbroidery: f.hasEmbroidery || false,
-              embroideryId: f.embroideryId || null,
-              // Pass pattern part IDs so style_pattern_parts are created
-              patternPartIds: f.patternParts?.map((pp) => pp.patternPartId).filter(Boolean) || [],
-            }));
+          const componentFabrics = componentFabricsForIndex.map((f) => ({
+            fabricName: f.sourcingMode === 'READY_FABRIC' ? f.fabricName || '' : f.genericGreigeName,
+            fabricId: f.sourcingMode === 'READY_FABRIC' ? f.fabricId || null : null,
+            genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : f.genericGreigeName || null,
+            fabricType: f.sourcingMode === 'READY_FABRIC' ? 'FABRIC' : 'GENERIC',
+            fabricFinishType: f.fabricFinishType || null,
+            // Design/Color identification
+            printDesign: f.printDesign || null,
+            colorMasterId: f.colorMasterId || null,
+            hasEmbroidery: f.hasEmbroidery || false,
+            embroideryId: f.embroideryId || null,
+            // Pass pattern part IDs so style_pattern_parts are created
+            patternPartIds: f.patternParts?.map((pp) => pp.patternPartId).filter(Boolean) || [],
+          }));
 
           return {
-            componentName: componentMaster.name,
+            componentName: finalComponentName,
             componentType: sc.category || 'OTHER', // Use category as componentType
             fabrics: componentFabrics,
           };
@@ -2013,20 +2104,8 @@ export default function StyleFormRedesigned() {
         bulletPoints: bulletPoints || null,
         imageUrl: imageUrl || null,
         specifications: remarks || null, // Storing remarks in specifications field
-        // Fabrics - simplified to only capture type and embroidery
-        // Consumption and width are handled in CAD Planning stage
-        fabrics: fabrics
-          .filter((f) => isDraft || f.genericGreigeName || f.fabricId) // include if has name or fabric selection
-          .map((f) => ({
-            componentName: f.componentName,
-            genericGreigeName:
-              f.sourcingMode === 'READY_FABRIC' ? null : f.genericGreigeName || (isDraft ? '' : f.genericGreigeName),
-            fabricId: f.sourcingMode === 'READY_FABRIC' ? f.fabricId || null : null,
-            fabricFinishType: f.fabricFinishType || null,
-            // Embroidery support
-            hasEmbroidery: f.hasEmbroidery || false,
-            embroideryId: f.embroideryId || null,
-          })),
+        // NOTE: fabrics are now ONLY sent via components[].fabrics[] (nested)
+        // The standalone fabrics[] array was removed to prevent duplicate data paths
         // Trims - simplified (just references to master records)
         trims: finalTrims,
         // Accessories - simplified (just references to master records)
@@ -2185,6 +2264,10 @@ export default function StyleFormRedesigned() {
           >
             <Save className="h-4 w-4" />
             Save as Draft
+          </Button>
+          <Button type="button" onClick={() => saveStyle(false)} disabled={loading} className="flex items-center gap-2">
+            <Save className="h-4 w-4" />
+            {loading ? 'Saving...' : isEditMode ? 'Update Style' : 'Create Style'}
           </Button>
           {isEditMode && styleStatus === 'DRAFT' && (
             <Button
@@ -3139,17 +3222,36 @@ export default function StyleFormRedesigned() {
                                           fabricId={fabric.fabricId || null}
                                           fabricCode={fabric.fabricCode || null}
                                           fabricName={fabric.fabricName || null}
-                                          onSelect={(id, code, name, finishType) => {
+                                          onSelect={(
+                                            id,
+                                            code,
+                                            name,
+                                            finishType,
+                                            printDesign,
+                                            colorMasterId,
+                                            colorName
+                                          ) => {
                                             handleUpdateFabric(fabric.id, 'fabricId', id);
                                             handleUpdateFabric(fabric.id, 'fabricCode', code);
                                             handleUpdateFabric(fabric.id, 'fabricName', name);
                                             if (finishType)
                                               handleUpdateFabric(fabric.id, 'fabricFinishType', finishType);
+                                            // Auto-populate design/color from fabric_master
+                                            if (printDesign !== undefined)
+                                              handleUpdateFabric(fabric.id, 'printDesign', printDesign);
+                                            if (colorMasterId !== undefined)
+                                              handleUpdateFabric(fabric.id, 'colorMasterId', colorMasterId);
+                                            if (colorName !== undefined)
+                                              handleUpdateFabric(fabric.id, 'colorName', colorName);
                                           }}
                                           onClear={() => {
                                             handleUpdateFabric(fabric.id, 'fabricId', null);
                                             handleUpdateFabric(fabric.id, 'fabricCode', null);
                                             handleUpdateFabric(fabric.id, 'fabricName', null);
+                                            // Clear design/color when fabric is cleared
+                                            handleUpdateFabric(fabric.id, 'printDesign', null);
+                                            handleUpdateFabric(fabric.id, 'colorMasterId', null);
+                                            handleUpdateFabric(fabric.id, 'colorName', null);
                                           }}
                                         />
                                       )}
@@ -3174,6 +3276,46 @@ export default function StyleFormRedesigned() {
                                       </Select>
                                     </div>
                                   </div>
+
+                                  {/* Design/Color Identification Fields */}
+                                  {(fabric.fabricFinishType === 'PRINTED' ||
+                                    fabric.fabricFinishType === 'YARN_DYED') && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-1">
+                                        <Label>Design Name *</Label>
+                                        <Input
+                                          placeholder="e.g., Floral, Geometric, Stripes..."
+                                          value={fabric.printDesign || ''}
+                                          onChange={(e) =>
+                                            handleUpdateFabric(fabric.id, 'printDesign', e.target.value || null)
+                                          }
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label>Color (Optional)</Label>
+                                        <ColorPicker
+                                          value={fabric.colorMasterId || ''}
+                                          onChange={(colorId, color) => {
+                                            handleUpdateFabric(fabric.id, 'colorMasterId', colorId || null);
+                                            handleUpdateFabric(fabric.id, 'colorName', color?.colorName || null);
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {fabric.fabricFinishType === 'DYED' && (
+                                    <div className="space-y-1">
+                                      <Label>Color *</Label>
+                                      <ColorPicker
+                                        value={fabric.colorMasterId || ''}
+                                        onChange={(colorId, color) => {
+                                          handleUpdateFabric(fabric.id, 'colorMasterId', colorId || null);
+                                          handleUpdateFabric(fabric.id, 'colorName', color?.colorName || null);
+                                        }}
+                                      />
+                                    </div>
+                                  )}
 
                                   {/* Pattern Parts (read-only) */}
                                   {fabric.patternParts && fabric.patternParts.length > 0 && (

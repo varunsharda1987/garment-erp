@@ -335,10 +335,19 @@ export default function StyleDetail() {
                                         <span className="font-medium text-muted-foreground">Fabric Finish Type:</span>
                                         <span className="ml-1">{fabric.fabricType || '-'}</span>
                                       </div>
-                                      {fabric.fabricColor && fabric.fabricColor !== '0' && (
+                                      {fabric.printDesign && (
+                                        <div>
+                                          <span className="font-medium text-muted-foreground">Design:</span>
+                                          <span className="ml-1">{fabric.printDesign}</span>
+                                        </div>
+                                      )}
+                                      {(fabric.colorMaster?.colorName ||
+                                        (fabric.fabricColor && fabric.fabricColor !== '0')) && (
                                         <div>
                                           <span className="font-medium text-muted-foreground">Color:</span>
-                                          <span className="ml-1">{fabric.fabricColor}</span>
+                                          <span className="ml-1">
+                                            {fabric.colorMaster?.colorName || fabric.fabricColor}
+                                          </span>
                                         </div>
                                       )}
                                       {fabric.fabricGSM && Number(fabric.fabricGSM) > 0 && (

@@ -132,6 +132,10 @@ export interface GRNItem {
   totalMeters: number | null;
   isOverReceipt: boolean;
   overReceiptQty: number | null;
+  // Source mismatch override fields (greige→ready fabric scenario)
+  receivedAsReadyFabric: boolean;
+  actualRatePerUnit: number | null;
+  updateFutureSourcing: boolean;
   // Relations
   materials?: MaterialSummary;
   purchaseOrderItem?: POItemSummary;
@@ -186,6 +190,10 @@ export interface CreateGRNItemRequest {
   receivedWidthInches?: number | null;
   entryMode?: GRNEntryMode | null;
   details?: GRNItemDetailRequest[];
+  // Source mismatch override fields (greige→ready fabric scenario)
+  receivedAsReadyFabric?: boolean; // Override: treat greige PO item as ready fabric
+  actualRatePerUnit?: number | null; // Actual rate received (may differ from PO rate)
+  updateFutureSourcing?: boolean; // true = permanent change, false = one-time exception (default)
 }
 
 export interface ProcessingReceiveData {
@@ -339,5 +347,9 @@ export interface GRNFormValues {
     rejectedQuantity: number | string;
     rejectionReason: string;
     remarks: string;
+    // Source mismatch override fields (greige→ready fabric scenario)
+    receivedAsReadyFabric?: boolean;
+    actualRatePerUnit?: number | string;
+    updateFutureSourcing?: boolean;
   }>;
 }

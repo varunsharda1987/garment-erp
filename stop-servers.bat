@@ -20,16 +20,16 @@ for /f "tokens=*" %%a in ('netstat -aon ^| findstr ":5173"') do (
     endlocal
 )
 
-REM Kill processes listening on port 3000 (Backend)
-echo Checking port 3000 (Backend)...
-for /f "tokens=*" %%a in ('netstat -aon ^| findstr ":3000"') do (
+REM Kill processes listening on port 5000 (Backend)
+echo Checking port 5000 (Backend)...
+for /f "tokens=*" %%a in ('netstat -aon ^| findstr ":5000"') do (
     set "line=%%a"
     setlocal enabledelayedexpansion
     for %%b in (!line!) do (
         set "last=%%b"
     )
     if !last! neq 0 (
-        echo   Stopping process !last! on port 3000...
+        echo   Stopping process !last! on port 5000...
         taskkill /F /PID !last! /T 2>nul
     )
     endlocal

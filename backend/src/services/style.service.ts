@@ -309,6 +309,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                           totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
                           // CAD control
                           allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
+                          // Design/Color identification
+                          printDesign: fab.printDesign || null,
+                          colorMasterId: fab.colorMasterId || null,
                           // Pattern part association
                           ...(fab.patternPartIds && fab.patternPartIds.length > 0
                             ? {
@@ -669,6 +672,16 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     colorName: true,
                     genericGreigeName: true,
                     finishType: true,
+                    printDesign: true,
+                    colorMasterId: true,
+                  },
+                },
+                colorMaster: {
+                  select: {
+                    id: true,
+                    colorCode: true,
+                    colorName: true,
+                    hexCode: true,
                   },
                 },
                 stylePatternParts: {
@@ -929,6 +942,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     totalCostPerMeter: fab.totalCostPerMeter ? parseFloat(String(fab.totalCostPerMeter)) : null,
                     // CAD control
                     allowCombinedCutting: fab.allowCombinedCutting !== false, // Default true
+                    // Design/Color identification
+                    printDesign: fab.printDesign || null,
+                    colorMasterId: fab.colorMasterId || null,
                     // Connect to the component
                     componentId: componentId,
                   },
@@ -963,100 +979,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
       }
 
-      // Handle standalone fabrics array (alternative to nested fabrics in components)
-      // This handles the case where frontend sends fabrics separately with componentName
-      if (data.fabrics !== undefined && Array.isArray(data.fabrics) && data.fabrics.length > 0) {
-        // Get all components for this style to map componentName to componentId
-        const styleComponents = await tx.style_components.findMany({
-          where: { styleId: id },
-          select: { id: true, componentName: true },
-        });
-
-        // Create a map for quick lookup
-        const componentMap = new Map<string, string>();
-        for (const comp of styleComponents) {
-          componentMap.set(comp.componentName.toLowerCase(), comp.id);
-        }
-
-        // Get all existing style_fabric IDs to preserve CAD/costing data
-        const standaloneFabricIds: string[] = [];
-        for (const comp of styleComponents) {
-          const fabrics = await tx.style_fabrics.findMany({
-            where: { componentId: comp.id },
-            select: { id: true },
-          });
-          standaloneFabricIds.push(...fabrics.map((f) => f.id));
-        }
-
-        // CRITICAL: Unlink CAD/costing records BEFORE deleting style_fabrics
-        // Note: Only fabric_width_cad has nullable styleFabricId
-        if (standaloneFabricIds.length > 0) {
-          const unlinkResult = await tx.fabric_width_cad.updateMany({
-            where: { styleFabricId: { in: standaloneFabricIds } },
-            data: { styleFabricId: null },
-          });
-
-          if (unlinkResult.count > 0) {
-            logDebug(`[UPDATE] Preserved ${unlinkResult.count} CAD/costing records from standalone fabrics`);
-          }
-        }
-
-        // Now safe to delete existing fabrics for all components (to replace with new ones)
-        for (const comp of styleComponents) {
-          await tx.style_fabrics.deleteMany({
-            where: { componentId: comp.id },
-          });
-        }
-
-        // Create new fabrics
-        for (const fab of data.fabrics as Array<{
-          componentName?: string;
-          fabricName?: string;
-          genericGreigeName?: string;
-          fabricId?: string;
-          fabricFinishType?: string;
-          estimatedConsumption?: number;
-          unit?: string;
-          notes?: string;
-          hasEmbroidery?: boolean;
-          embroideryId?: string;
-          usableWidth?: number;
-          allowCombinedCutting?: boolean;
-        }>) {
-          if (!fab.componentName) continue;
-
-          // Find the component ID
-          const componentId = componentMap.get(fab.componentName.toLowerCase());
-          if (!componentId) {
-            logDebug(`Component not found for fabric: ${fab.componentName}`);
-            continue;
-          }
-
-          const isReadyFabric = !!fab.fabricId;
-          await tx.style_fabrics.create({
-            data: {
-              id: randomUUID(),
-              componentId,
-              fabricId: fab.fabricId || null,
-              fabricName: fab.fabricName || fab.genericGreigeName || '',
-              fabricType: isReadyFabric ? 'FABRIC' : 'GENERIC',
-              genericGreigeName: isReadyFabric ? null : fab.genericGreigeName || null,
-              fabricFinishType: (fab.fabricFinishType as 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW') || null,
-              quantityNeeded: fab.estimatedConsumption ? parseFloat(String(fab.estimatedConsumption)) : 0,
-              notes: fab.notes || null,
-              // Embroidery support
-              hasEmbroidery: fab.hasEmbroidery || false,
-              embroideryId: fab.embroideryId || null,
-              // Width tracking
-              cutableWidth: fab.usableWidth ? parseFloat(String(fab.usableWidth)) : null,
-              // CAD control
-              allowCombinedCutting: fab.allowCombinedCutting !== false,
-            },
-          });
-        }
-
-        logDebug(`Created ${data.fabrics.length} fabrics from standalone fabrics array`);
-      }
+      // NOTE: Standalone fabrics[] array handling was REMOVED (2026-04-16)
+      // Fabrics are now ONLY handled via components[].fabrics[] (nested)
+      // This prevents duplicate data paths that were overwriting each other
 
       // Handle processes replacement if provided
       if (data.processes !== undefined) {

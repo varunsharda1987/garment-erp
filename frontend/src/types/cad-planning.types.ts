@@ -228,9 +228,13 @@ export interface CADSpreadsheetRow {
   componentId: string;
   componentName: string;
   styleFabricId: string;
+  // Legacy single-part fields (backwards compatibility)
   partId: string | null;
   partCode: string | null;
   partName: string | null;
+  // Multi-part fields
+  partIds: string[];
+  parts: { id: string; code: string; name: string; goesToEmbroidery?: boolean }[];
   fabricFinishType: string | null;
   isEmbroidery: boolean;
   genericGreigeName: string | null;
@@ -287,6 +291,9 @@ export interface CADStyleFabricOption {
   id: string;
   fabricFinishType: string | null;
   genericGreigeName: string | null;
+  // Design/Color identification
+  printDesign?: string | null;
+  colorName?: string | null;
   hasEmbroidery?: boolean;
   embroideryCode?: string | null;
   fabricCode?: string | null;
@@ -398,6 +405,8 @@ export interface AddCADRowRequest {
   componentId: string;
   styleFabricId: string;
   partId?: string;
+  /** Multi-part selection - array of pattern part IDs */
+  partIds?: string[];
   isEmbroidery?: boolean;
   /** Required for PRODUCTION purpose - links CAD row to actual stock */
   fabricStockId?: string;
@@ -409,6 +418,8 @@ export interface AddCADRowRequest {
 export interface UpdateCADRowRequest {
   purpose?: CADPurpose;
   partId?: string;
+  /** Multi-part selection - array of pattern part IDs */
+  partIds?: string[];
   isEmbroidery?: boolean;
   greigeId?: string;
   cutableWidth?: number;

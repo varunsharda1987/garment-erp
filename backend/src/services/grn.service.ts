@@ -23,6 +23,12 @@ import prisma from '../config/database'; // Use singleton to avoid connection po
 import { logInfo, logError } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import {
+  validateSourceMismatchOverride,
+  executeSourceMismatchCleanup,
+  findFabricForGreige,
+  updateCostSheetSourcingStrategy,
+} from './helpers/source-mismatch.helper';
 
 class GRNService {
   /**
@@ -167,6 +173,10 @@ class GRNService {
                 totalMeters: totalMeters ?? (item.receivedQuantity || null),
                 isOverReceipt,
                 overReceiptQty,
+                // Source mismatch override fields
+                receivedAsReadyFabric: item.receivedAsReadyFabric || false,
+                actualRatePerUnit: item.actualRatePerUnit || null,
+                updateFutureSourcing: item.updateFutureSourcing || false,
               };
             }),
           },
@@ -872,61 +882,226 @@ class GRNService {
       });
 
       if (po?.poCategory === 'GREIGE') {
-        await costSheetPOGenerationService.updateProcessingPOStatusOnGreigeGRN(po.id);
-        logInfo('Processing PO status check triggered for Greige GRN', {
-          grnId: id,
-          greigePOId: po.id,
-        });
+        // Check if any items have receivedAsReadyFabric override
+        const overrideItems = grn.grn_items.filter((item) => item.receivedAsReadyFabric);
+        const normalItems = grn.grn_items.filter((item) => !item.receivedAsReadyFabric);
 
-        // Auto-create greige_stock entries for accepted greige items
-        for (const item of grn.grn_items) {
-          const acceptedQty = Number(item.acceptedQuantity);
-          if (acceptedQty <= 0) continue;
+        // Handle receivedAsReadyFabric override items
+        if (overrideItems.length > 0) {
+          logInfo(`GRN ${grn.grnNumber}: ${overrideItems.length} item(s) received as ready fabric`, {
+            grnId: id,
+            greigePOId: po.id,
+          });
 
-          try {
-            // Get material to find greigeId
-            const material = await prisma.materials.findUnique({
-              where: { id: item.materialId },
-              include: { greige_master: true },
+          // Validate the override can be applied (pre-flight checks)
+          const validation = await validateSourceMismatchOverride(po.id);
+          if (!validation.canOverride) {
+            // Log error but don't fail - items will be created as greige_stock
+            logError(`Source mismatch override blocked: ${validation.blockReason}`, { grnId: id, greigePOId: po.id });
+            // Move blocked items back to normal flow
+            normalItems.push(...overrideItems);
+            overrideItems.length = 0;
+          } else {
+            // Validation passed - execute cleanup in a transaction
+            await prisma.$transaction(async (tx) => {
+              const cleanupResult = await executeSourceMismatchCleanup(po.id, tx);
+              logInfo(`Source mismatch cleanup completed`, {
+                grnId: id,
+                greigePOId: po.id,
+                cancelledPOs: cleanupResult.cancelledPOs,
+                cancelledBatches: cleanupResult.cancelledBatches,
+                cancelledChallans: cleanupResult.cancelledChallans,
+              });
             });
 
-            if (!material?.greigeId || !material.greige_master) {
-              logInfo(
-                `GRN item ${item.id}: material ${item.materialId} has no greige link, skipping greige_stock creation`
-              );
-              continue;
+            // Create fabric_stock for override items
+            for (const item of overrideItems) {
+              const acceptedQty = Number(item.acceptedQuantity);
+              if (acceptedQty <= 0) continue;
+
+              try {
+                // Get material to find greigeId, then find linked fabric
+                const material = await prisma.materials.findUnique({
+                  where: { id: item.materialId },
+                  include: { greige_master: true },
+                });
+
+                if (!material?.greigeId || !material.greige_master) {
+                  logError(
+                    `GRN item ${item.id}: material ${item.materialId} has no greige link, cannot create fabric_stock`,
+                    { itemId: item.id }
+                  );
+                  continue;
+                }
+
+                const greige = material.greige_master;
+
+                // Find the fabric_master linked to this greige
+                const fabric = await findFabricForGreige(greige.id);
+                if (!fabric) {
+                  logError(`No fabric_master linked to greige ${greige.greigeCode}. Cannot create fabric_stock.`, {
+                    grnId: id,
+                    greigeId: greige.id,
+                    itemId: item.id,
+                  });
+                  continue;
+                }
+
+                // Determine the rate: use actualRatePerUnit if provided, otherwise PO rate
+                const actualRate = item.actualRatePerUnit
+                  ? Number(item.actualRatePerUnit)
+                  : item.purchase_order_items
+                    ? Number(item.purchase_order_items.unitPrice)
+                    : 0;
+
+                // Use per-item received width if available, otherwise default
+                const finishedWidth = item.receivedWidthInches ? Number(item.receivedWidthInches) : 44;
+                const cutableWidth = finishedWidth > 2 ? finishedWidth - 2 : finishedWidth;
+
+                // Ensure material record exists for this fabric
+                await ensureMaterialRecord(fabric.id, 'FABRIC');
+
+                // Create fabric_stock instead of greige_stock
+                await prisma.fabric_stock.create({
+                  data: {
+                    fabricId: fabric.id,
+                    finishedWidth: finishedWidth,
+                    cutableWidth: cutableWidth,
+                    quantityAvailable: acceptedQty,
+                    quantityReserved: 0,
+                    quantityConsumed: 0,
+                    unit: 'meters',
+                    status: 'AVAILABLE',
+                    stockType: 'PLANNED_STOCK',
+                    qualityGrade: 'A',
+                    weightedAvgCost: actualRate,
+                    purchaseCost: actualRate,
+                    receivedDate: grn.receivingDate || new Date(),
+                    createdById: userId,
+                  },
+                });
+
+                // Sync stock_levels for the fabric
+                await syncStockLevelQuantity(fabric.id, acceptedQty);
+
+                // Create fabric_procurement record for audit trail
+                await prisma.fabric_procurement.create({
+                  data: {
+                    fabricId: fabric.id,
+                    procurementType: 'FINISHED',
+                    supplierId: grn.supplierId,
+                    ratePerUnit: actualRate,
+                    quantityPurchased: acceptedQty,
+                    width: finishedWidth,
+                    totalCost: acceptedQty * actualRate,
+                    receivedDate: grn.receivingDate || new Date(),
+                    status: 'COMPLETED',
+                    createdById: userId,
+                  },
+                });
+
+                logInfo(
+                  `Created fabric_stock (override): GRN ${grn.grnNumber}, ${acceptedQty}m of ${fabric.fabricCode} at ₹${actualRate}/m`,
+                  {
+                    grnId: id,
+                    fabricId: fabric.id,
+                    greigeId: greige.id,
+                    quantity: acceptedQty,
+                    rate: actualRate,
+                    wasOverride: true,
+                  }
+                );
+
+                // Update cost sheet sourcing strategy if permanent change requested
+                if (item.updateFutureSourcing) {
+                  try {
+                    const costSheetResult = await updateCostSheetSourcingStrategy(
+                      po.id,
+                      fabric.id,
+                      actualRate,
+                      prisma // Use prisma directly since we're outside the transaction
+                    );
+                    if (costSheetResult.updatedItems > 0) {
+                      logInfo(
+                        `Updated cost sheet sourcing strategy for ${costSheetResult.affectedStyles.length} style(s)`,
+                        {
+                          grnId: id,
+                          fabricId: fabric.id,
+                          updatedItems: costSheetResult.updatedItems,
+                          affectedStyles: costSheetResult.affectedStyles,
+                        }
+                      );
+                    }
+                  } catch (costSheetErr) {
+                    // Non-critical: log but don't fail GRN approval
+                    logError(`Failed to update cost sheet sourcing strategy`, costSheetErr);
+                  }
+                }
+              } catch (overrideErr) {
+                logError(`Failed to create fabric_stock (override) for GRN item ${item.id}`, overrideErr);
+              }
             }
+          }
+        }
 
-            const greige = material.greige_master;
-            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+        // Handle normal greige items (not overridden)
+        if (normalItems.length > 0) {
+          await costSheetPOGenerationService.updateProcessingPOStatusOnGreigeGRN(po.id);
+          logInfo('Processing PO status check triggered for Greige GRN', {
+            grnId: id,
+            greigePOId: po.id,
+          });
 
-            // Use per-item received width if available, otherwise fall back to greige master width
-            const greigeWidth = item.receivedWidthInches
-              ? Number(item.receivedWidthInches)
-              : Number(greige.greigeWidth || 44);
+          // Auto-create greige_stock entries for accepted greige items
+          for (const item of normalItems) {
+            const acceptedQty = Number(item.acceptedQuantity);
+            if (acceptedQty <= 0) continue;
 
-            await greigeStockService.createGreigeStock(
-              {
+            try {
+              // Get material to find greigeId
+              const material = await prisma.materials.findUnique({
+                where: { id: item.materialId },
+                include: { greige_master: true },
+              });
+
+              if (!material?.greigeId || !material.greige_master) {
+                logInfo(
+                  `GRN item ${item.id}: material ${item.materialId} has no greige link, skipping greige_stock creation`
+                );
+                continue;
+              }
+
+              const greige = material.greige_master;
+              const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+              // Use per-item received width if available, otherwise fall back to greige master width
+              const greigeWidth = item.receivedWidthInches
+                ? Number(item.receivedWidthInches)
+                : Number(greige.greigeWidth || 44);
+
+              await greigeStockService.createGreigeStock(
+                {
+                  greigeId: greige.id,
+                  quantity: acceptedQty,
+                  width: greigeWidth,
+                  purchaseCost: unitPrice,
+                  supplierId: grn.supplierId,
+                  receivedDate: grn.receivingDate,
+                  warehouseLocation: grn.warehouseId || undefined,
+                  qualityGrade: 'A',
+                },
+                userId
+              );
+
+              logInfo(`Auto-created greige_stock from GRN ${grn.grnNumber}: ${acceptedQty}m of ${greige.greigeCode}`, {
+                grnId: id,
                 greigeId: greige.id,
                 quantity: acceptedQty,
-                width: greigeWidth,
-                purchaseCost: unitPrice,
-                supplierId: grn.supplierId,
-                receivedDate: grn.receivingDate,
-                warehouseLocation: grn.warehouseId || undefined,
-                qualityGrade: 'A',
-              },
-              userId
-            );
-
-            logInfo(`Auto-created greige_stock from GRN ${grn.grnNumber}: ${acceptedQty}m of ${greige.greigeCode}`, {
-              grnId: id,
-              greigeId: greige.id,
-              quantity: acceptedQty,
-            });
-          } catch (greigeErr) {
-            // Non-critical: log but don't fail GRN approval
-            logError(`Failed to auto-create greige_stock for GRN item ${item.id}`, greigeErr);
+              });
+            } catch (greigeErr) {
+              // Non-critical: log but don't fail GRN approval
+              logError(`Failed to auto-create greige_stock for GRN item ${item.id}`, greigeErr);
+            }
           }
         }
       }

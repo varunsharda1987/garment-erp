@@ -306,6 +306,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
                 },
                 orderBy: { cutableWidth: 'asc' },
               },
+              colorMaster: { select: { id: true, colorCode: true, colorName: true, hexCode: true } },
             },
           },
         },
@@ -341,6 +342,9 @@ export async function getStyleFabrics(req: Request, res: Response) {
         componentId: component.id,
         componentName: component.componentName,
         finishType: styleFabric.fabricFinishType || styleFabric.fabric?.finishType || null,
+        // Design/Color for identification
+        printDesign: styleFabric.printDesign || styleFabric.fabric?.printDesign || null,
+        colorName: (styleFabric as any).colorMaster?.colorName || styleFabric.fabricColor || null,
         numberOfColors: styleFabric.numberOfColors || null,
         readyFabricCost,
         readyFabricCostSource: latestStock?.weightedAvgCost ? 'STOCK' : 'FABRIC_MASTER',
@@ -1188,7 +1192,16 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
       processor: { select: { id: true, name: true, code: true } },
       greige: { select: { id: true, greigeName: true, greigeCode: true } },
       patternPart: { select: { id: true, code: true, name: true } },
-      styleFabric: { select: { id: true, hasEmbroidery: true, fabricName: true } },
+      styleFabric: {
+        select: {
+          id: true,
+          hasEmbroidery: true,
+          fabricName: true,
+          fabricFinishType: true,
+          printDesign: true,
+          colorMaster: { select: { colorName: true } },
+        },
+      },
     },
     orderBy: [
       { componentName: 'asc' },
@@ -1204,10 +1217,13 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
 
   for (const option of options) {
     // Create unique group key per style fabric assignment
-    // If styleFabric has embroidery, append " - Embroidered" to differentiate
+    // Include design/color and embroidery to differentiate fabrics with same greige
     const baseComponentName = option.componentName || 'Unknown';
     const hasEmbroidery = option.styleFabric?.hasEmbroidery || false;
-    const componentKey = hasEmbroidery ? `${baseComponentName} - Embroidered` : baseComponentName;
+    const designColor = option.styleFabric?.printDesign || (option.styleFabric as any)?.colorMaster?.colorName || '';
+    let componentKey = baseComponentName;
+    if (designColor) componentKey += ` - ${designColor}`;
+    if (hasEmbroidery) componentKey += ' - Embroidered';
 
     if (!groupedByComponent[componentKey]) {
       groupedByComponent[componentKey] = [];
@@ -1223,6 +1239,9 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
       styleFabricId: option.styleFabricId,
       hasEmbroidery: option.styleFabric?.hasEmbroidery || false,
       styleFabricName: option.styleFabric?.fabricName || null,
+      fabricFinishType: option.styleFabric?.fabricFinishType || null,
+      printDesign: option.styleFabric?.printDesign || null,
+      colorName: (option.styleFabric as any)?.colorMaster?.colorName || null,
       greigeName: option.greige?.greigeName || null,
       greigeCode: option.greige?.greigeCode || null,
       greigeId: option.greigeId,

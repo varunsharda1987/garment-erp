@@ -1,7 +1,8 @@
 // Stock IN Form - Create stock receipt with material-type-specific fields
-import { useState, useEffect, useRef } from 'react';
+// Supports multi-item receipt from a single supplier/processor
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, X, Info, AlertTriangle } from 'lucide-react';
+import { Save, X, Info, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,6 +53,10 @@ import { getAllZippers } from '../services/zipper.service';
 import { getAllElastics } from '../services/elastic.service';
 import { getAllLabels } from '../services/label.service';
 import { getAllPackaging } from '../services/packaging.service';
+import { getAllSuppliers } from '../services/supplier.service';
+import { Combobox } from '@/components/ui/combobox';
+import type { ComboboxOption } from '@/components/ui/combobox';
+import { SupplierCategoryLabels } from '../types/supplier.types';
 import { Unit } from '../types/inventory.types';
 import type { Warehouse } from '../types/inventory.types';
 import type { Material } from '../types/material.types';
@@ -130,6 +135,39 @@ interface ExtendedMaterialItem {
     | (LabelType & { sizeVariant: unknown });
 }
 
+// Line item for multi-item stock in
+interface StockInLineItem {
+  tempId: string;
+  materialType: MaterialType | '';
+  materialId: string; // format: TYPE:ID or just ID for LABEL_VARIANT
+  selectedItem: ExtendedMaterialItem | null;
+  quantity: string;
+  unit: string;
+  rate: string;
+  // Type-specific fields (simplified for multi-item)
+  foldLengthCm: string;
+  thanCount: string;
+  lotNumber: string;
+  remarks: string;
+}
+
+// Create empty line item
+function createEmptyLineItem(): StockInLineItem {
+  return {
+    tempId: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    materialType: '',
+    materialId: '',
+    selectedItem: null,
+    quantity: '',
+    unit: '',
+    rate: '',
+    foldLengthCm: '',
+    thanCount: '',
+    lotNumber: '',
+    remarks: '',
+  };
+}
+
 export default function StockInForm() {
   const navigate = useNavigate();
 
@@ -181,9 +219,26 @@ export default function StockInForm() {
     thanCount: '',
   });
 
+  // Supplier selection for Fresh Stock (multi-item mode)
+  const [supplierCategory, setSupplierCategory] = useState('');
+  const [supplierId, setSupplierId] = useState('');
+  const [supplierName, setSupplierName] = useState('');
+  const [supplierOptions, setSupplierOptions] = useState<ComboboxOption[]>([]);
+  const [suppliersRaw, setSuppliersRaw] = useState<{ id: string; name: string; code?: string }[]>([]);
+
+  // Multi-item line items for Fresh Stock
+  const [lineItems, setLineItems] = useState<StockInLineItem[]>([createEmptyLineItem()]);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Load suppliers when category changes
+  useEffect(() => {
+    if (sourceType === 'FRESH_STOCK') {
+      loadSuppliers();
+    }
+  }, [sourceType, supplierCategory]);
 
   const loadData = async () => {
     try {
@@ -354,6 +409,111 @@ export default function StockInForm() {
     }
   };
 
+  // Load suppliers for Fresh Stock mode
+  const loadSuppliers = async () => {
+    try {
+      const result = await getAllSuppliers({
+        category: supplierCategory || undefined,
+        limit: 200,
+      });
+      const data = (result as any).data || [];
+      const raw = data.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        code: s.code,
+      }));
+      setSuppliersRaw(raw);
+      setSupplierOptions(
+        raw.map((s: { id: string; name: string; code?: string }) => ({
+          value: s.id,
+          label: `${s.code ? s.code + ' - ' : ''}${s.name}`,
+          searchText: `${s.code || ''} ${s.name}`,
+        }))
+      );
+    } catch (err) {
+      logError('Failed to load suppliers:', err);
+    }
+  };
+
+  // Handle supplier selection
+  const handleSupplierChange = (supId: string) => {
+    setSupplierId(supId);
+    const sup = suppliersRaw.find((s) => s.id === supId);
+    setSupplierName(sup?.name || '');
+    // Reset line items when supplier changes
+    setLineItems([createEmptyLineItem()]);
+  };
+
+  // --- Line Item Management Functions ---
+  const addLineItem = () => {
+    setLineItems((prev) => [...prev, createEmptyLineItem()]);
+  };
+
+  const removeLineItem = (tempId: string) => {
+    if (lineItems.length <= 1) return;
+    setLineItems((prev) => prev.filter((item) => item.tempId !== tempId));
+  };
+
+  const updateLineItem = (tempId: string, field: keyof StockInLineItem, value: any) => {
+    setLineItems((prev) => prev.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item)));
+  };
+
+  // Handle material type change for a line item
+  const handleLineItemMaterialTypeChange = (tempId: string, materialType: MaterialType) => {
+    setLineItems((prev) =>
+      prev.map((item) =>
+        item.tempId === tempId
+          ? {
+              ...item,
+              materialType,
+              materialId: '',
+              selectedItem: null,
+              quantity: '',
+              unit: MATERIAL_TYPE_UNITS[materialType] || '',
+              rate: '',
+              foldLengthCm: '',
+              thanCount: '',
+              lotNumber: '',
+            }
+          : item
+      )
+    );
+  };
+
+  // Handle material selection for a line item
+  const handleLineItemMaterialSelect = (tempId: string, value: string, materialType: MaterialType | '') => {
+    // Find the material item
+    const item = unifiedMaterials.find((m) =>
+      m.type === 'LABEL_VARIANT' ? m.id === value : `${m.type}:${m.id}` === value
+    );
+
+    setLineItems((prev) =>
+      prev.map((lineItem) =>
+        lineItem.tempId === tempId
+          ? {
+              ...lineItem,
+              materialId: value,
+              selectedItem: item || null,
+              unit: item?.unit || MATERIAL_TYPE_UNITS[materialType as MaterialType] || '',
+            }
+          : lineItem
+      )
+    );
+  };
+
+  // Validate a single line item
+  const isLineItemValid = (item: StockInLineItem): boolean => {
+    if (!item.materialType) return false;
+    if (!item.materialId) return false;
+    if (!item.quantity || Number(item.quantity) <= 0) return false;
+    if (!item.unit) return false;
+    return true;
+  };
+
+  // Get count of valid items
+  const validItemCount = lineItems.filter(isLineItemValid).length;
+  const totalQuantity = lineItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+
   // Load greige stock when processor is selected
   const handleProcessorSelect = async (processorId: string) => {
     setSelectedProcessorId(processorId);
@@ -394,6 +554,11 @@ export default function StockInForm() {
     setSelectedMaterialType('');
     setSelectedItem(null);
     setFormData((prev) => ({ ...prev, materialId: '' }));
+    // Reset supplier and line items
+    setSupplierId('');
+    setSupplierName('');
+    setSupplierCategory('');
+    setLineItems([createEmptyLineItem()]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -417,12 +582,17 @@ export default function StockInForm() {
         return;
       }
     } else {
-      if (!formData.materialId || !formData.warehouseId || !formData.quantity || !formData.unit) {
-        setError('Please fill in all required fields');
+      // Fresh Stock validation - multi-item mode
+      if (!supplierId) {
+        setError('Please select a supplier');
         return;
       }
-      if (Number(formData.quantity) <= 0) {
-        setError('Quantity must be greater than 0');
+      if (!formData.warehouseId) {
+        setError('Please select a warehouse');
+        return;
+      }
+      if (validItemCount === 0) {
+        setError('Please add at least one valid item (material type, material, quantity, and unit are required)');
         return;
       }
     }
@@ -444,49 +614,73 @@ export default function StockInForm() {
         return;
       }
 
-      // Handle fresh stock
-      let itemType: string | undefined;
-      let itemId: string | undefined;
-      let materialId: string | undefined;
+      // Handle fresh stock - multi-item mode
+      const validItems = lineItems.filter(isLineItemValid);
 
-      if (formData.materialId.includes(':')) {
-        const [type, id] = formData.materialId.split(':');
-        itemType = type;
-        itemId = id;
-      } else {
-        materialId = formData.materialId;
-      }
+      // Build items array for bulk stock-in
+      const bulkItems = validItems.map((item) => {
+        let itemType: string | undefined;
+        let itemId: string | undefined;
+        let materialId: string | undefined;
 
-      // Build remarks with type-specific fields
-      let fullRemarks = formData.remarks || '';
-      const additionalInfo: string[] = [];
-      if (formData.width) additionalInfo.push(`Width: ${formData.width}`);
-      if (formData.thanCount) additionalInfo.push(`Thans: ${formData.thanCount}`);
-      if (formData.foldLengthCm) additionalInfo.push(`L: ${formData.foldLengthCm}cm`);
-      if (formData.color) additionalInfo.push(`Color: ${formData.color}`);
-      if (formData.lotNumber) additionalInfo.push(`Lot: ${formData.lotNumber}`);
-      if (formData.rollNumber) additionalInfo.push(`Roll: ${formData.rollNumber}`);
-      if (formData.challanNumber) additionalInfo.push(`Challan: ${formData.challanNumber}`);
-      if (formData.supplierInvoice) additionalInfo.push(`Invoice: ${formData.supplierInvoice}`);
+        if (item.materialId.includes(':')) {
+          const [type, id] = item.materialId.split(':');
+          itemType = type;
+          itemId = id;
+        } else {
+          materialId = item.materialId;
+        }
 
-      if (additionalInfo.length > 0) {
-        fullRemarks = additionalInfo.join(' | ') + (fullRemarks ? ` | ${fullRemarks}` : '');
-      }
+        // Build remarks with type-specific fields
+        const additionalInfo: string[] = [];
+        if (item.thanCount) additionalInfo.push(`Thans: ${item.thanCount}`);
+        if (item.foldLengthCm) additionalInfo.push(`L: ${item.foldLengthCm}cm`);
+        if (item.lotNumber) additionalInfo.push(`Lot: ${item.lotNumber}`);
+        const itemRemarks =
+          additionalInfo.length > 0
+            ? additionalInfo.join(' | ') + (item.remarks ? ` | ${item.remarks}` : '')
+            : item.remarks || undefined;
 
-      await stockMovementService.createStockIn({
-        materialId,
-        itemType,
-        itemId,
-        warehouseId: formData.warehouseId,
-        quantity: Number(formData.quantity),
-        unit: formData.unit as Unit,
-        rate: formData.rate ? Number(formData.rate) : undefined,
-        referenceType: formData.referenceType || undefined,
-        referenceNumber: formData.referenceNumber || undefined,
-        remarks: fullRemarks || undefined,
-        foldLengthCm: formData.foldLengthCm ? Number(formData.foldLengthCm) : undefined,
-        thanCount: formData.thanCount ? Number(formData.thanCount) : undefined,
+        return {
+          materialId,
+          itemType,
+          itemId,
+          quantity: Number(item.quantity),
+          unit: item.unit,
+          rate: item.rate ? Number(item.rate) : undefined,
+          foldLengthCm: item.foldLengthCm ? Number(item.foldLengthCm) : undefined,
+          thanCount: item.thanCount ? Number(item.thanCount) : undefined,
+          remarks: itemRemarks,
+        };
       });
+
+      // Use bulk endpoint for multiple items, single endpoint for one item
+      if (bulkItems.length > 1) {
+        await stockMovementService.createBulkStockIn({
+          warehouseId: formData.warehouseId,
+          referenceType: `SUPPLIER:${supplierId}`,
+          referenceNumber: formData.challanNumber || formData.supplierInvoice || undefined,
+          remarks: `From: ${supplierName}${formData.remarks ? ' | ' + formData.remarks : ''}`,
+          items: bulkItems,
+        });
+      } else if (bulkItems.length === 1) {
+        // Single item - use existing endpoint
+        const item = bulkItems[0];
+        await stockMovementService.createStockIn({
+          materialId: item.materialId,
+          itemType: item.itemType,
+          itemId: item.itemId,
+          warehouseId: formData.warehouseId,
+          quantity: item.quantity,
+          unit: item.unit as Unit,
+          rate: item.rate,
+          referenceType: `SUPPLIER:${supplierId}`,
+          referenceNumber: formData.challanNumber || formData.supplierInvoice || undefined,
+          remarks: `From: ${supplierName}${item.remarks ? ' | ' + item.remarks : ''}${formData.remarks ? ' | ' + formData.remarks : ''}`,
+          foldLengthCm: item.foldLengthCm,
+          thanCount: item.thanCount,
+        });
+      }
 
       setSuccess(true);
       navTimeoutRef.current = setTimeout(() => navigate('/inventory/movements'), 2000);
@@ -1354,117 +1548,63 @@ export default function StockInForm() {
           </>
         )}
 
-        {/* Fresh Stock Flow - Step 1: Material Type Selection */}
+        {/* Fresh Stock Flow - Step 1: Select Supplier */}
         {sourceType === 'FRESH_STOCK' && (
           <Card className="mb-4">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Step 1: Select Material Type</CardTitle>
+              <CardTitle className="text-lg">Step 1: Select Supplier</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).map((type) => {
-                  const count = unifiedMaterials.filter((m) => m.type === type).length;
-                  const isSelected = selectedMaterialType === type;
-                  return (
-                    <Button
-                      key={type}
-                      type="button"
-                      variant={isSelected ? 'default' : 'outline'}
-                      className={`h-auto py-3 flex flex-col items-center justify-center ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
-                      onClick={() => {
-                        setSelectedMaterialType(type);
-                        setSelectedItem(null);
-                        handleChange('materialId', '');
-                        handleChange('unit', MATERIAL_TYPE_UNITS[type]);
-                        // Reset type-specific fields
-                        handleChange('width', '');
-                        handleChange('color', '');
-                        handleChange('lotNumber', '');
-                        handleChange('rollNumber', '');
-                        handleChange('challanNumber', '');
-                        handleChange('supplierInvoice', '');
-                        handleChange('foldLengthCm', '');
-                        handleChange('thanCount', '');
-                      }}
-                    >
-                      <span className="font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
-                      <span className="text-xs opacity-70">{count} items</span>
-                    </Button>
-                  );
-                })}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Supplier Category</Label>
+                  <Select
+                    value={supplierCategory}
+                    onValueChange={(v) => {
+                      setSupplierCategory(v === 'ALL' ? '' : v);
+                      setSupplierId('');
+                      setSupplierName('');
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Categories</SelectItem>
+                      {Object.entries(SupplierCategoryLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    Supplier <span className="text-destructive">*</span>
+                  </Label>
+                  <Combobox
+                    options={supplierOptions}
+                    value={supplierId}
+                    onValueChange={handleSupplierChange}
+                    placeholder="Select supplier"
+                    searchPlaceholder="Type to search suppliers..."
+                    emptyText="No suppliers found"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Fresh Stock Flow - Step 2: Select Item (only shown after type selection) */}
-        {sourceType === 'FRESH_STOCK' && selectedMaterialType && (
+        {/* Fresh Stock Flow - Step 2: Warehouse & Reference (shown after supplier selected) */}
+        {sourceType === 'FRESH_STOCK' && supplierId && (
           <Card className="mb-4">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Step 2: Select {MATERIAL_TYPE_LABELS[selectedMaterialType]}</CardTitle>
+              <CardTitle className="text-lg">Step 2: Warehouse & Reference</CardTitle>
             </CardHeader>
             <CardContent>
-              {unifiedMaterials.filter((m) => m.type === selectedMaterialType).length === 0 ? (
-                <Alert className="bg-warning-muted text-warning border-warning/20">
-                  <AlertDescription>
-                    No {MATERIAL_TYPE_LABELS[selectedMaterialType].toLowerCase()} found in the system. Please add items
-                    in the <strong>{MATERIAL_TYPE_LABELS[selectedMaterialType]} Master</strong> first before inwarding
-                    stock.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <>
-                  <Select value={formData.materialId} onValueChange={handleMaterialSelect}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={`Select ${MATERIAL_TYPE_LABELS[selectedMaterialType].toLowerCase()}`} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-96">
-                      {unifiedMaterials
-                        .filter((m) => {
-                          // Show both LABEL and LABEL_VARIANT types when LABEL is selected
-                          if (selectedMaterialType === 'LABEL') {
-                            return m.type === 'LABEL' || m.type === 'LABEL_VARIANT';
-                          }
-                          return m.type === selectedMaterialType;
-                        })
-                        .map((mat) => {
-                          // For LABEL_VARIANT, use material ID directly; for others, use type:id
-                          const value = mat.type === 'LABEL_VARIANT' ? mat.id : `${mat.type}:${mat.id}`;
-                          return (
-                            <SelectItem key={`${mat.type}-${mat.id}`} value={value}>
-                              <span className="font-medium">{mat.code}</span>
-                              <span className="text-muted-foreground"> - {mat.name}</span>
-                            </SelectItem>
-                          );
-                        })}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Show item details when selected */}
-                  {selectedItem && (
-                    <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Info className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-sm">Item Details</span>
-                      </div>
-                      {renderItemDetails()}
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Fresh Stock Flow - Step 3: Stock In Details (only shown after item selection) */}
-        {sourceType === 'FRESH_STOCK' && selectedItem && (
-          <Card className="mb-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Step 3: Stock In Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Warehouse Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="warehouseId">
                     Warehouse <span className="text-destructive">*</span>
@@ -1482,103 +1622,265 @@ export default function StockInForm() {
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Quantity */}
                 <div className="space-y-2">
-                  <Label htmlFor="quantity">
-                    Quantity <span className="text-destructive">*</span>
-                  </Label>
+                  <Label htmlFor="challanNumber">Challan/DC Number</Label>
                   <Input
-                    id="quantity"
-                    type="number"
-                    value={formData.quantity}
-                    onChange={(e) => handleChange('quantity', e.target.value)}
-                    min="0"
-                    step="0.01"
-                    required
-                    placeholder="Enter quantity"
+                    id="challanNumber"
+                    value={formData.challanNumber}
+                    onChange={(e) => handleChange('challanNumber', e.target.value)}
+                    placeholder="Delivery challan number"
                   />
                 </div>
-
-                {/* Unit */}
                 <div className="space-y-2">
-                  <Label htmlFor="unit">
-                    Unit <span className="text-destructive">*</span>
-                  </Label>
-                  <Select value={formData.unit} onValueChange={(value) => handleChange('unit', value)}>
-                    <SelectTrigger id="unit">
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedMaterialType &&
-                        getUnitsForType(selectedMaterialType).map((unit) => (
-                          <SelectItem key={unit.value} value={unit.value}>
-                            {unit.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Rate */}
-                <div className="space-y-2">
-                  <Label htmlFor="rate">Rate per Unit (₹)</Label>
+                  <Label htmlFor="supplierInvoice">Supplier Invoice</Label>
                   <Input
-                    id="rate"
-                    type="number"
-                    value={formData.rate}
-                    onChange={(e) => handleChange('rate', e.target.value)}
-                    min="0"
-                    step="0.01"
-                    placeholder="Enter rate"
+                    id="supplierInvoice"
+                    value={formData.supplierInvoice}
+                    onChange={(e) => handleChange('supplierInvoice', e.target.value)}
+                    placeholder="Invoice number"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-                {/* Type-specific fields */}
-                {renderTypeSpecificFields()}
+        {/* Fresh Stock Flow - Step 3: Add Items (multi-item) */}
+        {sourceType === 'FRESH_STOCK' && supplierId && formData.warehouseId && (
+          <Card className="mb-4">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Step 3: Add Items</CardTitle>
+                <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Item
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {lineItems.map((item, index) => {
+                const isFabricOrGreige = item.materialType === 'FABRIC' || item.materialType === 'GREIGE';
 
-                {/* Reference Type */}
-                <div className="space-y-2">
-                  <Label htmlFor="referenceType">Reference Type</Label>
-                  <Select
-                    value={formData.referenceType}
-                    onValueChange={(value) => handleChange('referenceType', value)}
-                  >
-                    <SelectTrigger id="referenceType">
-                      <SelectValue placeholder="Select reference type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="GRN">GRN (Goods Receipt Note)</SelectItem>
-                      <SelectItem value="PURCHASE_ORDER">Purchase Order</SelectItem>
-                      <SelectItem value="RETURN">Return</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                return (
+                  <div key={item.tempId} className="border rounded-lg p-4 space-y-4">
+                    {/* Item Header */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm text-muted-foreground">Item {index + 1}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeLineItem(item.tempId)}
+                        disabled={lineItems.length <= 1}
+                        className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Material Type Tiles */}
+                    <div className="space-y-2">
+                      <Label>
+                        Material Type <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                        {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).slice(0, 6).map((type) => {
+                          const count = unifiedMaterials.filter((m) => m.type === type).length;
+                          const isSelected = item.materialType === type;
+                          return (
+                            <Button
+                              key={type}
+                              type="button"
+                              variant={isSelected ? 'default' : 'outline'}
+                              size="sm"
+                              className={`h-auto py-2 flex flex-col ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
+                              onClick={() => handleLineItemMaterialTypeChange(item.tempId, type)}
+                            >
+                              <span className="text-xs font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
+                              <span className="text-[10px] opacity-70">{count}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                        {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).slice(6).map((type) => {
+                          const count = unifiedMaterials.filter((m) => m.type === type).length;
+                          const isSelected = item.materialType === type;
+                          return (
+                            <Button
+                              key={type}
+                              type="button"
+                              variant={isSelected ? 'default' : 'outline'}
+                              size="sm"
+                              className={`h-auto py-2 flex flex-col ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
+                              onClick={() => handleLineItemMaterialTypeChange(item.tempId, type)}
+                            >
+                              <span className="text-xs font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
+                              <span className="text-[10px] opacity-70">{count}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Material Selection & Quantity (shown after material type selected) */}
+                    {item.materialType && (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        {/* Material Selection */}
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>
+                            {MATERIAL_TYPE_LABELS[item.materialType]} <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={item.materialId}
+                            onValueChange={(v) => handleLineItemMaterialSelect(item.tempId, v, item.materialType)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue
+                                placeholder={`Select ${MATERIAL_TYPE_LABELS[item.materialType].toLowerCase()}`}
+                              />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60">
+                              {unifiedMaterials
+                                .filter((m) => {
+                                  if (item.materialType === 'LABEL') {
+                                    return m.type === 'LABEL' || m.type === 'LABEL_VARIANT';
+                                  }
+                                  return m.type === item.materialType;
+                                })
+                                .map((mat) => {
+                                  const value = mat.type === 'LABEL_VARIANT' ? mat.id : `${mat.type}:${mat.id}`;
+                                  return (
+                                    <SelectItem key={`${mat.type}-${mat.id}`} value={value}>
+                                      {mat.code} - {mat.name}
+                                    </SelectItem>
+                                  );
+                                })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Quantity */}
+                        <div className="space-y-2">
+                          <Label>
+                            Quantity <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateLineItem(item.tempId, 'quantity', e.target.value)}
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                          />
+                        </div>
+
+                        {/* Unit */}
+                        <div className="space-y-2">
+                          <Label>
+                            Unit <span className="text-destructive">*</span>
+                          </Label>
+                          <Select value={item.unit} onValueChange={(v) => updateLineItem(item.tempId, 'unit', v)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getUnitsForType(item.materialType).map((unit) => (
+                                <SelectItem key={unit.value} value={unit.value}>
+                                  {unit.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Rate */}
+                        <div className="space-y-2">
+                          <Label>Rate (₹)</Label>
+                          <Input
+                            type="number"
+                            value={item.rate}
+                            onChange={(e) => updateLineItem(item.tempId, 'rate', e.target.value)}
+                            min="0"
+                            step="0.01"
+                            placeholder="Rate per unit"
+                          />
+                        </div>
+
+                        {/* Lot Number */}
+                        <div className="space-y-2">
+                          <Label>Lot/Batch Number</Label>
+                          <Input
+                            value={item.lotNumber}
+                            onChange={(e) => updateLineItem(item.tempId, 'lotNumber', e.target.value)}
+                            placeholder="Lot number"
+                          />
+                        </div>
+
+                        {/* Than Count & Fold Length (fabric/greige only) */}
+                        {isFabricOrGreige && (
+                          <>
+                            <div className="space-y-2">
+                              <Label>Than Count</Label>
+                              <Input
+                                type="number"
+                                value={item.thanCount}
+                                onChange={(e) => updateLineItem(item.tempId, 'thanCount', e.target.value)}
+                                placeholder="Thans"
+                                min="0"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Fold Length (cm)</Label>
+                              <Input
+                                type="number"
+                                value={item.foldLengthCm}
+                                onChange={(e) => updateLineItem(item.tempId, 'foldLengthCm', e.target.value)}
+                                placeholder="e.g. 97"
+                                step="0.01"
+                                min="0"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Item validation indicator */}
+                    {item.materialType && (
+                      <div className="text-xs">
+                        {isLineItemValid(item) ? (
+                          <span className="text-green-600">Item valid</span>
+                        ) : (
+                          <span className="text-muted-foreground">Select material and enter quantity/unit</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Summary */}
+              <div className="border-t pt-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  {validItemCount} of {lineItems.length} item(s) valid | Total Qty: {totalQuantity.toFixed(2)}
                 </div>
+                <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Another Item
+                </Button>
+              </div>
 
-                {/* Reference Number */}
-                <div className="space-y-2">
-                  <Label htmlFor="referenceNumber">Reference Number</Label>
-                  <Input
-                    id="referenceNumber"
-                    value={formData.referenceNumber}
-                    onChange={(e) => handleChange('referenceNumber', e.target.value)}
-                    placeholder="GRN/PO number"
-                  />
-                </div>
-
-                {/* Remarks - full width */}
-                <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <Label htmlFor="remarks">Remarks</Label>
-                  <Textarea
-                    id="remarks"
-                    value={formData.remarks}
-                    onChange={(e) => handleChange('remarks', e.target.value)}
-                    rows={2}
-                    placeholder="Any additional notes..."
-                  />
-                </div>
+              {/* Remarks */}
+              <div className="space-y-2 pt-2">
+                <Label htmlFor="remarks">Remarks</Label>
+                <Textarea
+                  id="remarks"
+                  value={formData.remarks}
+                  onChange={(e) => handleChange('remarks', e.target.value)}
+                  rows={2}
+                  placeholder="Any additional notes..."
+                />
               </div>
             </CardContent>
           </Card>
@@ -1594,13 +1896,15 @@ export default function StockInForm() {
             type="submit"
             disabled={
               loading ||
-              (sourceType === 'FRESH_STOCK' && !selectedItem) ||
+              (sourceType === 'FRESH_STOCK' && (validItemCount === 0 || !formData.warehouseId || !supplierId)) ||
               (sourceType === 'PROCESSOR_RETURN' &&
                 (!selectedProcessorStock || !receivedQuantity || !formData.warehouseId))
             }
           >
             {loading ? <ButtonSpinner className="mr-2" /> : <Save className="mr-2 h-4 w-4" />}
-            {sourceType === 'PROCESSOR_RETURN' ? 'Receive from Processor' : 'Create Stock IN'}
+            {sourceType === 'PROCESSOR_RETURN'
+              ? 'Receive from Processor'
+              : `Create Stock IN (${validItemCount} item${validItemCount !== 1 ? 's' : ''})`}
           </Button>
         </div>
       </form>

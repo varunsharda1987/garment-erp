@@ -247,6 +247,8 @@ model color_master {
   // Thread module relations
   thread_master             thread_master[]
   order_thread_requirements order_thread_requirements[]
+  // Style fabric color relation
+  style_fabrics             style_fabrics[]
 
   @@index([colorFamily])
   @@index([colorName])
@@ -740,6 +742,10 @@ model grn_items {
   totalMeters           Decimal?              @db.Decimal(10, 3) // Sum from details or direct entry
   isOverReceipt         Boolean               @default(false)
   overReceiptQty        Decimal?              @db.Decimal(10, 3) // Excess amount beyond PO pending
+  // Source mismatch override fields (greige→ready fabric scenario)
+  receivedAsReadyFabric Boolean               @default(false) // Override: treat greige PO item as ready fabric
+  actualRatePerUnit     Decimal?              @db.Decimal(12, 2) // Actual rate received (may differ from PO rate)
+  updateFutureSourcing  Boolean               @default(false) // true = permanent change, false = one-time exception
   goods_receiving_notes goods_receiving_notes @relation(fields: [grnId], references: [id], onDelete: Cascade)
   materials             materials             @relation(fields: [materialId], references: [id])
   purchase_order_items  purchase_order_items  @relation(fields: [poItemId], references: [id], onDelete: Cascade)
@@ -1752,6 +1758,8 @@ model style_costing {
   fabricItems                             style_costing_fabric_items[]
   laceItems                               style_costing_lace_items[]
   threadItems                             style_costing_thread_items[] // Thread costing items
+  trimItems                               style_costing_trim_items[]   // Trim costing items (relational)
+  accessoryItems                          style_costing_accessory_items[] // Accessory costing items (relational)
   costSheetPoGenerations                  cost_sheet_po_generation[]
 
   @@unique([styleId, purpose, version])
@@ -1917,6 +1925,130 @@ model style_costing_lace_items {
   @@index([labDipId])
 }
 
+/// Style Costing Trim Items - Individual trim items in a cost sheet
+/// Stores all trim FK references for MRP/PO generation
+model style_costing_trim_items {
+  id              String   @id @default(uuid())
+  costingId       String
+
+  // Core fields
+  trimName        String
+  trimQuantity    Decimal  @default(0) @db.Decimal(10, 4)
+  trimRate        Decimal  @default(0) @db.Decimal(10, 2)
+  trimTotal       Decimal  @default(0) @db.Decimal(10, 2)
+  unit            String?
+  isNotApplicable Boolean  @default(false)
+
+  // Material type for resolution (matches Prisma MaterialType enum)
+  materialType    String?
+  bomId           String?  // Reference to style_material_bom if applicable
+
+  // Master FK fields - only ONE should be populated based on materialType
+  materialId         String?  // Generic material
+  threadId           String?
+  buttonId           String?
+  zipperId           String?
+  elasticId          String?
+  labelId            String?
+  packagingId        String?
+  hookEyeId          String?
+  snapButtonId       String?
+  buckleId           String?
+  beltId             String?
+  velcroId           String?
+  drawstringId       String?
+  ribbonId           String?
+  sequinId           String?
+  beadId             String?
+  motifId            String?
+  interliningId      String?
+  paddingId          String?
+  otherFastenerId    String?
+  otherTapeId        String?
+  otherDecorativeId  String?
+  otherFunctionalId  String?
+
+  // Generic fallback for NEW material types (no dedicated FK column needed)
+  // When a new trim type is added, it can use masterId + materialType
+  masterId           String?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  costing         style_costing    @relation(fields: [costingId], references: [id], onDelete: Cascade)
+  thread          thread_master?   @relation("trim_costing_thread", fields: [threadId], references: [id])
+  button          button_master?   @relation("trim_costing_button", fields: [buttonId], references: [id])
+  zipper          zipper_master?   @relation("trim_costing_zipper", fields: [zipperId], references: [id])
+  elastic         elastic_master?  @relation("trim_costing_elastic", fields: [elasticId], references: [id])
+  label           label_master?    @relation("trim_costing_label", fields: [labelId], references: [id])
+  packaging       packaging_master? @relation("trim_costing_packaging", fields: [packagingId], references: [id])
+  hookEye         hook_eye_master? @relation("trim_costing_hook_eye", fields: [hookEyeId], references: [id])
+  snapButton      snap_button_master? @relation("trim_costing_snap_button", fields: [snapButtonId], references: [id])
+  buckle          buckle_master?   @relation("trim_costing_buckle", fields: [buckleId], references: [id])
+  belt            belt_master?     @relation("trim_costing_belt", fields: [beltId], references: [id])
+  velcro          velcro_master?   @relation("trim_costing_velcro", fields: [velcroId], references: [id])
+  drawstring      drawstring_master? @relation("trim_costing_drawstring", fields: [drawstringId], references: [id])
+  ribbon          ribbon_master?   @relation("trim_costing_ribbon", fields: [ribbonId], references: [id])
+  sequin          sequin_master?   @relation("trim_costing_sequin", fields: [sequinId], references: [id])
+  bead            bead_master?     @relation("trim_costing_bead", fields: [beadId], references: [id])
+  motif           motif_master?    @relation("trim_costing_motif", fields: [motifId], references: [id])
+  interlining     interlining_master? @relation("trim_costing_interlining", fields: [interliningId], references: [id])
+  padding         padding_master?  @relation("trim_costing_padding", fields: [paddingId], references: [id])
+  otherFastener   other_fastener_master? @relation("trim_costing_other_fastener", fields: [otherFastenerId], references: [id])
+  otherTape       other_tape_master? @relation("trim_costing_other_tape", fields: [otherTapeId], references: [id])
+  otherDecorative other_decorative_master? @relation("trim_costing_other_decorative", fields: [otherDecorativeId], references: [id])
+  otherFunctional other_functional_master? @relation("trim_costing_other_functional", fields: [otherFunctionalId], references: [id])
+
+  @@index([costingId])
+  @@index([materialType])
+  @@index([threadId])
+  @@index([buttonId])
+  @@index([zipperId])
+  @@index([elasticId])
+  @@index([labelId])
+  @@index([masterId])
+}
+
+/// Style Costing Accessory Items - Individual accessory items in a cost sheet
+/// Accessories are typically packaging items (labels, polybags, etc.)
+model style_costing_accessory_items {
+  id                String   @id @default(uuid())
+  costingId         String
+
+  // Core fields
+  accessoryName     String
+  accessoryQuantity Decimal  @default(0) @db.Decimal(10, 4)
+  accessoryRate     Decimal  @default(0) @db.Decimal(10, 2)
+  accessoryTotal    Decimal  @default(0) @db.Decimal(10, 2)
+  isNotApplicable   Boolean  @default(false)
+
+  // Master FK fields
+  materialType      String?  // Typically LABEL or PACKAGING
+  materialId        String?  // Generic material reference
+  labelId           String?
+  packagingId       String?
+
+  // Generic fallback for NEW accessory types (no dedicated FK column needed)
+  masterId          String?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  costing   style_costing     @relation(fields: [costingId], references: [id], onDelete: Cascade)
+  label     label_master?     @relation("accessory_costing_label", fields: [labelId], references: [id])
+  packaging packaging_master? @relation("accessory_costing_packaging", fields: [packagingId], references: [id])
+
+  @@index([costingId])
+  @@index([materialType])
+  @@index([labelId])
+  @@index([packagingId])
+  @@index([masterId])
+}
+
 model style_fabrics {
   id                     String                @id @default(uuid())
   componentId            String
@@ -1949,6 +2081,9 @@ model style_fabrics {
   selectedGreigeId       String?
   migrationStatus        String?               @default("LINKED")
   numberOfColors         Int?
+  // Design/Color fields for fabric identification
+  printDesign            String?               @map("print_design") // For PRINTED/YARN_DYED fabrics
+  colorMasterId          String?               @map("color_master_id") // For SOLID/DYED fabrics
   embroideryPartCad      embroidery_part_cad?
   cadRows                fabric_width_cad[]    @relation("style_fabric_cad_rows")
   style_components       style_components      @relation(fields: [componentId], references: [id], onDelete: Cascade)
@@ -1956,6 +2091,7 @@ model style_fabrics {
   fabricCAD              fabric_width_cad?     @relation(fields: [fabricCADId], references: [id])
   fabric                 fabric_master?        @relation(fields: [fabricId], references: [id])
   selectedGreige         greige_master?        @relation("style_fabrics_selectedGreige", fields: [selectedGreigeId], references: [id])
+  colorMaster            color_master?         @relation(fields: [colorMasterId], references: [id])
   stylePatternParts      style_pattern_parts[]
 
   @@index([componentId])
@@ -1964,6 +2100,7 @@ model style_fabrics {
   @@index([cadGroupKey])
   @@index([embroideryId])
   @@index([selectedGreigeId])
+  @@index([colorMasterId])
 }
 
 model embroidery_master {
@@ -3579,10 +3716,28 @@ model pattern_part_master {
   fabricStocks          fabric_stock[]            @relation("fabric_stock_pattern_part")
   patternPartGroups     pattern_part_groups[]
   stylePatternParts     style_pattern_parts[]     @relation("style_pattern_parts")
+  cadPatternParts       cad_pattern_parts[]       @relation("cad_part_assignments")
 
   @@index([isActive])
   @@index([sortOrder])
   @@map("pattern_part_master")
+}
+
+/// Bridge table - Many-to-many relationship between CAD rows and Pattern Parts
+/// Enables multi-part selection per CAD row (e.g., SLEEVE + COLLAR in one row)
+model cad_pattern_parts {
+  id            String              @id @default(uuid())
+  cadId         String              @map("cad_id")
+  patternPartId String              @map("pattern_part_id")
+  createdAt     DateTime            @default(now()) @map("created_at")
+
+  cad         fabric_width_cad    @relation("cad_multi_parts", fields: [cadId], references: [id], onDelete: Cascade)
+  patternPart pattern_part_master @relation("cad_part_assignments", fields: [patternPartId], references: [id], onDelete: Cascade)
+
+  @@unique([cadId, patternPartId])
+  @@index([cadId])
+  @@index([patternPartId])
+  @@map("cad_pattern_parts")
 }
 
 /// Bridge table - Many-to-many relationship between Pattern Parts and Component Groups
@@ -4004,6 +4159,7 @@ model fabric_width_cad {
   fabricStock                 fabric_stock?                @relation("cad_fabric_stock", fields: [fabricStockId], references: [id])
   greige                      greige_master?               @relation("fabric_width_cad_greige", fields: [greigeId], references: [id])
   patternPart                 pattern_part_master?         @relation("cad_pattern_part", fields: [patternPartId], references: [id])
+  cadPatternParts             cad_pattern_parts[]          @relation("cad_multi_parts")
   batchGroupColor             color_master?                @relation("fabric_cad_batch_color", fields: [processingBatchGroupColorId], references: [id])
   processor                   suppliers?                   @relation("fabric_width_cad_processor", fields: [processorId], references: [id])
   procurement                 fabric_procurement?          @relation("cad_procurement", fields: [procurementId], references: [id])
@@ -4589,6 +4745,7 @@ model button_master {
   materials                 materials[]
   order_bom_items           order_bom_items[]
   style_material_bom        style_material_bom[]
+  costingTrimItems          style_costing_trim_items[] @relation("trim_costing_button")
 
   @@index([buttonCode])
   @@index([supplierId])
@@ -4633,6 +4790,7 @@ model thread_master {
   costingItems              style_costing_thread_items[]
   orderThreadRequirements   order_thread_requirements[]
   threadStock               thread_stock[]
+  costingTrimItems          style_costing_trim_items[]   @relation("trim_costing_thread")
 
   @@index([threadCode])
   @@index([supplierId])
@@ -4804,6 +4962,7 @@ model zipper_master {
   createdBy          users?               @relation(fields: [createdById], references: [id])
   suppliers          suppliers?           @relation(fields: [supplierId], references: [id])
   zipperSuppliers    zipper_suppliers[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_zipper")
 
   @@index([zipperCode])
   @@index([supplierId])
@@ -4834,6 +4993,7 @@ model elastic_master {
   materials          materials[]
   order_bom_items    order_bom_items[]
   style_material_bom style_material_bom[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_elastic")
 
   @@index([elasticCode])
   @@index([supplierId])
@@ -4875,6 +5035,8 @@ model label_master {
   materials            materials[]
   order_bom_items      order_bom_items[]
   style_material_bom   style_material_bom[]
+  costingTrimItems     style_costing_trim_items[]      @relation("trim_costing_label")
+  costingAccessoryItems style_costing_accessory_items[] @relation("accessory_costing_label")
 
   @@index([labelCode])
   @@index([supplierId])
@@ -4945,6 +5107,8 @@ model packaging_master {
   suppliers           suppliers?            @relation(fields: [supplierId], references: [id])
   packaging_suppliers packaging_suppliers[]
   style_material_bom  style_material_bom[]
+  costingTrimItems     style_costing_trim_items[]      @relation("trim_costing_packaging")
+  costingAccessoryItems style_costing_accessory_items[] @relation("accessory_costing_packaging")
 
   @@index([packagingCode])
   @@index([supplierId])
@@ -6478,6 +6642,7 @@ model hook_eye_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_hook_eye")
 
   @@index([hookEyeCode])
   @@index([supplierId])
@@ -6505,6 +6670,7 @@ model snap_button_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_snap_button")
 
   @@index([snapButtonCode])
   @@index([supplierId])
@@ -6532,6 +6698,7 @@ model buckle_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_buckle")
 
   @@index([buckleCode])
   @@index([supplierId])
@@ -6559,6 +6726,7 @@ model belt_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_belt")
 
   @@index([beltCode])
   @@index([supplierId])
@@ -6584,6 +6752,7 @@ model velcro_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_velcro")
 
   @@index([velcroCode])
   @@index([supplierId])
@@ -6610,6 +6779,7 @@ model drawstring_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_drawstring")
 
   @@index([drawstringCode])
   @@index([supplierId])
@@ -6636,6 +6806,7 @@ model ribbon_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_ribbon")
 
   @@index([ribbonCode])
   @@index([supplierId])
@@ -6664,6 +6835,7 @@ model sequin_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_sequin")
 
   @@index([sequinCode])
   @@index([supplierId])
@@ -6691,6 +6863,7 @@ model bead_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_bead")
 
   @@index([beadCode])
   @@index([supplierId])
@@ -6717,6 +6890,7 @@ model motif_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_motif")
 
   @@index([motifCode])
   @@index([supplierId])
@@ -6744,6 +6918,7 @@ model interlining_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_interlining")
 
   @@index([interliningCode])
   @@index([supplierId])
@@ -6772,6 +6947,7 @@ model padding_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_padding")
 
   @@index([paddingCode])
   @@index([supplierId])
@@ -6798,6 +6974,7 @@ model other_fastener_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_other_fastener")
 
   @@index([otherFastenerCode])
   @@index([supplierId])
@@ -6824,6 +7001,7 @@ model other_tape_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_other_tape")
 
   @@index([otherTapeCode])
   @@index([supplierId])
@@ -6850,6 +7028,7 @@ model other_decorative_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_other_decorative")
 
   @@index([otherDecorativeCode])
   @@index([supplierId])
@@ -6876,6 +7055,7 @@ model other_functional_master {
   materials          materials[]
   style_material_bom style_material_bom[]
   order_bom_items    order_bom_items[]
+  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_other_functional")
 
   @@index([otherFunctionalCode])
   @@index([supplierId])

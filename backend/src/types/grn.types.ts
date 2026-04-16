@@ -59,6 +59,10 @@ export interface GRNItemDTO {
   receivedWidthInches?: number | null;
   entryMode?: GRNEntryMode | null;
   details?: GRNItemDetailDTO[];
+  // Source mismatch override fields (greige→ready fabric scenario)
+  receivedAsReadyFabric?: boolean; // Override: treat greige PO item as ready fabric
+  actualRatePerUnit?: number | null; // Actual rate received (may differ from PO rate)
+  updateFutureSourcing?: boolean; // true = permanent change, false = one-time exception
 }
 
 /**
@@ -85,6 +89,10 @@ export interface GRNItemResponse {
   totalMeters: number | null;
   isOverReceipt: boolean;
   overReceiptQty: number | null;
+  // Source mismatch override fields
+  receivedAsReadyFabric: boolean;
+  actualRatePerUnit: number | null;
+  updateFutureSourcing: boolean;
   // Relations
   materials?: MaterialSummary;
   purchase_order_items?: POItemSummary;

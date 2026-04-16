@@ -47,6 +47,9 @@ interface FabricStock {
   qualityGrade: string;
   weightedAvgCost: number;
   fabricName?: string;
+  finishType?: string | null;
+  printDesign?: string | null;
+  colorName?: string | null;
 }
 
 interface SKUPlan {
@@ -505,12 +508,15 @@ export default function CuttingForm() {
                         <SelectValue placeholder={fabricStocks.length ? 'Select fabric lot' : 'No fabric available'} />
                       </SelectTrigger>
                       <SelectContent>
-                        {fabricStocks.map((fs) => (
-                          <SelectItem key={fs.id} value={fs.id}>
-                            {fs.rollNumbers || fs.fabricName || 'Stock'} - {fs.quantityAvailable}m available (
-                            {fs.cutableWidth}cm width)
-                          </SelectItem>
-                        ))}
+                        {fabricStocks.map((fs) => {
+                          const designColor = fs.printDesign || fs.colorName || '';
+                          const label = `${fs.rollNumbers || fs.fabricName || 'Stock'}${designColor ? ` - ${designColor}` : ''}`;
+                          return (
+                            <SelectItem key={fs.id} value={fs.id}>
+                              {label} - {fs.quantityAvailable}m available ({fs.cutableWidth}cm width)
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>

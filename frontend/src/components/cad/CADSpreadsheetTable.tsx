@@ -56,6 +56,7 @@ import type {
 } from '@/types/cad-planning.types';
 import { CAD_PURPOSE_LABELS, PRINT_DIRECTION_LABELS, ALL_PARTS_CODE } from '@/types/cad-planning.types';
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
+import { CADPartMultiSelect } from './CADPartMultiSelect';
 
 /**
  * Field styling by type for visual differentiation
@@ -328,6 +329,8 @@ export function CADSpreadsheetTable({
       componentId: string;
       fabricFinishType: string | null;
       genericGreigeName: string | null;
+      printDesign?: string | null;
+      colorName?: string | null;
       hasEmbroidery?: boolean;
       embroideryCode?: string | null;
       fabricCode?: string | null;
@@ -346,6 +349,8 @@ export function CADSpreadsheetTable({
               componentId: comp.id,
               fabricFinishType: sf.fabricFinishType,
               genericGreigeName: sf.genericGreigeName,
+              printDesign: sf.printDesign,
+              colorName: sf.colorName,
               hasEmbroidery: sf.hasEmbroidery,
               embroideryCode: sf.embroideryCode,
               fabricCode: sf.fabricCode,
@@ -504,7 +509,7 @@ export function CADSpreadsheetTable({
       .filter((group) => group.rows.length > 0);
   }, [rows]);
 
-  // Get available widths for a greige (1 inch increments)
+  // Get available widths for a greige (0.5 inch increments)
   const getAvailableWidths = (greigeId: string | null): number[] => {
     if (!greigeId) return [];
     const greige = availableGreiges.find((g) => g.id === greigeId);
@@ -513,10 +518,23 @@ export function CADSpreadsheetTable({
     const min = greige.expectedFinishedWidthMin || 36;
     const max = greige.expectedFinishedWidthMax || greige.greigeWidth || 60;
     const widths: number[] = [];
-    for (let w = min; w <= max; w += 1) {
+    for (let w = min; w <= max; w += 0.5) {
       widths.push(w);
     }
     return widths;
+  };
+
+  // Get default cutable width based on greige width
+  // Business rules: 63" greige → 52", 48" greige → 40"
+  const getDefaultCutableWidth = (greigeId: string | null): number | null => {
+    if (!greigeId) return null;
+    const greige = availableGreiges.find((g) => g.id === greigeId);
+    if (!greige || !greige.greigeWidth) return null;
+
+    const greigeWidth = Number(greige.greigeWidth);
+    if (greigeWidth >= 63) return 52;
+    if (greigeWidth >= 48) return 40;
+    return null; // Let user select for other widths
   };
 
   // Get pattern parts for a component
@@ -648,16 +666,20 @@ export function CADSpreadsheetTable({
         },
       };
 
-      // Auto-populate width from stock when greige is selected
+      // Auto-populate width from stock when greige is selected (if stock exists)
+      // Note: Default width (63"→52", 48"→40") is shown as placeholder, no need to auto-set
       if (field === 'greigeId' && value) {
         const row = rows.find((r) => r.id === rowId);
-        // Only auto-populate if width is not already set and stock widths exist
-        if (row && row.stockWidths && row.stockWidths.length > 0 && !row.cutableWidth) {
-          // Auto-select the first stock width
-          newChanges[rowId] = {
-            ...newChanges[rowId],
-            cutableWidth: row.stockWidths[0],
-          };
+        // Only auto-populate if width is not already set AND stock widths exist
+        if (row && !row.cutableWidth && !newChanges[rowId]?.cutableWidth) {
+          if (row.stockWidths && row.stockWidths.length > 0) {
+            // Use stock width (actual received fabric width)
+            newChanges[rowId] = {
+              ...newChanges[rowId],
+              cutableWidth: row.stockWidths[0],
+            };
+          }
+          // Default width shown as placeholder - backend applies it if width not provided on save
         }
       }
 
@@ -1441,48 +1463,52 @@ export function CADSpreadsheetTable({
                           )}
                         </TableCell>
 
-                        {/* Part - Editable */}
-                        <TableCell className={cn('px-1 py-1.5 max-w-[80px]', getFieldClass('editable', isEditing))}>
+                        {/* Part - Editable with searchable multi-select */}
+                        <TableCell className={cn('px-1 py-1.5 max-w-[130px]', getFieldClass('editable', isEditing))}>
                           {isEditing ? (
-                            <Select
-                              value={getDisplayValue(row, 'partId', '') || ''}
-                              onValueChange={(v) => handleFieldChange(row.id, 'partId', v)}
+                            <CADPartMultiSelect
+                              parts={availableParts.map((p) => ({
+                                id: p.id,
+                                code: p.code,
+                                name: p.name,
+                                goesToEmbroidery: p.goesToEmbroidery,
+                                isUsed: p.isUsed,
+                              }))}
+                              selectedIds={
+                                // Use pending partIds if available, otherwise use row's partIds or fallback to single partId
+                                (pendingChanges[row.id]?.partIds as string[] | undefined) ||
+                                row.partIds ||
+                                (row.partId ? [row.partId] : [])
+                              }
+                              onChange={(ids) => {
+                                handleFieldChange(row.id, 'partIds', ids);
+                                // Also set partId for backwards compatibility (first selected part)
+                                handleFieldChange(row.id, 'partId', ids[0] || null);
+                              }}
                               disabled={isSaving}
-                            >
-                              <SelectTrigger className="h-7 text-xs w-20">
-                                <SelectValue placeholder="Part" />
-                              </SelectTrigger>
-                              <SelectContent className="max-h-[300px]">
-                                {/* Sort parts: ALL_PARTS first, then others by name */}
-                                {[...availableParts]
-                                  .sort((a, b) => {
-                                    if (a.code === ALL_PARTS_CODE) return -1;
-                                    if (b.code === ALL_PARTS_CODE) return 1;
-                                    return a.name.localeCompare(b.name);
-                                  })
-                                  .map((part, index, arr) => (
-                                    <React.Fragment key={part.id}>
-                                      {/* Add separator after ALL_PARTS if there are more parts */}
-                                      {index === 1 && arr[0]?.code === ALL_PARTS_CODE && (
-                                        <div className="border-t my-1" />
-                                      )}
-                                      <SelectItem
-                                        value={part.id}
-                                        disabled={part.isUsed}
-                                        className={cn(
-                                          part.isUsed && 'text-muted-foreground',
-                                          part.code === ALL_PARTS_CODE && 'font-medium text-primary'
-                                        )}
-                                      >
-                                        {part.name}
-                                        {part.isUsed ? ' (Used)' : ''}
-                                      </SelectItem>
-                                    </React.Fragment>
-                                  ))}
-                              </SelectContent>
-                            </Select>
+                              allPartsCode={ALL_PARTS_CODE}
+                              placeholder="Select parts"
+                            />
+                          ) : // Display multiple parts as badges if available
+                          row.parts && row.parts.length > 1 ? (
+                            <div className="flex flex-wrap gap-0.5">
+                              {row.parts.slice(0, 2).map((p) => (
+                                <Badge key={p.id} variant="outline" className="text-[9px] px-1 py-0">
+                                  {p.code}
+                                </Badge>
+                              ))}
+                              {row.parts.length > 2 && (
+                                <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                                  +{row.parts.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : row.parts && row.parts.length === 1 ? (
+                            <span className="text-xs truncate block max-w-[100px]" title={row.parts[0].name}>
+                              {row.parts[0].name}
+                            </span>
                           ) : (
-                            <span className="text-xs truncate block max-w-[70px]" title={row.partName || ''}>
+                            <span className="text-xs truncate block max-w-[100px]" title={row.partName || ''}>
                               {row.partName || '-'}
                             </span>
                           )}
@@ -1634,45 +1660,38 @@ export function CADSpreadsheetTable({
                                 );
                               }
 
-                              // Dropdown selection for plain fabrics
+                              // Text input for plain fabrics with default as placeholder
+                              const defaultWidth = getDefaultCutableWidth(currentGreigeId);
                               return (
-                                <Select
-                                  value={getDisplayValue(row, 'cutableWidth', 0)?.toString() || ''}
-                                  onValueChange={(v) => handleFieldChange(row.id, 'cutableWidth', parseInt(v))}
-                                  disabled={
-                                    isSaving ||
-                                    (availableWidths.length === 0 && (!row.stockWidths || row.stockWidths.length === 0))
-                                  }
-                                >
-                                  <SelectTrigger className="h-7 text-xs w-20">
-                                    <SelectValue placeholder="Width" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {/* Stock widths first with indicator */}
-                                    {row.stockWidths && row.stockWidths.length > 0 && (
-                                      <>
-                                        <div className="px-2 py-1 text-xs font-semibold text-success bg-success-muted flex items-center gap-1">
-                                          <Package className="h-3 w-3" />
-                                          From Stock
-                                        </div>
-                                        {row.stockWidths.map((w) => (
-                                          <SelectItem key={`stock-${w}`} value={w.toString()}>
-                                            <span className="text-success font-medium">{w}" (Stock)</span>
-                                          </SelectItem>
-                                        ))}
-                                        <div className="border-t my-1" />
-                                      </>
-                                    )}
-                                    {/* All available widths from greige (excluding stock widths) */}
-                                    {availableWidths
-                                      .filter((w) => !row.stockWidths?.includes(w))
-                                      .map((w) => (
-                                        <SelectItem key={w} value={w.toString()}>
-                                          {w}"
-                                        </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                                </Select>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number"
+                                    step="0.5"
+                                    value={getDisplayValue(row, 'cutableWidth', '') || ''}
+                                    onChange={(e) =>
+                                      handleFieldChange(
+                                        row.id,
+                                        'cutableWidth',
+                                        e.target.value ? parseFloat(e.target.value) : null
+                                      )
+                                    }
+                                    placeholder={defaultWidth ? `${defaultWidth}"` : 'Width'}
+                                    disabled={isSaving}
+                                    className="h-7 text-xs w-20"
+                                  />
+                                  {row.stockWidths && row.stockWidths.length > 0 && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] px-1 py-0 h-5 bg-success-muted border-success/20 text-success whitespace-nowrap"
+                                      title={`Stock available: ${row.stockWidths.join(', ')}"`}
+                                    >
+                                      <Package className="h-2 w-2 mr-0.5" />
+                                      {row.stockWidths.length === 1
+                                        ? `${row.stockWidths[0]}"`
+                                        : `${row.stockWidths.length} widths`}
+                                    </Badge>
+                                  )}
+                                </div>
                               );
                             })()
                           ) : (
@@ -2161,7 +2180,10 @@ export function CADSpreadsheetTable({
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground truncate">
-                        {sf.fabricFinishType || 'N/A'} • {sf.genericGreigeName || 'No fabric assigned'}
+                        {sf.fabricFinishType || 'N/A'}
+                        {(sf.printDesign || sf.colorName) && ` ${sf.printDesign || sf.colorName}`}
+                        {' • '}
+                        {sf.genericGreigeName || 'No fabric assigned'}
                         {sf.fabricCode && <span className="ml-1 font-mono text-info">({sf.fabricCode})</span>}
                         {sf.hasEmbroidery && sf.embroideryCode && (
                           <span className="ml-1 text-accent">• {sf.embroideryCode}</span>

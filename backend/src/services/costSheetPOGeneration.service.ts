@@ -115,6 +115,10 @@ class CostSheetPOGenerationService {
             },
           },
         },
+        // Include relational trim items (Phase 4 - single source of truth)
+        trimItems: true,
+        // Include relational accessory items
+        accessoryItems: true,
       },
     });
 
@@ -205,8 +209,33 @@ class CostSheetPOGenerationService {
       // STOCK_REUSE items don't need PO generation
     }
 
-    // Process trims from JSON trimsDetails
-    const trimsDetails = (costSheet.trimsDetails as any[]) || [];
+    // Process trims: prefer relational trimItems, fall back to JSON for backwards compatibility
+    const trimItemsRelational = (costSheet as any).trimItems || [];
+    const trimsDetails =
+      trimItemsRelational.length > 0
+        ? trimItemsRelational.map((t: any) => ({
+            trimName: t.trimName,
+            trimRate: Number(t.trimRate) || 0,
+            trimQuantity: Number(t.trimQuantity) || 0,
+            materialType: t.materialType,
+            materialId: t.materialId,
+            bomId: t.bomId,
+            unit: t.unit,
+            // All FK fields preserved from relational
+            threadId: t.threadId,
+            buttonId: t.buttonId,
+            zipperId: t.zipperId,
+            elasticId: t.elasticId,
+            labelId: t.labelId,
+            packagingId: t.packagingId,
+          }))
+        : (costSheet.trimsDetails as any[]) || [];
+
+    logDebug('[CostSheetPOGen] Processing trims', {
+      source: trimItemsRelational.length > 0 ? 'relational' : 'JSON',
+      count: trimsDetails.length,
+    });
+
     for (const trim of trimsDetails) {
       // Skip size-dependent trims (like SIZE_LABEL)
       if (!isSizeIndependentTrim(trim.materialType || trim.type)) {
@@ -215,7 +244,35 @@ class CostSheetPOGenerationService {
 
       const consumptionPerUnit = Number(trim.trimQuantity || trim.quantity || 1);
       const requiredQty = totalOrderQty * consumptionPerUnit;
-      const materialId = trim.bomId || trim.materialId;
+      // Resolve materialId: prefer bomId, then materialId, then specific type FKs, then generic masterId
+      const materialId =
+        trim.bomId ||
+        trim.materialId ||
+        trim.threadId ||
+        trim.buttonId ||
+        trim.zipperId ||
+        trim.elasticId ||
+        trim.labelId ||
+        trim.packagingId ||
+        // Generic trim FK IDs
+        trim.hookEyeId ||
+        trim.snapButtonId ||
+        trim.buckleId ||
+        trim.beltId ||
+        trim.velcroId ||
+        trim.drawstringId ||
+        trim.ribbonId ||
+        trim.sequinId ||
+        trim.beadId ||
+        trim.motifId ||
+        trim.interliningId ||
+        trim.paddingId ||
+        trim.otherFastenerId ||
+        trim.otherTapeId ||
+        trim.otherDecorativeId ||
+        trim.otherFunctionalId ||
+        // Generic fallback for new material types
+        trim.masterId;
 
       if (!materialId) continue;
 

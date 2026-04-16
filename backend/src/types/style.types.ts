@@ -40,6 +40,9 @@ export interface StyleFabricInput {
   allowCombinedCutting?: boolean;
   // Pattern part association
   patternPartIds?: string[];
+  // Design/Color identification
+  printDesign?: string | null; // For PRINTED/YARN_DYED fabrics
+  colorMasterId?: string | null; // For SOLID/DYED fabrics
 }
 
 /**
@@ -149,34 +152,11 @@ export interface SKUVariantInput {
 }
 
 // ============================================
-// Flat Fabric Types (New System)
-// ============================================
-
-/**
- * Flat fabric structure (component-independent)
- */
-export interface FlatFabricInput {
-  componentName: string;
-  genericGreigeName: string;
-  fabricFinishType?: string | null;
-  estimatedConsumption?: number | string;
-  unit?: string;
-  notes?: string | null;
-  // Embroidery support
-  hasEmbroidery?: boolean;
-  embroideryId?: string | null;
-  // Width tracking
-  usableWidth?: number | string | null;
-  // Cost tracking
-  fabricCostPerMeter?: number | string | null;
-  embroideryCostPerMeter?: number | string | null;
-  // CAD control
-  allowCombinedCutting?: boolean;
-}
-
 // ============================================
 // Create Style Request
 // ============================================
+// NOTE: Fabrics are defined via components[].fabrics[] using StyleFabricInput (nested)
+// The deprecated flat fabrics[] array was removed - use components instead
 
 /**
  * Complete request body for creating a style
@@ -210,7 +190,7 @@ export interface CreateStyleRequest {
   specifications?: string | null;
   imageUrl?: string | null;
   skuVariants?: SKUVariantInput[];
-  fabrics?: FlatFabricInput[];
+  // NOTE: fabrics are defined via components[].fabrics[] (nested), not as standalone array
   numberOfComponents?: number | string | null;
   // New simplified trims (phase 4)
   trims?: StyleTrimInput[];

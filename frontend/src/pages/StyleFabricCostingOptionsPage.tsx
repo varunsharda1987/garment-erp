@@ -336,7 +336,14 @@ export default function StyleFabricCostingOptionsPage() {
                                   </Badge>
                                 </TableCell>
                                 {/* Component */}
-                                <TableCell className="text-xs">{option.componentName || '-'}</TableCell>
+                                <TableCell className="text-xs">
+                                  {option.componentName || '-'}
+                                  {(option.printDesign || option.colorName) && (
+                                    <span className="text-muted-foreground ml-1">
+                                      ({option.printDesign || option.colorName})
+                                    </span>
+                                  )}
+                                </TableCell>
                                 {/* Part */}
                                 <TableCell className="text-xs">
                                   {option.patternPartName || option.patternPartCode || '-'}

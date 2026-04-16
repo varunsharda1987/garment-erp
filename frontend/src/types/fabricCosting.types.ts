@@ -219,6 +219,9 @@ export interface FabricForCosting {
   width: number | null; // Cutable width
   purpose?: CostingPurpose | null; // PLANNING, COSTING, PRODUCTION
   finishType: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null;
+  // Design/Color identification
+  printDesign?: string | null;
+  colorName?: string | null;
   greigeId: string | null;
   greigeName: string | null;
   greigeCode: string | null;
@@ -299,6 +302,9 @@ export interface FabricCostingRow {
   cadMeters: number;
   width: number;
   finishType: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null;
+  // Design/Color identification
+  printDesign?: string | null;
+  colorName?: string | null;
 
   // Greige reference
   greigeId: string | null;

@@ -307,6 +307,114 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       logWarn('Failed to populate fabric items (non-blocking):', fabricItemError);
     }
 
+    // Populate style_costing_trim_items from trimsDetails JSON (relational source of truth)
+    try {
+      if (validatedData.trimsDetails && validatedData.trimsDetails.length > 0) {
+        const trimItemsToCreate = validatedData.trimsDetails.map((trim) => ({
+          costingId: costSheetId,
+          trimName: trim.trimName,
+          trimQuantity: trim.trimQuantity,
+          trimRate: trim.trimRate,
+          trimTotal: trim.trimTotal,
+          unit: trim.unit || null,
+          isNotApplicable: trim.isNotApplicable || false,
+          materialType: trim.materialType || null,
+          bomId: trim.bomId || null,
+          // All 23 FK fields - only one will be populated based on materialType
+          materialId: trim.materialId || null,
+          threadId: trim.threadId || null,
+          buttonId: trim.buttonId || null,
+          zipperId: trim.zipperId || null,
+          elasticId: trim.elasticId || null,
+          labelId: trim.labelId || null,
+          packagingId: trim.packagingId || null,
+          hookEyeId: trim.hookEyeId || null,
+          snapButtonId: trim.snapButtonId || null,
+          buckleId: trim.buckleId || null,
+          beltId: trim.beltId || null,
+          velcroId: trim.velcroId || null,
+          drawstringId: trim.drawstringId || null,
+          ribbonId: trim.ribbonId || null,
+          sequinId: trim.sequinId || null,
+          beadId: trim.beadId || null,
+          motifId: trim.motifId || null,
+          interliningId: trim.interliningId || null,
+          paddingId: trim.paddingId || null,
+          otherFastenerId: trim.otherFastenerId || null,
+          otherTapeId: trim.otherTapeId || null,
+          otherDecorativeId: trim.otherDecorativeId || null,
+          otherFunctionalId: trim.otherFunctionalId || null,
+          // Generic fallback for NEW material types
+          masterId: trim.masterId || null,
+        }));
+        await prisma.style_costing_trim_items.createMany({ data: trimItemsToCreate });
+        logInfo(`Created ${trimItemsToCreate.length} trim items for cost sheet ${costSheetId}`);
+      }
+    } catch (trimItemError) {
+      logWarn('Failed to populate trim items (non-blocking):', trimItemError);
+    }
+
+    // Populate style_costing_accessory_items from accessoriesDetails JSON (relational source of truth)
+    try {
+      if (validatedData.accessoriesDetails && validatedData.accessoriesDetails.length > 0) {
+        const accessoryItemsToCreate = validatedData.accessoriesDetails.map((acc) => ({
+          costingId: costSheetId,
+          accessoryName: acc.accessoryName,
+          accessoryQuantity: acc.accessoryQuantity,
+          accessoryRate: acc.accessoryRate,
+          accessoryTotal: acc.accessoryTotal,
+          isNotApplicable: acc.isNotApplicable || false,
+          materialType: acc.materialType || null,
+          materialId: acc.materialId || null,
+          labelId: acc.labelId || null,
+          packagingId: acc.packagingId || null,
+          // Generic fallback for NEW accessory types
+          masterId: acc.masterId || null,
+        }));
+        await prisma.style_costing_accessory_items.createMany({ data: accessoryItemsToCreate });
+        logInfo(`Created ${accessoryItemsToCreate.length} accessory items for cost sheet ${costSheetId}`);
+      }
+    } catch (accessoryItemError) {
+      logWarn('Failed to populate accessory items (non-blocking):', accessoryItemError);
+    }
+
+    // Populate style_costing_lace_items from laceDetails JSON (if provided via main form)
+    try {
+      if (validatedData.laceDetails && validatedData.laceDetails.length > 0) {
+        const laceItemsToCreate = validatedData.laceDetails.map((lace) => ({
+          costingId: costSheetId,
+          laceId: lace.laceId || '', // Required field
+          laceName: lace.laceName,
+          colorName: null,
+          width: lace.laceWidth || null,
+          quantityPerGarment: lace.laceAverage || 0,
+          wastagePercent: 5, // Default
+          effectiveQuantity: lace.laceAverage * 1.05, // With default wastage
+          sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
+          greigeCost: lace.greigeCost || null,
+          processingCost: lace.processingCost || null,
+          readyLaceCost: lace.laceRate || null,
+          stockCost: null,
+          costPerMeter: lace.laceRate || 0,
+          totalCost: lace.laceTotal || 0,
+          greigeLaceId: lace.greigeLaceId || null,
+          processorId: lace.processorId || null,
+          rateCardId: lace.rateCardId || null,
+          stockLotId: null,
+          procurementId: null,
+          labDipId: null,
+          labDipStatus: null,
+          isManualOverride: false,
+          overrideReason: null,
+          notes: null,
+        }));
+        await prisma.style_costing_lace_items.createMany({ data: laceItemsToCreate });
+        logInfo(`Created ${laceItemsToCreate.length} lace items for cost sheet ${costSheetId}`);
+      }
+    } catch (laceItemError) {
+      logWarn('Failed to populate lace items (non-blocking):', laceItemError);
+    }
+
     res.status(201).json({
       success: true,
       data: costSheet,
@@ -872,6 +980,130 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       }
     } catch (fabricItemError) {
       logWarn('Failed to re-populate fabric items on update (non-blocking):', fabricItemError);
+    }
+
+    // Re-populate style_costing_trim_items from trimsDetails JSON
+    try {
+      // Delete existing trim items
+      await prisma.style_costing_trim_items.deleteMany({ where: { costingId: id } });
+
+      const currentTrimsDetails =
+        validatedData.trimsDetails || parseJsonArray(existingCostSheet.trimsDetails, TrimDetailSchema, 'trimsDetails');
+
+      if (currentTrimsDetails && currentTrimsDetails.length > 0) {
+        const trimItemsToCreate = currentTrimsDetails.map((trim: any) => ({
+          costingId: id,
+          trimName: trim.trimName,
+          trimQuantity: trim.trimQuantity,
+          trimRate: trim.trimRate,
+          trimTotal: trim.trimTotal,
+          unit: trim.unit || null,
+          isNotApplicable: trim.isNotApplicable || false,
+          materialType: trim.materialType || null,
+          bomId: trim.bomId || null,
+          materialId: trim.materialId || null,
+          threadId: trim.threadId || null,
+          buttonId: trim.buttonId || null,
+          zipperId: trim.zipperId || null,
+          elasticId: trim.elasticId || null,
+          labelId: trim.labelId || null,
+          packagingId: trim.packagingId || null,
+          hookEyeId: trim.hookEyeId || null,
+          snapButtonId: trim.snapButtonId || null,
+          buckleId: trim.buckleId || null,
+          beltId: trim.beltId || null,
+          velcroId: trim.velcroId || null,
+          drawstringId: trim.drawstringId || null,
+          ribbonId: trim.ribbonId || null,
+          sequinId: trim.sequinId || null,
+          beadId: trim.beadId || null,
+          motifId: trim.motifId || null,
+          interliningId: trim.interliningId || null,
+          paddingId: trim.paddingId || null,
+          otherFastenerId: trim.otherFastenerId || null,
+          otherTapeId: trim.otherTapeId || null,
+          otherDecorativeId: trim.otherDecorativeId || null,
+          otherFunctionalId: trim.otherFunctionalId || null,
+          // Generic fallback for NEW material types
+          masterId: trim.masterId || null,
+        }));
+        await prisma.style_costing_trim_items.createMany({ data: trimItemsToCreate });
+        logInfo(`Re-created ${trimItemsToCreate.length} trim items for cost sheet ${id}`);
+      }
+    } catch (trimItemError) {
+      logWarn('Failed to re-populate trim items on update (non-blocking):', trimItemError);
+    }
+
+    // Re-populate style_costing_accessory_items from accessoriesDetails JSON
+    try {
+      // Delete existing accessory items
+      await prisma.style_costing_accessory_items.deleteMany({ where: { costingId: id } });
+
+      const currentAccessoriesDetails =
+        validatedData.accessoriesDetails ||
+        parseJsonArray(existingCostSheet.accessoriesDetails, AccessoryDetailSchema, 'accessoriesDetails');
+
+      if (currentAccessoriesDetails && currentAccessoriesDetails.length > 0) {
+        const accessoryItemsToCreate = currentAccessoriesDetails.map((acc: any) => ({
+          costingId: id,
+          accessoryName: acc.accessoryName,
+          accessoryQuantity: acc.accessoryQuantity,
+          accessoryRate: acc.accessoryRate,
+          accessoryTotal: acc.accessoryTotal,
+          isNotApplicable: acc.isNotApplicable || false,
+          materialType: acc.materialType || null,
+          materialId: acc.materialId || null,
+          labelId: acc.labelId || null,
+          packagingId: acc.packagingId || null,
+          // Generic fallback for NEW accessory types
+          masterId: acc.masterId || null,
+        }));
+        await prisma.style_costing_accessory_items.createMany({ data: accessoryItemsToCreate });
+        logInfo(`Re-created ${accessoryItemsToCreate.length} accessory items for cost sheet ${id}`);
+      }
+    } catch (accessoryItemError) {
+      logWarn('Failed to re-populate accessory items on update (non-blocking):', accessoryItemError);
+    }
+
+    // Re-populate style_costing_lace_items from laceDetails JSON (if provided)
+    try {
+      // Only re-create lace items if laceDetails was explicitly provided in update
+      if (validatedData.laceDetails && validatedData.laceDetails.length > 0) {
+        // Delete existing lace items
+        await prisma.style_costing_lace_items.deleteMany({ where: { costingId: id } });
+
+        const laceItemsToCreate = validatedData.laceDetails.map((lace: any) => ({
+          costingId: id,
+          laceId: lace.laceId || '',
+          laceName: lace.laceName,
+          colorName: null,
+          width: lace.laceWidth || null,
+          quantityPerGarment: lace.laceAverage || 0,
+          wastagePercent: 5,
+          effectiveQuantity: (lace.laceAverage || 0) * 1.05,
+          sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
+          greigeCost: lace.greigeCost || null,
+          processingCost: lace.processingCost || null,
+          readyLaceCost: lace.laceRate || null,
+          stockCost: null,
+          costPerMeter: lace.laceRate || 0,
+          totalCost: lace.laceTotal || 0,
+          greigeLaceId: lace.greigeLaceId || null,
+          processorId: lace.processorId || null,
+          rateCardId: lace.rateCardId || null,
+          stockLotId: null,
+          procurementId: null,
+          labDipId: null,
+          labDipStatus: null,
+          isManualOverride: false,
+          overrideReason: null,
+          notes: null,
+        }));
+        await prisma.style_costing_lace_items.createMany({ data: laceItemsToCreate });
+        logInfo(`Re-created ${laceItemsToCreate.length} lace items for cost sheet ${id}`);
+      }
+    } catch (laceItemError) {
+      logWarn('Failed to re-populate lace items on update (non-blocking):', laceItemError);
     }
 
     res.json({

@@ -319,9 +319,22 @@ export default function StyleList() {
     components.forEach((comp) => {
       if (comp.fabrics) {
         comp.fabrics.forEach((fab) => {
-          const name = fab.genericGreigeName || fab.fabric?.genericGreigeName || fab.fabric?.fabricName;
-          if (name && !fabricNames.includes(name)) {
-            fabricNames.push(name);
+          const greigeName = fab.genericGreigeName || fab.fabric?.genericGreigeName || fab.fabric?.fabricName;
+          const finishType = fab.fabricFinishType || '';
+          const designColor = fab.printDesign || fab.colorMaster?.colorName || '';
+
+          // Build display: "PRINTED Floral • Cambric" or "DYED Red • Cotton"
+          let displayName = '';
+          if (finishType) {
+            displayName = finishType;
+            if (designColor) displayName += ` ${designColor}`;
+            if (greigeName) displayName += ` • ${greigeName}`;
+          } else {
+            displayName = greigeName || '';
+          }
+
+          if (displayName && !fabricNames.includes(displayName)) {
+            fabricNames.push(displayName);
           }
         });
       }

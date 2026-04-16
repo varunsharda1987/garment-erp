@@ -22,8 +22,10 @@ import type {
 } from '@/types/grn.types';
 import type { Warehouse } from '@/types/inventory.types';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 'lucide-react';
 
 // ============================================
 // Types
@@ -57,6 +59,10 @@ interface GRNItemForm {
   foldLengthCm: string;
   receivedWidthInches: string;
   details: DetailRow[];
+  // Source mismatch override fields (GREIGE only - received as ready fabric)
+  receivedAsReadyFabric: boolean;
+  actualRatePerUnit: string;
+  updateFutureSourcing: boolean;
 }
 
 // ============================================
@@ -192,6 +198,10 @@ export default function GRNForm() {
           foldLengthCm: '',
           receivedWidthInches: '',
           details: [],
+          // Source mismatch override fields (default: no override)
+          receivedAsReadyFabric: false,
+          actualRatePerUnit: String(item.unitPrice || ''),
+          updateFutureSourcing: false,
         }));
       setItems(pendingItems);
     } catch (err) {
@@ -284,6 +294,24 @@ export default function GRNForm() {
           receivedQuantity: sum > 0 ? sum.toFixed(3) : '',
           acceptedQuantity: sum > 0 ? Math.max(0, sum - rejected).toFixed(3) : '',
         };
+      })
+    );
+  }, []);
+
+  const toggleReceivedAsReadyFabric = useCallback((index: number, checked: boolean) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        return { ...item, receivedAsReadyFabric: checked };
+      })
+    );
+  }, []);
+
+  const setItemUpdateFutureSourcing = useCallback((index: number, value: boolean) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item;
+        return { ...item, updateFutureSourcing: value };
       })
     );
   }, []);
@@ -402,6 +430,13 @@ export default function GRNForm() {
                   })
                 );
             }
+          }
+
+          // Add source mismatch override fields for GREIGE POs
+          if (selectedPO?.poCategory === 'GREIGE' && item.receivedAsReadyFabric) {
+            base.receivedAsReadyFabric = true;
+            base.actualRatePerUnit = item.actualRatePerUnit ? parseFloat(item.actualRatePerUnit) : undefined;
+            base.updateFutureSourcing = item.updateFutureSourcing;
           }
 
           return base;
@@ -716,6 +751,92 @@ export default function GRNForm() {
                 </Button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  /**
+   * Render "Received as Ready Fabric" override section for GREIGE PO items
+   * This allows users to indicate when greige was received as finished fabric
+   */
+  const renderGreigeOverrideSection = (item: GRNItemForm, itemIndex: number) => {
+    if (selectedPO?.poCategory !== 'GREIGE') return null;
+
+    return (
+      <div className="mt-3 p-3 border border-dashed rounded-md bg-muted/20">
+        <div className="flex items-center gap-3">
+          <Switch
+            id={`override-${itemIndex}`}
+            checked={item.receivedAsReadyFabric}
+            onCheckedChange={(checked) => toggleReceivedAsReadyFabric(itemIndex, checked)}
+          />
+          <Label htmlFor={`override-${itemIndex}`} className="text-sm font-medium cursor-pointer">
+            Received as Ready Fabric (not greige)
+          </Label>
+          <div className="group relative">
+            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-2 text-xs bg-popover text-popover-foreground border rounded-md shadow-md z-50">
+              Use this when the supplier sent finished fabric instead of greige material. The linked Processing PO will
+              be cancelled.
+            </div>
+          </div>
+        </div>
+
+        {item.receivedAsReadyFabric && (
+          <div className="mt-3 space-y-3 pl-8">
+            {/* Rate Input */}
+            <div className="flex items-center gap-3">
+              <Label className="text-xs min-w-[100px]">Actual Rate (₹/m)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.actualRatePerUnit}
+                onChange={(e) => updateItem(itemIndex, 'actualRatePerUnit', e.target.value)}
+                className="h-8 w-[120px] text-xs"
+                placeholder="Rate per meter"
+              />
+              {parseFloat(item.actualRatePerUnit) !== item.unitPrice && (
+                <span className="text-xs text-warning">PO rate: ₹{item.unitPrice.toFixed(2)}</span>
+              )}
+            </div>
+
+            {/* One-time vs Permanent choice */}
+            <div className="space-y-2">
+              <Label className="text-xs">How should we handle future orders?</Label>
+              <RadioGroup
+                value={item.updateFutureSourcing ? 'permanent' : 'onetime'}
+                onValueChange={(v) => setItemUpdateFutureSourcing(itemIndex, v === 'permanent')}
+                className="space-y-1"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="onetime" id={`onetime-${itemIndex}`} />
+                  <Label htmlFor={`onetime-${itemIndex}`} className="text-xs font-normal cursor-pointer">
+                    One-time exception (recommended) — Future orders will still use greige→process flow
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="permanent" id={`permanent-${itemIndex}`} />
+                  <Label htmlFor={`permanent-${itemIndex}`} className="text-xs font-normal cursor-pointer">
+                    Permanent change — Update cost sheet to use ready fabric for future orders
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Warning message */}
+            <div className="flex items-start gap-2 p-2 bg-warning-muted rounded text-xs">
+              <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-warning">Processing PO will be cancelled</p>
+                <p className="text-muted-foreground">
+                  The linked Processing PO for this order will be automatically cancelled. Fabric stock will be created
+                  directly.
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1061,6 +1182,8 @@ export default function GRNForm() {
                         </div>
                         {/* Measurement detail section for FABRIC/GREIGE */}
                         {renderDetailSection(item, index)}
+                        {/* Override section for GREIGE (received as ready fabric) */}
+                        {renderGreigeOverrideSection(item, index)}
                       </TableCell>
                       <TableCell className="text-right">{item.orderedQuantity.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{item.alreadyReceived.toLocaleString()}</TableCell>

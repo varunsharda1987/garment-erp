@@ -16,6 +16,8 @@ interface FabricEntry {
   componentName: string;
   genericGreigeName: string;
   fabricFinishType: string;
+  printDesign?: string | null;
+  colorName?: string | null;
   hasEmbroidery?: boolean;
   embroideryId?: string | null;
   embroideryName?: string | null;
@@ -29,6 +31,8 @@ interface CADGroup {
   key: string;
   fabricName: string;
   finishType: string;
+  printDesign: string | null;
+  colorName: string | null;
   hasEmbroidery: boolean;
   embroideryName: string | null;
   components: string[];
@@ -41,7 +45,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
     fabrics.forEach((fabric) => {
       if (!fabric.genericGreigeName) return;
 
-      // Generate CAD group key based on fabric name + finish type + embroidery
+      // Generate CAD group key based on fabric name + finish type + design/color + embroidery
       // hasEmbroidery alone determines if it's embroidered - embroideryId is optional
       const embroideryPart = fabric.hasEmbroidery
         ? fabric.embroideryId
@@ -49,9 +53,10 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
           : 'EMB-PENDING'
         : 'NO_EMB';
       const finishPart = fabric.fabricFinishType || 'RAW';
+      const designColorPart = fabric.printDesign || fabric.colorName || 'Default';
 
-      // Group by fabric + finish + embroidery (width will be selected in CAD Planning)
-      const groupKey = `${fabric.genericGreigeName}-${finishPart}-${embroideryPart}`;
+      // Group by fabric + finish + design/color + embroidery (width will be selected in CAD Planning)
+      const groupKey = `${fabric.genericGreigeName}-${finishPart}-${designColorPart}-${embroideryPart}`;
 
       const existing = groupMap.get(groupKey);
       if (existing) {
@@ -63,6 +68,8 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
           key: groupKey,
           fabricName: fabric.genericGreigeName,
           finishType: finishPart,
+          printDesign: fabric.printDesign || null,
+          colorName: fabric.colorName || null,
           hasEmbroidery: !!fabric.hasEmbroidery,
           embroideryName: fabric.embroideryName || null,
           components: [fabric.componentName],
@@ -100,6 +107,7 @@ export function CADGroupPreview({ fabrics }: CADGroupPreviewProps) {
                     <span className="font-medium">{group.fabricName}</span>
                     <Badge variant="outline" className="text-xs">
                       {group.finishType}
+                      {(group.printDesign || group.colorName) && ` ${group.printDesign || group.colorName}`}
                     </Badge>
                     {group.hasEmbroidery && (
                       <Badge className="text-xs bg-accent/10 text-accent hover:bg-accent/10">

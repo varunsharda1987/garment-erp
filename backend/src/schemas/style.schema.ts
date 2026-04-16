@@ -47,6 +47,11 @@ export const styleFabricSchema = z.object({
   // Embroidery support
   hasEmbroidery: z.boolean().optional().default(false),
   embroideryId: z.string().uuid().optional().nullable(),
+  // Design/Color identification (for PRINTED/YARN_DYED and SOLID/DYED fabrics)
+  printDesign: z.string().optional().nullable(),
+  colorMasterId: z.string().uuid().optional().nullable(),
+  // Pattern parts
+  patternPartIds: z.array(z.string().uuid()).optional().default([]),
 });
 
 // Style Component Schema
@@ -145,23 +150,11 @@ export const styleTrimSchema = z.object({
   color: z.string().optional().nullable(),
 });
 
-// Flat Fabric Schema - Allow empty strings for draft saves
-export const flatFabricSchema = z.object({
-  componentName: z.string().optional().default(''),
-  genericGreigeName: z.string().optional().nullable().default(null), // nullable: sent as null for READY_FABRIC mode
-  fabricId: z.string().uuid().optional().nullable(), // needed for READY_FABRIC to link fabric_master
-  fabricFinishType: FabricFinishTypeEnum.optional().nullable(),
-  estimatedConsumption: z.number().nonnegative().optional().default(0),
-  unit: z.string().optional().default('METER'),
-  notes: z.string().optional().nullable(),
-  // Embroidery support
-  hasEmbroidery: z.boolean().optional().default(false),
-  embroideryId: z.string().uuid().optional().nullable(),
-});
-
 // ============================================================================
 // CREATE STYLE SCHEMA
 // ============================================================================
+// NOTE: Fabrics are defined via components[].fabrics[] using styleFabricSchema (nested)
+// The deprecated flat fabrics[] array schema was removed - use components instead
 
 // Helper to coerce string to number or null
 const coerceToNumber = z
@@ -227,9 +220,9 @@ export const createStyleSchema = z.object({
   valueAdditions: z.array(valueAdditionSchema).optional().default([]),
   packagingTrims: z.array(packagingTrimSchema).optional().default([]),
 
-  // SKU variants and fabrics
+  // SKU variants
   skuVariants: z.array(skuVariantSchema).optional().default([]),
-  fabrics: z.array(flatFabricSchema).optional().default([]),
+  // NOTE: fabrics are sent via components[].fabrics[] (nested), not as standalone array
 
   // New simplified trims and accessories (phase 4)
   trims: z.array(styleTrimSchema).optional().default([]),
@@ -283,9 +276,9 @@ export const updateStyleSchema = z.object({
   materialBOM: z.array(materialBOMSchema).optional(),
   customerAccessoriesPresetId: z.string().uuid().optional().nullable(),
 
-  // SKU variants and fabrics
+  // SKU variants
   skuVariants: z.array(skuVariantSchema).optional(),
-  fabrics: z.array(flatFabricSchema).optional(),
+  // NOTE: fabrics are sent via components[].fabrics[] (nested), not as standalone array
 
   // New simplified trims and accessories (phase 4)
   trims: z.array(styleTrimSchema).optional(),
@@ -375,7 +368,6 @@ export type StyleComponent = z.infer<typeof styleComponentSchema>;
 export type StyleProcess = z.infer<typeof styleProcessSchema>;
 export type MaterialBOM = z.infer<typeof materialBOMSchema>;
 export type SKUVariant = z.infer<typeof skuVariantSchema>;
-export type FlatFabric = z.infer<typeof flatFabricSchema>;
 export type GarmentTrim = z.infer<typeof garmentTrimSchema>;
 export type ValueAddition = z.infer<typeof valueAdditionSchema>;
 export type PackagingTrim = z.infer<typeof packagingTrimSchema>;

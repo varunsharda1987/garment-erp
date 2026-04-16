@@ -127,9 +127,20 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
       fabricCode: string;
       fabricName: string;
       colorName?: string | null;
+      printDesign?: string | null;
+      colorMasterId?: string | null;
     } | null;
     usableWidth?: number | null;
     allowCombinedCutting?: boolean;
+    // Design/Color identification
+    printDesign?: string | null;
+    colorMasterId?: string | null;
+    colorMaster?: {
+      id: string;
+      colorCode: string;
+      colorName: string;
+      hexCode?: string | null;
+    } | null;
   }
 
   interface StyleComponent {
@@ -162,6 +173,10 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
         embroidery: fab.embroidery,
         usableWidth: fab.usableWidth,
         allowCombinedCutting: fab.allowCombinedCutting !== false,
+        // Design/Color identification
+        printDesign: fab.printDesign || fab.fabric?.printDesign || null,
+        colorMasterId: fab.colorMasterId || fab.fabric?.colorMasterId || null,
+        colorMaster: fab.colorMaster || null,
       }))
     ) || [];
 
@@ -190,6 +205,10 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
           cadAverageMeters: approvedCosting?.cadMeters || fab.quantityNeeded,
           // Use approved fabric costing rate if available
           unitPrice: approvedCosting?.totalCostPerMeter || null,
+          // Design/Color identification
+          printDesign: fab.printDesign || fab.fabric?.printDesign || null,
+          colorMaster: fab.colorMaster || null,
+          fabricColor: fab.colorMaster?.colorName || null,
         };
       }),
     })) || [];

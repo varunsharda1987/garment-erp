@@ -253,7 +253,10 @@ export default function CADPlanningPage() {
 
     if (uncoveredFabrics.length > 0) {
       const missing = uncoveredFabrics
-        .map((fab) => `${fab.genericGreigeName || 'Unknown'}-${fab.fabricFinishType || 'PLAIN'}`)
+        .map((fab) => {
+          const designColor = fab.printDesign || fab.colorName || '';
+          return `${fab.fabricFinishType || 'PLAIN'}${designColor ? ` ${designColor}` : ''} • ${fab.genericGreigeName || 'Unknown'}`;
+        })
         .join(', ');
       notify.error(`Cannot approve: ${uncoveredFabrics.length} fabric(s) have no CAD data. Missing: ${missing}`);
       return;
@@ -900,7 +903,10 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
             Group {index + 1}
           </Badge>
           <h4 className="font-semibold">
-            {group.genericGreigeName} - {group.fabricFinishType}
+            {group.fabricFinishType}
+            {(group.printDesign || group.colorName) && ` ${group.printDesign || group.colorName}`}
+            {' • '}
+            {group.genericGreigeName}
           </h4>
           {group.hasEmbroidery && group.embroidery && (
             <Badge className="bg-accent/10 text-accent hover:bg-accent/10 text-xs">

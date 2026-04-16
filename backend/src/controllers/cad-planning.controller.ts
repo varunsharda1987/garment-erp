@@ -673,13 +673,18 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
           ? `EMB-${fabric.embroideryId.substring(0, 8)}`
           : 'EMB-PENDING'
         : 'NO_EMB';
-      const groupKey = `${fabric.genericGreigeName || 'Unknown'}-${fabric.fabricFinishType || 'PLAIN'}-${embroideryPart}`;
+      // Include design/color in group key for proper fabric distinction
+      const designColorPart =
+        fabric.printDesign || (fabric.colorMaster as any)?.colorName || fabric.fabricColor || 'Default';
+      const groupKey = `${fabric.genericGreigeName || 'Unknown'}-${fabric.fabricFinishType || 'PLAIN'}-${designColorPart}-${embroideryPart}`;
 
       if (!fabricGroupsMap.has(groupKey)) {
         fabricGroupsMap.set(groupKey, {
           groupKey,
           genericGreigeName: fabric.genericGreigeName || 'Unknown',
           fabricFinishType: fabric.fabricFinishType,
+          printDesign: fabric.printDesign || null,
+          colorName: (fabric.colorMaster as any)?.colorName || fabric.fabricColor || null,
           hasEmbroidery: fabric.hasEmbroidery || false,
           embroidery: fabric.embroidery
             ? {
@@ -1830,6 +1835,7 @@ export async function getStyleCADHistory(req: Request, res: Response) {
             },
           },
           embroidery: true,
+          colorMaster: { select: { id: true, colorCode: true, colorName: true, hexCode: true } },
         },
       },
     },
@@ -1874,13 +1880,17 @@ export async function getStyleCADHistory(req: Request, res: Response) {
 
   for (const component of styleComponents) {
     for (const sf of component.style_fabrics) {
-      const groupKey = `${sf.genericGreigeName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}${sf.hasEmbroidery ? '-EMB' : ''}`;
+      // Include design/color in group key for proper fabric distinction
+      const designColorPart = sf.printDesign || (sf.colorMaster as any)?.colorName || sf.fabricColor || 'Default';
+      const groupKey = `${sf.genericGreigeName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}-${designColorPart}${sf.hasEmbroidery ? '-EMB' : ''}`;
 
       if (!cadGroups[groupKey]) {
         cadGroups[groupKey] = {
           groupKey,
           genericGreigeName: sf.genericGreigeName || 'Unknown',
           fabricFinishType: sf.fabricFinishType || 'PLAIN',
+          printDesign: sf.printDesign || null,
+          colorName: (sf.colorMaster as any)?.colorName || sf.fabricColor || null,
           hasEmbroidery: sf.hasEmbroidery || false,
           embroidery: sf.embroidery
             ? {
@@ -2006,11 +2016,13 @@ export async function getCADTableData(req: Request, res: Response) {
               include: {
                 fabric: true,
                 embroidery: true,
+                colorMaster: { select: { id: true, colorCode: true, colorName: true, hexCode: true } },
                 fabricCAD: {
                   include: {
                     sizeBreakdowns: true,
                     greige: true,
                     patternPart: true,
+                    cadPatternParts: { include: { patternPart: true } }, // Multi-part selection
                     fabricStock: true,
                     stockAllocations: true, // For order count tracking
                   },
@@ -2021,6 +2033,7 @@ export async function getCADTableData(req: Request, res: Response) {
                     sizeBreakdowns: true,
                     greige: true,
                     patternPart: true,
+                    cadPatternParts: { include: { patternPart: true } }, // Multi-part selection
                     fabricStock: true,
                     stockAllocations: true, // For order count tracking
                   },
@@ -2314,8 +2327,8 @@ export async function getCADTableData(req: Request, res: Response) {
           const maxWidth = greige.expectedFinishedWidthMax
             ? Number(greige.expectedFinishedWidthMax)
             : Number(greige.greigeWidth) || 60;
-          // Generate widths in 1-inch increments
-          for (let w = minWidth; w <= maxWidth; w += 1) {
+          // Generate widths in 0.5-inch increments
+          for (let w = minWidth; w <= maxWidth; w += 0.5) {
             availableWidths.push(w);
           }
         }
@@ -2360,6 +2373,26 @@ export async function getCADTableData(req: Request, res: Response) {
         const styleFabricMasterName = styleFabric.fabric?.fabricName || null;
         const styleFabricCode = styleFabric.fabric?.fabricCode || null;
 
+        // Build parts array from cadPatternParts (multi-part) or fall back to single patternPart
+        const cadParts = cad.cadPatternParts?.length
+          ? cad.cadPatternParts.map((cp: any) => ({
+              id: cp.patternPart.id,
+              code: cp.patternPart.code,
+              name: cp.patternPart.name,
+              goesToEmbroidery: cp.patternPart.goesToEmbroidery || false,
+            }))
+          : cad.patternPart
+            ? [
+                {
+                  id: cad.patternPart.id,
+                  code: cad.patternPart.code,
+                  name: cad.patternPart.name,
+                  goesToEmbroidery: false,
+                },
+              ]
+            : [];
+        const cadPartIds = cadParts.map((p: any) => p.id);
+
         cadRows.push({
           id: cad.id,
           purpose: cad.purpose,
@@ -2369,9 +2402,13 @@ export async function getCADTableData(req: Request, res: Response) {
               ? cad.combinedComponents // Use combined components string
               : component.componentName,
           styleFabricId: styleFabric.id,
+          // Legacy single-part fields (backwards compatibility)
           partId: cad.patternPartId,
           partCode: cad.patternPart?.code || (isAllParts ? ALL_PARTS_CODE : null),
           partName: cad.patternPart?.name || (isAllParts ? 'All Parts' : null),
+          // Multi-part fields
+          partIds: cadPartIds,
+          parts: cadParts,
           fabricFinishType: styleFabric.fabricFinishType,
           isEmbroidery: cad.isEmbroidery,
           genericGreigeName: styleFabric.genericGreigeName || styleFabric.fabric?.genericGreigeName || null,
@@ -2421,6 +2458,7 @@ export async function getCADTableData(req: Request, res: Response) {
         sizeBreakdowns: true,
         greige: true,
         patternPart: true,
+        cadPatternParts: { include: { patternPart: true } }, // Multi-part selection
         fabricStock: { include: { fabricMaster: { include: { greige: true } } } },
       },
     });
@@ -2471,7 +2509,7 @@ export async function getCADTableData(req: Request, res: Response) {
         const maxWidth = greige.expectedFinishedWidthMax
           ? Number(greige.expectedFinishedWidthMax)
           : Number(greige.greigeWidth) || 60;
-        for (let w = minWidth; w <= maxWidth; w += 1) availableWidths.push(w);
+        for (let w = minWidth; w <= maxWidth; w += 0.5) availableWidths.push(w);
       }
 
       const sizeBreakdowns = cad.sizeBreakdowns.map((sb: any) => ({
@@ -2491,15 +2529,39 @@ export async function getCADTableData(req: Request, res: Response) {
       const stockEntries = stockFabricId ? stockByFabricId.get(stockFabricId) || [] : [];
       const stockWidths = [...new Set(stockEntries.map((s) => s.width))];
 
+      // Build parts array from cadPatternParts (multi-part) or fall back to single patternPart
+      const orphanParts = (cad as any).cadPatternParts?.length
+        ? (cad as any).cadPatternParts.map((cp: any) => ({
+            id: cp.patternPart.id,
+            code: cp.patternPart.code,
+            name: cp.patternPart.name,
+            goesToEmbroidery: cp.patternPart.goesToEmbroidery || false,
+          }))
+        : cad.patternPart
+          ? [
+              {
+                id: cad.patternPart.id,
+                code: cad.patternPart.code,
+                name: cad.patternPart.name,
+                goesToEmbroidery: false,
+              },
+            ]
+          : [];
+      const orphanPartIds = orphanParts.map((p: any) => p.id);
+
       cadRows.push({
         id: cad.id,
         purpose: cad.purpose,
         componentId,
         componentName,
         styleFabricId: matchedStyleFabricId,
+        // Legacy single-part fields (backwards compatibility)
         partId: cad.patternPartId,
         partCode: cad.patternPart?.code || (isAllParts ? ALL_PARTS_CODE : null),
         partName: cad.patternPart?.name || (isAllParts ? 'All Parts' : null),
+        // Multi-part fields
+        partIds: orphanPartIds,
+        parts: orphanParts,
         fabricFinishType,
         isEmbroidery: cad.isEmbroidery,
         genericGreigeName,
@@ -2570,6 +2632,9 @@ export async function getCADTableData(req: Request, res: Response) {
         // For READY_FABRIC fabrics, genericGreigeName is null on style_fabrics;
         // fall back to fabric_master.genericGreigeName
         genericGreigeName: sf.genericGreigeName || sf.fabric?.genericGreigeName || null,
+        // Design/Color for fabric identification
+        printDesign: sf.printDesign || sf.fabric?.printDesign || null,
+        colorName: sf.colorMaster?.colorName || sf.fabricColor || null,
         hasEmbroidery: sf.hasEmbroidery || false,
         embroideryCode: sf.embroidery?.embroideryCode || null,
         fabricCode: sf.fabric?.fabricCode || null,
@@ -2621,11 +2686,13 @@ export async function addCADTableRow(req: Request, res: Response) {
     componentId,
     styleFabricId,
     partId: requestPartId,
+    partIds: requestPartIds, // NEW: Array of part IDs for multi-part selection
     fabricStockId, // Required for PRODUCTION purpose only
     // Note: isEmbroidery is intentionally NOT used from request body
     // We inherit embroidery status from the linked style_fabrics record
   } = req.body;
   let partId = requestPartId;
+  const partIds: string[] = requestPartIds || [];
 
   // ===================================================================
   // PRODUCTION PURPOSE: Require fabric stock selection
@@ -2818,6 +2885,42 @@ export async function addCADTableRow(req: Request, res: Response) {
 
   logInfo(`Created new CAD row ${newCad.id} for style ${styleId}${isAllParts ? ' (All Parts)' : ''}`);
 
+  // Create cad_pattern_parts entries if partIds array is provided (multi-part selection)
+  let createdParts: { id: string; code: string; name: string; goesToEmbroidery: boolean }[] = [];
+  if (partIds.length > 0) {
+    // Create bridge table entries for each selected part
+    await prisma.cad_pattern_parts.createMany({
+      data: partIds.map((pid: string) => ({
+        cadId: newCad.id,
+        patternPartId: pid,
+      })),
+      skipDuplicates: true,
+    });
+
+    // Fetch the created parts for response
+    const cadPartsWithDetails = await prisma.cad_pattern_parts.findMany({
+      where: { cadId: newCad.id },
+      include: { patternPart: true },
+    });
+    createdParts = cadPartsWithDetails.map((cp) => ({
+      id: cp.patternPart.id,
+      code: cp.patternPart.code,
+      name: cp.patternPart.name,
+      goesToEmbroidery: false, // TODO: Add goesToEmbroidery to pattern_part_master if needed
+    }));
+    logInfo(`Created ${createdParts.length} cad_pattern_parts entries for CAD ${newCad.id}`);
+  } else if (newCad.patternPart) {
+    // Fall back to single pattern part for backwards compatibility
+    createdParts = [
+      {
+        id: newCad.patternPart.id,
+        code: newCad.patternPart.code,
+        name: newCad.patternPart.name,
+        goesToEmbroidery: false,
+      },
+    ];
+  }
+
   // Sync BOM: replace generic planning fabricId with real stock fabricId
   if (
     purpose === 'PRODUCTION' &&
@@ -2837,9 +2940,13 @@ export async function addCADTableRow(req: Request, res: Response) {
     data: {
       id: newCad.id,
       purpose: newCad.purpose,
+      // Legacy single-part fields (backwards compatibility)
       partId: newCad.patternPartId,
       partCode: newCad.patternPart?.code || (responseIsAllParts ? ALL_PARTS_CODE : null),
       partName: newCad.patternPart?.name || (responseIsAllParts ? 'All Parts' : newCad.componentName),
+      // Multi-part fields
+      partIds: createdParts.map((p) => p.id),
+      parts: createdParts,
       isEmbroidery: newCad.isEmbroidery,
       greigeId: newCad.greigeId,
       greigeName: newCad.greige?.greigeName || null,
@@ -3133,6 +3240,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
   const {
     purpose,
     partId,
+    partIds, // NEW: Array of part IDs for multi-part selection
     isEmbroidery,
     greigeId,
     fabricId: readyFabricId, // Direct fabric_master link (ready fabric mode)
@@ -3163,11 +3271,16 @@ export async function updateCADTableRow(req: Request, res: Response) {
     });
   }
 
-  // If greige changed, validate the width
+  // Validate and apply default width based on greige
   let validatedWidth = cutableWidth;
-  if (greigeId && greigeId !== existingCad.greigeId) {
+  const effectiveGreigeId = greigeId !== undefined ? greigeId : existingCad.greigeId;
+
+  // Apply default width if:
+  // 1. Greige is changing (new greige selected), OR
+  // 2. Width is empty/0 and greige already exists (placeholder default should be applied)
+  if (effectiveGreigeId && (!validatedWidth || validatedWidth === 0)) {
     const greige = await prisma.greige_master.findUnique({
-      where: { id: greigeId },
+      where: { id: effectiveGreigeId },
     });
 
     if (!greige) {
@@ -3177,8 +3290,15 @@ export async function updateCADTableRow(req: Request, res: Response) {
       });
     }
 
-    // If width not provided, default to min finished width
-    if (!validatedWidth) {
+    // Set default based on greige width
+    // Business rules: 63" greige → 52", 48" greige → 40"
+    const greigeWidth = greige.greigeWidth ? Number(greige.greigeWidth) : null;
+    if (greigeWidth && greigeWidth >= 63) {
+      validatedWidth = 52;
+    } else if (greigeWidth && greigeWidth >= 48) {
+      validatedWidth = 40;
+    } else {
+      // Fallback to min finished width
       validatedWidth = greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 44;
     }
 
@@ -3189,6 +3309,21 @@ export async function updateCADTableRow(req: Request, res: Response) {
         success: false,
         message: validation.message,
       });
+    }
+  } else if (greigeId && greigeId !== existingCad.greigeId && validatedWidth) {
+    // Greige changed but width was provided - validate width against new greige
+    const greige = await prisma.greige_master.findUnique({
+      where: { id: greigeId },
+    });
+
+    if (greige) {
+      const validation = validateCutableWidth(validatedWidth, greige, isEmbroidery ?? existingCad.isEmbroidery);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.message,
+        });
+      }
     }
   }
 
@@ -3257,6 +3392,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
       sizeBreakdowns: true,
       greige: true,
       patternPart: true,
+      cadPatternParts: { include: { patternPart: true } }, // Multi-part selection
     },
   })) as any;
 
@@ -3284,6 +3420,58 @@ export async function updateCADTableRow(req: Request, res: Response) {
   const updatedBreakdowns = await prisma.cad_size_breakdown.findMany({
     where: { cadId: rowId },
   });
+
+  // Update cad_pattern_parts if partIds array is provided (multi-part selection)
+  let updatedParts: { id: string; code: string; name: string; goesToEmbroidery: boolean }[] = [];
+  if (partIds !== undefined && Array.isArray(partIds)) {
+    // Delete existing cad_pattern_parts entries
+    await prisma.cad_pattern_parts.deleteMany({
+      where: { cadId: rowId },
+    });
+
+    // Create new entries if partIds has items
+    if (partIds.length > 0) {
+      await prisma.cad_pattern_parts.createMany({
+        data: partIds.map((pid: string) => ({
+          cadId: rowId,
+          patternPartId: pid,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // Fetch the updated parts for response
+    const cadPartsWithDetails = await prisma.cad_pattern_parts.findMany({
+      where: { cadId: rowId },
+      include: { patternPart: true },
+    });
+    updatedParts = cadPartsWithDetails.map((cp) => ({
+      id: cp.patternPart.id,
+      code: cp.patternPart.code,
+      name: cp.patternPart.name,
+      goesToEmbroidery: false,
+    }));
+    logInfo(`Updated ${updatedParts.length} cad_pattern_parts entries for CAD ${rowId}`);
+  } else {
+    // Use existing cadPatternParts or fall back to single patternPart
+    updatedParts = updatedCad.cadPatternParts?.length
+      ? updatedCad.cadPatternParts.map((cp: any) => ({
+          id: cp.patternPart.id,
+          code: cp.patternPart.code,
+          name: cp.patternPart.name,
+          goesToEmbroidery: false,
+        }))
+      : updatedCad.patternPart
+        ? [
+            {
+              id: updatedCad.patternPart.id,
+              code: updatedCad.patternPart.code,
+              name: updatedCad.patternPart.name,
+              goesToEmbroidery: false,
+            },
+          ]
+        : [];
+  }
 
   const totalPieces = updatedBreakdowns.reduce((sum, sb) => sum + sb.quantity, 0);
   const finalCadMeters = updatedCad.cadMeters ? Number(updatedCad.cadMeters) : null;
@@ -3531,9 +3719,13 @@ export async function updateCADTableRow(req: Request, res: Response) {
     data: {
       id: updatedCad.id,
       purpose: updatedCad.purpose,
+      // Legacy single-part fields (backwards compatibility)
       partId: updatedCad.patternPartId,
       partCode: updatedCad.patternPart?.code || (responseIsAllParts ? ALL_PARTS_CODE : null),
       partName: updatedCad.patternPart?.name || (responseIsAllParts ? 'All Parts' : updatedCad.componentName),
+      // Multi-part fields
+      partIds: updatedParts.map((p) => p.id),
+      parts: updatedParts,
       isEmbroidery: updatedCad.isEmbroidery,
       greigeId: updatedCad.greigeId,
       greigeName: updatedCad.greige?.greigeName || null,
@@ -3668,9 +3860,9 @@ export async function getGreigeWidths(req: Request, res: Response) {
       ? Number(greige.greigeWidth)
       : 60;
 
-  // Generate widths in 1-inch increments
+  // Generate widths in 0.5-inch increments
   const widths: number[] = [];
-  for (let w = minWidth; w <= maxWidth; w += 1) {
+  for (let w = minWidth; w <= maxWidth; w += 0.5) {
     widths.push(w);
   }
 

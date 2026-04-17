@@ -1,5 +1,5 @@
 // Style Master routes
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import {
   createStyle,
   getAllStyles,
@@ -318,7 +318,7 @@ router.delete('/processes/:id', authorize(UserRole.ADMIN, UserRole.MERCHANDISER)
 
 router.get(
   '/:id/actual-consumption',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req: Request, res: Response) => {
     const { id: styleId } = req.params;
     const prisma = (await import('../config/database')).default;
 

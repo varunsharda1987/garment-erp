@@ -24,7 +24,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
-import { NotFoundError } from '../errors';
+import { NotFoundError, UnauthorizedError } from '../errors';
 
 /**
  * Validation Schemas
@@ -182,6 +182,9 @@ export const getProcessingDetails = async (req: Request, res: Response): Promise
  * - Set initial processingStatus to "SENT"
  */
 export const sendForProcessing = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user?.id) {
+    throw new UnauthorizedError();
+  }
   const data = sendForProcessingSchema.parse(req.body);
   const userId = req.user.id;
 

@@ -3,6 +3,8 @@
  * Type definitions for greige-related operations
  */
 
+import { GreigeQuality } from '@prisma/client';
+
 // ============================================
 // Greige Master Types
 // ============================================
@@ -116,6 +118,8 @@ export interface GreigeUpdateData {
   construction?: string | null;
   composition?: string;
   weaveType?: string | null;
+  greigeQuality?: GreigeQuality | null;
+  weaver?: string | null;
   greigeWidth?: number;
   defaultCutableWidth?: number | null;
   expectedFinishedWidthMin?: number | null;

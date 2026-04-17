@@ -31,6 +31,8 @@ export interface CreateChallanItemInput {
   serviceRequirementId?: string;
   foldLengthCm?: number;
   thanCount?: number;
+  componentName?: string;
+  colorName?: string;
 }
 
 export interface CreateChallanInput {
@@ -169,8 +171,8 @@ export async function createChallan(input: CreateChallanInput) {
             threadStockId: item.threadStockId,
             materialRequirementId: item.materialRequirementId,
             serviceRequirementId: item.serviceRequirementId,
-            componentName: (item as any).componentName || null,
-            colorName: (item as any).colorName || null,
+            componentName: item.componentName || null,
+            colorName: item.colorName || null,
             foldLengthCm: item.foldLengthCm,
             thanCount: item.thanCount,
           })),

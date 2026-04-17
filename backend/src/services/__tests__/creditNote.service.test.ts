@@ -52,6 +52,7 @@ jest.mock('../../utils/logger', () => ({
 import { CreditNoteService } from '../creditNote.service';
 import prisma from '../../config/database';
 import { gstService } from '../gst.service';
+import { CreditNoteReason } from '@prisma/client';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockGstService = gstService as jest.Mocked<typeof gstService>;
@@ -77,7 +78,7 @@ describe('CreditNoteService', () => {
     const baseCreateInput = {
       invoiceId: 'inv-1',
       customerId: 'cust-1',
-      reason: 'GOODS_RETURNED',
+      reason: CreditNoteReason.SALES_RETURN,
       items: [
         {
           description: 'Test item',
@@ -167,7 +168,7 @@ describe('CreditNoteService', () => {
       invoiceId: 'inv-1',
       customerId: 'cust-1',
       creditNoteDate: '2026-03-01',
-      reason: 'GOODS_RETURNED',
+      reason: CreditNoteReason.SALES_RETURN,
       remarks: 'Returned due to defect',
       items: [
         {
@@ -256,7 +257,7 @@ describe('CreditNoteService', () => {
             creditNoteNumber: 'CN-001',
             invoiceId: 'inv-1',
             customerId: 'cust-1',
-            reason: 'GOODS_RETURNED',
+            reason: CreditNoteReason.SALES_RETURN,
             remarks: 'Returned due to defect',
             isInterstate: false,
             subtotal: 6000,
@@ -287,7 +288,7 @@ describe('CreditNoteService', () => {
       const interstateInput = {
         invoiceId: 'inv-1',
         customerId: 'cust-1',
-        reason: 'PRICE_ADJUSTMENT',
+        reason: CreditNoteReason.RATE_DIFFERENCE,
         items: [
           {
             description: 'Fabric Roll A',
@@ -346,7 +347,7 @@ describe('CreditNoteService', () => {
           {
             invoiceId: 'non-existent',
             customerId: 'cust-1',
-            reason: 'GOODS_RETURNED',
+            reason: CreditNoteReason.SALES_RETURN,
             items: [{ description: 'Test', quantity: 1, unitPrice: 100 }],
           },
           'user-1'
@@ -380,7 +381,7 @@ describe('CreditNoteService', () => {
         {
           invoiceId: 'inv-1',
           customerId: 'cust-1',
-          reason: 'OTHER',
+          reason: CreditNoteReason.OTHER,
           items: [{ description: 'Zero qty item', quantity: 0, unitPrice: 500 }],
         },
         'user-1'
@@ -423,7 +424,7 @@ describe('CreditNoteService', () => {
         {
           invoiceId: 'inv-1',
           customerId: 'cust-1',
-          reason: 'OTHER',
+          reason: CreditNoteReason.OTHER,
           items: [{ description: 'Item', quantity: 1, unitPrice: 1000 }],
         },
         'user-1'
@@ -451,7 +452,7 @@ describe('CreditNoteService', () => {
           invoiceId: 'inv-1',
           customerId: 'cust-1',
           creditNoteDate: '2026-06-15',
-          reason: 'OTHER',
+          reason: CreditNoteReason.OTHER,
           items: [{ description: 'Item', quantity: 1, unitPrice: 1000 }],
         },
         'user-1'
@@ -478,7 +479,7 @@ describe('CreditNoteService', () => {
         {
           invoiceId: 'inv-1',
           customerId: 'cust-1',
-          reason: 'OTHER',
+          reason: CreditNoteReason.OTHER,
           items: [{ description: 'No invoice item', quantity: 1, unitPrice: 1000 }],
         },
         'user-1'
@@ -506,7 +507,7 @@ describe('CreditNoteService', () => {
         {
           invoiceId: 'inv-1',
           customerId: 'cust-1',
-          reason: 'OTHER',
+          reason: CreditNoteReason.OTHER,
           items: [{ description: 'Item', quantity: 1, unitPrice: 1000 }],
         },
         'user-1'

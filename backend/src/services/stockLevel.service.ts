@@ -1,5 +1,5 @@
 // Stock Level Service - Manage current stock balances per material per warehouse
-import { Unit, Prisma } from '@prisma/client';
+import { Unit, Prisma, MaterialType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
 
@@ -512,11 +512,11 @@ class StockLevelService {
   /**
    * Get stock levels filtered by material type
    */
-  async getStockLevelsByMaterialType(materialType: string) {
+  async getStockLevelsByMaterialType(materialType: MaterialType) {
     const stockLevels = await prisma.stock_levels.findMany({
       where: {
         materials: {
-          materialType: materialType as any,
+          materialType,
         },
       },
       include: {

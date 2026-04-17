@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { debitNoteService } from '../services/debitNote.service';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import { DocumentStatus, DebitNoteReason } from '@prisma/client';
 
 export class DebitNoteController {
   /**
@@ -13,7 +14,7 @@ export class DebitNoteController {
       page: parseInt(page as string, 10),
       limit: parseInt(limit as string, 10),
       search: search as string | undefined,
-      status: status as string | undefined,
+      status: status as DocumentStatus | undefined,
       supplierId: supplierId as string | undefined,
       fromDate: fromDate as string | undefined,
       toDate: toDate as string | undefined,
@@ -63,7 +64,7 @@ export class DebitNoteController {
     }
 
     const debitNote = await debitNoteService.create(
-      { poId, supplierId, debitNoteDate, reason, remarks, items },
+      { poId, supplierId, debitNoteDate, reason: reason as DebitNoteReason, remarks, items },
       userId
     );
 

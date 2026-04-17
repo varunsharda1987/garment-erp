@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { creditNoteService } from '../services/creditNote.service';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import { DocumentStatus, CreditNoteReason } from '@prisma/client';
 
 export class CreditNoteController {
   /**
@@ -13,7 +14,7 @@ export class CreditNoteController {
       page: parseInt(page as string, 10),
       limit: parseInt(limit as string, 10),
       search: search as string | undefined,
-      status: status as string | undefined,
+      status: status as DocumentStatus | undefined,
       customerId: customerId as string | undefined,
       fromDate: fromDate as string | undefined,
       toDate: toDate as string | undefined,
@@ -67,7 +68,7 @@ export class CreditNoteController {
     }
 
     const creditNote = await creditNoteService.create(
-      { invoiceId, customerId, creditNoteDate, reason, remarks, items },
+      { invoiceId, customerId, creditNoteDate, reason: reason as CreditNoteReason, remarks, items },
       userId
     );
 

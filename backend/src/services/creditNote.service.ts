@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { Prisma } from '@prisma/client';
+import { Prisma, CreditNoteReason, DocumentStatus } from '@prisma/client';
 import { gstService } from './gst.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 
@@ -7,7 +7,7 @@ interface CreditNoteCreateInput {
   invoiceId: string;
   customerId: string;
   creditNoteDate?: string;
-  reason: string; // CreditNoteReason enum
+  reason: CreditNoteReason;
   remarks?: string;
   items: Array<{
     invoiceItemId?: string;
@@ -22,7 +22,7 @@ interface CreditNoteQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  status?: string;
+  status?: DocumentStatus;
   customerId?: string;
   fromDate?: string;
   toDate?: string;
@@ -153,7 +153,7 @@ export class CreditNoteService {
           invoiceId: data.invoiceId,
           customerId: data.customerId,
           creditNoteDate: data.creditNoteDate ? new Date(data.creditNoteDate) : new Date(),
-          reason: data.reason as any,
+          reason: data.reason,
           remarks: data.remarks || null,
           isInterstate,
           subtotal: parseFloat(subtotal.toFixed(2)),
@@ -227,7 +227,7 @@ export class CreditNoteService {
     }
 
     if (status) {
-      where.status = status as any;
+      where.status = status;
     }
 
     if (customerId) {

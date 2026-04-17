@@ -45,6 +45,7 @@ jest.mock('../../utils/logger', () => ({
 import { DebitNoteService } from '../debitNote.service';
 import prisma from '../../config/database';
 import { gstService } from '../gst.service';
+import { DebitNoteReason } from '@prisma/client';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockGstService = gstService as jest.Mocked<typeof gstService>;
@@ -69,7 +70,7 @@ describe('DebitNoteService', () => {
   describe('generateDebitNoteNumber (via create)', () => {
     const baseCreateInput = {
       supplierId: 'sup-1',
-      reason: 'QUALITY_ISSUE',
+      reason: DebitNoteReason.QUALITY_ISSUE,
       items: [{ description: 'Defective fabric', quantity: 5, unitPrice: 200 }],
     };
 
@@ -193,7 +194,7 @@ describe('DebitNoteService', () => {
         {
           poId: 'po-1',
           supplierId: 'sup-1',
-          reason: 'QUALITY_ISSUE',
+          reason: DebitNoteReason.QUALITY_ISSUE,
           items: [
             {
               poItemId: 'po-item-1',
@@ -224,7 +225,7 @@ describe('DebitNoteService', () => {
             debitNoteNumber: 'DN-001',
             poId: 'po-1',
             supplierId: 'sup-1',
-            reason: 'QUALITY_ISSUE',
+            reason: DebitNoteReason.QUALITY_ISSUE,
             isInterstate: true,
             subtotal: 5000,
             cgstAmount: 0,
@@ -268,7 +269,7 @@ describe('DebitNoteService', () => {
       await service.create(
         {
           supplierId: 'sup-1',
-          reason: 'PRICE_DIFFERENCE',
+          reason: DebitNoteReason.RATE_DIFFERENCE,
           remarks: 'Overcharged',
           items: [{ description: 'Price adjustment', quantity: 5, unitPrice: 200 }],
         },
@@ -307,7 +308,7 @@ describe('DebitNoteService', () => {
         service.create(
           {
             supplierId: 'sup-1',
-            reason: 'QUALITY_ISSUE',
+            reason: DebitNoteReason.QUALITY_ISSUE,
             items: [],
           },
           'user-1'
@@ -351,7 +352,7 @@ describe('DebitNoteService', () => {
       await service.create(
         {
           supplierId: 'sup-1',
-          reason: 'QUALITY_ISSUE',
+          reason: DebitNoteReason.QUALITY_ISSUE,
           items: [
             { description: 'Fabric', hsnCode: '52081390', quantity: 10, unitPrice: 300 },
             { description: 'Buttons', hsnCode: '96064100', quantity: 20, unitPrice: 100 },
@@ -392,7 +393,7 @@ describe('DebitNoteService', () => {
       await service.create(
         {
           supplierId: 'sup-1',
-          reason: 'OTHER',
+          reason: DebitNoteReason.OTHER,
           items: [{ description: 'Item', quantity: 1, unitPrice: 1000 }],
         },
         'user-1'
@@ -416,7 +417,7 @@ describe('DebitNoteService', () => {
         {
           supplierId: 'sup-1',
           debitNoteDate: '2026-06-15',
-          reason: 'OTHER',
+          reason: DebitNoteReason.OTHER,
           items: [{ description: 'Item', quantity: 1, unitPrice: 1000 }],
         },
         'user-1'
@@ -439,7 +440,7 @@ describe('DebitNoteService', () => {
       await service.create(
         {
           supplierId: 'sup-1',
-          reason: 'OTHER',
+          reason: DebitNoteReason.OTHER,
           items: [{ description: 'No PO item', quantity: 1, unitPrice: 1000 }],
         },
         'user-1'
@@ -463,7 +464,7 @@ describe('DebitNoteService', () => {
       await service.create(
         {
           supplierId: 'sup-1',
-          reason: 'OTHER',
+          reason: DebitNoteReason.OTHER,
           items: [{ description: 'Item', quantity: 1, unitPrice: 1000 }],
         },
         'user-1'
@@ -501,7 +502,7 @@ describe('DebitNoteService', () => {
       await service.create(
         {
           supplierId: 'sup-1',
-          reason: 'OTHER',
+          reason: DebitNoteReason.OTHER,
           items: [{ description: 'Zero qty', quantity: 0, unitPrice: 500 }],
         },
         'user-1'

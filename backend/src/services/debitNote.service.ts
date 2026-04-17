@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { Prisma } from '@prisma/client';
+import { Prisma, DebitNoteReason, DocumentStatus } from '@prisma/client';
 import { gstService } from './gst.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 
@@ -11,7 +11,7 @@ interface DebitNoteCreateInput {
   poId?: string;
   supplierId: string;
   debitNoteDate?: string;
-  reason: string; // DebitNoteReason enum
+  reason: DebitNoteReason;
   remarks?: string;
   items: Array<{
     poItemId?: string;
@@ -26,7 +26,7 @@ interface DebitNoteQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  status?: string;
+  status?: DocumentStatus;
   supplierId?: string;
   fromDate?: string;
   toDate?: string;
@@ -152,7 +152,7 @@ export class DebitNoteService {
           poId: data.poId || null,
           supplierId: data.supplierId,
           debitNoteDate: data.debitNoteDate ? new Date(data.debitNoteDate) : new Date(),
-          reason: data.reason as any,
+          reason: data.reason,
           subtotal: parseFloat(subtotal.toFixed(2)),
           cgstAmount: parseFloat(totalCgst.toFixed(2)),
           sgstAmount: parseFloat(totalSgst.toFixed(2)),
@@ -236,7 +236,7 @@ export class DebitNoteService {
     }
 
     if (status) {
-      where.status = status as any;
+      where.status = status;
     }
 
     if (supplierId) {

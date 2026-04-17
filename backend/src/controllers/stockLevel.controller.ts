@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import stockLevelService from '../services/stockLevel.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { MaterialType } from '@prisma/client';
 
 // ============================================
 // Types for Stock Level Controller
@@ -170,7 +171,7 @@ export const getStockValuationReport = async (req: Request, res: Response) => {
 export const getStockLevelsByMaterialType = async (req: Request, res: Response) => {
   const { materialType } = req.params;
 
-  const stockLevels = await stockLevelService.getStockLevelsByMaterialType(materialType);
+  const stockLevels = await stockLevelService.getStockLevelsByMaterialType(materialType as MaterialType);
 
   res.json({
     success: true,

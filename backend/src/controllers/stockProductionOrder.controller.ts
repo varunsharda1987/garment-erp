@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { stockProductionOrderService } from '../services/stockProductionOrder.service';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 export class StockProductionOrderController {
   async getAll(req: Request, res: Response) {
@@ -45,6 +45,9 @@ export class StockProductionOrderController {
   async create(req: Request, res: Response) {
     const { styleId, totalQuantity, targetDate, priority, remarks, items } = req.body;
     const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
     if (!styleId) {
       throw new ValidationError('Style is required');
@@ -90,6 +93,9 @@ export class StockProductionOrderController {
   async approve(req: Request, res: Response) {
     const { id } = req.params;
     const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
     const spo = await stockProductionOrderService.approve(id, userId);
     res.json(spo);
@@ -98,6 +104,9 @@ export class StockProductionOrderController {
   async generateWorkOrders(req: Request, res: Response) {
     const { id } = req.params;
     const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
     const workOrder = await stockProductionOrderService.generateWorkOrders(id, userId);
     res.status(201).json(workOrder);

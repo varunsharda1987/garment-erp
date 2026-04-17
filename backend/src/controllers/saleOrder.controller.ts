@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { saleOrderService } from '../services/saleOrder.service';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 export class SaleOrderController {
   async getAll(req: Request, res: Response) {
@@ -43,6 +43,9 @@ export class SaleOrderController {
   async create(req: Request, res: Response) {
     const { customerId, expectedShipDate, remarks, items } = req.body;
     const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
     if (!customerId) {
       throw new ValidationError('Customer is required');
@@ -84,6 +87,9 @@ export class SaleOrderController {
   async confirm(req: Request, res: Response) {
     const { id } = req.params;
     const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
     const so = await saleOrderService.confirm(id, userId);
     res.json(so);
@@ -92,6 +98,9 @@ export class SaleOrderController {
   async allocateStock(req: Request, res: Response) {
     const { saleOrderItemId, fgStockId, quantity } = req.body;
     const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
 
     if (!saleOrderItemId || !fgStockId || !quantity) {
       throw new ValidationError('saleOrderItemId, fgStockId, and quantity are required');

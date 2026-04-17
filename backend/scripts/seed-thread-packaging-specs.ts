@@ -58,6 +58,33 @@ const PACKAGING_SPECS: PackagingSpec[] = [
     unitsPerBox: 10,
     metersPerUnit: 10000,
   },
+  // Legacy mappings (for backward compatibility with old data)
+  // CONE defaults to CONE_5K specs
+  {
+    ply: 'THREE_PLY',
+    packagingType: 'CONE',
+    unitsPerBox: 10,
+    metersPerUnit: 5000,
+  },
+  {
+    ply: 'TWO_PLY',
+    packagingType: 'CONE',
+    unitsPerBox: 10,
+    metersPerUnit: 5000,
+  },
+  // TUBE defaults to SPOOL specs
+  {
+    ply: 'THREE_PLY',
+    packagingType: 'TUBE',
+    unitsPerBox: 15,
+    metersPerUnit: 400,
+  },
+  {
+    ply: 'TWO_PLY',
+    packagingType: 'TUBE',
+    unitsPerBox: 10,
+    metersPerUnit: 800,
+  },
 ];
 
 async function main() {

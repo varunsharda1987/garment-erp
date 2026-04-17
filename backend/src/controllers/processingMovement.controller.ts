@@ -1,18 +1,14 @@
 // Processing Movement Controller
 import { Request, Response } from 'express';
 import processingMovementService from '../services/processingMovement.service';
+import { UnauthorizedError } from '../errors';
 
 /**
  * Create a new processing movement
  */
 export async function createMovement(req: Request, res: Response) {
   const userId = req.user?.userId;
-  if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
-  }
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const movement = await processingMovementService.createMovement({
     ...req.body,

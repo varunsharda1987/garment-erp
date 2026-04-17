@@ -1,19 +1,14 @@
 // Processing Delivery Controller
 import { Request, Response } from 'express';
 import processingDeliveryService from '../services/processingDelivery.service';
-import { ValidationError } from '../errors';
+import { ValidationError, UnauthorizedError } from '../errors';
 
 /**
  * Create a new processing delivery
  */
 export async function createDelivery(req: Request, res: Response) {
   const userId = req.user?.userId;
-  if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
-  }
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const delivery = await processingDeliveryService.createDelivery({
     ...req.body,

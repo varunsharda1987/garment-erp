@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { tcsService } from '../services/tcs.service';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 class TCSController {
   async getAll(req: Request, res: Response) {
@@ -25,40 +25,25 @@ class TCSController {
 
   async create(req: Request, res: Response) {
     const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (!userId) throw new UnauthorizedError('Authentication required');
     const entry = await tcsService.create(req.body, userId);
     res.status(201).json(entry);
   }
 
   async update(req: Request, res: Response) {
-    try {
-      const entry = await tcsService.update(req.params.id, req.body);
-      res.json(entry);
-    } catch (error: any) {
-      if (error.code === 'P2025') throw new NotFoundError('TCS entry', req.params.id);
-      throw error;
-    }
+    const entry = await tcsService.update(req.params.id, req.body);
+    res.json(entry);
   }
 
   async updateStatus(req: Request, res: Response) {
-    try {
-      const { status } = req.body;
-      const entry = await tcsService.updateStatus(req.params.id, status);
-      res.json(entry);
-    } catch (error: any) {
-      if (error.code === 'P2025') throw new NotFoundError('TCS entry', req.params.id);
-      throw error;
-    }
+    const { status } = req.body;
+    const entry = await tcsService.updateStatus(req.params.id, status);
+    res.json(entry);
   }
 
   async delete(req: Request, res: Response) {
-    try {
-      await tcsService.delete(req.params.id);
-      res.json({ message: 'TCS entry deleted' });
-    } catch (error: any) {
-      if (error.code === 'P2025') throw new NotFoundError('TCS entry', req.params.id);
-      throw error;
-    }
+    await tcsService.delete(req.params.id);
+    res.json({ message: 'TCS entry deleted' });
   }
 
   async getSummary(req: Request, res: Response) {

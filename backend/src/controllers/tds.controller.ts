@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { tdsService } from '../services/tds.service';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 class TDSController {
   async getAll(req: Request, res: Response) {
@@ -25,40 +25,25 @@ class TDSController {
 
   async create(req: Request, res: Response) {
     const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+    if (!userId) throw new UnauthorizedError('Authentication required');
     const entry = await tdsService.create(req.body, userId);
     res.status(201).json(entry);
   }
 
   async update(req: Request, res: Response) {
-    try {
-      const entry = await tdsService.update(req.params.id, req.body);
-      res.json(entry);
-    } catch (error: any) {
-      if (error.code === 'P2025') throw new NotFoundError('TDS entry', req.params.id);
-      throw error;
-    }
+    const entry = await tdsService.update(req.params.id, req.body);
+    res.json(entry);
   }
 
   async updateStatus(req: Request, res: Response) {
-    try {
-      const { status, certificateNo } = req.body;
-      const entry = await tdsService.updateStatus(req.params.id, status, certificateNo);
-      res.json(entry);
-    } catch (error: any) {
-      if (error.code === 'P2025') throw new NotFoundError('TDS entry', req.params.id);
-      throw error;
-    }
+    const { status, certificateNo } = req.body;
+    const entry = await tdsService.updateStatus(req.params.id, status, certificateNo);
+    res.json(entry);
   }
 
   async delete(req: Request, res: Response) {
-    try {
-      await tdsService.delete(req.params.id);
-      res.json({ message: 'TDS entry deleted' });
-    } catch (error: any) {
-      if (error.code === 'P2025') throw new NotFoundError('TDS entry', req.params.id);
-      throw error;
-    }
+    await tdsService.delete(req.params.id);
+    res.json({ message: 'TDS entry deleted' });
   }
 
   async getSummary(req: Request, res: Response) {

@@ -1,6 +1,7 @@
 // Processing Batch Controller - Job work batch management endpoints
 import { Request, Response } from 'express';
 import processingBatchService from '../services/processingBatch.service';
+import { UnauthorizedError } from '../errors';
 
 /**
  * Create a new processing batch
@@ -8,12 +9,7 @@ import processingBatchService from '../services/processingBatch.service';
  */
 export const createBatch = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
-  if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'Unauthorized',
-    });
-  }
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const batch = await processingBatchService.createBatch({
     ...req.body,

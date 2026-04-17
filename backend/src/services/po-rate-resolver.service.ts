@@ -183,8 +183,10 @@ async function resolveTrimsRate(ctx: RateResolutionContext): Promise<RateResolut
     }
 
     // Fallback: material_supplier_mapping (Int-based, legacy)
-    const materialIdNum = parseInt(ctx.materialId, 10);
-    if (!isNaN(materialIdNum)) {
+    // Only try if materialId is a pure integer (not UUID which would parseInt to leading digits)
+    const isIntegerId = /^\d+$/.test(ctx.materialId);
+    if (isIntegerId) {
+      const materialIdNum = parseInt(ctx.materialId, 10);
       const supplierMapping = await prisma.material_supplier_mapping.findFirst({
         where: {
           supplierId: ctx.supplierId,
@@ -204,20 +206,19 @@ async function resolveTrimsRate(ctx: RateResolutionContext): Promise<RateResolut
   }
 
   // Fallback: Material Master pricePerUnit
-  if (ctx.materialId) {
+  // Only try if materialId is a pure integer (not UUID)
+  if (ctx.materialId && /^\d+$/.test(ctx.materialId)) {
     const materialIdNum = parseInt(ctx.materialId, 10);
-    if (!isNaN(materialIdNum)) {
-      const material = await prisma.material_master.findUnique({
-        where: { id: materialIdNum },
-        select: { pricePerUnit: true },
-      });
+    const material = await prisma.material_master.findUnique({
+      where: { id: materialIdNum },
+      select: { pricePerUnit: true },
+    });
 
-      if (material?.pricePerUnit && Number(material.pricePerUnit) > 0) {
-        return {
-          rate: Number(material.pricePerUnit),
-          source: 'Material Master (pricePerUnit)',
-        };
-      }
+    if (material?.pricePerUnit && Number(material.pricePerUnit) > 0) {
+      return {
+        rate: Number(material.pricePerUnit),
+        source: 'Material Master (pricePerUnit)',
+      };
     }
   }
 
@@ -341,24 +342,23 @@ async function resolveGeneralRate(ctx: RateResolutionContext): Promise<RateResol
   }
 
   // Fallback: material_supplier_mapping (legacy Int-based)
-  if (ctx.supplierId && ctx.materialId) {
+  // Only try if materialId is a pure integer (not UUID)
+  if (ctx.supplierId && ctx.materialId && /^\d+$/.test(ctx.materialId)) {
     const materialIdNum = parseInt(ctx.materialId, 10);
-    if (!isNaN(materialIdNum)) {
-      const supplierMapping = await prisma.material_supplier_mapping.findFirst({
-        where: {
-          supplierId: ctx.supplierId,
-          materialId: materialIdNum,
-          isActive: true,
-        },
-        select: { supplierPrice: true },
-      });
+    const supplierMapping = await prisma.material_supplier_mapping.findFirst({
+      where: {
+        supplierId: ctx.supplierId,
+        materialId: materialIdNum,
+        isActive: true,
+      },
+      select: { supplierPrice: true },
+    });
 
-      if (supplierMapping?.supplierPrice && Number(supplierMapping.supplierPrice) > 0) {
-        return {
-          rate: Number(supplierMapping.supplierPrice),
-          source: 'Supplier price (legacy)',
-        };
-      }
+    if (supplierMapping?.supplierPrice && Number(supplierMapping.supplierPrice) > 0) {
+      return {
+        rate: Number(supplierMapping.supplierPrice),
+        source: 'Supplier price (legacy)',
+      };
     }
   }
 

@@ -173,7 +173,7 @@ const generateLabDipNumber = async (processType: string, styleCode: string): Pro
 };
 
 // Get all lab dips
-export const getAllLabDips = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllLabDips = async (req: Request, res: Response, _next: NextFunction) => {
   const {
     page = '1',
     limit = '10',
@@ -247,7 +247,7 @@ export const getAllLabDips = async (req: Request, res: Response, next: NextFunct
 };
 
 // Get lab dip by ID
-export const getLabDipById = async (req: Request, res: Response, next: NextFunction) => {
+export const getLabDipById = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
 
   const labDip = await prisma.lab_dips.findUnique({
@@ -271,7 +271,7 @@ export const getLabDipById = async (req: Request, res: Response, next: NextFunct
 };
 
 // Create lab dip
-export const createLabDip = async (req: Request, res: Response, next: NextFunction) => {
+export const createLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -329,7 +329,7 @@ export const createLabDip = async (req: Request, res: Response, next: NextFuncti
 };
 
 // Update lab dip
-export const updateLabDip = async (req: Request, res: Response, next: NextFunction) => {
+export const updateLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const {
     designArtwork,
@@ -383,7 +383,7 @@ export const updateLabDip = async (req: Request, res: Response, next: NextFuncti
 };
 
 // Delete lab dip
-export const deleteLabDip = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
 
   const existing = await prisma.lab_dips.findUnique({
@@ -406,7 +406,7 @@ export const deleteLabDip = async (req: Request, res: Response, next: NextFuncti
 };
 
 // Approve lab dip
-export const approveLabDip = async (req: Request, res: Response, next: NextFunction) => {
+export const approveLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const userId = req.user?.userId;
   const { approvedSampleNo, colorMatchRating, remarks } = req.body;
@@ -444,7 +444,7 @@ export const approveLabDip = async (req: Request, res: Response, next: NextFunct
 };
 
 // Reject lab dip
-export const rejectLabDip = async (req: Request, res: Response, next: NextFunction) => {
+export const rejectLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const userId = req.user?.userId;
   const { rejectionReason, remarks } = req.body;
@@ -483,7 +483,7 @@ export const rejectLabDip = async (req: Request, res: Response, next: NextFuncti
 };
 
 // Request resubmission
-export const requestResubmit = async (req: Request, res: Response, next: NextFunction) => {
+export const requestResubmit = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const { remarks } = req.body;
 
@@ -508,7 +508,7 @@ export const requestResubmit = async (req: Request, res: Response, next: NextFun
 };
 
 // Get approved lab dips
-export const getApprovedLabDips = async (req: Request, res: Response, next: NextFunction) => {
+export const getApprovedLabDips = async (req: Request, res: Response, _next: NextFunction) => {
   const { processType = 'PRINTING', styleId } = req.query;
 
   const where: Prisma.lab_dipsWhereInput = {
@@ -530,7 +530,7 @@ export const getApprovedLabDips = async (req: Request, res: Response, next: Next
 };
 
 // Search lab dips
-export const searchLabDips = async (req: Request, res: Response, next: NextFunction) => {
+export const searchLabDips = async (req: Request, res: Response, _next: NextFunction) => {
   const { q, processType = 'PRINTING' } = req.query;
 
   if (!q || (q as string).length < 2) {
@@ -575,7 +575,7 @@ const generateJobWorkNumber = async (processType: string, styleCode: string): Pr
 };
 
 // Get all print jobs
-export const getAllPrintJobs = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllPrintJobs = async (req: Request, res: Response, _next: NextFunction) => {
   const {
     page = '1',
     limit = '10',
@@ -654,7 +654,7 @@ export const getAllPrintJobs = async (req: Request, res: Response, next: NextFun
 };
 
 // Get print job by ID
-export const getPrintJobById = async (req: Request, res: Response, next: NextFunction) => {
+export const getPrintJobById = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
 
   const job = await prisma.job_work_orders.findUnique({
@@ -670,7 +670,7 @@ export const getPrintJobById = async (req: Request, res: Response, next: NextFun
 };
 
 // Create print job
-export const createPrintJob = async (req: Request, res: Response, next: NextFunction) => {
+export const createPrintJob = async (req: Request, res: Response, _next: NextFunction) => {
   const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -748,7 +748,7 @@ export const createPrintJob = async (req: Request, res: Response, next: NextFunc
 };
 
 // Update print job
-export const updatePrintJob = async (req: Request, res: Response, next: NextFunction) => {
+export const updatePrintJob = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const {
     fabricStockLotId,
@@ -797,7 +797,7 @@ export const updatePrintJob = async (req: Request, res: Response, next: NextFunc
 };
 
 // Delete print job
-export const deletePrintJob = async (req: Request, res: Response, next: NextFunction) => {
+export const deletePrintJob = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
 
   const existing = await prisma.job_work_orders.findUnique({
@@ -819,7 +819,7 @@ export const deletePrintJob = async (req: Request, res: Response, next: NextFunc
 };
 
 // Send fabric to mill
-export const sendToMill = async (req: Request, res: Response, next: NextFunction) => {
+export const sendToMill = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const { sentDate, challanNumber, vehicleNumber } = req.body;
   const userId = req.user?.userId || req.user?.id;
@@ -977,7 +977,7 @@ export const sendToMill = async (req: Request, res: Response, next: NextFunction
 };
 
 // Receive fabric from mill
-export const receiveFromMill = async (req: Request, res: Response, next: NextFunction) => {
+export const receiveFromMill = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const {
     qtyReceivedMeters,
@@ -1056,7 +1056,7 @@ export const receiveFromMill = async (req: Request, res: Response, next: NextFun
 };
 
 // Quality check
-export const qualityCheck = async (req: Request, res: Response, next: NextFunction) => {
+export const qualityCheck = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const { qualityGrade, colorMatchStatus, defectMeters, defectType, actualRate, remarks } = req.body;
 
@@ -1090,7 +1090,7 @@ export const qualityCheck = async (req: Request, res: Response, next: NextFuncti
 };
 
 // Update stock after quality check — creates fabric_stock entry for finished fabric
-export const updateStock = async (req: Request, res: Response, next: NextFunction) => {
+export const updateStock = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const userId = req.user?.userId || req.user?.id;
   if (!userId) {
@@ -1318,7 +1318,7 @@ const computeProcessPOStatus = (po: any): string => {
 };
 
 // 1. Get all Process POs for Printing
-export const getProcessPOs = async (req: Request, res: Response, next: NextFunction) => {
+export const getProcessPOs = async (req: Request, res: Response, _next: NextFunction) => {
   const { page = '1', limit = '10', search, status } = req.query;
 
   const pageNum = parseInt(page as string);
@@ -1393,7 +1393,7 @@ export const getProcessPOs = async (req: Request, res: Response, next: NextFunct
 };
 
 // 2. Get single Process PO by ID
-export const getProcessPOById = async (req: Request, res: Response, next: NextFunction) => {
+export const getProcessPOById = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
 
   const po = await prisma.purchase_orders.findUnique({
@@ -1414,7 +1414,7 @@ export const getProcessPOById = async (req: Request, res: Response, next: NextFu
 };
 
 // 3. Create Process PO (PO + Job Work Order together)
-export const createProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+export const createProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -1612,7 +1612,7 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
 };
 
 // 4. Delete Process PO (only DRAFT/READY_TO_SEND)
-export const deleteProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
 
   const po = await prisma.purchase_orders.findUnique({
@@ -1655,7 +1655,7 @@ export const deleteProcessPO = async (req: Request, res: Response, next: NextFun
 };
 
 // 5. Send Process PO to Mill (dispatch greige + auto OUTWARD challan)
-export const sendProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+export const sendProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const { sentDate, challanNumber, vehicleNumber } = req.body;
   const userId = req.user?.userId || req.user?.id;
@@ -1874,7 +1874,7 @@ export const sendProcessPO = async (req: Request, res: Response, next: NextFunct
 };
 
 // 6. Receive Process PO from Mill (receive fabric + auto INWARD challan)
-export const receiveProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+export const receiveProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const {
     qtyReceivedMeters,
@@ -2024,7 +2024,7 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
 };
 
 // 7. Quality Check for Process PO
-export const qualityCheckProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+export const qualityCheckProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const { qualityGrade, colorMatchStatus, defectMeters, defectType, actualRate, remarks } = req.body;
 
@@ -2080,7 +2080,7 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, next: N
 };
 
 // 8. Update Stock for Process PO (create fabric_stock entries)
-export const updateStockProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+export const updateStockProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const userId = req.user?.userId || req.user?.id;
   if (!userId) {
@@ -2232,7 +2232,7 @@ export const updateStockProcessPO = async (req: Request, res: Response, next: Ne
 };
 
 // 9. Return Unprocessed (greige returned without processing → credit back to greige_stock)
-export const returnUnprocessedProcessPO = async (req: Request, res: Response, next: NextFunction) => {
+export const returnUnprocessedProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const { returnedQtyMeters, returnDate, remarks } = req.body;
   const userId = req.user?.userId || req.user?.id;
@@ -2364,7 +2364,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, ne
 // ============================================
 
 // Get printing summary
-export const getSummary = async (req: Request, res: Response, next: NextFunction) => {
+export const getSummary = async (req: Request, res: Response, _next: NextFunction) => {
   const processType = 'PRINTING';
 
   const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
@@ -2400,7 +2400,7 @@ export const getSummary = async (req: Request, res: Response, next: NextFunction
 };
 
 // Get summary by style
-export const getSummaryByStyle = async (req: Request, res: Response, next: NextFunction) => {
+export const getSummaryByStyle = async (req: Request, res: Response, _next: NextFunction) => {
   const { styleId } = req.params;
   const processType = 'PRINTING';
 
@@ -2437,7 +2437,7 @@ export const getSummaryByStyle = async (req: Request, res: Response, next: NextF
 };
 
 // Get summary by mill
-export const getSummaryByMill = async (req: Request, res: Response, next: NextFunction) => {
+export const getSummaryByMill = async (req: Request, res: Response, _next: NextFunction) => {
   const { millId } = req.params;
   const processType = 'PRINTING';
 

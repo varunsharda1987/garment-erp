@@ -96,7 +96,6 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
   protected readonly modelName = 'greige_master';
   protected readonly entityName = 'Greige';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.greige_master;
   }

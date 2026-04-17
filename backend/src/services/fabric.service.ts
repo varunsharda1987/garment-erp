@@ -83,7 +83,6 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
   protected readonly modelName = 'fabric_master';
   protected readonly entityName = 'Fabric';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.fabric_master;
   }

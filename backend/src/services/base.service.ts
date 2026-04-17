@@ -48,7 +48,6 @@ export interface PaginatedResult<T> {
  * Generic include configuration type
  * Supports nested includes, selects, and orderBy clauses as used by Prisma
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type IncludeConfig = Record<string, boolean | Record<string, any>> | undefined;
 
 /**

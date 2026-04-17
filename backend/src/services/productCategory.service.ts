@@ -48,7 +48,6 @@ class ProductCategoryServiceClass extends BaseService<
   protected readonly modelName = 'product_category_master';
   protected readonly entityName = 'Product Category';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.product_category_master;
   }

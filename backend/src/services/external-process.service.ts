@@ -12,6 +12,7 @@ import {
   ExternalProcessStatus,
   ProductionStage,
   Prisma,
+  ChallanType,
 } from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { createChallan } from './challan.service';
@@ -303,7 +304,7 @@ class ExternalProcessService {
       const processLabel = data.processType.replace('_', ' ').toLowerCase();
 
       const challan = await createChallan({
-        challanType: 'OUTWARD' as any,
+        challanType: ChallanType.OUTWARD,
         challanDate: data.sendDate,
         orderId: result.sendOut.orderId || undefined,
         productionRunId: data.workOrderId,
@@ -474,7 +475,7 @@ class ExternalProcessService {
       const processLabel = sendOut.processType.replace('_', ' ').toLowerCase();
 
       const challan = await createChallan({
-        challanType: 'INWARD' as any,
+        challanType: ChallanType.INWARD,
         challanDate: data.actualReturnDate,
         orderId: sendOut.orderId || undefined,
         productionRunId: sendOut.workOrderId,

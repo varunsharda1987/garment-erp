@@ -3,7 +3,7 @@
  * Business logic for purchase order operations
  */
 
-import { PurchaseOrderStatus, Prisma, POSource, ServiceType } from '@prisma/client';
+import { PurchaseOrderStatus, Prisma, POSource, ServiceType, POCategory } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -175,7 +175,7 @@ class PurchaseOrderService {
         expectedDeliveryDate: new Date(data.expectedDeliveryDate),
         status: PurchaseOrderStatus.DRAFT,
         poSource: POSource.MANUAL,
-        poCategory: (data.poCategory as any) || undefined,
+        poCategory: (data.poCategory as POCategory | undefined) || undefined,
         subtotal: parseFloat(subtotal.toFixed(2)),
         totalCgst: parseFloat(poTotalCgst.toFixed(2)),
         totalSgst: parseFloat(poTotalSgst.toFixed(2)),
@@ -219,7 +219,7 @@ class PurchaseOrderService {
     }
 
     if (filters?.poCategories && filters.poCategories.length > 0) {
-      where.poCategory = { in: filters.poCategories as any };
+      where.poCategory = { in: filters.poCategories as POCategory[] };
     }
 
     if (filters?.search) {

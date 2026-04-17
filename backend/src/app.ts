@@ -14,7 +14,7 @@ dotenv.config({ path: path.join(__dirname, '../.env.local') });
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 // Import logger
-import logger, { logInfo, logWarn, logError } from './utils/logger';
+import { logInfo, logWarn } from './utils/logger';
 
 // Import all middleware
 import { generalLimiter } from './middleware/security.middleware';
@@ -24,70 +24,11 @@ import { httpLogger } from './middleware/logging.middleware';
 import { transformResponse } from './middleware/transform.middleware';
 
 // Import Sentry for error tracking
-import { initializeSentry, sentryErrorHandler } from './config/sentry';
+import { initializeSentry } from './config/sentry';
 import * as Sentry from '@sentry/node';
 
-// Import all route handlers
+// Import route handlers
 import healthRoutes from './routes/health.routes';
-import authRoutes from './routes/auth.routes';
-import userRoutes from './routes/user.routes';
-import styleRoutes from './routes/style.routes';
-import dashboardRoutes from './routes/dashboard.routes';
-import customerRoutes from './routes/customer.routes';
-import supplierRoutes from './routes/supplier.routes';
-import materialRoutes from './routes/material.routes';
-import orderRoutes from './routes/order.routes';
-import styleCostingRoutes from './routes/styleCosting.routes';
-
-// Financial Management Routes
-import chartOfAccountsRoutes from './routes/chartOfAccounts.routes';
-import taxMastersRoutes from './routes/taxMasters.routes';
-import paymentTermsRoutes from './routes/paymentTerms.routes';
-import currenciesRoutes from './routes/currencies.routes';
-import costCentersRoutes from './routes/costCenters.routes';
-import expenseTypesRoutes from './routes/expenseTypes.routes';
-import bankAccountsRoutes from './routes/bankAccounts.routes';
-import componentMastersRoutes from './routes/componentMasters.routes';
-
-// Import/Export Routes (Phase 1.5)
-import exportRoutes from './routes/export.routes';
-import importRoutes from './routes/import.routes';
-import templateRoutes from './routes/template.routes';
-
-// Inventory & Warehouse Management Routes (Phase 3)
-import warehouseRoutes from './routes/warehouse.routes';
-import stockLevelRoutes from './routes/stockLevel.routes';
-import stockMovementRoutes from './routes/stockMovement.routes';
-import stockCountRoutes from './routes/stockCount.routes';
-
-// Production Planning Routes (Phase 5.4)
-import workOrderRoutes from './routes/workOrder.routes';
-
-// Fabric & Greige Management Routes (Phase 1A)
-import fabricGreigeRoutes from './routes/fabric-greige.routes';
-
-// Fabric Lifecycle Management Routes (Phase 3)
-import fabricProcurementRoutes from './routes/fabric-procurement.routes';
-import fabricStockRoutes from './routes/fabric-stock.routes';
-import fabricProcessingRoutes from './routes/fabric-processing.routes';
-
-// AI Routes
-import aiRoutes from './routes/ai.routes';
-
-// Style Import & Stock Routes
-import styleImportRoutes from './routes/style-import.routes';
-import greigeStockRoutes from './routes/greige-stock.routes';
-
-// Material Master Routes (Phase 1)
-import laceRoutes from './routes/lace.routes';
-import buttonRoutes from './routes/button.routes';
-import threadRoutes from './routes/thread.routes';
-import zipperRoutes from './routes/zipper.routes';
-import elasticRoutes from './routes/elastic.routes';
-import labelRoutes from './routes/label.routes';
-import packagingRoutes from './routes/packaging.routes';
-import styleMaterialBOMRoutes from './routes/style-material-bom.routes';
-import customerAccessoriesRoutes from './routes/customer-accessories.routes';
 import { createApiRouter } from './routes/index';
 
 // Initialize AI Provider (if configured)

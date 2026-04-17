@@ -5,7 +5,7 @@ import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { logInfo, logWarn } from '../utils/logger';
 import { orderService } from '../services/order.service';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 
 // ============================================
 // Types for Order Controller
@@ -739,12 +739,9 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
     ]);
 
     if (approvedBoms > 0 || activeRequirements > 0) {
-      res.status(400).json({
-        success: false,
-        message:
-          'Cannot modify order items: this order has approved BOMs or active material requirements. Cancel the BOM/MRP first, then edit the order.',
-      });
-      return;
+      throw new BusinessError(
+        'Cannot modify order items: this order has approved BOMs or active material requirements. Cancel the BOM/MRP first, then edit the order.'
+      );
     }
   }
 

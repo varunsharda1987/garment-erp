@@ -289,11 +289,7 @@ export const updateStatus = async (req: Request, res: Response): Promise<void> =
   // Validate status value
   const validStatuses = Object.values(MaterialRequirementStatus);
   if (!validStatuses.includes(status)) {
-    res.status(400).json({
-      success: false,
-      error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
-    });
-    return;
+    throw new ValidationError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }
 
   const requirement = await mrpService.updateRequirementStatus(id, status, userId);

@@ -8,7 +8,7 @@ import { Request, Response } from 'express';
 import laceLabDipService from '../services/laceLabDip.service';
 import { serialize } from '../utils/serializer';
 import { LaceLabDipStatus } from '@prisma/client';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 /**
  * POST /api/lace-lab-dips
@@ -17,10 +17,7 @@ import { NotFoundError, ValidationError } from '../errors';
 export async function createLabDip(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { greigeLaceId, targetColor, processorId, sampleQuantity, colorRecipe, costSheetId, styleId, labDipCost } =

@@ -1,5 +1,5 @@
 // Processing Stage Service - Manage individual processing stages within batches
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import { Prisma, ProductionStage } from '@prisma/client';
 import prisma from '../config/database';
 import { randomUUID } from 'crypto';

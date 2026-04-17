@@ -6,6 +6,7 @@ import FabricStockService, { CreateStyleStockDTO, StockStatusFilter } from '../s
 import GreigeStockService from '../services/greige-stock.service';
 import prisma from '../config/database';
 import { BusinessError, ValidationError } from '../errors';
+import logger from '../utils/logger';
 
 // ============================================
 // Types for Style Stock Controller
@@ -61,7 +62,7 @@ class StyleStockController {
         data: result,
       });
     } catch (error: unknown) {
-      logError('Create style stock error:', error);
+      logger.error('Create style stock error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to create style stock',
@@ -93,7 +94,7 @@ class StyleStockController {
         data: stockData,
       });
     } catch (error: unknown) {
-      logError('Get style stock error:', error);
+      logger.error('Get style stock error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get style stock',
@@ -116,7 +117,7 @@ class StyleStockController {
         data: fabrics,
       });
     } catch (error: unknown) {
-      logError('Get style fabrics error:', error);
+      logger.error('Get style fabrics error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get style fabrics',
@@ -139,7 +140,7 @@ class StyleStockController {
         data: styles,
       });
     } catch (error: unknown) {
-      logError('Get fabric styles error:', error);
+      logger.error('Get fabric styles error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get fabric styles',
@@ -162,7 +163,7 @@ class StyleStockController {
         data: history,
       });
     } catch (error: unknown) {
-      logError('Get fabric stock history error:', error);
+      logger.error('Get fabric stock history error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get stock history',
@@ -189,7 +190,7 @@ class StyleStockController {
         data: result,
       });
     } catch (error: unknown) {
-      logError('Create greige stock error:', error);
+      logger.error('Create greige stock error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to create greige stock',
@@ -300,7 +301,7 @@ class StyleStockController {
         data,
       });
     } catch (error: unknown) {
-      logError('Get generic greige stock error:', error);
+      logger.error('Get generic greige stock error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get greige stock',
@@ -318,7 +319,7 @@ class StyleStockController {
       const stocks = await GreigeStockService.getGreigeStock({ greigeId, minQuantity: 0 });
       return res.status(200).json({ success: true, data: stocks });
     } catch (error: unknown) {
-      logError('Get greige stock by greigeId error:', error);
+      logger.error('Get greige stock by greigeId error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get greige stock entries',
@@ -336,7 +337,7 @@ class StyleStockController {
       const updated = await GreigeStockService.updateGreigeStock(stockId, req.body);
       return res.status(200).json({ success: true, data: updated, message: 'Greige stock updated' });
     } catch (error: unknown) {
-      logError('Update greige stock error:', error);
+      logger.error('Update greige stock error:', error);
       const message = error instanceof Error ? error.message : 'Failed to update greige stock';
       const status = message.includes('not found') ? 404 : 500;
       return res.status(status).json({ success: false, message });
@@ -353,7 +354,7 @@ class StyleStockController {
       await GreigeStockService.deleteGreigeStock(stockId);
       return res.status(200).json({ success: true, message: 'Greige stock entry deleted' });
     } catch (error: unknown) {
-      logError('Delete greige stock error:', error);
+      logger.error('Delete greige stock error:', error);
       const message = error instanceof Error ? error.message : 'Failed to delete greige stock';
       const status = message.includes('not found') ? 404 : message.includes('Cannot delete') ? 409 : 500;
       return res.status(status).json({ success: false, message });
@@ -381,7 +382,7 @@ class StyleStockController {
       );
       return res.status(200).json({ success: true, data: result, message: 'Stock adjusted successfully' });
     } catch (error: unknown) {
-      logError('Adjust greige stock error:', error);
+      logger.error('Adjust greige stock error:', error);
       const message = error instanceof Error ? error.message : 'Failed to adjust greige stock';
       const status = message.includes('not found') ? 404 : message.includes('Cannot decrease') ? 400 : 500;
       return res.status(status).json({ success: false, message });
@@ -403,7 +404,7 @@ class StyleStockController {
         data: summary,
       });
     } catch (error: unknown) {
-      logError('Get greige stock summary error:', error);
+      logger.error('Get greige stock summary error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get greige stock summary',
@@ -427,7 +428,7 @@ class StyleStockController {
         data: stocks,
       });
     } catch (error: unknown) {
-      logError('Get available greige stock error:', error);
+      logger.error('Get available greige stock error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get available greige stock',
@@ -471,7 +472,7 @@ class StyleStockController {
         data: results,
       });
     } catch (error: unknown) {
-      logError('Get bulk style stock error:', error);
+      logger.error('Get bulk style stock error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get bulk style stock',
@@ -492,7 +493,7 @@ class StyleStockController {
         data: processors,
       });
     } catch (error: unknown) {
-      logError('Get processors with greige stock error:', error);
+      logger.error('Get processors with greige stock error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get processors with greige stock',
@@ -519,7 +520,7 @@ class StyleStockController {
         data: stocks,
       });
     } catch (error: unknown) {
-      logError('Get processor greige stock error:', error);
+      logger.error('Get processor greige stock error:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get processor greige stock',

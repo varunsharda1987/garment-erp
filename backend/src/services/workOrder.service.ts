@@ -1,5 +1,5 @@
 // Work Order Service - Production Planning & Work Order Management
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import { OrderStatus, Priority, ProductionStage, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';

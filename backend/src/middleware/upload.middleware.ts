@@ -1,5 +1,5 @@
 // Image upload middleware using multer
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';

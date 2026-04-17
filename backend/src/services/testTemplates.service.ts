@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import { Prisma } from '@prisma/client';
 import { CreateTestTemplateInput, UpdateTestTemplateInput, TestTemplateQueryOptions } from '../types/testing.types';
 import { AppError, NotFoundError, ConflictError, InternalError } from '../errors';

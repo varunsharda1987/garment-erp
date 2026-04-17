@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import { Prisma, ProductionStage, CADStatus, SampleStatus, OrderStatus } from '@prisma/client';
 import { InternalError } from '../errors';
 

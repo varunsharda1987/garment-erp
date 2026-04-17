@@ -1,5 +1,4 @@
 /**
-import { logger } from './logger';
  * SKU Generator Utility
  *
  * Generates SKUs following the pattern: {STYLE_CODE}{SIZE}
@@ -7,6 +6,7 @@ import { logger } from './logger';
  */
 
 import prisma from '../config/database';
+import logger from './logger';
 
 /**
  * Generate SKU from style code and size

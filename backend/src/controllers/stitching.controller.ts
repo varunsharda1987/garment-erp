@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, StitchingIssueStatus } from '@prisma/client';

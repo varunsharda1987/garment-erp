@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import { Prisma } from '@prisma/client';
 import {
   CreateGarmentPhysicalTestInput,

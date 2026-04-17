@@ -33,7 +33,7 @@ import { materialService } from './material.service';
 import { COMPANY_CONFIG } from '../config/company.config';
 import { gstService } from './gst.service';
 import { resolveRate } from './po-rate-resolver.service';
-import { logWarn } from '../utils/logger';
+import logger, { logWarn } from '../utils/logger';
 
 /**
  * Ensure a materials record exists for a fabric_master entry.

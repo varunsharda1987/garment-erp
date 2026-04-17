@@ -1304,7 +1304,7 @@ export async function calculateRequirementsFromOrder(
             orderItemId: req.orderItemId,
             materialId: req.materialId,
             requirementType: req.requirementType || 'MATERIAL',
-            colorName: (req as any).colorName || null, // Different colors = separate requirements
+            colorName: req.colorName || null, // Different colors = separate requirements
             status: 'CANCELLED', // Only reuse CANCELLED — prevents second BOM item overwriting first
           },
         });
@@ -1352,8 +1352,8 @@ export async function calculateRequirementsFromOrder(
               fabricWidth: req.fabricWidth,
               cadId: req.cadId,
               requirementType: req.requirementType || 'MATERIAL',
-              colorName: (req as any).colorName || null,
-              componentName: (req as any).componentName || null,
+              colorName: req.colorName || null,
+              componentName: req.componentName || null,
               requiredDate,
               createdById: userId,
             },
@@ -1363,9 +1363,9 @@ export async function calculateRequirementsFromOrder(
         }
 
         // Track GREIGE requirements for linking to PROCESSING requirements
-        if ((req as any).isGreigeRequirement && saved) {
+        if (req.isGreigeRequirement && saved) {
           greigeRequirementIds.set(
-            `${req.orderId}-${req.orderItemId}-${req.materialId}-${(req as any).colorName || ''}`,
+            `${req.orderId}-${req.orderItemId}-${req.materialId}-${req.colorName || ''}`,
             saved.id
           );
         }
@@ -1376,7 +1376,7 @@ export async function calculateRequirementsFromOrder(
       // Second pass: Create/update PROCESSING requirements with linked GREIGE IDs
       for (const req of processingReqs) {
         const linkedGreigeId = greigeRequirementIds.get(
-          `${req.orderId}-${req.orderItemId}-${(req as any).linkedGreigeMaterialId || req.materialId}-${(req as any).colorName || ''}`
+          `${req.orderId}-${req.orderItemId}-${req.linkedGreigeMaterialId || req.materialId}-${req.colorName || ''}`
         );
 
         const existing = await tx.material_requirements.findFirst({
@@ -1385,7 +1385,7 @@ export async function calculateRequirementsFromOrder(
             orderItemId: req.orderItemId,
             materialId: req.materialId,
             requirementType: 'PROCESSING',
-            colorName: (req as any).colorName || null,
+            colorName: req.colorName || null,
             status: 'CANCELLED', // Only reuse CANCELLED — prevents second BOM item overwriting first
           },
         });
@@ -1403,8 +1403,8 @@ export async function calculateRequirementsFromOrder(
               allocatedFromStock: 0,
               shortfall: req.shortfall,
               status: req.status,
-              processorId: (req as any).processorId,
-              processingCost: (req as any).processingCost,
+              processorId: req.processorId,
+              processingCost: req.processingCost,
               linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
               calculatedAt: new Date(),
             },
@@ -1429,15 +1429,15 @@ export async function calculateRequirementsFromOrder(
               availableStock: 0,
               allocatedFromStock: 0,
               shortfall: req.shortfall,
-              preferredSupplierId: (req as any).processorId, // Processor is the "supplier"
+              preferredSupplierId: req.processorId, // Processor is the "supplier"
               status: req.status,
               requirementType: 'PROCESSING',
-              processorId: (req as any).processorId,
-              processingCost: (req as any).processingCost,
-              printingType: (req as any).printingType || null,
+              processorId: req.processorId,
+              processingCost: req.processingCost,
+              printingType: req.printingType || null,
               linkedRequirementId: linkedGreigeId,
-              colorName: (req as any).colorName || null,
-              componentName: (req as any).componentName || null,
+              colorName: req.colorName || null,
+              componentName: req.componentName || null,
               requiredDate,
               createdById: userId,
             },
@@ -3163,12 +3163,12 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
           requirementIds: [req.id],
           material: req.materials,
           // Enriched fields
-          colorName: (req as any).colorName || null,
+          colorName: req.colorName || null,
           styleName: (req as any).order_items?.styles?.styleName || null,
           styleCode: (req as any).order_items?.styles?.styleCode || null,
           orderNumber: (req as any).orders?.orderNumber || null,
           processingType: req.printingType || (req.requirementType === 'PROCESSING' ? 'DYEING' : null),
-          componentName: (req as any).componentName || null,
+          componentName: req.componentName || null,
           fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
         });
       }

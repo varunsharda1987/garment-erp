@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 // ============================================
 // Helper Functions
@@ -261,7 +261,7 @@ export const getDeliveryNoteById = async (req: Request, res: Response) => {
 export const createDeliveryNote = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
   const { orderId, customerId, deliveryDate, remarks, items } = req.body;
 
@@ -418,7 +418,7 @@ export const assignTransport = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
   const {
     transporterName,
@@ -575,7 +575,7 @@ export const recordPOD = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
   const {
     deliveryDate,
@@ -723,7 +723,7 @@ export const getASNById = async (req: Request, res: Response) => {
 export const createASN = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
   const { orderId, plannedDispatchQty, cartonsPlanned, requestedShipDate, remarks, skus } = req.body;
 

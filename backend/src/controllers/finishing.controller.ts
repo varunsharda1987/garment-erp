@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 // ============================================
 // Helper Functions
@@ -227,7 +227,7 @@ export const getFinishingIssueById = async (req: Request, res: Response) => {
 export const createFinishingIssue = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
   const { workOrderId, issueDate, managerId, contractorId, expectedCompletionDate, remarks, components, skuBreakdown } =
     req.body;
@@ -447,7 +447,7 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
   const { outputDate, componentId, skuOutputs, remarks } = req.body;
 
@@ -590,7 +590,7 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const issue = await prisma.finishing_issues.findUnique({
@@ -1122,7 +1122,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
 export const createPolybagEntry = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
-  if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const { packingDate, skuBreakdown, remarks } = req.body as {
     packingDate?: string;
@@ -1170,7 +1170,7 @@ export const createPolybagEntry = async (req: Request, res: Response) => {
 export const createCartonPacking = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
-  if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const { cartonNumber, cartonDate, packingType, cartonDimensions, grossWeight, netWeight, skuBreakdown, remarks } =
     req.body as {

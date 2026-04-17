@@ -9,7 +9,7 @@ import { lookupRate } from '../services/processor-rate-v2.service';
 import { serialize } from '../utils/serializer';
 import prisma from '../config/database';
 import { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, ForbiddenError } from '../errors';
 
 /**
  * POST /api/fabric-costing/calculate
@@ -660,10 +660,9 @@ export async function saveFabricCosting(req: Request, res: Response) {
           });
 
           if (existingRecord && existingRecord[field] !== costing[field]) {
-            return res.status(403).json({
-              success: false,
-              error: `Field '${field}' is managed by CAD Planning and cannot be modified in Fabric Costing. Please update this field in the CAD Planning module.`,
-            });
+            throw new ForbiddenError(
+              `Field '${field}' is managed by CAD Planning and cannot be modified in Fabric Costing. Please update this field in the CAD Planning module.`
+            );
           }
         }
       }

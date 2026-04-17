@@ -6,7 +6,7 @@
 
 import { Request, Response } from 'express';
 import * as orderThreadRequirementService from '../services/order-thread-requirement.service';
-import { NotFoundError } from '../errors';
+import { NotFoundError, ValidationError } from '../errors';
 
 // ==================== CRUD ENDPOINTS ====================
 
@@ -184,10 +184,7 @@ export async function generatePO(req: Request, res: Response) {
   const createdById = req.user?.id || 'system';
 
   if (!requirementIds?.length || !supplierId || !expectedDeliveryDate) {
-    return res.status(400).json({
-      success: false,
-      message: 'requirementIds, supplierId, and expectedDeliveryDate are required',
-    });
+    throw new ValidationError('requirementIds, supplierId, and expectedDeliveryDate are required');
   }
 
   const result = await orderThreadRequirementService.generatePOFromRequirements({
@@ -213,10 +210,7 @@ export async function getAvailableSuppliers(req: Request, res: Response) {
   const { requirementIds } = req.body;
 
   if (!requirementIds?.length) {
-    return res.status(400).json({
-      success: false,
-      message: 'requirementIds is required',
-    });
+    throw new ValidationError('requirementIds is required');
   }
 
   const suppliers = await orderThreadRequirementService.getAvailableSuppliers(requirementIds);

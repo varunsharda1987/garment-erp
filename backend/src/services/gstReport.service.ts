@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { InvoiceStatus } from '@prisma/client';
 
 interface GSTReportParams {
   fromDate: string; // YYYY-MM-DD
@@ -98,7 +99,7 @@ class GSTReportService {
     const invoices = await prisma.invoices.findMany({
       where: {
         invoiceDate: { gte: fromDate, lte: toDate },
-        status: { not: 'OVERDUE' as any }, // Include PENDING, PARTIALLY_PAID, PAID
+        status: { not: InvoiceStatus.OVERDUE }, // Include PENDING, PARTIALLY_PAID, PAID
       },
       include: {
         customers: {

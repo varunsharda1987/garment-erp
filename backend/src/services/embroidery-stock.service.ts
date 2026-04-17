@@ -6,6 +6,7 @@
 
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
+import { ChallanType } from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { createChallan } from './challan.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
@@ -182,7 +183,7 @@ class EmbroideryStockService {
     // Stock was already deducted above — challan is for audit/traceability only
     try {
       const challan = await createChallan({
-        challanType: 'OUTWARD' as any,
+        challanType: ChallanType.OUTWARD,
         challanDate: data.sendDate,
         orderId: data.forOrderId || undefined,
         fromType: 'WAREHOUSE',

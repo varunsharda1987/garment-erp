@@ -18,14 +18,14 @@ describe('Auth API Integration Tests', () => {
 
   beforeAll(async () => {
     // Clean up any existing test data
-    await prisma.user.deleteMany({
+    await prisma.users.deleteMany({
       where: { email: testUser.email },
     });
   });
 
   afterAll(async () => {
     // Clean up test data
-    await prisma.user.deleteMany({
+    await prisma.users.deleteMany({
       where: { email: testUser.email },
     });
     await prisma.$disconnect();
@@ -101,7 +101,7 @@ describe('Auth API Integration Tests', () => {
     beforeAll(async () => {
       // Ensure test user exists with known password
       const hashedPassword = await bcrypt.hash(testUser.password, 10);
-      await prisma.user.upsert({
+      await prisma.users.upsert({
         where: { email: testUser.email },
         create: {
           email: testUser.email,

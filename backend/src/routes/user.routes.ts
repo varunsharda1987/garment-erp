@@ -15,6 +15,16 @@ import {
 } from '../controllers/user.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createUserSchema,
+  updateUserSchema,
+  updateUserRoleSchema,
+  changePasswordSchema,
+  approveUserSchema,
+  rejectUserSchema,
+  userQuerySchema,
+} from '../schemas/user.schema';
 import { UserRole } from '@prisma/client';
 
 const router = Router();
@@ -27,7 +37,7 @@ router.use(authenticateToken);
  * @desc    Get all users (paginated)
  * @access  Protected - All authenticated users
  */
-router.get('/', asyncHandler(getAllUsers));
+router.get('/', validateQuery(userQuerySchema), asyncHandler(getAllUsers));
 
 /**
  * @route   GET /api/users/pending
@@ -41,14 +51,14 @@ router.get('/pending', authorize(UserRole.ADMIN), asyncHandler(getPendingUsers))
  * @desc    Approve user registration
  * @access  Protected - Admin only
  */
-router.post('/:id/approve', authorize(UserRole.ADMIN), asyncHandler(approveUser));
+router.post('/:id/approve', authorize(UserRole.ADMIN), validateBody(approveUserSchema), asyncHandler(approveUser));
 
 /**
  * @route   POST /api/users/:id/reject
  * @desc    Reject user registration
  * @access  Protected - Admin only
  */
-router.post('/:id/reject', authorize(UserRole.ADMIN), asyncHandler(rejectUser));
+router.post('/:id/reject', authorize(UserRole.ADMIN), validateBody(rejectUserSchema), asyncHandler(rejectUser));
 
 /**
  * @route   GET /api/users/:id
@@ -62,28 +72,28 @@ router.get('/:id', asyncHandler(getUserById));
  * @desc    Create new user
  * @access  Protected - Admin only
  */
-router.post('/', authorize(UserRole.ADMIN), asyncHandler(createUser));
+router.post('/', authorize(UserRole.ADMIN), validateBody(createUserSchema), asyncHandler(createUser));
 
 /**
  * @route   PUT /api/users/:id
  * @desc    Update user (users can update themselves, admins can update anyone)
  * @access  Protected - Self or Admin
  */
-router.put('/:id', asyncHandler(updateUser));
+router.put('/:id', validateBody(updateUserSchema), asyncHandler(updateUser));
 
 /**
  * @route   PUT /api/users/:id/role
  * @desc    Update user role
  * @access  Protected - Admin only
  */
-router.put('/:id/role', authorize(UserRole.ADMIN), asyncHandler(updateUserRole));
+router.put('/:id/role', authorize(UserRole.ADMIN), validateBody(updateUserRoleSchema), asyncHandler(updateUserRole));
 
 /**
  * @route   PUT /api/users/:id/change-password
  * @desc    Change user password
  * @access  Protected - Self only
  */
-router.put('/:id/change-password', asyncHandler(changePassword));
+router.put('/:id/change-password', validateBody(changePasswordSchema), asyncHandler(changePassword));
 
 /**
  * @route   DELETE /api/users/:id/permanent

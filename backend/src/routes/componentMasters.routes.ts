@@ -10,6 +10,12 @@ import {
 } from '../controllers/componentMasters.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createComponentMasterSchema,
+  updateComponentMasterSchema,
+  componentMasterQuerySchema,
+} from '../schemas/componentMasters.schema';
 
 const router = express.Router();
 
@@ -17,10 +23,10 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new component master
-router.post('/', asyncHandler(createComponentMaster));
+router.post('/', validateBody(createComponentMasterSchema), asyncHandler(createComponentMaster));
 
 // Get all component masters with pagination and filters
-router.get('/', asyncHandler(getAllComponentMasters));
+router.get('/', validateQuery(componentMasterQuerySchema), asyncHandler(getAllComponentMasters));
 
 // Get all categories
 router.get('/categories', asyncHandler(getCategories));
@@ -29,7 +35,7 @@ router.get('/categories', asyncHandler(getCategories));
 router.get('/:id', asyncHandler(getComponentMasterById));
 
 // Update component master
-router.put('/:id', asyncHandler(updateComponentMaster));
+router.put('/:id', validateBody(updateComponentMasterSchema), asyncHandler(updateComponentMaster));
 
 // Delete component master (soft delete)
 router.delete('/:id', asyncHandler(deleteComponentMaster));

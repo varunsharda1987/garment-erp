@@ -1,4 +1,5 @@
 /**
+import { logger } from '../utils/logger';
  * Style Costing Lace Items Controller
  *
  * API endpoints for managing lace items within a style cost sheet.
@@ -99,7 +100,7 @@ export async function addLaceItem(req: Request, res: Response) {
       })
     );
   } catch (error: any) {
-    console.error('Error adding lace item:', error);
+    logger.error('Error adding lace item:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to add lace item',
@@ -153,7 +154,7 @@ export async function updateLaceItemController(req: Request, res: Response) {
       })
     );
   } catch (error: any) {
-    console.error('Error updating lace item:', error);
+    logger.error('Error updating lace item:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to update lace item',
@@ -178,7 +179,7 @@ export async function deleteLaceItem(req: Request, res: Response) {
       })
     );
   } catch (error: any) {
-    console.error('Error removing lace item:', error);
+    logger.error('Error removing lace item:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to remove lace item',
@@ -212,7 +213,7 @@ export async function getLaceItems(req: Request, res: Response) {
       })
     );
   } catch (error: any) {
-    console.error('Error fetching lace items:', error);
+    logger.error('Error fetching lace items:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch lace items',
@@ -244,7 +245,7 @@ export async function getLaceItem(req: Request, res: Response) {
       })
     );
   } catch (error: any) {
-    console.error('Error fetching lace item:', error);
+    logger.error('Error fetching lace item:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch lace item',
@@ -284,7 +285,7 @@ export async function calculateLaceOptions(req: Request, res: Response) {
       })
     );
   } catch (error: any) {
-    console.error('Error calculating lace options:', error);
+    logger.error('Error calculating lace options:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to calculate lace options',
@@ -334,7 +335,7 @@ export async function bulkAddLaceItemsController(req: Request, res: Response) {
       })
     );
   } catch (error: any) {
-    console.error('Error bulk adding lace items:', error);
+    logger.error('Error bulk adding lace items:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to bulk add lace items',

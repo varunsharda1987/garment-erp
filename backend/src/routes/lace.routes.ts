@@ -13,6 +13,13 @@ import {
 } from '../controllers/lace.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createLaceSchema,
+  updateLaceSchema,
+  bulkImportLaceSchema,
+  trimMasterQuerySchema,
+} from '../schemas/trimMasters.schema';
 
 const router = Router();
 
@@ -25,7 +32,7 @@ router.use(authenticateToken);
  * @access  Private
  * @body    isGreige, expectedShrinkagePercent, costPerMeterGreige for greige lace
  */
-router.post('/', asyncHandler(createLace));
+router.post('/', validateBody(createLaceSchema), asyncHandler(createLace));
 
 /**
  * @route   GET /api/materials/lace
@@ -33,7 +40,7 @@ router.post('/', asyncHandler(createLace));
  * @access  Private
  * @query   page, limit, search, supplierId, isGreige (filter by greige status)
  */
-router.get('/', asyncHandler(getAllLace));
+router.get('/', validateQuery(trimMasterQuerySchema), asyncHandler(getAllLace));
 
 /**
  * @route   GET /api/materials/lace/greige
@@ -78,7 +85,7 @@ router.get('/:id', asyncHandler(getLaceById));
  * @desc    Update lace item
  * @access  Private
  */
-router.put('/:id', asyncHandler(updateLace));
+router.put('/:id', validateBody(updateLaceSchema), asyncHandler(updateLace));
 
 /**
  * @route   DELETE /api/materials/lace/:id
@@ -92,6 +99,6 @@ router.delete('/:id', asyncHandler(deleteLace));
  * @desc    Bulk import lace items from Excel
  * @access  Private
  */
-router.post('/bulk-import', asyncHandler(bulkImportLace));
+router.post('/bulk-import', validateBody(bulkImportLaceSchema), asyncHandler(bulkImportLace));
 
 export default router;

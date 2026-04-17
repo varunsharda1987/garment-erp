@@ -22,6 +22,15 @@ import {
 } from '../controllers/purchaseOrder.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createPurchaseOrderSchema,
+  updatePurchaseOrderSchema,
+  addPurchaseOrderItemSchema,
+  updatePurchaseOrderItemSchema,
+  cancelPurchaseOrderSchema,
+  purchaseOrderQuerySchema,
+} from '../schemas/purchaseOrder.schema';
 import { getPOStatsController, getPOsBySourceController } from '../controllers/unified-po.controller';
 
 const router = Router();
@@ -38,7 +47,7 @@ router.use(authenticateToken);
  * @desc    Get all purchase orders with filters and pagination
  * @access  Private
  */
-router.get('/', asyncHandler(getAllPurchaseOrders));
+router.get('/', validateQuery(purchaseOrderQuerySchema), asyncHandler(getAllPurchaseOrders));
 
 /**
  * @route   GET /api/purchase-orders/receivable
@@ -99,14 +108,14 @@ router.get('/:id/pending-items', asyncHandler(getPendingItemsForPO));
  * @desc    Create a new purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.post('/', asyncHandler(createPurchaseOrder));
+router.post('/', validateBody(createPurchaseOrderSchema), asyncHandler(createPurchaseOrder));
 
 /**
  * @route   PUT /api/purchase-orders/:id
  * @desc    Update a purchase order (DRAFT only)
  * @access  Private (PURCHASE, ADMIN)
  */
-router.put('/:id', asyncHandler(updatePurchaseOrder));
+router.put('/:id', validateBody(updatePurchaseOrderSchema), asyncHandler(updatePurchaseOrder));
 
 /**
  * @route   DELETE /api/purchase-orders/:id
@@ -124,14 +133,14 @@ router.delete('/:id', asyncHandler(deletePurchaseOrder));
  * @desc    Add an item to a purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.post('/:id/items', asyncHandler(addPurchaseOrderItem));
+router.post('/:id/items', validateBody(addPurchaseOrderItemSchema), asyncHandler(addPurchaseOrderItem));
 
 /**
  * @route   PUT /api/purchase-orders/:id/items/:itemId
  * @desc    Update a purchase order item
  * @access  Private (PURCHASE, ADMIN)
  */
-router.put('/:id/items/:itemId', asyncHandler(updatePurchaseOrderItem));
+router.put('/:id/items/:itemId', validateBody(updatePurchaseOrderItemSchema), asyncHandler(updatePurchaseOrderItem));
 
 /**
  * @route   DELETE /api/purchase-orders/:id/items/:itemId
@@ -163,6 +172,6 @@ router.patch('/:id/acknowledge', asyncHandler(acknowledgePurchaseOrder));
  * @desc    Cancel purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.patch('/:id/cancel', asyncHandler(cancelPurchaseOrder));
+router.patch('/:id/cancel', validateBody(cancelPurchaseOrderSchema), asyncHandler(cancelPurchaseOrder));
 
 export default router;

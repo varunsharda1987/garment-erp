@@ -1,6 +1,15 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createStitchingIssueSchema,
+  updateStitchingIssueSchema,
+  receiveFromCuttingSchema,
+  recordStitchingOutputSchema,
+  disposeDefectsSchema,
+  stitchingIssueQuerySchema,
+} from '../schemas/production.schema';
 import {
   // Stitching Issue endpoints
   getAllStitchingIssues,
@@ -45,19 +54,19 @@ router.get('/available-managers', asyncHandler(getAvailableManagers));
 // ============================================
 
 // List and CRUD
-router.get('/issues', asyncHandler(getAllStitchingIssues));
+router.get('/issues', validateQuery(stitchingIssueQuerySchema), asyncHandler(getAllStitchingIssues));
 router.get('/issues/:id', asyncHandler(getStitchingIssueById));
-router.post('/issues', asyncHandler(createStitchingIssue));
-router.put('/issues/:id', asyncHandler(updateStitchingIssue));
+router.post('/issues', validateBody(createStitchingIssueSchema), asyncHandler(createStitchingIssue));
+router.put('/issues/:id', validateBody(updateStitchingIssueSchema), asyncHandler(updateStitchingIssue));
 router.delete('/issues/:id', asyncHandler(deleteStitchingIssue));
 
 // Workflow actions
-router.post('/issues/:id/receive', asyncHandler(receiveFromCutting));
+router.post('/issues/:id/receive', validateBody(receiveFromCuttingSchema), asyncHandler(receiveFromCutting));
 router.post('/issues/:id/start', asyncHandler(startStitchingIssue));
-router.post('/issues/:id/daily-output', asyncHandler(recordDailyOutput));
+router.post('/issues/:id/daily-output', validateBody(recordStitchingOutputSchema), asyncHandler(recordDailyOutput));
 router.post('/issues/:id/complete', asyncHandler(completeStitchingIssue));
 router.post('/issues/:id/reopen', asyncHandler(reopenStitchingIssue));
 router.post('/issues/:id/generate-transfer-slip', asyncHandler(generateTransferSlip));
-router.post('/issues/:id/dispose-defects', asyncHandler(disposeDefects));
+router.post('/issues/:id/dispose-defects', validateBody(disposeDefectsSchema), asyncHandler(disposeDefects));
 
 export default router;

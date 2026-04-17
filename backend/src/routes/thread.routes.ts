@@ -12,6 +12,14 @@ import {
 import * as threadConversionController from '../controllers/thread-conversion.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createThreadSchema,
+  updateThreadSchema,
+  convertThreadSchema,
+  bulkImportThreadSchema,
+  trimMasterQuerySchema,
+} from '../schemas/trimMasters.schema';
 
 const router = Router();
 
@@ -34,7 +42,7 @@ router.get('/template', asyncHandler(downloadTemplate));
  * @desc    Convert thread quantities (boxes ↔ units ↔ meters)
  * @access  Private
  */
-router.post('/convert', threadConversionController.convertThreadQuantity);
+router.post('/convert', validateBody(convertThreadSchema), threadConversionController.convertThreadQuantity);
 
 /**
  * @route   GET /api/materials/thread/packaging-specs
@@ -48,7 +56,7 @@ router.get('/packaging-specs', threadConversionController.getPackagingSpecs);
  * @desc    Bulk import thread items from Excel
  * @access  Private
  */
-router.post('/bulk-import', asyncHandler(bulkImportThreads));
+router.post('/bulk-import', validateBody(bulkImportThreadSchema), asyncHandler(bulkImportThreads));
 
 /**
  * @route   GET /api/materials/thread/:id/stock
@@ -67,7 +75,7 @@ router.get('/:id/stock', asyncHandler(getThreadStock));
  * @desc    Create a single thread item
  * @access  Private
  */
-router.post('/', asyncHandler(createThread));
+router.post('/', validateBody(createThreadSchema), asyncHandler(createThread));
 
 /**
  * @route   GET /api/materials/thread
@@ -75,7 +83,7 @@ router.post('/', asyncHandler(createThread));
  * @access  Private
  * @query   page, limit, search, supplierId
  */
-router.get('/', asyncHandler(getAllThreads));
+router.get('/', validateQuery(trimMasterQuerySchema), asyncHandler(getAllThreads));
 
 // ============================================
 // PARAMETER ROUTES (must come LAST)
@@ -93,7 +101,7 @@ router.get('/:id', asyncHandler(getThreadById));
  * @desc    Update thread item
  * @access  Private
  */
-router.put('/:id', asyncHandler(updateThread));
+router.put('/:id', validateBody(updateThreadSchema), asyncHandler(updateThread));
 
 /**
  * @route   DELETE /api/materials/thread/:id

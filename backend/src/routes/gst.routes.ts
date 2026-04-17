@@ -6,30 +6,19 @@
 import express, { Request, Response } from 'express';
 import { gstService } from '../services/gst.service';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { validateBody } from '../middleware/validation.middleware';
 import { ValidationError } from '../errors';
-import { z } from 'zod';
+import {
+  validateGSTSchema,
+  calculateGSTSchema,
+  getDefaultRateSchema,
+  calculateBulkGSTSchema,
+  type ValidateGSTInput,
+  type CalculateGSTInput,
+  type CalculateBulkGSTInput,
+} from '../schemas/gst.schema';
 
 const router = express.Router();
-
-// ============================================
-// Validation Schemas
-// ============================================
-
-const validateGSTSchema = z.object({
-  gstNumber: z.string().length(15, 'GST number must be exactly 15 characters'),
-  stateCode: z.string().length(2, 'State code must be exactly 2 digits'),
-});
-
-const calculateGSTSchema = z.object({
-  amount: z.number().positive('Amount must be positive'),
-  taxRate: z.number().min(0).max(100, 'Tax rate must be between 0 and 100'),
-  supplierStateId: z.string().uuid('Invalid supplier state ID'),
-  customerStateId: z.string().uuid('Invalid customer state ID'),
-});
-
-const getDefaultRateSchema = z.object({
-  hsnCode: z.string().optional(),
-});
 
 // ============================================
 // GST Validation Routes
@@ -45,15 +34,9 @@ const getDefaultRateSchema = z.object({
  */
 router.post(
   '/validate',
+  validateBody(validateGSTSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    // Validate request body
-    const validationResult = validateGSTSchema.safeParse(req.body);
-
-    if (!validationResult.success) {
-      throw new ValidationError(validationResult.error.issues[0].message);
-    }
-
-    const { gstNumber, stateCode } = validationResult.data;
+    const { gstNumber, stateCode } = req.body as ValidateGSTInput;
 
     // Validate GST number
     const isValid = gstService.validateGSTNumber(gstNumber, stateCode);
@@ -120,15 +103,9 @@ router.get(
  */
 router.post(
   '/calculate',
+  validateBody(calculateGSTSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    // Validate request body
-    const validationResult = calculateGSTSchema.safeParse(req.body);
-
-    if (!validationResult.success) {
-      throw new ValidationError(validationResult.error.issues[0].message);
-    }
-
-    const { amount, taxRate, supplierStateId, customerStateId } = validationResult.data;
+    const { amount, taxRate, supplierStateId, customerStateId } = req.body as CalculateGSTInput;
 
     // Calculate GST breakdown
     const calculation = await gstService.calculateGST(amount, taxRate, supplierStateId, customerStateId);
@@ -149,6 +126,7 @@ router.post(
  */
 router.post(
   '/default-rate',
+  validateBody(getDefaultRateSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { hsnCode } = req.body;
 
@@ -180,20 +158,13 @@ router.post(
  */
 router.post(
   '/calculate-bulk',
+  validateBody(calculateBulkGSTSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { items, supplierStateId, customerStateId } = req.body;
-
-    if (!Array.isArray(items) || items.length === 0) {
-      throw new ValidationError('Items array is required and must not be empty');
-    }
-
-    if (!supplierStateId || !customerStateId) {
-      throw new ValidationError('Supplier and customer state IDs are required');
-    }
+    const { items, supplierStateId, customerStateId } = req.body as CalculateBulkGSTInput;
 
     // Calculate GST for each item
     const calculations = await Promise.all(
-      items.map(async (item: { amount: number; taxRate: number }) => {
+      items.map(async (item) => {
         const calc = await gstService.calculateGST(
           item.amount,
           item.taxRate || 5, // Default to 5% base rate for garments (≤₹2,500/piece)

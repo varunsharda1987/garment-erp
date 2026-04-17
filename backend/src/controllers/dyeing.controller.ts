@@ -6,6 +6,7 @@ import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { randomUUID } from 'crypto';
+import { logger } from '../utils/logger';
 
 // Helper to transform relations for response
 const transformLabDip = (item: any) => ({
@@ -1776,7 +1777,11 @@ export const sendProcessPO = async (req: Request, res: Response, next: NextFunct
     });
     outwardChallanId = challan.id;
   } catch (challanError) {
-    // Log but don't fail the send operation if challan creation fails
+    logger.error('Failed to create outward challan for dyeing send-out', {
+      error: challanError,
+      jobId: job.id,
+      greigeStockLotId: job.greigeStockLotId,
+    });
   }
 
   // Update job work order
@@ -1924,7 +1929,13 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
       ],
     });
     inwardChallanId = challan.id;
-  } catch (challanError) {}
+  } catch (challanError) {
+    logger.error('Failed to create inward challan for dyed fabric receipt', {
+      error: challanError,
+      jobId: job.id,
+      finishedFabricId: job.finishedFabricId,
+    });
+  }
 
   // Update job work order
   await prisma.job_work_orders.update({
@@ -2243,7 +2254,13 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, ne
       ],
     });
     inwardChallanId = challan.id;
-  } catch (challanError) {}
+  } catch (challanError) {
+    logger.error('Failed to create inward challan for returned unprocessed greige', {
+      error: challanError,
+      jobId: job.id,
+      returnedQtyMeters,
+    });
+  }
 
   // Update job status -- use RECEIVED since RETURNED is not in enum
   await prisma.job_work_orders.update({

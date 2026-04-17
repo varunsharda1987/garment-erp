@@ -2554,6 +2554,7 @@ model suppliers {
   stitching_issues_contractor             stitching_issues[]                @relation("StitchingContractor")
   finishing_issues_contractor             finishing_issues[]                @relation("FinishingContractor")
   external_process_send_outs              external_process_send_outs[]      @relation("ExternalProcessSupplier")
+  stock_movements                         stock_movements[]
 
   @@index([code])
   @@index([name])
@@ -3262,6 +3263,7 @@ model stock_movements {
   movementType    MovementType
   materialId      String
   warehouseId     String
+  supplierId      String?      // Direct supplier reference
   quantity        Decimal      @db.Decimal(10, 3)
   unit            Unit
   referenceType   String?
@@ -3279,9 +3281,11 @@ model stock_movements {
   createdAt       DateTime     @default(now())
   materials       materials    @relation(fields: [materialId], references: [id])
   warehouses      warehouses   @relation(fields: [warehouseId], references: [id])
+  suppliers       suppliers?   @relation(fields: [supplierId], references: [id])
 
   @@index([materialId])
   @@index([warehouseId])
+  @@index([supplierId])
   @@index([movementType])
   @@index([movementDate])
   @@index([referenceType, referenceId])

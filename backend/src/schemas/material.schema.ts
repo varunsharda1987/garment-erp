@@ -46,7 +46,7 @@ export const createMaterialSchema = z.object({
   costPerUnit: z.number().nonnegative('Cost per unit must be non-negative').optional(),
   suppliers: z.array(materialSupplierSchema).optional().default([]),
   image: z.string().optional(),
-  categoryData: z.any().optional(),
+  categoryData: z.unknown().optional(),
 });
 
 /**
@@ -82,7 +82,7 @@ export const updateMaterialSchema = z.object({
   costPerUnit: z.number().nonnegative('Cost per unit must be non-negative').optional(),
   suppliers: z.array(materialSupplierSchema).optional(),
   image: z.string().optional(),
-  categoryData: z.any().optional(),
+  categoryData: z.unknown().optional(),
 });
 
 /**

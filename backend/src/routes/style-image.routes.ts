@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
 import { uploadStyleImage } from '../middleware/upload.middleware';
 import {
   uploadImage,
@@ -14,6 +15,7 @@ import {
   reorderImages,
   getImageTypes,
 } from '../controllers/style-image.controller';
+import { updateImageSchema, reorderImagesSchema } from '../schemas/styleImage.schema';
 
 const router = Router();
 
@@ -23,8 +25,18 @@ router.get('/images/types', authenticateToken, asyncHandler(getImageTypes));
 // Style-specific image routes
 router.get('/:styleId/images', authenticateToken, asyncHandler(getImages));
 router.post('/:styleId/images', authenticateToken, uploadStyleImage, asyncHandler(uploadImage));
-router.post('/:styleId/images/reorder', authenticateToken, asyncHandler(reorderImages));
-router.patch('/:styleId/images/:imageId', authenticateToken, asyncHandler(updateImage));
+router.post(
+  '/:styleId/images/reorder',
+  authenticateToken,
+  validateBody(reorderImagesSchema),
+  asyncHandler(reorderImages)
+);
+router.patch(
+  '/:styleId/images/:imageId',
+  authenticateToken,
+  validateBody(updateImageSchema),
+  asyncHandler(updateImage)
+);
 router.delete('/:styleId/images/:imageId', authenticateToken, asyncHandler(deleteImage));
 
 export default router;

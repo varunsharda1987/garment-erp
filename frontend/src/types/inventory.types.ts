@@ -239,6 +239,11 @@ export interface StockMovement {
     firstName: string;
     lastName: string;
   };
+  supplier?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
 }
 
 export interface CreateStockInDTO {
@@ -246,6 +251,7 @@ export interface CreateStockInDTO {
   itemType?: string; // 'GREIGE' | 'FABRIC' | 'MATERIAL'
   itemId?: string; // ID of the greige/fabric/material
   warehouseId: string;
+  supplierId?: string; // Direct supplier reference
   quantity: number;
   unit: Unit;
   rate?: number;

@@ -85,6 +85,7 @@ export const createStockIn = async (req: Request, res: Response) => {
     itemType,
     itemId,
     warehouseId,
+    supplierId,
     quantity,
     unit,
     rate,
@@ -120,6 +121,7 @@ export const createStockIn = async (req: Request, res: Response) => {
     movementType: 'STOCK_IN',
     materialId: resolvedMaterialId,
     warehouseId,
+    supplierId,
     quantity: new Decimal(quantity),
     unit: unit as Unit,
     rate: rate ? new Decimal(rate) : undefined,
@@ -153,7 +155,7 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { warehouseId, referenceType, referenceNumber, remarks, items } = req.body;
+  const { warehouseId, supplierId, referenceType, referenceNumber, remarks, items } = req.body;
 
   // Validate basic fields
   if (!warehouseId || !items || !Array.isArray(items) || items.length === 0) {
@@ -207,6 +209,7 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
 
   const bulkData: BulkStockInDTO = {
     warehouseId,
+    supplierId,
     referenceType,
     referenceNumber,
     remarks,

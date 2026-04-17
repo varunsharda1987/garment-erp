@@ -10,6 +10,15 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createLaceStockSchema,
+  allocateLaceStockSchema,
+  transferLaceStockSchema,
+  consumeLaceStockSchema,
+  returnLaceStockSchema,
+  laceStockQuerySchema,
+} from '../schemas/laceStock.schema';
 import {
   createStock,
   getStocks,
@@ -58,7 +67,11 @@ router.get('/reports/utilization', asyncHandler(getUtilizationReport));
  * @access  Private
  * @body    quantityConsumed, notes?
  */
-router.post('/allocations/:allocationId/consume', asyncHandler(consumeStockController));
+router.post(
+  '/allocations/:allocationId/consume',
+  validateBody(consumeLaceStockSchema),
+  asyncHandler(consumeStockController)
+);
 
 /**
  * @route   POST /api/lace-stock/allocations/:allocationId/return
@@ -66,7 +79,11 @@ router.post('/allocations/:allocationId/consume', asyncHandler(consumeStockContr
  * @access  Private
  * @body    quantityToReturn, notes?
  */
-router.post('/allocations/:allocationId/return', asyncHandler(returnStockController));
+router.post(
+  '/allocations/:allocationId/return',
+  validateBody(returnLaceStockSchema),
+  asyncHandler(returnStockController)
+);
 
 // ============================================================================
 // STOCK CRUD
@@ -79,7 +96,7 @@ router.post('/allocations/:allocationId/return', asyncHandler(returnStockControl
  * @body    laceId, quantityAvailable, weightedAvgCost, purchaseCost?,
  *          lotNumber?, dyeLotNumber?, shadeNote?, originStyleId?, etc.
  */
-router.post('/', asyncHandler(createStock));
+router.post('/', validateBody(createLaceStockSchema), asyncHandler(createStock));
 
 /**
  * @route   GET /api/lace-stock
@@ -88,7 +105,7 @@ router.post('/', asyncHandler(createStock));
  * @query   laceId, originStyleId, originOrderId, status, stockType,
  *          qualityGrade, warehouseLocation, minQuantity, search, page, limit
  */
-router.get('/', asyncHandler(getStocks));
+router.get('/', validateQuery(laceStockQuerySchema), asyncHandler(getStocks));
 
 /**
  * @route   GET /api/lace-stock/available/:laceId
@@ -118,7 +135,7 @@ router.get('/:id/transactions', asyncHandler(getTransactions));
  * @access  Private
  * @body    orderId, styleId, styleCode?, quantityToAllocate, allocationType?, notes?
  */
-router.post('/:id/allocate', asyncHandler(allocateStockController));
+router.post('/:id/allocate', validateBody(allocateLaceStockSchema), asyncHandler(allocateStockController));
 
 /**
  * @route   POST /api/lace-stock/:id/transfer
@@ -126,6 +143,6 @@ router.post('/:id/allocate', asyncHandler(allocateStockController));
  * @access  Private
  * @body    toOrderId, toStyleId, toStyleCode?, quantityToTransfer, transferNotes?
  */
-router.post('/:id/transfer', asyncHandler(transferStockController));
+router.post('/:id/transfer', validateBody(transferLaceStockSchema), asyncHandler(transferStockController));
 
 export default router;

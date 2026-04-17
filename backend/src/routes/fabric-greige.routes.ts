@@ -1,6 +1,22 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createGreigeMasterSchema,
+  updateGreigeMasterSchema,
+  bulkImportGreigeSchema,
+  greigeQuerySchema,
+  createFabricMasterSchema,
+  updateFabricMasterSchema,
+  bulkImportFabricSchema,
+  allocateToStyleSchema,
+  updateAllocationPatternPartsSchema,
+  fabricQuerySchema,
+  createCADSchema,
+  updateCADSchema,
+  setPreferredWidthSchema,
+} from '../schemas/fabricGreige.schema';
 import * as greigeController from '../controllers/greige.controller';
 import * as fabricController from '../controllers/fabric.controller';
 import * as cadController from '../controllers/fabric-cad.controller';
@@ -12,7 +28,12 @@ const router = Router();
 // ============================================
 
 // Get all greige masters with filters
-router.get('/greige', authenticateToken, asyncHandler(greigeController.getAllGreigeMasters));
+router.get(
+  '/greige',
+  authenticateToken,
+  validateQuery(greigeQuerySchema),
+  asyncHandler(greigeController.getAllGreigeMasters)
+);
 
 // Get greige statistics
 router.get('/greige/statistics', authenticateToken, asyncHandler(greigeController.getGreigeStatistics));
@@ -27,7 +48,12 @@ router.get('/greige/generic-names', authenticateToken, asyncHandler(greigeContro
 router.get('/greige/next-code', authenticateToken, asyncHandler(greigeController.getNextGreigeCode));
 
 // Bulk import greige masters (must come before :id route)
-router.post('/greige/bulk-import', authenticateToken, asyncHandler(greigeController.bulkImportGreigeMasters));
+router.post(
+  '/greige/bulk-import',
+  authenticateToken,
+  validateBody(bulkImportGreigeSchema),
+  asyncHandler(greigeController.bulkImportGreigeMasters)
+);
 
 // Get pricing history for a greige
 router.get('/greige/:id/pricing-history', authenticateToken, asyncHandler(greigeController.getGreigePricingHistory));
@@ -36,10 +62,20 @@ router.get('/greige/:id/pricing-history', authenticateToken, asyncHandler(greige
 router.get('/greige/:id', authenticateToken, asyncHandler(greigeController.getGreigeMasterById));
 
 // Create new greige master
-router.post('/greige', authenticateToken, asyncHandler(greigeController.createGreigeMaster));
+router.post(
+  '/greige',
+  authenticateToken,
+  validateBody(createGreigeMasterSchema),
+  asyncHandler(greigeController.createGreigeMaster)
+);
 
 // Update greige master
-router.put('/greige/:id', authenticateToken, asyncHandler(greigeController.updateGreigeMaster));
+router.put(
+  '/greige/:id',
+  authenticateToken,
+  validateBody(updateGreigeMasterSchema),
+  asyncHandler(greigeController.updateGreigeMaster)
+);
 
 // Delete greige master
 router.delete('/greige/:id', authenticateToken, asyncHandler(greigeController.deleteGreigeMaster));
@@ -49,7 +85,12 @@ router.delete('/greige/:id', authenticateToken, asyncHandler(greigeController.de
 // ============================================
 
 // Get all fabric masters with filters
-router.get('/fabric', authenticateToken, asyncHandler(fabricController.getAllFabricMasters));
+router.get(
+  '/fabric',
+  authenticateToken,
+  validateQuery(fabricQuerySchema),
+  asyncHandler(fabricController.getAllFabricMasters)
+);
 
 // Get fabric statistics
 router.get('/fabric/statistics', authenticateToken, asyncHandler(fabricController.getFabricStatistics));
@@ -73,16 +114,31 @@ router.get('/fabric/by-greige/:greigeId', authenticateToken, asyncHandler(fabric
 router.get('/fabric/:id', authenticateToken, asyncHandler(fabricController.getFabricMasterById));
 
 // Create new fabric master
-router.post('/fabric', authenticateToken, asyncHandler(fabricController.createFabricMaster));
+router.post(
+  '/fabric',
+  authenticateToken,
+  validateBody(createFabricMasterSchema),
+  asyncHandler(fabricController.createFabricMaster)
+);
 
 // Update fabric master
-router.put('/fabric/:id', authenticateToken, asyncHandler(fabricController.updateFabricMaster));
+router.put(
+  '/fabric/:id',
+  authenticateToken,
+  validateBody(updateFabricMasterSchema),
+  asyncHandler(fabricController.updateFabricMaster)
+);
 
 // Delete fabric master
 router.delete('/fabric/:id', authenticateToken, asyncHandler(fabricController.deleteFabricMaster));
 
 // Bulk import fabric masters
-router.post('/fabric/bulk-import', authenticateToken, asyncHandler(fabricController.bulkImportFabricMasters));
+router.post(
+  '/fabric/bulk-import',
+  authenticateToken,
+  validateBody(bulkImportFabricSchema),
+  asyncHandler(fabricController.bulkImportFabricMasters)
+);
 
 // ============================================
 // FABRIC STYLE ALLOCATION ROUTES
@@ -92,7 +148,12 @@ router.post('/fabric/bulk-import', authenticateToken, asyncHandler(fabricControl
 router.get('/fabric/:id/style-allocations', authenticateToken, asyncHandler(fabricController.getStyleAllocations));
 
 // Allocate fabric to a style component
-router.post('/fabric/:id/allocate-to-style', authenticateToken, asyncHandler(fabricController.allocateToStyle));
+router.post(
+  '/fabric/:id/allocate-to-style',
+  authenticateToken,
+  validateBody(allocateToStyleSchema),
+  asyncHandler(fabricController.allocateToStyle)
+);
 
 // Remove style allocation
 router.delete(
@@ -105,6 +166,7 @@ router.delete(
 router.put(
   '/fabric/:id/allocations/:allocationId/pattern-parts',
   authenticateToken,
+  validateBody(updateAllocationPatternPartsSchema),
   asyncHandler(fabricController.updateAllocationPatternParts)
 );
 
@@ -125,13 +187,18 @@ router.get('/cad/fabric/:fabricId', authenticateToken, asyncHandler(cadControlle
 router.get('/cad/:id', authenticateToken, asyncHandler(cadController.getCADById));
 
 // Create new CAD entry
-router.post('/cad', authenticateToken, asyncHandler(cadController.createCAD));
+router.post('/cad', authenticateToken, validateBody(createCADSchema), asyncHandler(cadController.createCAD));
 
 // Update CAD entry
-router.put('/cad/:id', authenticateToken, asyncHandler(cadController.updateCAD));
+router.put('/cad/:id', authenticateToken, validateBody(updateCADSchema), asyncHandler(cadController.updateCAD));
 
 // Set as preferred width
-router.patch('/cad/:id/set-preferred', authenticateToken, asyncHandler(cadController.setPreferredWidth));
+router.patch(
+  '/cad/:id/set-preferred',
+  authenticateToken,
+  validateBody(setPreferredWidthSchema),
+  asyncHandler(cadController.setPreferredWidth)
+);
 
 // Delete CAD entry
 router.delete('/cad/:id', authenticateToken, asyncHandler(cadController.deleteCAD));

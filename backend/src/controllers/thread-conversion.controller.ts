@@ -1,4 +1,5 @@
 /**
+import { logger } from '../utils/logger';
  * Thread Conversion Utility Controller
  *
  * API endpoint for real-time thread quantity conversions
@@ -48,7 +49,7 @@ export async function convertThreadQuantity(req: Request, res: Response) {
       data: conversion,
     });
   } catch (error: any) {
-    console.error('Error converting thread quantity:', error);
+    logger.error('Error converting thread quantity:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to convert thread quantity',
@@ -69,7 +70,7 @@ export async function getPackagingSpecs(req: Request, res: Response) {
       data: specs,
     });
   } catch (error: any) {
-    console.error('Error fetching packaging specs:', error);
+    logger.error('Error fetching packaging specs:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch packaging specs',

@@ -14,6 +14,8 @@ import {
 } from '../controllers/agent.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { createAgentSchema, updateAgentSchema, agentQuerySchema } from '../schemas/agent.schema';
 
 const router = Router();
 
@@ -32,14 +34,14 @@ router.get('/search', asyncHandler(searchAgents));
  * @desc    Create new agent
  * @access  Private (Authenticated users)
  */
-router.post('/', asyncHandler(createAgent));
+router.post('/', validateBody(createAgentSchema), asyncHandler(createAgent));
 
 /**
  * @route   GET /api/agents
  * @desc    Get all agents with pagination and filters
  * @access  Private (Authenticated users)
  */
-router.get('/', asyncHandler(getAllAgents));
+router.get('/', validateQuery(agentQuerySchema), asyncHandler(getAllAgents));
 
 /**
  * @route   GET /api/agents/:id
@@ -53,7 +55,7 @@ router.get('/:id', asyncHandler(getAgentById));
  * @desc    Update agent
  * @access  Private (Authenticated users)
  */
-router.put('/:id', asyncHandler(updateAgent));
+router.put('/:id', validateBody(updateAgentSchema), asyncHandler(updateAgent));
 
 /**
  * @route   DELETE /api/agents/:id

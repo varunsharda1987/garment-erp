@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logger } from '../utils/logger';
 import prisma from '../config/database';
 
 /**
@@ -399,7 +400,7 @@ export const getMasterDataSummary = async (req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    console.error('Error fetching master data summary:', error);
+    logger.error('Error fetching master data summary:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch master data summary',

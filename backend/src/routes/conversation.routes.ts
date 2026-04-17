@@ -8,8 +8,19 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import { conversationService } from '../services/ai/conversation.service';
 import { NotFoundError, UnauthorizedError } from '../errors';
+import {
+  createConversationSchema,
+  updateConversationSchema,
+  conversationQuerySchema,
+  messageQuerySchema,
+  type CreateConversationInput,
+  type UpdateConversationInput,
+  type ConversationQueryInput,
+  type MessageQueryInput,
+} from '../schemas/conversation.schema';
 
 const router = Router();
 
@@ -22,19 +33,20 @@ router.use(authenticateToken);
  */
 router.get(
   '/',
+  validateQuery(conversationQuerySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
     }
 
-    const { status, limit, offset, search } = req.query;
+    const { status, limit, offset, search } = req.query as unknown as ConversationQueryInput;
 
     const result = await conversationService.getConversations({
       userId,
       status: status as 'ACTIVE' | 'ARCHIVED' | 'DELETED' | undefined,
-      limit: limit ? parseInt(limit as string) : 50,
-      offset: offset ? parseInt(offset as string) : 0,
+      limit: limit ?? 50,
+      offset: offset ?? 0,
       search: search as string | undefined,
     });
 
@@ -48,13 +60,14 @@ router.get(
  */
 router.post(
   '/',
+  validateBody(createConversationSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
     }
 
-    const { title } = req.body;
+    const { title } = req.body as CreateConversationInput;
 
     const conversation = await conversationService.createConversation({
       userId,
@@ -95,6 +108,7 @@ router.get(
  */
 router.patch(
   '/:id',
+  validateBody(updateConversationSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) {
@@ -102,7 +116,7 @@ router.patch(
     }
 
     const { id } = req.params;
-    const { title, status } = req.body;
+    const { title, status } = req.body as UpdateConversationInput;
 
     const conversation = await conversationService.updateConversation(id, userId, { title, status });
 
@@ -136,6 +150,7 @@ router.delete(
  */
 router.get(
   '/:id/messages',
+  validateQuery(messageQuerySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) {
@@ -143,14 +158,9 @@ router.get(
     }
 
     const { id } = req.params;
-    const { limit, offset } = req.query;
+    const { limit, offset } = req.query as unknown as MessageQueryInput;
 
-    const messages = await conversationService.getMessages(
-      id,
-      userId,
-      limit ? parseInt(limit as string) : 100,
-      offset ? parseInt(offset as string) : 0
-    );
+    const messages = await conversationService.getMessages(id, userId, limit ?? 100, offset ?? 0);
 
     res.json(messages);
   })

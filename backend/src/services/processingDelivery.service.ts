@@ -1,4 +1,5 @@
 // Processing Delivery Service - Handle partial deliveries and quality checks
+import { logger } from '../utils/logger';
 import { Prisma, ProductionStage } from '@prisma/client';
 import prisma from '../config/database';
 import { randomUUID } from 'crypto';
@@ -190,7 +191,7 @@ class ProcessingDeliveryService {
         }
       } catch (err) {
         // Non-critical: don't fail delivery if tracking fails
-        console.error('Failed to create production_tracking for delivery:', err);
+        logger.error('Failed to create production_tracking for delivery:', err);
       }
     }
 

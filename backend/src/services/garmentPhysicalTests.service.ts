@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { logger } from '../utils/logger';
 import { Prisma } from '@prisma/client';
 import {
   CreateGarmentPhysicalTestInput,
@@ -242,7 +243,7 @@ class GarmentPhysicalTestsService {
         },
       };
     } catch (error) {
-      console.error('Garment Physical Tests Service Error Details:', error);
+      logger.error('Garment Physical Tests Service Error Details:', error);
       if (error instanceof AppError) throw error;
       throw new InternalError('Failed to fetch garment physical tests');
     }

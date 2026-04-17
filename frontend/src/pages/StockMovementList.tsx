@@ -108,6 +108,22 @@ export default function StockMovementList() {
       ),
     },
     {
+      key: 'supplier',
+      header: 'Supplier',
+      render: (mov) => (
+        <div className="text-sm text-foreground">
+          {mov.supplier ? (
+            <>
+              <div className="font-medium">{mov.supplier.code}</div>
+              <div className="text-xs text-muted-foreground">{mov.supplier.name}</div>
+            </>
+          ) : (
+            '-'
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'warehouse',
       header: 'Warehouse',
       render: (mov) => <div className="text-sm text-foreground">{mov.warehouses?.warehouseName || '-'}</div>,
@@ -122,10 +138,15 @@ export default function StockMovementList() {
         return (
           <div className={`font-medium ${isInbound ? 'text-success' : 'text-destructive'}`}>
             {isInbound ? '+' : '-'}
-            {Number(mov.quantity).toFixed(2)} {mov.unit}
+            {Number(mov.quantity).toFixed(2)}
           </div>
         );
       },
+    },
+    {
+      key: 'unit',
+      header: 'Unit',
+      render: (mov) => <div className="text-sm text-foreground">{mov.unit}</div>,
     },
     {
       key: 'reference',
@@ -135,11 +156,12 @@ export default function StockMovementList() {
     {
       key: 'performedBy',
       header: 'Performed By',
-      render: (mov) => (
-        <div className="text-sm text-foreground">
-          {mov.performedBy?.firstName || mov.performedById || '-'} {mov.performedBy?.lastName || ''}
-        </div>
-      ),
+      render: (mov) => {
+        const name = mov.performedBy
+          ? `${mov.performedBy.firstName || ''} ${mov.performedBy.lastName || ''}`.trim()
+          : null;
+        return <div className="text-sm text-foreground">{name || '-'}</div>;
+      },
     },
   ];
 

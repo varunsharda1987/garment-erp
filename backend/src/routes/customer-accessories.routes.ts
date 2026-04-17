@@ -11,6 +11,13 @@ import {
 } from '../controllers/customer-accessories.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createAccessoryPresetSchema,
+  updateAccessoryPresetSchema,
+  cloneAccessoryPresetSchema,
+  accessoryPresetQuerySchema,
+} from '../schemas/customerAccessories.schema';
 
 const router = Router();
 
@@ -23,7 +30,11 @@ router.use(authenticate);
  * @access  All authenticated users
  * @query   isActive - Filter by active status (true/false)
  */
-router.get('/:customerId/accessory-presets', asyncHandler(getCustomerAccessoryPresets));
+router.get(
+  '/:customerId/accessory-presets',
+  validateQuery(accessoryPresetQuerySchema),
+  asyncHandler(getCustomerAccessoryPresets)
+);
 
 /**
  * @route   GET /api/customers/:customerId/accessory-presets/default
@@ -45,7 +56,12 @@ router.get('/:customerId/accessory-presets/:presetId', asyncHandler(getCustomerA
  * @access  ADMIN, MERCHANDISER
  * @body    { presetName, description?, accessoryItems: [...], isDefault? }
  */
-router.post('/:customerId/accessory-presets', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(createAccessoryPreset));
+router.post(
+  '/:customerId/accessory-presets',
+  authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(createAccessoryPresetSchema),
+  asyncHandler(createAccessoryPreset)
+);
 
 /**
  * @route   PUT /api/customers/:customerId/accessory-presets/:presetId
@@ -55,6 +71,7 @@ router.post('/:customerId/accessory-presets', authorize('ADMIN', 'MERCHANDISER')
 router.put(
   '/:customerId/accessory-presets/:presetId',
   authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(updateAccessoryPresetSchema),
   asyncHandler(updateAccessoryPreset)
 );
 
@@ -85,6 +102,7 @@ router.post(
 router.post(
   '/:customerId/accessory-presets/:presetId/clone',
   authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(cloneAccessoryPresetSchema),
   asyncHandler(cloneAccessoryPreset)
 );
 

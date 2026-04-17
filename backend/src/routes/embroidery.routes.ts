@@ -9,6 +9,8 @@ import {
 } from '../controllers/embroidery.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { createEmbroiderySchema, updateEmbroiderySchema, embroideryQuerySchema } from '../schemas/embroidery.schema';
 
 const router = Router();
 
@@ -20,7 +22,7 @@ router.use(authenticateToken);
  * @desc    Create a new embroidery design
  * @access  Private
  */
-router.post('/', asyncHandler(createEmbroidery));
+router.post('/', validateBody(createEmbroiderySchema), asyncHandler(createEmbroidery));
 
 /**
  * @route   GET /api/embroidery
@@ -28,7 +30,7 @@ router.post('/', asyncHandler(createEmbroidery));
  * @access  Private
  * @query   page, limit, search, supplierId, isActive
  */
-router.get('/', asyncHandler(getAllEmbroidery));
+router.get('/', validateQuery(embroideryQuerySchema), asyncHandler(getAllEmbroidery));
 
 /**
  * @route   GET /api/embroidery/search
@@ -50,7 +52,7 @@ router.get('/:id', asyncHandler(getEmbroideryById));
  * @desc    Update embroidery design
  * @access  Private
  */
-router.put('/:id', asyncHandler(updateEmbroidery));
+router.put('/:id', validateBody(updateEmbroiderySchema), asyncHandler(updateEmbroidery));
 
 /**
  * @route   DELETE /api/embroidery/:id

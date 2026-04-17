@@ -7,6 +7,8 @@ import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { togglePermissionSchema, bulkUpdatePermissionsSchema } from '../schemas/permission.schema';
 import {
   getPermissionMatrix,
   getRoles,
@@ -84,14 +86,14 @@ router.get('/audit-log', asyncHandler(getAuditLog));
  * @desc Toggle single permission
  * @body { role: UserRole, permissionKey: string, allowed: boolean }
  */
-router.patch('/toggle', asyncHandler(togglePermission));
+router.patch('/toggle', validateBody(togglePermissionSchema), asyncHandler(togglePermission));
 
 /**
  * @route POST /api/permissions/bulk-update
  * @desc Bulk update multiple permissions
  * @body { updates: [{ role, permissionKey, allowed }] }
  */
-router.post('/bulk-update', asyncHandler(bulkUpdatePermissions));
+router.post('/bulk-update', validateBody(bulkUpdatePermissionsSchema), asyncHandler(bulkUpdatePermissions));
 
 /**
  * @route POST /api/permissions/reset-defaults

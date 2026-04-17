@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { logger } from '../utils/logger';
 import { Prisma } from '@prisma/client';
 import { CreateTestTemplateInput, UpdateTestTemplateInput, TestTemplateQueryOptions } from '../types/testing.types';
 import { AppError, NotFoundError, ConflictError, InternalError } from '../errors';
@@ -114,7 +115,7 @@ class TestTemplatesService {
         },
       };
     } catch (error) {
-      console.error('Test Templates Service Error Details:', error);
+      logger.error('Test Templates Service Error Details:', error);
       if (error instanceof AppError) throw error;
       throw new InternalError('Failed to fetch test templates');
     }

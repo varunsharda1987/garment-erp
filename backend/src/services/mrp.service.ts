@@ -83,7 +83,7 @@ async function ensureMaterialForFabric(fabricId: string): Promise<{ id: string }
       const justCreated = await prisma.materials.findFirst({ where: { fabricId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for fabricId ${fabricId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for fabricId ${fabricId}:`, err);
     return null;
   }
 }
@@ -134,7 +134,7 @@ async function ensureMaterialForLace(laceId: string): Promise<{ id: string } | n
       const justCreated = await prisma.materials.findFirst({ where: { laceId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for laceId ${laceId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for laceId ${laceId}:`, err);
     return null;
   }
 }
@@ -185,7 +185,7 @@ async function ensureMaterialForGreige(greigeId: string): Promise<{ id: string }
       const justCreated = await prisma.materials.findFirst({ where: { greigeId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for greigeId ${greigeId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for greigeId ${greigeId}:`, err);
     return null;
   }
 }
@@ -236,7 +236,7 @@ async function ensureMaterialForThread(threadId: string): Promise<{ id: string }
       const justCreated = await prisma.materials.findFirst({ where: { threadId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for threadId ${threadId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for threadId ${threadId}:`, err);
     return null;
   }
 }
@@ -287,7 +287,7 @@ async function ensureMaterialForButton(buttonId: string): Promise<{ id: string }
       const justCreated = await prisma.materials.findFirst({ where: { buttonId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for buttonId ${buttonId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for buttonId ${buttonId}:`, err);
     return null;
   }
 }
@@ -338,7 +338,7 @@ async function ensureMaterialForZipper(zipperId: string): Promise<{ id: string }
       const justCreated = await prisma.materials.findFirst({ where: { zipperId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for zipperId ${zipperId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for zipperId ${zipperId}:`, err);
     return null;
   }
 }
@@ -389,7 +389,7 @@ async function ensureMaterialForElastic(elasticId: string): Promise<{ id: string
       const justCreated = await prisma.materials.findFirst({ where: { elasticId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for elasticId ${elasticId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for elasticId ${elasticId}:`, err);
     return null;
   }
 }
@@ -440,7 +440,7 @@ async function ensureMaterialForLabel(labelId: string): Promise<{ id: string } |
       const justCreated = await prisma.materials.findFirst({ where: { labelId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for labelId ${labelId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for labelId ${labelId}:`, err);
     return null;
   }
 }
@@ -491,7 +491,7 @@ async function ensureMaterialForPackaging(packagingId: string): Promise<{ id: st
       const justCreated = await prisma.materials.findFirst({ where: { packagingId } });
       if (justCreated) return justCreated;
     }
-    console.error(`[MRP] Failed to auto-create materials record for packagingId ${packagingId}:`, err);
+    logger.error(`[MRP] Failed to auto-create materials record for packagingId ${packagingId}:`, err);
     return null;
   }
 }
@@ -2782,7 +2782,7 @@ export async function generatePOsBySupplier(
         requirements: result.linkedRequirements,
       });
     } catch (error) {
-      console.error('[MRP] Failed to generate PO for supplier', { supplierId: group.supplierId, error });
+      logger.error('[MRP] Failed to generate PO for supplier', { supplierId: group.supplierId, error });
       errors.push({
         supplierId: group.supplierId,
         error: error instanceof Error ? error.message : 'Unknown error',

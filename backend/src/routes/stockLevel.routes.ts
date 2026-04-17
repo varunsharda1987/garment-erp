@@ -3,6 +3,8 @@ import express from 'express';
 import * as stockLevelController from '../controllers/stockLevel.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { updateStockLevelSchema, stockLevelQuerySchema } from '../schemas/stockLevel.schema';
 
 const router = express.Router();
 
@@ -10,7 +12,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // GET routes
-router.get('/', asyncHandler(stockLevelController.getAllStockLevels));
+router.get('/', validateQuery(stockLevelQuerySchema), asyncHandler(stockLevelController.getAllStockLevels));
 router.get('/below-reorder', asyncHandler(stockLevelController.getMaterialsBelowReorderLevel));
 router.get('/valuation', asyncHandler(stockLevelController.getStockValuationReport));
 router.get('/aging/:warehouseId', asyncHandler(stockLevelController.getStockAgingReport));
@@ -20,6 +22,6 @@ router.get('/warehouse/:warehouseId', asyncHandler(stockLevelController.getStock
 router.get('/:id', asyncHandler(stockLevelController.getStockLevelById));
 
 // PUT routes
-router.put('/:id', asyncHandler(stockLevelController.updateStockLevel));
+router.put('/:id', validateBody(updateStockLevelSchema), asyncHandler(stockLevelController.updateStockLevel));
 
 export default router;

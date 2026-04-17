@@ -1,4 +1,5 @@
 /**
+import { logger } from './logger';
  * SKU Generator Utility
  *
  * Generates SKUs following the pattern: {STYLE_CODE}{SIZE}
@@ -77,7 +78,7 @@ export async function checkSKUExists(sku: string): Promise<boolean> {
     });
     return !!existing;
   } catch (error) {
-    console.error('Error checking SKU existence:', error);
+    logger.error('Error checking SKU existence:', error);
     throw error;
   }
 }
@@ -96,7 +97,7 @@ export async function checkMultipleSKUsExist(skus: string[]): Promise<string[]> 
     });
     return existing.map((e) => e.sku);
   } catch (error) {
-    console.error('Error checking multiple SKUs:', error);
+    logger.error('Error checking multiple SKUs:', error);
     throw error;
   }
 }

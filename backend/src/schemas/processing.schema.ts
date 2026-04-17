@@ -1,0 +1,269 @@
+/**
+ * Processing Module Validation Schemas
+ *
+ * Zod schemas for processing stages, movements, and deliveries.
+ * These are the SINGLE SOURCE OF TRUTH for field definitions.
+ */
+
+import { z } from 'zod';
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+export const ProcessingStageStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'REWORK', 'CANCELLED']);
+
+export const MovementStatusEnum = z.enum(['IN_TRANSIT', 'DELIVERED', 'CANCELLED']);
+
+export const DeliveryStatusEnum = z.enum(['PENDING_QC', 'QC_PASSED', 'QC_FAILED', 'ACCEPTED', 'REJECTED']);
+
+export const QCResultEnum = z.enum(['PASS', 'FAIL', 'CONDITIONAL']);
+
+// ============================================================================
+// PROCESSING STAGE SCHEMAS
+// ============================================================================
+
+/**
+ * Create Processing Stage
+ * POST /api/processing-stages
+ */
+export const createProcessingStageSchema = z.object({
+  batchId: z.string().uuid('Invalid batch ID'),
+  processorId: z.string().uuid('Invalid processor ID'),
+  processType: z.string().max(50),
+  sequenceNumber: z.number().int().positive().optional(),
+  expectedQuantity: z.number().positive('Quantity must be positive'),
+  unit: z.string().max(20).optional().default('PCS'),
+  expectedStartDate: z.string().datetime().optional(),
+  expectedEndDate: z.string().datetime().optional(),
+  rate: z.number().nonnegative().optional(),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Update Processing Stage
+ * PUT /api/processing-stages/:id
+ */
+export const updateProcessingStageSchema = z.object({
+  processorId: z.string().uuid('Invalid processor ID').optional(),
+  processType: z.string().max(50).optional(),
+  sequenceNumber: z.number().int().positive().optional(),
+  expectedQuantity: z.number().positive().optional(),
+  actualQuantity: z.number().nonnegative().optional(),
+  unit: z.string().max(20).optional(),
+  expectedStartDate: z.string().datetime().optional().nullable(),
+  expectedEndDate: z.string().datetime().optional().nullable(),
+  actualStartDate: z.string().datetime().optional().nullable(),
+  actualEndDate: z.string().datetime().optional().nullable(),
+  rate: z.number().nonnegative().optional().nullable(),
+  remarks: z.string().max(500).optional().nullable(),
+});
+
+/**
+ * Update Stage Status
+ * PATCH /api/processing-stages/:id/status
+ */
+export const updateStageStatusSchema = z.object({
+  status: ProcessingStageStatusEnum,
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Complete Stage
+ * POST /api/processing-stages/:id/complete
+ */
+export const completeStageSchema = z.object({
+  actualQuantity: z.number().nonnegative('Quantity cannot be negative'),
+  completedDate: z.string().datetime().optional(),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Mark for Rework
+ * POST /api/processing-stages/:id/rework
+ */
+export const markForReworkSchema = z.object({
+  reworkQuantity: z.number().positive('Rework quantity must be positive'),
+  reworkReason: z.string().min(1, 'Rework reason is required').max(500),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Processing Stage Query Params
+ * GET /api/processing-stages
+ */
+export const processingStageQuerySchema = z.object({
+  page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  search: z.string().max(100).optional(),
+  batchId: z.string().uuid().optional(),
+  processorId: z.string().uuid().optional(),
+  processType: z.string().max(50).optional(),
+  status: ProcessingStageStatusEnum.optional(),
+});
+
+// ============================================================================
+// PROCESSING MOVEMENT SCHEMAS
+// ============================================================================
+
+/**
+ * Create Processing Movement
+ * POST /api/processing-movements
+ */
+export const createProcessingMovementSchema = z.object({
+  batchId: z.string().uuid('Invalid batch ID'),
+  fromStageId: z.string().uuid('Invalid from stage ID').optional(),
+  toStageId: z.string().uuid('Invalid to stage ID'),
+  quantity: z.number().positive('Quantity must be positive'),
+  unit: z.string().max(20).optional().default('PCS'),
+  dispatchDate: z.string().datetime().optional(),
+  vehicleNumber: z.string().max(50).optional(),
+  driverName: z.string().max(100).optional(),
+  driverContact: z.string().max(20).optional(),
+  challanNumber: z.string().max(50).optional(),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Update Processing Movement
+ * PUT /api/processing-movements/:id
+ */
+export const updateProcessingMovementSchema = z.object({
+  quantity: z.number().positive().optional(),
+  unit: z.string().max(20).optional(),
+  dispatchDate: z.string().datetime().optional().nullable(),
+  vehicleNumber: z.string().max(50).optional().nullable(),
+  driverName: z.string().max(100).optional().nullable(),
+  driverContact: z.string().max(20).optional().nullable(),
+  challanNumber: z.string().max(50).optional().nullable(),
+  remarks: z.string().max(500).optional().nullable(),
+});
+
+/**
+ * Mark as Delivered
+ * POST /api/processing-movements/:id/deliver
+ */
+export const markAsDeliveredSchema = z.object({
+  deliveredQuantity: z.number().nonnegative('Delivered quantity cannot be negative'),
+  deliveredDate: z.string().datetime().optional(),
+  receivedBy: z.string().max(100).optional(),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Processing Movement Query Params
+ * GET /api/processing-movements
+ */
+export const processingMovementQuerySchema = z.object({
+  page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  search: z.string().max(100).optional(),
+  batchId: z.string().uuid().optional(),
+  stageId: z.string().uuid().optional(),
+  status: MovementStatusEnum.optional(),
+});
+
+// ============================================================================
+// PROCESSING DELIVERY SCHEMAS
+// ============================================================================
+
+/**
+ * Create Processing Delivery
+ * POST /api/processing-deliveries
+ */
+export const createProcessingDeliverySchema = z.object({
+  batchId: z.string().uuid('Invalid batch ID'),
+  stageId: z.string().uuid('Invalid stage ID'),
+  movementId: z.string().uuid('Invalid movement ID').optional(),
+  quantity: z.number().positive('Quantity must be positive'),
+  unit: z.string().max(20).optional().default('PCS'),
+  deliveryDate: z.string().datetime().optional(),
+  challanNumber: z.string().max(50).optional(),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Update Processing Delivery
+ * PUT /api/processing-deliveries/:id
+ */
+export const updateProcessingDeliverySchema = z.object({
+  quantity: z.number().positive().optional(),
+  unit: z.string().max(20).optional(),
+  deliveryDate: z.string().datetime().optional().nullable(),
+  challanNumber: z.string().max(50).optional().nullable(),
+  remarks: z.string().max(500).optional().nullable(),
+});
+
+/**
+ * Perform QC
+ * POST /api/processing-deliveries/:id/qc
+ */
+export const performQCSchema = z.object({
+  qcResult: QCResultEnum,
+  passedQuantity: z.number().nonnegative().optional(),
+  rejectedQuantity: z.number().nonnegative().optional(),
+  defects: z.string().max(500).optional(),
+  qcDate: z.string().datetime().optional(),
+  qcBy: z.string().uuid().optional(),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Accept Delivery
+ * POST /api/processing-deliveries/:id/accept
+ */
+export const acceptDeliverySchema = z.object({
+  acceptedQuantity: z.number().nonnegative('Accepted quantity cannot be negative'),
+  acceptedDate: z.string().datetime().optional(),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Reject Delivery
+ * POST /api/processing-deliveries/:id/reject
+ */
+export const rejectDeliverySchema = z.object({
+  rejectedQuantity: z.number().positive('Rejected quantity must be positive'),
+  rejectionReason: z.string().min(1, 'Rejection reason is required').max(500),
+  rejectedDate: z.string().datetime().optional(),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Processing Delivery Query Params
+ * GET /api/processing-deliveries
+ */
+export const processingDeliveryQuerySchema = z.object({
+  page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  search: z.string().max(100).optional(),
+  batchId: z.string().uuid().optional(),
+  stageId: z.string().uuid().optional(),
+  status: DeliveryStatusEnum.optional(),
+});
+
+// ============================================================================
+// Type Exports
+// ============================================================================
+
+// Stage types
+export type CreateProcessingStageInput = z.infer<typeof createProcessingStageSchema>;
+export type UpdateProcessingStageInput = z.infer<typeof updateProcessingStageSchema>;
+export type UpdateStageStatusInput = z.infer<typeof updateStageStatusSchema>;
+export type CompleteStageInput = z.infer<typeof completeStageSchema>;
+export type MarkForReworkInput = z.infer<typeof markForReworkSchema>;
+export type ProcessingStageQueryInput = z.infer<typeof processingStageQuerySchema>;
+
+// Movement types
+export type CreateProcessingMovementInput = z.infer<typeof createProcessingMovementSchema>;
+export type UpdateProcessingMovementInput = z.infer<typeof updateProcessingMovementSchema>;
+export type MarkAsDeliveredInput = z.infer<typeof markAsDeliveredSchema>;
+export type ProcessingMovementQueryInput = z.infer<typeof processingMovementQuerySchema>;
+
+// Delivery types
+export type CreateProcessingDeliveryInput = z.infer<typeof createProcessingDeliverySchema>;
+export type UpdateProcessingDeliveryInput = z.infer<typeof updateProcessingDeliverySchema>;
+export type PerformQCInput = z.infer<typeof performQCSchema>;
+export type AcceptDeliveryInput = z.infer<typeof acceptDeliverySchema>;
+export type RejectDeliveryInput = z.infer<typeof rejectDeliverySchema>;
+export type ProcessingDeliveryQueryInput = z.infer<typeof processingDeliveryQuerySchema>;

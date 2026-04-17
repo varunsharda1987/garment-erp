@@ -15,7 +15,7 @@ export const createPaymentTermSchema = z.object({
     .max(100, 'Discount percent must not exceed 100')
     .optional()
     .nullable(),
-  paymentSchedule: z.record(z.string(), z.any()).optional().nullable(),
+  paymentSchedule: z.record(z.string(), z.unknown()).optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -44,7 +44,7 @@ export const updatePaymentTermSchema = z.object({
     .max(100, 'Discount percent must not exceed 100')
     .optional()
     .nullable(),
-  paymentSchedule: z.record(z.string(), z.any()).optional().nullable(),
+  paymentSchedule: z.record(z.string(), z.unknown()).optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

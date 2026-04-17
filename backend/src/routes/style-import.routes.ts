@@ -4,8 +4,15 @@ import StyleImportController from '../controllers/style-import.controller';
 import StyleStockController from '../controllers/style-stock.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
 import { UserRole } from '@prisma/client';
 import multer from 'multer';
+import {
+  retryImportSchema,
+  createStyleStockSchema,
+  bulkStockQuerySchema,
+  createGreigeStockSchema,
+} from '../schemas/styleImport.schema';
 
 const router = Router();
 
@@ -76,6 +83,7 @@ router.get(
 router.post(
   '/import/:batchId/retry',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  validateBody(retryImportSchema),
   asyncHandler((req: Request, res: Response) => StyleImportController.retryImport(req, res))
 );
 
@@ -91,6 +99,7 @@ router.post(
 router.post(
   '/:styleId/stock-entry',
   authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  validateBody(createStyleStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.createStyleStock(req, res))
 );
 
@@ -121,6 +130,7 @@ router.get(
  */
 router.post(
   '/bulk-stock',
+  validateBody(bulkStockQuerySchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.getBulkStyleStock(req, res))
 );
 
@@ -161,6 +171,7 @@ router.get(
 router.post(
   '/greige/stock-entry',
   authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  validateBody(createGreigeStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.createGreigeStock(req, res))
 );
 

@@ -792,6 +792,7 @@ class GRNService {
               movementType: MovementType.STOCK_IN,
               materialId: item.materialId,
               warehouseId: targetWarehouseId,
+              supplierId: grn.supplierId, // Direct supplier reference
               quantity: acceptedQty,
               unit: item.unit,
               referenceType: 'GRN',
@@ -855,6 +856,7 @@ class GRNService {
               movementType: MovementType.ADJUSTMENT_OUT,
               materialId: item.materialId,
               warehouseId: targetWarehouseId,
+              supplierId: grn.supplierId, // Direct supplier reference
               quantity: rejectedQty,
               unit: item.unit,
               referenceType: 'GRN_REJECTION',

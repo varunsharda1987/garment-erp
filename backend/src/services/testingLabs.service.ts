@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { logger } from '../utils/logger';
 import { Prisma } from '@prisma/client';
 import { CreateTestingLabInput, UpdateTestingLabInput, TestingLabQueryOptions } from '../types/testing.types';
 import { AppError, NotFoundError, ConflictError, InternalError } from '../errors';
@@ -140,7 +141,7 @@ class TestingLabsService {
         },
       };
     } catch (error) {
-      console.error('Testing Labs Service Error Details:', error);
+      logger.error('Testing Labs Service Error Details:', error);
       if (error instanceof AppError) throw error;
       throw new InternalError('Failed to fetch testing labs');
     }

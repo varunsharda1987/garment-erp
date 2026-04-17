@@ -10,11 +10,18 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
 import { embeddingService } from '../services/ai/embedding.service';
 import { indexingService } from '../services/ai/indexing.service';
 import { ragService } from '../services/ai/rag.service';
 import { logInfo } from '../utils/logger';
 import { ValidationError } from '../errors';
+import {
+  searchDocumentsSchema,
+  updateRagConfigSchema,
+  type SearchDocumentsInput,
+  type UpdateRagConfigInput,
+} from '../schemas/aiAdmin.schema';
 
 const router = Router();
 
@@ -182,16 +189,13 @@ router.post(
  */
 router.post(
   '/search',
+  validateBody(searchDocumentsSchema),
   asyncHandler(async (req: Request, res: Response) => {
     if (!embeddingService.isInitialized()) {
       throw new ValidationError('Embedding service not initialized');
     }
 
-    const { query, limit = 5, documentType } = req.body;
-
-    if (!query) {
-      throw new ValidationError('Query is required');
-    }
+    const { query, limit = 5, documentType } = req.body as SearchDocumentsInput;
 
     const results = await embeddingService.searchSimilar(query, limit, documentType);
 
@@ -234,8 +238,9 @@ router.delete(
  */
 router.put(
   '/rag/config',
+  validateBody(updateRagConfigSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { maxDocuments, minSimilarity } = req.body;
+    const { maxDocuments, minSimilarity } = req.body as UpdateRagConfigInput;
 
     const config: Record<string, unknown> = {};
     if (typeof maxDocuments === 'number') config.maxDocuments = maxDocuments;

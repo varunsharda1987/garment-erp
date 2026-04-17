@@ -2,6 +2,12 @@ import { Router } from 'express';
 import { getAll, getById, create, update, remove, getConfigs, getCounts } from '../controllers/generic-trim.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createGenericTrimSchema,
+  updateGenericTrimSchema,
+  genericTrimQuerySchema,
+} from '../schemas/genericTrim.schema';
 
 const router = Router();
 
@@ -34,10 +40,10 @@ router.get('/configs', asyncHandler(getConfigs));
 router.get('/counts', asyncHandler(getCounts));
 
 // CRUD operations for specific trim type
-router.get('/:trimType', asyncHandler(getAll));
+router.get('/:trimType', validateQuery(genericTrimQuerySchema), asyncHandler(getAll));
 router.get('/:trimType/:id', asyncHandler(getById));
-router.post('/:trimType', asyncHandler(create));
-router.put('/:trimType/:id', asyncHandler(update));
+router.post('/:trimType', validateBody(createGenericTrimSchema), asyncHandler(create));
+router.put('/:trimType/:id', validateBody(updateGenericTrimSchema), asyncHandler(update));
 router.delete('/:trimType/:id', asyncHandler(remove));
 
 export default router;

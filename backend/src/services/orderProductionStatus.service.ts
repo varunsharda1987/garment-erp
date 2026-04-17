@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { logger } from '../utils/logger';
 import { Prisma, ProductionStage, CADStatus, SampleStatus, OrderStatus } from '@prisma/client';
 import { InternalError } from '../errors';
 import { systemSettingsService } from './system-settings.service';
@@ -256,7 +257,7 @@ class OrderProductionStatusService {
         summary,
       };
     } catch (error) {
-      console.error('Order Production Status Service Error:', error);
+      logger.error('Order Production Status Service Error:', error);
       throw new InternalError('Failed to fetch order production status');
     }
   }
@@ -287,7 +288,7 @@ class OrderProductionStatusService {
       });
       return updated;
     } catch (error) {
-      console.error('Select CAD Error:', error);
+      logger.error('Select CAD Error:', error);
       throw new InternalError('Failed to select CAD for order');
     }
   }
@@ -306,7 +307,7 @@ class OrderProductionStatusService {
       });
       return updated;
     } catch (error) {
-      console.error('Update Inheritance Error:', error);
+      logger.error('Update Inheritance Error:', error);
       throw new InternalError('Failed to update inheritance settings');
     }
   }
@@ -600,7 +601,7 @@ class OrderProductionStatusService {
         trimsReceived: trimReqs.length > 0 && trimReqs.every((r) => RECEIVED_STATUSES.includes(r.status)),
       };
     } catch (err) {
-      console.error('Failed to get material status:', err);
+      logger.error('Failed to get material status:', err);
       return defaultStatus;
     }
   }

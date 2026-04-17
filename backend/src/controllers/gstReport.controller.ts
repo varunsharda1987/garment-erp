@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logger } from '../utils/logger';
 import { gstReportService } from '../services/gstReport.service';
 
 class GSTReportController {
@@ -14,7 +15,7 @@ class GSTReportController {
       });
       res.json({ data: report });
     } catch (error: any) {
-      console.error('GSTR-1 generation error:', error);
+      logger.error('GSTR-1 generation error:', error);
       res.status(500).json({ message: error.message || 'Failed to generate GSTR-1' });
     }
   }
@@ -31,7 +32,7 @@ class GSTReportController {
       });
       res.json({ data: report });
     } catch (error: any) {
-      console.error('GSTR-3B generation error:', error);
+      logger.error('GSTR-3B generation error:', error);
       res.status(500).json({ message: error.message || 'Failed to generate GSTR-3B' });
     }
   }

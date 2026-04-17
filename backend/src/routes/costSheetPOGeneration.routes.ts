@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
 import {
   calculateRequirements,
   generateFabricPO,
@@ -15,6 +16,12 @@ import {
   getGenerationStatus,
   getGenerationHistory,
 } from '../controllers/costSheetPOGeneration.controller';
+import {
+  generateFabricPOSchema,
+  generateGreigePOSchema,
+  generateProcessingPOSchema,
+  generateTrimsPOSchema,
+} from '../schemas/costSheetPOGeneration.schema';
 
 const router = Router();
 
@@ -25,10 +32,10 @@ router.use(authenticateToken);
 router.get('/calculate', asyncHandler(calculateRequirements));
 
 // Generate POs
-router.post('/generate/fabric', asyncHandler(generateFabricPO));
-router.post('/generate/greige', asyncHandler(generateGreigePO));
-router.post('/generate/processing', asyncHandler(generateProcessingPO));
-router.post('/generate/trims', asyncHandler(generateTrimsPO));
+router.post('/generate/fabric', validateBody(generateFabricPOSchema), asyncHandler(generateFabricPO));
+router.post('/generate/greige', validateBody(generateGreigePOSchema), asyncHandler(generateGreigePO));
+router.post('/generate/processing', validateBody(generateProcessingPOSchema), asyncHandler(generateProcessingPO));
+router.post('/generate/trims', validateBody(generateTrimsPOSchema), asyncHandler(generateTrimsPO));
 
 // Get status and history
 router.get('/status/:costSheetId', asyncHandler(getGenerationStatus));

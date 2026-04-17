@@ -124,6 +124,7 @@ export const stockMovementService = {
    */
   async createBulkStockIn(data: {
     warehouseId: string;
+    supplierId?: string;
     referenceType?: string;
     referenceNumber?: string;
     remarks?: string;

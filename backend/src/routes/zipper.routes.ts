@@ -10,6 +10,13 @@ import {
 } from '../controllers/zipper.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createZipperSchema,
+  updateZipperSchema,
+  bulkImportZipperSchema,
+  trimMasterQuerySchema,
+} from '../schemas/trimMasters.schema';
 
 const router = Router();
 
@@ -21,7 +28,7 @@ router.use(authenticateToken);
  * @desc    Create a single zipper item
  * @access  Private
  */
-router.post('/', asyncHandler(createZipper));
+router.post('/', validateBody(createZipperSchema), asyncHandler(createZipper));
 
 /**
  * @route   GET /api/materials/zipper
@@ -29,7 +36,7 @@ router.post('/', asyncHandler(createZipper));
  * @access  Private
  * @query   page, limit, search, supplierId
  */
-router.get('/', asyncHandler(getAllZipper));
+router.get('/', validateQuery(trimMasterQuerySchema), asyncHandler(getAllZipper));
 
 /**
  * @route   GET /api/materials/zipper/template
@@ -50,7 +57,7 @@ router.get('/:id', asyncHandler(getZipperById));
  * @desc    Update zipper item
  * @access  Private
  */
-router.put('/:id', asyncHandler(updateZipper));
+router.put('/:id', validateBody(updateZipperSchema), asyncHandler(updateZipper));
 
 /**
  * @route   DELETE /api/materials/zipper/:id
@@ -64,6 +71,6 @@ router.delete('/:id', asyncHandler(deleteZipper));
  * @desc    Bulk import zipper items from Excel
  * @access  Private
  */
-router.post('/bulk-import', asyncHandler(bulkImportZipper));
+router.post('/bulk-import', validateBody(bulkImportZipperSchema), asyncHandler(bulkImportZipper));
 
 export default router;

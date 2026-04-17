@@ -18,6 +18,13 @@
 import { Router } from 'express';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import {
+  createUnifiedPOSchema,
+  validatePOInputSchema,
+  checkDuplicatesSchema,
+  cancelUnifiedPOSchema,
+} from '../schemas/unifiedPo.schema';
 import {
   createUnifiedPOController,
   validatePOInputController,
@@ -45,6 +52,7 @@ router.use(authenticateToken);
 router.post(
   '/unified',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
+  validateBody(createUnifiedPOSchema),
   asyncHandler(createUnifiedPOController)
 );
 
@@ -55,6 +63,7 @@ router.post(
 router.post(
   '/validate',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
+  validateBody(validatePOInputSchema),
   asyncHandler(validatePOInputController)
 );
 
@@ -65,6 +74,7 @@ router.post(
 router.post(
   '/check-duplicates',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
+  validateBody(checkDuplicatesSchema),
   asyncHandler(checkDuplicatesController)
 );
 
@@ -92,7 +102,12 @@ router.patch(
  * PATCH /api/purchase-orders/:id/cancel
  * Cancel PO with reason
  */
-router.patch('/:id/cancel', authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'), asyncHandler(cancelPOController));
+router.patch(
+  '/:id/cancel',
+  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
+  validateBody(cancelUnifiedPOSchema),
+  asyncHandler(cancelPOController)
+);
 
 // ============================================
 // Category Mappings

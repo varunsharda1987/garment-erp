@@ -5,6 +5,13 @@
 
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  sendOutSchema,
+  receiveSchema,
+  cancelSendOutSchema,
+  embroideryStockQuerySchema,
+} from '../schemas/embroideryStock.schema';
 import {
   sendOut,
   receive,
@@ -21,13 +28,13 @@ import {
 const router = Router();
 
 // Send-out/Receive Operations
-router.post('/send-out', asyncHandler(sendOut));
-router.post('/receive', asyncHandler(receive));
+router.post('/send-out', validateBody(sendOutSchema), asyncHandler(sendOut));
+router.post('/receive', validateBody(receiveSchema), asyncHandler(receive));
 
 // Send-out Records
-router.get('/send-outs', asyncHandler(getSendOuts));
+router.get('/send-outs', validateQuery(embroideryStockQuerySchema), asyncHandler(getSendOuts));
 router.get('/send-outs/:id', asyncHandler(getSendOutById));
-router.post('/send-outs/:id/cancel', asyncHandler(cancelSendOut));
+router.post('/send-outs/:id/cancel', validateBody(cancelSendOutSchema), asyncHandler(cancelSendOut));
 
 // Stock Queries
 router.get('/pending-embroidery', asyncHandler(getPendingEmbroideryStock));

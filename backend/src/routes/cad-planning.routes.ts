@@ -64,6 +64,30 @@ import {
 import { approveCADPlan, rejectCADPlan } from '../controllers/style.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import {
+  generateCADOptionsSchema,
+  calculateCADCostSchema,
+  selectGreigeForGroupSchema,
+  addCADTableRowSchema,
+  addCombinedCADRowSchema,
+  updateCADTableRowSchema,
+  addCADWidthSchema,
+  updateCADValuesWithBreakdownSchema,
+  updateCADValuesSchema,
+  approveCADSchema,
+  cadPurposeActionSchema,
+  createPlanningVersionSchema,
+  copyCADPurposeSchema,
+  linkCADToStockSchema,
+  cadPlanActionSchema,
+  createProductionCADFromStockSchema,
+  approveProductionVarianceSchema,
+  assignPatternPartsSchema,
+  assignPatternPartsFromComponentSchema,
+  updatePatternPartAssignmentSchema,
+  createOrUpdateEmbroideryCadSchema,
+} from '../schemas/cadPlanning.schema';
 
 const router = Router();
 
@@ -174,7 +198,12 @@ router.get('/:styleId/group/:groupKey/details', asyncHandler(getCADGroupDetails)
  * @desc    Generate CAD options for a style's fabric
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
  */
-router.post('/generate', authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'), asyncHandler(generateCADOptions));
+router.post(
+  '/generate',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(generateCADOptionsSchema),
+  asyncHandler(generateCADOptions)
+);
 
 /**
  * @route   POST /api/cad-planning/calculate-cost
@@ -184,6 +213,7 @@ router.post('/generate', authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'
 router.post(
   '/calculate-cost',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(calculateCADCostSchema),
   asyncHandler(calculateCADCost)
 );
 
@@ -195,6 +225,7 @@ router.post(
 router.post(
   '/:styleId/select-greige',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(selectGreigeForGroupSchema),
   asyncHandler(selectGreigeForGroup)
 );
 
@@ -207,7 +238,12 @@ router.post(
  * @desc    Add a new CAD row to the spreadsheet table
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
  */
-router.post('/:styleId/row', authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'), asyncHandler(addCADTableRow));
+router.post(
+  '/:styleId/row',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(addCADTableRowSchema),
+  asyncHandler(addCADTableRow)
+);
 
 /**
  * @route   POST /api/cad-planning/:styleId/combined-row
@@ -217,6 +253,7 @@ router.post('/:styleId/row', authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANA
 router.post(
   '/:styleId/combined-row',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(addCombinedCADRowSchema),
   asyncHandler(addCombinedCADRow)
 );
 
@@ -239,6 +276,7 @@ router.post(
 router.put(
   '/:styleId/row/:rowId',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(updateCADTableRowSchema),
   asyncHandler(updateCADTableRow)
 );
 
@@ -254,7 +292,12 @@ router.delete('/:styleId/row/:rowId', authorize('ADMIN', 'MERCHANDISER'), asyncH
  * @desc    Add a new CAD width entry for a fabric group (legacy)
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
  */
-router.post('/:styleId/add-width', authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'), asyncHandler(addCADWidth));
+router.post(
+  '/:styleId/add-width',
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(addCADWidthSchema),
+  asyncHandler(addCADWidth)
+);
 
 /**
  * @route   DELETE /api/cad-planning/cad/:cadId
@@ -271,6 +314,7 @@ router.delete('/cad/:cadId', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(de
 router.put(
   '/cad/:cadId',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(updateCADValuesWithBreakdownSchema),
   asyncHandler(updateCADValuesWithBreakdown)
 );
 
@@ -282,6 +326,7 @@ router.put(
 router.put(
   '/update-cad/:cadId',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(updateCADValuesSchema),
   asyncHandler(updateCADValues)
 );
 
@@ -305,21 +350,31 @@ router.put(
  * @desc    Approve a specific CAD option for a style (legacy)
  * @access  ADMIN, MERCHANDISER
  */
-router.post('/approve', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(approveCAD));
+router.post('/approve', authorize('ADMIN', 'MERCHANDISER'), validateBody(approveCADSchema), asyncHandler(approveCAD));
 
 /**
  * @route   POST /api/cad-planning/:styleId/row/:rowId/approve
  * @desc    Approve CAD Purpose (COSTING, RAW_MATERIAL_CALCULATION, or PRODUCTION)
  * @access  ADMIN, MERCHANDISER
  */
-router.post('/:styleId/row/:rowId/approve', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(approveCADPurpose));
+router.post(
+  '/:styleId/row/:rowId/approve',
+  authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(cadPurposeActionSchema),
+  asyncHandler(approveCADPurpose)
+);
 
 /**
  * @route   POST /api/cad-planning/:styleId/row/:rowId/reject
  * @desc    Reject CAD Purpose
  * @access  ADMIN, MERCHANDISER
  */
-router.post('/:styleId/row/:rowId/reject', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(rejectCADPurpose));
+router.post(
+  '/:styleId/row/:rowId/reject',
+  authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(cadPurposeActionSchema),
+  asyncHandler(rejectCADPurpose)
+);
 
 /**
  * @route   POST /api/cad-planning/:styleId/planning/:rowId/create-version
@@ -329,6 +384,7 @@ router.post('/:styleId/row/:rowId/reject', authorize('ADMIN', 'MERCHANDISER'), a
 router.post(
   '/:styleId/planning/:rowId/create-version',
   authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(createPlanningVersionSchema),
   asyncHandler(createPlanningVersion)
 );
 
@@ -337,7 +393,12 @@ router.post(
  * @desc    Copy CAD between purposes (COSTING->RAW_MATERIAL_CALCULATION, RAW_MATERIAL_CALCULATION->PRODUCTION)
  * @access  ADMIN, MERCHANDISER
  */
-router.post('/:styleId/copy', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(copyCADPurpose));
+router.post(
+  '/:styleId/copy',
+  authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(copyCADPurposeSchema),
+  asyncHandler(copyCADPurpose)
+);
 
 /**
  * @route   GET /api/cad-planning/:styleId/row/:rowId/lineage
@@ -351,21 +412,36 @@ router.get('/:styleId/row/:rowId/lineage', asyncHandler(getCADLineage));
  * @desc    Link PRODUCTION CAD to fabric stock
  * @access  ADMIN, MERCHANDISER
  */
-router.post('/:styleId/link-stock', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(linkCADToStock));
+router.post(
+  '/:styleId/link-stock',
+  authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(linkCADToStockSchema),
+  asyncHandler(linkCADToStock)
+);
 
 /**
  * @route   PUT /api/cad-planning/:styleId/approve-cad
  * @desc    Approve CAD plan and link fabrics to selected CAD entries
  * @access  ADMIN, MERCHANDISER
  */
-router.put('/:styleId/approve-cad', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(approveCADPlan));
+router.put(
+  '/:styleId/approve-cad',
+  authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(cadPlanActionSchema),
+  asyncHandler(approveCADPlan)
+);
 
 /**
  * @route   PUT /api/cad-planning/:styleId/reject-cad
  * @desc    Reject/Unapprove CAD plan - revert to PENDING status
  * @access  ADMIN, MERCHANDISER
  */
-router.put('/:styleId/reject-cad', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(rejectCADPlan));
+router.put(
+  '/:styleId/reject-cad',
+  authorize('ADMIN', 'MERCHANDISER'),
+  validateBody(cadPlanActionSchema),
+  asyncHandler(rejectCADPlan)
+);
 
 // ============================================
 // PRODUCTION CAD FROM STOCK
@@ -379,6 +455,7 @@ router.put('/:styleId/reject-cad', authorize('ADMIN', 'MERCHANDISER'), asyncHand
 router.post(
   '/:styleId/production-from-stock',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(createProductionCADFromStockSchema),
   asyncHandler(createProductionCADFromStock)
 );
 
@@ -401,6 +478,7 @@ router.get('/:styleId/fabrics/:fabricId/pattern-parts', asyncHandler(getStyleFab
 router.post(
   '/:styleId/fabrics/:fabricId/pattern-parts',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(assignPatternPartsSchema),
   asyncHandler(assignPatternParts)
 );
 
@@ -412,6 +490,7 @@ router.post(
 router.post(
   '/:styleId/fabrics/:fabricId/pattern-parts/from-component',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(assignPatternPartsFromComponentSchema),
   asyncHandler(assignPatternPartsFromComponent)
 );
 
@@ -423,6 +502,7 @@ router.post(
 router.put(
   '/:styleId/pattern-parts/:partId',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(updatePatternPartAssignmentSchema),
   asyncHandler(updatePatternPartAssignment)
 );
 
@@ -463,6 +543,7 @@ router.get('/:styleId/fabrics/:fabricId/embroidery-cad', asyncHandler(getEmbroid
 router.post(
   '/:styleId/fabrics/:fabricId/embroidery-cad',
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(createOrUpdateEmbroideryCadSchema),
   asyncHandler(createOrUpdateEmbroideryCad)
 );
 
@@ -490,6 +571,11 @@ router.get('/:styleId/fabrics/:fabricId/total-cad', asyncHandler(getTotalFabricC
  * @access  ADMIN only
  * @body    { action: 'APPROVE' | 'REJECT', notes?: string }
  */
-router.post('/:styleId/row/:rowId/approve-variance', authorize('ADMIN'), asyncHandler(approveProductionVariance));
+router.post(
+  '/:styleId/row/:rowId/approve-variance',
+  authorize('ADMIN'),
+  validateBody(approveProductionVarianceSchema),
+  asyncHandler(approveProductionVariance)
+);
 
 export default router;

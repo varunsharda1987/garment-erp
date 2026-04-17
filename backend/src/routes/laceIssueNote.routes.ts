@@ -10,6 +10,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import {
   createIssueNote,
   recordConsumptionController,
@@ -19,6 +20,12 @@ import {
   getIssueNotesController,
   getIssueNotesByOrderController,
 } from '../controllers/laceIssueNote.controller';
+import {
+  createIssueNoteSchema,
+  recordConsumptionSchema,
+  returnToStockSchema,
+  issueNoteQuerySchema,
+} from '../schemas/laceIssueNote.schema';
 
 const router = Router();
 
@@ -35,7 +42,7 @@ router.use(authenticateToken);
  * @access  Private
  * @query   orderId, styleId, stockId, laceId, status, search, page, limit
  */
-router.get('/', asyncHandler(getIssueNotesController));
+router.get('/', validateQuery(issueNoteQuerySchema), asyncHandler(getIssueNotesController));
 
 /**
  * @route   GET /api/lace-issue-notes/order/:orderId
@@ -61,7 +68,7 @@ router.get('/:id', asyncHandler(getIssueNoteByIdController));
  * @access  Private
  * @body    orderId, styleId, stockId, laceId, issuedQuantity, cuttingBatchId?, notes?
  */
-router.post('/', asyncHandler(createIssueNote));
+router.post('/', validateBody(createIssueNoteSchema), asyncHandler(createIssueNote));
 
 /**
  * @route   POST /api/lace-issue-notes/:id/consume
@@ -69,7 +76,7 @@ router.post('/', asyncHandler(createIssueNote));
  * @access  Private
  * @body    consumedQuantity, notes?
  */
-router.post('/:id/consume', asyncHandler(recordConsumptionController));
+router.post('/:id/consume', validateBody(recordConsumptionSchema), asyncHandler(recordConsumptionController));
 
 /**
  * @route   POST /api/lace-issue-notes/:id/return
@@ -77,7 +84,7 @@ router.post('/:id/consume', asyncHandler(recordConsumptionController));
  * @access  Private
  * @body    returnQuantity, notes?
  */
-router.post('/:id/return', asyncHandler(returnToStockController));
+router.post('/:id/return', validateBody(returnToStockSchema), asyncHandler(returnToStockController));
 
 /**
  * @route   POST /api/lace-issue-notes/:id/close

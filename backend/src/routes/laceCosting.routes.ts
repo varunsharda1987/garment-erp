@@ -10,11 +10,17 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
 import {
   calculateSingleLaceCost,
   calculateBatchLaceCosts,
   validateLaceCostingForPO,
 } from '../controllers/laceCosting.controller';
+import {
+  calculateSingleLaceCostSchema,
+  calculateBatchLaceCostSchema,
+  validateLaceCostingPOSchema,
+} from '../schemas/laceCosting.schema';
 
 const router = Router();
 
@@ -27,7 +33,7 @@ router.use(authenticateToken);
  * @access  Private
  * @body    laceId, quantityPerGarment, orderQuantity?, wastagePercent?, styleId?, costSheetId?
  */
-router.post('/calculate', asyncHandler(calculateSingleLaceCost));
+router.post('/calculate', validateBody(calculateSingleLaceCostSchema), asyncHandler(calculateSingleLaceCost));
 
 /**
  * @route   POST /api/lace-costing/batch-calculate
@@ -35,7 +41,7 @@ router.post('/calculate', asyncHandler(calculateSingleLaceCost));
  * @access  Private
  * @body    laceItems[], orderQuantity?, styleId?, costSheetId?
  */
-router.post('/batch-calculate', asyncHandler(calculateBatchLaceCosts));
+router.post('/batch-calculate', validateBody(calculateBatchLaceCostSchema), asyncHandler(calculateBatchLaceCosts));
 
 /**
  * @route   POST /api/lace-costing/validate-po
@@ -49,6 +55,6 @@ router.post('/batch-calculate', asyncHandler(calculateBatchLaceCosts));
  * - labDipId: string | null - Lab dip ID if exists
  * - message: string - Descriptive message
  */
-router.post('/validate-po', asyncHandler(validateLaceCostingForPO));
+router.post('/validate-po', validateBody(validateLaceCostingPOSchema), asyncHandler(validateLaceCostingForPO));
 
 export default router;

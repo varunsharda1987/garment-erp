@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { logger } from './logger';
 
 const prisma = new PrismaClient();
 
@@ -67,7 +68,7 @@ export async function generateCode(
     // Return formatted code
     return `${prefix}-${paddedNumber}`;
   } catch (error) {
-    console.error(`Error generating code for ${tableName}:`, error);
+    logger.error(`Error generating code for ${tableName}:`, error);
 
     // Fallback: return a code with timestamp to ensure uniqueness
     const timestamp = Date.now().toString().slice(-padding);

@@ -15,6 +15,13 @@ import {
 } from '../controllers/order.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createOrderSchema,
+  updateOrderSchema,
+  updateOrderStatusSchema,
+  orderQuerySchema,
+} from '../schemas/order.schema';
 
 const router = Router();
 
@@ -24,12 +31,12 @@ router.use(authenticateToken);
 // Statistics routes (must be before /:id to avoid conflict)
 router.get('/statistics/by-customer', asyncHandler(getOrderStatisticsByCustomer));
 
-// Order CRUD routes
-router.post('/', asyncHandler(createOrder));
-router.get('/', asyncHandler(getAllOrders));
+// Order CRUD routes - with Zod validation
+router.post('/', validateBody(createOrderSchema), asyncHandler(createOrder));
+router.get('/', validateQuery(orderQuerySchema), asyncHandler(getAllOrders));
 router.get('/:id', asyncHandler(getOrderById));
-router.put('/:id', asyncHandler(updateOrder));
-router.patch('/:id/status', asyncHandler(updateOrderStatus));
+router.put('/:id', validateBody(updateOrderSchema), asyncHandler(updateOrder));
+router.patch('/:id/status', validateBody(updateOrderStatusSchema), asyncHandler(updateOrderStatus));
 router.delete('/:id', asyncHandler(deleteOrder));
 
 // Hard delete routes (for unprocessed orders)

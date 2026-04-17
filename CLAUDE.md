@@ -120,32 +120,41 @@ When defining types for API responses in frontend (`frontend/src/types/`), alway
 
 ## New Module Checklist
 
-When creating a new CRUD module end-to-end, follow this exact order (8 files minimum):
+When creating a new CRUD module end-to-end, follow this exact order (9 files minimum):
 
-### Backend (4 files + 1 registration)
+### Backend (5 files + 1 registration)
 1. Add model to `backend/prisma/schema.prisma`
 2. Run migration: `cd backend && npx prisma migrate dev --name add_<module>`
-3. Create `backend/src/services/<module>.service.ts` — copy pattern from `agency.service.ts`
-4. Create `backend/src/controllers/<module>.controller.ts` — copy pattern from `agency.controller.ts`
-5. Create `backend/src/routes/<module>.routes.ts` — copy pattern from `agency.routes.ts`
-6. Register route in `backend/src/routes/index.ts`: `router.use('/<modules>', <module>Routes)`
+3. **Create `backend/src/schemas/<module>.schema.ts`** — Zod schemas for create/update (SINGLE SOURCE OF TRUTH)
+4. Create `backend/src/services/<module>.service.ts` — copy pattern from `agency.service.ts`
+5. Create `backend/src/controllers/<module>.controller.ts` — copy pattern from `agency.controller.ts`
+6. Create `backend/src/routes/<module>.routes.ts` — **use `validateBody(schema)`** for POST/PUT/PATCH
+7. Register route in `backend/src/routes/index.ts`: `router.use('/<modules>', <module>Routes)`
 
 ### Frontend (4 files + 3 registrations)
-7. Create `frontend/src/types/<module>.types.ts` — ALL fields camelCase (serializer converts)
-8. Create `frontend/src/services/<module>.service.ts` — axios wrappers for CRUD
-9. Create `frontend/src/pages/<Module>List.tsx` — React Query + shadcn/ui table + form dialog
-10. Create `frontend/src/pages/<Module>FormDialog.tsx` — react-hook-form + Zod + shadcn/ui dialog
-11. Add lazy import in `frontend/src/routes/lazy-routes.tsx`
-12. Add route in `frontend/src/App.tsx` (inside ProtectedRoute)
-13. Add sidebar entry in `frontend/src/components/Sidebar.tsx`
+8. Create `frontend/src/types/<module>.types.ts` — ALL fields camelCase, **must match Zod schema**
+9. Create `frontend/src/services/<module>.service.ts` — axios wrappers for CRUD
+10. Create `frontend/src/pages/<Module>List.tsx` — React Query + shadcn/ui table + form dialog
+11. Create `frontend/src/pages/<Module>FormDialog.tsx` — react-hook-form + Zod + shadcn/ui dialog
+12. Add lazy import in `frontend/src/routes/lazy-routes.tsx`
+13. Add route in `frontend/src/App.tsx` (inside ProtectedRoute)
+14. Add sidebar entry in `frontend/src/components/Sidebar.tsx`
 
 ### Reference Files (copy these patterns)
+- **Zod Schema:** `backend/src/schemas/agency.schema.ts` — create/update schemas + type exports
 - **Controller:** `backend/src/controllers/agency.controller.ts` — class-based, 6 methods, try-catch
 - **Service:** `backend/src/services/agency.service.ts` — interfaces, generateCode(), pagination, search
-- **Routes:** `backend/src/routes/agency.routes.ts` — `/search` MUST come before `/:id`
+- **Routes:** `backend/src/routes/agency.routes.ts` — `/search` MUST come before `/:id`, **uses validateBody**
 - **Frontend Types:** `frontend/src/types/agency.types.ts` — Entity, Create/Update Request, QueryParams, Paginated
 - **Frontend Service:** `frontend/src/services/agency.service.ts` — async functions wrapping api.get/post/put/delete
 - **List Page:** `frontend/src/pages/AgencyList.tsx` — useQuery + 3 mutations + table + dialogs
+
+### Why Zod Schemas Matter
+- **Single source of truth** for field definitions
+- Validates incoming data, strips unknown fields
+- Controller receives fully-typed body (no manual destructuring errors)
+- Frontend types MUST match schema to avoid silent data drops
+- Validation check: `node scripts/hooks/check-route-validation.js`
 
 ## Standard File Patterns
 

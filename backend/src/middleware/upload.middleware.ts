@@ -1,4 +1,5 @@
 // Image upload middleware using multer
+import { logger } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
@@ -93,7 +94,7 @@ export const cleanupTempFile = (filePath: string): void => {
       fs.unlinkSync(filePath);
     } catch (error) {
       // Log error but don't throw - cleanup is best effort
-      console.error('Failed to cleanup temp file:', filePath, error);
+      logger.error('Failed to cleanup temp file:', filePath, error);
     }
   }
 };

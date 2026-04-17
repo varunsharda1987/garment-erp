@@ -1,4 +1,5 @@
 /**
+import { logger } from '../utils/logger';
  * Unified PO Controller
  *
  * Handles HTTP requests for unified PO operations:
@@ -132,7 +133,7 @@ export async function createUnifiedPOController(req: Request, res: Response) {
       },
     });
   } catch (error: any) {
-    console.error('Error creating unified PO:', error);
+    logger.error('Error creating unified PO:', error);
 
     // Handle duplicate detection errors specially
     if (error.message?.includes('Duplicate POs detected')) {
@@ -193,7 +194,7 @@ export async function validatePOInputController(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error validating PO input:', error);
+    logger.error('Error validating PO input:', error);
     return res.status(500).json({ error: error.message || 'Failed to validate PO input' });
   }
 }
@@ -217,7 +218,7 @@ export async function checkDuplicatesController(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error checking duplicates:', error);
+    logger.error('Error checking duplicates:', error);
     return res.status(500).json({ error: error.message || 'Failed to check duplicates' });
   }
 }
@@ -251,7 +252,7 @@ export async function getPOsBySourceController(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error getting POs by source:', error);
+    logger.error('Error getting POs by source:', error);
     return res.status(500).json({ error: error.message || 'Failed to get POs' });
   }
 }
@@ -269,7 +270,7 @@ export async function getPOStatsController(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error getting PO stats:', error);
+    logger.error('Error getting PO stats:', error);
     return res.status(500).json({ error: error.message || 'Failed to get PO stats' });
   }
 }
@@ -294,7 +295,7 @@ export async function sendPOController(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error sending PO:', error);
+    logger.error('Error sending PO:', error);
     return res.status(400).json({ error: error.message || 'Failed to send PO' });
   }
 }
@@ -319,7 +320,7 @@ export async function acknowledgePOController(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error acknowledging PO:', error);
+    logger.error('Error acknowledging PO:', error);
     return res.status(400).json({ error: error.message || 'Failed to acknowledge PO' });
   }
 }
@@ -349,7 +350,7 @@ export async function cancelPOController(req: Request, res: Response) {
       data: result,
     });
   } catch (error: any) {
-    console.error('Error cancelling PO:', error);
+    logger.error('Error cancelling PO:', error);
     return res.status(400).json({ error: error.message || 'Failed to cancel PO' });
   }
 }
@@ -372,7 +373,7 @@ export async function getMaterialCategoryMappingController(req: Request, res: Re
       },
     });
   } catch (error: any) {
-    console.error('Error getting category mapping:', error);
+    logger.error('Error getting category mapping:', error);
     return res.status(500).json({ error: error.message || 'Failed to get category mapping' });
   }
 }
@@ -401,7 +402,7 @@ export async function getServiceCategoryMappingController(req: Request, res: Res
       },
     });
   } catch (error: any) {
-    console.error('Error getting category mapping:', error);
+    logger.error('Error getting category mapping:', error);
     return res.status(500).json({ error: error.message || 'Failed to get category mapping' });
   }
 }

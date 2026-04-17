@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logger } from '../utils/logger';
 import prisma from '../config/database';
 
 // Predefined categories for validation and reference
@@ -50,7 +51,7 @@ export const getLookupsByCategory = async (req: Request, res: Response) => {
 
     res.json({ data: lookups });
   } catch (error: unknown) {
-    console.error('Error fetching lookups:', error);
+    logger.error('Error fetching lookups:', error);
     res.status(500).json({
       error: 'Failed to fetch lookup values',
       details: error instanceof Error ? error.message : 'Unknown error',
@@ -80,7 +81,7 @@ export const getAllCategories = async (req: Request, res: Response) => {
       predefinedCategories: Object.keys(LOOKUP_CATEGORIES),
     });
   } catch (error: unknown) {
-    console.error('Error fetching categories:', error);
+    logger.error('Error fetching categories:', error);
     res.status(500).json({ error: 'Failed to fetch categories' });
   }
 };
@@ -130,7 +131,7 @@ export const createLookup = async (req: Request, res: Response) => {
 
     res.status(201).json({ data: lookup, message: 'Lookup value created successfully' });
   } catch (error: unknown) {
-    console.error('Error creating lookup:', error);
+    logger.error('Error creating lookup:', error);
     res.status(500).json({
       error: 'Failed to create lookup value',
       details: error instanceof Error ? error.message : 'Unknown error',
@@ -179,7 +180,7 @@ export const updateLookup = async (req: Request, res: Response) => {
 
     res.json({ data: updated, message: 'Lookup value updated successfully' });
   } catch (error: unknown) {
-    console.error('Error updating lookup:', error);
+    logger.error('Error updating lookup:', error);
     res.status(500).json({
       error: 'Failed to update lookup value',
       details: error instanceof Error ? error.message : 'Unknown error',
@@ -208,7 +209,7 @@ export const deleteLookup = async (req: Request, res: Response) => {
 
     res.json({ message: 'Lookup value deleted successfully' });
   } catch (error: unknown) {
-    console.error('Error deleting lookup:', error);
+    logger.error('Error deleting lookup:', error);
     res.status(500).json({
       error: 'Failed to delete lookup value',
       details: error instanceof Error ? error.message : 'Unknown error',
@@ -275,7 +276,7 @@ export const bulkCreateLookups = async (req: Request, res: Response) => {
       },
     });
   } catch (error: unknown) {
-    console.error('Error bulk creating lookups:', error);
+    logger.error('Error bulk creating lookups:', error);
     res.status(500).json({
       error: 'Failed to bulk create lookup values',
       details: error instanceof Error ? error.message : 'Unknown error',

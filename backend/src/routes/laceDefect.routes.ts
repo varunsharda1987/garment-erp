@@ -10,6 +10,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import {
   logDefect,
   submitClaimController,
@@ -20,6 +21,13 @@ import {
   getPendingClaimsController,
   getDefectStatisticsController,
 } from '../controllers/laceDefect.controller';
+import {
+  logDefectSchema,
+  submitClaimSchema,
+  updateClaimStatusSchema,
+  recordReplacementSchema,
+  laceDefectQuerySchema,
+} from '../schemas/laceDefect.schema';
 
 const router = Router();
 
@@ -54,7 +62,7 @@ router.get('/statistics', asyncHandler(getDefectStatisticsController));
  * @access  Private
  * @query   stockId, laceId, orderId, styleId, defectType, claimStatus, discoveredAt, search, page, limit
  */
-router.get('/', asyncHandler(getDefectsController));
+router.get('/', validateQuery(laceDefectQuerySchema), asyncHandler(getDefectsController));
 
 /**
  * @route   GET /api/lace-defects/:id
@@ -74,7 +82,7 @@ router.get('/:id', asyncHandler(getDefectByIdController));
  * @body    stockId, laceId, defectType, defectQuantity, discoveredAt,
  *          orderId?, styleId?, defectDescription?, photos?
  */
-router.post('/', asyncHandler(logDefect));
+router.post('/', validateBody(logDefectSchema), asyncHandler(logDefect));
 
 /**
  * @route   POST /api/lace-defects/:id/claim/submit
@@ -82,7 +90,7 @@ router.post('/', asyncHandler(logDefect));
  * @access  Private
  * @body    claimReference, claimAmount, notes?
  */
-router.post('/:id/claim/submit', asyncHandler(submitClaimController));
+router.post('/:id/claim/submit', validateBody(submitClaimSchema), asyncHandler(submitClaimController));
 
 /**
  * @route   PUT /api/lace-defects/:id/claim/status
@@ -90,7 +98,7 @@ router.post('/:id/claim/submit', asyncHandler(submitClaimController));
  * @access  Private
  * @body    status, resolution?
  */
-router.put('/:id/claim/status', asyncHandler(updateClaimStatusController));
+router.put('/:id/claim/status', validateBody(updateClaimStatusSchema), asyncHandler(updateClaimStatusController));
 
 /**
  * @route   POST /api/lace-defects/:id/replacement
@@ -98,6 +106,6 @@ router.put('/:id/claim/status', asyncHandler(updateClaimStatusController));
  * @access  Private
  * @body    replacementStockId, replacementQuantity
  */
-router.post('/:id/replacement', asyncHandler(recordReplacementController));
+router.post('/:id/replacement', validateBody(recordReplacementSchema), asyncHandler(recordReplacementController));
 
 export default router;

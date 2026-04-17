@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { logger } from '../utils/logger';
 import { Prisma, ProductionStage, CADStatus, SampleStatus, OrderStatus } from '@prisma/client';
 import { InternalError } from '../errors';
 
@@ -210,7 +211,7 @@ class ProductionStatusService {
         summary,
       };
     } catch (error) {
-      console.error('Production Status Service Error:', error);
+      logger.error('Production Status Service Error:', error);
       throw new InternalError('Failed to fetch production status');
     }
   }

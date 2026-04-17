@@ -1,6 +1,20 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createPrintLabDipSchema,
+  updatePrintLabDipSchema,
+  printLabDipQuerySchema,
+  printLabDipActionSchema,
+  createPrintJobSchema,
+  updatePrintJobSchema,
+  printJobQuerySchema,
+  printJobActionSchema,
+  createPrintProcessPoSchema,
+  printProcessPoQuerySchema,
+  printProcessPoActionSchema,
+} from '../schemas/printing.schema';
 import {
   // Lab Dip endpoints
   getAllLabDips,
@@ -54,15 +68,27 @@ router.get('/summary/mill/:millId', asyncHandler(getSummaryByMill));
 // ============================================
 // PROCESS PO ROUTES
 // ============================================
-router.get('/process-pos', asyncHandler(getProcessPOs));
+router.get('/process-pos', validateQuery(printProcessPoQuerySchema), asyncHandler(getProcessPOs));
 router.get('/process-pos/:id', asyncHandler(getProcessPOById));
-router.post('/process-pos', asyncHandler(createProcessPO));
+router.post('/process-pos', validateBody(createPrintProcessPoSchema), asyncHandler(createProcessPO));
 router.delete('/process-pos/:id', asyncHandler(deleteProcessPO));
-router.post('/process-pos/:id/send', asyncHandler(sendProcessPO));
-router.post('/process-pos/:id/receive', asyncHandler(receiveProcessPO));
-router.post('/process-pos/:id/quality-check', asyncHandler(qualityCheckProcessPO));
-router.post('/process-pos/:id/update-stock', asyncHandler(updateStockProcessPO));
-router.post('/process-pos/:id/return-unprocessed', asyncHandler(returnUnprocessedProcessPO));
+router.post('/process-pos/:id/send', validateBody(printProcessPoActionSchema), asyncHandler(sendProcessPO));
+router.post('/process-pos/:id/receive', validateBody(printProcessPoActionSchema), asyncHandler(receiveProcessPO));
+router.post(
+  '/process-pos/:id/quality-check',
+  validateBody(printProcessPoActionSchema),
+  asyncHandler(qualityCheckProcessPO)
+);
+router.post(
+  '/process-pos/:id/update-stock',
+  validateBody(printProcessPoActionSchema),
+  asyncHandler(updateStockProcessPO)
+);
+router.post(
+  '/process-pos/:id/return-unprocessed',
+  validateBody(printProcessPoActionSchema),
+  asyncHandler(returnUnprocessedProcessPO)
+);
 
 // ============================================
 // LAB DIP ROUTES
@@ -71,36 +97,36 @@ router.post('/process-pos/:id/return-unprocessed', asyncHandler(returnUnprocesse
 // Search and list
 router.get('/lab-dips/search', asyncHandler(searchLabDips));
 router.get('/lab-dips/approved', asyncHandler(getApprovedLabDips));
-router.get('/lab-dips', asyncHandler(getAllLabDips));
+router.get('/lab-dips', validateQuery(printLabDipQuerySchema), asyncHandler(getAllLabDips));
 
 // CRUD
 router.get('/lab-dips/:id', asyncHandler(getLabDipById));
-router.post('/lab-dips', asyncHandler(createLabDip));
-router.put('/lab-dips/:id', asyncHandler(updateLabDip));
+router.post('/lab-dips', validateBody(createPrintLabDipSchema), asyncHandler(createLabDip));
+router.put('/lab-dips/:id', validateBody(updatePrintLabDipSchema), asyncHandler(updateLabDip));
 router.delete('/lab-dips/:id', asyncHandler(deleteLabDip));
 
 // Workflow actions
-router.post('/lab-dips/:id/approve', asyncHandler(approveLabDip));
-router.post('/lab-dips/:id/reject', asyncHandler(rejectLabDip));
-router.post('/lab-dips/:id/resubmit', asyncHandler(requestResubmit));
+router.post('/lab-dips/:id/approve', validateBody(printLabDipActionSchema), asyncHandler(approveLabDip));
+router.post('/lab-dips/:id/reject', validateBody(printLabDipActionSchema), asyncHandler(rejectLabDip));
+router.post('/lab-dips/:id/resubmit', validateBody(printLabDipActionSchema), asyncHandler(requestResubmit));
 
 // ============================================
 // PRINT JOB ROUTES
 // ============================================
 
 // List
-router.get('/jobs', asyncHandler(getAllPrintJobs));
+router.get('/jobs', validateQuery(printJobQuerySchema), asyncHandler(getAllPrintJobs));
 
 // CRUD
 router.get('/jobs/:id', asyncHandler(getPrintJobById));
-router.post('/jobs', asyncHandler(createPrintJob));
-router.put('/jobs/:id', asyncHandler(updatePrintJob));
+router.post('/jobs', validateBody(createPrintJobSchema), asyncHandler(createPrintJob));
+router.put('/jobs/:id', validateBody(updatePrintJobSchema), asyncHandler(updatePrintJob));
 router.delete('/jobs/:id', asyncHandler(deletePrintJob));
 
 // Workflow actions
-router.post('/jobs/:id/send', asyncHandler(sendToMill));
-router.post('/jobs/:id/receive', asyncHandler(receiveFromMill));
-router.post('/jobs/:id/quality-check', asyncHandler(qualityCheck));
-router.post('/jobs/:id/update-stock', asyncHandler(updateStock));
+router.post('/jobs/:id/send', validateBody(printJobActionSchema), asyncHandler(sendToMill));
+router.post('/jobs/:id/receive', validateBody(printJobActionSchema), asyncHandler(receiveFromMill));
+router.post('/jobs/:id/quality-check', validateBody(printJobActionSchema), asyncHandler(qualityCheck));
+router.post('/jobs/:id/update-stock', validateBody(printJobActionSchema), asyncHandler(updateStock));
 
 export default router;

@@ -1,4 +1,5 @@
 // Processing Stage Service - Manage individual processing stages within batches
+import { logger } from '../utils/logger';
 import { Prisma, ProductionStage } from '@prisma/client';
 import prisma from '../config/database';
 import { randomUUID } from 'crypto';
@@ -118,7 +119,7 @@ class ProcessingStageService {
           });
         } catch (err) {
           // Non-critical: don't fail stage creation if tracking fails
-          console.error('Failed to create production_tracking for processing stage:', err);
+          logger.error('Failed to create production_tracking for processing stage:', err);
         }
       }
     }

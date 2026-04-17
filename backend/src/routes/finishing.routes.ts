@@ -1,6 +1,16 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createFinishingIssueSchema,
+  updateFinishingIssueSchema,
+  receiveFromStitchingSchema,
+  recordFinishingOutputSchema,
+  polybagEntrySchema,
+  cartonPackingSchema,
+  finishingIssueQuerySchema,
+} from '../schemas/production.schema';
 import {
   // Finishing Issue endpoints
   getAllFinishingIssues,
@@ -45,22 +55,22 @@ router.get('/style-size-summary', asyncHandler(getStyleSizeSummary));
 // ============================================
 
 // List and CRUD
-router.get('/issues', asyncHandler(getAllFinishingIssues));
+router.get('/issues', validateQuery(finishingIssueQuerySchema), asyncHandler(getAllFinishingIssues));
 router.get('/issues/:id', asyncHandler(getFinishingIssueById));
-router.post('/issues', asyncHandler(createFinishingIssue));
-router.put('/issues/:id', asyncHandler(updateFinishingIssue));
+router.post('/issues', validateBody(createFinishingIssueSchema), asyncHandler(createFinishingIssue));
+router.put('/issues/:id', validateBody(updateFinishingIssueSchema), asyncHandler(updateFinishingIssue));
 router.delete('/issues/:id', asyncHandler(deleteFinishingIssue));
 
 // Workflow actions
-router.post('/issues/:id/receive', asyncHandler(receiveFromStitching));
+router.post('/issues/:id/receive', validateBody(receiveFromStitchingSchema), asyncHandler(receiveFromStitching));
 router.post('/issues/:id/start', asyncHandler(startFinishingIssue));
-router.post('/issues/:id/record-output', asyncHandler(recordDailyOutput));
+router.post('/issues/:id/record-output', validateBody(recordFinishingOutputSchema), asyncHandler(recordDailyOutput));
 router.post('/issues/:id/move-to-packing', asyncHandler(moveToPackingFinishingIssue));
 router.post('/issues/:id/complete', asyncHandler(completeFinishingIssue));
 router.post('/issues/:id/generate-transfer-slip', asyncHandler(generateTransferSlip));
 
 // Packing
-router.post('/issues/:id/polybag-entry', asyncHandler(createPolybagEntry));
-router.post('/issues/:id/carton-packing', asyncHandler(createCartonPacking));
+router.post('/issues/:id/polybag-entry', validateBody(polybagEntrySchema), asyncHandler(createPolybagEntry));
+router.post('/issues/:id/carton-packing', validateBody(cartonPackingSchema), asyncHandler(createCartonPacking));
 
 export default router;

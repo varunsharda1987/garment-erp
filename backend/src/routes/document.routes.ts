@@ -7,6 +7,8 @@
 import { Router } from 'express';
 import documentController from '../controllers/document.controller';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { generateCatalogueSchema, generateLineSheetSchema } from '../schemas/document.schema';
 
 const router = Router();
 
@@ -96,7 +98,11 @@ router.get('/orders/:id/order-form', asyncHandler(documentController.generateOrd
  *          }
  * @access  Private
  */
-router.post('/catalogue/generate', asyncHandler(documentController.generateCataloguePDF.bind(documentController)));
+router.post(
+  '/catalogue/generate',
+  validateBody(generateCatalogueSchema),
+  asyncHandler(documentController.generateCataloguePDF.bind(documentController))
+);
 
 /**
  * @route   POST /api/documents/catalogue/store
@@ -104,7 +110,11 @@ router.post('/catalogue/generate', asyncHandler(documentController.generateCatal
  * @body    Same as /catalogue/generate
  * @access  Private
  */
-router.post('/catalogue/store', asyncHandler(documentController.generateAndStoreCataloguePDF.bind(documentController)));
+router.post(
+  '/catalogue/store',
+  validateBody(generateCatalogueSchema),
+  asyncHandler(documentController.generateAndStoreCataloguePDF.bind(documentController))
+);
 
 /**
  * @route   GET /api/documents/catalogue/:id/download
@@ -157,7 +167,11 @@ router.get(
  *          }
  * @access  Private
  */
-router.post('/line-sheet/pdf', asyncHandler(documentController.generateLineSheetPDF.bind(documentController)));
+router.post(
+  '/line-sheet/pdf',
+  validateBody(generateLineSheetSchema),
+  asyncHandler(documentController.generateLineSheetPDF.bind(documentController))
+);
 
 /**
  * @route   POST /api/documents/line-sheet/excel
@@ -165,7 +179,11 @@ router.post('/line-sheet/pdf', asyncHandler(documentController.generateLineSheet
  * @body    Same as /line-sheet/pdf
  * @access  Private
  */
-router.post('/line-sheet/excel', asyncHandler(documentController.generateLineSheetExcel.bind(documentController)));
+router.post(
+  '/line-sheet/excel',
+  validateBody(generateLineSheetSchema),
+  asyncHandler(documentController.generateLineSheetExcel.bind(documentController))
+);
 
 // ────────────────────────────────────────────────────────────────
 // Purchase Order Endpoints

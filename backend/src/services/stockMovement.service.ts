@@ -9,6 +9,7 @@ export interface CreateStockMovementDTO {
   movementType: MovementType;
   materialId: string;
   warehouseId: string;
+  supplierId?: string; // Direct supplier reference
   quantity: Decimal;
   unit: Unit;
   rate?: Decimal;
@@ -65,6 +66,7 @@ export interface BulkStockInItemDTO {
 
 export interface BulkStockInDTO {
   warehouseId: string;
+  supplierId?: string; // Direct supplier reference
   referenceType?: string;
   referenceNumber?: string;
   remarks?: string;
@@ -178,6 +180,7 @@ class StockMovementService {
           movementType: 'STOCK_IN',
           materialId: data.materialId,
           warehouseId: data.warehouseId,
+          supplierId: data.supplierId,
           quantity: data.quantity,
           unit: data.unit,
           rate: data.rate,
@@ -250,6 +253,7 @@ class StockMovementService {
             movementType: 'STOCK_IN',
             materialId: item.materialId,
             warehouseId: data.warehouseId,
+            supplierId: data.supplierId,
             quantity: item.quantity,
             unit: item.unit,
             rate: item.rate,
@@ -592,11 +596,33 @@ class StockMovementService {
             warehouseName: true,
           },
         },
+        suppliers: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
       },
       orderBy: { movementDate: 'desc' },
     });
 
-    return movements;
+    // Enrich with user info (performedById is not a FK, so manual lookup needed)
+    const userIds = [...new Set(movements.map((m) => m.performedById).filter(Boolean))];
+    const users = await prisma.users.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    // Map supplier relation to match frontend expected format
+    const enrichedMovements = movements.map((m) => ({
+      ...m,
+      performedBy: userMap.get(m.performedById) || null,
+      supplier: m.suppliers, // Prisma relation already populated
+    }));
+
+    return enrichedMovements;
   }
 
   /**

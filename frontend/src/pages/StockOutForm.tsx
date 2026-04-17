@@ -21,10 +21,17 @@ import { getAllSuppliers } from '../services/supplier.service';
 import { fabricStockService } from '../services/fabricStock.service';
 import { greigeStockService } from '../services/greigeStock.service';
 import type { GreigeStockEntry } from '../services/greigeStock.service';
-import { SupplierCategoryLabels } from '../types/supplier.types';
+import { SupplierCategoryLabels, SupplierCategory } from '../types/supplier.types';
+import type { Supplier } from '../types/supplier.types';
 import type { CreateChallanInput, ChallanType } from '../types/challan.types';
 import type { Warehouse, StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
+import {
+  getAllowedMaterialTypes,
+  isMaterialSupplier,
+  MATERIAL_SUPPLIER_CATEGORIES,
+  getSupplierMaterialLabel,
+} from '../lib/supplier-material-mapping';
 
 // --- Material type tile system (matching Stock In) ---
 
@@ -175,6 +182,7 @@ export default function StockOutForm() {
   const [supplierId, setSupplierId] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [supplierCategory, setSupplierCategory] = useState('');
+  const [supplierCategories, setSupplierCategories] = useState<SupplierCategory[]>([]);
   const [department, setDepartment] = useState('');
   const [customDepartment, setCustomDepartment] = useState('');
 
@@ -182,11 +190,23 @@ export default function StockOutForm() {
   const [lineItems, setLineItems] = useState<LineItem[]>([createEmptyLineItem()]);
 
   // Data lists
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [allStockLevels, setAllStockLevels] = useState<StockLevel[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<ComboboxOption[]>([]);
   const [fabricStocks, setFabricStocks] = useState<FabricStockOption[]>([]);
   const [greigeStocks, setGreigeStocks] = useState<GreigeStockEntry[]>([]);
-  const [suppliersRaw, setSuppliersRaw] = useState<{ id: string; name: string; code?: string }[]>([]);
+  const [suppliersRaw, setSuppliersRaw] = useState<Partial<Supplier>[]>([]);
+
+  // Derived: allowed material types based on selected supplier's categories (for OUTWARD)
+  const allowedMaterialTypes = challanType === 'OUTWARD' ? getAllowedMaterialTypes(supplierCategories) : [];
+  const hasSingleMaterialType = allowedMaterialTypes.length === 1;
+
+  // Warehouse options for combobox
+  const warehouseOptions: ComboboxOption[] = warehouses.map((wh) => ({
+    value: wh.id,
+    label: `${wh.warehouseCode} - ${wh.warehouseName}`,
+    searchText: `${wh.warehouseCode} ${wh.warehouseName}`,
+  }));
 
   // Compute tile counts for material type display
   const tileCounts: Record<string, number> = {};
@@ -219,7 +239,14 @@ export default function StockOutForm() {
 
   // --- Line Item Management Functions ---
   const addLineItem = () => {
-    setLineItems((prev) => [...prev, createEmptyLineItem()]);
+    const newItem = createEmptyLineItem();
+    // If OUTWARD mode with supplier that has only one material type, auto-select it
+    if (challanType === 'OUTWARD' && allowedMaterialTypes.length === 1) {
+      newItem.materialType = allowedMaterialTypes[0];
+      newItem.stockType = MATERIAL_TO_STOCK_TYPE[allowedMaterialTypes[0]];
+      newItem.unit = allowedMaterialTypes[0] === 'GREIGE' || allowedMaterialTypes[0] === 'FABRIC' ? 'MTR' : '';
+    }
+    setLineItems((prev) => [...prev, newItem]);
   };
 
   const removeLineItem = (tempId: string) => {
@@ -344,21 +371,13 @@ export default function StockOutForm() {
     }
   }, [warehouseId]);
 
-  // When supplier category changes, pre-select material type for first line item (convenience)
-  useEffect(() => {
-    if (!supplierCategory) return;
-    if (lineItems.length === 1 && !lineItems[0].materialType) {
-      if (supplierCategory === 'FABRIC_SUPPLIER') {
-        handleLineItemMaterialTypeChange(lineItems[0].tempId, 'FABRIC');
-      } else if (supplierCategory === 'GREIGE_SUPPLIER') {
-        handleLineItemMaterialTypeChange(lineItems[0].tempId, 'GREIGE');
-      }
-    }
-  }, [supplierCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: Material type pre-selection is now handled in handleSupplierChange
+  // based on supplier's categories, not just the filter category
 
   const loadWarehouses = async () => {
     try {
       const data = await warehouseService.getAll({ isActive: true });
+      setWarehouses(data);
       // Auto-select first RAW_MATERIAL warehouse, fallback to first active
       const defaultWh = data.find((w: Warehouse) => w.warehouseType === 'RAW_MATERIAL') || data[0];
       if (defaultWh && !warehouseId) {
@@ -374,17 +393,20 @@ export default function StockOutForm() {
     try {
       const result = await getAllSuppliers({
         category: supplierCategory || undefined,
-        limit: 100,
+        limit: 200,
       });
       const data = (result as any).data || [];
-      const raw = data.map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        code: s.code,
-      }));
-      setSuppliersRaw(raw);
+      // Filter to only show material suppliers (not processors like DYEING_PRINTING, EMBROIDERY, etc.)
+      const materialSuppliers = data.filter((s: Supplier) => isMaterialSupplier(s.supplierCategories || []));
+      // Also filter by selected category if one is chosen
+      const filtered = supplierCategory
+        ? materialSuppliers.filter((s: Supplier) =>
+            s.supplierCategories?.includes(supplierCategory as SupplierCategory)
+          )
+        : materialSuppliers;
+      setSuppliersRaw(filtered);
       setSupplierOptions(
-        raw.map((s: { id: string; name: string; code?: string }) => ({
+        filtered.map((s: Supplier) => ({
           value: s.id,
           label: `${s.code ? s.code + ' - ' : ''}${s.name}`,
           searchText: `${s.code || ''} ${s.name}`,
@@ -439,6 +461,21 @@ export default function StockOutForm() {
     setSupplierId(supId);
     const sup = suppliersRaw.find((s) => s.id === supId);
     setSupplierName(sup?.name || '');
+    const categories = Array.isArray(sup?.supplierCategories) ? sup.supplierCategories : [];
+    setSupplierCategories(categories as SupplierCategory[]);
+
+    // Reset line items when supplier changes
+    const newLineItem = createEmptyLineItem();
+    const allowed = getAllowedMaterialTypes(categories);
+
+    // If supplier has only one material type, auto-select it for the first line item
+    if (allowed.length === 1) {
+      newLineItem.materialType = allowed[0];
+      newLineItem.stockType = MATERIAL_TO_STOCK_TYPE[allowed[0]];
+      newLineItem.unit = allowed[0] === 'GREIGE' || allowed[0] === 'FABRIC' ? 'MTR' : '';
+    }
+
+    setLineItems([newLineItem]);
   };
 
   const getDestinationName = (): string => {
@@ -624,45 +661,71 @@ export default function StockOutForm() {
             <CardContent>
               {/* OUTWARD: Supplier selection */}
               {challanType === 'OUTWARD' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Supplier Category</Label>
-                    <Select
-                      value={supplierCategory}
-                      onValueChange={(v) => {
-                        setSupplierCategory(v === 'ALL' ? '' : v);
-                        setSupplierId('');
-                        setSupplierName('');
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Categories" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">All Categories</SelectItem>
-                        {Object.entries(SupplierCategoryLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Supplier Search (Primary) */}
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>
+                        Supplier <span className="text-destructive">*</span>
+                      </Label>
+                      <Combobox
+                        options={supplierOptions}
+                        value={supplierId}
+                        onValueChange={handleSupplierChange}
+                        placeholder="Search by name or code..."
+                        searchPlaceholder="Type to search suppliers..."
+                        emptyText="No material suppliers found"
+                      />
+                    </div>
+                    {/* Category Filter (Optional) */}
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground">Filter by Category</Label>
+                      <Select
+                        value={supplierCategory}
+                        onValueChange={(v) => {
+                          setSupplierCategory(v === 'ALL' ? '' : v);
+                          setSupplierId('');
+                          setSupplierName('');
+                          setSupplierCategories([]);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ALL">All Categories</SelectItem>
+                          {/* Only show material supplier categories, not processors */}
+                          {MATERIAL_SUPPLIER_CATEGORIES.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {SupplierCategoryLabels[cat]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>
-                      Supplier / Processor <span className="text-destructive">*</span>
-                    </Label>
-                    <Combobox
-                      options={supplierOptions}
-                      value={supplierId}
-                      onValueChange={handleSupplierChange}
-                      placeholder="Select supplier / processor"
-                      searchPlaceholder="Type to search suppliers..."
-                      emptyText="No suppliers found"
-                    />
-                  </div>
-                </div>
+                  {/* Selected Supplier Info - Category Badge */}
+                  {supplierId && supplierCategories.length > 0 && (
+                    <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">{supplierName}</span>
+                        <span className="text-muted-foreground">•</span>
+                        {supplierCategories.map((cat) => (
+                          <span
+                            key={cat}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary"
+                          >
+                            {SupplierCategoryLabels[cat]}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Materials: {getSupplierMaterialLabel(supplierCategories)}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* INTERNAL: Department selection */}
@@ -709,14 +772,58 @@ export default function StockOutForm() {
                 <CardTitle className="text-lg">Step 3: Add Items</CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
                   <Plus className="h-4 w-4 mr-1" />
-                  Add Item
+                  Add{' '}
+                  {challanType === 'OUTWARD' && hasSingleMaterialType
+                    ? MATERIAL_TYPE_LABELS[allowedMaterialTypes[0]]
+                    : 'Item'}
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Info message about allowed material types (OUTWARD only) */}
+              {challanType === 'OUTWARD' && allowedMaterialTypes.length > 0 && (
+                <Alert className="bg-muted/50 border-muted">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    {hasSingleMaterialType ? (
+                      <>
+                        Issuing <strong>{MATERIAL_TYPE_LABELS[allowedMaterialTypes[0]]}</strong> to this supplier
+                      </>
+                    ) : (
+                      <>
+                        This supplier accepts:{' '}
+                        <strong>{allowedMaterialTypes.map((t) => MATERIAL_TYPE_LABELS[t]).join(', ')}</strong>
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {lineItems.map((item, index) => {
                 const filteredLevels = getFilteredStockLevels(item.materialType);
                 const isFabricOrGreige = item.materialType === 'FABRIC' || item.materialType === 'GREIGE';
+
+                // Build combobox options for fabric and general materials
+                const fabricStockOptions: ComboboxOption[] = fabricStocks.map((fs) => ({
+                  value: fs.id,
+                  label: `${fs.fabricCode} - ${fs.fabricName}${fs.colorName ? ` (${fs.colorName})` : ''} — ${fs.quantityAvailable.toFixed(2)} MTR`,
+                  searchText: `${fs.fabricCode} ${fs.fabricName} ${fs.colorName || ''}`,
+                }));
+
+                const generalMaterialOptions: ComboboxOption[] = filteredLevels.map((stock) => ({
+                  value: stock.materialId,
+                  label: `${stock.materials?.code} - ${stock.materials?.name} (${Number(stock.quantity).toFixed(2)} ${stock.unit})`,
+                  searchText: `${stock.materials?.code || ''} ${stock.materials?.name || ''}`,
+                }));
+
+                // Determine which material types to show (all for INTERNAL, filtered for OUTWARD)
+                const typesToShow =
+                  challanType === 'OUTWARD' && allowedMaterialTypes.length > 0
+                    ? allowedMaterialTypes
+                    : (Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]);
+
+                // Should we show tiles? Hide if OUTWARD with single material type
+                const showTiles = challanType === 'INTERNAL' || (challanType === 'OUTWARD' && !hasSingleMaterialType);
 
                 return (
                   <div key={item.tempId} className="border rounded-lg p-4 space-y-4">
@@ -735,56 +842,38 @@ export default function StockOutForm() {
                       </Button>
                     </div>
 
-                    {/* Material Type Tiles */}
-                    <div className="space-y-2">
-                      <Label>
-                        Material Type <span className="text-destructive">*</span>
-                      </Label>
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                        {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).slice(0, 6).map((type) => {
-                          const count = tileCounts[type] || 0;
-                          const isSelected = item.materialType === type;
-                          return (
-                            <Button
-                              key={type}
-                              type="button"
-                              variant={isSelected ? 'default' : 'outline'}
-                              size="sm"
-                              className={`h-auto py-2 flex flex-col ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
-                              onClick={() => handleLineItemMaterialTypeChange(item.tempId, type)}
-                            >
-                              <span className="text-xs font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
-                              <span className="text-[10px] opacity-70">{count}</span>
-                            </Button>
-                          );
-                        })}
+                    {/* Material Type Tiles - Only show if multiple types allowed */}
+                    {showTiles && (
+                      <div className="space-y-2">
+                        <Label>
+                          Material Type <span className="text-destructive">*</span>
+                        </Label>
+                        <div className="flex flex-wrap gap-2">
+                          {typesToShow.map((type) => {
+                            const count = tileCounts[type] || 0;
+                            const isSelected = item.materialType === type;
+                            return (
+                              <Button
+                                key={type}
+                                type="button"
+                                variant={isSelected ? 'default' : 'outline'}
+                                size="sm"
+                                className={`h-auto py-2 px-3 flex flex-col ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
+                                onClick={() => handleLineItemMaterialTypeChange(item.tempId, type)}
+                              >
+                                <span className="text-xs font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
+                                <span className="text-[10px] opacity-70">{count}</span>
+                              </Button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      {/* Show remaining types in second row */}
-                      <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                        {(Object.keys(MATERIAL_TYPE_LABELS) as MaterialType[]).slice(6).map((type) => {
-                          const count = tileCounts[type] || 0;
-                          const isSelected = item.materialType === type;
-                          return (
-                            <Button
-                              key={type}
-                              type="button"
-                              variant={isSelected ? 'default' : 'outline'}
-                              size="sm"
-                              className={`h-auto py-2 flex flex-col ${isSelected ? 'ring-2 ring-offset-1' : ''}`}
-                              onClick={() => handleLineItemMaterialTypeChange(item.tempId, type)}
-                            >
-                              <span className="text-xs font-medium">{MATERIAL_TYPE_LABELS[type]}</span>
-                              <span className="text-[10px] opacity-70">{count}</span>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    )}
 
                     {/* Item Selection based on stock type */}
                     {item.materialType && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Greige Stock Selection */}
+                        {/* Greige Stock Selection - Combobox */}
                         {item.stockType === 'GREIGE' && (
                           <div className="space-y-2 md:col-span-2">
                             <Label>
@@ -798,59 +887,44 @@ export default function StockOutForm() {
                               }))}
                               value={item.greigeStockId}
                               onValueChange={(v) => handleLineItemGreigeChange(item.tempId, v)}
-                              placeholder="Select greige stock"
-                              searchPlaceholder="Search..."
+                              placeholder="Search greige stock..."
+                              searchPlaceholder="Type to search..."
                               emptyText="No greige available"
                             />
                           </div>
                         )}
 
-                        {/* Fabric Stock Selection */}
+                        {/* Fabric Stock Selection - Combobox */}
                         {item.stockType === 'FABRIC' && (
                           <div className="space-y-2 md:col-span-2">
                             <Label>
                               Fabric Stock <span className="text-destructive">*</span>
                             </Label>
-                            <Select
+                            <Combobox
+                              options={fabricStockOptions}
                               value={item.fabricStockId}
                               onValueChange={(v) => handleLineItemFabricChange(item.tempId, v)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select fabric stock" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {fabricStocks.map((fs) => (
-                                  <SelectItem key={fs.id} value={fs.id}>
-                                    {fs.fabricCode} - {fs.fabricName} — {fs.quantityAvailable.toFixed(2)} MTR
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              placeholder="Search fabric stock..."
+                              searchPlaceholder="Type to search..."
+                              emptyText="No fabric available"
+                            />
                           </div>
                         )}
 
-                        {/* General Material Selection */}
+                        {/* General Material Selection - Combobox */}
                         {item.stockType === 'GENERAL' && (
                           <div className="space-y-2 md:col-span-2">
                             <Label>
                               Material <span className="text-destructive">*</span>
                             </Label>
-                            <Select
+                            <Combobox
+                              options={generalMaterialOptions}
                               value={item.materialId}
                               onValueChange={(v) => handleLineItemMaterialChange(item.tempId, v, item.materialType)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select material" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {filteredLevels.map((stock) => (
-                                  <SelectItem key={stock.id} value={stock.materialId}>
-                                    {stock.materials?.code} - {stock.materials?.name} (
-                                    {Number(stock.quantity).toFixed(2)} {stock.unit})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                              placeholder="Search material..."
+                              searchPlaceholder="Type to search..."
+                              emptyText="No materials available"
+                            />
                           </div>
                         )}
 
@@ -937,7 +1011,10 @@ export default function StockOutForm() {
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={addLineItem}>
                   <Plus className="h-4 w-4 mr-1" />
-                  Add Another Item
+                  Add Another{' '}
+                  {challanType === 'OUTWARD' && hasSingleMaterialType
+                    ? MATERIAL_TYPE_LABELS[allowedMaterialTypes[0]]
+                    : 'Item'}
                 </Button>
               </div>
 

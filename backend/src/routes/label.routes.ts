@@ -10,6 +10,13 @@ import {
 } from '../controllers/label.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createLabelSchema,
+  updateLabelSchema,
+  bulkImportLabelSchema,
+  trimMasterQuerySchema,
+} from '../schemas/trimMasters.schema';
 
 const router = Router();
 
@@ -21,7 +28,7 @@ router.use(authenticateToken);
  * @desc    Create a single label item
  * @access  Private
  */
-router.post('/', asyncHandler(createLabel));
+router.post('/', validateBody(createLabelSchema), asyncHandler(createLabel));
 
 /**
  * @route   GET /api/materials/label
@@ -29,7 +36,7 @@ router.post('/', asyncHandler(createLabel));
  * @access  Private
  * @query   page, limit, search, supplierId
  */
-router.get('/', asyncHandler(getAllLabel));
+router.get('/', validateQuery(trimMasterQuerySchema), asyncHandler(getAllLabel));
 
 /**
  * @route   GET /api/materials/label/template
@@ -50,7 +57,7 @@ router.get('/:id', asyncHandler(getLabelById));
  * @desc    Update label item
  * @access  Private
  */
-router.put('/:id', asyncHandler(updateLabel));
+router.put('/:id', validateBody(updateLabelSchema), asyncHandler(updateLabel));
 
 /**
  * @route   DELETE /api/materials/label/:id
@@ -64,6 +71,6 @@ router.delete('/:id', asyncHandler(deleteLabel));
  * @desc    Bulk import label items from Excel
  * @access  Private
  */
-router.post('/bulk-import', asyncHandler(bulkImportLabel));
+router.post('/bulk-import', validateBody(bulkImportLabelSchema), asyncHandler(bulkImportLabel));
 
 export default router;

@@ -10,6 +10,13 @@ import {
 } from '../controllers/packaging.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createPackagingSchema,
+  updatePackagingSchema,
+  bulkImportPackagingSchema,
+  trimMasterQuerySchema,
+} from '../schemas/trimMasters.schema';
 
 const router = Router();
 
@@ -21,7 +28,7 @@ router.use(authenticateToken);
  * @desc    Create a single packaging item
  * @access  Private
  */
-router.post('/', asyncHandler(createPackaging));
+router.post('/', validateBody(createPackagingSchema), asyncHandler(createPackaging));
 
 /**
  * @route   GET /api/materials/packaging
@@ -29,7 +36,7 @@ router.post('/', asyncHandler(createPackaging));
  * @access  Private
  * @query   page, limit, search, supplierId
  */
-router.get('/', asyncHandler(getAllPackaging));
+router.get('/', validateQuery(trimMasterQuerySchema), asyncHandler(getAllPackaging));
 
 /**
  * @route   GET /api/materials/packaging/template
@@ -50,7 +57,7 @@ router.get('/:id', asyncHandler(getPackagingById));
  * @desc    Update packaging item
  * @access  Private
  */
-router.put('/:id', asyncHandler(updatePackaging));
+router.put('/:id', validateBody(updatePackagingSchema), asyncHandler(updatePackaging));
 
 /**
  * @route   DELETE /api/materials/packaging/:id
@@ -64,6 +71,6 @@ router.delete('/:id', asyncHandler(deletePackaging));
  * @desc    Bulk import packaging items from Excel
  * @access  Private
  */
-router.post('/bulk-import', asyncHandler(bulkImportPackaging));
+router.post('/bulk-import', validateBody(bulkImportPackagingSchema), asyncHandler(bulkImportPackaging));
 
 export default router;

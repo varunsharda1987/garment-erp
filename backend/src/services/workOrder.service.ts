@@ -1,4 +1,5 @@
 // Work Order Service - Production Planning & Work Order Management
+import { logger } from '../utils/logger';
 import { OrderStatus, Priority, ProductionStage, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -221,7 +222,7 @@ class WorkOrderService {
       });
     } catch (err) {
       // Non-critical — don't fail work order creation
-      console.error('Failed to create initial production_tracking:', err);
+      logger.error('Failed to create initial production_tracking:', err);
     }
 
     return workOrder;

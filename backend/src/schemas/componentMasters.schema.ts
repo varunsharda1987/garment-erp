@@ -1,0 +1,101 @@
+/**
+ * Component Masters Validation Schemas
+ *
+ * Zod schemas for component master CRUD operations.
+ * These are the SINGLE SOURCE OF TRUTH for field definitions.
+ */
+
+import { z } from 'zod';
+
+// ============================================================================
+// Enums
+// ============================================================================
+
+export const ComponentCategoryEnum = z.enum([
+  'BUTTON',
+  'ZIPPER',
+  'ELASTIC',
+  'LABEL',
+  'TAG',
+  'THREAD',
+  'INTERLINING',
+  'TAPE',
+  'HOOK',
+  'BUCKLE',
+  'RIVET',
+  'SNAP',
+  'VELCRO',
+  'DRAWCORD',
+  'OTHER',
+]);
+
+// ============================================================================
+// COMPONENT MASTER SCHEMAS
+// ============================================================================
+
+/**
+ * Create Component Master
+ * POST /api/component-masters
+ */
+export const createComponentMasterSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200),
+  code: z.string().max(50).optional(),
+  category: ComponentCategoryEnum,
+  subcategory: z.string().max(100).optional(),
+  description: z.string().max(500).optional(),
+  unit: z.string().max(20).optional().default('PCS'),
+  hsnCode: z.string().max(20).optional(),
+  gstRate: z.number().min(0).max(100).optional(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional(),
+  specifications: z.record(z.string(), z.unknown()).optional(),
+  minOrderQty: z.number().positive().optional(),
+  leadTimeDays: z.number().int().nonnegative().optional(),
+  isActive: z.boolean().optional().default(true),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Update Component Master
+ * PUT /api/component-masters/:id
+ */
+export const updateComponentMasterSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  code: z.string().max(50).optional().nullable(),
+  category: ComponentCategoryEnum.optional(),
+  subcategory: z.string().max(100).optional().nullable(),
+  description: z.string().max(500).optional().nullable(),
+  unit: z.string().max(20).optional(),
+  hsnCode: z.string().max(20).optional().nullable(),
+  gstRate: z.number().min(0).max(100).optional().nullable(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+  specifications: z.record(z.string(), z.unknown()).optional().nullable(),
+  minOrderQty: z.number().positive().optional().nullable(),
+  leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+  isActive: z.boolean().optional(),
+  remarks: z.string().max(500).optional().nullable(),
+});
+
+/**
+ * Component Master Query Params
+ * GET /api/component-masters
+ */
+export const componentMasterQuerySchema = z.object({
+  page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  search: z.string().max(100).optional(),
+  category: ComponentCategoryEnum.optional(),
+  subcategory: z.string().max(100).optional(),
+  supplierId: z.string().uuid().optional(),
+  isActive: z
+    .string()
+    .transform((val) => val === 'true')
+    .optional(),
+});
+
+// ============================================================================
+// Type Exports
+// ============================================================================
+
+export type CreateComponentMasterInput = z.infer<typeof createComponentMasterSchema>;
+export type UpdateComponentMasterInput = z.infer<typeof updateComponentMasterSchema>;
+export type ComponentMasterQueryInput = z.infer<typeof componentMasterQuerySchema>;

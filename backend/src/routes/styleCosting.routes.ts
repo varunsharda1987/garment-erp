@@ -29,6 +29,22 @@ import {
 } from '../controllers/styleCostingLaceItems.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createCostSheetSchema,
+  updateCostSheetSchema,
+  generateCostSheetSchema,
+  approveCostSheetSchema,
+  createCostSheetVersionSchema,
+  copyCostSheetSchema,
+  updateActualsSchema,
+  approveVarianceSchema,
+  costSheetQuerySchema,
+  addLaceItemSchema,
+  updateLaceItemSchema,
+  bulkAddLaceItemsSchema,
+  calculateLaceOptionsSchema,
+} from '../schemas/styleCosting.schema';
 
 const router = express.Router();
 
@@ -45,6 +61,7 @@ router.post(
   '/',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(createCostSheetSchema),
   asyncHandler(createCostSheet)
 );
 
@@ -57,6 +74,7 @@ router.post(
   '/generate/:styleId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(generateCostSheetSchema),
   asyncHandler(generateCostSheetFromStyle)
 );
 
@@ -65,7 +83,7 @@ router.post(
  * @desc    Get all cost sheets with filtering and pagination
  * @access  Private
  */
-router.get('/', authenticateToken, asyncHandler(getAllCostSheets));
+router.get('/', authenticateToken, validateQuery(costSheetQuerySchema), asyncHandler(getAllCostSheets));
 
 /**
  * @route   GET /api/style-costing/budget-suggestions/:styleId
@@ -111,6 +129,7 @@ router.put(
   '/:id',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(updateCostSheetSchema),
   asyncHandler(updateCostSheet)
 );
 
@@ -123,6 +142,7 @@ router.patch(
   '/:id/approve',
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for cost sheet approval
+  validateBody(approveCostSheetSchema),
   asyncHandler(approveCostSheet)
 );
 
@@ -152,6 +172,7 @@ router.post(
   '/:id/create-version',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(createCostSheetVersionSchema),
   asyncHandler(createCostSheetVersion)
 );
 
@@ -183,6 +204,7 @@ router.post(
   '/copy',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(copyCostSheetSchema),
   asyncHandler(copyCostSheetForProcurement)
 );
 
@@ -196,6 +218,7 @@ router.patch(
   '/:id/actuals',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(updateActualsSchema),
   asyncHandler(updateActuals)
 );
 
@@ -209,6 +232,7 @@ router.post(
   '/variance/:id/approve',
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for variance approval
+  validateBody(approveVarianceSchema),
   asyncHandler(approveVariance)
 );
 
@@ -225,6 +249,7 @@ router.post(
   '/:costingId/lace-items',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(addLaceItemSchema),
   asyncHandler(addLaceItem)
 );
 
@@ -237,6 +262,7 @@ router.post(
   '/:costingId/lace-items/bulk',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(bulkAddLaceItemsSchema),
   asyncHandler(bulkAddLaceItemsController)
 );
 
@@ -245,7 +271,12 @@ router.post(
  * @desc    Calculate cost options for lace (stock, ready, greige+processing)
  * @access  Private
  */
-router.post('/:costingId/lace-items/calculate-options', authenticateToken, asyncHandler(calculateLaceOptions));
+router.post(
+  '/:costingId/lace-items/calculate-options',
+  authenticateToken,
+  validateBody(calculateLaceOptionsSchema),
+  asyncHandler(calculateLaceOptions)
+);
 
 /**
  * @route   GET /api/style-costing/:costingId/lace-items
@@ -270,6 +301,7 @@ router.put(
   '/:costingId/lace-items/:itemId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(updateLaceItemSchema),
   asyncHandler(updateLaceItemController)
 );
 

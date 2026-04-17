@@ -6,8 +6,30 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import mrpController from '../controllers/mrp.controller';
 import * as vendorSuggestionController from '../controllers/vendor-suggestion.controller';
+import {
+  calculateRequirementsSchema,
+  createManualRequirementSchema,
+  allocateStockSchema,
+  linkToPOSchema,
+  convertToGreigeSchema,
+  updateRequirementStatusSchema,
+  generatePOSchema,
+  groupBySupplierSchema,
+  previewPOsSchema,
+  bulkGeneratePOSchema,
+  validateBulkPOSchema,
+  suggestForMaterialSchema,
+  suggestForRequirementsSchema,
+  bulkAssignVendorsSchema,
+  autoAssignVendorsSchema,
+  suggestProcessorsSchema,
+  bulkAssignProcessorsSchema,
+  autoAssignProcessorsSchema,
+  requirementsQuerySchema,
+} from '../schemas/mrp.schema';
 
 const router = Router();
 
@@ -24,7 +46,7 @@ router.use(authenticateToken);
  * @access  Private
  * @body    { orderId: string, orderItemId?: string, requiredDate: string, checkStock?: boolean }
  */
-router.post('/calculate', asyncHandler(mrpController.calculateRequirements));
+router.post('/calculate', validateBody(calculateRequirementsSchema), asyncHandler(mrpController.calculateRequirements));
 
 /**
  * @route   GET /api/mrp/dashboard
@@ -52,7 +74,7 @@ router.get('/requirements/styles', asyncHandler(mrpController.getDistinctRequire
  * @query   orderId, orderItemId, materialId, supplierId, styleId, status, source,
  *          requiredDateFrom, requiredDateTo, hasShortfall, search, page, limit, sortBy, sortOrder
  */
-router.get('/requirements', asyncHandler(mrpController.getRequirements));
+router.get('/requirements', validateQuery(requirementsQuerySchema), asyncHandler(mrpController.getRequirements));
 
 /**
  * @route   POST /api/mrp/requirements
@@ -60,7 +82,11 @@ router.get('/requirements', asyncHandler(mrpController.getRequirements));
  * @access  Private
  * @body    { materialId: string, quantity: number, unit: string, requiredDate: string, preferredSupplierId?: string }
  */
-router.post('/requirements', asyncHandler(mrpController.createManualRequirement));
+router.post(
+  '/requirements',
+  validateBody(createManualRequirementSchema),
+  asyncHandler(mrpController.createManualRequirement)
+);
 
 /**
  * @route   GET /api/mrp/requirements/:id
@@ -86,7 +112,11 @@ router.delete('/requirements/:id', asyncHandler(mrpController.cancelRequirement)
  * @access  Private
  * @body    { quantity: number, warehouseId?: string }
  */
-router.post('/requirements/:id/allocate-stock', asyncHandler(mrpController.allocateStock));
+router.post(
+  '/requirements/:id/allocate-stock',
+  validateBody(allocateStockSchema),
+  asyncHandler(mrpController.allocateStock)
+);
 
 /**
  * @route   POST /api/mrp/requirements/:id/link-po
@@ -94,7 +124,7 @@ router.post('/requirements/:id/allocate-stock', asyncHandler(mrpController.alloc
  * @access  Private
  * @body    { purchaseOrderId: string, purchaseOrderItemId: string, allocatedQuantity: number }
  */
-router.post('/requirements/:id/link-po', asyncHandler(mrpController.linkToPO));
+router.post('/requirements/:id/link-po', validateBody(linkToPOSchema), asyncHandler(mrpController.linkToPO));
 
 /**
  * @route   POST /api/mrp/requirements/:id/convert-to-greige
@@ -102,7 +132,11 @@ router.post('/requirements/:id/link-po', asyncHandler(mrpController.linkToPO));
  * @access  Private
  * @body    { processorId: string, greigeId: string, processingCost?: number, greigeCost?: number }
  */
-router.post('/requirements/:id/convert-to-greige', asyncHandler(mrpController.convertToGreigeProcessing));
+router.post(
+  '/requirements/:id/convert-to-greige',
+  validateBody(convertToGreigeSchema),
+  asyncHandler(mrpController.convertToGreigeProcessing)
+);
 
 /**
  * @route   PATCH /api/mrp/requirements/:id/status
@@ -110,7 +144,11 @@ router.post('/requirements/:id/convert-to-greige', asyncHandler(mrpController.co
  * @access  Private
  * @body    { status: MaterialRequirementStatus }
  */
-router.patch('/requirements/:id/status', asyncHandler(mrpController.updateStatus));
+router.patch(
+  '/requirements/:id/status',
+  validateBody(updateRequirementStatusSchema),
+  asyncHandler(mrpController.updateStatus)
+);
 
 // ============================================
 // PO GENERATION
@@ -122,7 +160,7 @@ router.patch('/requirements/:id/status', asyncHandler(mrpController.updateStatus
  * @access  Private
  * @body    { requirementIds: string[], supplierId: string, expectedDeliveryDate: string, remarks?: string, consolidate?: boolean }
  */
-router.post('/generate-po', asyncHandler(mrpController.generatePO));
+router.post('/generate-po', validateBody(generatePOSchema), asyncHandler(mrpController.generatePO));
 
 /**
  * @route   POST /api/mrp/group-by-supplier
@@ -130,7 +168,7 @@ router.post('/generate-po', asyncHandler(mrpController.generatePO));
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/group-by-supplier', asyncHandler(mrpController.groupBySupplier));
+router.post('/group-by-supplier', validateBody(groupBySupplierSchema), asyncHandler(mrpController.groupBySupplier));
 
 /**
  * @route   POST /api/mrp/preview-pos
@@ -138,7 +176,7 @@ router.post('/group-by-supplier', asyncHandler(mrpController.groupBySupplier));
  * @access  Private
  * @body    { groups: [{ supplierId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }] }
  */
-router.post('/preview-pos', asyncHandler(mrpController.previewPOs));
+router.post('/preview-pos', validateBody(previewPOsSchema), asyncHandler(mrpController.previewPOs));
 
 /**
  * @route   POST /api/mrp/generate-pos-bulk
@@ -146,7 +184,7 @@ router.post('/preview-pos', asyncHandler(mrpController.previewPOs));
  * @access  Private
  * @body    { groups: [{ supplierId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }] }
  */
-router.post('/generate-pos-bulk', asyncHandler(mrpController.bulkGeneratePO));
+router.post('/generate-pos-bulk', validateBody(bulkGeneratePOSchema), asyncHandler(mrpController.bulkGeneratePO));
 
 /**
  * @route   POST /api/mrp/validate-bulk-po
@@ -154,7 +192,7 @@ router.post('/generate-pos-bulk', asyncHandler(mrpController.bulkGeneratePO));
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/validate-bulk-po', asyncHandler(mrpController.validateBulkPO));
+router.post('/validate-bulk-po', validateBody(validateBulkPOSchema), asyncHandler(mrpController.validateBulkPO));
 
 // ============================================
 // ORDER-LEVEL ENDPOINTS
@@ -177,7 +215,11 @@ router.get('/orders/:orderId/summary', asyncHandler(mrpController.getOrderRequir
  * @access  Private
  * @body    { materialId: string }
  */
-router.post('/vendor-suggestions/material', asyncHandler(vendorSuggestionController.suggestForMaterial));
+router.post(
+  '/vendor-suggestions/material',
+  validateBody(suggestForMaterialSchema),
+  asyncHandler(vendorSuggestionController.suggestForMaterial)
+);
 
 /**
  * @route   POST /api/mrp/vendor-suggestions/requirements
@@ -185,7 +227,11 @@ router.post('/vendor-suggestions/material', asyncHandler(vendorSuggestionControl
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/vendor-suggestions/requirements', asyncHandler(vendorSuggestionController.suggestForRequirements));
+router.post(
+  '/vendor-suggestions/requirements',
+  validateBody(suggestForRequirementsSchema),
+  asyncHandler(vendorSuggestionController.suggestForRequirements)
+);
 
 /**
  * @route   POST /api/mrp/vendor-suggestions/bulk-assign
@@ -193,7 +239,11 @@ router.post('/vendor-suggestions/requirements', asyncHandler(vendorSuggestionCon
  * @access  Private
  * @body    { assignments: [{ requirementId: string, supplierId: string }] }
  */
-router.post('/vendor-suggestions/bulk-assign', asyncHandler(vendorSuggestionController.bulkAssign));
+router.post(
+  '/vendor-suggestions/bulk-assign',
+  validateBody(bulkAssignVendorsSchema),
+  asyncHandler(vendorSuggestionController.bulkAssign)
+);
 
 /**
  * @route   POST /api/mrp/vendor-suggestions/auto-assign
@@ -201,7 +251,11 @@ router.post('/vendor-suggestions/bulk-assign', asyncHandler(vendorSuggestionCont
  * @access  Private
  * @body    { requirementIds: string[], minConfidence?: 'high' | 'medium' }
  */
-router.post('/vendor-suggestions/auto-assign', asyncHandler(vendorSuggestionController.autoAssign));
+router.post(
+  '/vendor-suggestions/auto-assign',
+  validateBody(autoAssignVendorsSchema),
+  asyncHandler(vendorSuggestionController.autoAssign)
+);
 
 /**
  * @route   GET /api/mrp/vendor-suggestions/suppliers-by-type
@@ -221,7 +275,11 @@ router.get('/vendor-suggestions/suppliers-by-type', asyncHandler(vendorSuggestio
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/processing-assignment/suggest', asyncHandler(vendorSuggestionController.suggestProcessorsForProcessing));
+router.post(
+  '/processing-assignment/suggest',
+  validateBody(suggestProcessorsSchema),
+  asyncHandler(vendorSuggestionController.suggestProcessorsForProcessing)
+);
 
 /**
  * @route   POST /api/mrp/processing-assignment/bulk-assign
@@ -231,6 +289,7 @@ router.post('/processing-assignment/suggest', asyncHandler(vendorSuggestionContr
  */
 router.post(
   '/processing-assignment/bulk-assign',
+  validateBody(bulkAssignProcessorsSchema),
   asyncHandler(vendorSuggestionController.bulkAssignProcessorsForProcessing)
 );
 
@@ -242,6 +301,7 @@ router.post(
  */
 router.post(
   '/processing-assignment/auto-assign',
+  validateBody(autoAssignProcessorsSchema),
   asyncHandler(vendorSuggestionController.autoAssignProcessorsForProcessing)
 );
 

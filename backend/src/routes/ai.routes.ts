@@ -6,6 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
 import { AIProviderFactory } from '../services/ai/providers/AIProviderFactory';
 import { conversationService } from '../services/ai/conversation.service';
 import { aiPermissionService } from '../services/ai/ai-permission.service';
@@ -13,6 +14,14 @@ import { erpContextService } from '../services/ai/erp-context.service';
 import { ragService } from '../services/ai/rag.service';
 import { logError, logInfo } from '../utils/logger';
 import { UserRole } from '@prisma/client';
+import {
+  chatSchema,
+  chatPersistentSchema,
+  feedbackSchema,
+  type ChatInput,
+  type ChatPersistentInput,
+  type FeedbackInput,
+} from '../schemas/ai.schema';
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -61,6 +70,7 @@ router.use(authenticateToken);
  */
 router.post(
   '/chat',
+  validateBody(chatSchema),
   asyncHandler(async (req: Request, res: Response) => {
     if (!AIProviderFactory.isInitialized()) {
       return res.status(503).json({
@@ -69,14 +79,7 @@ router.post(
       });
     }
 
-    const { message, conversationHistory = [] } = req.body;
-
-    if (!message) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Message is required',
-      });
-    }
+    const { message, conversationHistory = [] } = req.body as ChatInput;
 
     const aiProvider = AIProviderFactory.getProvider();
 
@@ -194,6 +197,7 @@ Keep each tip to one sentence.`,
  */
 router.post(
   '/chat/persistent',
+  validateBody(chatPersistentSchema),
   asyncHandler(async (req: Request, res: Response) => {
     if (!AIProviderFactory.isInitialized()) {
       return res.status(503).json({
@@ -209,14 +213,7 @@ router.post(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { message, conversationId } = req.body;
-
-    if (!message) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Message is required',
-      });
-    }
+    const { message, conversationId } = req.body as ChatPersistentInput;
 
     // Check if query is restricted for this role
     const restrictedCheck = aiPermissionService.isRestrictedQuery(message, userRole);
@@ -362,27 +359,14 @@ IMPORTANT:
  */
 router.post(
   '/feedback',
+  validateBody(feedbackSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { messageId, rating, issueType, comment } = req.body;
-
-    if (!messageId || !rating) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'messageId and rating are required',
-      });
-    }
-
-    if (!['HELPFUL', 'NOT_HELPFUL'].includes(rating)) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'rating must be HELPFUL or NOT_HELPFUL',
-      });
-    }
+    const { messageId, rating, issueType, comment } = req.body as FeedbackInput;
 
     const feedback = await conversationService.addFeedback({
       messageId,

@@ -24,6 +24,20 @@ import {
 } from '../controllers/fabric-costing.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  lookupRateSchema,
+  saveFabricCostingSchema,
+  costingOptionsQuerySchema,
+  approveCostingOptionSchema,
+  unapproveCostingOptionSchema,
+  promoteCostingOptionSchema,
+  stylesCostingStatusSchema,
+  checkCADCostingStatusSchema,
+  pushFromCADSchema,
+  calculateSingleCostSchema,
+  calculateBatchCostSchema,
+} from '../schemas/fabricCosting.schema';
 
 const router = Router();
 
@@ -42,48 +56,52 @@ router.get('/style/:styleId', asyncHandler(getStyleFabrics));
 router.get('/style/:styleId/validate', asyncHandler(validateStyleCADData));
 
 // POST /api/fabric-costing/lookup-rate - Lookup processor rate for greige+quantity
-router.post('/lookup-rate', asyncHandler(lookupProcessorRate));
+router.post('/lookup-rate', validateBody(lookupRateSchema), asyncHandler(lookupProcessorRate));
 
 // POST /api/fabric-costing/save - Save fabric costing data for a style
-router.post('/save', asyncHandler(saveFabricCosting));
+router.post('/save', validateBody(saveFabricCostingSchema), asyncHandler(saveFabricCosting));
 
 // === COSTING OPTIONS ENDPOINTS ===
 
 // GET /api/fabric-costing/options - Get all costing options with filtering (paginated by style)
-router.get('/options', asyncHandler(getCostingOptions));
+router.get('/options', validateQuery(costingOptionsQuerySchema), asyncHandler(getCostingOptions));
 
 // GET /api/fabric-costing/style/:styleId/options - Get all costing options for a specific style
 router.get('/style/:styleId/options', asyncHandler(getStyleCostingOptions));
 
 // POST /api/fabric-costing/option/:optionId/approve - Approve a costing option
-router.post('/option/:optionId/approve', asyncHandler(approveCostingOption));
+router.post('/option/:optionId/approve', validateBody(approveCostingOptionSchema), asyncHandler(approveCostingOption));
 
 // PATCH /api/fabric-costing/option/:optionId/unapprove - Unapprove a costing option
-router.patch('/option/:optionId/unapprove', asyncHandler(unapproveCostingOption));
+router.patch(
+  '/option/:optionId/unapprove',
+  validateBody(unapproveCostingOptionSchema),
+  asyncHandler(unapproveCostingOption)
+);
 
 // POST /api/fabric-costing/option/:optionId/promote - Promote to next workflow stage
-router.post('/option/:optionId/promote', asyncHandler(promoteCostingOption));
+router.post('/option/:optionId/promote', validateBody(promoteCostingOptionSchema), asyncHandler(promoteCostingOption));
 
 // DELETE /api/fabric-costing/option/:optionId - Delete a costing option
 router.delete('/option/:optionId', asyncHandler(deleteCostingOption));
 
 // POST /api/fabric-costing/styles/costing-status - Get costing status for multiple styles
-router.post('/styles/costing-status', asyncHandler(getStylesCostingStatus));
+router.post('/styles/costing-status', validateBody(stylesCostingStatusSchema), asyncHandler(getStylesCostingStatus));
 
 // === CAD TO COSTING PUSH ENDPOINTS ===
 
 // POST /api/fabric-costing/check-cad-status - Check which CAD rows already have costing
-router.post('/check-cad-status', asyncHandler(checkCADCostingStatus));
+router.post('/check-cad-status', validateBody(checkCADCostingStatusSchema), asyncHandler(checkCADCostingStatus));
 
 // POST /api/fabric-costing/push-from-cad - Create costing records from CAD rows
-router.post('/push-from-cad', asyncHandler(pushFromCAD));
+router.post('/push-from-cad', validateBody(pushFromCADSchema), asyncHandler(pushFromCAD));
 
 // === EXISTING ENDPOINTS (kept for backward compatibility) ===
 
 // POST /api/fabric-costing/calculate - Calculate single fabric cost
-router.post('/calculate', asyncHandler(calculateSingleFabricCost));
+router.post('/calculate', validateBody(calculateSingleCostSchema), asyncHandler(calculateSingleFabricCost));
 
 // POST /api/fabric-costing/batch-calculate - Calculate multiple fabrics
-router.post('/batch-calculate', asyncHandler(calculateBatchFabricCost));
+router.post('/batch-calculate', validateBody(calculateBatchCostSchema), asyncHandler(calculateBatchFabricCost));
 
 export default router;

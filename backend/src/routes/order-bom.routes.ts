@@ -9,6 +9,16 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createFromCostSheetSchema,
+  copyFromPreviousOrderSchema,
+  updateOrderBOMSchema,
+  approveAndCalculateMRPSchema,
+  calculateMRPStandaloneSchema,
+  changeWidthSchema,
+  orderBOMQuerySchema,
+} from '../schemas/orderBom.schema';
 import * as orderBomController from '../controllers/order-bom.controller';
 
 const router = Router();
@@ -26,7 +36,11 @@ router.use(authenticateToken);
  * @access  Private
  * @body    { styleId: string, costSheetId: string, orderItemId?: string }
  */
-router.post('/:orderId/bom', asyncHandler(orderBomController.createFromCostSheet));
+router.post(
+  '/:orderId/bom',
+  validateBody(createFromCostSheetSchema),
+  asyncHandler(orderBomController.createFromCostSheet)
+);
 
 /**
  * @route   GET /api/orders/:orderId/bom
@@ -43,7 +57,7 @@ router.get('/:orderId/bom', asyncHandler(orderBomController.getByOrderId));
  * @query   styleId (optional)
  * @body    { items: OrderBOMItemInput[] }
  */
-router.put('/:orderId/bom', asyncHandler(orderBomController.updateOrderBOM));
+router.put('/:orderId/bom', validateBody(updateOrderBOMSchema), asyncHandler(orderBomController.updateOrderBOM));
 
 /**
  * @route   PATCH /api/orders/:orderId/bom/approve
@@ -59,7 +73,11 @@ router.patch('/:orderId/bom/approve', asyncHandler(orderBomController.approveOrd
  * @access  Private
  * @body    { styleId: string, calculateMRP?: boolean, requiredDate?: Date }
  */
-router.post('/:orderId/bom/approve-and-calculate', asyncHandler(orderBomController.approveAndCalculateMRP));
+router.post(
+  '/:orderId/bom/approve-and-calculate',
+  validateBody(approveAndCalculateMRPSchema),
+  asyncHandler(orderBomController.approveAndCalculateMRP)
+);
 
 /**
  * @route   POST /api/orders/:orderId/bom/calculate-mrp
@@ -67,7 +85,11 @@ router.post('/:orderId/bom/approve-and-calculate', asyncHandler(orderBomControll
  * @access  Private
  * @body    { styleId: string, requiredDate?: Date }
  */
-router.post('/:orderId/bom/calculate-mrp', asyncHandler(orderBomController.calculateMRPStandalone));
+router.post(
+  '/:orderId/bom/calculate-mrp',
+  validateBody(calculateMRPStandaloneSchema),
+  asyncHandler(orderBomController.calculateMRPStandalone)
+);
 
 /**
  * @route   PATCH /api/orders/:orderId/bom/lock
@@ -83,7 +105,11 @@ router.patch('/:orderId/bom/lock', asyncHandler(orderBomController.lockOrderBOM)
  * @access  Private
  * @body    { styleId: string, orderItemId?: string, adjustQuantity?: number }
  */
-router.post('/:orderId/bom/copy/:sourceOrderId', asyncHandler(orderBomController.copyFromPreviousOrder));
+router.post(
+  '/:orderId/bom/copy/:sourceOrderId',
+  validateBody(copyFromPreviousOrderSchema),
+  asyncHandler(orderBomController.copyFromPreviousOrder)
+);
 
 /**
  * @route   GET /api/orders/:orderId/bom/requirements
@@ -116,7 +142,7 @@ orderBomStandaloneRouter.use(authenticateToken);
  * @access  Private
  * @query   orderId, styleId, status, isActive, page, limit
  */
-orderBomStandaloneRouter.get('/', asyncHandler(orderBomController.listOrderBOMs));
+orderBomStandaloneRouter.get('/', validateQuery(orderBOMQuerySchema), asyncHandler(orderBomController.listOrderBOMs));
 
 /**
  * @route   POST /api/order-bom/cleanup-cancelled
@@ -138,6 +164,10 @@ orderBomStandaloneRouter.get('/:id', asyncHandler(orderBomController.getById));
  * @access  Private
  * @body    { fabricItemChanges: [{ bomItemId: string, newCadId: string }] }
  */
-orderBomStandaloneRouter.post('/:id/change-width', asyncHandler(orderBomController.changeWidth));
+orderBomStandaloneRouter.post(
+  '/:id/change-width',
+  validateBody(changeWidthSchema),
+  asyncHandler(orderBomController.changeWidth)
+);
 
 export default router;

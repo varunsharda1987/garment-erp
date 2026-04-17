@@ -6,7 +6,21 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import * as serviceRequirementController from '../controllers/service-requirement.controller';
+import {
+  calculateServicesSchema,
+  serviceRequirementQuerySchema,
+  listServiceRequirementsSchema,
+  suggestProcessorSchema,
+  suggestProcessorsBulkSchema,
+  bulkAssignProcessorsSchema,
+  autoAssignProcessorsSchema,
+  groupByProcessorSchema,
+  generatePOSchema,
+  bulkGeneratePOsSchema,
+  updateExecutionSchema,
+} from '../schemas/serviceRequirement.schema';
 
 const router = Router();
 
@@ -25,6 +39,7 @@ router.use(authenticateToken);
  */
 router.post(
   '/work-orders/:workOrderId/calculate-services',
+  validateBody(calculateServicesSchema),
   asyncHandler(serviceRequirementController.calculateServices)
 );
 
@@ -36,6 +51,7 @@ router.post(
  */
 router.get(
   '/work-orders/:workOrderId/service-requirements',
+  validateQuery(serviceRequirementQuerySchema),
   asyncHandler(serviceRequirementController.getServiceRequirementsForWorkOrder)
 );
 
@@ -69,7 +85,11 @@ router.get(
  * @access  Private
  * @query   workOrderId, status, serviceType, processorId, source, search, page, limit, sortBy, sortOrder
  */
-router.get('/service-requirements/list', asyncHandler(serviceRequirementController.listAll));
+router.get(
+  '/service-requirements/list',
+  validateQuery(listServiceRequirementsSchema),
+  asyncHandler(serviceRequirementController.listAll)
+);
 
 /**
  * @route   GET /api/service-requirements/dashboard
@@ -88,7 +108,11 @@ router.get('/service-requirements/dashboard', asyncHandler(serviceRequirementCon
  * @access  Private
  * @body    { serviceType: ServiceType, styleId?: string }
  */
-router.post('/service-requirements/suggest-processor', asyncHandler(serviceRequirementController.suggestProcessor));
+router.post(
+  '/service-requirements/suggest-processor',
+  validateBody(suggestProcessorSchema),
+  asyncHandler(serviceRequirementController.suggestProcessor)
+);
 
 /**
  * @route   POST /api/service-requirements/suggest-processors-bulk
@@ -98,6 +122,7 @@ router.post('/service-requirements/suggest-processor', asyncHandler(serviceRequi
  */
 router.post(
   '/service-requirements/suggest-processors-bulk',
+  validateBody(suggestProcessorsBulkSchema),
   asyncHandler(serviceRequirementController.suggestProcessorsBulk)
 );
 
@@ -111,7 +136,11 @@ router.post(
  * @access  Private
  * @body    { assignments: Array<{ requirementId: string, processorId: string }> }
  */
-router.post('/service-requirements/bulk-assign-processors', asyncHandler(serviceRequirementController.bulkAssign));
+router.post(
+  '/service-requirements/bulk-assign-processors',
+  validateBody(bulkAssignProcessorsSchema),
+  asyncHandler(serviceRequirementController.bulkAssign)
+);
 
 /**
  * @route   POST /api/service-requirements/auto-assign-processors
@@ -119,7 +148,11 @@ router.post('/service-requirements/bulk-assign-processors', asyncHandler(service
  * @access  Private
  * @body    { requirementIds: string[], minConfidence?: 'high' | 'medium' }
  */
-router.post('/service-requirements/auto-assign-processors', asyncHandler(serviceRequirementController.autoAssign));
+router.post(
+  '/service-requirements/auto-assign-processors',
+  validateBody(autoAssignProcessorsSchema),
+  asyncHandler(serviceRequirementController.autoAssign)
+);
 
 // ============================================
 // GROUPING AND BULK PO GENERATION
@@ -131,7 +164,11 @@ router.post('/service-requirements/auto-assign-processors', asyncHandler(service
  * @access  Private
  * @body    { requirementIds: string[] }
  */
-router.post('/service-requirements/group-by-processor', asyncHandler(serviceRequirementController.groupByProcessor));
+router.post(
+  '/service-requirements/group-by-processor',
+  validateBody(groupByProcessorSchema),
+  asyncHandler(serviceRequirementController.groupByProcessor)
+);
 
 /**
  * @route   POST /api/service-requirements/generate-po
@@ -139,7 +176,11 @@ router.post('/service-requirements/group-by-processor', asyncHandler(serviceRequ
  * @access  Private
  * @body    { processorId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }
  */
-router.post('/service-requirements/generate-po', asyncHandler(serviceRequirementController.generatePO));
+router.post(
+  '/service-requirements/generate-po',
+  validateBody(generatePOSchema),
+  asyncHandler(serviceRequirementController.generatePO)
+);
 
 /**
  * @route   POST /api/service-requirements/generate-pos-bulk
@@ -147,7 +188,11 @@ router.post('/service-requirements/generate-po', asyncHandler(serviceRequirement
  * @access  Private
  * @body    { groups: Array<{ processorId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }> }
  */
-router.post('/service-requirements/generate-pos-bulk', asyncHandler(serviceRequirementController.bulkGeneratePOs));
+router.post(
+  '/service-requirements/generate-pos-bulk',
+  validateBody(bulkGeneratePOsSchema),
+  asyncHandler(serviceRequirementController.bulkGeneratePOs)
+);
 
 // ============================================
 // SERVICE EXECUTION
@@ -159,6 +204,10 @@ router.post('/service-requirements/generate-pos-bulk', asyncHandler(serviceRequi
  * @access  Private
  * @body    { jobWorkOrderId?: string, embroiderySendOutId?: string, processingBatchId?: string, actualQuantity?: number, actualCost?: number, status: ServiceRequirementStatus }
  */
-router.patch('/service-requirements/:id/execution', asyncHandler(serviceRequirementController.updateExecution));
+router.patch(
+  '/service-requirements/:id/execution',
+  validateBody(updateExecutionSchema),
+  asyncHandler(serviceRequirementController.updateExecution)
+);
 
 export default router;

@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
 import {
   getRunsByStyle,
   getRunById,
@@ -13,6 +14,7 @@ import {
   deleteRun,
   updateRunTotals,
 } from '../controllers/fabric-costing-run.controller';
+import { createCostingRunSchema, recalculateRunSchema } from '../schemas/fabricCostingRun.schema';
 
 const router = Router();
 
@@ -23,7 +25,7 @@ router.use(authenticateToken);
 router.get('/style/:styleId', asyncHandler(getRunsByStyle));
 
 // POST /api/fabric-costing-runs/style/:styleId - Create new run
-router.post('/style/:styleId', asyncHandler(createRun));
+router.post('/style/:styleId', validateBody(createCostingRunSchema), asyncHandler(createRun));
 
 // GET /api/fabric-costing-runs/:runId - Get single run with details
 router.get('/:runId', asyncHandler(getRunById));
@@ -32,6 +34,6 @@ router.get('/:runId', asyncHandler(getRunById));
 router.delete('/:runId', asyncHandler(deleteRun));
 
 // PATCH /api/fabric-costing-runs/:runId/recalculate - Recalculate totals
-router.patch('/:runId/recalculate', asyncHandler(updateRunTotals));
+router.patch('/:runId/recalculate', validateBody(recalculateRunSchema), asyncHandler(updateRunTotals));
 
 export default router;

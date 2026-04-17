@@ -14,6 +14,8 @@ import {
 } from '../controllers/orderProductionStatus.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { selectCadSchema, updateInheritanceSchema, recalculateCostingSchema } from '../schemas/orderItems.schema';
 
 const router = Router();
 
@@ -24,13 +26,13 @@ router.use(authenticateToken);
 // CAD Selection
 // ============================================
 // Select CAD width for an order item
-router.patch('/:id/select-cad', asyncHandler(selectCadForOrder));
+router.patch('/:id/select-cad', validateBody(selectCadSchema), asyncHandler(selectCadForOrder));
 
 // ============================================
 // Inheritance Settings
 // ============================================
 // Toggle sample/inspection inheritance
-router.patch('/:id/inheritance', asyncHandler(updateInheritanceSettings));
+router.patch('/:id/inheritance', validateBody(updateInheritanceSchema), asyncHandler(updateInheritanceSettings));
 
 // ============================================
 // Costing
@@ -39,7 +41,7 @@ router.patch('/:id/inheritance', asyncHandler(updateInheritanceSettings));
 router.get('/:id/costing', asyncHandler(getOrderItemCosting));
 
 // Recalculate costing based on selected CAD
-router.post('/:id/recalculate-costing', asyncHandler(recalculateOrderCosting));
+router.post('/:id/recalculate-costing', validateBody(recalculateCostingSchema), asyncHandler(recalculateOrderCosting));
 
 // Get costing comparison (base style vs order-specific)
 router.get('/:id/costing-comparison', asyncHandler(getCostingComparison));

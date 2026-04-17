@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logger } from '../utils/logger';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, StitchingIssueStatus } from '@prisma/client';
@@ -326,7 +327,7 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Failed to create production_tracking for stitching:', err);
+    logger.error('Failed to create production_tracking for stitching:', err);
   }
 
   res.status(201).json({ data: transformStitchingIssue(issue) });

@@ -16,6 +16,13 @@ import {
 } from '../controllers/season.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createSeasonSchema,
+  updateSeasonSchema,
+  generateSeasonsSchema,
+  seasonQuerySchema,
+} from '../schemas/season.schema';
 
 const router = Router();
 
@@ -41,21 +48,21 @@ router.get('/types', asyncHandler(getSeasonTypes));
  * @desc    Generate seasons for a year range
  * @access  Private (Authenticated users)
  */
-router.post('/generate', asyncHandler(generateSeasons));
+router.post('/generate', validateBody(generateSeasonsSchema), asyncHandler(generateSeasons));
 
 /**
  * @route   POST /api/seasons
  * @desc    Create new season
  * @access  Private (Authenticated users)
  */
-router.post('/', asyncHandler(createSeason));
+router.post('/', validateBody(createSeasonSchema), asyncHandler(createSeason));
 
 /**
  * @route   GET /api/seasons
  * @desc    Get all seasons with pagination and filters
  * @access  Private (Authenticated users)
  */
-router.get('/', asyncHandler(getAllSeasons));
+router.get('/', validateQuery(seasonQuerySchema), asyncHandler(getAllSeasons));
 
 /**
  * @route   GET /api/seasons/:id
@@ -69,7 +76,7 @@ router.get('/:id', asyncHandler(getSeasonById));
  * @desc    Update season
  * @access  Private (Authenticated users)
  */
-router.put('/:id', asyncHandler(updateSeason));
+router.put('/:id', validateBody(updateSeasonSchema), asyncHandler(updateSeason));
 
 /**
  * @route   DELETE /api/seasons/:id

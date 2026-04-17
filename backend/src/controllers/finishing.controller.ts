@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logger } from '../utils/logger';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -299,7 +300,7 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Failed to create production_tracking for finishing:', err);
+    logger.error('Failed to create production_tracking for finishing:', err);
   }
 
   res.status(201).json({ data: transformFinishingIssue(issue) });
@@ -577,7 +578,7 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
       });
     }
   } catch (err) {
-    console.error('Failed to create production_tracking for finishing completion:', err);
+    logger.error('Failed to create production_tracking for finishing completion:', err);
   }
 
   res.json({ data: transformFinishingIssue(issue) });

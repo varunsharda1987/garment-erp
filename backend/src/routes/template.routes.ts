@@ -3,6 +3,8 @@ import { Router } from 'express';
 import * as templateController from '../controllers/template.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { createTemplateSchema, updateTemplateSchema, templateQuerySchema } from '../schemas/template.schema';
 
 const router = Router();
 
@@ -15,14 +17,14 @@ router.use(authenticateToken);
  * @access  Private (Admin)
  * @body    { moduleName, templateName, description?, columnConfig, isDefault? }
  */
-router.post('/', asyncHandler(templateController.createTemplate));
+router.post('/', validateBody(createTemplateSchema), asyncHandler(templateController.createTemplate));
 
 /**
  * @route   GET /api/templates?module=customers
  * @desc    Get all templates for a module (via query param)
  * @access  Private
  */
-router.get('/', asyncHandler(templateController.getTemplates));
+router.get('/', validateQuery(templateQuerySchema), asyncHandler(templateController.getTemplates));
 
 /**
  * @route   GET /api/templates/modules
@@ -58,7 +60,7 @@ router.get('/:id', asyncHandler(templateController.getTemplateById));
  * @access  Private (Admin)
  * @body    { templateName?, description?, columnConfig?, isDefault? }
  */
-router.put('/:id', asyncHandler(templateController.updateTemplate));
+router.put('/:id', validateBody(updateTemplateSchema), asyncHandler(templateController.updateTemplate));
 
 /**
  * @route   DELETE /api/templates/:id

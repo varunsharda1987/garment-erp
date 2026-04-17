@@ -80,7 +80,7 @@ export const createSupplierSchema = z
         z.undefined(),
       ])
       .optional(),
-    categoryData: z.any().optional(), // JSON field - flexible structure
+    categoryData: z.unknown().optional(), // JSON field - flexible structure
     paymentTermsId: z.union([z.string().uuid(), z.literal('')]).optional(),
     currencyCode: z.string().max(3).optional().or(z.literal('')),
     // Bank Details (all optional)
@@ -142,7 +142,7 @@ export const updateSupplierSchema = z
         z.undefined(),
       ])
       .optional(),
-    categoryData: z.any().optional(), // JSON field - flexible structure
+    categoryData: z.unknown().optional(), // JSON field - flexible structure
     paymentTermsId: z.union([z.string().uuid(), z.literal('')]).optional(),
     currencyCode: z.string().max(3).optional().or(z.literal('')),
     // Bank Details (all optional)

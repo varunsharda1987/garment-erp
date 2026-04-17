@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logger } from '../utils/logger';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
@@ -379,7 +380,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
         });
       }
     } catch (err) {
-      console.error('Failed to create production_tracking for dispatch:', err);
+      logger.error('Failed to create production_tracking for dispatch:', err);
     }
   }
 

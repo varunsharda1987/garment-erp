@@ -3,6 +3,13 @@ import { Router } from 'express';
 import * as processingMovementController from '../controllers/processingMovement.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import {
+  createProcessingMovementSchema,
+  updateProcessingMovementSchema,
+  markAsDeliveredSchema,
+  processingMovementQuerySchema,
+} from '../schemas/processing.schema';
 
 const router = Router();
 
@@ -10,15 +17,31 @@ const router = Router();
 router.use(authenticateToken);
 
 // Movement management
-router.post('/', asyncHandler(processingMovementController.createMovement));
-router.get('/', asyncHandler(processingMovementController.getAllMovements));
+router.post(
+  '/',
+  validateBody(createProcessingMovementSchema),
+  asyncHandler(processingMovementController.createMovement)
+);
+router.get(
+  '/',
+  validateQuery(processingMovementQuerySchema),
+  asyncHandler(processingMovementController.getAllMovements)
+);
 router.get('/in-transit', asyncHandler(processingMovementController.getInTransitMovements));
 router.get('/summary/transit', asyncHandler(processingMovementController.getTransitSummary));
 router.get('/batch/:batchId', asyncHandler(processingMovementController.getMovementsByBatch));
 router.get('/stage/:stageId', asyncHandler(processingMovementController.getMovementsByStage));
 router.get('/:id', asyncHandler(processingMovementController.getMovementById));
-router.put('/:id', asyncHandler(processingMovementController.updateMovement));
-router.post('/:id/deliver', asyncHandler(processingMovementController.markAsDelivered));
+router.put(
+  '/:id',
+  validateBody(updateProcessingMovementSchema),
+  asyncHandler(processingMovementController.updateMovement)
+);
+router.post(
+  '/:id/deliver',
+  validateBody(markAsDeliveredSchema),
+  asyncHandler(processingMovementController.markAsDelivered)
+);
 router.delete('/:id', asyncHandler(processingMovementController.deleteMovement));
 
 export default router;

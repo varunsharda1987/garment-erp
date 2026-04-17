@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, StitchingIssueStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -555,9 +555,7 @@ export const completeStitchingIssue = async (req: Request, res: Response) => {
     _sum: { goodQty: true },
   });
   if (!outputTotals._sum.goodQty || outputTotals._sum.goodQty <= 0) {
-    return res.status(400).json({
-      error: 'Cannot complete: no output recorded. Record daily output first.',
-    });
+    throw new ValidationError('Cannot complete: no output recorded. Record daily output first.');
   }
 
   const issue = await prisma.stitching_issues.update({
@@ -594,9 +592,7 @@ export const reopenStitchingIssue = async (req: Request, res: Response) => {
     where: { stitchingIssueId: id },
   });
   if (transferSlip) {
-    return res.status(400).json({
-      error: 'Cannot reopen: a transfer slip has already been generated for this issue',
-    });
+    throw new BusinessError('Cannot reopen: a transfer slip has already been generated for this issue');
   }
 
   const issue = await prisma.stitching_issues.update({
@@ -1105,7 +1101,7 @@ export const getAvailableManagers = async (req: Request, res: Response) => {
 export const disposeDefects = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
-  if (!userId) return res.status(401).json({ error: 'User not authenticated' });
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const { disposition, remarks } = req.body as {
     disposition: 'REWORK' | 'SCRAP';

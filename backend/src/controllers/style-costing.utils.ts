@@ -30,36 +30,36 @@ export interface TrimDetail {
   trimTotal: number;
   isNotApplicable?: boolean;
   // Metadata
-  materialType?: string;
-  unit?: string;
-  bomId?: string;
-  // Master FK fields (legacy)
-  materialId?: string;
-  threadId?: string;
-  buttonId?: string;
-  zipperId?: string;
-  elasticId?: string;
-  labelId?: string;
-  packagingId?: string;
+  materialType?: string | null;
+  unit?: string | null;
+  bomId?: string | null;
+  // Master FK fields (legacy) - allow null for Prisma compatibility
+  materialId?: string | null;
+  threadId?: string | null;
+  buttonId?: string | null;
+  zipperId?: string | null;
+  elasticId?: string | null;
+  labelId?: string | null;
+  packagingId?: string | null;
   // Generic trim FK fields
-  hookEyeId?: string;
-  snapButtonId?: string;
-  buckleId?: string;
-  beltId?: string;
-  velcroId?: string;
-  drawstringId?: string;
-  ribbonId?: string;
-  sequinId?: string;
-  beadId?: string;
-  motifId?: string;
-  interliningId?: string;
-  paddingId?: string;
-  otherFastenerId?: string;
-  otherTapeId?: string;
-  otherDecorativeId?: string;
-  otherFunctionalId?: string;
+  hookEyeId?: string | null;
+  snapButtonId?: string | null;
+  buckleId?: string | null;
+  beltId?: string | null;
+  velcroId?: string | null;
+  drawstringId?: string | null;
+  ribbonId?: string | null;
+  sequinId?: string | null;
+  beadId?: string | null;
+  motifId?: string | null;
+  interliningId?: string | null;
+  paddingId?: string | null;
+  otherFastenerId?: string | null;
+  otherTapeId?: string | null;
+  otherDecorativeId?: string | null;
+  otherFunctionalId?: string | null;
   // Generic fallback for NEW material types
-  masterId?: string;
+  masterId?: string | null;
 }
 
 export interface EmbroideryDetail {
@@ -76,14 +76,14 @@ export interface AccessoryDetail {
   accessoryRate: number;
   accessoryTotal: number;
   isNotApplicable?: boolean;
-  // Master FK fields
-  id?: string;
-  labelId?: string;
-  packagingId?: string;
-  materialId?: string;
-  materialType?: string;
+  // Master FK fields - allow null for Prisma compatibility
+  id?: string | null;
+  labelId?: string | null;
+  packagingId?: string | null;
+  materialId?: string | null;
+  materialType?: string | null;
   // Generic fallback for NEW accessory types
-  masterId?: string;
+  masterId?: string | null;
 }
 
 // ============================================================================

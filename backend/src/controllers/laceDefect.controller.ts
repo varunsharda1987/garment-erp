@@ -23,7 +23,7 @@ import {
   ClaimStatus,
 } from '../services/laceDefect.service';
 import { serialize } from '../utils/serializer';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 /**
  * POST /api/lace-defects
@@ -32,7 +32,7 @@ import { NotFoundError, ValidationError } from '../errors';
 export async function logDefect(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('Authentication required');
   }
 
   const { stockId, laceId, orderId, styleId, defectType, defectQuantity, defectDescription, discoveredAt, photos } =

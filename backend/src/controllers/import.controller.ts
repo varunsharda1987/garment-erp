@@ -3,7 +3,8 @@ import { Request, Response } from 'express';
 import importService, { ImportColumn } from '../services/import.service';
 import prisma from '../config/database';
 import { Prisma, SupplierCategory } from '@prisma/client';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
+import { ValidationError, UnauthorizedError } from '../errors';
 
 /**
  * Helper: Safely get string value from unknown type
@@ -121,33 +122,25 @@ function mapSupplierCategories(value: string): string[] {
  * Requires file upload (multipart/form-data)
  */
 export const previewImport = async (req: Request, res: Response) => {
-  try {
-    const { module } = req.params;
-    const file = req.file;
+  const { module } = req.params;
+  const file = req.file;
 
-    if (!file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    // Get column configuration for this module
-    const columns = getModuleColumns(module);
-
-    const result = await importService.previewImport({
-      columns,
-      file: file as Express.Multer.File,
-    });
-
-    res.json({
-      success: true,
-      preview: result,
-    });
-  } catch (error: unknown) {
-    logError('Import preview error:', error);
-    res.status(500).json({
-      error: 'Import preview failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+  if (!file) {
+    throw new ValidationError('No file uploaded');
   }
+
+  // Get column configuration for this module
+  const columns = getModuleColumns(module);
+
+  const result = await importService.previewImport({
+    columns,
+    file: file as Express.Multer.File,
+  });
+
+  res.json({
+    success: true,
+    preview: result,
+  });
 };
 
 /**
@@ -156,68 +149,58 @@ export const previewImport = async (req: Request, res: Response) => {
  * Requires file upload (multipart/form-data)
  */
 export const executeImport = async (req: Request, res: Response) => {
-  try {
-    const { module } = req.params;
-    const file = req.file;
-    const userId = req.user?.userId; // From auth middleware
+  const { module } = req.params;
+  const file = req.file;
+  const userId = req.user?.userId; // From auth middleware
 
-    if (!file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+  if (!file) {
+    throw new ValidationError('No file uploaded');
+  }
 
-    if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
 
-    // Get column configuration for this module
-    const columns = getModuleColumns(module);
+  // Get column configuration for this module
+  const columns = getModuleColumns(module);
 
-    // Parse and validate file
-    const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
-    let result;
+  // Parse and validate file
+  const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
+  let result;
 
-    if (fileExtension === 'csv') {
-      result = await importService.importFromCSV({ columns, file: file as Express.Multer.File });
-    } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-      result = await importService.importFromExcel({ columns, file: file as Express.Multer.File });
-    } else {
-      return res.status(400).json({ error: 'Unsupported file format. Use CSV or Excel files.' });
-    }
+  if (fileExtension === 'csv') {
+    result = await importService.importFromCSV({ columns, file: file as Express.Multer.File });
+  } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+    result = await importService.importFromExcel({ columns, file: file as Express.Multer.File });
+  } else {
+    throw new ValidationError('Unsupported file format. Use CSV or Excel files.');
+  }
 
-    // If there are errors, return them without importing
-    if (!result.success) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation errors found. Please fix and try again.',
-        errors: result.errors,
-        summary: {
-          totalRows: result.totalRows,
-          validRows: result.validRows,
-          invalidRows: result.invalidRows,
-        },
-      });
-    }
-
-    // Execute import using transaction
-    const importResult = await executeModuleImport(module, result.data!, userId);
-
-    res.json({
-      success: true,
-      message: `Successfully imported ${importResult.count} records`,
+  // If there are errors, return them without importing
+  if (!result.success) {
+    throw new ValidationError('Validation errors found. Please fix and try again.', {
+      errors: result.errors,
       summary: {
         totalRows: result.totalRows,
         validRows: result.validRows,
         invalidRows: result.invalidRows,
-        importedRows: importResult.count,
       },
     });
-  } catch (error: unknown) {
-    logError('Import execution error:', error);
-    res.status(500).json({
-      error: 'Import execution failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
   }
+
+  // Execute import using transaction
+  const importResult = await executeModuleImport(module, result.data!, userId);
+
+  res.json({
+    success: true,
+    message: `Successfully imported ${importResult.count} records`,
+    summary: {
+      totalRows: result.totalRows,
+      validRows: result.validRows,
+      invalidRows: result.invalidRows,
+      importedRows: importResult.count,
+    },
+  });
 };
 
 /**
@@ -225,43 +208,35 @@ export const executeImport = async (req: Request, res: Response) => {
  * GET /api/import/:module/template?format=csv|excel
  */
 export const downloadTemplate = async (req: Request, res: Response) => {
-  try {
-    const { module } = req.params;
-    const { format = 'excel' } = req.query;
+  const { module } = req.params;
+  const { format = 'excel' } = req.query;
 
-    // Get column configuration for this module
-    const columns = getModuleColumns(module);
+  // Get column configuration for this module
+  const columns = getModuleColumns(module);
 
-    let result: string | Buffer;
-    let contentType: string;
-    let fileExtension: string;
+  let result: string | Buffer;
+  let contentType: string;
+  let fileExtension: string;
 
-    if (format === 'csv') {
-      result = importService.generateTemplate(columns);
-      contentType = 'text/csv';
-      fileExtension = 'csv';
-    } else {
-      result = await importService.generateExcelTemplate(columns, module);
-      contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      fileExtension = 'xlsx';
-    }
-
-    const filename = `${module}_import_template.${fileExtension}`;
-
-    // Set proper headers for file download
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Length', Buffer.byteLength(result));
-    res.setHeader('Cache-Control', 'no-cache');
-
-    res.send(result);
-  } catch (error: unknown) {
-    logError('Template download error:', error);
-    res.status(500).json({
-      error: 'Template download failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+  if (format === 'csv') {
+    result = importService.generateTemplate(columns);
+    contentType = 'text/csv';
+    fileExtension = 'csv';
+  } else {
+    result = await importService.generateExcelTemplate(columns, module);
+    contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    fileExtension = 'xlsx';
   }
+
+  const filename = `${module}_import_template.${fileExtension}`;
+
+  // Set proper headers for file download
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Length', Buffer.byteLength(result));
+  res.setHeader('Cache-Control', 'no-cache');
+
+  res.send(result);
 };
 
 /**

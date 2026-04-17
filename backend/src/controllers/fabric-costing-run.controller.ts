@@ -7,7 +7,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { serialize } from '../utils/serializer';
 import { CadPurpose } from '@prisma/client';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 /**
  * GET /api/fabric-costing-runs/style/:styleId
@@ -157,10 +157,7 @@ export async function createRun(req: Request, res: Response) {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   if (!purpose) {

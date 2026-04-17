@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import prisma from '../config/database';
 
 // ============================================
@@ -49,9 +49,9 @@ export const issueToStitching = async (req: Request, res: Response) => {
     const uncutFabrics = batch.additionalFabrics.filter((af: any) => af._count.lays === 0);
     if (uncutFabrics.length > 0) {
       const names = uncutFabrics.map((af: any) => af.fabricStock?.fabricMaster?.fabricName || 'Unknown').join(', ');
-      return res.status(400).json({
-        error: `Cannot issue to stitching: ${names} has no lays recorded. All fabrics must be cut before issuing.`,
-      });
+      throw new BusinessError(
+        `Cannot issue to stitching: ${names} has no lays recorded. All fabrics must be cut before issuing.`
+      );
     }
   }
 
@@ -69,14 +69,14 @@ export const issueToStitching = async (req: Request, res: Response) => {
     const key = `${output.colorId}|${output.sizeId}`;
     const batchSku = batch.skuOutputs.find((s) => s.colorId === output.colorId && s.sizeId === output.sizeId);
     if (!batchSku) {
-      return res.status(400).json({ error: `Invalid color/size combination` });
+      throw new ValidationError('Invalid color/size combination');
     }
     const alreadyIssued = issuedMap.get(key) || 0;
     const available = batchSku.goodPcs - alreadyIssued;
     if (output.quantity > available) {
-      return res.status(400).json({
-        error: `Cannot issue ${output.quantity} for size ${output.sizeId}. Only ${available} available.`,
-      });
+      throw new ValidationError(
+        `Cannot issue ${output.quantity} for size ${output.sizeId}. Only ${available} available.`
+      );
     }
   }
 

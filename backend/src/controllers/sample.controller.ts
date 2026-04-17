@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logInfo, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 /**
  * Sample Controller
@@ -60,7 +60,7 @@ async function generateSampleNumber(sampleType: string, styleCode?: string, vers
 export const createSample = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
   const {
     customerId,
@@ -955,7 +955,7 @@ export const recordFeedback = async (req: Request, res: Response) => {
 export const createRevision = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ error: 'User not authenticated' });
+    throw new UnauthorizedError('User not authenticated');
   }
   const { id } = req.params;
 

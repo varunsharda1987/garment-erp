@@ -15,7 +15,7 @@ import {
   PurchaseOrderFilters,
 } from '../types/purchaseOrder.types';
 import { updateCostSheetActuals } from '../services/costSheet.service';
-import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
+import { NotFoundError, ValidationError, ConflictError, BusinessError, UnauthorizedError } from '../errors';
 
 /**
  * @route GET /api/purchase-orders
@@ -133,10 +133,7 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   if (!data.supplierId) {
@@ -296,10 +293,7 @@ export const sendPurchaseOrder = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const purchaseOrder = await purchaseOrderService.sendPurchaseOrder(id, userId);

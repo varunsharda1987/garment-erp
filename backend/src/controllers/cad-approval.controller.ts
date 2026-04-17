@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logInfo } from '../utils/logger';
 import { calculateCadAverage } from './cad-planning.utils';
+import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
 
 /**
  * Approve a specific CAD option for a style
@@ -28,10 +29,7 @@ export async function approveCAD(req: Request, res: Response) {
   });
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Verify CAD exists and has required data
@@ -46,27 +44,20 @@ export async function approveCAD(req: Request, res: Response) {
   });
 
   if (!cad) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', cadId);
   }
 
   // Validate that CAD has essential data before approval
   if (!cad.cadMeters || Number(cad.cadMeters) <= 0) {
-    return res.status(400).json({
-      success: false,
-      message:
-        'Cannot approve CAD: Layer length (cadMeters) must be populated with a valid value. Please complete the CAD data before approval.',
-    });
+    throw new BusinessError(
+      'Cannot approve CAD: Layer length (cadMeters) must be populated with a valid value. Please complete the CAD data before approval.'
+    );
   }
 
   if (!cad.cutableWidth || Number(cad.cutableWidth) <= 0) {
-    return res.status(400).json({
-      success: false,
-      message:
-        'Cannot approve CAD: Cutable width must be populated with a valid value. Please complete the CAD data before approval.',
-    });
+    throw new BusinessError(
+      'Cannot approve CAD: Cutable width must be populated with a valid value. Please complete the CAD data before approval.'
+    );
   }
 
   // Update style_fabrics to reference this CAD
@@ -124,10 +115,7 @@ export async function approveCADPurpose(req: Request, res: Response) {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   // Fetch CAD record
@@ -143,26 +131,17 @@ export async function approveCADPurpose(req: Request, res: Response) {
   });
 
   if (!cadRecord) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', rowId);
   }
 
   // Verify style ID matches (styleId is on style_components, not style_fabrics)
   if (cadRecord.styleFabric?.style_components?.styleId !== styleId) {
-    return res.status(400).json({
-      success: false,
-      message: 'CAD record does not belong to this style',
-    });
+    throw new BusinessError('CAD record does not belong to this style');
   }
 
   // Check if already approved
   if (cadRecord.approvalStatus === 'APPROVED') {
-    return res.status(400).json({
-      success: false,
-      message: 'CAD record is already approved',
-    });
+    throw new BusinessError('CAD record is already approved');
   }
 
   // Update approval status
@@ -231,17 +210,11 @@ export async function rejectCADPurpose(req: Request, res: Response) {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   if (!rejectionNotes) {
-    return res.status(400).json({
-      success: false,
-      message: 'Rejection notes are required',
-    });
+    throw new ValidationError('Rejection notes are required');
   }
 
   // Fetch CAD record
@@ -257,18 +230,12 @@ export async function rejectCADPurpose(req: Request, res: Response) {
   });
 
   if (!cadRecord) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', rowId);
   }
 
   // Verify style ID matches (styleId is on style_components, not style_fabrics)
   if (cadRecord.styleFabric?.style_components?.styleId !== styleId) {
-    return res.status(400).json({
-      success: false,
-      message: 'CAD record does not belong to this style',
-    });
+    throw new BusinessError('CAD record does not belong to this style');
   }
 
   // Update approval status
@@ -323,18 +290,12 @@ export async function createPlanningVersion(req: Request, res: Response) {
   });
 
   if (!baseCad) {
-    return res.status(404).json({
-      success: false,
-      message: 'Base CAD record not found',
-    });
+    throw new NotFoundError('Base CAD record', rowId);
   }
 
   // Verify it's approved
   if (baseCad.approvalStatus !== 'APPROVED') {
-    return res.status(400).json({
-      success: false,
-      message: 'Can only create new version from APPROVED CAD',
-    });
+    throw new BusinessError('Can only create new version from APPROVED CAD');
   }
 
   // Create new version
@@ -411,10 +372,7 @@ export async function copyCADPurpose(req: Request, res: Response) {
   });
 
   if (!sourceCad) {
-    return res.status(404).json({
-      success: false,
-      message: 'Source CAD not found',
-    });
+    throw new NotFoundError('Source CAD', sourceCadId);
   }
 
   // Allow copying from any approval status, but log warning if not APPROVED
@@ -435,10 +393,9 @@ export async function copyCADPurpose(req: Request, res: Response) {
   const isValidPath = validCopyPaths.some((path) => path.from === sourceCad.purpose && path.to === targetPurpose);
 
   if (!isValidPath) {
-    return res.status(400).json({
-      success: false,
-      message: `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: COSTING→RAW_MATERIAL_CALCULATION, RAW_MATERIAL_CALCULATION→PRODUCTION`,
-    });
+    throw new BusinessError(
+      `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: COSTING→RAW_MATERIAL_CALCULATION, RAW_MATERIAL_CALCULATION→PRODUCTION`
+    );
   }
 
   // Create new CAD with target purpose (Copy as Draft workflow)
@@ -566,10 +523,7 @@ export async function getCADLineage(req: Request, res: Response) {
   });
 
   if (!currentCad) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', rowId);
   }
 
   const lineage = {
@@ -604,18 +558,12 @@ export async function linkCADToStock(req: Request, res: Response) {
   });
 
   if (!cadRecord) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', cadId);
   }
 
   // Verify it's PRODUCTION purpose
   if (cadRecord.purpose !== 'PRODUCTION') {
-    return res.status(400).json({
-      success: false,
-      message: 'Only PRODUCTION CAD can be linked to stock',
-    });
+    throw new BusinessError('Only PRODUCTION CAD can be linked to stock');
   }
 
   // Fetch fabric stock
@@ -624,18 +572,12 @@ export async function linkCADToStock(req: Request, res: Response) {
   });
 
   if (!fabricStock) {
-    return res.status(404).json({
-      success: false,
-      message: 'Fabric stock not found',
-    });
+    throw new NotFoundError('Fabric stock', fabricStockId);
   }
 
   // Verify stock is available
   if (fabricStock.status !== 'AVAILABLE') {
-    return res.status(400).json({
-      success: false,
-      message: `Stock is not available (current status: ${fabricStock.status})`,
-    });
+    throw new BusinessError(`Stock is not available (current status: ${fabricStock.status})`);
   }
 
   // Calculate variance if planning width provided

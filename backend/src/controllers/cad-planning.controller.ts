@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { Prisma, FabricFinishType } from '@prisma/client';
 import prisma from '../config/database';
-import { logError, logInfo } from '../utils/logger';
+import logger, { logInfo } from '../utils/logger';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { cachedQuery, cacheKeys, cacheTTL } from '../lib/cache';
 import {
@@ -136,10 +137,7 @@ export async function generateCADOptions(req: Request, res: Response) {
   });
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Get greige to determine cutable widths
@@ -152,10 +150,7 @@ export async function generateCADOptions(req: Request, res: Response) {
     });
 
     if (!greige) {
-      return res.status(404).json({
-        success: false,
-        message: 'Greige fabric not found',
-      });
+      throw new NotFoundError('Greige fabric', greigeId);
     }
 
     // Calculate cutable widths from greige width
@@ -301,20 +296,14 @@ export async function calculateCADCost(req: Request, res: Response) {
   });
 
   if (!cad) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', cadId);
   }
 
   // Calculate effective consumption
   const cadConsumption = unit === 'meters' ? Number(cad.cadMeters || 0) : Number(cad.cadYards || 0);
 
   if (cadConsumption === 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'CAD consumption value not available. Please input CAD value first.',
-    });
+    throw new BusinessError('CAD consumption value not available. Please input CAD value first.');
   }
 
   const wastagePercent = Number(cad.cadWastagePercent);
@@ -377,10 +366,7 @@ export async function updateCADValues(req: Request, res: Response) {
   });
 
   if (!existing) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', cadId);
   }
 
   // Build update data
@@ -455,10 +441,7 @@ export async function getGreigeOptionsForGeneric(req: Request, res: Response) {
   const { genericGreigeName } = req.query;
 
   if (!genericGreigeName) {
-    return res.status(400).json({
-      success: false,
-      message: 'genericGreigeName query parameter is required',
-    });
+    throw new ValidationError('genericGreigeName query parameter is required');
   }
 
   // Find all fabrics with this generic name
@@ -522,10 +505,7 @@ export async function getStyleCADSummary(req: Request, res: Response) {
   });
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Build summary
@@ -618,10 +598,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
   });
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Extract size options from style variants
@@ -1035,10 +1012,7 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
   });
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Verify greige exists
@@ -1047,10 +1021,7 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
   });
 
   if (!greige) {
-    return res.status(404).json({
-      success: false,
-      message: 'Greige not found',
-    });
+    throw new NotFoundError('Greige', greigeId);
   }
 
   // Update all matching style_fabrics
@@ -1137,10 +1108,7 @@ export async function addCADWidth(req: Request, res: Response) {
   const { groupKey, fabricId, cutableWidth, greigeId, componentName } = req.body;
 
   if (!cutableWidth) {
-    return res.status(400).json({
-      success: false,
-      message: 'cutableWidth is required',
-    });
+    throw new ValidationError('cutableWidth is required');
   }
 
   // Parse groupKey to get genericGreigeName
@@ -1176,16 +1144,7 @@ export async function addCADWidth(req: Request, res: Response) {
       const validation = validateCutableWidth(Number(cutableWidth), greige, !!hasEmbroideryParts);
 
       if (!validation.valid) {
-        return res.status(400).json({
-          success: false,
-          message: validation.message,
-          validationError: 'CUTABLE_WIDTH_OUT_OF_RANGE',
-          greige: {
-            greigeWidth: Number(greige.greigeWidth),
-            expectedFinishedWidthMin: greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : null,
-            expectedFinishedWidthMax: greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : null,
-          },
-        });
+        throw new ValidationError(validation.message || 'Cutable width out of valid range');
       }
     }
   }
@@ -1244,11 +1203,7 @@ export async function addCADWidth(req: Request, res: Response) {
   });
 
   if (existing) {
-    return res.status(400).json({
-      success: false,
-      message: `CAD entry for width ${cutableWidth}" already exists`,
-      cadId: existing.id,
-    });
+    throw new BusinessError(`CAD entry for width ${cutableWidth}" already exists`);
   }
 
   // Create new CAD entry with printDirection from request body or default
@@ -1315,18 +1270,12 @@ export async function deleteCADWidth(req: Request, res: Response) {
   });
 
   if (!cad) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', cadId);
   }
 
   // Don't delete if it's referenced by style_fabrics
   if (cad.styleFabrics.length > 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'Cannot delete CAD that is assigned to style fabrics. Remove the assignment first.',
-    });
+    throw new BusinessError('Cannot delete CAD that is assigned to style fabrics. Remove the assignment first.');
   }
 
   // Delete the CAD (size breakdowns will cascade delete)
@@ -1393,10 +1342,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
   });
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Get selected greige ID from style_fabrics
@@ -1607,10 +1553,7 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
   });
 
   if (!existing) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', cadId);
   }
 
   // Calculate piecesPerMarker from size breakdowns if provided
@@ -1747,10 +1690,7 @@ export async function setPreferredCAD(req: Request, res: Response) {
   });
 
   if (!cad) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD record not found',
-    });
+    throw new NotFoundError('CAD record', cadId);
   }
 
   // Unset all other preferred flags for this fabric
@@ -1802,10 +1742,7 @@ export async function getStyleCADHistory(req: Request, res: Response) {
   });
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Get all style_fabrics with their CAD references
@@ -2074,10 +2011,7 @@ export async function getCADTableData(req: Request, res: Response) {
   ]);
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Also find stock by fabricId for fabrics used by this style
@@ -2704,12 +2638,9 @@ export async function addCADTableRow(req: Request, res: Response) {
 
   if (purpose === 'PRODUCTION') {
     if (!fabricStockId) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'PRODUCTION CAD requires fabric stock. Please select available stock or use COSTING/RAW_MATERIAL_CALCULATION purpose.',
-        hint: 'For planning purposes, create a COSTING or RAW_MATERIAL_CALCULATION row first. Once stock is available, create a PRODUCTION row.',
-      });
+      throw new BusinessError(
+        'PRODUCTION CAD requires fabric stock. Please select available stock or use COSTING/RAW_MATERIAL_CALCULATION purpose.'
+      );
     }
 
     // Validate stock exists and has available quantity
@@ -2724,24 +2655,19 @@ export async function addCADTableRow(req: Request, res: Response) {
     });
 
     if (!validatedStock) {
-      return res.status(404).json({
-        success: false,
-        message: 'Selected fabric stock not found.',
-      });
+      throw new NotFoundError('Fabric stock', fabricStockId);
     }
 
     if (Number(validatedStock.quantityAvailable) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Selected stock has no available quantity. Please select a different stock or wait for GRN.',
-      });
+      throw new BusinessError(
+        'Selected stock has no available quantity. Please select a different stock or wait for GRN.'
+      );
     }
 
     if (validatedStock.status !== 'AVAILABLE') {
-      return res.status(400).json({
-        success: false,
-        message: `Selected stock is not available (status: ${validatedStock.status}). Please select an AVAILABLE stock.`,
-      });
+      throw new BusinessError(
+        `Selected stock is not available (status: ${validatedStock.status}). Please select an AVAILABLE stock.`
+      );
     }
 
     // Use width from stock - this is the key business rule
@@ -2766,10 +2692,7 @@ export async function addCADTableRow(req: Request, res: Response) {
   });
 
   if (!style) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style not found',
-    });
+    throw new NotFoundError('Style', styleId);
   }
 
   // Find the style fabric
@@ -2783,10 +2706,7 @@ export async function addCADTableRow(req: Request, res: Response) {
   }
 
   if (!styleFabric) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style fabric not found',
-    });
+    throw new NotFoundError('Style fabric', styleFabricId);
   }
 
   // Auto-populate pattern part from style_pattern_parts if not provided
@@ -2835,10 +2755,7 @@ export async function addCADTableRow(req: Request, res: Response) {
       where: { id: partId },
     });
     if (!patternPart) {
-      return res.status(404).json({
-        success: false,
-        message: 'Pattern part not found',
-      });
+      throw new NotFoundError('Pattern part', partId);
     }
   }
 
@@ -3000,12 +2917,9 @@ export async function addCombinedCADRow(req: Request, res: Response) {
 
   if (purpose === 'PRODUCTION') {
     if (!fabricStockId) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'PRODUCTION combined CAD requires fabric stock. Please select available stock or use COSTING/RAW_MATERIAL_CALCULATION purpose.',
-        hint: 'For planning purposes, create a COSTING or RAW_MATERIAL_CALCULATION row first. Once stock is available, create a PRODUCTION row.',
-      });
+      throw new BusinessError(
+        'PRODUCTION combined CAD requires fabric stock. Please select available stock or use COSTING/RAW_MATERIAL_CALCULATION purpose.'
+      );
     }
 
     // Validate stock exists and has available quantity
@@ -3020,24 +2934,19 @@ export async function addCombinedCADRow(req: Request, res: Response) {
     });
 
     if (!validatedStock) {
-      return res.status(404).json({
-        success: false,
-        message: 'Selected fabric stock not found.',
-      });
+      throw new NotFoundError('Fabric stock', fabricStockId);
     }
 
     if (Number(validatedStock.quantityAvailable) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Selected stock has no available quantity. Please select a different stock or wait for GRN.',
-      });
+      throw new BusinessError(
+        'Selected stock has no available quantity. Please select a different stock or wait for GRN.'
+      );
     }
 
     if (validatedStock.status !== 'AVAILABLE') {
-      return res.status(400).json({
-        success: false,
-        message: `Selected stock is not available (status: ${validatedStock.status}). Please select an AVAILABLE stock.`,
-      });
+      throw new BusinessError(
+        `Selected stock is not available (status: ${validatedStock.status}). Please select an AVAILABLE stock.`
+      );
     }
 
     // Use width from stock
@@ -3047,10 +2956,7 @@ export async function addCombinedCADRow(req: Request, res: Response) {
 
   // Validate input
   if (!styleFabricIds || !Array.isArray(styleFabricIds) || styleFabricIds.length < 2) {
-    return res.status(400).json({
-      success: false,
-      message: 'At least 2 style fabrics are required for combined cutting',
-    });
+    throw new ValidationError('At least 2 style fabrics are required for combined cutting');
   }
 
   // Fetch all style fabrics with their component info
@@ -3082,10 +2988,7 @@ export async function addCombinedCADRow(req: Request, res: Response) {
 
   // Check all fabrics were found
   if (styleFabrics.length !== styleFabricIds.length) {
-    return res.status(404).json({
-      success: false,
-      message: 'One or more style fabrics not found',
-    });
+    throw new NotFoundError('Style fabrics', 'one or more not found');
   }
 
   // Extract component names for display
@@ -3100,28 +3003,20 @@ export async function addCombinedCADRow(req: Request, res: Response) {
 
   for (const sf of styleFabrics) {
     if (sf.genericGreigeName !== genericGreigeName) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot combine fabrics with different generic names: "${genericGreigeName}" vs "${sf.genericGreigeName}"`,
-      });
+      throw new BusinessError(
+        `Cannot combine fabrics with different generic names: "${genericGreigeName}" vs "${sf.genericGreigeName}"`
+      );
     }
     if (sf.fabricFinishType !== fabricFinishType) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot combine fabrics with different finish types: "${fabricFinishType}" vs "${sf.fabricFinishType}"`,
-      });
+      throw new BusinessError(
+        `Cannot combine fabrics with different finish types: "${fabricFinishType}" vs "${sf.fabricFinishType}"`
+      );
     }
     if (sf.hasEmbroidery !== hasEmbroidery) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot combine plain and embroidered fabrics',
-      });
+      throw new BusinessError('Cannot combine plain and embroidered fabrics');
     }
     if (hasEmbroidery && sf.embroideryId !== embroideryId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot combine fabrics with different embroidery designs',
-      });
+      throw new BusinessError('Cannot combine fabrics with different embroidery designs');
     }
   }
 
@@ -3265,10 +3160,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
   });
 
   if (!existingCad) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD row not found',
-    });
+    throw new NotFoundError('CAD row', rowId);
   }
 
   // Validate and apply default width based on greige
@@ -3284,10 +3176,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
     });
 
     if (!greige) {
-      return res.status(404).json({
-        success: false,
-        message: 'Greige not found',
-      });
+      throw new NotFoundError('Greige', effectiveGreigeId);
     }
 
     // Set default based on greige width
@@ -3305,10 +3194,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
     // Validate width against greige range
     const validation = validateCutableWidth(validatedWidth, greige, isEmbroidery ?? existingCad.isEmbroidery);
     if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        message: validation.message,
-      });
+      throw new ValidationError(validation.message || 'Cutable width validation failed');
     }
   } else if (greigeId && greigeId !== existingCad.greigeId && validatedWidth) {
     // Greige changed but width was provided - validate width against new greige
@@ -3319,10 +3205,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
     if (greige) {
       const validation = validateCutableWidth(validatedWidth, greige, isEmbroidery ?? existingCad.isEmbroidery);
       if (!validation.valid) {
-        return res.status(400).json({
-          success: false,
-          message: validation.message,
-        });
+        throw new ValidationError(validation.message || 'Cutable width validation failed');
       }
     }
   }
@@ -3587,7 +3470,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
       }
     } catch (costingError) {
       // Don't fail the CAD save if costing calculation fails
-      logError('Auto-trigger fabric costing failed (non-critical):', costingError);
+      logger.error('Auto-trigger fabric costing failed (non-critical):', costingError);
     }
   }
 
@@ -3704,7 +3587,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
       }
     } catch (varianceError) {
       // Don't fail the CAD save if variance calculation fails
-      logError('PRODUCTION variance calculation failed (non-critical):', varianceError);
+      logger.error('PRODUCTION variance calculation failed (non-critical):', varianceError);
     }
   }
 
@@ -3787,10 +3670,7 @@ export async function deleteCADTableRow(req: Request, res: Response) {
   });
 
   if (!existingCad) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD row not found',
-    });
+    throw new NotFoundError('CAD row', rowId);
   }
 
   // Unlink from style fabrics first
@@ -3847,10 +3727,7 @@ export async function getGreigeWidths(req: Request, res: Response) {
   });
 
   if (!greige) {
-    return res.status(404).json({
-      success: false,
-      message: 'Greige not found',
-    });
+    throw new NotFoundError('Greige', greigeId);
   }
 
   const minWidth = greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 36;

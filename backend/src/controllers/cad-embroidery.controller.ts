@@ -6,7 +6,8 @@
 
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { logError, logInfo } from '../utils/logger';
+import { logInfo } from '../utils/logger';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { ALL_PARTS_CODE, getDefaultLayerMargin } from './cad-planning.utils';
 
@@ -38,10 +39,7 @@ export async function getEmbroideryCad(req: Request, res: Response) {
   });
 
   if (!styleFabric) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style fabric not found',
-    });
+    throw new NotFoundError('Style fabric', fabricId);
   }
 
   // Check if there are any embroidery parts
@@ -161,17 +159,13 @@ export async function createOrUpdateEmbroideryCad(req: Request, res: Response) {
   });
 
   if (!styleFabric) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style fabric not found',
-    });
+    throw new NotFoundError('Style fabric', fabricId);
   }
 
   if (styleFabric.stylePatternParts.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'No embroidery parts marked for this fabric. Mark pattern parts as "goes to embroidery" first.',
-    });
+    throw new BusinessError(
+      'No embroidery parts marked for this fabric. Mark pattern parts as "goes to embroidery" first.'
+    );
   }
 
   // Check if embroidery CAD exists
@@ -311,10 +305,7 @@ export async function deleteEmbroideryCad(req: Request, res: Response) {
   });
 
   if (!styleFabric) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style fabric not found',
-    });
+    throw new NotFoundError('Style fabric', fabricId);
   }
 
   // Check if embroidery CAD exists
@@ -323,10 +314,7 @@ export async function deleteEmbroideryCad(req: Request, res: Response) {
   });
 
   if (!embroideryCad) {
-    return res.status(404).json({
-      success: false,
-      message: 'Embroidery CAD not found',
-    });
+    throw new NotFoundError('Embroidery CAD', fabricId);
   }
 
   // Delete size breakdowns first (cascade)
@@ -369,10 +357,7 @@ export async function getTotalFabricCad(req: Request, res: Response) {
   });
 
   if (!styleFabric) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style fabric not found',
-    });
+    throw new NotFoundError('Style fabric', fabricId);
   }
 
   // Get main CAD (selected fabric_width_cad)
@@ -446,10 +431,7 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
   const userId = req.user?.userId;
 
   if (!fabricStockId) {
-    return res.status(400).json({
-      success: false,
-      message: 'fabricStockId is required',
-    });
+    throw new ValidationError('fabricStockId is required');
   }
 
   // 1. Fetch fabric stock details
@@ -466,10 +448,7 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
   });
 
   if (!fabricStock) {
-    return res.status(404).json({
-      success: false,
-      message: 'Fabric stock not found',
-    });
+    throw new NotFoundError('Fabric stock', fabricStockId);
   }
 
   // 1b. Auto-resolve styleFabricId if not provided
@@ -674,10 +653,7 @@ export async function approveProductionVariance(req: Request, res: Response) {
   const userId = req.user?.userId;
 
   if (!['APPROVE', 'REJECT'].includes(action)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid action. Must be APPROVE or REJECT',
-    });
+    throw new ValidationError('Invalid action. Must be APPROVE or REJECT');
   }
 
   // Find the CAD row
@@ -697,26 +673,17 @@ export async function approveProductionVariance(req: Request, res: Response) {
   });
 
   if (!cadRow) {
-    return res.status(404).json({
-      success: false,
-      message: 'CAD row not found',
-    });
+    throw new NotFoundError('CAD row', rowId);
   }
 
   // Verify this is a PRODUCTION CAD with pending variance approval
   if (cadRow.purpose !== 'PRODUCTION') {
-    return res.status(400).json({
-      success: false,
-      message: 'Variance approval only applies to PRODUCTION CAD rows',
-    });
+    throw new BusinessError('Variance approval only applies to PRODUCTION CAD rows');
   }
 
   const varianceStatus = (cadRow as any).varianceApprovalStatus;
   if (varianceStatus !== 'PENDING_APPROVAL') {
-    return res.status(400).json({
-      success: false,
-      message: `CAD row does not have pending variance approval. Current status: ${varianceStatus}`,
-    });
+    throw new BusinessError(`CAD row does not have pending variance approval. Current status: ${varianceStatus}`);
   }
 
   // Update variance approval status

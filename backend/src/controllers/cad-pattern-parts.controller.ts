@@ -7,6 +7,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { NotFoundError, ValidationError } from '../errors';
 
 // ============================================================================
 // PATTERN PARTS API ENDPOINTS
@@ -38,10 +39,7 @@ export async function getStyleFabricPatternParts(req: Request, res: Response) {
   });
 
   if (!styleFabric) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style fabric not found',
-    });
+    throw new NotFoundError('Style fabric', fabricId);
   }
 
   // Get component pattern parts from component_master
@@ -107,10 +105,7 @@ export async function assignPatternParts(req: Request, res: Response) {
   const { patternParts } = req.body;
 
   if (!patternParts || !Array.isArray(patternParts)) {
-    return res.status(400).json({
-      success: false,
-      message: 'patternParts array is required',
-    });
+    throw new ValidationError('patternParts array is required');
   }
 
   // Verify style fabric exists
@@ -124,10 +119,7 @@ export async function assignPatternParts(req: Request, res: Response) {
   });
 
   if (!styleFabric) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style fabric not found',
-    });
+    throw new NotFoundError('Style fabric', fabricId);
   }
 
   // Delete existing assignments and create new ones
@@ -197,10 +189,7 @@ export async function updatePatternPartAssignment(req: Request, res: Response) {
   });
 
   if (!existing) {
-    return res.status(404).json({
-      success: false,
-      message: 'Pattern part assignment not found',
-    });
+    throw new NotFoundError('Pattern part assignment', partId);
   }
 
   // Build update data
@@ -252,10 +241,7 @@ export async function deletePatternPartAssignment(req: Request, res: Response) {
   });
 
   if (!existing) {
-    return res.status(404).json({
-      success: false,
-      message: 'Pattern part assignment not found',
-    });
+    throw new NotFoundError('Pattern part assignment', partId);
   }
 
   await prisma.style_pattern_parts.delete({
@@ -290,10 +276,7 @@ export async function assignPatternPartsFromComponent(req: Request, res: Respons
   });
 
   if (!styleFabric) {
-    return res.status(404).json({
-      success: false,
-      message: 'Style fabric not found',
-    });
+    throw new NotFoundError('Style fabric', fabricId);
   }
 
   // Get component pattern parts from component_master
@@ -357,11 +340,9 @@ export async function assignPatternPartsFromComponent(req: Request, res: Respons
   }
 
   if (componentParts.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message:
-        'No pattern parts defined for this component (checked both component_pattern_parts and pattern_part_groups)',
-    });
+    throw new ValidationError(
+      'No pattern parts defined for this component (checked both component_pattern_parts and pattern_part_groups)'
+    );
   }
 
   // Delete existing assignments
@@ -441,18 +422,12 @@ export async function getCADPatternPartsForComponent(req: Request, res: Response
   });
 
   if (!component) {
-    return res.status(404).json({
-      success: false,
-      message: 'Component not found',
-    });
+    throw new NotFoundError('Component', componentId);
   }
 
   // Verify the component belongs to the specified style
   if (component.styleId !== styleId) {
-    return res.status(400).json({
-      success: false,
-      message: 'Component does not belong to the specified style',
-    });
+    throw new ValidationError('Component does not belong to the specified style');
   }
 
   // 2. Build a map of pattern part ID -> goesToEmbroidery from stylePatternParts

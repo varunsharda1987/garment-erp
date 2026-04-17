@@ -10,7 +10,7 @@
  */
 
 import prisma from '../config/database';
-import { Prisma } from '@prisma/client';
+import { Prisma, StockEntryType, StockStatus } from '@prisma/client';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 // ============================================================================
@@ -33,7 +33,7 @@ export interface CreateLaceStockInput {
   weightedAvgCost: number;
   purchaseCost: number;
   qualityGrade?: string;
-  stockType?: string;
+  stockType?: StockEntryType;
   createdById: string;
 }
 
@@ -76,8 +76,8 @@ export interface LaceStockFilters {
   laceId?: string;
   originStyleId?: string;
   originOrderId?: string;
-  status?: string;
-  stockType?: string;
+  status?: StockStatus;
+  stockType?: StockEntryType;
   qualityGrade?: string;
   warehouseLocation?: string;
   minQuantity?: number;

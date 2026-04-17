@@ -264,7 +264,7 @@ class EmbroideryStockService {
           originStyleId: sendOut.forStyleId || sourceStock.originStyleId,
           originOrderId: sendOut.forOrderId || sourceStock.originOrderId,
           status: 'AVAILABLE',
-          stockType: 'EMBROIDERED',
+          stockType: 'PLANNED_STOCK', // Embroidered fabric (embroideryId links to embroidery_master)
           weightedAvgCost: totalCostPerMeter,
           purchaseCost: totalCostPerMeter,
           qualityGrade: data.qualityGrade || 'A',

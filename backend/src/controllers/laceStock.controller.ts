@@ -10,6 +10,7 @@
  */
 
 import { Request, Response } from 'express';
+import { StockStatus, StockEntryType } from '@prisma/client';
 import {
   createLaceStock,
   getLaceStockById,
@@ -111,8 +112,8 @@ export async function getStocks(req: Request, res: Response) {
     laceId: laceId as string,
     originStyleId: originStyleId as string,
     originOrderId: originOrderId as string,
-    status: status as string,
-    stockType: stockType as string,
+    status: status as StockStatus | undefined,
+    stockType: stockType as StockEntryType | undefined,
     qualityGrade: qualityGrade as string,
     warehouseLocation: warehouseLocation as string,
     minQuantity: minQuantity ? parseFloat(minQuantity as string) : undefined,

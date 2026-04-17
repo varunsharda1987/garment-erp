@@ -723,7 +723,7 @@ class GRNService {
                 await tx.greige_stock_transaction.create({
                   data: {
                     stockId: processorGreigeStock.id,
-                    transactionType: 'PROCESSOR_RETURN',
+                    transactionType: 'RECEIPT', // Receiving goods returned from processor
                     quantity: -qtyToConsume,
                     balanceAfter: newAvailable,
                     referenceType: 'GRN',

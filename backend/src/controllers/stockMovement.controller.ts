@@ -474,7 +474,7 @@ export const createProcessorReturn = async (req: Request, res: Response) => {
   // Consume the received quantity from processor's stock (partial receipt)
   const result = await greigeStockService.receiveFromProcessor(greigeStockId, Number(receivedQuantity), userId, {
     notes: remarks,
-    referenceType: 'STOCK_IN',
+    referenceType: 'PROCESSING_DELIVERY',
   });
 
   res.status(201).json({

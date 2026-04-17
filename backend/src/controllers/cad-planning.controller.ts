@@ -627,6 +627,8 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
       groupKey: string;
       genericGreigeName: string;
       fabricFinishType: string | null;
+      printDesign: string | null;
+      colorName: string | null;
       hasEmbroidery: boolean;
       embroidery: {
         id: string;
@@ -652,7 +654,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
         : 'NO_EMB';
       // Include design/color in group key for proper fabric distinction
       const designColorPart =
-        fabric.printDesign || (fabric.colorMaster as any)?.colorName || fabric.fabricColor || 'Default';
+        fabric.printDesign || (fabric as any).colorMaster?.colorName || fabric.fabricColor || 'Default';
       const groupKey = `${fabric.genericGreigeName || 'Unknown'}-${fabric.fabricFinishType || 'PLAIN'}-${designColorPart}-${embroideryPart}`;
 
       if (!fabricGroupsMap.has(groupKey)) {
@@ -661,7 +663,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
           genericGreigeName: fabric.genericGreigeName || 'Unknown',
           fabricFinishType: fabric.fabricFinishType,
           printDesign: fabric.printDesign || null,
-          colorName: (fabric.colorMaster as any)?.colorName || fabric.fabricColor || null,
+          colorName: (fabric as any).colorMaster?.colorName || fabric.fabricColor || null,
           hasEmbroidery: fabric.hasEmbroidery || false,
           embroidery: fabric.embroidery
             ? {
@@ -1785,6 +1787,8 @@ export async function getStyleCADHistory(req: Request, res: Response) {
       groupKey: string;
       genericGreigeName: string;
       fabricFinishType: string;
+      printDesign: string | null;
+      colorName: string | null;
       hasEmbroidery: boolean;
       embroidery: { id: string; embroideryCode: string; designName: string } | null;
       greige: { id: string; greigeCode: string; greigeName: string; greigeWidth: number } | null;
@@ -1818,7 +1822,7 @@ export async function getStyleCADHistory(req: Request, res: Response) {
   for (const component of styleComponents) {
     for (const sf of component.style_fabrics) {
       // Include design/color in group key for proper fabric distinction
-      const designColorPart = sf.printDesign || (sf.colorMaster as any)?.colorName || sf.fabricColor || 'Default';
+      const designColorPart = sf.printDesign || (sf as any).colorMaster?.colorName || sf.fabricColor || 'Default';
       const groupKey = `${sf.genericGreigeName || 'Unknown'}-${sf.fabricFinishType || 'PLAIN'}-${designColorPart}${sf.hasEmbroidery ? '-EMB' : ''}`;
 
       if (!cadGroups[groupKey]) {
@@ -1827,7 +1831,7 @@ export async function getStyleCADHistory(req: Request, res: Response) {
           genericGreigeName: sf.genericGreigeName || 'Unknown',
           fabricFinishType: sf.fabricFinishType || 'PLAIN',
           printDesign: sf.printDesign || null,
-          colorName: (sf.colorMaster as any)?.colorName || sf.fabricColor || null,
+          colorName: (sf as any).colorMaster?.colorName || sf.fabricColor || null,
           hasEmbroidery: sf.hasEmbroidery || false,
           embroidery: sf.embroidery
             ? {
@@ -2193,9 +2197,13 @@ export async function getCADTableData(req: Request, res: Response) {
     componentId: string;
     componentName: string;
     styleFabricId: string;
+    // Legacy single-part fields (backwards compatibility)
     partId: string | null;
     partCode: string | null;
     partName: string | null;
+    // Multi-part fields
+    partIds: string[];
+    parts: Array<{ id: string; code: string; name: string; goesToEmbroidery: boolean }>;
     fabricFinishType: string | null;
     isEmbroidery: boolean;
     genericGreigeName: string | null;

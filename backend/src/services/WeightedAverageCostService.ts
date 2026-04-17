@@ -7,7 +7,7 @@
  * Formula: New WAC = (Existing Value + New Purchase Value) / (Existing Qty + New Qty)
  */
 
-import { Prisma } from '@prisma/client';
+import { Prisma, StockEntryType } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 
@@ -141,7 +141,7 @@ export class WeightedAverageCostService {
       });
 
       // Determine stock type
-      let stockType = 'PLANNED_STOCK';
+      let stockType: StockEntryType = 'PLANNED_STOCK';
       if (procurement?.isStockPurchase) {
         stockType = 'EXCESS_MOQ';
       }

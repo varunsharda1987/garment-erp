@@ -36,6 +36,51 @@ export interface OrderBOMQueryOptions extends PaginationOptions {
   isActive?: boolean;
 }
 
+// Internal types for cost sheet trim/accessory detail mapping
+interface CostSheetTrimDetail {
+  trimName?: string;
+  trimRate?: number;
+  trimQuantity?: number;
+  trimTotal?: number;
+  bomId?: string;
+  unit?: string;
+  materialType?: string;
+  threadId?: string;
+  buttonId?: string;
+  zipperId?: string;
+  elasticId?: string;
+  labelId?: string;
+  packagingId?: string;
+  materialId?: string;
+  hookEyeId?: string;
+  snapButtonId?: string;
+  buckleId?: string;
+  beltId?: string;
+  velcroId?: string;
+  drawstringId?: string;
+  ribbonId?: string;
+  sequinId?: string;
+  beadId?: string;
+  motifId?: string;
+  interliningId?: string;
+  paddingId?: string;
+  otherFastenerId?: string;
+  otherTapeId?: string;
+  otherDecorativeId?: string;
+  otherFunctionalId?: string;
+}
+
+interface CostSheetAccessoryDetail {
+  accessoryName?: string;
+  accessoryRate?: number;
+  accessoryQuantity?: number;
+  accessoryTotal?: number;
+  labelId?: string;
+  packagingId?: string;
+  materialId?: string;
+  materialType?: string;
+}
+
 // ============================================
 // Service
 // ============================================
@@ -331,8 +376,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               otherTapeId: trim.otherTapeId || undefined,
               otherDecorativeId: trim.otherDecorativeId || undefined,
               otherFunctionalId: trim.otherFunctionalId || undefined,
-              // Generic fallback for new material types
-              masterId: trim.masterId || undefined,
+              // Note: masterId fallback removed - field doesn't exist in schema
+              // Use specific FK fields (threadId, buttonId, etc.) instead
             },
           });
         }
@@ -358,8 +403,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               labelId: acc.labelId || undefined,
               packagingId: acc.packagingId || undefined,
               materialId: acc.materialId || undefined,
-              // Generic fallback for new material types
-              masterId: acc.masterId || undefined,
+              // Note: masterId fallback removed - field doesn't exist in schema
+              // Use specific FK fields (labelId, packagingId, materialId) instead
             },
           });
         }
@@ -528,13 +573,15 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     for (const material of styleMaterialBOM) {
       // Find matching price from cost sheet (trimsDetails for GARMENT_TRIM, accessoriesDetails for PACKAGING)
       const trimPrice = trimsDetails.find(
-        (t) => t.bomId === material.id || t.trimName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
+        (t: CostSheetTrimDetail) =>
+          t.bomId === material.id || t.trimName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
       );
 
       // Fallback: check accessoriesDetails for PACKAGING items
       const accessoryPrice = !trimPrice
         ? accessoriesDetails.find(
-            (a) => a.accessoryName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
+            (a: CostSheetAccessoryDetail) =>
+              a.accessoryName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
           )
         : null;
 

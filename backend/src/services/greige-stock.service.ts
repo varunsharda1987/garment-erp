@@ -1,6 +1,6 @@
 // Greige Stock Service - Manage raw greige inventory directly
 // This service uses the dedicated greige_stock table (not proxy fabric_master records)
-import { Prisma } from '@prisma/client';
+import { Prisma, StockStatus, SpecializedStockTransactionType, TransactionReferenceType } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
@@ -170,7 +170,7 @@ class GreigeStockService {
    */
   async getGreigeStock(filters?: {
     greigeId?: string;
-    status?: string;
+    status?: StockStatus;
     minQuantity?: number;
     supplierId?: string;
     sourceType?: string;
@@ -731,7 +731,7 @@ class GreigeStockService {
     userId: string,
     options?: {
       notes?: string;
-      referenceType?: string;
+      referenceType?: TransactionReferenceType;
       referenceId?: string;
     }
   ): Promise<{
@@ -780,12 +780,12 @@ class GreigeStockService {
     await prisma.greige_stock_transaction.create({
       data: {
         stockId,
-        transactionType: 'PROCESSOR_RETURN',
+        transactionType: 'RECEIPT', // Receiving greige back from processor
         quantity: new Prisma.Decimal(-sentQuantity),
         balanceAfter: new Prisma.Decimal(newAvailable),
         costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
         totalValue: costPerUnit !== null ? new Prisma.Decimal(sentQuantity * costPerUnit) : null,
-        referenceType: options?.referenceType || 'STOCK_IN',
+        referenceType: options?.referenceType || 'PROCESSING_DELIVERY',
         referenceId: options?.referenceId,
         notes:
           `Processor return: Sent ${sentQuantity}m, Received ${receivedQuantity}m. ` +
@@ -823,7 +823,7 @@ class GreigeStockService {
     userId: string,
     options?: {
       notes?: string;
-      referenceType?: string;
+      referenceType?: TransactionReferenceType;
       referenceId?: string;
     }
   ): Promise<{
@@ -866,12 +866,12 @@ class GreigeStockService {
     await prisma.greige_stock_transaction.create({
       data: {
         stockId,
-        transactionType: 'PROCESSOR_RETURN',
+        transactionType: 'RECEIPT', // Receiving greige back from processor
         quantity: new Prisma.Decimal(-receivedQuantity),
         balanceAfter: new Prisma.Decimal(remainingAtProcessor),
         costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
         totalValue: costPerUnit !== null ? new Prisma.Decimal(receivedQuantity * costPerUnit) : null,
-        referenceType: options?.referenceType || 'STOCK_IN',
+        referenceType: options?.referenceType || 'PROCESSING_DELIVERY',
         referenceId: options?.referenceId,
         notes:
           `Partial receipt from processor: ${receivedQuantity}m received. ` +

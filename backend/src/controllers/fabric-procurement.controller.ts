@@ -12,7 +12,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 // ============================================
 // Types for Fabric Procurement Controller
@@ -198,10 +198,7 @@ export const createProcurement = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   // Validate procurement type matches provided IDs

@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import exportService from '../services/export.service';
 import templateService from '../services/template.service';
 import prisma from '../config/database';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { NotFoundError, ValidationError } from '../errors';
 
 /**
  * Export data from a module
@@ -11,100 +11,88 @@ import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
  * Body: { format: 'csv' | 'excel' | 'pdf', templateId?: string, filters?: object }
  */
 export const exportData = async (req: Request, res: Response) => {
-  try {
-    const { module } = req.params;
-    const { format = 'csv', templateId, filters = {} } = req.body;
+  const { module } = req.params;
+  const { format = 'csv', templateId, filters = {} } = req.body;
 
-    // Get template (either provided or default)
-    let template;
-    let columnConfig: { fieldName: string; displayName: string }[];
+  // Get template (either provided or default)
+  let template;
+  let columnConfig: { fieldName: string; displayName: string }[];
 
-    if (templateId) {
-      template = await templateService.getTemplateById(templateId);
-      if (!template) {
-        return res.status(404).json({ error: 'Template not found' });
-      }
+  if (templateId) {
+    template = await templateService.getTemplateById(templateId);
+    if (!template) {
+      throw new NotFoundError('Template', templateId);
+    }
+    columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
+  } else {
+    template = await templateService.getDefaultTemplate(module);
+    if (template) {
       columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
     } else {
-      template = await templateService.getDefaultTemplate(module);
-      if (template) {
-        columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
-      } else {
-        // Use default columns from template service if no template exists
-        const availableColumns = templateService.getAvailableColumns(module);
-        if (availableColumns.length === 0) {
-          return res.status(400).json({
-            error: `No default columns configured for module '${module}'. Please create an export template.`,
-          });
-        }
-        columnConfig = availableColumns.map((col) => ({
-          fieldName: col.fieldName,
-          displayName: col.displayName,
-        }));
+      // Use default columns from template service if no template exists
+      const availableColumns = templateService.getAvailableColumns(module);
+      if (availableColumns.length === 0) {
+        throw new ValidationError(
+          `No default columns configured for module '${module}'. Please create an export template.`
+        );
       }
+      columnConfig = availableColumns.map((col) => ({
+        fieldName: col.fieldName,
+        displayName: col.displayName,
+      }));
     }
-
-    // Fetch data from database based on module
-    const data = await fetchModuleData(module, filters);
-
-    if (!data || data.length === 0) {
-      return res.status(404).json({ error: 'No data found to export' });
-    }
-
-    const exportOptions = {
-      columns: columnConfig,
-      data,
-      filename: `${module}_export_${new Date().toISOString().split('T')[0]}`,
-      title: template?.templateName || `${module} Export`,
-    };
-
-    // Generate export based on format
-    let result: string | Buffer;
-    let contentType: string;
-    let fileExtension: string;
-
-    switch (format.toLowerCase()) {
-      case 'csv':
-        result = await exportService.exportToCSV(exportOptions);
-        contentType = 'text/csv';
-        fileExtension = 'csv';
-        break;
-
-      case 'excel':
-      case 'xlsx':
-        result = await exportService.exportToExcel(exportOptions);
-        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-        fileExtension = 'xlsx';
-        break;
-
-      case 'pdf':
-        result = await exportService.exportToPDF(exportOptions);
-        contentType = 'application/pdf';
-        fileExtension = 'pdf';
-        break;
-
-      default:
-        return res.status(400).json({ error: 'Invalid format. Use csv, excel, or pdf.' });
-    }
-
-    // Set response headers for download
-    const filename = `${exportOptions.filename}.${fileExtension}`;
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-    // Send file
-    if (typeof result === 'string') {
-      res.send(result);
-    } else {
-      res.send(result);
-    }
-  } catch (error: unknown) {
-    logError('Export error:', error);
-    res.status(500).json({
-      error: 'Export failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
   }
+
+  // Fetch data from database based on module
+  const data = await fetchModuleData(module, filters);
+
+  if (!data || data.length === 0) {
+    throw new NotFoundError('No data found to export');
+  }
+
+  const exportOptions = {
+    columns: columnConfig,
+    data,
+    filename: `${module}_export_${new Date().toISOString().split('T')[0]}`,
+    title: template?.templateName || `${module} Export`,
+  };
+
+  // Generate export based on format
+  let result: string | Buffer;
+  let contentType: string;
+  let fileExtension: string;
+
+  switch (format.toLowerCase()) {
+    case 'csv':
+      result = await exportService.exportToCSV(exportOptions);
+      contentType = 'text/csv';
+      fileExtension = 'csv';
+      break;
+
+    case 'excel':
+    case 'xlsx':
+      result = await exportService.exportToExcel(exportOptions);
+      contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      fileExtension = 'xlsx';
+      break;
+
+    case 'pdf':
+      result = await exportService.exportToPDF(exportOptions);
+      contentType = 'application/pdf';
+      fileExtension = 'pdf';
+      break;
+
+    default:
+      throw new ValidationError('Invalid format. Use csv, excel, or pdf.');
+  }
+
+  // Set response headers for download
+  const filename = `${exportOptions.filename}.${fileExtension}`;
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+  // Send file
+  res.send(result);
 };
 
 /**

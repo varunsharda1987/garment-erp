@@ -10,7 +10,7 @@ import { OrderStatus, Priority, ProductionStage } from '@prisma/client';
 import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { updateCostSheetActuals } from '../services/costSheet.service';
-import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
+import { NotFoundError, UnauthorizedError, ValidationError, ConflictError, BusinessError } from '../errors';
 import { PrismaClient, ChallanType } from '@prisma/client';
 import { buildCuttingChartData } from './cutting.controller';
 import { createChallan, issueChallan } from '../services/challan.service';
@@ -87,10 +87,7 @@ export const createWorkOrder = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const workOrderData: CreateWorkOrderDTO = {
@@ -200,10 +197,7 @@ export const addProductionTracking = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const trackingData: ProductionTrackingDTO = {
@@ -251,10 +245,7 @@ export const approveWorkOrder = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const workOrder = await workOrderService.updateWorkOrder(id, {
@@ -279,10 +270,7 @@ export const splitWorkOrder = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const splitData: SplitWorkOrderDTO = {
@@ -328,10 +316,7 @@ export const pushToCutting = async (req: Request, res: Response) => {
   const overrideReason = req.body.overrideReason as string | undefined;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   // Material availability check is now informational — partial cutting is allowed.
@@ -527,7 +512,7 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
 export const issueFabric = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
-  if (!userId) return res.status(401).json({ success: false, message: 'User not authenticated' });
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const { lots, remarks } = req.body as {
     lots: Array<{ fabricStockId: string; fabricId: string; quantity: number; description: string }>;
@@ -802,7 +787,7 @@ async function issueMaterials(
  */
 export const issueTrims = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
-  if (!userId) return res.status(401).json({ success: false, message: 'User not authenticated' });
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const { items, remarks } = req.body as {
     items: Array<{ materialId: string; quantity: number; unit: string; description: string }>;
@@ -825,7 +810,7 @@ export const issueTrims = async (req: Request, res: Response) => {
  */
 export const issuePackaging = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
-  if (!userId) return res.status(401).json({ success: false, message: 'User not authenticated' });
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const { items, remarks } = req.body as {
     items: Array<{ materialId: string; quantity: number; unit: string; description: string }>;
@@ -946,7 +931,7 @@ export const getThreadIssuanceData = async (req: Request, res: Response) => {
 export const issueThread = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
-  if (!userId) return res.status(401).json({ success: false, message: 'User not authenticated' });
+  if (!userId) throw new UnauthorizedError('User not authenticated');
 
   const { items, remarks } = req.body as {
     items: Array<{ threadStockId: string; quantity: number; unit: string; description: string }>;

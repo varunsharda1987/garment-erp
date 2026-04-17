@@ -8,7 +8,7 @@ import { OrderBOMStatus } from '../types/order-bom.types';
 import { orderBomService } from '../services/order-bom.service';
 import workOrderService from '../services/workOrder.service';
 import { logError } from '../utils/logger';
-import { NotFoundError, BusinessError } from '../errors';
+import { NotFoundError, UnauthorizedError, BusinessError } from '../errors';
 
 // ============================================
 // VALIDATION SCHEMAS
@@ -107,10 +107,7 @@ export const createFromCostSheet = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const bom = await orderBomService.createFromCostSheet({
@@ -142,10 +139,7 @@ export const copyFromPreviousOrder = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const bom = await orderBomService.copyFromPreviousOrder({
@@ -264,10 +258,7 @@ export const approveOrderBOM = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   // Get the active BOM for this order
@@ -299,10 +290,7 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   // Get the active BOM for this order
@@ -496,10 +484,7 @@ export const calculateMRPStandalone = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   // Get the active BOM for this order
@@ -654,10 +639,7 @@ export const changeWidth = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res.status(401).json({
-      success: false,
-      error: 'User not authenticated',
-    });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const newBom = await orderBomService.createVersionWithWidthChange({

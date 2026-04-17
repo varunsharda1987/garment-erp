@@ -24,7 +24,7 @@ import {
   getStockTransactionHistory,
 } from '../services/laceStock.service';
 import { serialize } from '../utils/serializer';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, UnauthorizedError, ValidationError } from '../errors';
 
 /**
  * POST /api/lace-stock
@@ -33,7 +33,7 @@ import { NotFoundError, ValidationError } from '../errors';
 export async function createStock(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const {
@@ -175,7 +175,7 @@ export async function getAvailableStock(req: Request, res: Response) {
 export async function allocateStockController(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { id } = req.params;
@@ -212,7 +212,7 @@ export async function allocateStockController(req: Request, res: Response) {
 export async function transferStockController(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { id } = req.params;
@@ -248,7 +248,7 @@ export async function transferStockController(req: Request, res: Response) {
 export async function consumeStockController(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { allocationId } = req.params;
@@ -281,7 +281,7 @@ export async function consumeStockController(req: Request, res: Response) {
 export async function returnStockController(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { allocationId } = req.params;

@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { NotFoundError, ValidationError } from '../errors';
+import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { randomUUID } from 'crypto';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 
 // Helper to transform relations for response
 const transformLabDip = (item: any) => ({
@@ -1466,9 +1466,9 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
     }
 
     if (Number(greigeStock.quantityAvailable) < qtySentMeters) {
-      return res.status(400).json({
-        error: `Insufficient greige stock. Available: ${Number(greigeStock.quantityAvailable)} meters, Requested: ${qtySentMeters} meters`,
-      });
+      throw new ValidationError(
+        `Insufficient greige stock. Available: ${Number(greigeStock.quantityAvailable)} meters, Requested: ${qtySentMeters} meters`
+      );
     }
   }
 
@@ -1624,15 +1624,13 @@ export const deleteProcessPO = async (req: Request, res: Response, next: NextFun
 
   // Only allow delete if nothing has been sent yet
   if (job && jobStatus !== 'READY_TO_SEND') {
-    return res.status(400).json({
-      error: `Cannot delete Process PO. Job status is ${jobStatus}. Only DRAFT/READY_TO_SEND POs can be deleted.`,
-    });
+    throw new BusinessError(
+      `Cannot delete Process PO. Job status is ${jobStatus}. Only DRAFT/READY_TO_SEND POs can be deleted.`
+    );
   }
 
   if (po.status !== 'DRAFT') {
-    return res
-      .status(400)
-      .json({ error: `Cannot delete Process PO with status ${po.status}. Only DRAFT POs can be deleted.` });
+    throw new BusinessError(`Cannot delete Process PO with status ${po.status}. Only DRAFT POs can be deleted.`);
   }
 
   await prisma.$transaction(async (tx) => {
@@ -1704,7 +1702,7 @@ export const sendProcessPO = async (req: Request, res: Response, next: NextFunct
   }
 
   if (job.status !== 'READY_TO_SEND') {
-    return res.status(400).json({ error: `Cannot send. Job status is ${job.status}, expected READY_TO_SEND` });
+    throw new BusinessError(`Cannot send. Job status is ${job.status}, expected READY_TO_SEND`);
   }
 
   // Consume greige stock
@@ -1908,9 +1906,7 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
     where: { poId: id, status: { not: 'REJECTED' } },
   });
   if (existingGRN) {
-    return res.status(400).json({
-      error: `This processing PO has already been received via GRN ${(existingGRN as any).grnNumber}`,
-    });
+    throw new BusinessError(`This processing PO has already been received via GRN ${(existingGRN as any).grnNumber}`);
   }
 
   const job = (po as any).jobWorkOrder;
@@ -1919,7 +1915,7 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
   }
 
   if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
-    return res.status(400).json({ error: `Cannot receive. Job status is ${job.status}, expected AT_MILL` });
+    throw new BusinessError(`Cannot receive. Job status is ${job.status}, expected AT_MILL`);
   }
 
   if (job.receivedDate) {
@@ -2048,7 +2044,7 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, next: N
   }
 
   if (job.status !== 'RECEIVED') {
-    return res.status(400).json({ error: `Cannot quality check. Job status is ${job.status}, expected RECEIVED` });
+    throw new BusinessError(`Cannot quality check. Job status is ${job.status}, expected RECEIVED`);
   }
 
   await prisma.job_work_orders.update({
@@ -2264,7 +2260,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, ne
   }
 
   if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
-    return res.status(400).json({ error: `Cannot return unprocessed. Job status is ${job.status}, expected AT_MILL` });
+    throw new BusinessError(`Cannot return unprocessed. Job status is ${job.status}, expected AT_MILL`);
   }
 
   // Credit back to greige_stock

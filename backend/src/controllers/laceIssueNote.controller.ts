@@ -18,7 +18,7 @@ import {
   getIssueNotesByOrder,
 } from '../services/laceIssueNote.service';
 import { serialize } from '../utils/serializer';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, UnauthorizedError, ValidationError } from '../errors';
 
 /**
  * POST /api/lace-issue-notes
@@ -27,7 +27,7 @@ import { NotFoundError, ValidationError } from '../errors';
 export async function createIssueNote(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { orderId, styleId, cuttingBatchId, stockId, laceId, issuedQuantity, notes } = req.body;
@@ -63,7 +63,7 @@ export async function createIssueNote(req: Request, res: Response) {
 export async function recordConsumptionController(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { id } = req.params;
@@ -96,7 +96,7 @@ export async function recordConsumptionController(req: Request, res: Response) {
 export async function returnToStockController(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { id } = req.params;
@@ -129,7 +129,7 @@ export async function returnToStockController(req: Request, res: Response) {
 export async function closeIssueNoteController(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    throw new UnauthorizedError('User not authenticated');
   }
 
   const { id } = req.params;

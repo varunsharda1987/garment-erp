@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 import FabricStockService, { CreateStyleStockDTO, StockStatusFilter } from '../services/fabric-stock.service';
 import GreigeStockService from '../services/greige-stock.service';
 import prisma from '../config/database';
-import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { BusinessError, ValidationError } from '../errors';
 
 // ============================================
 // Types for Style Stock Controller
@@ -37,10 +37,7 @@ class StyleStockController {
       const userId = req.user?.userId || 'system';
 
       if (!entries || !Array.isArray(entries) || entries.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Entries array is required',
-        });
+        throw new ValidationError('Entries array is required');
       }
 
       // Add styleId to each entry
@@ -55,11 +52,7 @@ class StyleStockController {
       // If ALL entries failed, return error status
       if (result.success === 0 && result.failed > 0) {
         const errorDetails = result.errors.map((e) => e.error).join('; ');
-        return res.status(400).json({
-          success: false,
-          message: `All ${result.failed} stock entries failed: ${errorDetails}`,
-          data: result,
-        });
+        throw new BusinessError(`All ${result.failed} stock entries failed: ${errorDetails}`);
       }
 
       return res.status(200).json({
@@ -90,10 +83,7 @@ class StyleStockController {
       // Validate status filter
       const validStatuses: StockStatusFilter[] = ['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ALL'];
       if (!validStatuses.includes(statusFilter)) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid status filter. Must be one of: ${validStatuses.join(', ')}`,
-        });
+        throw new ValidationError(`Invalid status filter. Must be one of: ${validStatuses.join(', ')}`);
       }
 
       const stockData = await FabricStockService.getAvailableStockForStyle(styleId, statusFilter);
@@ -381,7 +371,7 @@ class StyleStockController {
       const { adjustmentType, quantity, reason, remarks } = req.body;
 
       if (!adjustmentType || !quantity || !reason) {
-        return res.status(400).json({ success: false, message: 'adjustmentType, quantity, and reason are required' });
+        throw new ValidationError('adjustmentType, quantity, and reason are required');
       }
 
       const result = await GreigeStockService.adjustGreigeStock(
@@ -454,10 +444,7 @@ class StyleStockController {
       const { styleIds } = req.body;
 
       if (!styleIds || !Array.isArray(styleIds)) {
-        return res.status(400).json({
-          success: false,
-          message: 'styleIds array is required',
-        });
+        throw new ValidationError('styleIds array is required');
       }
 
       const results = await Promise.all(
@@ -522,10 +509,7 @@ class StyleStockController {
       const { processorId } = req.params;
 
       if (!processorId) {
-        return res.status(400).json({
-          success: false,
-          message: 'processorId is required',
-        });
+        throw new ValidationError('processorId is required');
       }
 
       const stocks = await GreigeStockService.getProcessorGreigeStock(processorId);

@@ -27,6 +27,8 @@ export interface AuthResponse {
 
 export interface JWTPayload {
   userId: string;
+  /** Alias for userId - both are available for convenience */
+  id: string;
   email: string;
   role: UserRole;
 }

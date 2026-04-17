@@ -103,6 +103,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   // Generate JWT token
   const token = generateToken({
     userId: user.id,
+    id: user.id, // Alias for userId - both are available for convenience
     email: user.email,
     role: user.role,
   });

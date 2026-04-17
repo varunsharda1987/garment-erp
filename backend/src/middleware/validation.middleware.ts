@@ -53,7 +53,7 @@ export const validateQuery = <T extends ZodSchema>(schema: T) => {
     try {
       // Validate query params - store result in req.validatedQuery since req.query is read-only
       const validated = schema.parse(req.query) as Record<string, unknown>;
-      (req as any).validatedQuery = validated;
+      req.validatedQuery = validated;
       // Also copy validated values back to query object properties
       Object.keys(validated).forEach((key) => {
         (req.query as Record<string, unknown>)[key] = validated[key];
@@ -81,7 +81,7 @@ export const validateParams = <T extends ZodSchema>(schema: T) => {
     try {
       // Validate params - store result in req.validatedParams since req.params is read-only
       const validated = schema.parse(req.params) as Record<string, unknown>;
-      (req as any).validatedParams = validated;
+      req.validatedParams = validated;
       // Also copy validated values back to params object properties
       Object.keys(validated).forEach((key) => {
         (req.params as Record<string, unknown>)[key] = validated[key];

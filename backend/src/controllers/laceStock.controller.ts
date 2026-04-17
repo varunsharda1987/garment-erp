@@ -31,7 +31,7 @@ import { NotFoundError, ValidationError } from '../errors';
  * Create a new lace stock entry
  */
 export async function createStock(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
@@ -173,7 +173,7 @@ export async function getAvailableStock(req: Request, res: Response) {
  * Allocate stock to an order/style
  */
 export async function allocateStockController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
@@ -210,7 +210,7 @@ export async function allocateStockController(req: Request, res: Response) {
  * Transfer stock to another style
  */
 export async function transferStockController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
@@ -246,7 +246,7 @@ export async function transferStockController(req: Request, res: Response) {
  * Consume allocated stock (issue to production)
  */
 export async function consumeStockController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
@@ -279,7 +279,7 @@ export async function consumeStockController(req: Request, res: Response) {
  * Return unused stock from production
  */
 export async function returnStockController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }

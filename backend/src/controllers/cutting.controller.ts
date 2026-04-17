@@ -630,7 +630,7 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
 
     const returnChallan = await createFabricReturnChallan({
       workOrderId: existing.workOrderId,
-      issuedById: (req as any).user?.id || existing.createdById,
+      issuedById: req.user?.id || existing.createdById,
       items: returnItems,
       remarks: `Fabric return from cutting batch ${existing.batchNumber} completion`,
     });

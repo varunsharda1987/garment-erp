@@ -25,7 +25,7 @@ import { NotFoundError, ValidationError } from '../errors';
  * Create a new lace issue note (issue to production)
  */
 export async function createIssueNote(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
@@ -61,7 +61,7 @@ export async function createIssueNote(req: Request, res: Response) {
  * Record lace consumption during production
  */
 export async function recordConsumptionController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
@@ -94,7 +94,7 @@ export async function recordConsumptionController(req: Request, res: Response) {
  * Return unused lace to stock
  */
 export async function returnToStockController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
@@ -127,7 +127,7 @@ export async function returnToStockController(req: Request, res: Response) {
  * Close an issue note (finalize)
  */
 export async function closeIssueNoteController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }

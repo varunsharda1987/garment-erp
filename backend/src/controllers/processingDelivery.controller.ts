@@ -7,7 +7,7 @@ import { ValidationError } from '../errors';
  * Create a new processing delivery
  */
 export async function createDelivery(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({
       success: false,

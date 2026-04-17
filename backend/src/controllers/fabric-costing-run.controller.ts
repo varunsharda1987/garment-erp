@@ -154,7 +154,7 @@ export async function getRunById(req: Request, res: Response) {
 export async function createRun(req: Request, res: Response) {
   const { styleId } = req.params;
   const { purpose, fabricCadIds } = req.body;
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     return res.status(401).json({

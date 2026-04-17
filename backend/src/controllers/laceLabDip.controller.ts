@@ -15,7 +15,7 @@ import { NotFoundError, ValidationError } from '../errors';
  * Create a new lace lab dip request
  */
 export async function createLabDip(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({
       success: false,

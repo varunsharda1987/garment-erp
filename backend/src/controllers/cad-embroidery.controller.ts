@@ -443,7 +443,7 @@ export async function getTotalFabricCad(req: Request, res: Response) {
 export async function createProductionCADFromStock(req: Request, res: Response) {
   const { styleId } = req.params;
   const { fabricStockId, styleFabricId, basedOnPlanningCadId, componentId, greigeId, patternPartId } = req.body;
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!fabricStockId) {
     return res.status(400).json({

@@ -17,7 +17,7 @@ export const createTestTemplate = async (req: Request, res: Response): Promise<v
 };
 
 export const getAllTestTemplates = async (req: Request, res: Response): Promise<void> => {
-  const result = await testTemplatesService.getAllTemplates((req as any).validatedQuery || req.query);
+  const result = await testTemplatesService.getAllTemplates(req.validatedQuery || req.query);
 
   res.json({
     data: result.data,

@@ -61,7 +61,7 @@ export class CreditNoteController {
       throw new ValidationError('At least one item is required');
     }
 
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError('User not authenticated');
     }

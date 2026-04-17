@@ -44,7 +44,7 @@ export class StockProductionOrderController {
 
   async create(req: Request, res: Response) {
     const { styleId, totalQuantity, targetDate, priority, remarks, items } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!styleId) {
       throw new ValidationError('Style is required');
@@ -89,7 +89,7 @@ export class StockProductionOrderController {
 
   async approve(req: Request, res: Response) {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const spo = await stockProductionOrderService.approve(id, userId);
     res.json(spo);
@@ -97,7 +97,7 @@ export class StockProductionOrderController {
 
   async generateWorkOrders(req: Request, res: Response) {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const workOrder = await stockProductionOrderService.generateWorkOrders(id, userId);
     res.status(201).json(workOrder);

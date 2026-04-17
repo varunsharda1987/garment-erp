@@ -42,7 +42,7 @@ export class SaleOrderController {
 
   async create(req: Request, res: Response) {
     const { customerId, expectedShipDate, remarks, items } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!customerId) {
       throw new ValidationError('Customer is required');
@@ -83,7 +83,7 @@ export class SaleOrderController {
 
   async confirm(req: Request, res: Response) {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const so = await saleOrderService.confirm(id, userId);
     res.json(so);
@@ -91,7 +91,7 @@ export class SaleOrderController {
 
   async allocateStock(req: Request, res: Response) {
     const { saleOrderItemId, fgStockId, quantity } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!saleOrderItemId || !fgStockId || !quantity) {
       throw new ValidationError('saleOrderItemId, fgStockId, and quantity are required');

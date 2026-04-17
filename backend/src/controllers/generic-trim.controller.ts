@@ -346,7 +346,7 @@ export const create = async (req: Request, res: Response) => {
   }
 
   // Get user ID from auth (optional)
-  const userId = (req as any).user?.userId || null;
+  const userId = req.user?.userId || null;
 
   // Create the item
   const item = await model.create({

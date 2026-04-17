@@ -31,11 +31,13 @@ export interface JWTPayload {
   role: UserRole;
 }
 
-// Extend Express Request type to include user
+// Extend Express Request type to include user and validated data
 declare global {
   namespace Express {
     interface Request {
       user?: JWTPayload;
+      validatedQuery?: Record<string, unknown>;
+      validatedParams?: Record<string, unknown>;
     }
   }
 }

@@ -769,7 +769,7 @@ export const deleteDyeJob = async (req: Request, res: Response, next: NextFuncti
 export const sendToMill = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
   const { sentDate, challanNumber, vehicleNumber } = req.body;
-  const userId = (req as any).user?.userId || (req as any).user?.id;
+  const userId = req.user?.userId || req.user?.id;
 
   const existing = await prisma.job_work_orders.findUnique({
     where: { id },
@@ -1036,7 +1036,7 @@ export const qualityCheck = async (req: Request, res: Response, next: NextFuncti
 // Update stock after quality check — creates fabric_stock entry for finished fabric
 export const updateStock = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
-  const userId = (req as any).user?.userId || (req as any).user?.id;
+  const userId = req.user?.userId || req.user?.id;
 
   const existing = await prisma.job_work_orders.findUnique({
     where: { id },
@@ -1605,7 +1605,7 @@ export const deleteProcessPO = async (req: Request, res: Response, next: NextFun
 export const sendProcessPO = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
   const { sentDate, challanNumber, vehicleNumber } = req.body;
-  const userId = (req as any).user?.userId || (req as any).user?.id;
+  const userId = req.user?.userId || req.user?.id;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -1829,7 +1829,7 @@ export const receiveProcessPO = async (req: Request, res: Response, next: NextFu
     thanCount,
     foldLengthCm,
   } = req.body;
-  const userId = (req as any).user?.userId || (req as any).user?.id;
+  const userId = req.user?.userId || req.user?.id;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -2029,7 +2029,7 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, next: N
 // 8. Update Stock for Process PO (create fabric_stock entries)
 export const updateStockProcessPO = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
-  const userId = (req as any).user?.userId || (req as any).user?.id;
+  const userId = req.user?.userId || req.user?.id;
 
   const po = await prisma.purchase_orders.findUnique({
     where: { id },
@@ -2179,7 +2179,7 @@ export const updateStockProcessPO = async (req: Request, res: Response, next: Ne
 export const returnUnprocessedProcessPO = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
   const { returnedQtyMeters, returnDate, remarks } = req.body;
-  const userId = (req as any).user?.userId || (req as any).user?.id;
+  const userId = req.user?.userId || req.user?.id;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');

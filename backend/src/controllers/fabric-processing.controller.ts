@@ -183,7 +183,7 @@ export const getProcessingDetails = async (req: Request, res: Response): Promise
  */
 export const sendForProcessing = async (req: Request, res: Response): Promise<void> => {
   const data = sendForProcessingSchema.parse(req.body);
-  const userId = (req as any).user.id;
+  const userId = req.user.id;
 
   // Calculate total finished cost
   const totalFinishedCost = data.greigeCost + data.processingCost;

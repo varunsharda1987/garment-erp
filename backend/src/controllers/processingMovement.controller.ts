@@ -6,7 +6,7 @@ import processingMovementService from '../services/processingMovement.service';
  * Create a new processing movement
  */
 export async function createMovement(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({
       success: false,

@@ -24,7 +24,7 @@ class TDSController {
   }
 
   async create(req: Request, res: Response) {
-    const userId = (req as any).user?.userId;
+    const userId = req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
     const entry = await tdsService.create(req.body, userId);
     res.status(201).json(entry);

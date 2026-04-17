@@ -17,7 +17,7 @@ import { NotFoundError, ValidationError } from '../errors';
  * POST /api/challans
  */
 export async function createChallanController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -37,7 +37,7 @@ export async function createChallanController(req: Request, res: Response) {
  * PUT /api/challans/:id/issue
  */
 export async function issueChallanController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   const challan = await issueChallan(req.params.id, userId);
   return res.json({ success: true, data: challan });
 }
@@ -88,7 +88,7 @@ export async function getChallansController(req: Request, res: Response) {
  * PUT /api/challans/:id/receive
  */
 export async function receiveChallanController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -126,7 +126,7 @@ export async function getChallanStatsController(req: Request, res: Response) {
  * Creates a challan and immediately issues it (stock deduction in one step)
  */
 export async function quickIssueChallanController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -167,7 +167,7 @@ export async function resolveRateController(req: Request, res: Response) {
  * POST /api/challans/greige-outward
  */
 export async function createGreigeOutwardChallanController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -191,7 +191,7 @@ export async function createGreigeOutwardChallanController(req: Request, res: Re
  * POST /api/production-runs/:id/split
  */
 export async function splitProductionRunController(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }

@@ -23,7 +23,7 @@ export const createTestingLab = async (req: Request, res: Response): Promise<voi
  * Get all testing labs
  */
 export const getAllTestingLabs = async (req: Request, res: Response): Promise<void> => {
-  const result = await testingLabsService.getAllLabs((req as any).validatedQuery || req.query);
+  const result = await testingLabsService.getAllLabs(req.validatedQuery || req.query);
 
   res.json({
     data: result.data,

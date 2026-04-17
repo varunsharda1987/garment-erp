@@ -84,7 +84,7 @@ export async function getGreigesForRateCard(req: Request, res: Response) {
  * Update slab definitions for a processor
  */
 export async function updateSlabs(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -122,7 +122,7 @@ export async function updateSlabs(req: Request, res: Response) {
  * For PRINTING, printingType in body specifies which printing sub-type to save
  */
 export async function saveMatrix(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -172,7 +172,7 @@ export async function saveMatrix(req: Request, res: Response) {
  * For PRINTING, printingType specifies which printing sub-type to copy
  */
 export async function copyRates(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -232,7 +232,7 @@ export async function copyRates(req: Request, res: Response) {
  * For PRINTING, printingType specifies which printing sub-type to add the greige to
  */
 export async function addGreige(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -407,7 +407,7 @@ export async function getLaceProcessorMatrix(req: Request, res: Response) {
  * Bulk save lace rate matrix
  */
 export async function saveLaceMatrix(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
@@ -435,7 +435,7 @@ export async function saveLaceMatrix(req: Request, res: Response) {
  * Add a greige lace row to processor's matrix
  */
 export async function addLace(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }

@@ -74,7 +74,7 @@ export const getMovementById = async (req: Request, res: Response) => {
  * @access Private
  */
 export const createStockIn = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -149,7 +149,7 @@ export const createStockIn = async (req: Request, res: Response) => {
  * @access Private
  */
 export const createBulkStockIn = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -232,7 +232,7 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
  * @access Private
  */
 export const createStockOut = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -299,7 +299,7 @@ export const createStockOut = async (req: Request, res: Response) => {
  * @access Private
  */
 export const createStockTransfer = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -341,7 +341,7 @@ export const createStockTransfer = async (req: Request, res: Response) => {
  * @access Private (Inventory Manager only)
  */
 export const createStockAdjustment = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');
@@ -442,7 +442,7 @@ export const getStockLedger = async (req: Request, res: Response) => {
  * when all material is accounted for.
  */
 export const createProcessorReturn = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');

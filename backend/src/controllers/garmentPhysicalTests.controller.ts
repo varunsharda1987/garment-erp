@@ -17,7 +17,7 @@ export const createGarmentPhysicalTest = async (req: Request, res: Response): Pr
 };
 
 export const getAllGarmentPhysicalTests = async (req: Request, res: Response): Promise<void> => {
-  const result = await garmentPhysicalTestsService.getAllTests((req as any).validatedQuery || req.query);
+  const result = await garmentPhysicalTestsService.getAllTests(req.validatedQuery || req.query);
 
   res.json({
     data: result.data,

@@ -30,7 +30,7 @@ import { NotFoundError, ValidationError } from '../errors';
  * Log a new defect
  */
 export async function logDefect(req: Request, res: Response) {
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
   if (!userId) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }

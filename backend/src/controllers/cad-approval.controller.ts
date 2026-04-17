@@ -121,7 +121,7 @@ export async function approveCAD(req: Request, res: Response) {
 export async function approveCADPurpose(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
   const { approvalNotes } = req.body;
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     return res.status(401).json({
@@ -228,7 +228,7 @@ export async function approveCADPurpose(req: Request, res: Response) {
 export async function rejectCADPurpose(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
   const { rejectionNotes } = req.body;
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   if (!userId) {
     return res.status(401).json({
@@ -311,7 +311,7 @@ export async function rejectCADPurpose(req: Request, res: Response) {
 export async function createPlanningVersion(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
   const { versionReason } = req.body;
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   // Fetch base CAD record
   const baseCad = await prisma.fabric_width_cad.findUnique({
@@ -400,7 +400,7 @@ export async function createPlanningVersion(req: Request, res: Response) {
 export async function copyCADPurpose(req: Request, res: Response) {
   const { styleId } = req.params;
   const { sourceCadId, targetPurpose, styleFabricId, componentId, patternPartId } = req.body;
-  const userId = (req as any).user?.userId;
+  const userId = req.user?.userId;
 
   // Fetch source CAD
   const sourceCad = await prisma.fabric_width_cad.findUnique({

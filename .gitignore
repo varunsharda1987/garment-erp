@@ -54,3 +54,4 @@ coverage/
 
 # Uploaded files (stored locally, not in git)
 backend/uploads/
+.playwright-mcp/

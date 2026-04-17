@@ -1496,6 +1496,7 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
     });
     if (!fallbackStock) {
       // Create a minimal placeholder stock entry for schema compatibility
+      // Using RESERVED status to indicate this is not yet available for use
       const placeholderStock = await prisma.fabric_stock.create({
         data: {
           fabricId: labDip.fabricId,
@@ -1505,8 +1506,8 @@ export const createProcessPO = async (req: Request, res: Response, next: NextFun
           quantityReserved: new Prisma.Decimal(0),
           quantityConsumed: new Prisma.Decimal(0),
           unit: 'meters',
-          status: 'PLACEHOLDER',
-          stockType: 'GREIGE_REF',
+          status: 'RESERVED',
+          stockType: 'GENERIC',
           weightedAvgCost: new Prisma.Decimal(0),
           purchaseCost: new Prisma.Decimal(0),
           receivedDate: new Date(),

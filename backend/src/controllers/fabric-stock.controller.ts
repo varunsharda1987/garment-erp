@@ -27,7 +27,7 @@ import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper
 const StockListQuerySchema = z.object({
   fabricId: z.string().uuid().optional(),
   warehouseLocation: z.string().optional(),
-  status: z.enum(['AVAILABLE', 'RESERVED', 'CONSUMED', 'TRANSFERRED']).optional(),
+  status: z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']).optional(),
   qualityGrade: z.enum(['A', 'B', 'DEFECT']).optional(),
   stockType: z.enum(['PLANNED_STOCK', 'EXCESS_MOQ', 'CROSS_STYLE_REUSE']).optional(),
   agingDaysMin: z.number().int().nonnegative().optional(),
@@ -63,7 +63,7 @@ const CreateStockSchema = z.object({
   qualityGrade: z.enum(['A', 'B', 'DEFECT']).default('A'),
   stockType: z.enum(['GENERIC', 'EXCESS', 'PLANNED_STOCK', 'RETURNED', 'VARIANCE_UNUSED']).default('GENERIC'),
   receivedDate: z.string().or(z.date()).optional(),
-  status: z.enum(['AVAILABLE', 'RESERVED', 'CONSUMED', 'TRANSFERRED']).default('AVAILABLE'),
+  status: z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']).default('AVAILABLE'),
   procurementId: z.string().uuid().optional(),
   originStyleId: z.string().uuid().optional(),
   originOrderId: z.string().uuid().optional(),

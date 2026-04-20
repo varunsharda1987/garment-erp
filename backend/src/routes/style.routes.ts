@@ -4,6 +4,7 @@ import {
   createStyle,
   getAllStyles,
   getStyleById,
+  getStylesByCodes,
   updateStyle,
   deleteStyle,
   permanentDeleteStyle,
@@ -96,6 +97,14 @@ router.get('/deleted', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHa
  * @access  Protected - All authenticated users
  */
 router.get('/', validateQuery(styleQuerySchema), asyncHandler(getAllStyles));
+
+/**
+ * @route   GET /api/styles/by-codes
+ * @desc    Get styles by style codes (for multi-select components)
+ * @access  Protected - All authenticated users
+ * @query   codes - Comma-separated list of style codes
+ */
+router.get('/by-codes', asyncHandler(getStylesByCodes));
 
 /**
  * @route   GET /api/styles/:id

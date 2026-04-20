@@ -108,23 +108,19 @@ export function StyleCodeMultiSelect({
     }
   }, [isOpen, options.length, isLoading, fetchStyles]);
 
-  // Sync selected styles from value prop
+  // Sync selected styles from value prop using dedicated API
   useEffect(() => {
     if (value.length > 0 && selectedStyles.length === 0) {
-      // Fetch style details for the codes we have
-      // TODO: Should use a dedicated API to fetch by codes for better performance
       const fetchSelectedStyles = async () => {
         try {
-          const response = await styleService.getAllStyles(1, 50, '', undefined, undefined, undefined, 'ACTIVE');
-          const allStyles = response.data;
-          const selected = allStyles
-            .filter((style) => value.includes(style.styleCode))
-            .map((style) => ({
+          const styles = await styleService.getStylesByCodes(value);
+          setSelectedStyles(
+            styles.map((style) => ({
               id: style.id,
               styleCode: style.styleCode,
               styleName: style.styleName,
-            }));
-          setSelectedStyles(selected);
+            }))
+          );
         } catch (err) {
           console.error('Failed to load selected styles:', err);
         }

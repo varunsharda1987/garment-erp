@@ -335,6 +335,76 @@ function getChangedFields(
   return { old: sanitizeValues(old), new: sanitizeValues(changed) };
 }
 
+/**
+ * Cleanup old audit logs
+ *
+ * Deletes audit logs older than the specified number of days.
+ * Default retention is 90 days.
+ *
+ * @param retentionDays - Number of days to retain logs (default: 90)
+ * @returns Number of deleted records
+ */
+export async function cleanupOldAuditLogs(retentionDays: number = 90): Promise<number> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
+  try {
+    const result = await prisma.audit_logs.deleteMany({
+      where: {
+        timestamp: {
+          lt: cutoffDate,
+        },
+      },
+    });
+
+    logDebug(`Audit log cleanup: deleted ${result.count} records older than ${retentionDays} days`);
+    return result.count;
+  } catch (error) {
+    logError('Failed to cleanup audit logs:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get audit log statistics
+ *
+ * Returns counts and date ranges for audit logs.
+ */
+export async function getAuditLogStats(): Promise<{
+  totalCount: number;
+  oldestLog: Date | null;
+  newestLog: Date | null;
+  countByAction: Record<string, number>;
+}> {
+  const [totalCount, oldest, newest, actionCounts] = await Promise.all([
+    prisma.audit_logs.count(),
+    prisma.audit_logs.findFirst({
+      orderBy: { timestamp: 'asc' },
+      select: { timestamp: true },
+    }),
+    prisma.audit_logs.findFirst({
+      orderBy: { timestamp: 'desc' },
+      select: { timestamp: true },
+    }),
+    prisma.audit_logs.groupBy({
+      by: ['action'],
+      _count: { action: true },
+    }),
+  ]);
+
+  const countByAction: Record<string, number> = {};
+  for (const item of actionCounts) {
+    countByAction[item.action] = item._count.action;
+  }
+
+  return {
+    totalCount,
+    oldestLog: oldest?.timestamp || null,
+    newestLog: newest?.timestamp || null,
+    countByAction,
+  };
+}
+
 export default {
   createAuditLog,
   getAuditContext,
@@ -348,4 +418,6 @@ export default {
   getAuditLogsForEntity,
   getAuditLogsByUser,
   getRecentAuditLogs,
+  cleanupOldAuditLogs,
+  getAuditLogStats,
 };

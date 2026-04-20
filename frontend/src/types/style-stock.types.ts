@@ -75,6 +75,16 @@ export interface ComponentWithFabrics {
   fabrics: FabricWithCAD[];
 }
 
+export interface UnlinkedFabric {
+  fabricName: string;
+  componentName: string;
+}
+
+export interface StyleFabricsResponse {
+  components: ComponentWithFabrics[];
+  unlinkedFabrics: UnlinkedFabric[];
+}
+
 export interface StyleStockCreateResponse {
   message: string;
   stockEntries: Array<{

@@ -1,8 +1,85 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { logInfo } from '../utils/logger';
+import { logInfo, logWarn } from '../utils/logger';
 import { calculateCadAverage } from './cad-planning.utils';
 import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
+import { Decimal } from '@prisma/client/runtime/library';
+
+/**
+ * Reserve fabric stock for a PRODUCTION CAD
+ *
+ * @param fabricStockId - The fabric stock record to reserve from
+ * @param cadAverage - Meters per piece
+ * @param orderQuantityPcs - Number of pieces to produce
+ * @param cadId - CAD record ID for reference
+ * @returns The reserved quantity in meters, or null if reservation failed
+ */
+async function reserveFabricStock(
+  fabricStockId: string,
+  cadAverage: number,
+  orderQuantityPcs: number,
+  cadId: string
+): Promise<{ reservedQuantity: number; success: boolean; message: string }> {
+  // Calculate quantity needed (meters)
+  const quantityNeeded = cadAverage * orderQuantityPcs;
+
+  // Get current stock
+  const stock = await prisma.fabric_stock.findUnique({
+    where: { id: fabricStockId },
+    select: {
+      id: true,
+      quantityAvailable: true,
+      quantityReserved: true,
+      fabricId: true,
+    },
+  });
+
+  if (!stock) {
+    return { reservedQuantity: 0, success: false, message: 'Fabric stock not found' };
+  }
+
+  const available = Number(stock.quantityAvailable);
+  const currentReserved = Number(stock.quantityReserved);
+  const unreserved = available - currentReserved;
+
+  // Check if enough stock is available
+  if (unreserved < quantityNeeded) {
+    logWarn(`Insufficient stock for CAD ${cadId}:`, {
+      needed: quantityNeeded,
+      unreserved,
+      available,
+      currentReserved,
+    });
+    return {
+      reservedQuantity: 0,
+      success: false,
+      message: `Insufficient stock: need ${quantityNeeded.toFixed(2)}m, only ${unreserved.toFixed(2)}m unreserved`,
+    };
+  }
+
+  // Reserve the stock
+  const newReserved = currentReserved + quantityNeeded;
+
+  await prisma.fabric_stock.update({
+    where: { id: fabricStockId },
+    data: {
+      quantityReserved: new Decimal(newReserved),
+    },
+  });
+
+  logInfo(`Fabric stock reserved for CAD ${cadId}:`, {
+    fabricStockId,
+    quantityReserved: quantityNeeded,
+    totalReserved: newReserved,
+    remaining: available - newReserved,
+  });
+
+  return {
+    reservedQuantity: quantityNeeded,
+    success: true,
+    message: `Reserved ${quantityNeeded.toFixed(2)} meters`,
+  };
+}
 
 /**
  * Approve a specific CAD option for a style
@@ -183,8 +260,19 @@ export async function approveCADPurpose(req: Request, res: Response) {
 
   // If PRODUCTION CAD, reserve stock
   if (updated.purpose === 'PRODUCTION' && updated.fabricStockId) {
-    // TODO: Implement stock reservation logic
-    // This would update fabric_stock.quantityReserved
+    const cadAvg = updated.cadAverage ? Number(updated.cadAverage) : null;
+    const orderQty = updated.orderQuantityPcs;
+
+    if (cadAvg && cadAvg > 0 && orderQty && orderQty > 0) {
+      const reservationResult = await reserveFabricStock(updated.fabricStockId, cadAvg, orderQty, updated.id);
+
+      if (!reservationResult.success) {
+        // Log warning but don't fail approval - stock reservation is informational
+        logWarn(`Stock reservation warning for CAD ${updated.id}: ${reservationResult.message}`);
+      }
+    } else {
+      logInfo(`Skipping stock reservation for CAD ${updated.id}: missing cadAverage or orderQuantityPcs`);
+    }
   }
 
   return res.json({

@@ -955,6 +955,169 @@ class WorkOrderService {
 
     return { cancelled: result.count };
   }
+
+  /**
+   * Calculate CMT (Cut-Make-Trim) cost for a work order
+   *
+   * CMT includes: Cutting, Stitching, Finishing, Button Attachment, Handwork, Smocking
+   *
+   * @param workOrderId - Work order ID
+   * @returns CMT cost breakdown and totals
+   */
+  async calculateCMTCost(workOrderId: string): Promise<{
+    perPieceCost: number;
+    totalCost: number;
+    breakdown: {
+      cuttingCost: number;
+      stitchingCost: number;
+      finishingCost: number;
+      buttonAttachmentCost: number;
+      handworkCost: number;
+      smockingCost: number;
+    };
+    completedQuantity: number;
+  } | null> {
+    // Get work order with style
+    const workOrder = await prisma.work_orders.findUnique({
+      where: { id: workOrderId },
+      select: {
+        id: true,
+        styleId: true,
+        completedQuantity: true,
+        totalQuantity: true,
+      },
+    });
+
+    if (!workOrder) {
+      logger.warn(`CMT calculation: Work order ${workOrderId} not found`);
+      return null;
+    }
+
+    // Get the approved cost sheet for this style
+    const costSheet = await prisma.style_costing.findFirst({
+      where: {
+        styleId: workOrder.styleId,
+        isApproved: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        cuttingCost: true,
+        stitchingCost: true,
+        finishingCost: true,
+        buttonAttachmentCost: true,
+        handworkCmtCost: true,
+        smockingCost: true,
+        cmtCost: true,
+      },
+    });
+
+    if (!costSheet) {
+      logger.warn(`CMT calculation: No approved cost sheet for style ${workOrder.styleId}`);
+      return null;
+    }
+
+    // Calculate per-piece CMT cost
+    const breakdown = {
+      cuttingCost: Number(costSheet.cuttingCost) || 0,
+      stitchingCost: Number(costSheet.stitchingCost) || 0,
+      finishingCost: Number(costSheet.finishingCost) || 0,
+      buttonAttachmentCost: Number(costSheet.buttonAttachmentCost) || 0,
+      handworkCost: Number(costSheet.handworkCmtCost) || 0,
+      smockingCost: Number(costSheet.smockingCost) || 0,
+    };
+
+    // Use cmtCost if available, otherwise sum components
+    const perPieceCost =
+      Number(costSheet.cmtCost) > 0
+        ? Number(costSheet.cmtCost)
+        : Object.values(breakdown).reduce((sum, cost) => sum + cost, 0);
+
+    const totalCost = perPieceCost * workOrder.completedQuantity;
+
+    logger.info(`CMT calculation for WO ${workOrderId}:`, {
+      perPieceCost,
+      totalCost,
+      completedQuantity: workOrder.completedQuantity,
+    });
+
+    return {
+      perPieceCost,
+      totalCost,
+      breakdown,
+      completedQuantity: workOrder.completedQuantity,
+    };
+  }
+
+  /**
+   * Update order item costing with actual CMT costs
+   *
+   * Called when a work order is completed to record actual costs
+   *
+   * @param workOrderId - Work order ID
+   */
+  async updateActualCMTCosts(workOrderId: string): Promise<void> {
+    const workOrder = await prisma.work_orders.findUnique({
+      where: { id: workOrderId },
+      select: {
+        id: true,
+        orderItemId: true,
+        styleId: true,
+        completedQuantity: true,
+      },
+    });
+
+    if (!workOrder?.orderItemId) {
+      logger.info(`CMT actuals: Work order ${workOrderId} has no order item, skipping`);
+      return;
+    }
+
+    // Calculate CMT cost
+    const cmtResult = await this.calculateCMTCost(workOrderId);
+    if (!cmtResult) {
+      logger.warn(`CMT actuals: Could not calculate CMT for work order ${workOrderId}`);
+      return;
+    }
+
+    // Get or create order item costing
+    const existingCosting = await prisma.order_item_costing.findUnique({
+      where: { orderItemId: workOrder.orderItemId },
+    });
+
+    if (existingCosting) {
+      // Update with actual cost
+      // The actualCostPerPiece should factor in actual CMT
+      const currentActual = Number(existingCosting.actualCostPerPiece) || 0;
+      const estimatedCmt = Number(existingCosting.cmtTotal) || 0;
+
+      // New actual = (current actual - estimated CMT) + actual CMT
+      const newActualPerPiece = currentActual - estimatedCmt + cmtResult.perPieceCost;
+
+      // Calculate variance
+      const estimatedCost =
+        Number(existingCosting.estimatedCostPerPiece) || Number(existingCosting.totalCostPerPiece) || 0;
+      const varianceAmount = newActualPerPiece - estimatedCost;
+      const variancePercent = estimatedCost > 0 ? (varianceAmount / estimatedCost) * 100 : 0;
+
+      await prisma.order_item_costing.update({
+        where: { orderItemId: workOrder.orderItemId },
+        data: {
+          actualCostPerPiece: newActualPerPiece,
+          costVarianceAmount: varianceAmount,
+          costVariancePercent: variancePercent,
+          varianceCalculatedAt: new Date(),
+        },
+      });
+
+      logger.info(`CMT actuals updated for order item ${workOrder.orderItemId}:`, {
+        actualCmtPerPiece: cmtResult.perPieceCost,
+        newActualCostPerPiece: newActualPerPiece,
+        varianceAmount,
+        variancePercent: variancePercent.toFixed(2) + '%',
+      });
+    } else {
+      logger.warn(`CMT actuals: No order_item_costing record for order item ${workOrder.orderItemId}`);
+    }
+  }
 }
 
 export default new WorkOrderService();

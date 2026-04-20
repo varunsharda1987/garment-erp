@@ -807,6 +807,28 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }));
   }
 
+  /**
+   * Get styles by style codes (for multi-select components)
+   * Returns minimal data needed for selection
+   */
+  async getByStyleCodes(codes: string[]): Promise<{ id: string; styleCode: string; styleName: string }[]> {
+    if (codes.length === 0) return [];
+
+    const styles = await this.prisma.styles.findMany({
+      where: {
+        styleCode: { in: codes },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        styleCode: true,
+        styleName: true,
+      },
+    });
+
+    return styles;
+  }
+
   // ============================================
   // Update Methods
   // ============================================

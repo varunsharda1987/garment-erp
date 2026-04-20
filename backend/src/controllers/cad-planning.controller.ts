@@ -2315,13 +2315,18 @@ export async function getCADTableData(req: Request, res: Response) {
         const styleFabricMasterName = styleFabric.fabric?.fabricName || null;
         const styleFabricCode = styleFabric.fabric?.fabricCode || null;
 
+        // Build embroidery map from styleFabric.stylePatternParts (per-style configuration)
+        const styleFabricEmbroideryMap = new Map(
+          (styleFabric.stylePatternParts || []).map((spp: any) => [spp.patternPartId, spp.goesToEmbroidery])
+        );
+
         // Build parts array from cadPatternParts (multi-part) or fall back to single patternPart
         const cadParts = cad.cadPatternParts?.length
           ? cad.cadPatternParts.map((cp: any) => ({
               id: cp.patternPart.id,
               code: cp.patternPart.code,
               name: cp.patternPart.name,
-              goesToEmbroidery: cp.patternPart.goesToEmbroidery || false,
+              goesToEmbroidery: styleFabricEmbroideryMap.get(cp.patternPart.id) || false,
             }))
           : cad.patternPart
             ? [
@@ -2329,7 +2334,7 @@ export async function getCADTableData(req: Request, res: Response) {
                   id: cad.patternPart.id,
                   code: cad.patternPart.code,
                   name: cad.patternPart.name,
-                  goesToEmbroidery: false,
+                  goesToEmbroidery: styleFabricEmbroideryMap.get(cad.patternPart.id) || false,
                 },
               ]
             : [];
@@ -2471,13 +2476,25 @@ export async function getCADTableData(req: Request, res: Response) {
       const stockEntries = stockFabricId ? stockByFabricId.get(stockFabricId) || [] : [];
       const stockWidths = [...new Set(stockEntries.map((s) => s.width))];
 
+      // Build embroidery map from style fabric's stylePatternParts if available
+      let orphanEmbroideryMap = new Map<string, boolean>();
+      if (match) {
+        const comp = style.style_components.find((c: any) => c.id === match.componentId);
+        const sf = comp?.style_fabrics?.find((sfi: any) => sfi.id === match.styleFabricId);
+        if (sf?.stylePatternParts) {
+          orphanEmbroideryMap = new Map(
+            sf.stylePatternParts.map((spp: any) => [spp.patternPartId, spp.goesToEmbroidery])
+          );
+        }
+      }
+
       // Build parts array from cadPatternParts (multi-part) or fall back to single patternPart
       const orphanParts = (cad as any).cadPatternParts?.length
         ? (cad as any).cadPatternParts.map((cp: any) => ({
             id: cp.patternPart.id,
             code: cp.patternPart.code,
             name: cp.patternPart.name,
-            goesToEmbroidery: cp.patternPart.goesToEmbroidery || false,
+            goesToEmbroidery: orphanEmbroideryMap.get(cp.patternPart.id) || false,
           }))
         : cad.patternPart
           ? [
@@ -2485,7 +2502,7 @@ export async function getCADTableData(req: Request, res: Response) {
                 id: cad.patternPart.id,
                 code: cad.patternPart.code,
                 name: cad.patternPart.name,
-                goesToEmbroidery: false,
+                goesToEmbroidery: orphanEmbroideryMap.get(cad.patternPart.id) || false,
               },
             ]
           : [];
@@ -2810,6 +2827,13 @@ export async function addCADTableRow(req: Request, res: Response) {
 
   logInfo(`Created new CAD row ${newCad.id} for style ${styleId}${isAllParts ? ' (All Parts)' : ''}`);
 
+  // Fetch style_pattern_parts to get goesToEmbroidery values (per-style configuration)
+  const stylePatternParts = await prisma.style_pattern_parts.findMany({
+    where: { styleFabricId },
+    select: { patternPartId: true, goesToEmbroidery: true },
+  });
+  const embroideryMap = new Map(stylePatternParts.map((spp) => [spp.patternPartId, spp.goesToEmbroidery]));
+
   // Create cad_pattern_parts entries if partIds array is provided (multi-part selection)
   let createdParts: { id: string; code: string; name: string; goesToEmbroidery: boolean }[] = [];
   if (partIds.length > 0) {
@@ -2831,7 +2855,7 @@ export async function addCADTableRow(req: Request, res: Response) {
       id: cp.patternPart.id,
       code: cp.patternPart.code,
       name: cp.patternPart.name,
-      goesToEmbroidery: false, // TODO: Add goesToEmbroidery to pattern_part_master if needed
+      goesToEmbroidery: embroideryMap.get(cp.patternPart.id) || false,
     }));
     logInfo(`Created ${createdParts.length} cad_pattern_parts entries for CAD ${newCad.id}`);
   } else if (newCad.patternPart) {
@@ -2841,7 +2865,7 @@ export async function addCADTableRow(req: Request, res: Response) {
         id: newCad.patternPart.id,
         code: newCad.patternPart.code,
         name: newCad.patternPart.name,
-        goesToEmbroidery: false,
+        goesToEmbroidery: embroideryMap.get(newCad.patternPart.id) || false,
       },
     ];
   }
@@ -3164,12 +3188,24 @@ export async function updateCADTableRow(req: Request, res: Response) {
     include: {
       sizeBreakdowns: true,
       greige: true,
+      styleFabric: true,
     },
   });
 
   if (!existingCad) {
     throw new NotFoundError('CAD row', rowId);
   }
+
+  // Fetch style_pattern_parts to get goesToEmbroidery values (per-style configuration)
+  const stylePatternPartsForUpdate = existingCad.styleFabricId
+    ? await prisma.style_pattern_parts.findMany({
+        where: { styleFabricId: existingCad.styleFabricId },
+        select: { patternPartId: true, goesToEmbroidery: true },
+      })
+    : [];
+  const embroideryMapForUpdate = new Map(
+    stylePatternPartsForUpdate.map((spp) => [spp.patternPartId, spp.goesToEmbroidery])
+  );
 
   // Validate and apply default width based on greige
   let validatedWidth = cutableWidth;
@@ -3340,7 +3376,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
       id: cp.patternPart.id,
       code: cp.patternPart.code,
       name: cp.patternPart.name,
-      goesToEmbroidery: false,
+      goesToEmbroidery: embroideryMapForUpdate.get(cp.patternPart.id) || false,
     }));
     logInfo(`Updated ${updatedParts.length} cad_pattern_parts entries for CAD ${rowId}`);
   } else {
@@ -3350,7 +3386,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
           id: cp.patternPart.id,
           code: cp.patternPart.code,
           name: cp.patternPart.name,
-          goesToEmbroidery: false,
+          goesToEmbroidery: embroideryMapForUpdate.get(cp.patternPart.id) || false,
         }))
       : updatedCad.patternPart
         ? [
@@ -3358,7 +3394,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
               id: updatedCad.patternPart.id,
               code: updatedCad.patternPart.code,
               name: updatedCad.patternPart.name,
-              goesToEmbroidery: false,
+              goesToEmbroidery: embroideryMapForUpdate.get(updatedCad.patternPart.id) || false,
             },
           ]
         : [];

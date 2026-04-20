@@ -223,6 +223,29 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
+ * Get styles by codes (for multi-select components)
+ * GET /api/styles/by-codes?codes=CODE1,CODE2,CODE3
+ */
+export const getStylesByCodes = async (req: Request, res: Response): Promise<void> => {
+  const codesParam = req.query.codes as string;
+  if (!codesParam) {
+    throw new ValidationError('codes query parameter is required');
+  }
+
+  const codes = codesParam
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean);
+  if (codes.length === 0) {
+    res.status(200).json({ data: [] });
+    return;
+  }
+
+  const styles = await styleService.getByStyleCodes(codes);
+  res.status(200).json({ data: styles });
+};
+
+/**
  * Update style
  * PUT /api/styles/:id
  */

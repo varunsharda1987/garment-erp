@@ -139,28 +139,26 @@ export const updateWorkOrder = async (req: Request, res: Response) => {
   // ==========================================
   if (updateData.status === OrderStatus.COMPLETED && workOrder.styleId) {
     try {
-      // For now, use a placeholder CMT cost calculation
-      // In production, this could be based on:
-      // - Actual labor hours * rate
-      // - Actual contractor payment
-      // - Transfer slip costs
-      // Since we don't have these fields yet, we log for future implementation
-      logInfo('Work order completed - CMT actual update pending', {
-        workOrderId: id,
-        styleId: workOrder.styleId,
-        totalQuantity: workOrder.totalQuantity,
-        completedQuantity: workOrder.completedQuantity,
-      });
+      // Calculate and update actual CMT costs
+      const cmtResult = await workOrderService.calculateCMTCost(id);
 
-      // TODO: Implement actual CMT cost calculation
-      // Example:
-      // const cmtCost = calculateCMTCost(workOrder);
-      // await updateCostSheetActuals({
-      //   styleId: workOrder.styleId,
-      //   category: 'CMT',
-      //   actualCost: cmtCost,
-      //   source: 'WORK_ORDER',
-      // });
+      if (cmtResult) {
+        logInfo('Work order completed - CMT cost calculated', {
+          workOrderId: id,
+          styleId: workOrder.styleId,
+          cmtPerPiece: cmtResult.perPieceCost,
+          cmtTotal: cmtResult.totalCost,
+          completedQuantity: cmtResult.completedQuantity,
+        });
+
+        // Update order item costing with actual CMT costs
+        await workOrderService.updateActualCMTCosts(id);
+      } else {
+        logWarn('Work order completed - No CMT data available', {
+          workOrderId: id,
+          styleId: workOrder.styleId,
+        });
+      }
     } catch (error) {
       logWarn('Failed to auto-update CMT actuals from work order', error);
     }

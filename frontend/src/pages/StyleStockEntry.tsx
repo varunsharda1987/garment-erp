@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Alert, AlertDescription } from '../components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { getStyleFabrics, createStyleStock } from '../services/style-stock.service';
-import type { StyleStockEntry as StockEntry, ComponentWithFabrics } from '../types/style-stock.types';
+import type { StyleStockEntry as StockEntry, ComponentWithFabrics, UnlinkedFabric } from '../types/style-stock.types';
 import type { Style } from '../types/style.types';
 import { getStyleById } from '../services/style.service';
-import { CheckCircle, XCircle, Package } from 'lucide-react';
+import { CheckCircle, XCircle, Package, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { FABRIC_FINISH_TYPES } from '@/constants/fabric-finish-types';
 
@@ -34,6 +34,7 @@ export default function StyleStockEntry() {
 
   const [style, setStyle] = useState<Style | null>(null);
   const [components, setComponents] = useState<ComponentWithFabrics[]>([]);
+  const [unlinkedFabrics, setUnlinkedFabrics] = useState<UnlinkedFabric[]>([]);
   const [stockEntries, setStockEntries] = useState<Record<string, StockFormData>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -52,14 +53,15 @@ export default function StyleStockEntry() {
       setIsLoading(true);
       setError(null);
 
-      const [styleData, fabricsData] = await Promise.all([getStyleById(styleId!), getStyleFabrics(styleId!)]);
+      const [styleData, fabricsResponse] = await Promise.all([getStyleById(styleId!), getStyleFabrics(styleId!)]);
 
       setStyle(styleData);
-      setComponents(fabricsData);
+      setComponents(fabricsResponse.components);
+      setUnlinkedFabrics(fabricsResponse.unlinkedFabrics);
 
       // Initialize stock entries for all fabrics
       const initialEntries: Record<string, StockFormData> = {};
-      fabricsData.forEach((component) => {
+      fabricsResponse.components.forEach((component) => {
         component.fabrics.forEach((fabric) => {
           initialEntries[fabric.fabricId] = {
             fabricId: fabric.fabricId,
@@ -220,6 +222,31 @@ export default function StyleStockEntry() {
             <Alert variant="destructive" className="mb-6">
               <XCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Unlinked Fabrics Warning */}
+          {unlinkedFabrics.length > 0 && (
+            <Alert className="mb-6 border-warning bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle className="text-warning">
+                {unlinkedFabrics.length} fabric(s) not linked to Fabric Master
+              </AlertTitle>
+              <AlertDescription className="mt-2">
+                <ul className="list-disc list-inside mb-3 text-muted-foreground">
+                  {unlinkedFabrics.map((uf, idx) => (
+                    <li key={idx}>
+                      {uf.fabricName} ({uf.componentName})
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to="/fabric/new"
+                  className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+                >
+                  Create fabric in Fabric Master &rarr;
+                </Link>
+              </AlertDescription>
             </Alert>
           )}
 

@@ -62,6 +62,17 @@ export const styleService = {
   },
 
   /**
+   * Get styles by codes (for multi-select components)
+   */
+  getStylesByCodes: async (codes: string[]): Promise<{ id: string; styleCode: string; styleName: string }[]> => {
+    if (codes.length === 0) return [];
+    const response = await api.get<{ data: { id: string; styleCode: string; styleName: string }[] }>(
+      `/styles/by-codes?codes=${codes.join(',')}`
+    );
+    return response.data.data;
+  },
+
+  /**
    * Create new style
    */
   createStyle: async (data: CreateStyleFormData): Promise<StyleResponse> => {

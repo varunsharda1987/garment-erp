@@ -448,11 +448,30 @@ class CostSheetPOGenerationService {
       return sum + Number(stock.quantityAvailable || 0);
     }, 0);
 
+    // Calculate reserved quantity from fabric_stock.quantityReserved
+    const fabricReserved = fabricStock.reduce((sum, stock) => {
+      return sum + Number(stock.quantityReserved || 0);
+    }, 0);
+
+    // Also check stock_reservations for this material
+    const stockReservations = await prisma.stock_reservations.findMany({
+      where: {
+        materialId,
+        status: 'ACTIVE',
+      },
+    });
+
+    const reservationReserved = stockReservations.reduce((sum, res) => {
+      return sum + Number(res.reservedQuantity || 0) - Number(res.consumedQuantity || 0);
+    }, 0);
+
+    const totalReserved = fabricReserved + reservationReserved;
+
     return {
       materialId,
       available: available + fabricAvailable,
-      reserved: 0, // TODO: Calculate reserved from existing requirements
-      total: available + fabricAvailable,
+      reserved: totalReserved,
+      total: available + fabricAvailable - totalReserved,
       unit: 'UNITS',
     };
   }
@@ -472,11 +491,16 @@ class CostSheetPOGenerationService {
       return sum + Number(stock.quantityAvailable || 0);
     }, 0);
 
+    // Calculate reserved from greige_stock.quantityReserved
+    const reserved = greigeStock.reduce((sum, stock) => {
+      return sum + Number(stock.quantityReserved || 0);
+    }, 0);
+
     return {
       materialId: greigeId,
       available,
-      reserved: 0,
-      total: available,
+      reserved,
+      total: available - reserved,
       unit: 'METERS',
     };
   }

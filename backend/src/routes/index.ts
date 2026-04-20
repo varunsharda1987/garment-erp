@@ -132,6 +132,8 @@ import styleCommentRoutes from './style-comment.routes';
 import styleTechSpecsRoutes from './style-tech-specs.routes';
 import designerDashboardRoutes from './designer-dashboard.routes';
 import moodBoardRoutes from './mood-board.routes';
+import notificationRoutes from './notification.routes';
+import reportRoutes from './report.routes';
 // DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
 // Use Order -> Order BOM -> MRP -> PO flow instead
 // import costSheetPOGenerationRoutes from './costSheetPOGeneration.routes';
@@ -150,6 +152,7 @@ export function createApiRouter(): Router {
   router.use('/auth', authRoutes);
   router.use('/users', userRoutes);
   router.use('/dashboard', dashboardRoutes);
+  router.use('/notifications', notificationRoutes);
 
   // Style Management
   router.use('/styles', styleRoutes);
@@ -377,6 +380,9 @@ export function createApiRouter(): Router {
 
   // Background Jobs
   router.use('/jobs', jobsRoutes);
+
+  // Reports
+  router.use('/reports', reportRoutes);
 
   // Admin: Permissions
   router.use('/permissions', permissionRoutes);

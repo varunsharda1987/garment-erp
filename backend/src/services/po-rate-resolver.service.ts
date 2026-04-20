@@ -28,6 +28,68 @@ export interface RateResolutionResult {
 }
 
 // ============================================
+// LEGACY BRIDGE: material_master (Int) → materials (UUID)
+// ============================================
+
+/**
+ * Maps MaterialType to the corresponding legacy field in material_master
+ * and the matching FK field in materials table.
+ */
+const MATERIAL_TYPE_FIELD_MAP: Record<string, { legacyField: string; materialsField: string }> = {
+  LACE: { legacyField: 'legacyLaceId', materialsField: 'laceId' },
+  BUTTON: { legacyField: 'legacyButtonId', materialsField: 'buttonId' },
+  THREAD: { legacyField: 'legacyThreadId', materialsField: 'threadId' },
+  ZIPPER: { legacyField: 'legacyZipperId', materialsField: 'zipperId' },
+  ELASTIC: { legacyField: 'legacyElasticId', materialsField: 'elasticId' },
+  LABEL: { legacyField: 'legacyLabelId', materialsField: 'labelId' },
+  PACKAGING: { legacyField: 'legacyPackagingId', materialsField: 'packagingId' },
+  MACHINE_PART: { legacyField: 'legacyMachinePartId', materialsField: 'machinePartId' },
+  HOOK_EYE: { legacyField: 'legacyHookEyeId', materialsField: 'hookEyeId' },
+  SNAP_BUTTON: { legacyField: 'legacySnapButtonId', materialsField: 'snapButtonId' },
+  BUCKLE: { legacyField: 'legacyBuckleId', materialsField: 'buckleId' },
+  BELT: { legacyField: 'legacyBeltId', materialsField: 'beltId' },
+  VELCRO: { legacyField: 'legacyVelcroId', materialsField: 'velcroId' },
+  DRAWSTRING: { legacyField: 'legacyDrawstringId', materialsField: 'drawstringId' },
+  RIBBON: { legacyField: 'legacyRibbonId', materialsField: 'ribbonId' },
+  SEQUIN: { legacyField: 'legacySequinId', materialsField: 'sequinId' },
+  BEAD: { legacyField: 'legacyBeadId', materialsField: 'beadId' },
+  MOTIF: { legacyField: 'legacyMotifId', materialsField: 'motifId' },
+  INTERLINING: { legacyField: 'legacyInterliningId', materialsField: 'interliningId' },
+  PADDING: { legacyField: 'legacyPaddingId', materialsField: 'paddingId' },
+};
+
+/**
+ * Bridge function: Given a material_master Int ID, find the corresponding
+ * materials UUID ID via the legacy*Id link fields.
+ *
+ * Flow: material_master.legacyButtonId → materials.buttonId → materials.id
+ *
+ * @returns materials.id (UUID) or null if no link exists
+ */
+async function getMaterialsIdFromLegacyInt(materialMasterId: number): Promise<string | null> {
+  const master = await prisma.material_master.findUnique({
+    where: { id: materialMasterId },
+  });
+
+  if (!master) return null;
+
+  const mapping = MATERIAL_TYPE_FIELD_MAP[master.materialType];
+  if (!mapping) return null;
+
+  // Get the legacy ID (e.g., legacyButtonId = "uuid-123")
+  const legacyId = (master as Record<string, unknown>)[mapping.legacyField] as string | null;
+  if (!legacyId) return null;
+
+  // Find materials entry where the FK matches (e.g., buttonId = "uuid-123")
+  const materialsRecord = await prisma.materials.findFirst({
+    where: { [mapping.materialsField]: legacyId },
+    select: { id: true },
+  });
+
+  return materialsRecord?.id || null;
+}
+
+// ============================================
 // RATE RESOLUTION
 // ============================================
 
@@ -182,25 +244,29 @@ async function resolveTrimsRate(ctx: RateResolutionContext): Promise<RateResolut
       };
     }
 
-    // Fallback: material_supplier_mapping (Int-based, legacy)
-    // Only try if materialId is a pure integer (not UUID which would parseInt to leading digits)
+    // Fallback: Bridge OLD→NEW system via legacyId link
+    // If materialId is an Int (from material_master), find corresponding materials UUID
     const isIntegerId = /^\d+$/.test(ctx.materialId);
     if (isIntegerId) {
       const materialIdNum = parseInt(ctx.materialId, 10);
-      const supplierMapping = await prisma.material_supplier_mapping.findFirst({
-        where: {
-          supplierId: ctx.supplierId,
-          materialId: materialIdNum,
-          isActive: true,
-        },
-        select: { supplierPrice: true },
-      });
+      const materialsId = await getMaterialsIdFromLegacyInt(materialIdNum);
 
-      if (supplierMapping?.supplierPrice && Number(supplierMapping.supplierPrice) > 0) {
-        return {
-          rate: Number(supplierMapping.supplierPrice),
-          source: 'Supplier price (legacy)',
-        };
+      if (materialsId) {
+        const bridgedSupplier = await prisma.material_suppliers.findFirst({
+          where: {
+            materialId: materialsId,
+            supplierId: ctx.supplierId,
+            isActive: true,
+          },
+          select: { supplierPrice: true },
+        });
+
+        if (bridgedSupplier?.supplierPrice && Number(bridgedSupplier.supplierPrice) > 0) {
+          return {
+            rate: Number(bridgedSupplier.supplierPrice),
+            source: 'Supplier price (via legacy link)',
+          };
+        }
       }
     }
   }
@@ -245,23 +311,26 @@ async function resolveLaceRate(ctx: RateResolutionContext): Promise<RateResoluti
     }
   }
 
-  // Fallback: material_supplier_mapping (Int-based, legacy)
-  if (ctx.supplierId && ctx.laceId) {
+  // Fallback: Bridge OLD→NEW system via legacyId link
+  // If laceId is an Int (from material_master), find corresponding materials UUID
+  if (ctx.supplierId && ctx.laceId && /^\d+$/.test(ctx.laceId)) {
     const materialIdNum = parseInt(ctx.laceId, 10);
-    if (!isNaN(materialIdNum)) {
-      const supplierMapping = await prisma.material_supplier_mapping.findFirst({
+    const materialsId = await getMaterialsIdFromLegacyInt(materialIdNum);
+
+    if (materialsId) {
+      const bridgedSupplier = await prisma.material_suppliers.findFirst({
         where: {
+          materialId: materialsId,
           supplierId: ctx.supplierId,
-          materialId: materialIdNum,
           isActive: true,
         },
         select: { supplierPrice: true },
       });
 
-      if (supplierMapping?.supplierPrice && Number(supplierMapping.supplierPrice) > 0) {
+      if (bridgedSupplier?.supplierPrice && Number(bridgedSupplier.supplierPrice) > 0) {
         return {
-          rate: Number(supplierMapping.supplierPrice),
-          source: 'Supplier price (legacy)',
+          rate: Number(bridgedSupplier.supplierPrice),
+          source: 'Supplier price (via legacy link)',
         };
       }
     }
@@ -341,24 +410,28 @@ async function resolveGeneralRate(ctx: RateResolutionContext): Promise<RateResol
     }
   }
 
-  // Fallback: material_supplier_mapping (legacy Int-based)
-  // Only try if materialId is a pure integer (not UUID)
+  // Fallback: Bridge OLD→NEW system via legacyId link
+  // If materialId is an Int (from material_master), find corresponding materials UUID
   if (ctx.supplierId && ctx.materialId && /^\d+$/.test(ctx.materialId)) {
     const materialIdNum = parseInt(ctx.materialId, 10);
-    const supplierMapping = await prisma.material_supplier_mapping.findFirst({
-      where: {
-        supplierId: ctx.supplierId,
-        materialId: materialIdNum,
-        isActive: true,
-      },
-      select: { supplierPrice: true },
-    });
+    const materialsId = await getMaterialsIdFromLegacyInt(materialIdNum);
 
-    if (supplierMapping?.supplierPrice && Number(supplierMapping.supplierPrice) > 0) {
-      return {
-        rate: Number(supplierMapping.supplierPrice),
-        source: 'Supplier price (legacy)',
-      };
+    if (materialsId) {
+      const bridgedSupplier = await prisma.material_suppliers.findFirst({
+        where: {
+          materialId: materialsId,
+          supplierId: ctx.supplierId,
+          isActive: true,
+        },
+        select: { supplierPrice: true },
+      });
+
+      if (bridgedSupplier?.supplierPrice && Number(bridgedSupplier.supplierPrice) > 0) {
+        return {
+          rate: Number(bridgedSupplier.supplierPrice),
+          source: 'Supplier price (via legacy link)',
+        };
+      }
     }
   }
 

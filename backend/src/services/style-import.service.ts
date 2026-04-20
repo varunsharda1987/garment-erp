@@ -831,6 +831,38 @@ export class StyleImportService {
   }
 
   /**
+   * Lookup supplier by name (case-insensitive, exact match preferred, then partial)
+   * Returns supplier ID if found, null otherwise
+   */
+  private async lookupSupplierByName(vendorName?: string): Promise<string | null> {
+    if (!vendorName || !vendorName.trim()) return null;
+
+    const normalizedName = vendorName.trim();
+
+    // Try exact match first (case-insensitive)
+    let supplier = await prisma.suppliers.findFirst({
+      where: {
+        name: { equals: normalizedName, mode: 'insensitive' },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (supplier) return supplier.id;
+
+    // Try partial match (contains)
+    supplier = await prisma.suppliers.findFirst({
+      where: {
+        name: { contains: normalizedName, mode: 'insensitive' },
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    return supplier?.id || null;
+  }
+
+  /**
    * Process production workflow and create style_processes records
    */
   private async processProductionWorkflow(styleId: string, row: StyleImportRow): Promise<number> {
@@ -843,6 +875,14 @@ export class StyleImportService {
       const val = value.toString().trim().toUpperCase();
       return val === 'YES' || val === 'Y' || val === 'TRUE' || val === '1';
     };
+
+    // Lookup suppliers for each process type (parallel for efficiency)
+    const [printingSupplierId, dyeingSupplierId, embroiderySupplierId, washingSupplierId] = await Promise.all([
+      this.lookupSupplierByName(csvRow.printingVendor),
+      this.lookupSupplierByName(csvRow.dyeingVendor),
+      this.lookupSupplierByName(csvRow.embroideryVendor),
+      this.lookupSupplierByName(csvRow.washingVendor),
+    ]);
 
     // Define process order for workflow
     const processOrder: Record<ProcessType, number> = {
@@ -868,10 +908,11 @@ export class StyleImportService {
           processType: ProcessType.PRINTING,
           isRequired: false,
           sortOrder: processOrder[ProcessType.PRINTING],
-          supplierId: null, // TODO: Lookup supplier by name from csvRow.printingVendor
-          notes: csvRow.printingVendor
-            ? `Vendor: ${csvRow.printingVendor}${csvRow.printingDetails ? ` | ${csvRow.printingDetails}` : ''}`
-            : csvRow.printingDetails || null,
+          supplierId: printingSupplierId,
+          notes:
+            csvRow.printingVendor && !printingSupplierId
+              ? `Vendor: ${csvRow.printingVendor}${csvRow.printingDetails ? ` | ${csvRow.printingDetails}` : ''}`
+              : csvRow.printingDetails || null,
           createdAt: new Date(),
         },
       });
@@ -890,10 +931,11 @@ export class StyleImportService {
           processType: ProcessType.DYEING,
           isRequired: false,
           sortOrder: processOrder[ProcessType.DYEING],
-          supplierId: null, // TODO: Lookup supplier by name from csvRow.dyeingVendor
-          notes: csvRow.dyeingVendor
-            ? `Vendor: ${csvRow.dyeingVendor}${dyeingNotes ? ` | ${dyeingNotes}` : ''}`
-            : dyeingNotes || null,
+          supplierId: dyeingSupplierId,
+          notes:
+            csvRow.dyeingVendor && !dyeingSupplierId
+              ? `Vendor: ${csvRow.dyeingVendor}${dyeingNotes ? ` | ${dyeingNotes}` : ''}`
+              : dyeingNotes || null,
           createdAt: new Date(),
         },
       });
@@ -910,10 +952,11 @@ export class StyleImportService {
           processType: ProcessType.EMBROIDERY,
           isRequired: false,
           sortOrder: processOrder[ProcessType.EMBROIDERY],
-          supplierId: null, // TODO: Lookup supplier by name from csvRow.embroideryVendor
-          notes: csvRow.embroideryVendor
-            ? `Vendor: ${csvRow.embroideryVendor}${csvRow.embroideryDetails ? ` | ${csvRow.embroideryDetails}` : ''}`
-            : csvRow.embroideryDetails || null,
+          supplierId: embroiderySupplierId,
+          notes:
+            csvRow.embroideryVendor && !embroiderySupplierId
+              ? `Vendor: ${csvRow.embroideryVendor}${csvRow.embroideryDetails ? ` | ${csvRow.embroideryDetails}` : ''}`
+              : csvRow.embroideryDetails || null,
           createdAt: new Date(),
         },
       });
@@ -974,10 +1017,11 @@ export class StyleImportService {
           processType: ProcessType.WASHING,
           isRequired: false,
           sortOrder: processOrder[ProcessType.WASHING],
-          supplierId: null, // TODO: Lookup supplier by name from csvRow.washingVendor
-          notes: csvRow.washingVendor
-            ? `Vendor: ${csvRow.washingVendor}${washingNotes ? ` | ${washingNotes}` : ''}`
-            : washingNotes || null,
+          supplierId: washingSupplierId,
+          notes:
+            csvRow.washingVendor && !washingSupplierId
+              ? `Vendor: ${csvRow.washingVendor}${washingNotes ? ` | ${washingNotes}` : ''}`
+              : washingNotes || null,
           createdAt: new Date(),
         },
       });

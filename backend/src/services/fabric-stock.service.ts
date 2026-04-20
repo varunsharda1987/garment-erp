@@ -495,53 +495,66 @@ class FabricStockService {
    */
   async getFabricsByStyle(styleId: string) {
     try {
-      const components = await prisma.style_components.findMany({
-        where: { styleId },
-        include: {
-          componentMaster: {
-            include: {
-              patternParts: {
-                include: {
-                  patternPart: {
-                    select: {
-                      id: true,
-                      code: true,
-                      name: true,
-                      sortOrder: true,
+      const [components, unlinkedFabricsRaw] = await Promise.all([
+        prisma.style_components.findMany({
+          where: { styleId },
+          include: {
+            componentMaster: {
+              include: {
+                patternParts: {
+                  include: {
+                    patternPart: {
+                      select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        sortOrder: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            style_fabrics: {
+              where: { fabricId: { not: null } },
+              include: {
+                fabric: {
+                  include: {
+                    widthCADs: true,
+                    greige: {
+                      select: {
+                        greigeCode: true,
+                        greigeName: true,
+                        composition: true,
+                      },
+                    },
+                  },
+                },
+                stylePatternParts: {
+                  include: {
+                    patternPart: {
+                      select: { id: true, code: true, name: true },
                     },
                   },
                 },
               },
             },
           },
-          style_fabrics: {
-            where: { fabricId: { not: null } },
-            include: {
-              fabric: {
-                include: {
-                  widthCADs: true,
-                  greige: {
-                    select: {
-                      greigeCode: true,
-                      greigeName: true,
-                      composition: true,
-                    },
-                  },
-                },
-              },
-              stylePatternParts: {
-                include: {
-                  patternPart: {
-                    select: { id: true, code: true, name: true },
-                  },
-                },
-              },
+        }),
+        prisma.style_fabrics.findMany({
+          where: {
+            fabricId: null,
+            style_components: { styleId },
+          },
+          include: {
+            style_components: {
+              select: { componentName: true },
             },
           },
-        },
-      });
+        }),
+      ]);
 
-      return components.map((comp) => ({
+      const mappedComponents = components.map((comp) => ({
         componentName: comp.componentName,
         componentType: comp.componentType,
         componentId: comp.id,
@@ -569,6 +582,16 @@ class FabricStockService {
           })),
         })),
       }));
+
+      const unlinkedFabrics = unlinkedFabricsRaw.map((sf) => ({
+        fabricName: sf.fabricName || 'Unknown Fabric',
+        componentName: sf.style_components?.componentName || 'Unknown Component',
+      }));
+
+      return {
+        components: mappedComponents,
+        unlinkedFabrics,
+      };
     } catch (error: unknown) {
       logError('Error getting fabrics by style:', error);
       throw new Error(`Failed to get fabrics for style: ${error instanceof Error ? error.message : 'Unknown error'}`);

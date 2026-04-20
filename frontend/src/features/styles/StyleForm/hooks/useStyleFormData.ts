@@ -288,14 +288,18 @@ export function useStyleFormData() {
   );
 
   // Load accessory presets when customer selected
-  const loadAccessoryPresets = useCallback(async () => {
-    try {
-      // TODO: Implement when API is available
-      dispatch({ type: 'SET_ACCESSORY_PRESETS', payload: [] });
-    } catch (error) {
-      console.error('Failed to load accessory presets:', error);
-    }
-  }, [dispatch]);
+  const loadAccessoryPresets = useCallback(
+    async (customerId: string) => {
+      try {
+        const presets = await customerService.getAccessoryPresets(customerId);
+        dispatch({ type: 'SET_ACCESSORY_PRESETS', payload: presets });
+      } catch (error) {
+        console.error('Failed to load accessory presets:', error);
+        dispatch({ type: 'SET_ACCESSORY_PRESETS', payload: [] });
+      }
+    },
+    [dispatch]
+  );
 
   // Handle customer selection
   useEffect(() => {
@@ -323,7 +327,8 @@ export function useStyleFormData() {
           type: 'SET_BASIC_INFO',
           payload: { brandName: '', category: '', availableCategories: [] },
         });
-        loadAccessoryPresets();
+        // Load accessory presets for this customer
+        loadAccessoryPresets(selectedCustomerId);
       }
     }
   }, [selectedCustomerId, customers, dispatch, loadAccessoryPresets]);

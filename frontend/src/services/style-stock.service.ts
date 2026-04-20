@@ -11,6 +11,7 @@ import type {
   GreigeStockCreateResponse,
   GenericGreigeStock,
   StockStatusFilter,
+  StyleFabricsResponse,
 } from '../types/style-stock.types';
 
 // Re-export types for convenience
@@ -25,6 +26,8 @@ export type {
   FabricStockHistoryEntry,
   GreigeStockCreateResponse,
   GenericGreigeStock,
+  UnlinkedFabric,
+  StyleFabricsResponse,
 } from '../types/style-stock.types';
 
 /**
@@ -55,7 +58,7 @@ export async function getStyleStock(
 /**
  * Get fabrics used in a style
  */
-export async function getStyleFabrics(styleId: string): Promise<ComponentWithFabrics[]> {
+export async function getStyleFabrics(styleId: string): Promise<StyleFabricsResponse> {
   const response = await api.get(`/styles/${styleId}/fabrics`);
   return response.data.data;
 }

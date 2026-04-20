@@ -49,7 +49,8 @@ export interface BulkUpdateJobData {
   type: 'bulk-update';
   module: string;
   ids: string[];
-  updates: Record<string, unknown>;
+  operation?: 'update' | 'soft-delete' | 'restore';
+  updates?: Record<string, unknown>;
   userId: string;
 }
 
@@ -71,6 +72,7 @@ export interface EmailJobData {
 export interface CleanupJobData {
   type: 'cleanup';
   task: 'temp-files' | 'orphaned-files' | 'old-audit-logs';
+  retentionDays?: number; // For audit log cleanup, defaults to 90
 }
 
 export interface NotificationJobData {

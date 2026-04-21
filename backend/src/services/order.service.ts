@@ -524,11 +524,10 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
         data: { isActive: false },
       });
 
-      // Handle lace allocations if any exist
+      // Handle ALL lace allocations for this order (not just RESERVED/IN_USE)
       const laceAllocations = await tx.lace_stock_allocation.findMany({
         where: {
           orderId: id,
-          allocationStatus: { in: ['RESERVED', 'IN_USE'] },
         },
         include: {
           stock: true,
@@ -541,6 +540,10 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
         const cancellationReason = options?.cancellationReason || 'Order cancelled';
 
         for (const allocation of laceAllocations) {
+          // Skip allocations already in terminal states
+          if (['CONSUMED', 'RETURNED', 'TRANSFERRED'].includes(allocation.allocationStatus)) {
+            continue;
+          }
           // Calculate unreleased quantity (allocated but not yet consumed)
           const unreleasedQty =
             Number(allocation.quantityAllocated) -

@@ -45,6 +45,7 @@ function categorizeFiles(files) {
     prisma: files.filter(f => f.includes('schema.prisma')),
     typescript: files.filter(f => f.endsWith('.ts') || f.endsWith('.tsx')),
     routes: files.filter(f => f.endsWith('.routes.ts')),
+    frontend: files.filter(f => f.startsWith('frontend/') && (f.endsWith('.ts') || f.endsWith('.tsx'))),
   };
 }
 
@@ -224,6 +225,131 @@ function checkDocLinks(docFiles) {
 }
 
 /**
+ * Check: Frontend serializer mismatches (wrong camelCase fallbacks)
+ * The backend serializer converts snake_case to specific camelCase names.
+ * Using wrong fallbacks like `styleComponents` instead of `components` is a bug.
+ */
+function checkFrontendSerializerMismatch(frontendFiles) {
+  console.log(`\n${c.cyan}Checking frontend serializer patterns...${c.reset}`);
+
+  // Wrong patterns that indicate serializer confusion
+  const wrongPatterns = [
+    { pattern: /\.styleComponents/g, correct: '.components', reason: 'style_components → components' },
+    { pattern: /\.styleFabrics(?!Flat)/g, correct: '.fabrics', reason: 'style_fabrics → fabrics' },
+    { pattern: /\.styleFabricsFlat/g, correct: '.fabrics', reason: 'styleFabricsFlat doesn\'t exist' },
+    { pattern: /\.styleProcesses/g, correct: '.processes', reason: 'style_processes → processes' },
+    { pattern: /\.styleVariants/g, correct: '.variants', reason: 'style_variants → variants' },
+    { pattern: /\.brand_categories/g, correct: '.brandCategories', reason: 'snake_case in frontend' },
+    { pattern: /\.style_components/g, correct: '.components', reason: 'snake_case in frontend' },
+    { pattern: /\.style_fabrics/g, correct: '.fabrics', reason: 'snake_case in frontend' },
+    { pattern: /\.color_options/g, correct: '.colorOptions', reason: 'snake_case in frontend' },
+    { pattern: /\.size_options/g, correct: '.sizeOptions', reason: 'snake_case in frontend' },
+  ];
+
+  const issues = [];
+
+  for (const file of frontendFiles) {
+    const fullPath = path.join(process.cwd(), file);
+    if (!fs.existsSync(fullPath)) continue;
+
+    const content = fs.readFileSync(fullPath, 'utf8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Skip comments and imports
+      if (line.trim().startsWith('//') || line.trim().startsWith('*') || line.includes('import ')) continue;
+
+      for (const { pattern, correct, reason } of wrongPatterns) {
+        if (pattern.test(line)) {
+          issues.push({
+            file,
+            line: i + 1,
+            found: pattern.source.replace(/\\/g, ''),
+            correct,
+            reason,
+          });
+        }
+        // Reset regex lastIndex for global patterns
+        pattern.lastIndex = 0;
+      }
+    }
+  }
+
+  if (issues.length > 0) {
+    console.log(`${c.yellow}  ⚠ Frontend serializer mismatches (${issues.length}):${c.reset}`);
+    issues.slice(0, 5).forEach(({ file, line, found, correct, reason }) => {
+      console.log(`    ${file}:${line}`);
+      console.log(`      ${c.dim}Found: ${found} → Should be: ${correct}${c.reset}`);
+      console.log(`      ${c.dim}Reason: ${reason}${c.reset}`);
+    });
+    if (issues.length > 5) {
+      console.log(`    ... and ${issues.length - 5} more`);
+    }
+    return true; // Warning only for now
+  }
+
+  console.log(`${c.green}  ✓ Frontend serializer patterns OK${c.reset}`);
+  return true;
+}
+
+/**
+ * Check: Controller response structure consistency
+ * - POST/201 responses should have `data` wrapper and `message`
+ * - Pagination should use `totalPages` not `pages` or `offset`
+ */
+function checkResponseStructure(controllerFiles) {
+  console.log(`\n${c.cyan}Checking response structure...${c.reset}`);
+
+  const issues = [];
+  const controllersDir = path.join(process.cwd(), 'backend/src/controllers');
+
+  for (const file of controllerFiles) {
+    const fullPath = path.join(controllersDir, path.basename(file));
+    if (!fs.existsSync(fullPath)) continue;
+
+    const content = fs.readFileSync(fullPath, 'utf8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Check for bare object response (no data wrapper) on 201
+      if (line.includes('res.status(201).json(') && !line.includes('data:') && !line.includes('{ data')) {
+        issues.push({
+          file: path.basename(file),
+          line: i + 1,
+          type: 'bare-response',
+          message: 'POST 201 without data wrapper',
+        });
+      }
+
+      // Check for pagination using offset instead of page
+      if (line.includes('pagination') && line.includes('offset:') && !line.includes('// legacy')) {
+        issues.push({
+          file: path.basename(file),
+          line: i + 1,
+          type: 'offset-pagination',
+          message: 'Uses offset instead of page for pagination',
+        });
+      }
+    }
+  }
+
+  if (issues.length > 0) {
+    console.log(`${c.yellow}  ⚠ Response structure issues (${issues.length}):${c.reset}`);
+    issues.forEach(({ file, line, message }) => {
+      console.log(`    ${file}:${line} - ${message}`);
+    });
+    return true; // Warning only
+  }
+
+  console.log(`${c.green}  ✓ Response structure OK${c.reset}`);
+  return true;
+}
+
+/**
  * Check: Prisma schema safety
  */
 function checkPrismaSafety() {
@@ -293,6 +419,7 @@ function main() {
   if (categories.docs.length) console.log(`  ${c.cyan}•${c.reset} ${categories.docs.length} documentation file(s)`);
   if (categories.prisma.length) console.log(`  ${c.cyan}•${c.reset} Prisma schema`);
   if (categories.routes.length) console.log(`  ${c.cyan}•${c.reset} ${categories.routes.length} route file(s)`);
+  if (categories.frontend.length) console.log(`  ${c.cyan}•${c.reset} ${categories.frontend.length} frontend file(s)`);
 
   let allPassed = true;
   let checksRun = 0;
@@ -333,6 +460,18 @@ function main() {
   if (categories.prisma.length) {
     checksRun++;
     if (!checkPrismaSafety()) allPassed = false;
+  }
+
+  // Frontend changes → check serializer patterns
+  if (categories.frontend.length) {
+    checksRun++;
+    checkFrontendSerializerMismatch(categories.frontend);
+  }
+
+  // Controller changes → check response structure
+  if (categories.controllers.length) {
+    checksRun++;
+    checkResponseStructure(categories.controllers);
   }
 
   // Summary

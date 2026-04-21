@@ -30,6 +30,7 @@ export async function createChallanController(req: Request, res: Response) {
   return res.status(201).json({
     success: true,
     data: challan,
+    message: 'Challan created successfully',
   });
 }
 

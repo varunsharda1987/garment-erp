@@ -922,22 +922,17 @@ export default function StyleFormRedesigned() {
   };
 
   const loadComponentMasters = async () => {
-    console.log('[DEBUG] loadComponentMasters started');
     try {
       const [mastersResponse, categoriesResponse, groupsResponse] = await Promise.all([
         getAllComponentMasters({ activeOnly: true, limit: 100 }),
         getCategories(),
         componentGroupService.getAll({ page: 1, limit: 100, isActive: true }),
       ]);
-      console.log('[DEBUG] Component masters loaded:', mastersResponse.data?.length || 0);
-      console.log('[DEBUG] Categories loaded:', categoriesResponse?.length || 0);
-      console.log('[DEBUG] Component groups loaded:', groupsResponse.data?.length || 0);
       setComponentMasters(mastersResponse.data);
       setComponentCategories(categoriesResponse);
       setComponentGroups(groupsResponse.data);
-      console.log('[DEBUG] loadComponentMasters completed successfully');
     } catch (error) {
-      console.error('[DEBUG] Failed to load component masters:', error);
+      console.error('Failed to load component masters:', error);
       notify.error('Failed to load component masters');
     }
   };
@@ -1103,12 +1098,13 @@ export default function StyleFormRedesigned() {
       }
 
       // Load SKU variants if available (from style_variants table)
-      // These fields may exist on the API response with different names
-      const skuVariantsData = (style.variants ||
-        (styleData.styleVariants as unknown[]) ||
-        (styleData.styleSkuVariants as unknown[]) ||
-        (styleData.skuVariants as unknown[]) ||
-        []) as Array<{ sizeName?: string; size?: string; sku: string; barcode?: string; isActive?: boolean }>;
+      const skuVariantsData = (styleData.variants || []) as Array<{
+        sizeName?: string;
+        size?: string;
+        sku: string;
+        barcode?: string;
+        isActive?: boolean;
+      }>;
       if (skuVariantsData.length > 0) {
         setSkuVariants(
           skuVariantsData.map((sku) => ({

@@ -1608,6 +1608,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       ...result,
       processPOStatus: computeProcessPOStatus(result),
     },
+    message: 'Printing process PO created successfully',
   });
 };
 

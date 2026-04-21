@@ -1560,6 +1560,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       ...result,
       processPOStatus: computeProcessPOStatus(result),
     },
+    message: 'Dyeing process PO created successfully',
   });
 };
 

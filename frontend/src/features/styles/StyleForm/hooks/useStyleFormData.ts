@@ -158,7 +158,7 @@ export function useStyleFormData() {
         }
 
         // Load SKU variants
-        const skuVariantsData = style.styleVariants || style.styleSkuVariants || style.skuVariants || [];
+        const skuVariantsData = style.variants || [];
         if (skuVariantsData.length > 0) {
           payload.skuVariants = (
             skuVariantsData as Array<{

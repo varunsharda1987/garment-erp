@@ -154,7 +154,7 @@ class CostSheetPOGenerationService {
           materialName: fabricItem.fabricName || fabricItem.greige?.greigeName || '',
           materialType: 'GREIGE',
           consumptionPerUnit,
-          unit: 'METERS',
+          unit: 'MTR',
           requiredQty,
           availableStock: greigeStockInfo.available,
           shortfall: Math.max(0, requiredQty - greigeStockInfo.available),
@@ -173,7 +173,7 @@ class CostSheetPOGenerationService {
             materialName: fabricItem.fabricName || fabricItem.greige?.greigeName || '',
             materialType: 'PROCESSING',
             consumptionPerUnit,
-            unit: 'METERS',
+            unit: 'MTR',
             requiredQty,
             availableStock: 0,
             shortfall: requiredQty,
@@ -195,7 +195,7 @@ class CostSheetPOGenerationService {
           materialName: fabricItem.fabricName || fabricItem.fabric?.fabricName || '',
           materialType: 'FABRIC',
           consumptionPerUnit,
-          unit: 'METERS',
+          unit: 'MTR',
           requiredQty,
           availableStock: stockInfo.available,
           shortfall: Math.max(0, requiredQty - stockInfo.available),
@@ -340,7 +340,7 @@ class CostSheetPOGenerationService {
         materialName: laceItem.laceName || laceItem.lace?.laceName || '',
         materialType: 'LACE',
         consumptionPerUnit,
-        unit: 'METERS',
+        unit: 'MTR',
         requiredQty,
         availableStock: stockInfo.available,
         shortfall: Math.max(0, requiredQty - stockInfo.available),
@@ -501,7 +501,7 @@ class CostSheetPOGenerationService {
       available,
       reserved,
       total: available - reserved,
-      unit: 'METERS',
+      unit: 'MTR',
     };
   }
 
@@ -529,7 +529,7 @@ class CostSheetPOGenerationService {
       available,
       reserved,
       total: available + reserved,
-      unit: 'METERS',
+      unit: 'MTR',
     };
   }
 

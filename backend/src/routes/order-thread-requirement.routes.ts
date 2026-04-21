@@ -18,8 +18,10 @@ import {
 
 const router = Router();
 
-// All routes require authentication
-router.use(authenticateToken);
+// Apply authentication to specific route prefixes only (not globally)
+// This prevents auth from affecting other routes when mounted at '/'
+router.use('/thread-requirements', authenticateToken);
+router.use('/orders', authenticateToken);
 
 // Cross-order endpoints (for UnifiedRequirementsPage)
 // These MUST come before /orders/:orderId to avoid route conflicts

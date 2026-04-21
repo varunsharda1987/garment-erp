@@ -48,7 +48,7 @@ export default function ChallanForm() {
   function addItem() {
     setForm((prev) => ({
       ...prev,
-      items: [...prev.items, { itemType: 'FABRIC', description: '', quantity: 0, unit: 'PCS' }],
+      items: [...prev.items, { itemType: 'FABRIC', description: '', quantity: 0, unit: 'MTR' }],
     }));
   }
 

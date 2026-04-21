@@ -649,7 +649,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         totalQuantity,
         wastagePercent,
         totalWithWastage,
-        unit: material.unit || 'pcs',
+        unit: material.unit || 'PCS',
         unitPrice,
         totalCost,
         componentName: material.componentName,

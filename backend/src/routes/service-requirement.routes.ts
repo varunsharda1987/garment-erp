@@ -24,8 +24,11 @@ import {
 
 const router = Router();
 
-// All routes require authentication
-router.use(authenticateToken);
+// Apply authentication to specific route prefixes only (not globally)
+// This prevents auth from affecting other routes when mounted at '/'
+router.use('/work-orders', authenticateToken);
+router.use('/orders', authenticateToken);
+router.use('/service-requirements', authenticateToken);
 
 // ============================================
 // WORK ORDER SERVICE CALCULATION

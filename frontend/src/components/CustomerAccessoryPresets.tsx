@@ -107,7 +107,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
       // For LABEL type, show label info; for PACKAGING, show material info
       itemName: item.materialType === 'LABEL' ? item.label?.labelName || '' : item.material?.name || '', // Use material name for packaging
       quantity: Number(item.quantity) || 1,
-      unit: item.materialType === 'LABEL' ? 'pcs' : item.material?.unit || 'pcs',
+      unit: item.materialType === 'LABEL' ? 'PCS' : item.material?.unit || 'PCS',
       usageCategory:
         (item.usageCategory as 'GARMENT' | 'PACKAGING') || (item.materialType === 'LABEL' ? 'GARMENT' : 'PACKAGING'),
       specification: item.materialType === 'LABEL' ? item.label?.labelCode || '' : item.material?.code || '', // Use material code for packaging

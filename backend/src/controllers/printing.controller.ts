@@ -1818,7 +1818,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
       purchaseOrderId: po.id,
       vehicleNumber,
       issuedById: userId,
-      unit: 'METERS',
+      unit: 'MTR',
       remarks: challanNumber ? `Manual challan ref: ${challanNumber}` : undefined,
       items: [
         {
@@ -1827,7 +1827,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
           greigeStockId: job.greigeStockLotId || undefined,
           description: `Greige fabric for Printing - ${job.style?.styleCode || ''}`,
           quantity: Number(job.qtySentMeters),
-          unit: 'METERS',
+          unit: 'MTR',
           rate: Number(job.agreedRatePerMeter),
         },
       ],
@@ -1970,7 +1970,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
       toName: 'Main Warehouse',
       purchaseOrderId: po.id,
       issuedById: userId,
-      unit: 'METERS',
+      unit: 'MTR',
       remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
       items: [
         {
@@ -1978,7 +1978,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
           fabricId: job.finishedFabricId || job.fabricId,
           description: `Printed fabric received - ${job.style?.styleCode || ''}`,
           quantity: actualMeters,
-          unit: 'METERS',
+          unit: 'MTR',
         },
       ],
     });
@@ -2296,7 +2296,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
       toName: 'Main Warehouse',
       purchaseOrderId: po.id,
       issuedById: userId,
-      unit: 'METERS',
+      unit: 'MTR',
       remarks: `Unprocessed greige returned${remarks ? ': ' + remarks : ''}`,
       items: [
         {
@@ -2305,7 +2305,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
           greigeStockId: job.greigeStockLotId || undefined,
           description: `Unprocessed greige fabric returned - ${job.style?.styleCode || ''}`,
           quantity: returnedQtyMeters,
-          unit: 'METERS',
+          unit: 'MTR',
         },
       ],
     });

@@ -407,7 +407,7 @@ export default function PurchaseOrderForm() {
       serviceType: processingType,
       serviceDescription: '',
       orderedQuantity: '1',
-      unit: 'METERS',
+      unit: 'MTR',
       unitPrice: '0',
       totalPrice: 0,
       remarks: '',

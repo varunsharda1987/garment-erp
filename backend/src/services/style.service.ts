@@ -403,7 +403,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                   : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
                     ? 1
                     : 0,
-              unit: bom.unit || 'pcs',
+              unit: bom.unit || 'PCS',
               unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
               totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
               notes: bom.notes || null,
@@ -1246,7 +1246,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
                       ? 1
                       : 0,
-                unit: bom.unit || 'pcs',
+                unit: bom.unit || 'PCS',
                 unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
                 totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
                 notes: bom.notes || null,
@@ -2148,7 +2148,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         usageCategory: bom.usageCategory || 'GARMENT_TRIM',
         componentName: bom.componentName || null,
         quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
-        unit: bom.unit || 'pcs',
+        unit: bom.unit || 'PCS',
         unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
         totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
         notes: bom.notes || null,

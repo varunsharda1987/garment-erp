@@ -282,7 +282,7 @@ class GRNService {
               toName: 'Main Warehouse',
               purchaseOrderId: po.id,
               issuedById: userId,
-              unit: 'METERS',
+              unit: 'MTR',
               remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
               items: [
                 {
@@ -290,7 +290,7 @@ class GRNService {
                   fabricId: jobWorkOrder.finishedFabricId || jobWorkOrder.fabricId,
                   description: `Processed fabric received via GRN - ${jobWorkOrder.style?.styleCode || ''}`,
                   quantity: actualMeters,
-                  unit: 'METERS',
+                  unit: 'MTR',
                 },
               ],
             });

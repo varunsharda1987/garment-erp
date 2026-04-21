@@ -563,6 +563,9 @@ export default function StockOutForm() {
     });
 
     // Build challan input with all items
+    // Derive header unit from items (use first item's unit, or PCS as fallback)
+    const headerUnit = challanItems.length > 0 ? challanItems[0].unit : 'PCS';
+
     const input: CreateChallanInput = {
       challanType,
       fromType: 'WAREHOUSE',
@@ -570,7 +573,7 @@ export default function StockOutForm() {
       toType: getDestinationType(),
       toId: challanType === 'OUTWARD' ? supplierId : undefined,
       toName: destinationName,
-      unit: 'PCS',
+      unit: headerUnit,
       remarks: remarks || undefined,
       items: challanItems,
     };

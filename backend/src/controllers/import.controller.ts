@@ -457,33 +457,6 @@ function getModuleColumns(moduleName: string): ImportColumn[] {
 }
 
 /**
- * Helper: Generate auto-incremented code
- * Note: This function is currently unused but kept for potential future use
- */
-async function generateNextCode(
-  tx: Prisma.TransactionClient,
-  table: string,
-  codeField: string,
-  prefix: string
-): Promise<string> {
-  // Use raw query to dynamically query tables
-  const query = `SELECT "${codeField}" FROM "${table}" WHERE "${codeField}" LIKE '${prefix}%' ORDER BY "${codeField}" DESC LIMIT 1`;
-  const result = await tx.$queryRawUnsafe<Array<Record<string, string>>>(query);
-
-  let nextNumber = 1;
-  if (result.length > 0 && result[0][codeField]) {
-    const match = result[0][codeField].match(new RegExp(`${prefix}(\\d+)`));
-    if (match) {
-      nextNumber = parseInt(match[1]) + 1;
-    }
-  }
-  return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
-}
-
-// Suppress unused variable warning
-void generateNextCode;
-
-/**
  * Execute import for a specific module
  */
 async function executeModuleImport(moduleName: string, data: Record<string, unknown>[], userId: string) {

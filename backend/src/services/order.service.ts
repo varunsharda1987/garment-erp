@@ -396,7 +396,12 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   async updateOrder(id: string, data: UpdateOrderDTO): Promise<orders> {
     logDebug('Updating order', { id, data });
 
-    await this.findByIdOrThrow(id);
+    const existing = await this.findByIdOrThrow(id);
+
+    // Prevent updates to cancelled orders
+    if (existing.status === 'CANCELLED') {
+      throw new Error('Cannot update a cancelled order');
+    }
 
     const order = await this.prisma.orders.update({
       where: { id },

@@ -244,6 +244,11 @@ class StockLevelService {
       throw new Error(`Stock level not found with ID: ${id}`);
     }
 
+    // Validate quantity is not negative
+    if (data.quantity !== undefined && new Decimal(data.quantity.toString()).lt(0)) {
+      throw new Error('Stock quantity cannot be negative');
+    }
+
     // Calculate stock value if quantity or valuation rate changed
     let stockValue = existing.stockValue;
     const quantity = data.quantity ?? existing.quantity;

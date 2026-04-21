@@ -243,6 +243,7 @@ export async function createRun(req: Request, res: Response) {
     serialize({
       success: true,
       data: result,
+      message: 'Fabric costing run created successfully',
     })
   );
 }

@@ -72,7 +72,7 @@ export class CreditNoteController {
       userId
     );
 
-    res.status(201).json(creditNote);
+    res.status(201).json({ data: creditNote, message: 'Credit note created successfully' });
   }
 
   /**

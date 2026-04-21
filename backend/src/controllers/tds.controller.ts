@@ -27,7 +27,7 @@ class TDSController {
     const userId = req.user?.userId;
     if (!userId) throw new UnauthorizedError('Authentication required');
     const entry = await tdsService.create(req.body, userId);
-    res.status(201).json(entry);
+    res.status(201).json({ data: entry, message: 'TDS entry created successfully' });
   }
 
   async update(req: Request, res: Response) {

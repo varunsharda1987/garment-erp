@@ -68,7 +68,7 @@ export class DebitNoteController {
       userId
     );
 
-    res.status(201).json(debitNote);
+    res.status(201).json({ data: debitNote, message: 'Debit note created successfully' });
   }
 
   /**

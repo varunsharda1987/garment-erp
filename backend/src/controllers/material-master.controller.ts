@@ -45,7 +45,7 @@ export const createMaterial = async (req: Request, res: Response) => {
 
   const material = await materialMasterService.create(req.body, userId);
 
-  res.status(201).json(material);
+  res.status(201).json({ data: material, message: 'Material created successfully' });
 };
 
 // PUT /api/materials/:id
@@ -77,7 +77,7 @@ export const addMaterialSupplier = async (req: Request, res: Response) => {
   const { id } = req.params;
   const mapping = await materialMasterService.addSupplier(parseInt(id), req.body);
 
-  res.status(201).json(mapping);
+  res.status(201).json({ data: mapping, message: 'Material supplier added successfully' });
 };
 
 // Type-specific operations

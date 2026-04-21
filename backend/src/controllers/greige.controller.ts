@@ -316,7 +316,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     },
   });
 
-  res.status(201).json(greigeMaster);
+  res.status(201).json({ data: greigeMaster, message: 'Greige master created successfully' });
 };
 
 // Update greige master

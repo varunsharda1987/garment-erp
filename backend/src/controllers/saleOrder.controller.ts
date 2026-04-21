@@ -62,7 +62,7 @@ export class SaleOrderController {
       items,
     });
 
-    res.status(201).json(so);
+    res.status(201).json({ data: so, message: 'Sale order created successfully' });
   }
 
   async update(req: Request, res: Response) {
@@ -108,7 +108,7 @@ export class SaleOrderController {
 
     const allocation = await saleOrderService.allocateStock(saleOrderItemId, fgStockId, quantity, userId);
 
-    res.status(201).json(allocation);
+    res.status(201).json({ data: allocation, message: 'Stock allocated successfully' });
   }
 
   async getAvailableStock(req: Request, res: Response) {

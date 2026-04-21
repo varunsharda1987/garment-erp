@@ -137,7 +137,7 @@ export async function quickIssueChallanController(req: Request, res: Response) {
     issuedById: userId,
   });
 
-  return res.status(201).json({ success: true, data: challan });
+  return res.status(201).json({ success: true, data: challan, message: 'Challan issued successfully' });
 }
 
 /**
@@ -185,7 +185,7 @@ export async function createGreigeOutwardChallanController(req: Request, res: Re
     userId,
   });
 
-  return res.status(201).json({ success: true, data: challan });
+  return res.status(201).json({ success: true, data: challan, message: 'Greige outward challan created successfully' });
 }
 
 /**

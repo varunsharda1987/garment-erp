@@ -101,7 +101,7 @@ export const createSizeCategory = async (req: Request, res: Response) => {
     },
   });
 
-  res.status(201).json(sizeCategory);
+  res.status(201).json({ data: sizeCategory, message: 'Size category created successfully' });
 };
 
 // Update size category

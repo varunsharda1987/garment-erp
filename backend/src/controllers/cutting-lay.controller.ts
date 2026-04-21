@@ -129,6 +129,7 @@ export const addCuttingLay = async (req: Request, res: Response) => {
         ? { id: lay!.createdBy.id, name: `${(lay!.createdBy as any).firstName} ${(lay!.createdBy as any).lastName}` }
         : null,
     },
+    message: 'Cutting lay created successfully',
   });
 };
 

@@ -138,6 +138,7 @@ export const issueToStitching = async (req: Request, res: Response) => {
       status: transferSlip.status,
       skuBreakdown: transferSlip.skuBreakdown,
     },
+    message: 'Cutting issue created successfully',
   });
 };
 

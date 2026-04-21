@@ -119,6 +119,7 @@ export async function createUnifiedPOController(req: Request, res: Response) {
       sourceLinks: result.sourceLinks,
       duplicateWarnings: result.duplicateWarnings,
     },
+    message: 'Purchase order created successfully',
   });
 }
 

@@ -393,7 +393,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     logError('Failed to auto-create materials record for fabric', err);
   }
 
-  res.status(201).json(fabricMaster);
+  res.status(201).json({ data: fabricMaster, message: 'Fabric master created successfully' });
 };
 
 // Update fabric master

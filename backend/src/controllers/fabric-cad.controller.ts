@@ -169,7 +169,7 @@ export const createCAD = async (req: Request, res: Response) => {
     },
   });
 
-  res.status(201).json(cad);
+  res.status(201).json({ data: cad, message: 'Fabric CAD created successfully' });
 };
 
 // Update CAD entry

@@ -66,7 +66,7 @@ export class StockProductionOrderController {
       items,
     });
 
-    res.status(201).json(spo);
+    res.status(201).json({ data: spo, message: 'Stock production order created successfully' });
   }
 
   async update(req: Request, res: Response) {
@@ -109,7 +109,7 @@ export class StockProductionOrderController {
     }
 
     const workOrder = await stockProductionOrderService.generateWorkOrders(id, userId);
-    res.status(201).json(workOrder);
+    res.status(201).json({ data: workOrder, message: 'Work orders generated successfully' });
   }
 }
 

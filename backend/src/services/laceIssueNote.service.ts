@@ -84,29 +84,29 @@ async function generateIssueNumber(): Promise<string> {
 export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
   logDebug('Creating lace issue note', { orderId: input.orderId, stockId: input.stockId });
 
-  // Validate stock exists and has sufficient quantity
-  const stock = await prisma.lace_stock.findUnique({
-    where: { id: input.stockId },
-    include: { laceMaster: true },
-  });
-
-  if (!stock) {
-    throw new Error('Lace stock not found');
-  }
-
-  if (stock.status !== 'AVAILABLE') {
-    throw new Error(`Stock is not available (status: ${stock.status})`);
-  }
-
-  const available = Number(stock.quantityAvailable) - Number(stock.quantityReserved);
-  if (available < input.issuedQuantity) {
-    throw new Error(`Insufficient stock available. Required: ${input.issuedQuantity}, Available: ${available}`);
-  }
-
   const issueNumber = await generateIssueNumber();
 
-  // Create issue note and update stock in transaction
+  // Create issue note and update stock in transaction (atomic check-and-update)
   const result = await prisma.$transaction(async (tx) => {
+    // Validate stock exists and has sufficient quantity - INSIDE transaction to prevent race condition
+    const stock = await tx.lace_stock.findUnique({
+      where: { id: input.stockId },
+      include: { laceMaster: true },
+    });
+
+    if (!stock) {
+      throw new Error('Lace stock not found');
+    }
+
+    if (stock.status !== 'AVAILABLE') {
+      throw new Error(`Stock is not available (status: ${stock.status})`);
+    }
+
+    const available = Number(stock.quantityAvailable) - Number(stock.quantityReserved);
+    if (available < input.issuedQuantity) {
+      throw new Error(`Insufficient stock available. Required: ${input.issuedQuantity}, Available: ${available}`);
+    }
+
     // Create issue note
     const issueNote = await tx.lace_issue_note.create({
       data: {

@@ -124,9 +124,11 @@ class StockLevelService {
 
   /**
    * Get stock level by material and warehouse
+   * @param tx Optional transaction client for atomic operations
    */
-  async getStockLevel(materialId: string, warehouseId: string) {
-    const stockLevel = await prisma.stock_levels.findUnique({
+  async getStockLevel(materialId: string, warehouseId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    const stockLevel = await db.stock_levels.findUnique({
       where: {
         materialId_warehouseId: {
           materialId,
@@ -275,9 +277,18 @@ class StockLevelService {
 
   /**
    * Increase stock level (internal use by stock movement service)
+   * @param tx Optional transaction client for atomic operations with parent transaction
    */
-  async increaseStock(materialId: string, warehouseId: string, quantity: Decimal, unit: Unit, rate?: Decimal) {
-    const existing = await this.getStockLevel(materialId, warehouseId);
+  async increaseStock(
+    materialId: string,
+    warehouseId: string,
+    quantity: Decimal,
+    unit: Unit,
+    rate?: Decimal,
+    tx?: Prisma.TransactionClient
+  ) {
+    const db = tx || prisma;
+    const existing = await this.getStockLevel(materialId, warehouseId, tx);
 
     if (existing) {
       // Update existing stock level
@@ -295,7 +306,7 @@ class StockLevelService {
         newStockValue = totalValue;
       }
 
-      const updated = await prisma.stock_levels.update({
+      const updated = await db.stock_levels.update({
         where: { id: existing.id },
         data: {
           quantity: newQuantity,
@@ -310,7 +321,7 @@ class StockLevelService {
       // Create new stock level
       const stockValue = rate ? new Decimal(quantity.toString()).mul(rate.toString()) : null;
 
-      const created = await prisma.stock_levels.create({
+      const created = await db.stock_levels.create({
         data: {
           materialId,
           warehouseId,
@@ -327,9 +338,11 @@ class StockLevelService {
 
   /**
    * Decrease stock level (internal use by stock movement service)
+   * @param tx Optional transaction client for atomic operations with parent transaction
    */
-  async decreaseStock(materialId: string, warehouseId: string, quantity: Decimal) {
-    const existing = await this.getStockLevel(materialId, warehouseId);
+  async decreaseStock(materialId: string, warehouseId: string, quantity: Decimal, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    const existing = await this.getStockLevel(materialId, warehouseId, tx);
 
     if (!existing) {
       throw new Error('Stock level not found. Cannot decrease stock.');
@@ -350,7 +363,7 @@ class StockLevelService {
       newStockValue = new Decimal(newQuantity.toString()).mul(existing.valuationRate.toString());
     }
 
-    const updated = await prisma.stock_levels.update({
+    const updated = await db.stock_levels.update({
       where: { id: existing.id },
       data: {
         quantity: newQuantity,

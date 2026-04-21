@@ -709,6 +709,7 @@ class FabricStockService {
 
   /**
    * Update material stock level (helper function)
+   * Uses upsert to prevent race condition duplicates (unique constraint on materialId + warehouseId)
    */
   private async updateMaterialStockLevel(
     materialId: string,
@@ -717,42 +718,27 @@ class FabricStockService {
     valuationRate?: number
   ) {
     try {
-      // Find or create stock level record
-      const existing = await prisma.stock_levels.findFirst({
+      // Use upsert with unique constraint to prevent race condition duplicates
+      await prisma.stock_levels.upsert({
         where: {
+          materialId_warehouseId: { materialId, warehouseId },
+        },
+        update: {
+          quantity: { increment: quantityChange },
+          valuationRate: valuationRate ? new Prisma.Decimal(valuationRate) : undefined,
+          lastUpdated: new Date(),
+        },
+        create: {
+          id: `SL-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           materialId,
           warehouseId,
+          quantity: new Prisma.Decimal(quantityChange),
+          unit: 'METER',
+          valuationRate: valuationRate ? new Prisma.Decimal(valuationRate) : null,
+          stockValue: valuationRate ? new Prisma.Decimal(quantityChange * valuationRate) : null,
+          lastUpdated: new Date(),
         },
       });
-
-      if (existing) {
-        const newQuantity = Number(existing.quantity) + quantityChange;
-        const newValue = valuationRate ? newQuantity * valuationRate : Number(existing.stockValue || 0);
-
-        await prisma.stock_levels.update({
-          where: { id: existing.id },
-          data: {
-            quantity: new Prisma.Decimal(newQuantity),
-            valuationRate: valuationRate ? new Prisma.Decimal(valuationRate) : existing.valuationRate,
-            stockValue: new Prisma.Decimal(newValue),
-            lastUpdated: new Date(),
-          },
-        });
-      } else {
-        // Create new stock level record
-        await prisma.stock_levels.create({
-          data: {
-            id: `SL-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-            materialId,
-            warehouseId,
-            quantity: new Prisma.Decimal(quantityChange),
-            unit: 'METER',
-            valuationRate: valuationRate ? new Prisma.Decimal(valuationRate) : null,
-            stockValue: valuationRate ? new Prisma.Decimal(quantityChange * valuationRate) : null,
-            lastUpdated: new Date(),
-          },
-        });
-      }
     } catch (error: unknown) {
       logError('Error updating material stock level:', error);
       // Don't throw error, just log it

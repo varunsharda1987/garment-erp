@@ -802,15 +802,16 @@ class StockMovementService {
         },
       });
 
-      // Update stock levels
-      await stockLevelService.decreaseStock(data.materialId, data.fromWarehouseId, data.quantity);
+      // Update stock levels (pass tx for atomic rollback)
+      await stockLevelService.decreaseStock(data.materialId, data.fromWarehouseId, data.quantity, tx);
 
       await stockLevelService.increaseStock(
         data.materialId,
         data.jobWorkWarehouseId,
         data.quantity,
         data.unit,
-        valuationRate || undefined
+        valuationRate || undefined,
+        tx
       );
 
       return { stockOut, stockIn };
@@ -880,15 +881,16 @@ class StockMovementService {
         },
       });
 
-      // Update stock levels
-      await stockLevelService.decreaseStock(data.materialId, data.jobWorkWarehouseId, data.quantity);
+      // Update stock levels (pass tx for atomic rollback)
+      await stockLevelService.decreaseStock(data.materialId, data.jobWorkWarehouseId, data.quantity, tx);
 
       await stockLevelService.increaseStock(
         data.materialId,
         data.toWarehouseId,
         data.quantity,
         data.unit,
-        valuationRate || undefined
+        valuationRate || undefined,
+        tx
       );
 
       return { stockOut, stockIn };

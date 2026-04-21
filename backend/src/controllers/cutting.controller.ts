@@ -329,7 +329,7 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     logInfo(`Warning: Auto-issue challan failed for batch ${batch.batchNumber}: ${(challanError as Error).message}`);
   }
 
-  res.status(201).json({ data: transformCuttingBatch(batch) });
+  res.status(201).json({ data: transformCuttingBatch(batch), message: 'Cutting batch created successfully' });
 };
 
 // ============================================

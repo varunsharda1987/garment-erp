@@ -178,8 +178,8 @@ export function useStyleFormData() {
           }));
         }
 
-        // Load fabrics
-        const fabricsData = style.styleFabricsFlat || style.fabrics || [];
+        // Load fabrics (serializer converts style_fabrics → fabrics)
+        const fabricsData = style.fabrics || [];
         if (fabricsData.length > 0) {
           payload.fabrics = (
             fabricsData as Array<{

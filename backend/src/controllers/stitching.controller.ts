@@ -330,7 +330,7 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
     logger.error('Failed to create production_tracking for stitching:', err);
   }
 
-  res.status(201).json({ data: transformStitchingIssue(issue) });
+  res.status(201).json({ data: transformStitchingIssue(issue), message: 'Stitching issue created successfully' });
 };
 
 // ============================================

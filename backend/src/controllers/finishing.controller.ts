@@ -303,7 +303,7 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
     logger.error('Failed to create production_tracking for finishing:', err);
   }
 
-  res.status(201).json({ data: transformFinishingIssue(issue) });
+  res.status(201).json({ data: transformFinishingIssue(issue), message: 'Finishing issue created successfully' });
   // end createFinishingIssue
 };
 
@@ -1160,7 +1160,7 @@ export const createPolybagEntry = async (req: Request, res: Response) => {
     include: { skuBreakdown: true },
   });
 
-  res.status(201).json({ data: entry });
+  res.status(201).json({ data: entry, message: 'Polybag entry created successfully' });
 };
 
 /**
@@ -1220,5 +1220,5 @@ export const createCartonPacking = async (req: Request, res: Response) => {
     include: { skuBreakdown: true },
   });
 
-  res.status(201).json({ data: carton });
+  res.status(201).json({ data: carton, message: 'Carton packing created successfully' });
 };

@@ -1120,10 +1120,8 @@ export default function StyleFormRedesigned() {
         );
       }
 
-      // Load fabrics if available (check both old 'fabrics' and new 'styleFabricsFlat')
-      const fabricsData = ((styleData.styleFabricsFlat as unknown[]) ||
-        (styleData.fabrics as unknown[]) ||
-        []) as Array<{
+      // Load fabrics if available (serializer converts style_fabrics → fabrics)
+      const fabricsData = ((styleData.fabrics as unknown[]) || []) as Array<{
         id?: string;
         componentName?: string;
         componentIndex?: number;

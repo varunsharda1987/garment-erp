@@ -68,7 +68,7 @@ export class AgencyController {
       isActive,
     });
 
-    res.status(201).json(agency);
+    res.status(201).json({ data: agency, message: 'Agency created successfully' });
   }
 
   /**

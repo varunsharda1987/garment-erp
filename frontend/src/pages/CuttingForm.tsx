@@ -131,10 +131,8 @@ export default function CuttingForm() {
           .get(`/styles/${wo.styleId}`)
           .then((res) => {
             const style = res.data;
-            const components = style.components || style.styleComponents || [];
-            const hasEmbFabric = components.some((c: any) =>
-              (c.fabrics || c.styleFabrics || []).some((f: any) => f.hasEmbroidery)
-            );
+            const components = style.components || [];
+            const hasEmbFabric = components.some((c: any) => (c.fabrics || []).some((f: any) => f.hasEmbroidery));
             if (hasEmbFabric) {
               // Check if embroidered fabric stock exists
               api

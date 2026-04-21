@@ -384,7 +384,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
     }
   }
 
-  res.status(201).json({ data: transformDeliveryNote(note) });
+  res.status(201).json({ data: transformDeliveryNote(note), message: 'Delivery note created successfully' });
 };
 
 export const deleteDeliveryNote = async (req: Request, res: Response) => {
@@ -763,7 +763,7 @@ export const createASN = async (req: Request, res: Response) => {
     include: asnIncludeOptions,
   });
 
-  res.status(201).json({ data: transformASN(asn) });
+  res.status(201).json({ data: transformASN(asn), message: 'ASN created successfully' });
 };
 
 export const applyASN = async (req: Request, res: Response) => {

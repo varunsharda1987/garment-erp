@@ -302,7 +302,7 @@ export const createLabDip = async (req: Request, res: Response, _next: NextFunct
     include: labDipInclude,
   });
 
-  res.status(201).json({ data: transformLabDip(labDip as any) });
+  res.status(201).json({ data: transformLabDip(labDip as any), message: 'Lab dip created successfully' });
 };
 
 // Update lab dip
@@ -693,7 +693,7 @@ export const createDyeJob = async (req: Request, res: Response, _next: NextFunct
     include: jobWorkOrderInclude,
   });
 
-  res.status(201).json({ data: transformJobWorkOrder(job as any) });
+  res.status(201).json({ data: transformJobWorkOrder(job as any), message: 'Dye job created successfully' });
 };
 
 // Update dye job

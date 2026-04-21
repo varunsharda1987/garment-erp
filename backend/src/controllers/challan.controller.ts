@@ -79,7 +79,7 @@ export async function getChallansController(req: Request, res: Response) {
     pagination: {
       total: result.total,
       limit: limit ? parseInt(limit as string, 10) : 50,
-      offset: offset ? parseInt(offset as string, 10) : 0,
+      offset: offset ? parseInt(offset as string, 10) : 0, // legacy: frontend uses offset-based pagination
     },
   });
 }

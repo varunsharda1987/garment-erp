@@ -316,13 +316,17 @@ function checkResponseStructure(controllerFiles) {
       const line = lines[i];
 
       // Check for bare object response (no data wrapper) on 201
-      if (line.includes('res.status(201).json(') && !line.includes('data:') && !line.includes('{ data')) {
-        issues.push({
-          file: path.basename(file),
-          line: i + 1,
-          type: 'bare-response',
-          message: 'POST 201 without data wrapper',
-        });
+      // Multi-line aware: check next few lines for data: wrapper
+      if (line.includes('res.status(201).json(')) {
+        const nextLines = lines.slice(i, i + 5).join(' ');
+        if (!nextLines.includes('data:') && !nextLines.includes('{ data')) {
+          issues.push({
+            file: path.basename(file),
+            line: i + 1,
+            type: 'bare-response',
+            message: 'POST 201 without data wrapper',
+          });
+        }
       }
 
       // Check for pagination using offset instead of page

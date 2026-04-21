@@ -24,6 +24,7 @@ jest.mock('../../config/company.config', () => ({
 jest.mock('../../utils/logger', () => ({
   logDebug: jest.fn(),
   logError: jest.fn(),
+  logWarn: jest.fn(),
 }));
 
 import { gstService } from '../gst.service';
@@ -271,9 +272,9 @@ describe('GSTService', () => {
       expect(rate).toBe(5);
     });
 
-    it('should return 12 when all lookups fail', async () => {
+    it('should return 5% fallback when all lookups fail (GST 2.0 textile default)', async () => {
       const rate = await gstService.getGSTRate({});
-      expect(rate).toBe(12);
+      expect(rate).toBe(5);
     });
 
     it('should not use hsnSacCode param if material hsnCode is null and hsnSacCode is provided', async () => {
@@ -645,8 +646,9 @@ describe('GSTService', () => {
       expect(gstService.getDefaultGSTRate('6001')).toBe(5);
     });
 
-    it('should return 5% for unknown HSN (default garment rate)', () => {
-      expect(gstService.getDefaultGSTRate('9606')).toBe(5);
+    it('should return 18% for accessories HSN (96xx)', () => {
+      // HSN 96 = buttons, zippers, accessories → 18%
+      expect(gstService.getDefaultGSTRate('9606')).toBe(18);
     });
 
     it('should return 5% for no HSN (default garment rate)', () => {

@@ -58,7 +58,7 @@ export const updateMachinePartSchema = z.object({
  * POST /api/machine-parts/bulk-import
  */
 export const bulkImportMachinePartsSchema = z.object({
-  items: z
+  data: z
     .array(
       z.object({
         name: z.string().min(1).max(200),
@@ -71,6 +71,7 @@ export const bulkImportMachinePartsSchema = z.object({
       })
     )
     .min(1, 'At least one item is required'),
+  createStock: z.boolean().optional().default(false),
 });
 
 /**

@@ -415,7 +415,8 @@ export interface FabricStyleAllocationsResponse {
 }
 
 export interface AllocateToStyleRequest {
-  componentId: string;
+  componentId?: string; // Single component (legacy)
+  componentIds?: string[]; // Multiple components (new)
   patternPartIds?: string[];
   hasEmbroidery?: boolean;
   embroideryId?: string;
@@ -424,7 +425,8 @@ export interface AllocateToStyleRequest {
 
 export interface AllocateToStyleResponse {
   message: string;
-  allocation: FabricStyleAllocation;
+  allocation?: FabricStyleAllocation; // Single allocation (legacy)
+  allocations?: FabricStyleAllocation[]; // Multiple allocations (new)
 }
 
 export interface RemoveAllocationResponse {

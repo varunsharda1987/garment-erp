@@ -67,7 +67,7 @@ export const getAllCostCenters = async (req: Request, res: Response): Promise<vo
 
   res.json({
     data: costCenters,
-    pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+    pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
   });
 };
 

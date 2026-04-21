@@ -35,6 +35,7 @@ export const createMaterialSchema = z.object({
   description: z.string().trim().optional(),
   specifications: z.string().trim().optional(),
   hsnCode: z.string().trim().optional(),
+  gstRate: z.union([z.number(), z.string().transform((val) => (val ? parseFloat(val) : undefined))]).optional(),
   minimumStock: z.number().nonnegative('Minimum stock must be non-negative').optional(),
   reorderLevel: z
     .number()
@@ -71,6 +72,7 @@ export const updateMaterialSchema = z.object({
   description: z.string().trim().optional(),
   specifications: z.string().trim().optional(),
   hsnCode: z.string().trim().optional(),
+  gstRate: z.union([z.number(), z.string().transform((val) => (val ? parseFloat(val) : undefined))]).optional(),
   minimumStock: z.number().nonnegative('Minimum stock must be non-negative').optional(),
   reorderLevel: z
     .number()

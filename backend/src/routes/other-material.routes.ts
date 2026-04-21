@@ -10,6 +10,8 @@ import {
 } from '../controllers/other-material.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { bulkImportOtherMaterialSchema } from '../schemas/otherMaterial.schema';
 
 const router = Router();
 
@@ -25,6 +27,6 @@ router.put('/:id', asyncHandler(updateOtherMaterial));
 router.delete('/:id', asyncHandler(deleteOtherMaterial));
 
 // Bulk operations
-router.post('/bulk-import', asyncHandler(bulkImportOtherMaterials));
+router.post('/bulk-import', validateBody(bulkImportOtherMaterialSchema), asyncHandler(bulkImportOtherMaterials));
 
 export default router;

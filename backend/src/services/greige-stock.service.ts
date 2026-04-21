@@ -174,6 +174,8 @@ class GreigeStockService {
     minQuantity?: number;
     supplierId?: string;
     sourceType?: string;
+    warehouseLocation?: string;
+    excludeTransferred?: boolean;
   }): Promise<GreigeStockItem[]> {
     try {
       const where: Prisma.greige_stockWhereInput = {
@@ -194,6 +196,15 @@ class GreigeStockService {
 
       if (filters?.sourceType) {
         where.sourceType = filters.sourceType;
+      }
+
+      if (filters?.warehouseLocation) {
+        where.warehouseLocation = filters.warehouseLocation;
+      }
+
+      if (filters?.excludeTransferred) {
+        // Exclude transferred stock - include null sourceType (regular stock) and non-TRANSFER types
+        where.OR = [{ sourceType: null }, { sourceType: { not: 'TRANSFER' } }];
       }
 
       const stocks = await prisma.greige_stock.findMany({

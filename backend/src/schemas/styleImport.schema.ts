@@ -24,12 +24,20 @@ export const retryImportSchema = z.object({
 // ============================================================================
 
 /**
- * Create Style Stock
- * POST /api/styles/:styleId/stock-entry
+ * Single Style Stock Entry
  */
-export const createStyleStockSchema = z.object({
+export const styleStockEntrySchema = z.object({
   fabricId: z.string().uuid('Invalid fabric ID'),
   quantity: z.number().positive('Quantity must be positive'),
+  finishedWidth: z.number().nonnegative().optional(),
+  cutableWidth: z.number().nonnegative().optional(),
+  rollNumbers: z.string().max(500).optional(),
+  warehouseLocation: z.string().max(100).optional(),
+  qualityGrade: z.enum(['A', 'B', 'DEFECT']).optional(),
+  purchaseCost: z.number().nonnegative().optional(),
+  receivedDate: z.coerce.date().optional(),
+  patternPartId: z.string().uuid().optional(),
+  fabricFinishType: z.enum(['DYED', 'PRINTED', 'YARN_DYED', 'RAW']).optional(),
   unit: z.string().max(20).optional().default('MTR'),
   lotNumber: z.string().max(50).optional(),
   greigeId: z.string().uuid('Invalid greige ID').optional(),
@@ -38,6 +46,14 @@ export const createStyleStockSchema = z.object({
   unitPrice: z.number().nonnegative().optional(),
   location: z.string().max(100).optional(),
   remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Create Style Stock (Bulk)
+ * POST /api/styles/:styleId/stock-entry
+ */
+export const createStyleStockSchema = z.object({
+  entries: z.array(styleStockEntrySchema).min(1, 'At least one entry is required'),
 });
 
 /**
@@ -69,6 +85,7 @@ export const createGreigeStockSchema = z.object({
 // ============================================================================
 
 export type RetryImportInput = z.infer<typeof retryImportSchema>;
+export type StyleStockEntryInput = z.infer<typeof styleStockEntrySchema>;
 export type CreateStyleStockInput = z.infer<typeof createStyleStockSchema>;
 export type BulkStockQueryInput = z.infer<typeof bulkStockQuerySchema>;
 export type CreateGreigeStockInput = z.infer<typeof createGreigeStockSchema>;

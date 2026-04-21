@@ -128,7 +128,7 @@ export const getAllAccounts = async (req: Request, res: Response): Promise<void>
       page: pageNum,
       limit: limitNum,
       total,
-      pages: Math.ceil(total / limitNum),
+      totalPages: Math.ceil(total / limitNum),
     },
   });
 };

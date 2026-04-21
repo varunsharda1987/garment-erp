@@ -116,6 +116,19 @@ export const createCustomerSchema = z.object({
 
   gstNumbers: z.array(gstNumberSchema).optional(),
 
+  // Location IDs (frontend sends these for address lookups)
+  billingStateId: z.string().uuid('Invalid billing state ID').optional().nullable(),
+  billingCityId: z.string().uuid('Invalid billing city ID').optional().nullable(),
+  billingPincode: z.string().max(20).optional().nullable(),
+  shippingStateId: z.string().uuid('Invalid shipping state ID').optional().nullable(),
+  shippingCityId: z.string().uuid('Invalid shipping city ID').optional().nullable(),
+  shippingPincode: z.string().max(20).optional().nullable(),
+
+  // Agency/Agent (frontend sends for customer-agent relationship)
+  agencyId: z.string().uuid('Invalid agency ID').optional().nullable(),
+  agentId: z.string().uuid('Invalid agent ID').optional().nullable(),
+  agentCommissionPercent: z.number().min(0).max(100).optional().nullable(),
+
   // Testing Requirements (FPT/GPT)
   requiresFPT: z.boolean().optional().default(false),
 
@@ -213,6 +226,19 @@ export const updateCustomerSchema = z.object({
   brandCategories: z.array(brandCategorySchema).optional(),
 
   gstNumbers: z.array(gstNumberSchema).optional(),
+
+  // Location IDs (frontend sends these for address lookups)
+  billingStateId: z.string().uuid('Invalid billing state ID').optional().nullable(),
+  billingCityId: z.string().uuid('Invalid billing city ID').optional().nullable(),
+  billingPincode: z.string().max(20).optional().nullable(),
+  shippingStateId: z.string().uuid('Invalid shipping state ID').optional().nullable(),
+  shippingCityId: z.string().uuid('Invalid shipping city ID').optional().nullable(),
+  shippingPincode: z.string().max(20).optional().nullable(),
+
+  // Agency/Agent (frontend sends for customer-agent relationship)
+  agencyId: z.string().uuid('Invalid agency ID').optional().nullable(),
+  agentId: z.string().uuid('Invalid agent ID').optional().nullable(),
+  agentCommissionPercent: z.number().min(0).max(100).optional().nullable(),
 
   // Testing Requirements (FPT/GPT)
   requiresFPT: z.boolean().optional(),

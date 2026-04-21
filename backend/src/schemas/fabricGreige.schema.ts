@@ -14,64 +14,99 @@ import { z } from 'zod';
 /**
  * Create Greige Master
  * POST /api/fabric-greige/greige
+ * Field names match frontend GreigeMasterFormData
  */
 export const createGreigeMasterSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(200),
-  code: z.string().max(50).optional(),
-  genericName: z.string().max(200).optional(),
-  composition: z.string().max(500).optional(),
+  greigeName: z.string().min(1, 'Greige name is required').max(200),
+  greigeCode: z.string().max(50).optional(),
+  genericGreigeName: z.string().max(200).optional(),
+  yarnCount: z.string().max(50).optional(),
   construction: z.string().max(200).optional(),
-  width: z.number().positive().optional(),
-  gsm: z.number().positive().optional(),
+  composition: z.string().max(500).optional(),
   weaveType: z.string().max(50).optional(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  rate: z.number().nonnegative().optional(),
-  unit: z.string().max(20).optional().default('METER'),
-  hsnCode: z.string().max(20).optional(),
+  greigeQuality: z.enum(['PRINTING', 'DYEING', 'SUPER_DYEING']).optional().nullable(),
+  weaver: z.string().max(200).optional(),
+  greigeWidth: z.number().positive('Greige width is required'),
+  defaultCutableWidth: z.number().positive().optional(),
+  expectedFinishedWidthMin: z.number().positive().optional(),
+  expectedFinishedWidthMax: z.number().positive().optional(),
+  averageShrinkagePercent: z.number().min(0).max(100).optional().default(8),
+  gsmRange: z.string().max(50).optional(),
+  costPerMeter: z.number().nonnegative().optional(),
   moq: z.number().positive().optional(),
   leadTimeDays: z.number().int().nonnegative().optional(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+  suppliers: z
+    .array(
+      z.object({
+        supplierId: z.string().uuid(),
+        isPreferred: z.boolean().optional(),
+        isActive: z.boolean().optional(),
+        notes: z.string().max(500).optional(),
+      })
+    )
+    .optional(),
+  description: z.string().max(1000).optional(),
+  notes: z.string().max(1000).optional(),
   isActive: z.boolean().optional().default(true),
-  remarks: z.string().max(500).optional(),
 });
 
 /**
  * Update Greige Master
  * PUT /api/fabric-greige/greige/:id
+ * Field names match frontend GreigeMasterFormData
  */
 export const updateGreigeMasterSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  code: z.string().max(50).optional().nullable(),
-  genericName: z.string().max(200).optional().nullable(),
-  composition: z.string().max(500).optional().nullable(),
+  greigeName: z.string().min(1).max(200).optional(),
+  greigeCode: z.string().max(50).optional().nullable(),
+  genericGreigeName: z.string().max(200).optional().nullable(),
+  yarnCount: z.string().max(50).optional().nullable(),
   construction: z.string().max(200).optional().nullable(),
-  width: z.number().positive().optional().nullable(),
-  gsm: z.number().positive().optional().nullable(),
+  composition: z.string().max(500).optional().nullable(),
   weaveType: z.string().max(50).optional().nullable(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-  rate: z.number().nonnegative().optional().nullable(),
-  unit: z.string().max(20).optional(),
-  hsnCode: z.string().max(20).optional().nullable(),
+  greigeQuality: z.enum(['PRINTING', 'DYEING', 'SUPER_DYEING']).optional().nullable(),
+  weaver: z.string().max(200).optional().nullable(),
+  greigeWidth: z.number().positive().optional().nullable(),
+  defaultCutableWidth: z.number().positive().optional().nullable(),
+  expectedFinishedWidthMin: z.number().positive().optional().nullable(),
+  expectedFinishedWidthMax: z.number().positive().optional().nullable(),
+  averageShrinkagePercent: z.number().min(0).max(100).optional().nullable(),
+  gsmRange: z.string().max(50).optional().nullable(),
+  costPerMeter: z.number().nonnegative().optional().nullable(),
   moq: z.number().positive().optional().nullable(),
   leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+  suppliers: z
+    .array(
+      z.object({
+        supplierId: z.string().uuid(),
+        isPreferred: z.boolean().optional(),
+        isActive: z.boolean().optional(),
+        notes: z.string().max(500).optional(),
+      })
+    )
+    .optional(),
+  description: z.string().max(1000).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
   isActive: z.boolean().optional(),
-  remarks: z.string().max(500).optional().nullable(),
 });
 
 /**
  * Bulk Import Greige Masters
  * POST /api/fabric-greige/greige/bulk-import
+ * Field names match frontend GreigeMasterFormData
  */
 export const bulkImportGreigeSchema = z.object({
-  items: z
+  greiges: z
     .array(
       z.object({
-        name: z.string().min(1).max(200),
-        code: z.string().max(50).optional(),
-        genericName: z.string().max(200).optional(),
+        greigeName: z.string().min(1).max(200),
+        greigeCode: z.string().max(50).optional(),
+        genericGreigeName: z.string().max(200).optional(),
         composition: z.string().max(500).optional(),
-        width: z.number().positive().optional(),
-        gsm: z.number().positive().optional(),
-        rate: z.number().nonnegative().optional(),
+        greigeWidth: z.number().positive().optional(),
+        gsmRange: z.string().max(50).optional(),
+        costPerMeter: z.number().nonnegative().optional(),
       })
     )
     .min(1, 'At least one item is required'),
@@ -100,73 +135,112 @@ export const greigeQuerySchema = z.object({
 /**
  * Create Fabric Master
  * POST /api/fabric-greige/fabric
+ * Field names match frontend FabricMasterFormData
  */
 export const createFabricMasterSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(200),
-  code: z.string().max(50).optional(),
-  genericName: z.string().max(200).optional(),
-  greigeId: z.string().uuid('Invalid greige ID').optional(),
-  composition: z.string().max(500).optional(),
-  construction: z.string().max(200).optional(),
-  width: z.number().positive().optional(),
-  gsm: z.number().positive().optional(),
-  shrinkage: z.number().min(0).max(100).optional(),
-  dyeType: z.string().max(50).optional(),
-  finishType: z.string().max(50).optional(),
-  colorId: z.string().uuid('Invalid color ID').optional(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  rate: z.number().nonnegative().optional(),
-  unit: z.string().max(20).optional().default('METER'),
-  hsnCode: z.string().max(20).optional(),
-  moq: z.number().positive().optional(),
-  leadTimeDays: z.number().int().nonnegative().optional(),
+  fabricCode: z.string().min(1, 'Fabric code is required').max(50),
+  fabricName: z.string().min(1, 'Fabric name is required').max(200),
+  greigeId: z.string().uuid('Invalid greige ID').optional().nullable(),
+  greigeName: z.string().max(200).optional().nullable(),
+  genericGreigeName: z.string().max(200).optional().nullable(),
+  yarnCount: z.string().max(50).optional().nullable(),
+  composition: z.string().max(500).optional().nullable(),
+  colorName: z.string().max(50).optional().nullable(),
+  colorCode: z.string().max(20).optional().nullable(),
+  finishType: z.string().max(50).optional().nullable(),
+  printDesign: z.string().max(200).optional().nullable(),
+  actualWidth: z.number().positive('Width must be positive'),
+  cutableWidth: z.number().positive().optional().nullable(),
+  finishedConstruction: z.string().max(200).optional().nullable(),
+  actualGSM: z.number().positive().optional().nullable(),
+  valueAddition: z.string().max(200).optional().nullable(),
+  valueAdditionCost: z.number().nonnegative().optional().nullable(),
+  styleReference: z.string().max(100).optional().nullable(),
+  source: z.string().max(50).optional().nullable(),
+  costPerMeter: z.number().nonnegative().optional().nullable(),
+  moq: z.number().positive().optional().nullable(),
+  leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+  suppliers: z
+    .array(
+      z.object({
+        supplierId: z.string().uuid(),
+        isPreferred: z.boolean().optional(),
+        isActive: z.boolean().optional(),
+        notes: z.string().max(500).optional(),
+      })
+    )
+    .optional(),
+  description: z.string().max(1000).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
+  isGeneric: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
-  remarks: z.string().max(500).optional(),
 });
 
 /**
  * Update Fabric Master
  * PUT /api/fabric-greige/fabric/:id
+ * Field names match frontend FabricMasterFormData
  */
 export const updateFabricMasterSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  code: z.string().max(50).optional().nullable(),
-  genericName: z.string().max(200).optional().nullable(),
+  fabricCode: z.string().max(50).optional(),
+  fabricName: z.string().min(1).max(200).optional(),
   greigeId: z.string().uuid('Invalid greige ID').optional().nullable(),
+  greigeName: z.string().max(200).optional().nullable(),
+  genericGreigeName: z.string().max(200).optional().nullable(),
+  yarnCount: z.string().max(50).optional().nullable(),
   composition: z.string().max(500).optional().nullable(),
-  construction: z.string().max(200).optional().nullable(),
-  width: z.number().positive().optional().nullable(),
-  gsm: z.number().positive().optional().nullable(),
-  shrinkage: z.number().min(0).max(100).optional().nullable(),
-  dyeType: z.string().max(50).optional().nullable(),
+  colorName: z.string().max(50).optional().nullable(),
+  colorCode: z.string().max(20).optional().nullable(),
   finishType: z.string().max(50).optional().nullable(),
-  colorId: z.string().uuid('Invalid color ID').optional().nullable(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-  rate: z.number().nonnegative().optional().nullable(),
-  unit: z.string().max(20).optional(),
-  hsnCode: z.string().max(20).optional().nullable(),
+  printDesign: z.string().max(200).optional().nullable(),
+  actualWidth: z.number().positive().optional().nullable(),
+  cutableWidth: z.number().positive().optional().nullable(),
+  finishedConstruction: z.string().max(200).optional().nullable(),
+  actualGSM: z.number().positive().optional().nullable(),
+  valueAddition: z.string().max(200).optional().nullable(),
+  valueAdditionCost: z.number().nonnegative().optional().nullable(),
+  styleReference: z.string().max(100).optional().nullable(),
+  source: z.string().max(50).optional().nullable(),
+  costPerMeter: z.number().nonnegative().optional().nullable(),
   moq: z.number().positive().optional().nullable(),
   leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+  suppliers: z
+    .array(
+      z.object({
+        supplierId: z.string().uuid(),
+        isPreferred: z.boolean().optional(),
+        isActive: z.boolean().optional(),
+        notes: z.string().max(500).optional(),
+      })
+    )
+    .optional(),
+  description: z.string().max(1000).optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
+  isGeneric: z.boolean().optional(),
   isActive: z.boolean().optional(),
-  remarks: z.string().max(500).optional().nullable(),
 });
 
 /**
  * Bulk Import Fabric Masters
  * POST /api/fabric-greige/fabric/bulk-import
+ * Field names match frontend FabricMasterFormData
  */
 export const bulkImportFabricSchema = z.object({
-  items: z
+  fabrics: z
     .array(
       z.object({
-        name: z.string().min(1).max(200),
-        code: z.string().max(50).optional(),
-        genericName: z.string().max(200).optional(),
+        fabricName: z.string().min(1).max(200),
+        fabricCode: z.string().max(50).optional(),
+        genericGreigeName: z.string().max(200).optional(),
         greigeCode: z.string().max(50).optional(),
         composition: z.string().max(500).optional(),
-        width: z.number().positive().optional(),
-        gsm: z.number().positive().optional(),
-        rate: z.number().nonnegative().optional(),
+        actualWidth: z.number().positive().optional(),
+        actualGSM: z.number().positive().optional(),
+        costPerMeter: z.number().nonnegative().optional(),
       })
     )
     .min(1, 'At least one item is required'),
@@ -175,13 +249,19 @@ export const bulkImportFabricSchema = z.object({
 /**
  * Allocate Fabric to Style
  * POST /api/fabric-greige/fabric/:id/allocate-to-style
+ * Supports both single componentId (legacy) and componentIds array (multi-component)
+ * Style is derived from component lookup in controller - not required in body
  */
-export const allocateToStyleSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID'),
-  componentId: z.string().uuid('Invalid component ID').optional(),
-  patternPartIds: z.array(z.string().uuid()).optional(),
-  remarks: z.string().max(500).optional(),
-});
+export const allocateToStyleSchema = z
+  .object({
+    componentId: z.string().uuid('Invalid component ID').optional(),
+    componentIds: z.array(z.string().uuid('Invalid component ID')).optional(),
+    patternPartIds: z.array(z.string().uuid()).optional(),
+    hasEmbroidery: z.boolean().optional(),
+    embroideryId: z.string().uuid('Invalid embroidery ID').optional().nullable(),
+    notes: z.string().max(500).optional().nullable(),
+  })
+  .passthrough();
 
 /**
  * Update Allocation Pattern Parts

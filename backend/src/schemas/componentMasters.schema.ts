@@ -36,13 +36,17 @@ export const ComponentCategoryEnum = z.enum([
 /**
  * Create Component Master
  * POST /api/component-masters
+ * Field names match frontend ComponentMasterFormData
  */
 export const createComponentMasterSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   code: z.string().max(50).optional(),
-  category: ComponentCategoryEnum,
-  subcategory: z.string().max(100).optional(),
   description: z.string().max(500).optional(),
+  componentCategory: z.string().max(100).optional(),
+  componentGroupId: z.string().uuid('Invalid component group ID').optional().nullable(),
+  sortOrder: z.number().int().optional(),
+  category: ComponentCategoryEnum.optional(),
+  subcategory: z.string().max(100).optional(),
   unit: z.string().max(20).optional().default('PCS'),
   hsnCode: z.string().max(20).optional(),
   gstRate: z.number().min(0).max(100).optional(),
@@ -57,13 +61,17 @@ export const createComponentMasterSchema = z.object({
 /**
  * Update Component Master
  * PUT /api/component-masters/:id
+ * Field names match frontend ComponentMasterFormData
  */
 export const updateComponentMasterSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   code: z.string().max(50).optional().nullable(),
+  description: z.string().max(500).optional().nullable(),
+  componentCategory: z.string().max(100).optional().nullable(),
+  componentGroupId: z.string().uuid('Invalid component group ID').optional().nullable(),
+  sortOrder: z.number().int().optional().nullable(),
   category: ComponentCategoryEnum.optional(),
   subcategory: z.string().max(100).optional().nullable(),
-  description: z.string().max(500).optional().nullable(),
   unit: z.string().max(20).optional(),
   hsnCode: z.string().max(20).optional().nullable(),
   gstRate: z.number().min(0).max(100).optional().nullable(),

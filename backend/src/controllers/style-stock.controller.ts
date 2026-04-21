@@ -415,12 +415,19 @@ class StyleStockController {
   /**
    * Get individual greige stock entries (available, with IDs for challan issuance)
    * GET /api/greige/stock
+   * Query params:
+   *   - warehouseLocation: Filter by warehouse location
+   *   - excludeTransferred: If 'true', excludes stock with sourceType='TRANSFER'
    */
   async getAvailableGreigeStock(req: Request, res: Response) {
     try {
+      const { warehouseLocation, excludeTransferred } = req.query;
+
       const stocks = await GreigeStockService.getGreigeStock({
         status: 'AVAILABLE',
         minQuantity: 0.01,
+        warehouseLocation: warehouseLocation as string | undefined,
+        excludeTransferred: excludeTransferred === 'true',
       });
 
       return res.status(200).json({

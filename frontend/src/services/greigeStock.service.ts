@@ -63,9 +63,24 @@ export const greigeStockService = {
 
   /**
    * Get individual greige stock entries (available, with IDs for challan issuance)
+   * @param filters.warehouseLocation - Filter by warehouse location
+   * @param filters.excludeTransferred - Exclude stock already transferred to processors
    */
-  async listAvailableStock(): Promise<GreigeStockEntry[]> {
-    const response = await axios.get<ApiResponse<GreigeStockEntry[]>>(`${BASE_URL}/stock`, {
+  async listAvailableStock(filters?: {
+    warehouseLocation?: string;
+    excludeTransferred?: boolean;
+  }): Promise<GreigeStockEntry[]> {
+    const params = new URLSearchParams();
+    if (filters?.warehouseLocation) {
+      params.append('warehouseLocation', filters.warehouseLocation);
+    }
+    if (filters?.excludeTransferred) {
+      params.append('excludeTransferred', 'true');
+    }
+    const queryString = params.toString();
+    const url = queryString ? `${BASE_URL}/stock?${queryString}` : `${BASE_URL}/stock`;
+
+    const response = await axios.get<ApiResponse<GreigeStockEntry[]>>(url, {
       headers: getAuthHeader(),
     });
     return response.data.data;

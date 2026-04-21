@@ -14,6 +14,7 @@ import { z } from 'zod';
 /**
  * Create Agent
  * POST /api/agents
+ * Field names match frontend CreateAgentRequest
  */
 export const createAgentSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
@@ -26,6 +27,7 @@ export const createAgentSchema = z.object({
   state: z.string().max(100).optional(),
   country: z.string().max(100).optional(),
   pincode: z.string().max(20).optional(),
+  agencyId: z.string().uuid('Invalid agency ID').optional().nullable(),
   commissionRate: z.number().min(0).max(100).optional(),
   gstNumber: z.string().max(20).optional(),
   panNumber: z.string().max(20).optional(),
@@ -37,6 +39,7 @@ export const createAgentSchema = z.object({
 /**
  * Update Agent
  * PUT /api/agents/:id
+ * Field names match frontend UpdateAgentRequest
  */
 export const updateAgentSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -49,6 +52,7 @@ export const updateAgentSchema = z.object({
   state: z.string().max(100).optional().nullable(),
   country: z.string().max(100).optional().nullable(),
   pincode: z.string().max(20).optional().nullable(),
+  agencyId: z.string().uuid('Invalid agency ID').optional().nullable(),
   commissionRate: z.number().min(0).max(100).optional().nullable(),
   gstNumber: z.string().max(20).optional().nullable(),
   panNumber: z.string().max(20).optional().nullable(),

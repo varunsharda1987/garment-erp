@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Sparkles, Plus, Info } from 'lucide-react';
 
 import { PageHeader } from '../components/PageHeader';
@@ -44,6 +44,7 @@ interface StyleFabricInfo {
   id: string;
   fabricName?: string | null;
   genericGreigeName?: string | null;
+  fabricFinishType?: string | null;
   hasEmbroidery?: boolean;
   embroideryId?: string | null;
 }
@@ -76,6 +77,14 @@ interface FabricFormProps {
 export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+
+  // URL params for auto-population (e.g., from Stock Entry page)
+  const preselectedStyleId = searchParams.get('styleId');
+  const preselectedSource = searchParams.get('source') as FabricSource | null;
+  const preselectedComponentId = searchParams.get('componentId');
+  const preselectedFinishType = searchParams.get('finishType');
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [greigeMasters, setGreigeMasters] = useState<GreigeMaster[]>([]);
@@ -90,7 +99,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
 
   // Component and pattern parts state (for style_linked)
-  const [selectedComponentId, setSelectedComponentId] = useState<string>('');
+  // Multi-component selection (array of component IDs)
+  const [selectedComponentIds, setSelectedComponentIds] = useState<string[]>([]);
   // Two separate arrays for CAD-defined and master pattern parts
   const [cadPatternParts, setCadPatternParts] = useState<PatternPartForAllocation[]>([]);
   const [masterPatternParts, setMasterPatternParts] = useState<PatternPartForAllocation[]>([]);
@@ -354,6 +364,47 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   }, [selectedStyleId, styles, selectedStyle]);
 
+  // Auto-populate from URL params (e.g., from Stock Entry "Create fabric in Fabric Master" link)
+  useEffect(() => {
+    if (mode === 'edit') return;
+
+    // Set source if provided and not already set
+    if (preselectedSource && fabricSource !== preselectedSource) {
+      setFabricSource(preselectedSource);
+    }
+
+    // Set finish type if provided
+    if (preselectedFinishType && !formData.finishType) {
+      setFormData((prev) => ({ ...prev, finishType: preselectedFinishType }));
+    }
+  }, [mode, preselectedSource, fabricSource, preselectedFinishType, formData.finishType]);
+
+  // Auto-select style from URL params (after source is set to style_linked)
+  useEffect(() => {
+    if (mode === 'edit') return;
+    if (fabricSource !== 'style_linked') return;
+    if (!preselectedStyleId || selectedStyleId) return;
+
+    handleStyleChangeFromCombobox(preselectedStyleId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, fabricSource, preselectedStyleId, selectedStyleId]);
+
+  // Auto-select component from URL params (after style components load)
+  useEffect(() => {
+    if (mode === 'edit') return;
+    if (!preselectedComponentId) return;
+    if (selectedComponentIds.length > 0) return;
+    if (!selectedStyle?.components?.length) return;
+
+    const componentExists = selectedStyle.components.some((c) => c.id === preselectedComponentId);
+    if (componentExists) {
+      setSelectedComponentIds([preselectedComponentId]);
+      // Pass styleId explicitly to avoid stale closure issues
+      loadComponentDetails(preselectedComponentId, preselectedStyleId || undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, preselectedComponentId, selectedComponentIds, selectedStyle?.components]);
+
   const loadFabric = async () => {
     try {
       setLoading(true);
@@ -369,38 +420,42 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       } else if (fabric.source === 'STYLE_LINKED' || hasAllocations) {
         setFabricSource('style_linked');
 
-        // If there are allocations, pre-populate the first one for display
-        const firstAllocation = allocationsResponse.allocations[0];
-        setAllocationId(firstAllocation.id);
-        if (firstAllocation.component?.style) {
-          setSelectedStyleId(firstAllocation.component.style.id);
-          setSelectedStyleCode(firstAllocation.component.style.styleCode);
-          setSelectedComponentId(firstAllocation.componentId);
+        // Only access allocations[0] if allocations actually exist
+        if (hasAllocations) {
+          const firstAllocation = allocationsResponse.allocations[0];
+          setAllocationId(firstAllocation.id);
+          if (firstAllocation.component?.style) {
+            setSelectedStyleId(firstAllocation.component.style.id);
+            setSelectedStyleCode(firstAllocation.component.style.styleCode);
+            setSelectedComponentIds([firstAllocation.componentId]);
 
-          // Extract pattern part IDs from the allocation
-          if (firstAllocation.patternParts && firstAllocation.patternParts.length > 0) {
-            const patternPartIds = firstAllocation.patternParts.map(
-              (pp: { patternPartId: string }) => pp.patternPartId
-            );
-            setSelectedPatternPartIds(patternPartIds);
-          }
-
-          // Load pattern parts for the allocated component
-          try {
-            setLoadingPatternParts(true);
-            const { cadPatternParts: cadParts, masterPatternParts: masterParts } =
-              await fabricService.getCADPatternPartsForComponent(
-                firstAllocation.component.style.id,
-                firstAllocation.componentId
+            // Extract pattern part IDs from the allocation
+            if (firstAllocation.patternParts && firstAllocation.patternParts.length > 0) {
+              const patternPartIds = firstAllocation.patternParts.map(
+                (pp: { patternPartId: string }) => pp.patternPartId
               );
-            setCadPatternParts(cadParts);
-            setMasterPatternParts(masterParts);
-          } catch (error) {
-            logError('Error loading pattern parts for allocation:', error);
-          } finally {
-            setLoadingPatternParts(false);
+              setSelectedPatternPartIds(patternPartIds);
+            }
+
+            // Load pattern parts for the allocated component
+            try {
+              setLoadingPatternParts(true);
+              const { cadPatternParts: cadParts, masterPatternParts: masterParts } =
+                await fabricService.getCADPatternPartsForComponent(
+                  firstAllocation.component.style.id,
+                  firstAllocation.componentId
+                );
+              setCadPatternParts(cadParts);
+              setMasterPatternParts(masterParts);
+            } catch (error) {
+              logError('Error loading pattern parts for allocation:', error);
+            } finally {
+              setLoadingPatternParts(false);
+            }
           }
         }
+        // If source is STYLE_LINKED but no allocations, fabric source is set
+        // User can manually add allocations later
       } else {
         setFabricSource('stock');
       }
@@ -430,7 +485,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         isGeneric: fabric.isGeneric || false,
         isActive: fabric.isActive,
         suppliers:
-          fabric.supplier?.map(
+          fabric.suppliers?.map(
             (s: { supplier: { id: string }; isPreferred: boolean; isActive: boolean; notes?: string }) => ({
               supplierId: s.supplier.id,
               isPreferred: s.isPreferred,
@@ -512,7 +567,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       setSelectedStyle(null);
     }
     // Always reset component and pattern parts when changing source
-    setSelectedComponentId('');
+    setSelectedComponentIds([]);
     setCadPatternParts([]);
     setMasterPatternParts([]);
     setSelectedPatternPartIds([]);
@@ -537,7 +592,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
     // Reset state immediately
     setSelectedStyleId(styleId);
-    setSelectedComponentId('');
+    setSelectedComponentIds([]);
     setCadPatternParts([]);
     setMasterPatternParts([]);
     setSelectedPatternPartIds([]);
@@ -564,20 +619,58 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   };
 
-  // Handle component selection - loads CAD pattern parts first, then master pattern parts
-  // Also auto-populates genericGreigeName from the component's style_fabrics
+  // Handle component toggle - multi-select support
+  // Also auto-populates genericGreigeName from the component's style_fabrics (uses first selected)
   // And checks if component uses embroidery
-  const handleComponentChange = async (componentId: string) => {
-    setSelectedComponentId(componentId);
+  const handleComponentToggle = (componentId: string, checked: boolean) => {
+    setSelectedComponentIds((prev) => {
+      if (checked) {
+        return [...prev, componentId];
+      } else {
+        return prev.filter((id) => id !== componentId);
+      }
+    });
+
+    // When adding first component or changing selection, update pattern parts
+    if (checked) {
+      loadComponentDetails(componentId);
+    } else if (selectedComponentIds.length === 1 && selectedComponentIds[0] === componentId) {
+      // Last component unchecked - reset pattern parts
+      setSelectedPatternPartIds([]);
+      setCadPatternParts([]);
+      setMasterPatternParts([]);
+      setComponentUsesEmbroidery(false);
+      setHasEmbroidery(false);
+      setSelectedEmbroideryId(null);
+    }
+  };
+
+  // Load details for a component (pattern parts, embroidery, etc.)
+  // styleIdOverride allows passing styleId explicitly to avoid stale closure issues
+  const loadComponentDetails = async (componentId: string, styleIdOverride?: string) => {
     setSelectedPatternPartIds([]);
     setCadPatternParts([]);
     setMasterPatternParts([]);
-    // Reset embroidery state for new component
     setComponentUsesEmbroidery(false);
     setHasEmbroidery(false);
     setSelectedEmbroideryId(null);
 
-    if (!componentId || !selectedStyleId) return;
+    // Use passed styleId OR fall back to selectedStyleId from closure
+    const effectiveStyleId = styleIdOverride || selectedStyleId;
+
+    // If no component or style context, still load ALL pattern parts as fallback
+    if (!componentId || !effectiveStyleId) {
+      try {
+        setLoadingPatternParts(true);
+        const allParts = await fabricService.getAllPatternParts();
+        setMasterPatternParts(allParts);
+      } catch (err) {
+        logError('Error loading fallback pattern parts:', err);
+      } finally {
+        setLoadingPatternParts(false);
+      }
+      return;
+    }
 
     // Auto-populate genericGreigeName from the selected component's fabrics
     const component = selectedStyle?.components?.find((c) => c.id === componentId);
@@ -609,7 +702,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       setLoadingPatternParts(true);
       // Use new API that returns both CAD and master pattern parts
       const { cadPatternParts: cadParts, masterPatternParts: masterParts } =
-        await fabricService.getCADPatternPartsForComponent(selectedStyleId, componentId);
+        await fabricService.getCADPatternPartsForComponent(effectiveStyleId, componentId);
       setCadPatternParts(cadParts);
       setMasterPatternParts(masterParts);
 
@@ -745,9 +838,29 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
   // Core save fabric function (called directly or after greige creation)
   const saveFabric = async (dataToSave: FabricMasterFormData) => {
+    // Sanitize empty strings to null for optional fields (Zod requires null/undefined, not "")
+    const sanitizedData = {
+      ...dataToSave,
+      greigeId: dataToSave.greigeId || null,
+      greigeName: dataToSave.greigeName || null,
+      genericGreigeName: dataToSave.genericGreigeName || null,
+      yarnCount: dataToSave.yarnCount || null,
+      composition: dataToSave.composition || null,
+      colorName: dataToSave.colorName || null,
+      colorCode: dataToSave.colorCode || null,
+      finishType: dataToSave.finishType || null,
+      printDesign: dataToSave.printDesign || null,
+      finishedConstruction: dataToSave.finishedConstruction || null,
+      valueAddition: dataToSave.valueAddition || null,
+      styleReference: dataToSave.styleReference || null,
+      description: dataToSave.description || null,
+      notes: dataToSave.notes || null,
+      imageUrl: dataToSave.imageUrl || null,
+    };
+
     try {
       if (mode === 'edit' && id) {
-        await fabricService.update(id, dataToSave);
+        await fabricService.update(id, sanitizedData);
 
         // Update pattern parts if this is a style-linked fabric with an existing allocation
         if (fabricSource === 'style_linked' && allocationId) {
@@ -761,21 +874,24 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
         notify.success('Fabric master updated successfully');
       } else {
-        const result = await fabricService.create(dataToSave);
+        const result = await fabricService.create(sanitizedData);
 
-        // If style_linked, allocate to the selected style/component
-        if (fabricSource === 'style_linked' && selectedComponentId && result?.id) {
+        // If style_linked, allocate to the selected style/component(s)
+        if (fabricSource === 'style_linked' && selectedComponentIds.length > 0 && result?.id) {
           try {
             await fabricService.allocateToStyle(result.id, {
-              componentId: selectedComponentId,
+              componentIds: selectedComponentIds,
               patternPartIds: selectedPatternPartIds.length > 0 ? selectedPatternPartIds : undefined,
               hasEmbroidery: hasEmbroidery,
               embroideryId: hasEmbroidery && selectedEmbroideryId ? selectedEmbroideryId : undefined,
             });
             notify.success('Fabric master created and allocated to style successfully');
-          } catch (allocError) {
+          } catch (allocError: unknown) {
             logError('Error allocating fabric to style:', allocError);
-            notify.warning('Fabric created but failed to allocate to style');
+            const axiosAllocErr = allocError as { response?: { data?: { error?: string; message?: string } } };
+            const allocErrMsg =
+              axiosAllocErr.response?.data?.error || axiosAllocErr.response?.data?.message || 'Unknown error';
+            notify.warning(`Fabric created but failed to allocate to style: ${allocErrMsg}`);
           }
         } else {
           notify.success('Fabric master created successfully');
@@ -800,7 +916,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     // Style and Component are required for style_linked
     if (fabricSource === 'style_linked') {
       if (!selectedStyleId) missingFields.push('Style');
-      if (!selectedComponentId) missingFields.push('Component');
+      if (selectedComponentIds.length === 0) missingFields.push('Component');
     }
 
     // All sources: require either greige OR generic fabric name
@@ -893,31 +1009,43 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
                 </div>
               )}
 
-              {/* Component dropdown */}
+              {/* Component multi-select */}
               {fabricSource === 'style_linked' && selectedStyleId && (
-                <div className="col-span-12 sm:col-span-4 lg:col-span-4">
+                <div className="col-span-12 sm:col-span-6 lg:col-span-6">
                   <label className="block text-sm font-medium text-foreground mb-1">
-                    Component <span className="text-destructive">*</span>
+                    Components <span className="text-destructive">*</span>
+                    {selectedComponentIds.length > 0 && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({selectedComponentIds.length} selected)
+                      </span>
+                    )}
                   </label>
-                  <select
-                    value={selectedComponentId}
-                    onChange={(e) => handleComponentChange(e.target.value)}
-                    className="w-full h-10 px-3 py-2 text-sm border border-border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-info"
-                    required
-                  >
-                    <option value="">Select component...</option>
-                    {selectedStyle?.components?.map((comp) => (
-                      <option key={comp.id} value={comp.id}>
-                        {comp.componentMaster?.name || comp.componentName}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="border border-border rounded-md p-2 max-h-32 overflow-y-auto bg-background">
+                    {selectedStyle?.components?.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">No components available</span>
+                    ) : (
+                      selectedStyle?.components?.map((comp) => (
+                        <label
+                          key={comp.id}
+                          className="flex items-center gap-2 py-1 px-1 hover:bg-muted/50 rounded cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedComponentIds.includes(comp.id)}
+                            onChange={(e) => handleComponentToggle(comp.id, e.target.checked)}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                          />
+                          <span className="text-sm">{comp.componentMaster?.name || comp.componentName}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Embroidery Section - Shows when component uses embroidery */}
-            {fabricSource === 'style_linked' && selectedComponentId && componentUsesEmbroidery && (
+            {fabricSource === 'style_linked' && selectedComponentIds.length > 0 && componentUsesEmbroidery && (
               <div className="border-l-4 border-l-accent pl-4 py-3 bg-accent/10 rounded-r">
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="h-4 w-4 text-accent" />
@@ -997,7 +1125,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
               {/* Pattern Parts */}
               <div className="col-span-12 sm:col-span-5">
                 <label className="block text-sm font-medium text-foreground mb-1">Pattern Parts</label>
-                {fabricSource === 'style_linked' && selectedComponentId ? (
+                {fabricSource === 'style_linked' && selectedComponentIds.length > 0 ? (
                   loadingPatternParts ? (
                     <span className="text-xs text-muted-foreground">Loading pattern parts...</span>
                   ) : cadPatternParts.length > 0 || masterPatternParts.length > 0 ? (

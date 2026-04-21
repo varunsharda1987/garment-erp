@@ -65,7 +65,7 @@ export const getAllExpenseTypes = async (req: Request, res: Response): Promise<v
 
   res.json({
     data: expenseTypes,
-    pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+    pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
   });
 };
 

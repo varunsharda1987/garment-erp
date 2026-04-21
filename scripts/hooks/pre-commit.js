@@ -134,10 +134,28 @@ function validateTypeSync() {
 }
 
 /**
+ * Validate schema-controller sync and pagination format
+ */
+function validateSchemaControllerSync() {
+  console.log(`${colors.bright}3. Validating schema-controller sync...${colors.reset}`);
+
+  const result = exec('node scripts/hooks/check-schema-controller-sync.js', true);
+
+  if (!result.success) {
+    console.log(`${colors.red}✗ Schema-controller sync issues found${colors.reset}`);
+    console.log(result.output);
+    return false;
+  }
+
+  console.log(`${colors.green}✓ Schema-controller sync validated${colors.reset}\n`);
+  return true;
+}
+
+/**
  * Check for console.log statements
  */
 function checkForConsoleLogs() {
-  console.log(`${colors.bright}3. Checking for console.log statements...${colors.reset}`);
+  console.log(`${colors.bright}4. Checking for console.log statements...${colors.reset}`);
 
   const filesWithConsole = checkConsoleLogs();
 
@@ -175,9 +193,10 @@ function main() {
   // Run checks
   const typeCheckPassed = runTypeCheck();
   const typeSyncPassed = validateTypeSync();
+  const schemaControllerPassed = validateSchemaControllerSync();
   const consoleCheckPassed = checkForConsoleLogs();
 
-  allPassed = typeCheckPassed && typeSyncPassed;
+  allPassed = typeCheckPassed && typeSyncPassed && schemaControllerPassed;
 
   // console.log is warning only, doesn't block commit
   if (!consoleCheckPassed) {

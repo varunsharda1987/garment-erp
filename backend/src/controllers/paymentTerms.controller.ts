@@ -102,7 +102,7 @@ export const getAllPaymentTerms = async (req: Request, res: Response): Promise<v
       page: pageNum,
       limit: limitNum,
       total,
-      pages: Math.ceil(total / limitNum),
+      totalPages: Math.ceil(total / limitNum),
     },
   });
 };

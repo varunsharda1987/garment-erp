@@ -1,1 +1,4 @@
 npx lint-staged
+
+# Smart Check - automatically detects what you changed and runs relevant checks
+node scripts/hooks/smart-check.js

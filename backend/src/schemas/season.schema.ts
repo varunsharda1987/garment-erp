@@ -20,12 +20,14 @@ export const SeasonTypeEnum = z.enum(['SS', 'AW']);
 /**
  * Create Season
  * POST /api/seasons
+ * Field names match frontend CreateSeasonRequest
  */
 export const createSeasonSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   code: z.string().max(20).optional(),
-  type: SeasonTypeEnum,
+  seasonType: SeasonTypeEnum,
   year: z.number().int().min(2000).max(2100),
+  sortOrder: z.number().int().optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
   description: z.string().max(500).optional(),
@@ -35,12 +37,14 @@ export const createSeasonSchema = z.object({
 /**
  * Update Season
  * PUT /api/seasons/:id
+ * Field names match frontend UpdateSeasonRequest
  */
 export const updateSeasonSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   code: z.string().max(20).optional().nullable(),
-  type: SeasonTypeEnum.optional(),
+  seasonType: SeasonTypeEnum.optional(),
   year: z.number().int().min(2000).max(2100).optional(),
+  sortOrder: z.number().int().optional().nullable(),
   startDate: z.string().datetime().optional().nullable(),
   endDate: z.string().datetime().optional().nullable(),
   description: z.string().max(500).optional().nullable(),
@@ -64,12 +68,13 @@ export const generateSeasonsSchema = z
 /**
  * Season Query Params
  * GET /api/seasons
+ * Field names match frontend SeasonQueryParams
  */
 export const seasonQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
   search: z.string().max(100).optional(),
-  type: SeasonTypeEnum.optional(),
+  seasonType: SeasonTypeEnum.optional(),
   year: z.string().transform(Number).pipe(z.number().int()).optional(),
   isActive: z
     .string()

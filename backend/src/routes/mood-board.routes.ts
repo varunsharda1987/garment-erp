@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
 import { uploadStyleImage } from '../middleware/upload.middleware';
 import {
   create,
@@ -17,6 +18,7 @@ import {
   deleteItem,
   bulkUpdateItems,
 } from '../controllers/mood-board.controller';
+import { bulkUpdateMoodBoardItemsSchema } from '../schemas/moodBoard.schema';
 
 const router = Router();
 
@@ -29,7 +31,12 @@ router.delete('/:id', authenticateToken, asyncHandler(deleteMoodBoard));
 
 // Item management
 router.post('/:id/items', authenticateToken, uploadStyleImage, asyncHandler(addItem));
-router.post('/:id/items/bulk-update', authenticateToken, asyncHandler(bulkUpdateItems));
+router.post(
+  '/:id/items/bulk-update',
+  authenticateToken,
+  validateBody(bulkUpdateMoodBoardItemsSchema),
+  asyncHandler(bulkUpdateItems)
+);
 router.patch('/:id/items/:itemId', authenticateToken, asyncHandler(updateItem));
 router.delete('/:id/items/:itemId', authenticateToken, asyncHandler(deleteItem));
 

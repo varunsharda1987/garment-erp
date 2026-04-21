@@ -548,7 +548,7 @@ class FabricStockService {
           },
           include: {
             style_components: {
-              select: { componentName: true },
+              select: { id: true, componentName: true },
             },
           },
         }),
@@ -586,6 +586,8 @@ class FabricStockService {
       const unlinkedFabrics = unlinkedFabricsRaw.map((sf) => ({
         fabricName: sf.fabricName || 'Unknown Fabric',
         componentName: sf.style_components?.componentName || 'Unknown Component',
+        componentId: sf.style_components?.id || null,
+        finishType: sf.fabricFinishType || null,
       }));
 
       return {

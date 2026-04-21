@@ -28,7 +28,6 @@ import type { Warehouse, StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 import {
   getAllowedMaterialTypes,
-  isMaterialSupplier,
   MATERIAL_SUPPLIER_CATEGORIES,
   getSupplierMaterialLabel,
 } from '../lib/supplier-material-mapping';
@@ -396,14 +395,10 @@ export default function StockOutForm() {
         limit: 200,
       });
       const data = (result as any).data || [];
-      // Filter to only show material suppliers (not processors like DYEING_PRINTING, EMBROIDERY, etc.)
-      const materialSuppliers = data.filter((s: Supplier) => isMaterialSupplier(s.supplierCategories || []));
-      // Also filter by selected category if one is chosen
+      // Filter by selected category if one is chosen (show all suppliers including processors)
       const filtered = supplierCategory
-        ? materialSuppliers.filter((s: Supplier) =>
-            s.supplierCategories?.includes(supplierCategory as SupplierCategory)
-          )
-        : materialSuppliers;
+        ? data.filter((s: Supplier) => s.supplierCategories?.includes(supplierCategory as SupplierCategory))
+        : data;
       setSuppliersRaw(filtered);
       setSupplierOptions(
         filtered.map((s: Supplier) => ({
@@ -450,7 +445,10 @@ export default function StockOutForm() {
 
   const loadGreigeStock = async () => {
     try {
-      const data = await greigeStockService.listAvailableStock();
+      // Exclude stock already transferred to processors (sourceType='TRANSFER')
+      const data = await greigeStockService.listAvailableStock({
+        excludeTransferred: true,
+      });
       setGreigeStocks(data.filter((g) => Number(g.quantityAvailable) > 0));
     } catch (err) {
       logError('Failed to load greige stock:', err);

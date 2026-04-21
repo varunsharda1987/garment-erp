@@ -1,0 +1,3 @@
+# Smart Check - runs before push as safety net
+# (Same checks also run on commit, this is double protection)
+node scripts/hooks/smart-check.js

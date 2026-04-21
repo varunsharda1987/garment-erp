@@ -60,7 +60,6 @@ import { SupplierCategoryLabels, SupplierCategory } from '../types/supplier.type
 import type { Supplier } from '../types/supplier.types';
 import {
   getAllowedMaterialTypes,
-  isMaterialSupplier,
   MATERIAL_SUPPLIER_CATEGORIES,
   getSupplierMaterialLabel,
 } from '../lib/supplier-material-mapping';
@@ -436,14 +435,10 @@ export default function StockInForm() {
         limit: 200,
       });
       const data = (result as any).data || [];
-      // Filter to only show material suppliers (not processors like DYEING_PRINTING, EMBROIDERY, etc.)
-      const materialSuppliers = data.filter((s: Supplier) => isMaterialSupplier(s.supplierCategories || []));
-      // Also filter by selected category if one is chosen
+      // Filter by selected category if one is chosen (show all suppliers including processors)
       const filtered = supplierCategory
-        ? materialSuppliers.filter((s: Supplier) =>
-            s.supplierCategories?.includes(supplierCategory as SupplierCategory)
-          )
-        : materialSuppliers;
+        ? data.filter((s: Supplier) => s.supplierCategories?.includes(supplierCategory as SupplierCategory))
+        : data;
       setSuppliersRaw(filtered);
       setSupplierOptions(
         filtered.map((s: Supplier) => ({

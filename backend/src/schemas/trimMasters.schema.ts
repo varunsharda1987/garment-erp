@@ -93,7 +93,8 @@ export const updateButtonSchema = z.object({
  * POST /api/materials/button/bulk-import
  */
 export const bulkImportButtonSchema = z.object({
-  items: z.array(createButtonSchema).min(1, 'At least one item required').max(500, 'Maximum 500 items'),
+  data: z.array(createButtonSchema).min(1, 'At least one item required').max(500, 'Maximum 500 items'),
+  createStock: z.boolean().optional().default(false),
 });
 
 // ============================================================================
@@ -164,7 +165,8 @@ export const convertThreadSchema = z.object({
  * POST /api/materials/thread/bulk-import
  */
 export const bulkImportThreadSchema = z.object({
-  items: z.array(createThreadSchema).min(1).max(500),
+  data: z.array(createThreadSchema).min(1).max(500),
+  createStock: z.boolean().optional().default(false),
 });
 
 // ============================================================================
@@ -222,7 +224,8 @@ export const updateZipperSchema = z.object({
  * POST /api/materials/zipper/bulk-import
  */
 export const bulkImportZipperSchema = z.object({
-  items: z.array(createZipperSchema).min(1).max(500),
+  data: z.array(createZipperSchema).min(1).max(500),
+  createStock: z.boolean().optional().default(false),
 });
 
 // ============================================================================
@@ -267,7 +270,8 @@ export const updateElasticSchema = createElasticSchema
  * POST /api/materials/elastic/bulk-import
  */
 export const bulkImportElasticSchema = z.object({
-  items: z.array(createElasticSchema).min(1).max(500),
+  data: z.array(createElasticSchema).min(1).max(500),
+  createStock: z.boolean().optional().default(false),
 });
 
 // ============================================================================
@@ -310,7 +314,8 @@ export const updateLabelSchema = createLabelSchema
  * POST /api/materials/label/bulk-import
  */
 export const bulkImportLabelSchema = z.object({
-  items: z.array(createLabelSchema).min(1).max(500),
+  data: z.array(createLabelSchema).min(1).max(500),
+  createStock: z.boolean().optional().default(false),
 });
 
 // ============================================================================
@@ -356,7 +361,8 @@ export const updateLaceSchema = createLaceSchema
  * POST /api/materials/lace/bulk-import
  */
 export const bulkImportLaceSchema = z.object({
-  items: z.array(createLaceSchema).min(1).max(500),
+  data: z.array(createLaceSchema).min(1).max(500),
+  createStock: z.boolean().optional().default(false),
 });
 
 // ============================================================================
@@ -399,7 +405,8 @@ export const updatePackagingSchema = createPackagingSchema
  * POST /api/materials/packaging/bulk-import
  */
 export const bulkImportPackagingSchema = z.object({
-  items: z.array(createPackagingSchema).min(1).max(500),
+  data: z.array(createPackagingSchema).min(1).max(500),
+  createStock: z.boolean().optional().default(false),
 });
 
 // ============================================================================

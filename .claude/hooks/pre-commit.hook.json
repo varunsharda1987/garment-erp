@@ -17,17 +17,22 @@
     "checks": [
       "TypeScript type checking (tsc --noEmit) for backend and frontend",
       "Type synchronization validation via /sync-types",
+      "Schema-controller sync validation (bulk import naming, pagination format)",
       "Console.log detection in production code (warning only)",
       "Validates only staged files for faster execution"
     ],
     "prevents": [
       "Committing code with TypeScript errors",
       "Type drift between backend and frontend",
+      "Schema-controller naming mismatches (data vs items)",
+      "Pagination field inconsistency (pages vs totalPages)",
       "Accidental console.log statements in production"
     ],
     "blocking": {
       "typeErrors": true,
       "typeSyncErrors": true,
+      "schemaControllerSync": true,
+      "paginationFormat": true,
       "consoleLogs": false
     }
   },

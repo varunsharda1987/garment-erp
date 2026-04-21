@@ -78,6 +78,8 @@ export interface ComponentWithFabrics {
 export interface UnlinkedFabric {
   fabricName: string;
   componentName: string;
+  componentId?: string;
+  finishType?: string;
 }
 
 export interface StyleFabricsResponse {

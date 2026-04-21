@@ -160,7 +160,7 @@ export const getAllComponentMasters = async (req: Request, res: Response): Promi
       page: pageNum,
       limit: limitNum,
       total,
-      pages: Math.ceil(total / limitNum),
+      totalPages: Math.ceil(total / limitNum),
     },
   });
 };

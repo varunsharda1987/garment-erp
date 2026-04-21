@@ -89,7 +89,7 @@ export const getAllBankAccounts = async (req: Request, res: Response): Promise<v
 
   res.json({
     data: bankAccounts,
-    pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+    pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
   });
 };
 

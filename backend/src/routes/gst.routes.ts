@@ -17,8 +17,12 @@ import {
   type CalculateGSTInput,
   type CalculateBulkGSTInput,
 } from '../schemas/gst.schema';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = express.Router();
+
+// Apply authentication to all GST routes
+router.use(authenticateToken);
 
 // ============================================
 // GST Validation Routes

@@ -3,8 +3,12 @@ import { agencyController } from '../controllers/agency.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { createAgencySchema, updateAgencySchema } from '../schemas/agency.schema';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Apply authentication to all agency routes
+router.use(authenticateToken);
 
 // GET /api/agencies/search - Search agencies for dropdown (must be before /:id)
 router.get('/search', asyncHandler(agencyController.search.bind(agencyController)));

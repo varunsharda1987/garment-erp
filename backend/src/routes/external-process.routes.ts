@@ -12,8 +12,12 @@ import {
   cancelSendOutSchema,
   externalProcessQuerySchema,
 } from '../schemas/externalProcess.schema';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Apply authentication to all external process routes
+router.use(authenticateToken);
 
 // Dashboard and WIP (before parameterized routes)
 router.get('/dashboard', externalProcessController.getDashboard.bind(externalProcessController));

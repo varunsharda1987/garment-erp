@@ -24,8 +24,12 @@ import {
   getStockSummary,
   getPendingEmbroideryStock,
 } from '../controllers/embroidery-stock.controller';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Apply authentication to all embroidery stock routes
+router.use(authenticateToken);
 
 // Send-out/Receive Operations
 router.post('/send-out', validateBody(sendOutSchema), asyncHandler(sendOut));

@@ -9,8 +9,16 @@ import documentController from '../controllers/document.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { generateCatalogueSchema, generateLineSheetSchema } from '../schemas/document.schema';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Public route - temp catalogue download link (for WhatsApp sharing)
+// Must be defined BEFORE router.use(authenticateToken)
+router.get('/catalogue/:id/download', asyncHandler(documentController.getTempCataloguePDF.bind(documentController)));
+
+// All other routes require authentication
+router.use(authenticateToken);
 
 // ────────────────────────────────────────────────────────────────
 // Tax Invoice Endpoints
@@ -116,12 +124,7 @@ router.post(
   asyncHandler(documentController.generateAndStoreCataloguePDF.bind(documentController))
 );
 
-/**
- * @route   GET /api/documents/catalogue/:id/download
- * @desc    Download a stored catalogue PDF
- * @access  Public (temp link)
- */
-router.get('/catalogue/:id/download', asyncHandler(documentController.getTempCataloguePDF.bind(documentController)));
+// Note: /catalogue/:id/download is defined at the top as a public route
 
 /**
  * @route   GET /api/documents/catalogue/:id/whatsapp-link

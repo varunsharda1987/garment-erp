@@ -15,8 +15,15 @@ import {
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { createChallanSchema } from '../schemas/challan.schema';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Apply path-specific authentication (this router is mounted at '/')
+// Using path-specific auth instead of global to avoid potential conflicts
+router.use('/challans', authenticateToken);
+router.use('/po-rates', authenticateToken);
+router.use('/production-runs', authenticateToken);
 
 // Challan routes
 router.get('/challans/stats', asyncHandler(getChallanStatsController));

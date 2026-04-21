@@ -9,8 +9,12 @@ import {
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { createSizeCategorySchema, updateSizeCategorySchema } from '../schemas/sizeCategory.schema';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Apply authentication to all size category routes
+router.use(authenticateToken);
 
 // GET /api/size-categories - Get all size categories
 router.get('/', asyncHandler(getAllSizeCategories));

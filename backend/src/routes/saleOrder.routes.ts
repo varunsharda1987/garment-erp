@@ -9,8 +9,12 @@ import {
   allocateStockSchema,
   saleOrderQuerySchema,
 } from '../schemas/saleOrder.schema';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// Apply authentication to all sale order routes
+router.use(authenticateToken);
 
 // GET /api/sale-orders/search - Search for dropdown (must be before /:id)
 router.get('/search', asyncHandler(saleOrderController.search.bind(saleOrderController)));

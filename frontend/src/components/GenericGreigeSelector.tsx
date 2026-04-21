@@ -59,17 +59,12 @@ export const GenericGreigeSelector: React.FC<GenericGreigeSelectorProps> = ({
 
       setIsLoading(true);
       try {
-        console.log('[GenericGreigeSelector] Fetching generic greige names from API...');
         const response = await api.get<{ names: string[] }>('/fabric-management/greige/generic-names');
-
-        console.log('[GenericGreigeSelector] API Response:', response.data);
 
         if (response.data.names && response.data.names.length > 0) {
           const apiNames = response.data.names.sort();
-          console.log(`[GenericGreigeSelector] Using ${apiNames.length} greige names from database`);
           setGreigeTypes(apiNames);
         } else {
-          console.log('[GenericGreigeSelector] No greige names in database yet');
           setGreigeTypes([]);
         }
       } catch (err) {

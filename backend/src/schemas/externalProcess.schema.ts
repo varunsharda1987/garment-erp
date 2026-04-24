@@ -27,14 +27,18 @@ export const SendOutStatusEnum = z.enum(['PENDING', 'PARTIAL', 'COMPLETED', 'CAN
 // ============================================================================
 
 /**
- * Send Out Item
+ * Source Type for external processing
  */
-const sendOutItemSchema = z.object({
-  cuttingOutputId: z.string().uuid('Invalid cutting output ID').optional(),
-  skuId: z.string().uuid('Invalid SKU ID').optional(),
-  bundleNo: z.string().max(50).optional(),
-  quantity: z.number().int().positive('Quantity must be positive'),
-  remarks: z.string().max(500).optional(),
+export const SourceTypeEnum = z.enum(['CUTTING_BATCH', 'FABRIC_STOCK', 'STITCHING_ISSUE']);
+
+/**
+ * SKU Output for send-out
+ */
+const sendOutSkuSchema = z.object({
+  sizeId: z.string().uuid().optional(),
+  sizeName: z.string(),
+  colorId: z.string().uuid().optional(),
+  quantity: z.number().int().nonnegative(),
 });
 
 /**
@@ -42,15 +46,35 @@ const sendOutItemSchema = z.object({
  * POST /api/external-process/send-out
  */
 export const sendOutSchema = z.object({
-  workOrderId: z.string().uuid('Invalid work order ID'),
-  processorId: z.string().uuid('Invalid processor ID'),
-  processType: ExternalProcessTypeEnum,
-  sendDate: z.string().datetime().optional(),
-  expectedReturnDate: z.string().datetime().optional(),
-  challanNumber: z.string().max(50).optional(),
-  ratePerPc: z.number().nonnegative().optional(),
+  sourceType: SourceTypeEnum,
+  workOrderId: z.string().uuid().optional(),
+  orderId: z.string().uuid().optional(),
+  styleId: z.string().uuid().optional(),
+  cuttingBatchId: z.string().uuid().optional(),
+  fabricStockId: z.string().uuid().optional(),
+  stitchingIssueId: z.string().uuid().optional(),
+  supplierId: z.string().uuid(),
+  processType: ExternalProcessTypeEnum.optional(),
+  sendDate: z.string().or(z.date()).optional(),
+  expectedReturnDate: z.string().or(z.date()).optional(),
+  quantitySent: z.number().positive(),
+  unit: z.string().max(20),
+  agreedRate: z.number().nonnegative().optional(),
+  purchaseOrderId: z.string().uuid().optional(),
+  serviceRequirementId: z.string().uuid().optional(),
+  embroideryId: z.string().uuid().optional(),
+  skus: z.array(sendOutSkuSchema).optional(),
   remarks: z.string().max(500).optional(),
-  items: z.array(sendOutItemSchema).min(1, 'At least one item is required'),
+});
+
+/**
+ * SKU for receive
+ */
+const receiveSkuSchema = z.object({
+  sendOutSkuId: z.string().uuid().optional(),
+  sizeName: z.string(),
+  quantityReceived: z.number().int().nonnegative(),
+  quantityDamaged: z.number().int().nonnegative().optional(),
 });
 
 /**
@@ -59,21 +83,14 @@ export const sendOutSchema = z.object({
  */
 export const receiveSchema = z.object({
   sendOutId: z.string().uuid('Invalid send-out ID'),
-  receiveDate: z.string().datetime().optional(),
-  challanNumber: z.string().max(50).optional(),
+  quantityReceived: z.number().nonnegative(),
+  quantityDamaged: z.number().nonnegative().optional(),
+  actualReturnDate: z.string().or(z.date()).optional(),
+  actualCost: z.number().nonnegative().optional(),
+  invoiceNumber: z.string().max(100).optional(),
+  invoiceDate: z.string().or(z.date()).optional(),
+  skus: z.array(receiveSkuSchema).optional(),
   remarks: z.string().max(500).optional(),
-  items: z
-    .array(
-      z.object({
-        sendOutItemId: z.string().uuid('Invalid send-out item ID'),
-        receivedQuantity: z.number().int().nonnegative('Received quantity cannot be negative'),
-        damagedQuantity: z.number().int().nonnegative().optional().default(0),
-        shortQuantity: z.number().int().nonnegative().optional().default(0),
-        qualityGrade: z.string().max(20).optional(),
-        remarks: z.string().max(500).optional(),
-      })
-    )
-    .min(1, 'At least one item is required'),
 });
 
 /**

@@ -3751,6 +3751,15 @@ From ${COMPANY_CONFIG.name}
     const availableWidth = pageWidth - 60;
     let y = 30;
 
+    // Brand colors from company config
+    const colors = COMPANY_CONFIG.brandColors || {
+      primary: '#B85C38',
+      accent: '#C49A2A',
+      header: '#C4522A',
+      text: '#1C1A15',
+      muted: '#6B665E',
+    };
+
     // ── Header: Title ──
     const typeLabel =
       challan.challanType === 'OUTWARD' ? 'OUTWARD' : challan.challanType === 'INWARD' ? 'INWARD' : 'INTERNAL';
@@ -3758,6 +3767,7 @@ From ${COMPANY_CONFIG.name}
     doc
       .fontSize(16)
       .font('Helvetica-Bold')
+      .fillColor(colors.primary)
       .text(`CHALLAN — ${typeLabel}`, marginLeft, y, { align: 'center', width: availableWidth });
     y += 25;
 
@@ -3765,6 +3775,7 @@ From ${COMPANY_CONFIG.name}
     doc
       .fontSize(12)
       .font('Helvetica-Bold')
+      .fillColor(colors.text)
       .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: availableWidth });
     y += 16;
 
@@ -3784,11 +3795,11 @@ From ${COMPANY_CONFIG.name}
     y += 16;
 
     // ── Horizontal Line ──
-    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    doc.strokeColor(colors.muted).moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
     y += 12;
 
     // ── Challan Details Row ──
-    doc.fontSize(10).font('Helvetica-Bold');
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(colors.text);
     doc.text(`Challan No: ${challan.challanNumber}`, marginLeft, y);
     doc.text(`Date: ${this.formatDate(challan.challanDate)}`, marginRight - 150, y, { width: 150, align: 'right' });
     y += 14;
@@ -3820,39 +3831,39 @@ From ${COMPANY_CONFIG.name}
     y += 18;
 
     // ── Horizontal Line ──
-    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    doc.strokeColor(colors.muted).moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
     y += 12;
 
     // ── From / To Details ──
     const midPoint = pageWidth / 2;
 
-    doc.fontSize(10).font('Helvetica-Bold');
+    doc.fontSize(10).font('Helvetica-Bold').fillColor(colors.primary);
     doc.text('FROM:', marginLeft, y);
     doc.text('TO:', midPoint + 10, y);
     y += 14;
 
-    doc.fontSize(9).font('Helvetica');
+    doc.fontSize(9).font('Helvetica').fillColor(colors.text);
     doc.text(challan.fromName, marginLeft, y, { width: midPoint - marginLeft - 20 });
     doc.text(challan.toName, midPoint + 10, y, { width: midPoint - 40 });
     y += 12;
 
-    doc.fillColor('#666');
+    doc.fillColor(colors.muted);
     doc.text(`(${challan.fromType})`, marginLeft, y, { width: midPoint - marginLeft - 20 });
     doc.text(`(${challan.toType})`, midPoint + 10, y, { width: midPoint - 40 });
-    doc.fillColor('#000');
+    doc.fillColor(colors.text);
     y += 16;
 
     // ── Transport Details (only if any transport field is set) ──
     const hasTransport = challan.vehicleNumber || challan.driverName || challan.lrNumber;
     if (hasTransport) {
-      doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+      doc.strokeColor(colors.muted).moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
       y += 10;
 
-      doc.fontSize(9).font('Helvetica-Bold');
+      doc.fontSize(9).font('Helvetica-Bold').fillColor(colors.primary);
       doc.text('Transport Details:', marginLeft, y);
       y += 12;
 
-      doc.font('Helvetica');
+      doc.font('Helvetica').fillColor(colors.text);
       const transportParts: string[] = [];
       if (challan.vehicleNumber) transportParts.push(`Vehicle: ${challan.vehicleNumber}`);
       if (challan.driverName) transportParts.push(`Driver: ${challan.driverName}`);
@@ -3863,7 +3874,7 @@ From ${COMPANY_CONFIG.name}
     }
 
     // ── Horizontal Line ──
-    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    doc.strokeColor(colors.muted).moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
     y += 8;
 
     // ── Items Table ──
@@ -3879,7 +3890,7 @@ From ${COMPANY_CONFIG.name}
 
     // Table header
     doc.fontSize(8).font('Helvetica-Bold');
-    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#333F50', '#000');
+    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke(colors.header, colors.header);
     doc.fillColor('#FFF');
 
     let xPos = marginLeft;
@@ -3906,9 +3917,9 @@ From ${COMPANY_CONFIG.name}
       const descText = item.description || '—';
       const descHeight = doc.heightOfString(descText, { width: colWidths.description - 6 });
       const rowHeight = Math.max(20, descHeight + 8);
-      const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
-      doc.rect(marginLeft, y, availableWidth, rowHeight).fillAndStroke(bgColor, '#CCC');
-      doc.fillColor('#000');
+      const bgColor = idx % 2 === 0 ? '#FFFFFF' : '#F6F2EB'; // Use warm parchment for alternate rows
+      doc.rect(marginLeft, y, availableWidth, rowHeight).fillAndStroke(bgColor, '#E5DED3'); // Warm border
+      doc.fillColor(colors.text);
 
       const qty = Number(item.quantity);
       const rate = item.rate ? Number(item.rate) : 0;
@@ -3940,7 +3951,7 @@ From ${COMPANY_CONFIG.name}
     });
 
     // Total row
-    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke('#333F50', '#000');
+    doc.rect(marginLeft, y, availableWidth, 18).fillAndStroke(colors.primary, colors.primary);
     doc.fillColor('#FFF').font('Helvetica-Bold').fontSize(8);
     xPos = marginLeft;
     const qtyColStart = colWidths.sno + colWidths.type + colWidths.description;
@@ -3967,7 +3978,7 @@ From ${COMPANY_CONFIG.name}
 
     // ── Remarks ──
     if (challan.remarks) {
-      doc.fillColor('#000').fontSize(9).font('Helvetica-Bold');
+      doc.fillColor(colors.text).fontSize(9).font('Helvetica-Bold');
       doc.text('Remarks:', marginLeft, y);
       y += 12;
       doc.font('Helvetica');
@@ -3975,11 +3986,12 @@ From ${COMPANY_CONFIG.name}
       y += 20;
     }
 
-    // ── Signature Section ──
-    y = Math.max(y, doc.page.height - 150);
-    doc.fillColor('#000');
-    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    // ── Signature Section (follows content) ──
     y += 20;
+
+    doc.strokeColor(colors.muted).fillColor(colors.text);
+    doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+    y += 15;
 
     doc.fontSize(9).font('Helvetica');
     doc.text('Issued By:', marginLeft, y);
@@ -3990,21 +4002,20 @@ From ${COMPANY_CONFIG.name}
     const recvName = challan.receivedBy ? `${challan.receivedBy.firstName} ${challan.receivedBy.lastName}` : '';
     doc.text(issuedName, marginLeft, y);
     doc.text(recvName, midPoint + 10, y);
-    y += 30;
+    y += 22;
 
     doc.text('Signature: ________________', marginLeft, y);
     doc.text('Signature: ________________', midPoint + 10, y);
+    y += 20;
 
-    // ── Footer ──
+    // ── Footer (follows signature) ──
     doc
       .fontSize(7)
-      .fillColor('#999')
-      .text(
-        `Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`,
-        marginLeft,
-        doc.page.height - 30,
-        { align: 'center', width: availableWidth }
-      );
+      .fillColor(colors.muted)
+      .text(`Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`, marginLeft, y, {
+        align: 'center',
+        width: availableWidth,
+      });
   }
 }
 

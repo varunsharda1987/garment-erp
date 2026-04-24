@@ -1759,7 +1759,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     const cadIds = fabricCADMappings.map((m) => m.fabricCADId);
     const cadRecords = await this.prisma.fabric_width_cad.findMany({
       where: { id: { in: cadIds } },
-      select: { id: true, cadAverage: true, patternPartId: true },
+      select: { id: true, cadAverage: true, patternPartId: true, greigeId: true },
     });
 
     const cadMap = new Map(cadRecords.map((c) => [c.id, c]));
@@ -1779,6 +1779,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     if (rowsWithoutPart.length > 0) {
       throw new ValidationError(
         `Cannot approve: ${rowsWithoutPart.length} CAD row(s) are missing a Part. Please select a Part for all rows before approving.`
+      );
+    }
+
+    // Validate all CAD records have a greige/fabric selected
+    const rowsWithoutGreige = cadRecords.filter((c) => !c.greigeId);
+    if (rowsWithoutGreige.length > 0) {
+      throw new ValidationError(
+        `Cannot approve: ${rowsWithoutGreige.length} CAD row(s) are missing a Greige/Fabric selection. Please select a Greige/Fabric for all rows before approving.`
       );
     }
 
@@ -1805,8 +1813,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
   /**
    * Reject/Unapprove CAD plan - revert to PENDING status
+   * @param styleId - The style ID
+   * @param rejectionReason - Reason for rejection
+   * @param rejectedById - User ID of who rejected
    */
-  async rejectCADPlan(styleId: string): Promise<styles> {
+  async rejectCADPlan(styleId: string, rejectionReason: string, rejectedById: string): Promise<styles> {
     // Verify style exists and is approved
     const style = await this.prisma.styles.findUnique({
       where: { id: styleId },
@@ -1837,7 +1848,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           approvalStatus: 'PENDING',
           approvedBy: null,
           approvedAt: null,
-          approvalNotes: null,
+          approvalNotes: rejectionReason,
+          rejectedBy: rejectedById,
+          rejectedAt: new Date(),
         },
       });
 

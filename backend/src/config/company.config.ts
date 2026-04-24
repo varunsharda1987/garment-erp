@@ -23,6 +23,13 @@ export interface CompanyConfig {
   cinNumber?: string;
   logoPath?: string;
   website?: string;
+  brandColors?: {
+    primary: string; // Main brand color (headers, accents)
+    accent: string; // Secondary accent color
+    header: string; // Table headers, title backgrounds
+    text: string; // Primary text color
+    muted: string; // Secondary/muted text
+  };
 }
 
 export const COMPANY_CONFIG: CompanyConfig = {
@@ -40,6 +47,13 @@ export const COMPANY_CONFIG: CompanyConfig = {
   panNumber: 'DCDPS0146D',
   logoPath: '/assets/company-logo.png',
   website: 'www.kashayafabs.com',
+  brandColors: {
+    primary: '#B85C38', // Ember - main brand color
+    accent: '#C49A2A', // Antique Gold
+    header: '#C4522A', // Burnt Orange - table headers
+    text: '#1C1A15', // Deep Charcoal
+    muted: '#6B665E', // Warm Stone
+  },
 };
 
 /**

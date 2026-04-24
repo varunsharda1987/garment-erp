@@ -26,6 +26,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Download, FileSpreadsheet, FileText, Share2, MessageCircle, Loader2 } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { openPDF, downloadFile } from '@/lib/document-utils';
+import api from '@/lib/api';
 
 export type DocumentType = 'invoice' | 'quotation' | 'order' | 'purchaseOrder';
 
@@ -36,9 +38,6 @@ interface DocumentShareMenuProps {
   customerPhone?: string;
   className?: string;
 }
-
-// API base URL
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export function DocumentShareMenu({
   documentType,
@@ -51,35 +50,35 @@ export function DocumentShareMenu({
   const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
   const [phone, setPhone] = useState(customerPhone || '');
 
-  // Get the appropriate API endpoint based on document type
+  // Get the appropriate API endpoint based on document type (relative paths for api client)
   const getEndpoints = () => {
     switch (documentType) {
       case 'invoice':
         return {
-          pdf: `${API_BASE}/documents/invoices/${documentId}/pdf`,
-          excel: `${API_BASE}/documents/invoices/${documentId}/excel`,
-          whatsapp: `${API_BASE}/documents/invoices/${documentId}/whatsapp-link`,
+          pdf: `/documents/invoices/${documentId}/pdf`,
+          excel: `/documents/invoices/${documentId}/excel`,
+          whatsapp: `/documents/invoices/${documentId}/whatsapp-link`,
           label: 'Tax Invoice',
         };
       case 'quotation':
         return {
-          pdf: `${API_BASE}/documents/quotations/${documentId}/proforma`,
-          excel: null, // No Excel for proforma
-          whatsapp: `${API_BASE}/documents/quotations/${documentId}/whatsapp-link`,
+          pdf: `/documents/quotations/${documentId}/proforma`,
+          excel: null,
+          whatsapp: `/documents/quotations/${documentId}/whatsapp-link`,
           label: 'Proforma Invoice',
         };
       case 'order':
         return {
-          pdf: `${API_BASE}/documents/orders/${documentId}/order-form`,
-          excel: null, // No Excel for order form
-          whatsapp: null, // WhatsApp not implemented for order forms yet
+          pdf: `/documents/orders/${documentId}/order-form`,
+          excel: null,
+          whatsapp: null,
           label: 'Order Form',
         };
       case 'purchaseOrder':
         return {
-          pdf: `${API_BASE}/documents/purchase-orders/${documentId}/pdf`,
-          excel: null, // No Excel for PO
-          whatsapp: `${API_BASE}/documents/purchase-orders/${documentId}/whatsapp-link`,
+          pdf: `/documents/purchase-orders/${documentId}/pdf`,
+          excel: null,
+          whatsapp: `/documents/purchase-orders/${documentId}/whatsapp-link`,
           label: 'Purchase Order',
         };
       default:
@@ -93,11 +92,8 @@ export function DocumentShareMenu({
   const handleDownloadPDF = async () => {
     try {
       setIsDownloading(true);
-
-      // Open in new tab to trigger download
-      window.open(endpoints.pdf, '_blank');
-
-      handleApiSuccess('Download Started', `${endpoints.label} PDF download has started.`);
+      await openPDF(endpoints.pdf);
+      handleApiSuccess('Download Started', `${endpoints.label} PDF opened in new tab.`);
     } catch (error) {
       handleApiError(error, `Failed to download ${endpoints.label} PDF`);
     } finally {
@@ -110,10 +106,7 @@ export function DocumentShareMenu({
 
     try {
       setIsDownloading(true);
-
-      // Open in new tab to trigger download
-      window.open(endpoints.excel, '_blank');
-
+      await downloadFile(endpoints.excel, `${endpoints.label}.xlsx`);
       handleApiSuccess('Download Started', `${endpoints.label} Excel download has started.`);
     } catch (error) {
       handleApiError(error, `Failed to download ${endpoints.label} Excel`);
@@ -133,18 +126,9 @@ export function DocumentShareMenu({
 
     try {
       setIsDownloading(true);
-
-      const response = await fetch(`${endpoints.whatsapp}?phone=${encodeURIComponent(cleanPhone)}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to generate WhatsApp link');
-      }
-
-      // Open WhatsApp link
-      window.open(data.data.whatsappUrl, '_blank');
+      const response = await api.get(`${endpoints.whatsapp}?phone=${encodeURIComponent(cleanPhone)}`);
+      window.open(response.data.data.whatsappUrl, '_blank');
       setWhatsappDialogOpen(false);
-
       handleApiSuccess('WhatsApp Opened', 'WhatsApp has been opened with your message. Click send to share.');
     } catch (error) {
       handleApiError(error, 'Failed to generate WhatsApp link');

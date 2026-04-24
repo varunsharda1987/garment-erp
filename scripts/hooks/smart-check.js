@@ -54,13 +54,12 @@ function categorizeFiles(files) {
 // ============================================================================
 
 /**
- * Check: Schema-Controller naming matches
+ * Check: Schema-Controller naming matches (basic pagination check)
  */
 function checkSchemaControllerSync() {
   console.log(`\n${c.cyan}Checking schema-controller sync...${c.reset}`);
 
   const controllersDir = path.join(process.cwd(), 'backend/src/controllers');
-  const schemasDir = path.join(process.cwd(), 'backend/src/schemas');
 
   const issues = [];
 
@@ -94,6 +93,32 @@ function checkSchemaControllerSync() {
 
   console.log(`${c.green}  ✓ Schema-controller sync OK${c.reset}`);
   return true;
+}
+
+/**
+ * Check: Schema-Controller field alignment
+ * Runs the full alignment checker to detect Zod schema vs controller destructuring mismatches.
+ * Prevents silent data loss from Zod stripping unknown fields.
+ */
+function checkSchemaControllerAlignment() {
+  console.log(`\n${c.cyan}Checking schema-controller field alignment...${c.reset}`);
+
+  try {
+    // Run the alignment script in check mode
+    execSync('node scripts/hooks/check-schema-controller-alignment.js --check', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+    console.log(`${c.green}  ✓ Schema-controller fields aligned${c.reset}`);
+    return true;
+  } catch (error) {
+    // Script exited with non-zero (critical mismatches found)
+    console.log(`${c.yellow}  ⚠ Schema-controller field mismatches detected${c.reset}`);
+    console.log(`${c.dim}    Run: node scripts/hooks/check-schema-controller-alignment.js --report${c.reset}`);
+    // Return true (warning only) - don't block commits for now since there are legacy mismatches
+    // Once all mismatches are fixed, change this to return false to enforce
+    return true;
+  }
 }
 
 /**
@@ -434,6 +459,8 @@ function main() {
   if (categories.schemas.length || categories.controllers.length || categories.routes.length) {
     checksRun++;
     if (!checkSchemaControllerSync()) allPassed = false;
+    // Also run full field alignment check
+    checkSchemaControllerAlignment(); // Warning only for now
   }
 
   // Type file changes → check type sync

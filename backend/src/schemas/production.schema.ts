@@ -125,12 +125,28 @@ export const recordCuttingOutputSchema = z
  * POST /api/cutting/batches/:id/lays
  */
 export const addCuttingLaySchema = z.object({
-  layNumber: z.number().int().positive(),
-  layDate: z.string().or(z.date()),
-  layLength: z.number().positive(),
-  noOfPlies: z.number().int().positive(),
-  fabricUsed: z.number().positive(),
+  layDate: z.string().or(z.date()).optional(),
+  numberOfLayers: z.number().int().positive(),
+  layerLength: z.number().positive(),
   remarks: z.string().max(500).optional(),
+  skuOutputs: z
+    .array(
+      z.object({
+        sizeId: z.string().uuid().optional(),
+        sizeName: z.string(),
+        piecesPerLayer: z.number().int().nonnegative(),
+      })
+    )
+    .optional(),
+  fabricLengths: z
+    .array(
+      z.object({
+        cuttingBatchFabricId: z.string().uuid(),
+        length: z.number().positive(),
+      })
+    )
+    .optional(),
+  cuttingBatchFabricId: z.string().uuid().optional(),
 });
 
 /**

@@ -474,12 +474,22 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
  */
 export const rejectCADPlan = async (req: Request, res: Response): Promise<void> => {
   const styleId = req.params.styleId || req.params.id;
+  const { rejectionReason } = req.body || {};
+  const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
 
   if (!styleId) {
     throw new ValidationError('Style ID is required');
   }
 
-  const updatedStyle = await styleService.rejectCADPlan(styleId);
+  if (!rejectionReason || rejectionReason.trim() === '') {
+    throw new ValidationError('Rejection reason is required');
+  }
+
+  if (!userId) {
+    throw new ValidationError('User authentication required');
+  }
+
+  const updatedStyle = await styleService.rejectCADPlan(styleId, rejectionReason.trim(), userId);
 
   res.status(200).json({
     success: true,

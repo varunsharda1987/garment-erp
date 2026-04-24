@@ -139,7 +139,7 @@ export default function GenericTrimForm() {
         await genericTrimService.update(trimType, id, submitData);
         handleApiSuccess('Success', `${config.label} updated successfully`);
       } else {
-        await genericTrimService.create(trimType, submitData);
+        await genericTrimService.createGenericTrim(trimType, submitData);
         handleApiSuccess('Success', `${config.label} created successfully`);
       }
 

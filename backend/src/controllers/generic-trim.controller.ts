@@ -313,7 +313,7 @@ export const getById = async (req: Request, res: Response) => {
 /**
  * Create new item
  */
-export const create = async (req: Request, res: Response) => {
+export const createGenericTrim = async (req: Request, res: Response) => {
   const { trimType } = req.params;
   const config = TRIM_CONFIGS[trimType];
 

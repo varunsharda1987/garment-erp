@@ -418,9 +418,7 @@ export default function FabricCostingPage() {
               greigeCostSource:
                 cs.greigeCostPerMeter || fabric.greigeCostPerMeterSaved
                   ? 'MANUAL'
-                  : fabric.greigeDefaultCost
-                    ? 'GREIGE_MASTER'
-                    : 'MANUAL',
+                  : fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
               transportCostMode: 'PER_METER' as TransportCostMode,
               transportCostPerMeter: cs.transportCostPerMeter ?? fabric.transportCostPerMeter ?? 2, // Default ₹2/m
               transportFixedAmount: null,
@@ -913,7 +911,14 @@ export default function FabricCostingPage() {
           isLoading: false,
           error: 'No rate found for this processor/greige/quantity',
         });
-        notify.warning('No rate found for this combination');
+        notify.warning('No rate found for this combination', {
+          description: 'Please add the rate in Processor Rate Card',
+          action: {
+            label: 'Go to Rate Cards',
+            onClick: () => navigate('/processor-rate-cards'),
+          },
+          duration: 8000,
+        });
       }
     } catch (error: unknown) {
       // Extract error message and debug info from backend response
@@ -1507,7 +1512,7 @@ export default function FabricCostingPage() {
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col justify-end">
             <div className="flex items-end gap-2">
               <Button onClick={handleSave} disabled={isSaving || fabricRows.length === 0} className="flex-1">
                 {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
@@ -2538,16 +2543,26 @@ export default function FabricCostingPage() {
                                             }
                                             title={
                                               row.greigeCostSource === 'MANUAL'
-                                                ? 'Manual price - click (R) to reset to default'
+                                                ? 'Manual price - click indicator to reset'
                                                 : row.greigeCostSource === 'GREIGE_PROCUREMENT'
-                                                  ? `Stock price ₹${row.greigeDefaultCost}/m`
-                                                  : `Default price ₹${row.greigeDefaultCost}/m`
+                                                  ? `GRN price (default ₹${row.greigeDefaultCost}/m)`
+                                                  : row.greigeCostSource === 'GREIGE_STOCK'
+                                                    ? `Stock price (default ₹${row.greigeDefaultCost}/m)`
+                                                    : `Default price ₹${row.greigeDefaultCost}/m`
                                             }
                                           />
                                           {row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
                                             <span
                                               className="text-[9px] text-success font-medium"
-                                              title="Using greige stock cost from latest procurement"
+                                              title="Using greige cost from GRN/Procurement"
+                                            >
+                                              P
+                                            </span>
+                                          )}
+                                          {row.greigeCostSource === 'GREIGE_STOCK' && (
+                                            <span
+                                              className="text-[9px] text-success font-medium"
+                                              title="Using greige cost from direct stock entry"
                                             >
                                               S
                                             </span>

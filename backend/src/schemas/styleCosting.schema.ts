@@ -145,17 +145,37 @@ export const costSheetQuerySchema = z.object({
 // ============================================================================
 
 /**
+ * Lace Sourcing Strategy
+ */
+export const LaceSourcingStrategyEnum = z.enum(['STOCK_REUSE', 'READY_LACE', 'GREIGE_PROCESSED']);
+
+/**
  * Add Lace Item
  * POST /api/style-costing/:costingId/lace-items
  */
 export const addLaceItemSchema = z.object({
   laceId: z.string().uuid('Invalid lace ID'),
-  quantity: z.number().positive('Quantity must be positive'),
-  unit: z.string().max(20).optional().default('METER'),
-  rate: z.number().nonnegative('Rate cannot be negative'),
-  costOption: z.enum(['STOCK', 'READY', 'GREIGE_PROCESSING']).optional(),
+  laceName: z.string().max(200),
+  colorName: z.string().max(100).optional(),
+  width: z.number().positive().optional(),
+  quantityPerGarment: z.number().nonnegative(),
+  wastagePercent: z.number().min(0).max(100).optional(),
+  sourcingStrategy: LaceSourcingStrategyEnum,
+  greigeCost: z.number().nonnegative().optional(),
+  readyLaceCost: z.number().nonnegative().optional(),
+  stockCost: z.number().nonnegative().optional(),
+  costPerMeter: z.number().nonnegative(),
+  greigeLaceId: z.string().uuid().optional(),
+  processorId: z.string().uuid().optional(),
+  rateCardId: z.string().uuid().optional(),
+  stockLotId: z.string().uuid().optional(),
+  procurementId: z.string().uuid().optional(),
+  labDipId: z.string().uuid().optional(),
+  labDipStatus: z.string().max(50).optional(),
+  isManualOverride: z.boolean().optional(),
+  overrideReason: z.string().max(500).optional(),
   processingCost: z.number().nonnegative().optional(),
-  remarks: z.string().max(500).optional(),
+  notes: z.string().max(500).optional(),
 });
 
 /**

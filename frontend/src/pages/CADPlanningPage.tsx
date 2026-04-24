@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Textarea } from '../components/ui/textarea';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
@@ -128,6 +129,7 @@ export default function CADPlanningPage() {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // CAD History state
   const [activeTab, setActiveTab] = useState<'spreadsheet' | 'history' | 'orders'>('spreadsheet');
@@ -296,11 +298,16 @@ export default function CADPlanningPage() {
   // ============================================
   const handleRejectCAD = async () => {
     if (!id) return;
+    if (!rejectionReason.trim()) {
+      notify.error('Please provide a reason for rejection');
+      return;
+    }
     try {
       setRejecting(true);
-      await cadPlanningService.rejectCADPlan(id);
+      await cadPlanningService.rejectCADPlan(id, rejectionReason.trim());
       notify.success('CAD plan rejected. All rows reset to PENDING.', { duration: 5000 });
       setShowRejectDialog(false);
+      setRejectionReason('');
       // loadCADTableData also refreshes style info (cadStatus, approvedCadDate)
       await loadCADTableData();
     } catch (error: unknown) {
@@ -695,17 +702,55 @@ export default function CADPlanningPage() {
         variant="default"
       />
 
-      {/* Reject CAD Plan Confirmation Dialog */}
-      <ConfirmDialog
+      {/* Reject CAD Plan Dialog with Reason Input */}
+      <Dialog
         open={showRejectDialog}
-        onOpenChange={setShowRejectDialog}
-        title="Reject CAD Plan?"
-        description="This will revert the CAD plan status to PENDING and reset all row approvals. You will be able to edit all CAD entries again. Any linked fabric costing data will NOT be affected."
-        confirmText={rejecting ? 'Rejecting...' : 'Reject & Unlock'}
-        cancelText="Cancel"
-        onConfirm={handleRejectCAD}
-        variant="destructive"
-      />
+        onOpenChange={(open) => {
+          setShowRejectDialog(open);
+          if (!open) setRejectionReason('');
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-5 w-5" />
+              Reject CAD Plan?
+            </DialogTitle>
+            <DialogDescription>
+              This will revert the CAD plan status to PENDING and reset all row approvals. You will be able to edit all
+              CAD entries again. Any linked fabric costing data will NOT be affected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <label htmlFor="rejection-reason" className="text-sm font-medium mb-2 block">
+              Reason for rejection <span className="text-destructive">*</span>
+            </label>
+            <Textarea
+              id="rejection-reason"
+              placeholder="Enter the reason for rejecting this CAD plan..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={3}
+              className="resize-none"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowRejectDialog(false)} disabled={rejecting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleRejectCAD} disabled={rejecting || !rejectionReason.trim()}>
+              {rejecting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                'Reject & Unlock'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Push to Fabric Costing Modal */}
       <Dialog open={showPushModal} onOpenChange={setShowPushModal}>

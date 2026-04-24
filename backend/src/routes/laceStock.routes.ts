@@ -20,7 +20,7 @@ import {
   laceStockQuerySchema,
 } from '../schemas/laceStock.schema';
 import {
-  createStock,
+  createLaceStock,
   getStocks,
   getStock,
   getAvailableStock,
@@ -96,7 +96,7 @@ router.post(
  * @body    laceId, quantityAvailable, weightedAvgCost, purchaseCost?,
  *          lotNumber?, dyeLotNumber?, shadeNote?, originStyleId?, etc.
  */
-router.post('/', validateBody(createLaceStockSchema), asyncHandler(createStock));
+router.post('/', validateBody(createLaceStockSchema), asyncHandler(createLaceStock));
 
 /**
  * @route   GET /api/lace-stock

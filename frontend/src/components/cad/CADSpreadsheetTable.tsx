@@ -1859,9 +1859,10 @@ export function CADSpreadsheetTable({
                             ) : (
                               <>
                                 {/* CAD Purpose Action Buttons */}
-                                {/* Approve button - show only for PENDING status (treat null/undefined as PENDING) */}
+                                {/* Approve button - show for PENDING or REJECTED status (allow re-approval after rejection) */}
                                 {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING') && (
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' ||
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'REJECTED') && (
                                   <Button
                                     variant="ghost"
                                     size="sm"

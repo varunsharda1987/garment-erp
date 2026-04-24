@@ -31,7 +31,7 @@ import { NotFoundError, UnauthorizedError, ValidationError } from '../errors';
  * POST /api/lace-stock
  * Create a new lace stock entry
  */
-export async function createStock(req: Request, res: Response) {
+export async function createLaceStock(req: Request, res: Response) {
   const userId = req.user?.userId;
   if (!userId) {
     throw new UnauthorizedError('User not authenticated');
@@ -358,7 +358,7 @@ export async function getUtilizationReport(req: Request, res: Response) {
 }
 
 export default {
-  createStock,
+  createLaceStock,
   getStocks,
   getStock,
   getAvailableStock,

@@ -11,6 +11,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Send, X, ArrowRight, Loader2, Printer } from 'lucide-react';
 import { format } from 'date-fns';
+import { openPDF } from '@/lib/document-utils';
 
 export default function ChallanDetail() {
   const { id } = useParams<{ id: string }>();
@@ -110,12 +111,13 @@ export default function ChallanDetail() {
           )}
           <Button
             variant="outline"
-            onClick={() =>
-              window.open(
-                `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/documents/challans/${challan.id}/pdf`,
-                '_blank'
-              )
-            }
+            onClick={async () => {
+              try {
+                await openPDF(`/documents/challans/${challan.id}/pdf`);
+              } catch (error) {
+                handleApiError(error);
+              }
+            }}
           >
             <Printer className="h-4 w-4 mr-2" />
             Print

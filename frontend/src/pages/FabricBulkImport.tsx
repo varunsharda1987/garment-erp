@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { logDebug, logError } from '../lib/logger';
+import api from '@/lib/api';
 
 interface ImportResult {
   success: number;
@@ -307,39 +308,10 @@ export default function FabricBulkImport() {
             }
           );
 
-          // Get auth token
-          const authStorage = localStorage.getItem('auth-storage');
-          let token = null;
-          if (authStorage) {
-            const parsed = JSON.parse(authStorage);
-            token = parsed?.state?.token;
-          }
-
-          // Fallback to direct token storage
-          if (!token) {
-            token = localStorage.getItem('token');
-          }
-
-          if (!token) {
-            throw new Error('Authentication required. Please login again.');
-          }
-
           // Call bulk import API
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/fabric-management/fabric/bulk-import`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ fabrics: fabricData }),
+          const { data: importResult } = await api.post('/fabric-management/fabric/bulk-import', {
+            fabrics: fabricData,
           });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Import failed');
-          }
-
-          const importResult = await response.json();
 
           setResult({
             success: importResult.imported || 0,

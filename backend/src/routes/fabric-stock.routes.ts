@@ -6,7 +6,7 @@
 
 import { Router } from 'express';
 import {
-  createStock,
+  createFabricStock,
   listStock,
   getStockById,
   getStockDashboard,
@@ -35,7 +35,7 @@ const router = Router();
 router.use(authenticateToken);
 
 // Stock creation
-router.post('/', validateBody(createFabricStockSchema), asyncHandler(createStock));
+router.post('/', validateBody(createFabricStockSchema), asyncHandler(createFabricStock));
 
 // Stock listing and details
 router.get('/', validateQuery(fabricStockQuerySchema), asyncHandler(listStock));

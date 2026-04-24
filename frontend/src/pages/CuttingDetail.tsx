@@ -29,6 +29,7 @@ import type {
 } from '@/types/cutting.types';
 import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { openPDF } from '@/lib/document-utils';
 import {
   Scissors,
   ArrowLeft,
@@ -1133,12 +1134,13 @@ export default function CuttingDetail() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
-                              window.open(
-                                `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/documents/transfer-slips/${issue.id}/pdf`,
-                                '_blank'
-                              )
-                            }
+                            onClick={async () => {
+                              try {
+                                await openPDF(`/documents/transfer-slips/${issue.id}/pdf`);
+                              } catch (error) {
+                                handleApiError(error, 'Failed to print transfer slip');
+                              }
+                            }}
                             title="Print Transfer Slip"
                           >
                             <Printer className="h-4 w-4" />

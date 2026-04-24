@@ -228,7 +228,7 @@ export interface FabricForCosting {
   greigeDefaultCost: number | null; // Default cost from greige_master
   greigeStockCost: number | null; // Cost from latest greige procurement
   greigeCostPerMeter: number | null; // Actual cost to use (stock → default)
-  greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER'; // Source indicator
+  greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER'; // Source indicator
   greigeStockAvailable: number | null; // Greige stock quantity available
   numberOfColors: number | null;
   // Shrinkage from saved data or greige master fallback
@@ -323,7 +323,7 @@ export interface FabricCostingRow {
 
   // Build-up mode - Greige & Transport
   greigeCostPerMeter: number | null;
-  greigeCostSource: 'GREIGE_MASTER' | 'GREIGE_PROCUREMENT' | 'MANUAL';
+  greigeCostSource: 'GREIGE_MASTER' | 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'MANUAL';
   transportCostMode: TransportCostMode;
   transportCostPerMeter: number | null;
   transportFixedAmount: number | null;

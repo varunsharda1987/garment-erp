@@ -29,6 +29,9 @@ export const generateCADOptionsSchema = z.object({
   greigeId: z.string().uuid('Invalid greige ID').optional(),
   greigeWidths: z.array(z.number().positive()).optional(),
   includeAllWidths: z.boolean().optional().default(false),
+  genericGreigeName: z.string().max(200).optional(),
+  averagingMode: z.enum(['COMBINED', 'SEPARATE']).optional(),
+  componentNames: z.array(z.string()).optional(),
 });
 
 /**
@@ -43,6 +46,8 @@ export const calculateCADCostSchema = z.object({
   greigeWidth: z.number().positive().optional(),
   cadValue: z.number().positive().optional(),
   quantity: z.number().positive().optional(),
+  fabricRate: z.number().nonnegative().optional(),
+  unit: z.string().max(50).optional(),
 });
 
 /**
@@ -50,9 +55,11 @@ export const calculateCADCostSchema = z.object({
  * POST /api/cad-planning/:styleId/select-greige
  */
 export const selectGreigeForGroupSchema = z.object({
-  fabricGroupKey: z.string().max(100),
+  fabricGroupKey: z.string().max(100).optional(),
+  groupKey: z.string().max(100).optional(),
   greigeId: z.string().uuid('Invalid greige ID'),
   genericGreigeName: z.string().max(200).optional(),
+  averagingMode: z.enum(['COMBINED', 'SEPARATE']).optional(),
 });
 
 // ============================================================================
@@ -131,9 +138,13 @@ export const updateCADTableRowSchema = z.object({
  * POST /api/cad-planning/:styleId/add-width
  */
 export const addCADWidthSchema = z.object({
-  fabricGroupKey: z.string().max(100),
+  fabricGroupKey: z.string().max(100).optional(),
+  groupKey: z.string().max(100).optional(),
   greigeId: z.string().uuid('Invalid greige ID'),
-  greigeWidth: z.number().positive(),
+  greigeWidth: z.number().positive().optional(),
+  fabricId: z.string().uuid('Invalid fabric ID').optional(),
+  cutableWidth: z.number().positive().optional(),
+  componentName: z.string().max(200).optional(),
 });
 
 /**
@@ -144,6 +155,29 @@ export const updateCADValuesWithBreakdownSchema = z.object({
   cadValue: z.number().positive().optional(),
   sizeBreakdown: z.record(z.string(), z.number().nonnegative()).optional(),
   remarks: z.string().max(500).optional().nullable(),
+  // Additional CAD measurement fields
+  cutableWidth: z.number().positive().optional(),
+  cadMeters: z.number().nonnegative().optional(),
+  cadYards: z.number().nonnegative().optional(),
+  cadWastagePercent: z.number().min(0).max(100).optional(),
+  layerMarginMeters: z.number().nonnegative().optional(),
+  markerLengthMeters: z.number().positive().optional(),
+  processingPricePerMeter: z.number().nonnegative().optional(),
+  markerEfficiency: z.number().min(0).max(100).optional(),
+  markerPlanFile: z.string().max(500).optional().nullable(),
+  supplierAvailability: z.string().max(200).optional().nullable(),
+  priceDifferential: z.number().optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+  isPreferred: z.boolean().optional(),
+  printDirection: z.string().max(50).optional().nullable(),
+  sizeBreakdowns: z
+    .array(
+      z.object({
+        sizeName: z.string(),
+        quantity: z.number().nonnegative(),
+      })
+    )
+    .optional(),
 });
 
 /**
@@ -155,6 +189,19 @@ export const updateCADValuesSchema = z.object({
   shrinkage: z.number().min(0).max(50).optional(),
   wastage: z.number().min(0).max(50).optional(),
   remarks: z.string().max(500).optional().nullable(),
+  cutableWidth: z.number().positive().optional(),
+  cadMeters: z.number().nonnegative().optional(),
+  cadYards: z.number().nonnegative().optional(),
+  cadWastagePercent: z.number().min(0).max(100).optional(),
+  layerMarginMeters: z.number().nonnegative().optional(),
+  piecesPerMarker: z.number().int().positive().optional(),
+  markerLengthMeters: z.number().positive().optional(),
+  processingPricePerMeter: z.number().nonnegative().optional(),
+  markerEfficiency: z.number().min(0).max(100).optional(),
+  markerPlanFile: z.string().max(500).optional().nullable(),
+  supplierAvailability: z.string().max(200).optional().nullable(),
+  priceDifferential: z.number().optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
 });
 
 // ============================================================================
@@ -169,6 +216,8 @@ export const approveCADSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
   cadId: z.string().uuid('Invalid CAD ID'),
   remarks: z.string().max(500).optional(),
+  fabricId: z.string().uuid('Invalid fabric ID').optional(),
+  approvalNotes: z.string().max(500).optional(),
 });
 
 /**
@@ -180,6 +229,8 @@ export const cadPurposeActionSchema = z.object({
   purpose: CADPurposeEnum,
   remarks: z.string().max(500).optional(),
   rejectionReason: z.string().max(500).optional(),
+  rejectionNotes: z.string().max(500).optional(),
+  approvalNotes: z.string().max(500).optional(),
 });
 
 /**
@@ -188,6 +239,7 @@ export const cadPurposeActionSchema = z.object({
  */
 export const createPlanningVersionSchema = z.object({
   remarks: z.string().max(500).optional(),
+  versionReason: z.string().max(500).optional(),
 });
 
 /**
@@ -199,6 +251,10 @@ export const copyCADPurposeSchema = z.object({
   targetPurpose: CADPurposeEnum,
   cadIds: z.array(z.string().uuid()).optional(),
   remarks: z.string().max(500).optional(),
+  sourceCadId: z.string().uuid('Invalid source CAD ID').optional(),
+  styleFabricId: z.string().uuid('Invalid style fabric ID').optional(),
+  componentId: z.string().uuid('Invalid component ID').optional(),
+  patternPartId: z.string().uuid('Invalid pattern part ID').optional(),
 });
 
 /**
@@ -209,6 +265,8 @@ export const linkCADToStockSchema = z.object({
   cadId: z.string().uuid('Invalid CAD ID'),
   fabricStockId: z.string().uuid('Invalid fabric stock ID'),
   remarks: z.string().max(500).optional(),
+  procurementId: z.string().uuid('Invalid procurement ID').optional(),
+  planningCadWidth: z.number().positive().optional(),
 });
 
 /**
@@ -236,6 +294,10 @@ export const createProductionCADFromStockSchema = z.object({
   cadValue: z.number().positive().optional(),
   sizeBreakdown: z.record(z.string(), z.number().nonnegative()).optional(),
   remarks: z.string().max(500).optional(),
+  basedOnPlanningCadId: z.string().uuid('Invalid planning CAD ID').optional(),
+  componentId: z.string().uuid('Invalid component ID').optional(),
+  greigeId: z.string().uuid('Invalid greige ID').optional(),
+  patternPartId: z.string().uuid('Invalid pattern part ID').optional(),
 });
 
 /**
@@ -256,7 +318,15 @@ export const approveProductionVarianceSchema = z.object({
  * POST /api/cad-planning/:styleId/fabrics/:fabricId/pattern-parts
  */
 export const assignPatternPartsSchema = z.object({
-  patternPartIds: z.array(z.string().uuid()).min(1, 'At least one pattern part is required'),
+  patternPartIds: z.array(z.string().uuid()).min(1, 'At least one pattern part is required').optional(),
+  patternParts: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        goesToEmbroidery: z.boolean().optional(),
+      })
+    )
+    .optional(),
 });
 
 /**
@@ -275,6 +345,8 @@ export const updatePatternPartAssignmentSchema = z.object({
   quantity: z.number().positive().optional(),
   consumptionPerPc: z.number().positive().optional(),
   remarks: z.string().max(500).optional().nullable(),
+  goesToEmbroidery: z.boolean().optional(),
+  notes: z.string().max(500).optional().nullable(),
 });
 
 // ============================================================================
@@ -294,12 +366,30 @@ export const createOrUpdateEmbroideryCadSchema = z.object({
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val),
       { message: 'Invalid embroidery ID (expected UUID or CUID)' }
     ),
+  fabricWidthCadId: z.string().uuid('Invalid fabric width CAD ID').optional(),
   repeatPattern: z.string().max(50).optional(),
   stitchCount: z.number().int().positive().optional(),
   threadConsumption: z.number().positive().optional(),
   machineTime: z.number().positive().optional(),
   costPerPc: z.number().nonnegative().optional(),
   remarks: z.string().max(500).optional(),
+  // CAD measurement fields
+  cadMeters: z.number().nonnegative().optional(),
+  cadYards: z.number().nonnegative().optional(),
+  cadWastagePercent: z.number().min(0).max(100).optional(),
+  layerMarginMeters: z.number().nonnegative().optional(),
+  piecesPerMarker: z.number().int().positive().optional(),
+  markerEfficiency: z.number().min(0).max(100).optional(),
+  printDirection: z.string().max(50).optional(),
+  notes: z.string().max(500).optional(),
+  sizeBreakdowns: z
+    .array(
+      z.object({
+        sizeName: z.string(),
+        quantity: z.number().nonnegative(),
+      })
+    )
+    .optional(),
 });
 
 // ============================================================================

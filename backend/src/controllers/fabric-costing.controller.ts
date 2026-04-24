@@ -156,12 +156,27 @@ export async function getStyleFabrics(req: Request, res: Response) {
                         orderBy: {
                           purchaseDate: 'desc',
                         },
-                        take: 1, // Only need the latest procurement
+                        take: 1,
                         select: {
                           id: true,
                           ratePerUnit: true,
                           quantityPurchased: true,
                           purchaseDate: true,
+                        },
+                      },
+                      // Include latest greige stock for direct stock entries
+                      greigeStock: {
+                        where: {
+                          purchaseCost: { not: null },
+                        },
+                        orderBy: {
+                          receivedDate: 'desc',
+                        },
+                        take: 1,
+                        select: {
+                          id: true,
+                          purchaseCost: true,
+                          receivedDate: true,
                         },
                       },
                     },
@@ -221,6 +236,20 @@ export async function getStyleFabrics(req: Request, res: Response) {
                           purchaseDate: true,
                         },
                       },
+                      greigeStock: {
+                        where: {
+                          purchaseCost: { not: null },
+                        },
+                        orderBy: {
+                          receivedDate: 'desc',
+                        },
+                        take: 1,
+                        select: {
+                          id: true,
+                          purchaseCost: true,
+                          receivedDate: true,
+                        },
+                      },
                     },
                   },
                 },
@@ -236,12 +265,26 @@ export async function getStyleFabrics(req: Request, res: Response) {
                     orderBy: {
                       purchaseDate: 'desc',
                     },
-                    take: 1, // Only need the latest procurement
+                    take: 1,
                     select: {
                       id: true,
                       ratePerUnit: true,
                       quantityPurchased: true,
                       purchaseDate: true,
+                    },
+                  },
+                  greigeStock: {
+                    where: {
+                      purchaseCost: { not: null },
+                    },
+                    orderBy: {
+                      receivedDate: 'desc',
+                    },
+                    take: 1,
+                    select: {
+                      id: true,
+                      purchaseCost: true,
+                      receivedDate: true,
                     },
                   },
                 },
@@ -292,6 +335,18 @@ export async function getStyleFabrics(req: Request, res: Response) {
                           ratePerUnit: true,
                           quantityPurchased: true,
                           purchaseDate: true,
+                        },
+                      },
+                      greigeStock: {
+                        where: {
+                          purchaseCost: { not: null },
+                        },
+                        orderBy: { receivedDate: 'desc' },
+                        take: 1,
+                        select: {
+                          id: true,
+                          purchaseCost: true,
+                          receivedDate: true,
                         },
                       },
                     },
@@ -359,19 +414,38 @@ export async function getStyleFabrics(req: Request, res: Response) {
         for (const cadRow of cadRows) {
           // Get greige from this CAD row
           const greige = cadRow.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
-          const greigeProcurements = greige?.fabricProcurements || [];
-          const latestGreigeProcurement = greigeProcurements[0];
           const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
-          const latestProcurementRate = latestGreigeProcurement?.ratePerUnit
-            ? Number(latestGreigeProcurement.ratePerUnit)
-            : null;
 
+          // Get latest prices from both procurement and direct stock entry
+          const greigeProcurements = greige?.fabricProcurements || [];
+          const latestProcurement = greigeProcurements[0];
+          const procurementRate = latestProcurement?.ratePerUnit ? Number(latestProcurement.ratePerUnit) : null;
+          const procurementDate = latestProcurement?.purchaseDate ? new Date(latestProcurement.purchaseDate) : null;
+
+          const greigeStockEntries = greige?.greigeStock || [];
+          const latestStock = greigeStockEntries[0];
+          const stockRate = latestStock?.purchaseCost ? Number(latestStock.purchaseCost) : null;
+          const stockDate = latestStock?.receivedDate ? new Date(latestStock.receivedDate) : null;
+
+          // Determine greige cost: use most recent price from either source
           let greigeCostPerMeter: number | null = null;
-          let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
+          let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
 
-          if (latestProcurementRate !== null) {
-            greigeCostPerMeter = latestProcurementRate;
+          if (procurementDate && stockDate) {
+            // Both exist - use more recent
+            if (procurementDate > stockDate) {
+              greigeCostPerMeter = procurementRate;
+              greigeCostSource = 'GREIGE_PROCUREMENT';
+            } else {
+              greigeCostPerMeter = stockRate;
+              greigeCostSource = 'GREIGE_STOCK';
+            }
+          } else if (procurementRate !== null) {
+            greigeCostPerMeter = procurementRate;
             greigeCostSource = 'GREIGE_PROCUREMENT';
+          } else if (stockRate !== null) {
+            greigeCostPerMeter = stockRate;
+            greigeCostSource = 'GREIGE_STOCK';
           } else if (greigeDefaultCost !== null) {
             greigeCostPerMeter = greigeDefaultCost;
             greigeCostSource = 'GREIGE_MASTER';
@@ -406,10 +480,10 @@ export async function getStyleFabrics(req: Request, res: Response) {
             greigeName: greige?.greigeName || null,
             greigeCode: greige?.greigeCode || null,
             greigeDefaultCost,
-            greigeStockCost: latestProcurementRate,
+            greigeStockCost: procurementRate,
             greigeCostPerMeter,
             greigeCostSource,
-            greigeStockAvailable: latestGreigeProcurement ? Number(latestGreigeProcurement.quantityPurchased) : null,
+            greigeStockAvailable: latestProcurement ? Number(latestProcurement.quantityPurchased) : null,
             // Include existing costing data from CAD row if available
             processorId: cadRow.processorId || null,
             processorName: cadRow.processor?.name || null,
@@ -445,19 +519,38 @@ export async function getStyleFabrics(req: Request, res: Response) {
         // we should NOT show legacy data as a fallback - just skip this fabric entirely
         // Fallback: No CAD rows - create single row with legacy data
         const greige = styleFabric.fabricCAD?.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
-        const greigeProcurements = greige?.fabricProcurements || [];
-        const latestGreigeProcurement = greigeProcurements[0];
         const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
-        const latestProcurementRate = latestGreigeProcurement?.ratePerUnit
-          ? Number(latestGreigeProcurement.ratePerUnit)
-          : null;
 
+        // Get latest prices from both procurement and direct stock entry
+        const greigeProcurements = greige?.fabricProcurements || [];
+        const latestProcurement = greigeProcurements[0];
+        const procurementRate = latestProcurement?.ratePerUnit ? Number(latestProcurement.ratePerUnit) : null;
+        const procurementDate = latestProcurement?.purchaseDate ? new Date(latestProcurement.purchaseDate) : null;
+
+        const greigeStockEntries = greige?.greigeStock || [];
+        const latestStock = greigeStockEntries[0];
+        const stockRate = latestStock?.purchaseCost ? Number(latestStock.purchaseCost) : null;
+        const stockDate = latestStock?.receivedDate ? new Date(latestStock.receivedDate) : null;
+
+        // Determine greige cost: use most recent price from either source
         let greigeCostPerMeter: number | null = null;
-        let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
+        let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
 
-        if (latestProcurementRate !== null) {
-          greigeCostPerMeter = latestProcurementRate;
+        if (procurementDate && stockDate) {
+          // Both exist - use more recent
+          if (procurementDate > stockDate) {
+            greigeCostPerMeter = procurementRate;
+            greigeCostSource = 'GREIGE_PROCUREMENT';
+          } else {
+            greigeCostPerMeter = stockRate;
+            greigeCostSource = 'GREIGE_STOCK';
+          }
+        } else if (procurementRate !== null) {
+          greigeCostPerMeter = procurementRate;
           greigeCostSource = 'GREIGE_PROCUREMENT';
+        } else if (stockRate !== null) {
+          greigeCostPerMeter = stockRate;
+          greigeCostSource = 'GREIGE_STOCK';
         } else if (greigeDefaultCost !== null) {
           greigeCostPerMeter = greigeDefaultCost;
           greigeCostSource = 'GREIGE_MASTER';
@@ -489,10 +582,10 @@ export async function getStyleFabrics(req: Request, res: Response) {
           greigeName: greige?.greigeName || null,
           greigeCode: greige?.greigeCode || null,
           greigeDefaultCost,
-          greigeStockCost: latestProcurementRate,
+          greigeStockCost: procurementRate,
           greigeCostPerMeter,
           greigeCostSource,
-          greigeStockAvailable: latestGreigeProcurement ? Number(latestGreigeProcurement.quantityPurchased) : null,
+          greigeStockAvailable: latestProcurement ? Number(latestProcurement.quantityPurchased) : null,
           widthOptions: [],
         });
       }

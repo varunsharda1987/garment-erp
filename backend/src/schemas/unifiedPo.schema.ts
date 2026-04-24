@@ -121,6 +121,7 @@ export const checkDuplicatesSchema = z.object({
   supplierId: z.string().uuid('Invalid supplier ID'),
   materialIds: z.array(z.string().uuid()).optional(),
   serviceTypes: z.array(ServiceTypeEnum).optional(),
+  excludePOIds: z.array(z.string().uuid()).optional(),
 });
 
 /**

@@ -1,3 +1,4 @@
+import api from '@/lib/api';
 import type {
   GSTValidationRequest,
   GSTValidationResponse,
@@ -9,90 +10,47 @@ import type {
   HSNCode,
 } from '../types/gst.types';
 
-const API_BASE = '/api/gst';
+const BASE_URL = '/gst';
 
 class GSTService {
   /**
    * Validate a GST number format and state code matching
    */
   async validateGSTNumber(request: GSTValidationRequest): Promise<GSTValidationResponse> {
-    const response = await fetch(`${API_BASE}/validate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to validate GST number');
-    }
-
-    return response.json();
+    const { data } = await api.post(`${BASE_URL}/validate`, request);
+    return data;
   }
 
   /**
    * Calculate GST breakdown for an amount
    */
   async calculateGST(request: GSTCalculationRequest): Promise<GSTCalculation> {
-    const response = await fetch(`${API_BASE}/calculate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to calculate GST');
-    }
-
-    return response.json();
+    const { data } = await api.post(`${BASE_URL}/calculate`, request);
+    return data;
   }
 
   /**
    * Calculate GST for multiple items (bulk calculation)
    */
   async calculateBulkGST(request: BulkGSTCalculationRequest): Promise<BulkGSTTotals> {
-    const response = await fetch(`${API_BASE}/calculate-bulk`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to calculate bulk GST');
-    }
-
-    return response.json();
+    const { data } = await api.post(`${BASE_URL}/calculate-bulk`, request);
+    return data;
   }
 
   /**
    * Get common GST rates
    */
   async getGSTRates(): Promise<GSTRateInfo[]> {
-    const response = await fetch(`${API_BASE}/rates`);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch GST rates');
-    }
-
-    return response.json();
+    const { data } = await api.get(`${BASE_URL}/rates`);
+    return data;
   }
 
   /**
    * Get HSN codes for garments
    */
   async getHSNCodes(): Promise<HSNCode[]> {
-    const response = await fetch(`${API_BASE}/hsn-codes`);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch HSN codes');
-    }
-
-    return response.json();
+    const { data } = await api.get(`${BASE_URL}/hsn-codes`);
+    return data;
   }
 
   /**

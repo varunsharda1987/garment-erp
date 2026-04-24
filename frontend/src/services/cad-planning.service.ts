@@ -373,8 +373,8 @@ export const cadPlanningService = {
   /**
    * Reject/Unapprove CAD plan - revert to PENDING status
    */
-  async rejectCADPlan(styleId: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.put(`/cad-planning/${styleId}/reject-cad`);
+  async rejectCADPlan(styleId: string, rejectionReason: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.put(`/cad-planning/${styleId}/reject-cad`, { rejectionReason });
     return response.data;
   },
 

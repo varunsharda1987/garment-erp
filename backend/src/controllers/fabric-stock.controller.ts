@@ -88,7 +88,7 @@ const UpdateStockSchema = z
  * POST /api/stock
  * Create new fabric stock entry
  */
-export const createStock = async (req: Request, res: Response) => {
+export const createFabricStock = async (req: Request, res: Response) => {
   logInfo('Creating fabric stock with data:', req.body);
   const data = CreateStockSchema.parse(req.body);
   const userId = req.user?.userId;
@@ -1348,7 +1348,7 @@ export const deleteStock = async (req: Request, res: Response) => {
 };
 
 export default {
-  createStock,
+  createFabricStock,
   listStock,
   getStockById,
   getStockDashboard,

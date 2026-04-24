@@ -1,5 +1,13 @@
 import { Router } from 'express';
-import { getAll, getById, create, update, remove, getConfigs, getCounts } from '../controllers/generic-trim.controller';
+import {
+  getAll,
+  getById,
+  createGenericTrim,
+  update,
+  remove,
+  getConfigs,
+  getCounts,
+} from '../controllers/generic-trim.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
@@ -42,7 +50,7 @@ router.get('/counts', asyncHandler(getCounts));
 // CRUD operations for specific trim type
 router.get('/:trimType', validateQuery(genericTrimQuerySchema), asyncHandler(getAll));
 router.get('/:trimType/:id', asyncHandler(getById));
-router.post('/:trimType', validateBody(createGenericTrimSchema), asyncHandler(create));
+router.post('/:trimType', validateBody(createGenericTrimSchema), asyncHandler(createGenericTrim));
 router.put('/:trimType/:id', validateBody(updateGenericTrimSchema), asyncHandler(update));
 router.delete('/:trimType/:id', asyncHandler(remove));
 

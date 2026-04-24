@@ -61,22 +61,66 @@ function parseSchemaFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const schemas = {};
 
-  // Match: export const schemaName = z.object({ ... })
-  // This is a simplified parser - handles most common patterns
-  const schemaRegex = /export\s+const\s+(\w+Schema)\s*=\s*z\.object\(\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs;
+  // Helper to find matching closing brace using brace counting
+  // Handles nested objects, regex patterns, and strings
+  function findMatchingBrace(str, startIdx) {
+    let depth = 1;
+    let i = startIdx;
+    let inString = false;
+    let stringChar = '';
+    let inRegex = false;
 
-  let match;
-  while ((match = schemaRegex.exec(content)) !== null) {
-    const schemaName = match[1];
-    let schemaBody = match[2];
+    while (i < str.length && depth > 0) {
+      const char = str[i];
+      const prevChar = i > 0 ? str[i - 1] : '';
 
+      // Handle escape sequences
+      if (prevChar === '\\' && (inString || inRegex)) {
+        i++;
+        continue;
+      }
+
+      // Handle strings
+      if (!inRegex && (char === '"' || char === "'" || char === '`')) {
+        if (!inString) {
+          inString = true;
+          stringChar = char;
+        } else if (char === stringChar) {
+          inString = false;
+        }
+        i++;
+        continue;
+      }
+
+      // Handle regex (simple detection: / not preceded by ( or ,)
+      if (!inString && char === '/' && prevChar !== '(' && prevChar !== ',') {
+        // Could be start or end of regex
+        if (inRegex) {
+          inRegex = false;
+        } else if (/[=(:,]\s*$/.test(str.slice(Math.max(0, i - 10), i))) {
+          inRegex = true;
+        }
+        i++;
+        continue;
+      }
+
+      if (!inString && !inRegex) {
+        if (char === '{') depth++;
+        if (char === '}') depth--;
+      }
+      i++;
+    }
+    return depth === 0 ? i : -1;
+  }
+
+  // Helper to extract field names from a schema body
+  function extractFields(schemaBody) {
     // Strip comments to avoid false positives
     schemaBody = schemaBody
       .replace(/\/\/[^\n]*/g, '') // Remove single-line comments
       .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
 
     // Extract top-level field names (before the colon)
-    // Only match valid JS identifiers at the start of lines
     const fieldRegex = /^\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/gm;
     const fields = [];
     let fieldMatch;
@@ -86,8 +130,42 @@ function parseSchemaFile(filePath) {
         fields.push(fieldName);
       }
     }
+    return fields;
+  }
 
-    schemas[schemaName] = fields;
+  // Find: export const schemaName = z.object({ and then use brace counting
+  const schemaStartRegex = /export\s+const\s+(\w+Schema)\s*=\s*z\.object\(\s*\{/g;
+
+  let startMatch;
+  while ((startMatch = schemaStartRegex.exec(content)) !== null) {
+    const schemaName = startMatch[1];
+    const bodyStart = startMatch.index + startMatch[0].length;
+    const bodyEnd = findMatchingBrace(content, bodyStart);
+
+    if (bodyEnd > bodyStart) {
+      const schemaBody = content.slice(bodyStart, bodyEnd - 1); // -1 to exclude closing brace
+      schemas[schemaName] = extractFields(schemaBody);
+    }
+  }
+
+  // Also check for .extend({ ... }) patterns to capture extended fields
+  const extendStartRegex = /(\w+Schema)\.extend\s*\(\s*\{/g;
+  let extendMatch;
+  while ((extendMatch = extendStartRegex.exec(content)) !== null) {
+    const baseSchemaName = extendMatch[1];
+    const bodyStart = extendMatch.index + extendMatch[0].length;
+    const bodyEnd = findMatchingBrace(content, bodyStart);
+
+    if (bodyEnd > bodyStart && schemas[baseSchemaName]) {
+      const extendBody = content.slice(bodyStart, bodyEnd - 1);
+      const extendedFields = extractFields(extendBody);
+
+      for (const field of extendedFields) {
+        if (!schemas[baseSchemaName].includes(field)) {
+          schemas[baseSchemaName].push(field);
+        }
+      }
+    }
   }
 
   return schemas;
@@ -101,8 +179,9 @@ function parseRouteFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const mappings = [];
 
-  // Match: router.post('/path', validateBody(schemaName), asyncHandler(controllerFn))
-  const routeRegex = /router\.(post|put|patch)\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*validateBody\s*\(\s*(\w+)\s*\)\s*,\s*asyncHandler\s*\(\s*(\w+)\s*\)/g;
+  // Match: router.post('/path', [optional middleware...], validateBody(schemaName), asyncHandler(controllerFn))
+  // The [^)]* allows for any middleware (like authorize()) between path and validateBody
+  const routeRegex = /router\.(post|put|patch|delete)\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*(?:[^)]*\)\s*,\s*)*validateBody\s*\(\s*(\w+)\s*\)\s*,\s*asyncHandler\s*\(\s*(\w+)\s*\)/g;
 
   let match;
   while ((match = routeRegex.exec(content)) !== null) {
@@ -126,34 +205,176 @@ function parseControllerFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const destructures = {};
 
-  // Match function declarations and their req.body destructuring
-  // Pattern 1: export async function fnName(req, res) { const { a, b } = req.body; }
-  // Pattern 2: async fnName(req: Request, res: Response) { const { a, b } = req.body; }
+  // Helper to find matching closing brace using brace counting
+  // Handles strings, template literals with ${...}, comments, and nested expressions
+  function findFunctionEnd(str, startIdx) {
+    let depth = 1;
+    let i = startIdx;
+    const stringStack = []; // Track nested string contexts
+    let inLineComment = false;
+    let inBlockComment = false;
 
-  // Find all function definitions
-  const fnRegex = /(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\([^)]*\)\s*\{|(\w+)\s*(?:=|:)\s*async\s*\([^)]*\)\s*(?:=>)?\s*\{/g;
+    while (i < str.length && depth > 0) {
+      const char = str[i];
+      const nextChar = str[i + 1] || '';
+      const prevChar = i > 0 ? str[i - 1] : '';
+      const inString = stringStack.length > 0;
+      const currentStringType = inString ? stringStack[stringStack.length - 1] : null;
 
-  let fnMatch;
-  while ((fnMatch = fnRegex.exec(content)) !== null) {
-    const fnName = fnMatch[1] || fnMatch[2];
-    const fnStart = fnMatch.index;
+      // Handle newline - ends line comments
+      if (char === '\n') {
+        inLineComment = false;
+        i++;
+        continue;
+      }
 
-    // Find the next 500 chars to look for req.body destructuring
-    const fnBody = content.slice(fnStart, fnStart + 1500);
+      // Skip if in any comment
+      if (inLineComment || inBlockComment) {
+        // Check for end of block comment
+        if (inBlockComment && char === '*' && nextChar === '/') {
+          inBlockComment = false;
+          i += 2;
+          continue;
+        }
+        i++;
+        continue;
+      }
 
-    // Match: const { field1, field2, ... } = req.body
-    const destructRegex = /const\s*\{\s*([^}]+)\s*\}\s*=\s*req\.body/;
-    const destructMatch = fnBody.match(destructRegex);
+      // Check for start of comments (only outside strings)
+      if (!inString && char === '/') {
+        if (nextChar === '/') {
+          inLineComment = true;
+          i += 2;
+          continue;
+        }
+        if (nextChar === '*') {
+          inBlockComment = true;
+          i += 2;
+          continue;
+        }
+      }
 
-    if (destructMatch) {
-      // Parse field names from destructuring
-      const fieldsStr = destructMatch[1];
-      const fields = fieldsStr
-        .split(',')
-        .map(f => f.trim().split(':')[0].split('=')[0].trim()) // Handle renaming and defaults
-        .filter(f => f && !f.startsWith('...')); // Exclude spread
+      // Handle escape sequences
+      if (prevChar === '\\' && inString && currentStringType !== '${') {
+        i++;
+        continue;
+      }
 
-      destructures[fnName] = fields;
+      // Handle template literal interpolation ${...}
+      if (currentStringType === '`' && char === '$' && nextChar === '{') {
+        stringStack.push('${'); // Push template expression marker
+        i += 2;
+        continue;
+      }
+
+      // Handle strings - can be at top level, inside template expressions, or nested
+      if (char === '"' || char === "'" || char === '`') {
+        // Can start a new string if: not in any string, OR inside a template expression
+        if (!inString || currentStringType === '${') {
+          stringStack.push(char);
+          i++;
+          continue;
+        }
+        // End current string if matching quote
+        if (char === currentStringType) {
+          stringStack.pop();
+          i++;
+          continue;
+        }
+        // Different quote inside string - just continue
+        i++;
+        continue;
+      }
+
+      // Handle closing brace - could be end of template expression or regular brace
+      if (char === '}') {
+        if (currentStringType === '${') {
+          stringStack.pop();
+          i++;
+          continue;
+        }
+        if (!inString) {
+          depth--;
+        }
+        i++;
+        continue;
+      }
+
+      // Handle opening brace
+      if (char === '{') {
+        if (!inString) {
+          depth++;
+        }
+        i++;
+        continue;
+      }
+
+      i++;
+    }
+    return depth === 0 ? i : startIdx + 5000; // Fallback to 5000 if parsing fails
+  }
+
+  // Multiple patterns to catch all function types:
+  // 1. export async function fnName(req, res): Promise<void> { }
+  // 2. export const fnName = async (req, res): Promise<void> => { }
+  // 3. async methodName(req: Request, res: Response): Promise<void> { } (class methods)
+  const fnPatterns = [
+    // Pattern 1: Regular function declarations (with optional return type)
+    /(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\([^)]*\)\s*(?::\s*[^{]+)?\s*\{/g,
+    // Pattern 2: Arrow functions with const (with optional return type)
+    /(?:export\s+)?const\s+(\w+)\s*=\s*async\s*\([^)]*\)\s*(?::\s*[^=>{]+)?\s*=>\s*\{/g,
+    // Pattern 3: Class methods (with optional return type)
+    /^\s*(?:async\s+)?(\w+)\s*\(\s*req\s*[,:][^)]*\)\s*(?::\s*[^{]+)?\s*\{/gm,
+  ];
+
+  for (const fnRegex of fnPatterns) {
+    let fnMatch;
+    // Reset regex state for each pattern
+    fnRegex.lastIndex = 0;
+
+    while ((fnMatch = fnRegex.exec(content)) !== null) {
+      const fnName = fnMatch[1];
+      if (!fnName || destructures[fnName]) continue; // Skip if already found
+
+      const fnStart = fnMatch.index;
+      const bodyStart = fnStart + fnMatch[0].length;
+
+      // Use brace counting to find actual function end
+      const fnEnd = findFunctionEnd(content, bodyStart);
+      const fnBody = content.slice(fnStart, fnEnd);
+
+      // Strip comments from function body to avoid false matches
+      const fnBodyNoComments = fnBody
+        .replace(/\/\/[^\n]*/g, '') // Remove single-line comments
+        .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
+
+      const fields = [];
+
+      // Pattern 1: const/let { field1, field2 } = req.body (with optional || {} or as Type)
+      const destructRegex = /(?:const|let)\s*\{\s*([^}]+)\s*\}\s*=\s*req\.body(?:\s*\|\|\s*\{\})?(?:\s+as\s+\w+)?/;
+      const destructMatch = fnBodyNoComments.match(destructRegex);
+
+      if (destructMatch) {
+        const fieldsStr = destructMatch[1];
+        const parsedFields = fieldsStr
+          .split(',')
+          .map(f => f.trim().split(':')[0].split('=')[0].trim())
+          .filter(f => f && !f.startsWith('...') && !f.startsWith('//'));
+        fields.push(...parsedFields);
+      }
+
+      // Pattern 2: Direct access req.body.fieldName
+      const directAccessRegex = /req\.body\.(\w+)/g;
+      let directMatch;
+      while ((directMatch = directAccessRegex.exec(fnBodyNoComments)) !== null) {
+        if (!fields.includes(directMatch[1])) {
+          fields.push(directMatch[1]);
+        }
+      }
+
+      if (fields.length > 0) {
+        destructures[fnName] = fields;
+      }
     }
   }
 
@@ -190,21 +411,62 @@ function checkAlignment() {
     routeMappings.push(...mappings);
   }
 
-  // 3. Parse all controller files
+  // 3. Parse all controller files - store by file AND function name
+  // Key: "file:functionName" to handle same function names in different controllers
   const allControllers = {};
+  const controllersByFile = {}; // { file: { fnName: { fields, file } } }
+  const allFunctionsByFile = {}; // Track ALL functions (even without destructure)
   const controllerFiles = fs.readdirSync(CONTROLLERS_DIR).filter(f => f.endsWith('.controller.ts'));
 
   for (const file of controllerFiles) {
-    const destructures = parseControllerFile(path.join(CONTROLLERS_DIR, file));
+    const fullPath = path.join(CONTROLLERS_DIR, file);
+    const destructures = parseControllerFile(fullPath);
+    controllersByFile[file] = {};
+
+    // Also detect all exported functions (not just those that destructure)
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const fnNames = new Set();
+    // Match: export const fnName = async (
+    const arrowMatches = content.matchAll(/export\s+const\s+(\w+)\s*=/g);
+    for (const m of arrowMatches) fnNames.add(m[1]);
+    // Match: export async function fnName(
+    const funcMatches = content.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(/g);
+    for (const m of funcMatches) fnNames.add(m[1]);
+    allFunctionsByFile[file] = fnNames;
+
     for (const [name, fields] of Object.entries(destructures)) {
+      controllersByFile[file][name] = { fields, file };
+      // Also store with composite key for precise matching
+      allControllers[`${file}:${name}`] = { fields, file };
+      // Keep simple key as fallback (last wins, but we'll prefer file-matched)
       allControllers[name] = { fields, file };
     }
+  }
+
+  // Helper: derive expected controller file from route file
+  // e.g., "fabric-stock.routes.ts" -> "fabric-stock.controller.ts"
+  //       "laceStock.routes.ts" -> "laceStock.controller.ts"
+  function deriveControllerFile(routeFile) {
+    // Simple replacement - routes and controllers use the same naming convention
+    return routeFile.replace('.routes.ts', '.controller.ts');
   }
 
   // 4. Compare schema fields vs controller fields
   for (const mapping of routeMappings) {
     const schema = allSchemas[mapping.schemaName];
-    const controller = allControllers[mapping.controllerFn];
+
+    // Try to find controller in the matching file first
+    const expectedControllerFile = deriveControllerFile(mapping.routeFile);
+    let controller = controllersByFile[expectedControllerFile]?.[mapping.controllerFn];
+
+    // Check if function exists in expected file but doesn't destructure
+    const functionExistsInExpectedFile = allFunctionsByFile[expectedControllerFile]?.has(mapping.controllerFn);
+
+    // Only fallback to global lookup if function doesn't exist in expected file
+    // This prevents cross-matching functions with same name from different controllers
+    if (!controller && !functionExistsInExpectedFile) {
+      controller = allControllers[mapping.controllerFn];
+    }
 
     if (!schema) {
       results.warnings.push({
@@ -215,10 +477,13 @@ function checkAlignment() {
     }
 
     if (!controller) {
-      // Controller doesn't destructure req.body - might use req.body directly
+      // Controller doesn't destructure req.body - might use req.body directly or internal schema
+      const hint = functionExistsInExpectedFile
+        ? ` (exists in ${expectedControllerFile} but uses internal validation)`
+        : '';
       results.warnings.push({
         type: 'NO_DESTRUCTURE',
-        message: `Controller '${mapping.controllerFn}' doesn't destructure req.body (${mapping.routeFile})`
+        message: `Controller '${mapping.controllerFn}' doesn't destructure req.body (${mapping.routeFile})${hint}`
       });
       continue;
     }

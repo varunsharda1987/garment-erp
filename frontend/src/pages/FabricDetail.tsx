@@ -12,6 +12,7 @@ import { fabricService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricWidthCAD, FabricStyleAllocation } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
 import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
+import api from '@/lib/api';
 
 interface FabricStock {
   id: string;
@@ -72,29 +73,10 @@ export default function FabricDetail() {
       const fabricData = await fabricService.getById(id);
       setFabric(fabricData);
 
-      // Get auth token
-      const getAuthHeaders = (): Record<string, string> => {
-        const authStorage = localStorage.getItem('auth-storage');
-        if (authStorage) {
-          try {
-            const { state } = JSON.parse(authStorage);
-            return state?.token ? { Authorization: `Bearer ${state.token}` } : {};
-          } catch {
-            return {};
-          }
-        }
-        return {};
-      };
-
       // Fetch width CADs for this fabric
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/fabric-management/cad/fabric/${id}`, {
-          headers: getAuthHeaders(),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setWidthCADs(data);
-        }
+        const { data } = await api.get(`/fabric-management/cad/fabric/${id}`);
+        setWidthCADs(data);
       } catch (err) {
         logError('Error loading width CADs:', err);
         setWidthCADs([]);
@@ -102,13 +84,8 @@ export default function FabricDetail() {
 
       // Fetch stock entries for this fabric
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/stock?fabricId=${id}`, {
-          headers: getAuthHeaders(),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setStockEntries(data.data || []);
-        }
+        const { data } = await api.get(`/stock?fabricId=${id}`);
+        setStockEntries(data.data || []);
       } catch (err) {
         logError('Error loading stock entries:', err);
         setStockEntries([]);

@@ -41,7 +41,10 @@ export const getById = async (trimType: string, id: string): Promise<GenericTrim
 /**
  * Create a new item
  */
-export const create = async (trimType: string, data: Partial<GenericTrimItem>): Promise<GenericTrimResponse> => {
+export const createGenericTrim = async (
+  trimType: string,
+  data: Partial<GenericTrimItem>
+): Promise<GenericTrimResponse> => {
   const response = await api.post(`${BASE_URL}/${trimType}`, data);
   return response.data;
 };
@@ -86,7 +89,7 @@ export const getCounts = async (): Promise<TrimCountsResponse> => {
 export const genericTrimService = {
   getAll,
   getById,
-  create,
+  createGenericTrim,
   update,
   remove,
   getConfigs,

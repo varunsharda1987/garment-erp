@@ -287,9 +287,9 @@ const createGenericTrimConfig = (trimType: string): MaterialTypeConfig => {
         }
       });
 
-      const result = await genericTrimService.create(
+      const result = await genericTrimService.createGenericTrim(
         trimType,
-        payload as unknown as Parameters<typeof genericTrimService.create>[1]
+        payload as unknown as Parameters<typeof genericTrimService.createGenericTrim>[1]
       );
       return result.data as unknown as MaterialCreateResult;
     },

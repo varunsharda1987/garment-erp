@@ -18,7 +18,7 @@ import {
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
-import { createGRNSchema } from '../schemas/grn.schema';
+import { createGRNSchema, approveGRNSchema, rejectGRNSchema } from '../schemas/grn.schema';
 
 const router = Router();
 
@@ -91,13 +91,13 @@ router.post('/', validateBody(createGRNSchema), asyncHandler(createGRN));
  * @desc    Approve a GRN (PENDING_QC -> ACCEPTED)
  * @access  Private (QC, ADMIN)
  */
-router.patch('/:id/approve', asyncHandler(approveGRN));
+router.patch('/:id/approve', validateBody(approveGRNSchema), asyncHandler(approveGRN));
 
 /**
  * @route   PATCH /api/grn/:id/reject
  * @desc    Reject a GRN (PENDING_QC -> REJECTED)
  * @access  Private (QC, ADMIN)
  */
-router.patch('/:id/reject', asyncHandler(rejectGRN));
+router.patch('/:id/reject', validateBody(rejectGRNSchema), asyncHandler(rejectGRN));
 
 export default router;

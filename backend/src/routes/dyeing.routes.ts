@@ -63,7 +63,7 @@ router.use(authenticateToken);
 // ============================================
 router.get('/summary', asyncHandler(getSummary));
 router.get('/summary/style/:styleId', asyncHandler(getSummaryByStyle));
-router.get('/summary/mill/:millId', asyncHandler(getSummaryByMill));
+router.get('/summary/processor/:processorId', asyncHandler(getSummaryByMill));
 
 // ============================================
 // PROCESS PO ROUTES

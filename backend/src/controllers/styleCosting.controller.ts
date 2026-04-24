@@ -5,6 +5,7 @@ import prisma from '../config/database';
 import { logInfo, logWarn } from '../utils/logger';
 import { UnauthorizedError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
+import { processorRateValidationService } from '../services/processor-rate-validation.service';
 import {
   StyleCostingWhereInput,
   FabricDetail,
@@ -567,9 +568,26 @@ export const getCostSheetById = async (req: Request, res: Response): Promise<voi
     throw new NotFoundError('Cost sheet', id);
   }
 
+  // Validate processor rates against current rates
+  // This helps the frontend show if rates have changed since cost sheet creation
+  const rateValidation = await processorRateValidationService.validateCostSheetRates(id);
+
   res.json({
     success: true,
-    data: costSheet,
+    data: {
+      ...costSheet,
+      rateValidation: {
+        status: rateValidation.status,
+        isValid: rateValidation.isValid,
+        requiresRefresh: rateValidation.requiresNewCostSheet,
+        fabricWarnings: rateValidation.fabricWarnings,
+        laceWarnings: rateValidation.laceWarnings,
+        blockingItems: rateValidation.blockingItems,
+        warningItems: rateValidation.warningItems,
+        suggestedAction: rateValidation.suggestedAction,
+        summary: rateValidation.summary,
+      },
+    },
   });
 };
 

@@ -30,46 +30,104 @@ export const SampleStatusEnum = z.enum([
 /**
  * Create Sample
  * POST /api/samples
+ *
+ * Controller destructures:
+ * - customerId, styleId, sampleType, requestDate, requiredDate, remarks
+ * - sampleSizeId, fitSampleReference, ppSampleReference, linkedDispatchId, productionLot, sentTo, purpose
+ * - measurements, colorways, sizeSets
+ * - adminOverride, overrideReason
  */
-export const createSampleSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID'),
-  customerId: z.string().uuid('Invalid customer ID').optional(),
-  sampleType: SampleTypeEnum,
-  quantity: z.number().int().positive('Quantity must be positive').optional().default(1),
-  requiredDate: z.string().datetime().optional(),
-  colorId: z.string().uuid('Invalid color ID').optional(),
-  sizeId: z.string().uuid('Invalid size ID').optional(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional().default('MEDIUM'),
-  remarks: z.string().max(500).optional(),
-  specifications: z.string().max(2000).optional(),
-});
+export const createSampleSchema = z
+  .object({
+    customerId: z.string().uuid('Invalid customer ID'),
+    styleId: z.string().uuid('Invalid style ID').optional(),
+    sampleType: SampleTypeEnum,
+    requestDate: z.string().datetime().optional(),
+    requiredDate: z.string().datetime(),
+    remarks: z.string().max(500).optional(),
+    // Type-specific fields
+    sampleSizeId: z.string().uuid('Invalid sample size ID').optional(),
+    fitSampleReference: z.string().max(200).optional(),
+    ppSampleReference: z.string().max(200).optional(),
+    linkedDispatchId: z.string().uuid('Invalid dispatch ID').optional(),
+    productionLot: z.string().max(100).optional(),
+    sentTo: z.string().max(200).optional(),
+    purpose: z.string().max(500).optional(),
+    // Nested data
+    measurements: z
+      .array(
+        z.object({
+          sizeId: z.string().uuid().optional(),
+          measurementPoint: z.string(),
+          specValue: z.number(),
+          actualValue: z.number().optional(),
+          tolerance: z.number().optional(),
+        })
+      )
+      .optional(),
+    colorways: z
+      .array(
+        z.object({
+          colorId: z.string(),
+          sizeId: z.string().uuid().optional(),
+          fabricLot: z.string().optional(),
+          qtySent: z.number().int().positive().optional(),
+        })
+      )
+      .optional(),
+    sizeSets: z
+      .array(
+        z.object({
+          sizeId: z.string().uuid(),
+          colorId: z.string(),
+          qty: z.number().int().positive().optional(),
+        })
+      )
+      .optional(),
+    // Admin override
+    adminOverride: z.boolean().optional(),
+    overrideReason: z.string().max(500).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Sample
  * PUT /api/samples/:id
+ *
+ * Controller destructures:
+ * - requiredDate, completionDate, status, customerFeedback, remarks
+ * - sentDate, courierMode, trackingNumber, receivedDate, feedbackDate
+ * - measurementComments, revisionRequired, nextAction
  */
-export const updateSampleSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID').optional(),
-  customerId: z.string().uuid('Invalid customer ID').optional().nullable(),
-  sampleType: SampleTypeEnum.optional(),
-  quantity: z.number().int().positive().optional(),
-  requiredDate: z.string().datetime().optional().nullable(),
-  colorId: z.string().uuid('Invalid color ID').optional().nullable(),
-  sizeId: z.string().uuid('Invalid size ID').optional().nullable(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
-  remarks: z.string().max(500).optional().nullable(),
-  specifications: z.string().max(2000).optional().nullable(),
-});
+export const updateSampleSchema = z
+  .object({
+    requiredDate: z.string().datetime().optional(),
+    completionDate: z.string().datetime().optional().nullable(),
+    status: SampleStatusEnum.optional(),
+    customerFeedback: z.string().max(2000).optional().nullable(),
+    remarks: z.string().max(500).optional().nullable(),
+    sentDate: z.string().datetime().optional().nullable(),
+    courierMode: z.string().max(100).optional().nullable(),
+    trackingNumber: z.string().max(100).optional().nullable(),
+    receivedDate: z.string().datetime().optional().nullable(),
+    feedbackDate: z.string().datetime().optional().nullable(),
+    measurementComments: z.string().max(1000).optional().nullable(),
+    revisionRequired: z.boolean().optional(),
+    nextAction: z.string().max(500).optional().nullable(),
+  })
+  .passthrough();
 
 /**
  * Update Sample Status
  * PATCH /api/samples/:id/status
  */
-export const updateSampleStatusSchema = z.object({
-  status: SampleStatusEnum,
-  feedback: z.string().max(1000).optional(),
-  remarks: z.string().max(500).optional(),
-});
+export const updateSampleStatusSchema = z
+  .object({
+    status: SampleStatusEnum,
+    feedback: z.string().max(1000).optional(),
+    comments: z.string().max(500).optional(), // Controller uses 'comments' not 'remarks'
+  })
+  .passthrough();
 
 /**
  * Update Measurements
@@ -103,14 +161,16 @@ export const recordActualMeasurementsSchema = z.object({
 /**
  * Mark as Sent
  * POST /api/samples/:id/send
+ *
+ * Controller destructures: sentDate, courierMode, trackingNumber
  */
-export const markAsSentSchema = z.object({
-  sentDate: z.string().datetime().optional(),
-  trackingNumber: z.string().max(100).optional(),
-  courier: z.string().max(100).optional(),
-  sentTo: z.string().max(200).optional(),
-  remarks: z.string().max(500).optional(),
-});
+export const markAsSentSchema = z
+  .object({
+    sentDate: z.string().datetime().optional(),
+    courierMode: z.string().max(100).optional(),
+    trackingNumber: z.string().max(100).optional(),
+  })
+  .passthrough();
 
 /**
  * Record Receipt
@@ -126,14 +186,17 @@ export const recordReceiptSchema = z.object({
 /**
  * Record Feedback
  * POST /api/samples/:id/feedback
+ *
+ * Controller destructures: status, feedback, feedbackDate, measurementComments
  */
-export const recordFeedbackSchema = z.object({
-  status: z.enum(['APPROVED', 'REJECTED', 'REVISION_REQUIRED']),
-  feedback: z.string().max(1000),
-  feedbackDate: z.string().datetime().optional(),
-  feedbackBy: z.string().max(200).optional(),
-  attachments: z.array(z.string().max(500)).optional(),
-});
+export const recordFeedbackSchema = z
+  .object({
+    status: z.enum(['APPROVED', 'REJECTED', 'REVISION_REQUIRED', 'REVISION_NEEDED']),
+    feedback: z.string().max(1000).optional(),
+    feedbackDate: z.string().datetime().optional(),
+    measurementComments: z.string().max(1000).optional(),
+  })
+  .passthrough();
 
 /**
  * Create Revision

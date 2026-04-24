@@ -94,6 +94,8 @@ interface TrimSelectorProps {
   selectedTrims: StyleTrim[];
   onChange: (trims: StyleTrim[]) => void;
   disabled?: boolean;
+  /** Style code for auto-associating newly created trims */
+  styleCode?: string;
 }
 
 // Category configurations with trim types
@@ -192,7 +194,7 @@ const SNAKE_TO_CAMEL: Record<string, string> = {
   other_functional: 'otherFunctional',
 };
 
-export function TrimSelector({ selectedTrims, onChange, disabled = false }: TrimSelectorProps) {
+export function TrimSelector({ selectedTrims, onChange, disabled = false, styleCode }: TrimSelectorProps) {
   const [activeCategory, setActiveCategory] = useState<TrimCategory>('FASTENERS_CLOSURES');
   const [activeTab, setActiveTab] = useState<TrimType>('BUTTON');
   const [searchQuery, setSearchQuery] = useState('');
@@ -1042,6 +1044,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false }: Trim
         materialDomain="TRIM"
         onMaterialCreated={handleMaterialCreated}
         initialType={activeTab}
+        styleCode={styleCode}
       />
     </div>
   );

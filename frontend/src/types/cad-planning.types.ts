@@ -236,6 +236,7 @@ export interface CADSpreadsheetRow {
   partIds: string[];
   parts: { id: string; code: string; name: string; goesToEmbroidery?: boolean }[];
   fabricFinishType: string | null;
+  designName?: string | null;
   isEmbroidery: boolean;
   genericGreigeName: string | null;
   // Ready-fabric fields: set when style_fabrics.fabricId is populated (Ready Fabric mode)

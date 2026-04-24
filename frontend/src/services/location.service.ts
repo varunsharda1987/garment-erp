@@ -1,6 +1,7 @@
+import api from '../lib/api';
 import type { State, City, StateFilterOptions, CityFilterOptions } from '../types/location.types';
 
-const API_BASE = '/api/locations';
+const API_BASE = '/locations';
 
 class LocationService {
   /**
@@ -20,26 +21,16 @@ class LocationService {
     }
 
     const url = `${API_BASE}/states${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch states');
-    }
-
-    return response.json();
+    const { data } = await api.get(url);
+    return data.data || [];
   }
 
   /**
    * Get a single state by its 2-digit GST code
    */
   async getStateByCode(stateCode: string): Promise<State> {
-    const response = await fetch(`${API_BASE}/states/code/${stateCode}`);
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch state with code ${stateCode}`);
-    }
-
-    return response.json();
+    const { data } = await api.get(`${API_BASE}/states/code/${stateCode}`);
+    return data.data;
   }
 
   /**
@@ -62,13 +53,8 @@ class LocationService {
     }
 
     const url = `${API_BASE}/cities${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch cities');
-    }
-
-    return response.json();
+    const { data } = await api.get(url);
+    return data.data || [];
   }
 
   /**
@@ -89,27 +75,20 @@ class LocationService {
    * Get all garment manufacturing hubs
    */
   async getGarmentHubs(): Promise<City[]> {
-    const response = await fetch(`${API_BASE}/cities/hubs`);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch garment hubs');
-    }
-
-    return response.json();
+    const { data } = await api.get(`${API_BASE}/cities/hubs`);
+    return data.data || [];
   }
 
   /**
    * Validate if a state ID exists
    */
   async validateStateId(stateId: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE}/validate/state/${stateId}`);
-
-    if (!response.ok) {
+    try {
+      const { data } = await api.get(`${API_BASE}/validate/state/${stateId}`);
+      return data.data?.isValid ?? false;
+    } catch {
       return false;
     }
-
-    const data = await response.json();
-    return data.isValid;
   }
 }
 

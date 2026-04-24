@@ -33,49 +33,53 @@ export const TrimTypeEnum = z.enum([
  * Create Generic Trim
  * POST /api/generic-trims/:trimType
  */
-export const createGenericTrimSchema = z.object({
-  code: z.string().max(50).optional(),
-  name: z.string().min(1, 'Name is required').max(200),
-  description: z.string().max(500).optional(),
-  category: z.string().max(100).optional(),
-  material: z.string().max(100).optional(),
-  color: z.string().max(50).optional(),
-  size: z.string().max(50).optional(),
-  unit: z.string().max(20).optional().default('PCS'),
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  price: z.number().nonnegative().optional(),
-  minOrderQty: z.number().int().nonnegative().optional(),
-  leadTimeDays: z.number().int().nonnegative().optional(),
-  hsnCode: z.string().max(20).optional(),
-  gstRate: z.number().min(0).max(100).optional(),
-  isActive: z.boolean().optional().default(true),
-  specifications: z.record(z.string(), z.unknown()).optional(),
-  remarks: z.string().max(500).optional(),
-});
+export const createGenericTrimSchema = z
+  .object({
+    code: z.string().max(50).optional(),
+    name: z.string().min(1).max(200).optional(),
+    description: z.string().max(500).optional(),
+    category: z.string().max(100).optional(),
+    material: z.string().max(100).optional(),
+    color: z.string().max(50).optional(),
+    size: z.string().max(50).optional(),
+    unit: z.string().max(20).optional().default('PCS'),
+    supplierId: z.string().uuid('Invalid supplier ID').optional(),
+    price: z.number().nonnegative().optional(),
+    minOrderQty: z.number().int().nonnegative().optional(),
+    leadTimeDays: z.number().int().nonnegative().optional(),
+    hsnCode: z.string().max(20).optional(),
+    gstRate: z.number().min(0).max(100).optional(),
+    isActive: z.boolean().optional().default(true),
+    specifications: z.record(z.string(), z.unknown()).optional(),
+    remarks: z.string().max(500).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Generic Trim
  * PUT /api/generic-trims/:trimType/:id
  */
-export const updateGenericTrimSchema = z.object({
-  code: z.string().max(50).optional().nullable(),
-  name: z.string().min(1).max(200).optional(),
-  description: z.string().max(500).optional().nullable(),
-  category: z.string().max(100).optional().nullable(),
-  material: z.string().max(100).optional().nullable(),
-  color: z.string().max(50).optional().nullable(),
-  size: z.string().max(50).optional().nullable(),
-  unit: z.string().max(20).optional(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-  price: z.number().nonnegative().optional().nullable(),
-  minOrderQty: z.number().int().nonnegative().optional().nullable(),
-  leadTimeDays: z.number().int().nonnegative().optional().nullable(),
-  hsnCode: z.string().max(20).optional().nullable(),
-  gstRate: z.number().min(0).max(100).optional().nullable(),
-  isActive: z.boolean().optional(),
-  specifications: z.record(z.string(), z.unknown()).optional().nullable(),
-  remarks: z.string().max(500).optional().nullable(),
-});
+export const updateGenericTrimSchema = z
+  .object({
+    code: z.string().max(50).optional().nullable(),
+    name: z.string().min(1).max(200).optional(),
+    description: z.string().max(500).optional().nullable(),
+    category: z.string().max(100).optional().nullable(),
+    material: z.string().max(100).optional().nullable(),
+    color: z.string().max(50).optional().nullable(),
+    size: z.string().max(50).optional().nullable(),
+    unit: z.string().max(20).optional(),
+    supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+    price: z.number().nonnegative().optional().nullable(),
+    minOrderQty: z.number().int().nonnegative().optional().nullable(),
+    leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+    hsnCode: z.string().max(20).optional().nullable(),
+    gstRate: z.number().min(0).max(100).optional().nullable(),
+    isActive: z.boolean().optional(),
+    specifications: z.record(z.string(), z.unknown()).optional().nullable(),
+    remarks: z.string().max(500).optional().nullable(),
+  })
+  .passthrough();
 
 /**
  * Query Generic Trims

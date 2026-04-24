@@ -12,15 +12,26 @@ import { z } from 'zod';
 // ============================================================================
 
 /**
+ * Cost Sheet PO Item
+ */
+const costSheetPOItemSchema = z.object({
+  styleFabricId: z.string().uuid('Invalid style fabric ID').optional(),
+  greigeId: z.string().uuid('Invalid greige ID').optional(),
+  quantity: z.number().positive().optional(),
+  rate: z.number().nonnegative().optional(),
+});
+
+/**
  * Generate Fabric PO
  * POST /api/cost-sheet-po/generate/fabric
  */
 export const generateFabricPOSchema = z.object({
   costSheetId: z.string().uuid('Invalid cost sheet ID'),
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  itemIds: z.array(z.string().uuid()).optional(),
-  expectedDeliveryDate: z.string().datetime().optional(),
-  remarks: z.string().max(500).optional(),
+  totalOrderQty: z.number().int().positive('Total order quantity is required'), // Added - required by controller
+  supplierId: z.string().uuid('Invalid supplier ID'), // Made required
+  items: z.array(costSheetPOItemSchema).min(1, 'At least one item is required'), // Renamed from itemIds
+  expectedDeliveryDate: z.string().datetime().optional(), // Kept for future use
+  notes: z.string().max(500).optional(), // Renamed from remarks
 });
 
 /**
@@ -29,10 +40,11 @@ export const generateFabricPOSchema = z.object({
  */
 export const generateGreigePOSchema = z.object({
   costSheetId: z.string().uuid('Invalid cost sheet ID'),
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  itemIds: z.array(z.string().uuid()).optional(),
-  expectedDeliveryDate: z.string().datetime().optional(),
-  remarks: z.string().max(500).optional(),
+  totalOrderQty: z.number().int().positive('Total order quantity is required'), // Added - required by controller
+  supplierId: z.string().uuid('Invalid supplier ID'), // Made required
+  items: z.array(costSheetPOItemSchema).min(1, 'At least one item is required'), // Renamed from itemIds
+  expectedDeliveryDate: z.string().datetime().optional(), // Kept for future use
+  notes: z.string().max(500).optional(), // Renamed from remarks
 });
 
 /**
@@ -41,10 +53,12 @@ export const generateGreigePOSchema = z.object({
  */
 export const generateProcessingPOSchema = z.object({
   costSheetId: z.string().uuid('Invalid cost sheet ID'),
-  processorId: z.string().uuid('Invalid processor ID').optional(),
-  itemIds: z.array(z.string().uuid()).optional(),
-  expectedDeliveryDate: z.string().datetime().optional(),
-  remarks: z.string().max(500).optional(),
+  totalOrderQty: z.number().int().positive('Total order quantity is required'), // Added - required by controller
+  processorId: z.string().uuid('Invalid processor ID'), // Made required
+  items: z.array(costSheetPOItemSchema).min(1, 'At least one item is required'), // Renamed from itemIds
+  linkedGreigePOId: z.string().uuid('Invalid greige PO ID').optional(), // Added - used by controller
+  expectedDeliveryDate: z.string().datetime().optional(), // Kept for future use
+  notes: z.string().max(500).optional(), // Renamed from remarks
 });
 
 /**
@@ -53,10 +67,11 @@ export const generateProcessingPOSchema = z.object({
  */
 export const generateTrimsPOSchema = z.object({
   costSheetId: z.string().uuid('Invalid cost sheet ID'),
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  itemIds: z.array(z.string().uuid()).optional(),
-  expectedDeliveryDate: z.string().datetime().optional(),
-  remarks: z.string().max(500).optional(),
+  totalOrderQty: z.number().int().positive('Total order quantity is required'), // Added - required by controller
+  supplierId: z.string().uuid('Invalid supplier ID'), // Made required
+  items: z.array(costSheetPOItemSchema).min(1, 'At least one item is required'), // Renamed from itemIds
+  expectedDeliveryDate: z.string().datetime().optional(), // Kept for future use
+  notes: z.string().max(500).optional(), // Renamed from remarks
 });
 
 // ============================================================================

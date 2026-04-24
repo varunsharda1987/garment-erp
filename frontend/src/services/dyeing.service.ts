@@ -196,9 +196,9 @@ export const dyeingSummaryService = {
     return response.data.data;
   },
 
-  // Get summary by mill
-  async getSummaryByMill(millId: string): Promise<DyeingSummary> {
-    const response = await api.get<{ data: DyeingSummary }>(`/dyeing/summary/mill/${millId}`);
+  // Get summary by processor
+  async getSummaryByProcessor(processorId: string): Promise<DyeingSummary> {
+    const response = await api.get<{ data: DyeingSummary }>(`/dyeing/summary/processor/${processorId}`);
     return response.data.data;
   },
 };

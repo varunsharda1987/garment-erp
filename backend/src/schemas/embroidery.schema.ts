@@ -16,46 +16,52 @@ import { z } from 'zod';
  * POST /api/embroidery
  * Field names match frontend CreateEmbroideryRequest
  */
-export const createEmbroiderySchema = z.object({
-  designName: z.string().min(1, 'Design name is required').max(200),
-  description: z.string().max(500).optional().nullable(),
-  designFile: z.string().max(500).optional().nullable(),
-  designImage: z.string().max(500).optional().nullable(),
-  stitchCount: z.number().int().positive().optional().nullable(),
-  threadColors: z.number().int().positive().optional().nullable(),
-  repeatWidth: z.number().positive().optional().nullable(),
-  repeatHeight: z.number().positive().optional().nullable(),
-  minFabricWidth: z.number().positive().optional().nullable(),
-  usableWidthAfter: z.number().positive('Usable width after is required'),
-  costPerMeter: z.number().nonnegative().optional(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-  leadTimeDays: z.number().int().nonnegative().optional().nullable(),
-  originalStyleId: z.string().uuid('Invalid style ID').optional().nullable(),
-  isActive: z.boolean().optional().default(true),
-});
+export const createEmbroiderySchema = z
+  .object({
+    designName: z.string().min(1, 'Design name is required').max(200),
+    description: z.string().max(500).optional().nullable(),
+    designFile: z.string().max(500).optional().nullable(),
+    designImage: z.string().max(500).optional().nullable(),
+    stitchCount: z.number().int().positive().optional().nullable(),
+    threadColors: z.number().int().positive().optional().nullable(),
+    repeatWidth: z.number().positive().optional().nullable(),
+    repeatHeight: z.number().positive().optional().nullable(),
+    minFabricWidth: z.number().positive().optional().nullable(),
+    usableWidthAfter: z.number().positive('Usable width after is required'),
+    costPerMeter: z.number().nonnegative().optional(),
+    supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+    leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+    originalStyleId: z.string().uuid('Invalid style ID').optional().nullable(),
+    cutableWidth: z.number().positive().optional().nullable(),
+    isActive: z.boolean().optional().default(true),
+  })
+  .passthrough();
 
 /**
  * Update Embroidery Design
  * PUT /api/embroidery/:id
  * Field names match frontend UpdateEmbroideryRequest
  */
-export const updateEmbroiderySchema = z.object({
-  designName: z.string().min(1).max(200).optional(),
-  description: z.string().max(500).optional().nullable(),
-  designFile: z.string().max(500).optional().nullable(),
-  designImage: z.string().max(500).optional().nullable(),
-  stitchCount: z.number().int().positive().optional().nullable(),
-  threadColors: z.number().int().positive().optional().nullable(),
-  repeatWidth: z.number().positive().optional().nullable(),
-  repeatHeight: z.number().positive().optional().nullable(),
-  minFabricWidth: z.number().positive().optional().nullable(),
-  usableWidthAfter: z.number().positive().optional().nullable(),
-  costPerMeter: z.number().nonnegative().optional().nullable(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-  leadTimeDays: z.number().int().nonnegative().optional().nullable(),
-  originalStyleId: z.string().uuid('Invalid style ID').optional().nullable(),
-  isActive: z.boolean().optional(),
-});
+export const updateEmbroiderySchema = z
+  .object({
+    designName: z.string().min(1).max(200).optional(),
+    description: z.string().max(500).optional().nullable(),
+    designFile: z.string().max(500).optional().nullable(),
+    designImage: z.string().max(500).optional().nullable(),
+    stitchCount: z.number().int().positive().optional().nullable(),
+    threadColors: z.number().int().positive().optional().nullable(),
+    repeatWidth: z.number().positive().optional().nullable(),
+    repeatHeight: z.number().positive().optional().nullable(),
+    minFabricWidth: z.number().positive().optional().nullable(),
+    usableWidthAfter: z.number().positive().optional().nullable(),
+    costPerMeter: z.number().nonnegative().optional().nullable(),
+    supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+    leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+    originalStyleId: z.string().uuid('Invalid style ID').optional().nullable(),
+    cutableWidth: z.number().positive().optional().nullable(),
+    isActive: z.boolean().optional(),
+  })
+  .passthrough();
 
 /**
  * Embroidery Query Params

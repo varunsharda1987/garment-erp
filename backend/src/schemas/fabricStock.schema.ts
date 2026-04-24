@@ -11,6 +11,16 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
+// Status enum for fabric stock entries (matches controller usage)
+export const FabricStockStatusEnum = z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']);
+
+// Stock type enum for fabric stock entries (matches controller usage)
+export const FabricStockTypeEnum = z.enum(['GENERIC', 'EXCESS', 'PLANNED_STOCK', 'RETURNED', 'VARIANCE_UNUSED']);
+
+// Quality grade enum
+export const QualityGradeEnum = z.enum(['A', 'B', 'DEFECT']);
+
+// Legacy enums (kept for greige stock and other modules)
 export const StockStatusEnum = z.enum(['AVAILABLE', 'RESERVED', 'IN_TRANSIT', 'AT_PROCESSOR', 'CONSUMED', 'DAMAGED']);
 
 export const StockEntryTypeEnum = z.enum([
@@ -30,70 +40,68 @@ export const AdjustmentReasonEnum = z.enum(['DAMAGED', 'EXPIRED', 'LOST', 'FOUND
 
 /**
  * Create Fabric Stock
- * POST /api/fabric-stock
+ * POST /api/fabric-stock (or /api/stock)
+ * Aligned with controller and database model
  */
 export const createFabricStockSchema = z.object({
   fabricId: z.string().uuid('Invalid fabric ID'),
-  warehouseId: z.string().uuid('Invalid warehouse ID'),
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  quantity: z.number().positive('Quantity must be positive'),
-  unit: z.string().max(20).optional().default('METER'),
-  rate: z.number().nonnegative('Rate cannot be negative').optional(),
-  lotNumber: z.string().max(50).optional(),
-  rollNumber: z.string().max(50).optional(),
-  width: z.number().positive().optional(),
-  gsm: z.number().positive().optional(),
-  shrinkage: z.number().min(0).max(100).optional(),
-  referenceType: z.string().max(50).optional(),
-  referenceId: z.string().uuid().optional(),
-  referenceNumber: z.string().max(100).optional(),
-  remarks: z.string().max(500).optional(),
+  width: z.number().positive('Width must be positive'),
+  quantityAvailable: z.number().positive('Quantity must be positive'),
+  rollNumbers: z.string().optional(),
+  warehouseLocation: z.string().optional(),
+  rackNumber: z.string().optional(),
+  purchaseCost: z.number().nonnegative().optional(),
+  qualityGrade: QualityGradeEnum.default('A'),
+  stockType: FabricStockTypeEnum.default('GENERIC'),
+  receivedDate: z.string().or(z.date()).optional(),
+  status: FabricStockStatusEnum.default('AVAILABLE'),
+  procurementId: z.string().uuid('Invalid procurement ID').optional(),
+  originStyleId: z.string().uuid('Invalid style ID').optional(),
+  originOrderId: z.string().uuid('Invalid order ID').optional(),
 });
 
 /**
  * Update Fabric Stock
- * PATCH /api/fabric-stock/:id
+ * PATCH /api/fabric-stock/:id (or /api/stock/:id)
+ * Aligned with controller UpdateStockSchema
  */
-export const updateFabricStockSchema = z.object({
-  warehouseId: z.string().uuid('Invalid warehouse ID').optional(),
-  lotNumber: z.string().max(50).optional().nullable(),
-  rollNumber: z.string().max(50).optional().nullable(),
-  width: z.number().positive().optional().nullable(),
-  gsm: z.number().positive().optional().nullable(),
-  shrinkage: z.number().min(0).max(100).optional().nullable(),
-  rate: z.number().nonnegative().optional().nullable(),
-  status: StockStatusEnum.optional(),
-  remarks: z.string().max(500).optional().nullable(),
-});
-
-/**
- * Transfer Fabric Stock
- * POST /api/fabric-stock/transfer
- */
-export const transferFabricStockSchema = z
+export const updateFabricStockSchema = z
   .object({
-    stockId: z.string().uuid('Invalid stock ID'),
-    fromWarehouseId: z.string().uuid('Invalid source warehouse ID'),
-    toWarehouseId: z.string().uuid('Invalid destination warehouse ID'),
-    quantity: z.number().positive('Quantity must be positive'),
-    remarks: z.string().max(500).optional(),
+    purchaseCost: z.number().nonnegative().optional(),
+    weightedAvgCost: z.number().nonnegative().optional(),
+    qualityGrade: QualityGradeEnum.optional(),
+    warehouseLocation: z.string().optional(),
+    rackNumber: z.string().optional(),
+    rollNumbers: z.string().optional(),
   })
-  .refine((data) => data.fromWarehouseId !== data.toWarehouseId, {
-    message: 'Source and destination warehouses must be different',
-    path: ['toWarehouseId'],
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided for update',
   });
 
 /**
+ * Transfer Fabric Stock
+ * POST /api/fabric-stock/transfer (or /api/stock/transfer)
+ * Aligned with controller StockTransferSchema
+ */
+export const transferFabricStockSchema = z.object({
+  stockId: z.string().uuid('Invalid stock ID'),
+  toWarehouse: z.string().min(1, 'Destination warehouse is required'),
+  toRackNumber: z.string().optional(),
+  quantityToTransfer: z.number().positive('Quantity must be positive'),
+  notes: z.string().max(500).optional(),
+});
+
+/**
  * Adjust Fabric Stock
- * POST /api/fabric-stock/adjust
+ * POST /api/fabric-stock/adjust (or /api/stock/adjust)
+ * Aligned with controller StockAdjustmentSchema
  */
 export const adjustFabricStockSchema = z.object({
   stockId: z.string().uuid('Invalid stock ID'),
-  adjustmentQuantity: z.number().refine((val) => val !== 0, {
-    message: 'Adjustment quantity cannot be zero',
-  }),
-  reason: AdjustmentReasonEnum,
-  remarks: z.string().max(500).optional(),
+  adjustmentType: z.enum(['INCREASE', 'DECREASE']),
+  quantity: z.number().positive('Quantity must be positive'),
+  reason: z.string().min(1, 'Reason is required'),
+  notes: z.string().max(500).optional(),
 });
 
 /**

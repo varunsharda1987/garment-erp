@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import api from '../lib/api';
 import type { City } from '../types/location.types';
 
 interface CitySelectorProps {
@@ -70,18 +71,7 @@ export default function CitySelector({
         params.append('search', searchTerm);
       }
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/locations/cities?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch cities');
-      }
-
-      const result = await response.json();
+      const { data: result } = await api.get(`/locations/cities?${params.toString()}`);
       setCities(result.data || []);
     } catch (err) {
       console.error('Error fetching cities:', err);

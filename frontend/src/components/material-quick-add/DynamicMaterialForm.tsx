@@ -83,6 +83,22 @@ export const DynamicMaterialForm: React.FC<DynamicMaterialFormProps> = ({
           // Skip color field here, we'll render it separately
           if (field.name === 'color') return null;
 
+          // Check conditional visibility
+          if (field.showWhen) {
+            const { field: condField, value: condValue, inverse } = field.showWhen;
+            const currentValue = formData[condField];
+
+            // For boolean conditions
+            if (typeof condValue === 'boolean') {
+              const matches = Boolean(currentValue) === condValue;
+              if (inverse ? matches : !matches) return null;
+            } else {
+              // For string conditions
+              const matches = currentValue === condValue;
+              if (inverse ? matches : !matches) return null;
+            }
+          }
+
           return (
             <FormField
               key={field.name}
@@ -94,19 +110,39 @@ export const DynamicMaterialForm: React.FC<DynamicMaterialFormProps> = ({
         })}
       </div>
 
-      {/* Color Field (Always Last, Full Width) */}
-      {config.fields.some((f) => f.name === 'color') && (
-        <div className="space-y-2">
-          <Label htmlFor="color">Color</Label>
-          <Input
-            id="color"
-            type="text"
-            value={formData.color || ''}
-            onChange={(e) => handleFieldChange('color', e.target.value)}
-            placeholder="e.g., Black, Navy Blue, Red"
-          />
-        </div>
-      )}
+      {/* Color Field (Always Last, Full Width) - with conditional visibility support */}
+      {(() => {
+        const colorField = config.fields.find((f) => f.name === 'color');
+        if (!colorField) return null;
+
+        // Check conditional visibility for color field
+        if (colorField.showWhen) {
+          const { field: condField, value: condValue, inverse } = colorField.showWhen;
+          const currentValue = formData[condField];
+
+          if (typeof condValue === 'boolean') {
+            const matches = Boolean(currentValue) === condValue;
+            if (inverse ? matches : !matches) return null;
+          } else {
+            const matches = currentValue === condValue;
+            if (inverse ? matches : !matches) return null;
+          }
+        }
+
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="color">Color</Label>
+            <Input
+              id="color"
+              type="text"
+              value={formData.color || ''}
+              onChange={(e) => handleFieldChange('color', e.target.value)}
+              placeholder="e.g., Black, Navy Blue, Red"
+            />
+            {colorField.helpText && <p className="text-xs text-muted-foreground">{colorField.helpText}</p>}
+          </div>
+        );
+      })()}
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-3 pt-4 border-t">
@@ -177,7 +213,11 @@ const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {
       case 'boolean':
         return (
           <div className="flex items-center space-x-2 h-10">
-            <Checkbox id={field.name} checked={value || false} onCheckedChange={onChange} />
+            <Checkbox
+              id={field.name}
+              checked={Boolean(value)}
+              onCheckedChange={(checked) => onChange(checked === true)}
+            />
             <Label htmlFor={field.name} className="text-sm font-normal cursor-pointer">
               {field.label}
             </Label>
@@ -191,7 +231,12 @@ const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {
 
   // For boolean fields, the label is rendered inline with the checkbox
   if (field.type === 'boolean') {
-    return <div className="col-span-full">{renderInput()}</div>;
+    return (
+      <div className="col-span-full space-y-1">
+        {renderInput()}
+        {field.helpText && <p className="text-xs text-muted-foreground ml-6">{field.helpText}</p>}
+      </div>
+    );
   }
 
   return (
@@ -201,6 +246,7 @@ const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {
         {field.required && <span className="text-destructive ml-1">*</span>}
       </Label>
       {renderInput()}
+      {field.helpText && <p className="text-xs text-muted-foreground">{field.helpText}</p>}
     </div>
   );
 };

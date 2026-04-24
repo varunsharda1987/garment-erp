@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { TestTemplateType, TestResult } from '@prisma/client';
 
+// Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
+const isValidIdFormat = (val: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val);
+
 // ============================================================================
 // TESTING LABS SCHEMAS
 // ============================================================================
@@ -216,7 +220,7 @@ export const createGarmentPhysicalTestSchema = z.object({
   styleId: z.string().uuid(),
   customerId: z.string().uuid().optional(),
   sizeId: z.string().uuid().optional(),
-  colorId: z.string().uuid().optional(),
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
 
   // Test Sending
   sentToLabDate: z.string().datetime().optional(),

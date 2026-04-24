@@ -216,7 +216,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
   res.status(200).json({
     data: {
       ...style,
-      styleFabricsFlat,
+      styleFabrics: styleFabricsFlat,
       components,
     },
   });

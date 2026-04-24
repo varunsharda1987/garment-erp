@@ -42,11 +42,12 @@ test.describe('Full Cycle Integration Test', () => {
 
     const timestamp = Date.now();
     await page.goto('/register');
-    await page.getByLabel(/name/i).fill(`Integration Test ${timestamp}`);
+    await page.getByLabel(/first name/i).fill('Integration');
+    await page.getByLabel(/last name/i).fill(`Test${timestamp}`);
     await page.getByLabel(/email/i).fill(`integration_${timestamp}@kashayafabs.com`);
     await page.getByLabel(/^password$/i).fill('Test@123');
     await page.getByLabel(/confirm password/i).fill('Test@123');
-    await page.getByRole('button', { name: /create account/i }).click();
+    await page.getByRole('button', { name: /request access|create account/i }).click();
     await page.waitForURL(/\/dashboard/, { timeout: 10000 });
   }
 

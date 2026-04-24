@@ -49,44 +49,48 @@ export const trimMasterQuerySchema = z.object({
  * Create Button
  * POST /api/materials/button
  */
-export const createButtonSchema = z.object({
-  buttonName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional(),
-  buyerCode: z.string().max(50).optional(),
-  size: z.string().max(50).optional(),
-  holes: z.number().int().min(0).max(10).optional().nullable(),
-  color: z.string().max(50).optional(),
-  material: z.string().max(100).optional(),
-  shape: z.string().max(50).optional(),
-  pricePerPiece: z.number().nonnegative().optional().nullable(),
-  pricePerGross: z.number().nonnegative().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional(),
-  styleCodes: z.array(z.string()).optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const createButtonSchema = z
+  .object({
+    buttonName: z.string().max(200).optional(),
+    supplierCode: z.string().max(50).optional(),
+    buyerCode: z.string().max(50).optional(),
+    size: z.string().max(50).optional(),
+    holes: z.number().int().min(0).max(10).optional().nullable(),
+    color: z.string().max(50).optional(),
+    material: z.string().max(100).optional(),
+    shape: z.string().max(50).optional(),
+    pricePerPiece: z.number().nonnegative().optional().nullable(),
+    pricePerGross: z.number().nonnegative().optional().nullable(),
+    supplierId: z.string().uuid().optional().nullable(),
+    description: z.string().max(1000).optional(),
+    styleCodes: z.array(z.string()).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Button
  * PUT /api/materials/button/:id
  */
-export const updateButtonSchema = z.object({
-  buttonName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional().nullable(),
-  buyerCode: z.string().max(50).optional().nullable(),
-  size: z.string().max(50).optional().nullable(),
-  holes: z.number().int().min(0).max(10).optional().nullable(),
-  color: z.string().max(50).optional().nullable(),
-  material: z.string().max(100).optional().nullable(),
-  shape: z.string().max(50).optional().nullable(),
-  pricePerPiece: z.number().nonnegative().optional().nullable(),
-  pricePerGross: z.number().nonnegative().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional().nullable(),
-  isActive: z.boolean().optional(),
-  styleCodes: z.array(z.string()).optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const updateButtonSchema = z
+  .object({
+    buttonName: z.string().max(200).optional(),
+    supplierCode: z.string().max(50).optional().nullable(),
+    buyerCode: z.string().max(50).optional().nullable(),
+    size: z.string().max(50).optional().nullable(),
+    holes: z.number().int().min(0).max(10).optional().nullable(),
+    color: z.string().max(50).optional().nullable(),
+    material: z.string().max(100).optional().nullable(),
+    shape: z.string().max(50).optional().nullable(),
+    pricePerPiece: z.number().nonnegative().optional().nullable(),
+    pricePerGross: z.number().nonnegative().optional().nullable(),
+    supplierId: z.string().uuid().optional().nullable(),
+    description: z.string().max(1000).optional().nullable(),
+    isActive: z.boolean().optional(),
+    styleCodes: z.array(z.string()).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+  })
+  .passthrough();
 
 /**
  * Bulk Import Button
@@ -104,50 +108,61 @@ export const bulkImportButtonSchema = z.object({
 /**
  * Create Thread
  * POST /api/materials/thread
+ *
+ * Field names match controller (thread.controller.ts) and frontend:
+ * - threadName (required) - name of the thread
+ * - brand - brand name e.g., Coats, Aster
+ * - packagingType - CONE or TUBE
+ * - piecesPerBox - auto-set based on packagingType if not provided
+ * - metersPerUnit - meters per cone/tube
+ * - coneSize - size of cone
  */
-export const createThreadSchema = z.object({
-  threadName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional(),
-  buyerCode: z.string().max(50).optional(),
-  color: z.string().max(50).optional(),
-  colorFamily: z.string().max(50).optional(),
-  material: z.string().max(100).optional(),
-  count: z.string().max(50).optional(),
-  ply: z.number().int().positive().optional().nullable(),
-  finish: z.string().max(50).optional(),
-  metersPerCone: z.number().positive().optional().nullable(),
-  conesPerBox: z.number().int().positive().optional().nullable(),
-  pricePerCone: z.number().nonnegative().optional().nullable(),
-  pricePerBox: z.number().nonnegative().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional(),
-  styleCodes: z.array(z.string()).optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const createThreadSchema = z
+  .object({
+    threadName: z.string().max(200),
+    brand: z.string().max(50).optional(),
+    packagingType: z.enum(['CONE', 'TUBE']).optional(),
+    piecesPerBox: z.number().int().positive().optional().nullable(),
+    metersPerUnit: z.number().positive().optional().nullable(),
+    color: z.string().max(50).optional(),
+    colorCode: z.string().max(50).optional(),
+    coneSize: z.string().max(50).optional(),
+    pricePerCone: z.number().nonnegative().optional().nullable(),
+    supplierCode: z.string().max(50).optional(),
+    buyerCode: z.string().max(50).optional(),
+    supplierId: z.string().uuid().optional().nullable(),
+    description: z.string().max(1000).optional(),
+    styleCodes: z.array(z.string()).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Thread
  * PUT /api/materials/thread/:id
+ *
+ * Same fields as create but all optional
  */
-export const updateThreadSchema = z.object({
-  threadName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional().nullable(),
-  buyerCode: z.string().max(50).optional().nullable(),
-  color: z.string().max(50).optional().nullable(),
-  colorFamily: z.string().max(50).optional().nullable(),
-  material: z.string().max(100).optional().nullable(),
-  count: z.string().max(50).optional().nullable(),
-  ply: z.number().int().positive().optional().nullable(),
-  finish: z.string().max(50).optional().nullable(),
-  metersPerCone: z.number().positive().optional().nullable(),
-  conesPerBox: z.number().int().positive().optional().nullable(),
-  pricePerCone: z.number().nonnegative().optional().nullable(),
-  pricePerBox: z.number().nonnegative().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional().nullable(),
-  isActive: z.boolean().optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const updateThreadSchema = z
+  .object({
+    threadName: z.string().max(200).optional(),
+    brand: z.string().max(50).optional().nullable(),
+    packagingType: z.enum(['CONE', 'TUBE']).optional().nullable(),
+    piecesPerBox: z.number().int().positive().optional().nullable(),
+    metersPerUnit: z.number().positive().optional().nullable(),
+    color: z.string().max(50).optional().nullable(),
+    colorCode: z.string().max(50).optional().nullable(),
+    coneSize: z.string().max(50).optional().nullable(),
+    pricePerCone: z.number().nonnegative().optional().nullable(),
+    supplierCode: z.string().max(50).optional().nullable(),
+    buyerCode: z.string().max(50).optional().nullable(),
+    supplierId: z.string().uuid().optional().nullable(),
+    description: z.string().max(1000).optional().nullable(),
+    isActive: z.boolean().optional(),
+    styleCodes: z.array(z.string()).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+  })
+  .passthrough();
 
 /**
  * Convert Thread Quantity
@@ -176,48 +191,43 @@ export const bulkImportThreadSchema = z.object({
 /**
  * Create Zipper
  * POST /api/materials/zipper
+ *
+ * Field names match controller (zipper.controller.ts) and frontend:
+ * - brand (not 'type') - zipper brand e.g., YKK
+ * - sliderType (not 'pullerStyle') - slider style
+ * - tapeWidth (new) - width of zipper tape
+ * - teethType - metal, plastic, nylon coil, etc.
  */
-export const createZipperSchema = z.object({
-  zipperName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional(),
-  buyerCode: z.string().max(50).optional(),
-  type: z.string().max(50).optional(),
-  size: z.string().max(50).optional(),
-  length: z.number().positive().optional().nullable(),
-  lengthUnit: z.enum(['CM', 'INCH']).optional(),
-  color: z.string().max(50).optional(),
-  material: z.string().max(100).optional(),
-  teethType: z.string().max(50).optional(),
-  pullerStyle: z.string().max(50).optional(),
-  pricePerPiece: z.number().nonnegative().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional(),
-  styleCodes: z.array(z.string()).optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const createZipperSchema = z
+  .object({
+    zipperName: z.string().max(200).optional(),
+    supplierCode: z.string().max(50).optional(),
+    buyerCode: z.string().max(50).optional(),
+    // Domain-specific field names (matching controller/frontend)
+    brand: z.string().max(50).optional(),
+    sliderType: z.string().max(50).optional(),
+    tapeWidth: z.string().max(50).optional(),
+    length: z.number().positive().optional().nullable(),
+    color: z.string().max(50).optional(),
+    teethType: z.string().max(50).optional(),
+    pricePerPiece: z.number().nonnegative().optional().nullable(),
+    supplierId: z.string().uuid().optional().nullable(),
+    description: z.string().max(1000).optional(),
+    styleCodes: z.array(z.string()).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Zipper
  * PUT /api/materials/zipper/:id
  */
-export const updateZipperSchema = z.object({
-  zipperName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional().nullable(),
-  buyerCode: z.string().max(50).optional().nullable(),
-  type: z.string().max(50).optional().nullable(),
-  size: z.string().max(50).optional().nullable(),
-  length: z.number().positive().optional().nullable(),
-  lengthUnit: z.enum(['CM', 'INCH']).optional().nullable(),
-  color: z.string().max(50).optional().nullable(),
-  material: z.string().max(100).optional().nullable(),
-  teethType: z.string().max(50).optional().nullable(),
-  pullerStyle: z.string().max(50).optional().nullable(),
-  pricePerPiece: z.number().nonnegative().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional().nullable(),
-  isActive: z.boolean().optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const updateZipperSchema = createZipperSchema
+  .extend({
+    isActive: z.boolean().optional(),
+  })
+  .partial()
+  .passthrough();
 
 /**
  * Bulk Import Zipper
@@ -235,25 +245,29 @@ export const bulkImportZipperSchema = z.object({
 /**
  * Create Elastic
  * POST /api/materials/elastic
+ *
+ * Field names match controller (elastic.controller.ts) and frontend:
+ * - elasticType (not 'type') - type of elastic e.g., Braided, Knitted
+ * - composition (not 'material') - material composition e.g., Nylon, Spandex
+ * - stretchPercent (not 'stretch') - numeric stretch percentage
  */
-export const createElasticSchema = z.object({
-  elasticName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional(),
-  buyerCode: z.string().max(50).optional(),
-  type: z.string().max(50).optional(),
-  width: z.number().positive().optional().nullable(),
-  widthUnit: z.enum(['MM', 'CM', 'INCH']).optional(),
-  color: z.string().max(50).optional(),
-  material: z.string().max(100).optional(),
-  stretch: z.string().max(50).optional(),
-  pricePerMeter: z.number().nonnegative().optional().nullable(),
-  pricePerRoll: z.number().nonnegative().optional().nullable(),
-  metersPerRoll: z.number().positive().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional(),
-  styleCodes: z.array(z.string()).optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const createElasticSchema = z
+  .object({
+    elasticName: z.string().max(200).optional(),
+    supplierCode: z.string().max(50).optional(),
+    buyerCode: z.string().max(50).optional(),
+    // Domain-specific field names (matching controller/frontend)
+    elasticType: z.string().max(50).optional(),
+    composition: z.string().max(100).optional(),
+    stretchPercent: z.number().min(0).max(1000).optional().nullable(),
+    width: z.number().positive().optional().nullable(),
+    color: z.string().max(50).optional(),
+    pricePerMeter: z.number().nonnegative().optional().nullable(),
+    supplierId: z.string().uuid().optional().nullable(),
+    description: z.string().max(1000).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Elastic
@@ -263,7 +277,8 @@ export const updateElasticSchema = createElasticSchema
   .extend({
     isActive: z.boolean().optional(),
   })
-  .partial();
+  .partial()
+  .passthrough();
 
 /**
  * Bulk Import Elastic
@@ -281,23 +296,44 @@ export const bulkImportElasticSchema = z.object({
 /**
  * Create Label
  * POST /api/materials/label
+ *
+ * Field names match controller (label.controller.ts) and frontend:
+ * - labelType (not 'type') - type of label e.g., Main Label, Size Label, Care Label
+ * - labelCategory - SEWN_IN, HANGTAG, PRICE_TAG, etc.
+ * - printMethod (not 'printType') - printing method
+ * - content - label content text
+ * - fabricContent - fabric composition (e.g., "100% Cotton")
+ * - washcareInstructions - care instructions
+ * - customerId - makes label customer-specific
+ * - brandCategoryId - link to specific brand within customer
  */
-export const createLabelSchema = z.object({
-  labelName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional(),
-  buyerCode: z.string().max(50).optional(),
-  type: z.string().max(50).optional(),
-  size: z.string().max(50).optional(),
-  material: z.string().max(100).optional(),
-  printType: z.string().max(50).optional(),
-  foldType: z.string().max(50).optional(),
-  pricePerPiece: z.number().nonnegative().optional().nullable(),
-  pricePerThousand: z.number().nonnegative().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional(),
-  styleCodes: z.array(z.string()).optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const createLabelSchema = z
+  .object({
+    labelName: z.string().max(200).optional(),
+    supplierCode: z.string().max(50).optional(),
+    buyerCode: z.string().max(50).optional(),
+    // Domain-specific field names (matching controller/frontend)
+    customerId: z.string().uuid().optional().nullable(),
+    brandCategoryId: z.string().uuid().optional().nullable(),
+    labelCategory: z.enum(['SEWN_IN', 'HANGTAG', 'PRICE_TAG']).optional(),
+    labelType: z.string().max(50).optional(),
+    sizeCategoryId: z.string().uuid().optional().nullable(),
+    generateSizeVariants: z.boolean().optional().default(false),
+    size: z.string().max(50).optional(),
+    material: z.string().max(100).optional(),
+    content: z.string().max(500).optional(),
+    fabricContent: z.string().max(200).optional(),
+    washcareInstructions: z.string().max(500).optional(),
+    printMethod: z.string().max(50).optional(),
+    color: z.string().max(50).optional(),
+    pricePerPiece: z.number().nonnegative().optional().nullable(),
+    pricePerHundred: z.number().nonnegative().optional().nullable(),
+    supplierId: z.string().uuid().optional().nullable(),
+    description: z.string().max(1000).optional(),
+    styleCodes: z.array(z.string()).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Label
@@ -307,7 +343,8 @@ export const updateLabelSchema = createLabelSchema
   .extend({
     isActive: z.boolean().optional(),
   })
-  .partial();
+  .partial()
+  .passthrough();
 
 /**
  * Bulk Import Label
@@ -325,26 +362,42 @@ export const bulkImportLabelSchema = z.object({
 /**
  * Create Lace
  * POST /api/materials/lace
+ *
+ * Field names match controller (lace.controller.ts) and frontend (LaceForm.tsx, material-quick-add.config.ts):
+ * - laceType (not 'type') - type of lace e.g., Crochet, Embroidered
+ * - composition (not 'material') - material composition e.g., Cotton, Nylon
+ * - design (not 'pattern') - design pattern e.g., Floral, Geometric
+ *
+ * Greige lace support:
+ * - isGreige: true = raw lace needing dyeing, false = ready-to-use finished lace
+ * - expectedShrinkagePercent: shrinkage during dyeing (for greige)
+ * - costPerMeterGreige: raw material cost (for greige)
+ * - sourceGreigeLaceId: links finished lace to its source greige for traceability
+ *
+ * NOTE: laceCode is auto-generated, widthUnit/pricePerRoll/metersPerRoll/supplierId not used by controller
  */
-export const createLaceSchema = z.object({
-  laceName: z.string().max(200).optional(),
-  laceCode: z.string().max(50).optional(),
-  supplierCode: z.string().max(50).optional(),
-  buyerCode: z.string().max(50).optional(),
-  type: z.string().max(50).optional(),
-  width: z.number().positive().optional().nullable(),
-  widthUnit: z.enum(['MM', 'CM', 'INCH']).optional(),
-  color: z.string().max(50).optional(),
-  material: z.string().max(100).optional(),
-  pattern: z.string().max(100).optional(),
-  pricePerMeter: z.number().nonnegative().optional().nullable(),
-  pricePerRoll: z.number().nonnegative().optional().nullable(),
-  metersPerRoll: z.number().positive().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional(),
-  styleCodes: z.array(z.string()).optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const createLaceSchema = z
+  .object({
+    laceName: z.string().max(200).optional(),
+    supplierCode: z.string().max(50).optional(),
+    buyerCode: z.string().max(50).optional(),
+    // Domain-specific field names (matching controller/frontend)
+    laceType: z.string().max(50).optional(),
+    composition: z.string().max(100).optional(),
+    design: z.string().max(100).optional(),
+    width: z.number().positive().optional().nullable(),
+    color: z.string().max(50).optional(),
+    pricePerMeter: z.number().nonnegative().optional().nullable(),
+    description: z.string().max(1000).optional(),
+    styleCodes: z.array(z.string()).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+    // Greige lace support
+    isGreige: z.boolean().optional().default(false),
+    expectedShrinkagePercent: z.number().min(0).max(100).optional().nullable(),
+    costPerMeterGreige: z.number().nonnegative().optional().nullable(),
+    sourceGreigeLaceId: z.string().uuid().optional().nullable(),
+  })
+  .passthrough();
 
 /**
  * Update Lace
@@ -354,7 +407,8 @@ export const updateLaceSchema = createLaceSchema
   .extend({
     isActive: z.boolean().optional(),
   })
-  .partial();
+  .partial()
+  .passthrough();
 
 /**
  * Bulk Import Lace
@@ -372,23 +426,35 @@ export const bulkImportLaceSchema = z.object({
 /**
  * Create Packaging
  * POST /api/materials/packaging
+ *
+ * Field names match controller (packaging.controller.ts) and frontend:
+ * - packagingType (not 'type') - type of packaging e.g., Polybag, Carton, Hanger
+ * - thickness (not 'dimensions') - thickness e.g., "40 microns", "3 ply"
+ * - printDetails - printing details for branded packaging
+ * - customerId - makes packaging customer-specific
+ * - brandCategoryId - link to specific brand within customer
  */
-export const createPackagingSchema = z.object({
-  packagingName: z.string().max(200).optional(),
-  supplierCode: z.string().max(50).optional(),
-  buyerCode: z.string().max(50).optional(),
-  type: z.string().max(50).optional(),
-  size: z.string().max(50).optional(),
-  material: z.string().max(100).optional(),
-  dimensions: z.string().max(100).optional(),
-  pricePerPiece: z.number().nonnegative().optional().nullable(),
-  pricePerBundle: z.number().nonnegative().optional().nullable(),
-  piecesPerBundle: z.number().int().positive().optional().nullable(),
-  supplierId: z.string().uuid().optional().nullable(),
-  description: z.string().max(1000).optional(),
-  styleCodes: z.array(z.string()).optional(),
-  suppliers: z.array(supplierAssociationSchema).optional(),
-});
+export const createPackagingSchema = z
+  .object({
+    packagingName: z.string().max(200).optional(),
+    supplierCode: z.string().max(50).optional(),
+    buyerCode: z.string().max(50).optional(),
+    // Domain-specific field names (matching controller/frontend)
+    customerId: z.string().uuid().optional().nullable(),
+    brandCategoryId: z.string().uuid().optional().nullable(),
+    packagingType: z.string().max(50).optional(),
+    size: z.string().max(50).optional(),
+    material: z.string().max(100).optional(),
+    thickness: z.string().max(100).optional(),
+    printDetails: z.string().max(500).optional(),
+    pricePerPiece: z.number().nonnegative().optional().nullable(),
+    pricePerHundred: z.number().nonnegative().optional().nullable(),
+    supplierId: z.string().uuid().optional().nullable(),
+    description: z.string().max(1000).optional(),
+    styleCodes: z.array(z.string()).optional(),
+    suppliers: z.array(supplierAssociationSchema).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Packaging
@@ -398,7 +464,8 @@ export const updatePackagingSchema = createPackagingSchema
   .extend({
     isActive: z.boolean().optional(),
   })
-  .partial();
+  .partial()
+  .passthrough();
 
 /**
  * Bulk Import Packaging

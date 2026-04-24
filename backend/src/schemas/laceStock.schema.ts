@@ -25,23 +25,29 @@ export const AllocationTypeEnum = z.enum(['PRODUCTION', 'SAMPLE', 'RESERVE']);
  * Create Lace Stock
  * POST /api/lace-stock
  */
-export const createLaceStockSchema = z.object({
-  laceId: z.string().uuid('Invalid lace ID'),
-  quantityAvailable: z.number().positive('Quantity must be positive'),
-  weightedAvgCost: z.number().nonnegative('Cost cannot be negative'),
-  purchaseCost: z.number().nonnegative().optional(),
-  lotNumber: z.string().max(50).optional(),
-  dyeLotNumber: z.string().max(50).optional(),
-  shadeNote: z.string().max(200).optional(),
-  originStyleId: z.string().uuid().optional(),
-  originOrderId: z.string().uuid().optional(),
-  warehouseLocation: z.string().max(100).optional(),
-  qualityGrade: z.string().max(20).optional(),
-  stockType: LaceStockTypeEnum.optional().default('PURCHASED'),
-  grnId: z.string().uuid().optional(),
-  expiryDate: z.string().datetime().optional(),
-  remarks: z.string().max(500).optional(),
-});
+export const createLaceStockSchema = z
+  .object({
+    laceId: z.string().uuid('Invalid lace ID'),
+    quantityAvailable: z.number().positive('Quantity must be positive'),
+    weightedAvgCost: z.number().nonnegative('Cost cannot be negative'),
+    purchaseCost: z.number().nonnegative().optional(),
+    lotNumber: z.string().max(50).optional(),
+    dyeLotNumber: z.string().max(50).optional(),
+    shadeNote: z.string().max(200).optional(),
+    originStyleId: z.string().uuid().optional(),
+    originStyleCode: z.string().max(50).optional(),
+    originOrderId: z.string().uuid().optional(),
+    procurementId: z.string().uuid().optional(),
+    processingBatchId: z.string().uuid().optional(),
+    warehouseLocation: z.string().max(100).optional(),
+    rackNumber: z.string().max(50).optional(),
+    qualityGrade: z.string().max(20).optional(),
+    stockType: LaceStockTypeEnum.optional().default('PURCHASED'),
+    grnId: z.string().uuid().optional(),
+    expiryDate: z.string().datetime().optional(),
+    remarks: z.string().max(500).optional(),
+  })
+  .passthrough();
 
 /**
  * Allocate Stock

@@ -30,11 +30,12 @@ test.describe('Level 1: Customer Management', () => {
     // Register a new user for this test
     const timestamp = Date.now();
     await page.goto('/register');
-    await page.getByLabel(/name/i).fill(`Customer Test User ${timestamp}`);
+    await page.getByLabel(/first name/i).fill('Customer Test');
+    await page.getByLabel(/last name/i).fill(`User${timestamp}`);
     await page.getByLabel(/email/i).fill(`customer_test_${timestamp}@kashayafabs.com`);
     await page.getByLabel(/^password$/i).fill('Test@123');
     await page.getByLabel(/confirm password/i).fill('Test@123');
-    await page.getByRole('button', { name: /create account/i }).click();
+    await page.getByRole('button', { name: /request access|create account/i }).click();
     await page.waitForURL(/\/dashboard/, { timeout: 10000 });
   });
 

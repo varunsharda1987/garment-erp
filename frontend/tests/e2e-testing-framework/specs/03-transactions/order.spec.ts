@@ -33,11 +33,12 @@ test.describe('Level 3: Order Management', () => {
 
     const timestamp = Date.now();
     await page.goto('/register');
-    await page.getByLabel(/name/i).fill(`Order Test Setup ${timestamp}`);
+    await page.getByLabel(/first name/i).fill('Order Test');
+    await page.getByLabel(/last name/i).fill(`Setup${timestamp}`);
     await page.getByLabel(/email/i).fill(`order_setup_${timestamp}@kashayafabs.com`);
     await page.getByLabel(/^password$/i).fill('Test@123');
     await page.getByLabel(/confirm password/i).fill('Test@123');
-    await page.getByRole('button', { name: /create account/i }).click();
+    await page.getByRole('button', { name: /request access|create account/i }).click();
     await page.waitForURL(/\/dashboard/, { timeout: 10000 });
 
     // Create a customer (dependency) - fill all required fields
@@ -99,11 +100,12 @@ test.describe('Level 3: Order Management', () => {
 
     const timestamp = Date.now();
     await page.goto('/register');
-    await page.getByLabel(/name/i).fill(`Order Test ${timestamp}`);
+    await page.getByLabel(/first name/i).fill('Order');
+    await page.getByLabel(/last name/i).fill(`Test${timestamp}`);
     await page.getByLabel(/email/i).fill(`order_test_${timestamp}@kashayafabs.com`);
     await page.getByLabel(/^password$/i).fill('Test@123');
     await page.getByLabel(/confirm password/i).fill('Test@123');
-    await page.getByRole('button', { name: /create account/i }).click();
+    await page.getByRole('button', { name: /request access|create account/i }).click();
     await page.waitForURL(/\/dashboard/, { timeout: 10000 });
   });
 

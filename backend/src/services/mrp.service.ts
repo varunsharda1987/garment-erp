@@ -2989,7 +2989,7 @@ export async function convertToGreigeProcessing(
   // 7. Auto-create fabric_processing record for tracking
   const fabricProcessing = await prisma.fabric_processing.create({
     data: {
-      processingMillId: data.processorId,
+      processorId: data.processorId,
       processingType: 'DYEING', // Default; can be updated
       greigeId: data.greigeId,
       greigeQuantitySent: shortfallQty,

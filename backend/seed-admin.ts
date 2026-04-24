@@ -7,8 +7,8 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding admin user...');
 
-  const email = 'admin@kashayafabs.com';
-  const password = 'Admin@123';
+  const email = 'admin@kashaya.com';
+  const password = 'admin123';
 
   // Check if admin already exists
   const existingAdmin = await prisma.users.findUnique({

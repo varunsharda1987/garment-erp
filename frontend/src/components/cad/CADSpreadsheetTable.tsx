@@ -1266,6 +1266,7 @@ export function CADSpreadsheetTable({
               <TableHead className="px-2 py-2 text-center whitespace-nowrap">Emb.</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Generic Greige</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Greige / Fabric</TableHead>
+              <TableHead className="px-2 py-2 whitespace-nowrap">Design Name</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Width</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Print</TableHead>
               <TableHead className="px-2 py-2 text-center whitespace-nowrap">Sizes</TableHead>
@@ -1278,7 +1279,7 @@ export function CADSpreadsheetTable({
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={15} className="text-center py-6 text-muted-foreground text-sm">
+                <TableCell colSpan={16} className="text-center py-6 text-muted-foreground text-sm">
                   No CAD entries yet. Click "Add Row" to create one.
                 </TableCell>
               </TableRow>
@@ -1289,7 +1290,7 @@ export function CADSpreadsheetTable({
                   <TableRow
                     className={cn('bg-slate-200 hover:bg-slate-200', groupIndex > 0 && 'border-t-2 border-gray-400')}
                   >
-                    <TableCell colSpan={15} className="py-3 px-4">
+                    <TableCell colSpan={16} className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">
                           {CAD_PURPOSE_LABELS[group.purpose as CADPurpose]}
@@ -1592,6 +1593,17 @@ export function CADSpreadsheetTable({
                           )}
                         </TableCell>
 
+                        {/* Design Name (Print Design or Color Name) - Pre-populated */}
+                        <TableCell
+                          className={cn(
+                            'px-2 py-1.5 text-xs whitespace-nowrap max-w-[120px] truncate',
+                            FIELD_STYLES.prepopulated.cell
+                          )}
+                          title={row.designName || ''}
+                        >
+                          {row.designName || '-'}
+                        </TableCell>
+
                         {/* Cutable Width - Editable */}
                         <TableCell className={cn('px-2 py-1.5', getFieldClass('editable', isEditing))}>
                           {isEditing ? (
@@ -1847,8 +1859,9 @@ export function CADSpreadsheetTable({
                             ) : (
                               <>
                                 {/* CAD Purpose Action Buttons */}
-                                {/* Approve button - show only for PENDING status */}
-                                {(row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (
+                                {/* Approve button - show only for PENDING status (treat null/undefined as PENDING) */}
+                                {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING') && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1867,8 +1880,9 @@ export function CADSpreadsheetTable({
                                     )}
                                   </Button>
                                 )}
-                                {/* Reject button - show for PENDING and APPROVED status with actual data (not blank rows) */}
-                                {((row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' ||
+                                {/* Reject button - show for PENDING (including null) and APPROVED status with actual data (not blank rows) */}
+                                {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' ||
                                   (row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED') &&
                                   (row.cadAverage || row.greigeId) && (
                                     <Button

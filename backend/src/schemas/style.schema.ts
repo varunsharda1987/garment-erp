@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Helper for validating IDs that can be UUID or CUID (some masters use CUID)
+const isValidIdFormat = (val: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val);
+
 // ============================================================================
 // ENUMS
 // ============================================================================
@@ -46,10 +50,32 @@ export const styleFabricSchema = z.object({
   notes: z.string().optional().nullable(),
   // Embroidery support
   hasEmbroidery: z.boolean().optional().default(false),
-  embroideryId: z.string().uuid().optional().nullable(),
+  // embroideryId accepts CUID (embroidery_master uses @default(cuid()))
+  embroideryId: z
+    .string()
+    .refine(
+      (val) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val),
+      {
+        message: 'Invalid ID format (expected UUID or CUID)',
+      }
+    )
+    .optional()
+    .nullable(),
   // Design/Color identification (for PRINTED/YARN_DYED and SOLID/DYED fabrics)
   printDesign: z.string().optional().nullable(),
-  colorMasterId: z.string().uuid().optional().nullable(),
+  // colorMasterId accepts CUID (color_master uses @default(cuid()))
+  colorMasterId: z
+    .string()
+    .refine(
+      (val) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val),
+      {
+        message: 'Invalid ID format (expected UUID or CUID)',
+      }
+    )
+    .optional()
+    .nullable(),
   // Pattern parts
   patternPartIds: z.array(z.string().uuid()).optional().default([]),
 });
@@ -186,6 +212,8 @@ export const createStyleSchema = z.object({
   category: z.string().optional(),
   description: z.string().optional().nullable(),
   season: z.string().optional(),
+  // seasonId accepts CUID (season_master uses @default(cuid()))
+  seasonId: z.string().refine(isValidIdFormat, { message: 'Invalid season ID' }).optional().nullable(),
   gender: GenderEnum.optional().nullable(),
   ageGroup: AgeGroupEnum.optional().nullable(),
   specifications: z.string().optional().nullable(),
@@ -247,6 +275,8 @@ export const updateStyleSchema = z.object({
   category: z.string().optional(),
   description: z.string().optional().nullable(),
   season: z.string().optional(),
+  // seasonId accepts CUID (season_master uses @default(cuid()))
+  seasonId: z.string().refine(isValidIdFormat, { message: 'Invalid season ID' }).optional().nullable(),
   gender: GenderEnum.optional().nullable(),
   ageGroup: AgeGroupEnum.optional().nullable(),
   specifications: z.string().optional().nullable(),

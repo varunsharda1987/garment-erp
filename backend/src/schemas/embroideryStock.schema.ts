@@ -14,10 +14,16 @@ import { z } from 'zod';
 /**
  * Send-Out Item
  */
+// Helper for validating IDs that can be UUID or CUID
+const isValidIdFormat = (val: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val);
+
 const sendOutItemSchema = z.object({
-  embroideryId: z.string().uuid('Invalid embroidery ID'),
+  // embroideryId accepts CUID (embroidery_master uses @default(cuid()))
+  embroideryId: z.string().refine(isValidIdFormat, { message: 'Invalid embroidery ID (expected UUID or CUID)' }),
   styleId: z.string().uuid('Invalid style ID').optional(),
-  colorId: z.string().uuid('Invalid color ID').optional(),
+  // colorId accepts CUID (color_master uses @default(cuid()))
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID (expected UUID or CUID)' }).optional(),
   quantity: z.number().positive('Quantity must be positive'),
   unit: z.string().max(20).optional().default('PCS'),
   remarks: z.string().max(500).optional(),

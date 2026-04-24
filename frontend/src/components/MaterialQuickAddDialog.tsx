@@ -17,6 +17,8 @@ interface MaterialQuickAddDialogProps {
   materialDomain: MaterialDomain;
   onMaterialCreated: (material: CreatedMaterial) => void;
   initialType?: string;
+  /** Style code to auto-associate the created material with */
+  styleCode?: string;
 }
 
 export const MaterialQuickAddDialog: React.FC<MaterialQuickAddDialogProps> = ({
@@ -25,6 +27,7 @@ export const MaterialQuickAddDialog: React.FC<MaterialQuickAddDialogProps> = ({
   materialDomain,
   onMaterialCreated,
   initialType,
+  styleCode,
 }) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedType, setSelectedType] = useState<string | null>(initialType || null);
@@ -77,8 +80,8 @@ export const MaterialQuickAddDialog: React.FC<MaterialQuickAddDialogProps> = ({
       // Remove internal tracking flag
       delete payload._nameManuallyEdited;
 
-      // Call the type-specific service function
-      const result = await config.createService(payload);
+      // Call the type-specific service function with optional styleCode for auto-association
+      const result = await config.createService(payload, styleCode);
 
       // Extract created material details
       const newMaterial: CreatedMaterial = {

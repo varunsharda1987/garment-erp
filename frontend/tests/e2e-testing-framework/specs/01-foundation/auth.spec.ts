@@ -121,23 +121,25 @@ test.describe('Level 0: Authentication', () => {
 
       // Verify all form elements
       await expect(page.getByText('Create an Account').first()).toBeVisible();
-      await expect(page.getByLabel(/full name|name/i)).toBeVisible();
+      await expect(page.getByLabel(/first name/i)).toBeVisible();
+      await expect(page.getByLabel(/last name/i)).toBeVisible();
       await expect(page.getByLabel(/^email$/i)).toBeVisible();
       await expect(page.getByLabel(/^password$/i)).toBeVisible();
       await expect(page.getByLabel(/confirm password/i)).toBeVisible();
-      await expect(page.getByRole('button', { name: /create account/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /request access|create account/i })).toBeVisible();
     });
 
     test('password confirmation validation works', async ({ page }) => {
       await page.goto('/register');
 
       // Fill form with non-matching passwords
-      await page.getByLabel(/name/i).fill('Test User');
+      await page.getByLabel(/first name/i).fill('Test');
+      await page.getByLabel(/last name/i).fill('User');
       await page.getByLabel(/email/i).fill('test@test.com');
       await page.getByLabel(/^password$/i).fill('Password123');
       await page.getByLabel(/confirm password/i).fill('DifferentPassword');
 
-      await page.getByRole('button', { name: /create account/i }).click();
+      await page.getByRole('button', { name: /request access|create account/i }).click();
 
       // Should stay on register page
       await expect(page).toHaveURL(/\/register/);
@@ -147,7 +149,7 @@ test.describe('Level 0: Authentication', () => {
       await page.goto('/register');
 
       // Try to submit empty form
-      await page.getByRole('button', { name: /create account/i }).click();
+      await page.getByRole('button', { name: /request access|create account/i }).click();
 
       // Should stay on register page
       await expect(page).toHaveURL(/\/register/);
@@ -181,12 +183,13 @@ test.describe('Level 0: Authentication', () => {
       const timestamp = Date.now();
       const testEmail = `e2e_register_${timestamp}@kashayafabs.com`;
 
-      await page.getByLabel(/name/i).fill('E2E Test User');
+      await page.getByLabel(/first name/i).fill('E2E Test');
+      await page.getByLabel(/last name/i).fill('User');
       await page.getByLabel(/email/i).fill(testEmail);
       await page.getByLabel(/^password$/i).fill('Test@123');
       await page.getByLabel(/confirm password/i).fill('Test@123');
 
-      await page.getByRole('button', { name: /create account/i }).click();
+      await page.getByRole('button', { name: /request access|create account/i }).click();
 
       // Should redirect to dashboard
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
@@ -209,11 +212,12 @@ test.describe('Level 0: Authentication', () => {
 
       // First registration
       await page.goto('/register');
-      await page.getByLabel(/name/i).fill('First User');
+      await page.getByLabel(/first name/i).fill('First');
+      await page.getByLabel(/last name/i).fill('User');
       await page.getByLabel(/email/i).fill(testEmail);
       await page.getByLabel(/^password$/i).fill('Test@123');
       await page.getByLabel(/confirm password/i).fill('Test@123');
-      await page.getByRole('button', { name: /create account/i }).click();
+      await page.getByRole('button', { name: /request access|create account/i }).click();
       await page.waitForURL(/\/dashboard/);
 
       // Logout
@@ -221,11 +225,12 @@ test.describe('Level 0: Authentication', () => {
 
       // Second registration with same email
       await page.goto('/register');
-      await page.getByLabel(/name/i).fill('Second User');
+      await page.getByLabel(/first name/i).fill('Second');
+      await page.getByLabel(/last name/i).fill('User');
       await page.getByLabel(/email/i).fill(testEmail);
       await page.getByLabel(/^password$/i).fill('Test@123');
       await page.getByLabel(/confirm password/i).fill('Test@123');
-      await page.getByRole('button', { name: /create account/i }).click();
+      await page.getByRole('button', { name: /request access|create account/i }).click();
 
       await page.waitForTimeout(2000);
 
@@ -246,11 +251,12 @@ test.describe('Level 0: Authentication', () => {
 
       // Register
       await page.goto('/register');
-      await page.getByLabel(/name/i).fill('Login Test User');
+      await page.getByLabel(/first name/i).fill('Login Test');
+      await page.getByLabel(/last name/i).fill('User');
       await page.getByLabel(/email/i).fill(testEmail);
       await page.getByLabel(/^password$/i).fill(testPassword);
       await page.getByLabel(/confirm password/i).fill(testPassword);
-      await page.getByRole('button', { name: /create account/i }).click();
+      await page.getByRole('button', { name: /request access|create account/i }).click();
       await page.waitForURL(/\/dashboard/, { timeout: 15000 });
 
       // Logout via dropdown menu
@@ -303,11 +309,12 @@ test.describe('Level 0: Authentication', () => {
 
       // Register
       await page.goto('/register');
-      await page.getByLabel(/name/i).fill('Session Test User');
+      await page.getByLabel(/first name/i).fill('Session Test');
+      await page.getByLabel(/last name/i).fill('User');
       await page.getByLabel(/email/i).fill(testEmail);
       await page.getByLabel(/^password$/i).fill('Test@123');
       await page.getByLabel(/confirm password/i).fill('Test@123');
-      await page.getByRole('button', { name: /create account/i }).click();
+      await page.getByRole('button', { name: /request access|create account/i }).click();
       await page.waitForURL(/\/dashboard/, { timeout: 15000 });
 
       // Refresh page
@@ -323,11 +330,12 @@ test.describe('Level 0: Authentication', () => {
 
       // Register
       await page.goto('/register');
-      await page.getByLabel(/name/i).fill('Session Clear User');
+      await page.getByLabel(/first name/i).fill('Session Clear');
+      await page.getByLabel(/last name/i).fill('User');
       await page.getByLabel(/email/i).fill(testEmail);
       await page.getByLabel(/^password$/i).fill('Test@123');
       await page.getByLabel(/confirm password/i).fill('Test@123');
-      await page.getByRole('button', { name: /create account/i }).click();
+      await page.getByRole('button', { name: /request access|create account/i }).click();
       await page.waitForURL(/\/dashboard/, { timeout: 15000 });
 
       // Logout via dropdown menu

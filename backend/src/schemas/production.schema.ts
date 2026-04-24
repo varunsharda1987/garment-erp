@@ -7,6 +7,10 @@
 
 import { z } from 'zod';
 
+// Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
+const isValidIdFormat = (val: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val);
+
 // ============================================================================
 // Common Enums
 // ============================================================================
@@ -25,7 +29,7 @@ export const FinishingIssueStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'PACKI
  * SKU Output for Cutting Batch
  */
 export const skuOutputSchema = z.object({
-  colorId: z.string().uuid().optional().nullable(),
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
   sizeId: z.string().uuid('Invalid size ID'),
   orderQty: z.number().int().nonnegative().optional(),
   extraAllowed: z.number().int().nonnegative().optional(),
@@ -86,20 +90,35 @@ export const updateCuttingBatchSchema = z.object({
  * Record Cutting Output
  * POST /api/cutting/batches/:id/record-output
  */
-export const recordCuttingOutputSchema = z.object({
-  skuOutputs: z
-    .array(
-      z.object({
-        skuId: z.string().uuid('Invalid SKU ID'),
-        cutQty: z.number().int().nonnegative(),
-        rejectedQty: z.number().int().nonnegative().optional(),
-        goodPcs: z.number().int().nonnegative().optional(),
-      })
-    )
-    .min(1, 'At least one SKU output is required'),
-  fabricConsumed: z.number().nonnegative().optional(),
-  remarks: z.string().max(1000).optional(),
-});
+export const recordCuttingOutputSchema = z
+  .object({
+    skuOutputs: z
+      .array(
+        z
+          .object({
+            skuId: z.string().uuid('Invalid SKU ID'),
+            cutQty: z.number().int().nonnegative(),
+            rejectedQty: z.number().int().nonnegative().optional(),
+            goodPcs: z.number().int().nonnegative().optional(),
+          })
+          .passthrough()
+      )
+      .min(1, 'At least one SKU output is required'),
+    defects: z
+      .array(
+        z
+          .object({
+            defectType: z.string().max(100).optional(),
+            quantity: z.number().int().nonnegative().optional(),
+            description: z.string().max(500).optional(),
+          })
+          .passthrough()
+      )
+      .optional(),
+    fabricConsumed: z.number().nonnegative().optional(),
+    remarks: z.string().max(1000).optional(),
+  })
+  .passthrough();
 
 /**
  * Add Cutting Lay
@@ -118,34 +137,45 @@ export const addCuttingLaySchema = z.object({
  * Issue to Stitching
  * POST /api/cutting/batches/:id/issue-to-stitching
  */
-export const issueToStitchingSchema = z.object({
-  skuIssues: z
-    .array(
-      z.object({
-        skuId: z.string().uuid('Invalid SKU ID'),
-        quantity: z.number().int().positive('Quantity must be positive'),
-      })
-    )
-    .min(1, 'At least one SKU issue is required'),
-  remarks: z.string().max(1000).optional(),
-});
+export const issueToStitchingSchema = z
+  .object({
+    skuOutputs: z
+      .array(
+        z
+          .object({
+            skuId: z.string().uuid('Invalid SKU ID'),
+            quantity: z.number().int().positive('Quantity must be positive'),
+          })
+          .passthrough()
+      )
+      .min(1, 'At least one SKU output is required'),
+    issuedToId: z.string().uuid('Invalid issued-to ID').optional(),
+    issueDate: z.string().or(z.date()).optional(),
+    remarks: z.string().max(1000).optional(),
+  })
+  .passthrough();
 
 /**
  * Complete Cutting Batch
  * POST /api/cutting/batches/:id/complete
  */
-export const completeCuttingBatchSchema = z.object({
-  fabricConsumed: z.number().nonnegative().optional(),
-  remarks: z.string().max(1000).optional(),
-  fabricReturns: z
-    .array(
-      z.object({
-        fabricStockId: z.string().uuid('Invalid fabric stock ID'),
-        returnQuantity: z.number().positive('Return quantity must be positive'),
-      })
-    )
-    .optional(),
-});
+export const completeCuttingBatchSchema = z
+  .object({
+    fabricConsumed: z.number().nonnegative().optional(),
+    actualAverage: z.number().positive().optional(),
+    remarks: z.string().max(1000).optional(),
+    fabricReturns: z
+      .array(
+        z
+          .object({
+            fabricStockId: z.string().uuid('Invalid fabric stock ID'),
+            returnQuantity: z.number().positive('Return quantity must be positive'),
+          })
+          .passthrough()
+      )
+      .optional(),
+  })
+  .passthrough();
 
 /**
  * Hold/Cancel Batch
@@ -165,15 +195,19 @@ export const batchActionSchema = z.object({
  */
 export const createStitchingIssueSchema = z.object({
   workOrderId: z.string().uuid('Invalid work order ID'),
-  transferSlipId: z.string().uuid('Invalid transfer slip ID').optional(),
+  transferSlipIds: z.array(z.string().uuid('Invalid transfer slip ID')).optional(), // Changed from transferSlipId (string) to transferSlipIds (array)
   managerId: z.string().uuid('Invalid manager ID').optional(),
-  startDate: z.string().or(z.date()).optional(),
+  contractorId: z.string().uuid('Invalid contractor ID').optional(), // Added - contractor assignment
+  issueDate: z.string().or(z.date()).optional(), // Renamed from startDate
+  expectedCompletionDate: z.string().or(z.date()).optional(), // Added - expected completion
   remarks: z.string().max(1000).optional(),
-  skuQuantities: z
+  components: z.array(z.string().uuid('Invalid component ID')).optional(), // Added - component assignment
+  skuBreakdown: z // Renamed from skuQuantities
     .array(
       z.object({
-        colorId: z.string().uuid().optional().nullable(),
+        colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
         sizeId: z.string().uuid('Invalid size ID'),
+        availableQty: z.number().int().nonnegative().optional(), // Added - from cutting output
         issuedQty: z.number().int().positive('Quantity must be positive'),
       })
     )
@@ -194,7 +228,16 @@ export const updateStitchingIssueSchema = z.object({
  * POST /api/stitching/issues/:id/receive
  */
 export const receiveFromCuttingSchema = z.object({
-  receivedQty: z.number().int().positive('Quantity must be positive'),
+  transferSlipId: z.string().uuid('Invalid transfer slip ID'),
+  skuReceived: z
+    .array(
+      z.object({
+        colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
+        sizeId: z.string().uuid('Invalid size ID'),
+        receivedQty: z.number().int().nonnegative(),
+      })
+    )
+    .min(1, 'At least one SKU received is required'),
   remarks: z.string().max(500).optional(),
 });
 
@@ -204,10 +247,11 @@ export const receiveFromCuttingSchema = z.object({
  */
 export const recordStitchingOutputSchema = z.object({
   outputDate: z.string().or(z.date()),
+  componentId: z.string().uuid('Invalid component ID').optional(),
   skuOutputs: z
     .array(
       z.object({
-        colorId: z.string().uuid().optional().nullable(),
+        colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
         sizeId: z.string().uuid('Invalid size ID'),
         goodQty: z.number().int().nonnegative(),
         defectQty: z.number().int().nonnegative().optional(),
@@ -223,16 +267,7 @@ export const recordStitchingOutputSchema = z.object({
  * POST /api/stitching/issues/:id/dispose-defects
  */
 export const disposeDefectsSchema = z.object({
-  skuDisposals: z
-    .array(
-      z.object({
-        colorId: z.string().uuid().optional().nullable(),
-        sizeId: z.string().uuid('Invalid size ID'),
-        quantity: z.number().int().positive('Quantity must be positive'),
-        disposalType: z.enum(['RECTIFIED', 'REJECTED', 'REWORK']),
-      })
-    )
-    .min(1, 'At least one disposal is required'),
+  disposition: z.enum(['RECTIFIED', 'REJECTED', 'REWORK']),
   remarks: z.string().max(500).optional(),
 });
 
@@ -246,15 +281,18 @@ export const disposeDefectsSchema = z.object({
  */
 export const createFinishingIssueSchema = z.object({
   workOrderId: z.string().uuid('Invalid work order ID'),
-  transferSlipId: z.string().uuid('Invalid transfer slip ID').optional(),
   managerId: z.string().uuid('Invalid manager ID').optional(),
-  startDate: z.string().or(z.date()).optional(),
+  contractorId: z.string().uuid('Invalid contractor ID').optional(), // Added - contractor assignment
+  issueDate: z.string().or(z.date()).optional(), // Renamed from startDate
+  expectedCompletionDate: z.string().or(z.date()).optional(), // Added - expected completion
   remarks: z.string().max(1000).optional(),
-  skuQuantities: z
+  components: z.array(z.string().uuid('Invalid component ID')).optional(), // Added - component assignment
+  skuBreakdown: z // Renamed from skuQuantities
     .array(
       z.object({
-        colorId: z.string().uuid().optional().nullable(),
+        colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
         sizeId: z.string().uuid('Invalid size ID'),
+        availableQty: z.number().int().nonnegative().optional(), // Added - from stitching output
         issuedQty: z.number().int().positive('Quantity must be positive'),
       })
     )
@@ -274,70 +312,88 @@ export const updateFinishingIssueSchema = z.object({
  * Receive from Stitching
  * POST /api/finishing/issues/:id/receive
  */
-export const receiveFromStitchingSchema = z.object({
-  receivedQty: z.number().int().positive('Quantity must be positive'),
-  remarks: z.string().max(500).optional(),
-});
+export const receiveFromStitchingSchema = z
+  .object({
+    transferSlipId: z.string().uuid('Invalid transfer slip ID').optional(),
+    receivedQty: z.number().int().positive('Quantity must be positive'),
+    remarks: z.string().max(500).optional(),
+  })
+  .passthrough();
 
 /**
  * Record Daily Finishing Output
  * POST /api/finishing/issues/:id/record-output
  */
-export const recordFinishingOutputSchema = z.object({
-  outputDate: z.string().or(z.date()),
-  skuOutputs: z
-    .array(
-      z.object({
-        colorId: z.string().uuid().optional().nullable(),
-        sizeId: z.string().uuid('Invalid size ID'),
-        goodQty: z.number().int().nonnegative(),
-        defectQty: z.number().int().nonnegative().optional(),
-        rejectedQty: z.number().int().nonnegative().optional(),
-      })
-    )
-    .min(1, 'At least one SKU output is required'),
-  remarks: z.string().max(1000).optional(),
-});
+export const recordFinishingOutputSchema = z
+  .object({
+    outputDate: z.string().or(z.date()),
+    componentId: z.string().uuid('Invalid component ID').optional(),
+    skuOutputs: z
+      .array(
+        z
+          .object({
+            colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
+            sizeId: z.string().uuid('Invalid size ID'),
+            finishedQty: z.number().int().nonnegative(),
+            defectQty: z.number().int().nonnegative().optional(),
+            rejectedQty: z.number().int().nonnegative().optional(),
+          })
+          .passthrough()
+      )
+      .min(1, 'At least one SKU output is required'),
+    remarks: z.string().max(1000).optional(),
+  })
+  .passthrough();
 
 /**
  * Polybag Entry
  * POST /api/finishing/issues/:id/polybag-entry
  */
-export const polybagEntrySchema = z.object({
-  skuPackings: z
-    .array(
-      z.object({
-        colorId: z.string().uuid().optional().nullable(),
-        sizeId: z.string().uuid('Invalid size ID'),
-        quantity: z.number().int().positive('Quantity must be positive'),
-        polybagSize: z.string().max(50).optional(),
-      })
-    )
-    .min(1, 'At least one packing is required'),
-  remarks: z.string().max(500).optional(),
-});
+export const polybagEntrySchema = z
+  .object({
+    packingDate: z.string().or(z.date()).optional(),
+    skuBreakdown: z
+      .array(
+        z
+          .object({
+            colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
+            sizeId: z.string().uuid('Invalid size ID'),
+            packedQty: z.number().int().positive('Packed quantity must be positive'),
+            polybagSize: z.string().max(50).optional(),
+          })
+          .passthrough()
+      )
+      .min(1, 'At least one packing is required'),
+    remarks: z.string().max(500).optional(),
+  })
+  .passthrough();
 
 /**
  * Carton Packing
  * POST /api/finishing/issues/:id/carton-packing
  */
-export const cartonPackingSchema = z.object({
-  cartonNumber: z.string().max(50),
-  packingDate: z.string().or(z.date()),
-  skuContents: z
-    .array(
-      z.object({
-        colorId: z.string().uuid().optional().nullable(),
-        sizeId: z.string().uuid('Invalid size ID'),
-        quantity: z.number().int().positive('Quantity must be positive'),
-      })
-    )
-    .min(1, 'At least one SKU is required'),
-  grossWeight: z.number().positive().optional(),
-  netWeight: z.number().positive().optional(),
-  dimensions: z.string().max(100).optional(),
-  remarks: z.string().max(500).optional(),
-});
+export const cartonPackingSchema = z
+  .object({
+    cartonNumber: z.string().max(50),
+    cartonDate: z.string().or(z.date()),
+    packingType: z.string().max(50).optional(),
+    skuBreakdown: z
+      .array(
+        z
+          .object({
+            colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
+            sizeId: z.string().uuid('Invalid size ID'),
+            quantity: z.number().int().positive('Quantity must be positive'),
+          })
+          .passthrough()
+      )
+      .min(1, 'At least one SKU is required'),
+    grossWeight: z.number().positive().optional(),
+    netWeight: z.number().positive().optional(),
+    cartonDimensions: z.string().max(100).optional(),
+    remarks: z.string().max(500).optional(),
+  })
+  .passthrough();
 
 // ============================================================================
 // Query Schemas

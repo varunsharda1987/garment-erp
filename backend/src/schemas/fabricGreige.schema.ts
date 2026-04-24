@@ -258,7 +258,16 @@ export const allocateToStyleSchema = z
     componentIds: z.array(z.string().uuid('Invalid component ID')).optional(),
     patternPartIds: z.array(z.string().uuid()).optional(),
     hasEmbroidery: z.boolean().optional(),
-    embroideryId: z.string().uuid('Invalid embroidery ID').optional().nullable(),
+    // embroideryId accepts CUID (embroidery_master uses @default(cuid()))
+    embroideryId: z
+      .string()
+      .refine(
+        (val) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val),
+        { message: 'Invalid embroidery ID (expected UUID or CUID)' }
+      )
+      .optional()
+      .nullable(),
     notes: z.string().max(500).optional().nullable(),
   })
   .passthrough();

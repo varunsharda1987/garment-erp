@@ -196,9 +196,9 @@ export const printingSummaryService = {
     return response.data.data;
   },
 
-  // Get summary by mill
-  async getSummaryByMill(millId: string): Promise<PrintingSummary> {
-    const response = await api.get<{ data: PrintingSummary }>(`/printing/summary/mill/${millId}`);
+  // Get summary by processor
+  async getSummaryByProcessor(processorId: string): Promise<PrintingSummary> {
+    const response = await api.get<{ data: PrintingSummary }>(`/printing/summary/processor/${processorId}`);
     return response.data.data;
   },
 };

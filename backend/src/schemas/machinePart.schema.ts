@@ -14,65 +14,106 @@ import { z } from 'zod';
 /**
  * Create Machine Part
  * POST /api/machine-parts
+ *
+ * Controller destructures:
+ * - partName, partNumber, category, machine, brand, model, specifications
+ * - pricePerUnit, supplierId, description, suppliers
  */
-export const createMachinePartSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(200),
-  code: z.string().max(50).optional(),
-  partNumber: z.string().max(50).optional(),
-  description: z.string().max(500).optional(),
-  category: z.string().max(50).optional(),
-  machineType: z.string().max(100).optional(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  unit: z.string().max(20).optional().default('PCS'),
-  price: z.number().nonnegative().optional(),
-  minStock: z.number().int().nonnegative().optional(),
-  reorderLevel: z.number().int().nonnegative().optional(),
-  leadTimeDays: z.number().int().nonnegative().optional(),
-  isActive: z.boolean().optional().default(true),
-  remarks: z.string().max(500).optional(),
-});
+export const createMachinePartSchema = z
+  .object({
+    partName: z.string().max(200).optional(), // Auto-generated if not provided
+    partNumber: z.string().max(50).optional(),
+    category: z.string().max(50).optional(),
+    machine: z.string().max(100).optional(),
+    brand: z.string().max(100).optional(),
+    model: z.string().max(100).optional(),
+    specifications: z.string().max(1000).optional(),
+    pricePerUnit: z.number().nonnegative().optional(),
+    supplierId: z.string().uuid('Invalid supplier ID').optional(),
+    description: z.string().max(500).optional(),
+    suppliers: z
+      .array(
+        z.object({
+          supplierId: z.string().uuid('Invalid supplier ID'),
+          isPreferred: z.boolean().optional(),
+          isActive: z.boolean().optional(),
+          notes: z.string().max(500).optional(),
+          pricePerUnit: z.union([z.number(), z.string()]).optional(),
+        })
+      )
+      .optional(),
+  })
+  .passthrough();
 
 /**
  * Update Machine Part
  * PUT /api/machine-parts/:id
+ *
+ * Controller destructures:
+ * - partName, partNumber, category, machine, brand, model, specifications
+ * - pricePerUnit, supplierId, description, isActive, suppliers
  */
-export const updateMachinePartSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  code: z.string().max(50).optional().nullable(),
-  partNumber: z.string().max(50).optional().nullable(),
-  description: z.string().max(500).optional().nullable(),
-  category: z.string().max(50).optional().nullable(),
-  machineType: z.string().max(100).optional().nullable(),
-  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-  unit: z.string().max(20).optional(),
-  price: z.number().nonnegative().optional().nullable(),
-  minStock: z.number().int().nonnegative().optional().nullable(),
-  reorderLevel: z.number().int().nonnegative().optional().nullable(),
-  leadTimeDays: z.number().int().nonnegative().optional().nullable(),
-  isActive: z.boolean().optional(),
-  remarks: z.string().max(500).optional().nullable(),
-});
+export const updateMachinePartSchema = z
+  .object({
+    partName: z.string().min(1).max(200).optional(),
+    partNumber: z.string().max(50).optional().nullable(),
+    category: z.string().max(50).optional().nullable(),
+    machine: z.string().max(100).optional().nullable(),
+    brand: z.string().max(100).optional().nullable(),
+    model: z.string().max(100).optional().nullable(),
+    specifications: z.string().max(1000).optional().nullable(),
+    pricePerUnit: z.number().nonnegative().optional().nullable(),
+    supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+    description: z.string().max(500).optional().nullable(),
+    isActive: z.boolean().optional(),
+    suppliers: z
+      .array(
+        z.object({
+          supplierId: z.string().uuid('Invalid supplier ID'),
+          isPreferred: z.boolean().optional(),
+          isActive: z.boolean().optional(),
+          notes: z.string().max(500).optional(),
+          pricePerUnit: z.union([z.number(), z.string()]).optional(),
+        })
+      )
+      .optional(),
+  })
+  .passthrough();
 
 /**
  * Bulk Import Machine Parts
  * POST /api/machine-parts/bulk-import
+ *
+ * Controller destructures: data, createStock
+ * Each data row: partName, partNumber, category, machine, brand, model, specifications, pricePerUnit, description
+ * Plus optional stock fields: stockQuantity, reorderLevel, maxLevel, locationCode
  */
-export const bulkImportMachinePartsSchema = z.object({
-  data: z
-    .array(
-      z.object({
-        name: z.string().min(1).max(200),
-        code: z.string().max(50).optional(),
-        partNumber: z.string().max(50).optional(),
-        description: z.string().max(500).optional(),
-        category: z.string().max(50).optional(),
-        machineType: z.string().max(100).optional(),
-        price: z.number().nonnegative().optional(),
-      })
-    )
-    .min(1, 'At least one item is required'),
-  createStock: z.boolean().optional().default(false),
-});
+export const bulkImportMachinePartsSchema = z
+  .object({
+    data: z
+      .array(
+        z
+          .object({
+            partName: z.string().min(1).max(200),
+            partNumber: z.string().max(50).optional(),
+            category: z.string().max(50).optional(),
+            machine: z.string().max(100).optional(),
+            brand: z.string().max(100).optional(),
+            model: z.string().max(100).optional(),
+            specifications: z.string().max(1000).optional(),
+            pricePerUnit: z.number().nonnegative().optional(),
+            description: z.string().max(500).optional(),
+            stockQuantity: z.number().nonnegative().optional(),
+            reorderLevel: z.number().nonnegative().optional(),
+            maxLevel: z.number().nonnegative().optional(),
+            locationCode: z.string().max(50).optional(),
+          })
+          .passthrough()
+      )
+      .min(1, 'At least one item is required'),
+    createStock: z.boolean().optional().default(false),
+  })
+  .passthrough();
 
 /**
  * Machine Part Query Params

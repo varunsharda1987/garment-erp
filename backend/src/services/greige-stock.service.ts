@@ -16,6 +16,7 @@ export interface CreateGreigeStockDTO {
   purchaseCost?: number;
   receivedDate?: Date;
   supplierId?: string;
+  sourceType?: 'GRN' | 'MANUAL' | 'ADJUSTMENT';
 }
 
 export interface GreigeStockItem {
@@ -44,8 +45,11 @@ export interface GreigeStockItem {
   agingDays: number;
   status: string;
   stockType: string;
+  sourceType?: string | null;
   supplierId?: string | null;
   supplier?: { id: string; name: string; code: string } | null;
+  processorId?: string | null;
+  processor?: { id: string; name: string; code: string } | null;
 }
 
 export interface UpdateGreigeStockDTO {
@@ -131,6 +135,7 @@ class GreigeStockService {
           weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : null,
           procurementId: procurement.id,
           supplierId: userSupplierId,
+          sourceType: data.sourceType || 'MANUAL', // Track source: GRN, MANUAL, or ADJUSTMENT
           warehouseLocation: data.warehouseLocation || null,
           rollNumbers: data.rollNumbers || null,
           qualityGrade: data.qualityGrade || 'A',
@@ -173,6 +178,7 @@ class GreigeStockService {
     status?: StockStatus;
     minQuantity?: number;
     supplierId?: string;
+    processorId?: string;
     sourceType?: string;
     warehouseLocation?: string;
     excludeTransferred?: boolean;
@@ -192,6 +198,10 @@ class GreigeStockService {
 
       if (filters?.supplierId) {
         where.supplierId = filters.supplierId;
+      }
+
+      if (filters?.processorId) {
+        where.processorId = filters.processorId;
       }
 
       if (filters?.sourceType) {
@@ -228,6 +238,13 @@ class GreigeStockService {
               code: true,
             },
           },
+          processor: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
         },
         orderBy: { receivedDate: 'desc' },
       });
@@ -255,8 +272,11 @@ class GreigeStockService {
           agingDays,
           status: stock.status,
           stockType: stock.stockType,
+          sourceType: stock.sourceType,
           supplierId: stock.supplierId,
           supplier: stock.supplier,
+          processorId: stock.processorId,
+          processor: stock.processor,
         };
       });
     } catch (error: unknown) {
@@ -661,7 +681,7 @@ class GreigeStockService {
   }
 
   /**
-   * Get processors (suppliers) that have available greige stock from transfers
+   * Get processors that have available greige stock from transfers
    * Used for processor return flow in Stock In
    */
   async getProcessorsWithGreigeStock(): Promise<
@@ -677,9 +697,9 @@ class GreigeStockService {
     try {
       // Find all greige stock at processor warehouses (sourceType = TRANSFER)
       const processorStock = await prisma.greige_stock.groupBy({
-        by: ['supplierId', 'warehouseLocation'],
+        by: ['processorId', 'warehouseLocation'],
         where: {
-          supplierId: { not: null },
+          processorId: { not: null },
           sourceType: 'TRANSFER',
           status: 'AVAILABLE',
           quantityAvailable: { gt: 0 },
@@ -688,24 +708,24 @@ class GreigeStockService {
         _count: { id: true },
       });
 
-      // Get supplier details
-      const supplierIds = processorStock.map((s) => s.supplierId).filter((id): id is string => id !== null);
+      // Get processor details (processors are suppliers with processor categories)
+      const processorIds = processorStock.map((s) => s.processorId).filter((id): id is string => id !== null);
 
-      const suppliers = await prisma.suppliers.findMany({
-        where: { id: { in: supplierIds } },
+      const processors = await prisma.suppliers.findMany({
+        where: { id: { in: processorIds } },
         select: { id: true, name: true, code: true },
       });
 
-      const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
+      const processorMap = new Map(processors.map((p) => [p.id, p]));
 
       return processorStock
-        .filter((s) => s.supplierId && supplierMap.has(s.supplierId))
+        .filter((s) => s.processorId && processorMap.has(s.processorId))
         .map((s) => {
-          const supplier = supplierMap.get(s.supplierId!)!;
+          const processor = processorMap.get(s.processorId!)!;
           return {
-            processorId: s.supplierId!,
-            processorName: supplier.name,
-            processorCode: supplier.code,
+            processorId: s.processorId!,
+            processorName: processor.name,
+            processorCode: processor.code,
             warehouseName: s.warehouseLocation,
             totalQuantity: Number(s._sum.quantityAvailable) || 0,
             stockEntries: s._count.id,
@@ -724,7 +744,7 @@ class GreigeStockService {
    */
   async getProcessorGreigeStock(processorId: string): Promise<GreigeStockItem[]> {
     return this.getGreigeStock({
-      supplierId: processorId,
+      processorId: processorId,
       sourceType: 'TRANSFER',
       status: 'AVAILABLE',
       minQuantity: 0.01,
@@ -758,6 +778,11 @@ class GreigeStockService {
 
     if (!stock) {
       throw new Error(`Greige stock with ID ${stockId} not found`);
+    }
+
+    // Validate stock is at a processor
+    if (!stock.processorId || stock.sourceType !== 'TRANSFER') {
+      throw new Error('Stock is not at a processor warehouse. Cannot consume from processor.');
     }
 
     const available = Number(stock.quantityAvailable);
@@ -848,6 +873,11 @@ class GreigeStockService {
 
     if (!stock) {
       throw new Error(`Greige stock with ID ${stockId} not found`);
+    }
+
+    // Validate stock is at a processor
+    if (!stock.processorId || stock.sourceType !== 'TRANSFER') {
+      throw new Error('Stock is not at a processor warehouse. Cannot receive from processor.');
     }
 
     const available = Number(stock.quantityAvailable);

@@ -110,6 +110,58 @@ const category = style.brandCategories?.category;
 - `style_variants` → `styleVariants`
 - All Prisma relations follow this pattern
 
+### Controller Response Keys (CRITICAL)
+
+When returning custom/transformed data in controllers, the **response object key** must match serializer mappings.
+
+```typescript
+// WRONG - custom variable name bypasses serializer
+const styleFabricsFlat = [...]; // flattened data
+res.json({ data: { ...style, styleFabricsFlat } }); 
+// Frontend receives: styleData.styleFabricsFlat (NOT converted to 'fabrics')
+
+// CORRECT - use the key that matches serializer mapping
+const styleFabricsFlat = [...]; // variable name doesn't matter
+res.json({ data: { ...style, styleFabrics: styleFabricsFlat } });
+// Serializer converts styleFabrics → fabrics
+// Frontend receives: styleData.fabrics (CORRECT!)
+```
+
+**Rule:** The variable name can be anything, but the **object key in the response** must match what the serializer expects.
+
+**Common pitfall:** Using shorthand syntax `{ myCustomVar }` expands to `{ myCustomVar: myCustomVar }` - if `myCustomVar` isn't in serializer mappings, frontend gets wrong field name.
+
+**Check serializer mappings:** `backend/src/utils/serializer.ts` → `RELATION_MAPPINGS` (62 mappings)
+
+### Zod Schema-Controller Alignment (CRITICAL)
+
+Zod schemas in `backend/src/schemas/` MUST match what controllers destructure from `req.body`. Mismatches cause silent 400 "Invalid request data" errors.
+
+```typescript
+// WRONG - Schema requires fields controller doesn't use
+// Schema:
+export const mySchema = z.object({
+  requiredField: z.string(),  // ← Required but controller ignores it!
+  optionalField: z.string().optional(),
+});
+// Controller:
+const { differentField } = req.body;  // ← Doesn't match schema!
+// Result: 400 error because requiredField is missing
+
+// CORRECT - Schema matches controller expectations
+// Schema:
+export const mySchema = z.object({
+  actualField: z.string(),
+  optionalField: z.string().optional(),
+});
+// Controller:
+const { actualField, optionalField } = req.body;  // ← Matches schema!
+```
+
+**Rule:** When refactoring controller logic, ALWAYS update the corresponding Zod schema to match.
+
+**How to verify:** Compare schema fields with `const { ... } = req.body;` in controller.
+
 ## TypeScript Types
 
 When defining types for API responses in frontend (`frontend/src/types/`), always use camelCase for nested relation properties to match the serialized response.

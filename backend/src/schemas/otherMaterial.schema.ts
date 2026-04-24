@@ -25,6 +25,10 @@ export const bulkImportOtherMaterialSchema = z.object({
         specifications: z.string().max(500).optional(),
         pricePerUnit: z.number().nonnegative().optional(),
         description: z.string().max(1000).optional(),
+        stockQuantity: z.number().nonnegative().optional(),
+        reorderLevel: z.number().nonnegative().optional(),
+        maxLevel: z.number().nonnegative().optional(),
+        locationCode: z.string().max(50).optional(),
       })
     )
     .min(1, 'At least one item is required'),

@@ -10,6 +10,7 @@ import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from '
 import { Prisma, order_bom, OrderBOMStatus } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
+import { processorRateValidationService } from './processor-rate-validation.service';
 import { systemSettingsService } from './system-settings.service';
 import { SearchFilter } from '../types/prisma.types';
 import { v4 as uuidv4 } from 'uuid';
@@ -275,6 +276,41 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     if (costSheet.approvalStatus !== 'APPROVED') {
       throw new BusinessError('Cost Sheet must be approved before creating Order BOM');
+    }
+
+    // Validate processor rates have not changed significantly since cost sheet creation
+    // BLOCKS order BOM creation if rates have changed >=5%
+    const rateValidation = await processorRateValidationService.validateCostSheetRates(input.costSheetId);
+
+    if (rateValidation.requiresNewCostSheet) {
+      const blockingItemNames = rateValidation.blockingItems
+        .map((item) => `${item.itemName} (${item.percentageChange.toFixed(1)}% change)`)
+        .join(', ');
+
+      throw new BusinessError(
+        `Processor rates have changed significantly since this cost sheet was created. ` +
+          `${rateValidation.blockingItems.length} item(s) have rate changes ≥5%: ${blockingItemNames}. ` +
+          `Please create a new cost sheet version with current rates before creating Order BOM.`,
+        'RATES_OUTDATED',
+        {
+          blockingItems: rateValidation.blockingItems,
+          warningItems: rateValidation.warningItems,
+          suggestedAction: rateValidation.suggestedAction,
+          summary: rateValidation.summary,
+        }
+      );
+    }
+
+    // Log warning if there are minor rate changes (but don't block)
+    if (rateValidation.warningItems.length > 0) {
+      logWarn('Order BOM creation proceeding with minor rate changes', {
+        costSheetId: input.costSheetId,
+        warningCount: rateValidation.warningItems.length,
+        warnings: rateValidation.warningItems.map((w) => ({
+          itemName: w.itemName,
+          change: `${w.costSheetRate} → ${w.currentRate} (${w.percentageChange.toFixed(2)}%)`,
+        })),
+      });
     }
 
     // Fix 9a: Auto-populate style_material_bom from cost sheet if empty (root cause fix)

@@ -152,6 +152,26 @@ function validateSchemaControllerSync() {
 }
 
 /**
+ * Check schema-controller field alignment (comprehensive)
+ * Currently warning-only until all legacy mismatches are fixed
+ */
+function checkSchemaControllerAlignment() {
+  console.log(`${colors.bright}3b. Checking schema-controller field alignment...${colors.reset}`);
+
+  const result = exec('node scripts/hooks/check-schema-controller-alignment.js --check', true);
+
+  if (!result.success) {
+    console.log(`${colors.yellow}⚠ Schema-controller field alignment issues found${colors.reset}`);
+    console.log(`${colors.cyan}Run: node scripts/hooks/check-schema-controller-alignment.js --report for details${colors.reset}`);
+    console.log(`${colors.yellow}(Warning only - not blocking commit until legacy issues are fixed)${colors.reset}\n`);
+    return false; // Return false but don't block commit
+  }
+
+  console.log(`${colors.green}✓ Schema-controller field alignment validated${colors.reset}\n`);
+  return true;
+}
+
+/**
  * Check for console.log statements
  */
 function checkForConsoleLogs() {
@@ -194,9 +214,12 @@ function main() {
   const typeCheckPassed = runTypeCheck();
   const typeSyncPassed = validateTypeSync();
   const schemaControllerPassed = validateSchemaControllerSync();
+  const schemaAlignmentPassed = checkSchemaControllerAlignment(); // Warning only for now
   const consoleCheckPassed = checkForConsoleLogs();
 
+  // Schema alignment is warning-only until legacy issues fixed
   allPassed = typeCheckPassed && typeSyncPassed && schemaControllerPassed;
+  // TODO: Add schemaAlignmentPassed to allPassed once legacy mismatches are fixed
 
   // console.log is warning only, doesn't block commit
   if (!consoleCheckPassed) {

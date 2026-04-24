@@ -15,52 +15,55 @@ import { z } from 'zod';
  * Create Lookup
  * POST /api/lookups
  */
-export const createLookupSchema = z.object({
-  category: z.string().min(1, 'Category is required').max(100),
-  code: z.string().min(1, 'Code is required').max(50),
-  value: z.string().min(1, 'Value is required').max(200),
-  description: z.string().max(500).optional(),
-  sortOrder: z.number().int().nonnegative().optional(),
-  isDefault: z.boolean().optional().default(false),
-  isActive: z.boolean().optional().default(true),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
+export const createLookupSchema = z
+  .object({
+    category: z.string().min(1, 'Category is required').max(100),
+    code: z.string().min(1, 'Code is required').max(50),
+    value: z.string().min(1, 'Value is required').max(200),
+    description: z.string().max(500).optional(),
+    sortOrder: z.number().int().nonnegative().optional(),
+    isDefault: z.boolean().optional().default(false),
+    isActive: z.boolean().optional().default(true),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough();
 
 /**
  * Update Lookup
  * PUT /api/lookups/:id
  */
-export const updateLookupSchema = z.object({
-  category: z.string().min(1).max(100).optional(),
-  code: z.string().min(1).max(50).optional(),
-  value: z.string().min(1).max(200).optional(),
-  description: z.string().max(500).optional().nullable(),
-  sortOrder: z.number().int().nonnegative().optional(),
-  isDefault: z.boolean().optional(),
-  isActive: z.boolean().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
-});
+export const updateLookupSchema = z
+  .object({
+    category: z.string().min(1).max(100).optional(),
+    code: z.string().min(1).max(50).optional(),
+    value: z.string().min(1).max(200).optional(),
+    description: z.string().max(500).optional().nullable(),
+    sortOrder: z.number().int().nonnegative().optional(),
+    isDefault: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional().nullable(),
+  })
+  .passthrough();
 
 /**
  * Bulk Create Lookups
  * POST /api/lookups/bulk
+ * Controller expects: { lookups: [{ category, values: string[] }] }
  */
-export const bulkCreateLookupsSchema = z.object({
-  lookups: z
-    .array(
-      z.object({
-        category: z.string().min(1).max(100),
-        code: z.string().min(1).max(50),
-        value: z.string().min(1).max(200),
-        description: z.string().max(500).optional(),
-        sortOrder: z.number().int().nonnegative().optional(),
-        isDefault: z.boolean().optional(),
-        isActive: z.boolean().optional(),
-        metadata: z.record(z.string(), z.unknown()).optional(),
-      })
-    )
-    .min(1, 'At least one lookup is required'),
-});
+export const bulkCreateLookupsSchema = z
+  .object({
+    lookups: z
+      .array(
+        z
+          .object({
+            category: z.string().min(1).max(100),
+            values: z.array(z.string().min(1).max(200)).min(1, 'At least one value is required'),
+          })
+          .passthrough()
+      )
+      .min(1, 'At least one lookup category is required'),
+  })
+  .passthrough();
 
 /**
  * Query Lookups

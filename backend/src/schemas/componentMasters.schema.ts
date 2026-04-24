@@ -43,7 +43,7 @@ export const createComponentMasterSchema = z.object({
   code: z.string().max(50).optional(),
   description: z.string().max(500).optional(),
   componentCategory: z.string().max(100).optional(),
-  componentGroupId: z.string().uuid('Invalid component group ID').optional().nullable(),
+  componentGroupId: z.string().uuid('Component group ID is required'), // Required - every component must belong to a group
   sortOrder: z.number().int().optional(),
   category: ComponentCategoryEnum.optional(),
   subcategory: z.string().max(100).optional(),

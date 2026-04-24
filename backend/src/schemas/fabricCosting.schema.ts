@@ -7,6 +7,10 @@
 
 import { z } from 'zod';
 
+// Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
+const isValidIdFormat = (val: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val);
+
 // ============================================================================
 // RATE LOOKUP SCHEMAS
 // ============================================================================
@@ -14,12 +18,15 @@ import { z } from 'zod';
 /**
  * Lookup Processor Rate
  * POST /api/fabric-costing/lookup-rate
+ *
+ * Aligned with frontend (fabricCosting.service.ts) and controller (fabric-costing.controller.ts:519-594)
  */
 export const lookupRateSchema = z.object({
-  greigeId: z.string().uuid('Invalid greige ID'),
   processorId: z.string().uuid('Invalid processor ID'),
-  quantity: z.number().positive().optional(),
-  processType: z.string().max(50).optional(),
+  processingType: z.enum(['DYEING', 'PRINTING']),
+  printingType: z.enum(['PIGMENT', 'PROCIAN', 'DISCHARGE', 'PIGMENT_DISCHARGE']).optional(),
+  greigeId: z.string().uuid('Invalid greige ID'),
+  quantityMeters: z.number().positive('Quantity must be greater than 0'),
 });
 
 // ============================================================================
@@ -29,21 +36,47 @@ export const lookupRateSchema = z.object({
 /**
  * Save Fabric Costing
  * POST /api/fabric-costing/save
+ *
+ * Aligned with frontend (FabricCostingSaveItem type) and controller (fabric-costing.controller.ts:601-670)
  */
 export const saveFabricCostingSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
-  fabrics: z
+  fabricCostings: z
     .array(
-      z.object({
-        fabricId: z.string().uuid('Invalid fabric ID'),
-        greigeId: z.string().uuid('Invalid greige ID').optional().nullable(),
-        processorId: z.string().uuid('Invalid processor ID').optional().nullable(),
-        sourcingType: z.enum(['GREIGE_PROCESSED', 'READY_FABRIC', 'STOCK_REUSE']).optional(),
-        ratePerMeter: z.number().nonnegative().optional(),
-        quantity: z.number().positive().optional(),
-        totalCost: z.number().nonnegative().optional(),
-        remarks: z.string().max(500).optional(),
-      })
+      z
+        .object({
+          // Record identification
+          fabricWidthCadId: z.string().uuid().nullable().optional(),
+          cloneFromCadId: z.string().uuid().optional(),
+          styleFabricId: z.string().uuid().nullable().optional(),
+          fabricId: z.string().uuid('Invalid fabric ID'),
+          // Greige and Transport
+          greigeId: z.string().uuid().nullable().optional(),
+          greigeCostPerMeter: z.number().nonnegative().nullable().optional(),
+          transportCostPerMeter: z.number().nonnegative().nullable().optional(),
+          // Processing
+          processorId: z.string().uuid().nullable().optional(),
+          processingCostPerMeter: z.number().nonnegative().nullable().optional(),
+          // Shrinkage
+          shrinkagePercent: z.number().min(0).max(100).nullable().optional(),
+          shrinkageCostPerMeter: z.number().nonnegative().nullable().optional(),
+          // Screen cost (for printing)
+          screenCostPerMeter: z.number().nonnegative().nullable().optional(),
+          screenType: z.enum(['ROTARY', 'FLATBELT', 'TABLE']).nullable().optional(),
+          numberOfColors: z.number().int().nonnegative().nullable().optional(),
+          // Totals
+          totalCostPerMeter: z.number().nonnegative().nullable().optional(),
+          // Metadata
+          costInputMode: z.enum(['LANDED_PRICE', 'BUILD_UP']).nullable().optional(),
+          orderQuantityPcs: z.number().int().nonnegative().nullable().optional(),
+          purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']).optional(),
+          processingBatchGroupColorId: z
+            .string()
+            .refine(isValidIdFormat, { message: 'Invalid color ID' })
+            .nullable()
+            .optional(),
+        })
+        .passthrough() // Allow additional fields for flexibility
     )
     .min(1, 'At least one fabric is required'),
   runId: z.string().uuid('Invalid run ID').optional(),
@@ -88,11 +121,14 @@ export const unapproveCostingOptionSchema = z.object({
 /**
  * Promote Costing Option
  * POST /api/fabric-costing/option/:optionId/promote
+ *
+ * Aligned with controller (fabric-costing.controller.ts:1306-1374)
  */
-export const promoteCostingOptionSchema = z.object({
-  targetStage: z.string().max(50).optional(),
-  remarks: z.string().max(500).optional(),
-});
+export const promoteCostingOptionSchema = z
+  .object({
+    targetPurpose: z.enum(['RAW_MATERIAL_CALCULATION', 'PRODUCTION']),
+  })
+  .passthrough();
 
 // ============================================================================
 // STYLES COSTING STATUS SCHEMAS
@@ -113,21 +149,28 @@ export const stylesCostingStatusSchema = z.object({
 /**
  * Check CAD Costing Status
  * POST /api/fabric-costing/check-cad-status
+ *
+ * Aligned with controller (fabric-costing.controller.ts:1446-1497)
  */
-export const checkCADCostingStatusSchema = z.object({
-  cadRowIds: z.array(z.string().uuid()).min(1, 'At least one CAD row ID is required'),
-});
+export const checkCADCostingStatusSchema = z
+  .object({
+    styleId: z.string().uuid('Invalid style ID'),
+    cadRowIds: z.array(z.string().uuid()).min(1, 'At least one CAD row ID is required'),
+  })
+  .passthrough();
 
 /**
  * Push From CAD
  * POST /api/fabric-costing/push-from-cad
+ *
+ * Aligned with controller (fabric-costing.controller.ts:1504-1599)
  */
-export const pushFromCADSchema = z.object({
-  cadRowIds: z.array(z.string().uuid()).min(1, 'At least one CAD row ID is required'),
-  runId: z.string().uuid('Invalid run ID').optional(),
-  processorId: z.string().uuid('Invalid processor ID').optional(),
-  remarks: z.string().max(500).optional(),
-});
+export const pushFromCADSchema = z
+  .object({
+    styleId: z.string().uuid('Invalid style ID'),
+    cadRowIds: z.array(z.string().uuid()).min(1, 'At least one CAD row ID is required'),
+  })
+  .passthrough();
 
 // ============================================================================
 // CALCULATION SCHEMAS
@@ -136,36 +179,42 @@ export const pushFromCADSchema = z.object({
 /**
  * Calculate Single Fabric Cost
  * POST /api/fabric-costing/calculate
+ *
+ * Aligned with controller (fabric-costing.controller.ts:18-40)
  */
-export const calculateSingleCostSchema = z.object({
-  fabricId: z.string().uuid('Invalid fabric ID'),
-  greigeId: z.string().uuid('Invalid greige ID').optional(),
-  processorId: z.string().uuid('Invalid processor ID').optional(),
-  quantity: z.number().positive().optional(),
-  orderQuantity: z.number().int().positive().optional(),
-  wastagePercent: z.number().min(0).max(100).optional(),
-  sourcingType: z.enum(['GREIGE_PROCESSED', 'READY_FABRIC', 'STOCK_REUSE']).optional(),
-});
+export const calculateSingleCostSchema = z
+  .object({
+    fabricId: z.string().uuid('Invalid fabric ID'),
+    cadMeters: z.union([z.number().positive(), z.string()]),
+    width: z.union([z.number().positive(), z.string()]),
+    orderQuantity: z.union([z.number().int().positive(), z.string()]).optional(),
+    styleId: z.string().uuid('Invalid style ID').optional(),
+  })
+  .passthrough();
 
 /**
  * Calculate Batch Fabric Cost
  * POST /api/fabric-costing/batch-calculate
+ *
+ * Aligned with controller (fabric-costing.controller.ts:46-93)
  */
-export const calculateBatchCostSchema = z.object({
-  fabrics: z
-    .array(
-      z.object({
-        fabricId: z.string().uuid('Invalid fabric ID'),
-        greigeId: z.string().uuid('Invalid greige ID').optional(),
-        processorId: z.string().uuid('Invalid processor ID').optional(),
-        quantity: z.number().positive().optional(),
-        sourcingType: z.enum(['GREIGE_PROCESSED', 'READY_FABRIC', 'STOCK_REUSE']).optional(),
-      })
-    )
-    .min(1, 'At least one fabric is required'),
-  orderQuantity: z.number().int().positive().optional(),
-  wastagePercent: z.number().min(0).max(100).optional(),
-});
+export const calculateBatchCostSchema = z
+  .object({
+    fabrics: z
+      .array(
+        z
+          .object({
+            fabricId: z.string().uuid('Invalid fabric ID'),
+            cadMeters: z.union([z.number().positive(), z.string()]),
+            width: z.union([z.number().positive(), z.string()]),
+          })
+          .passthrough()
+      )
+      .min(1, 'At least one fabric is required'),
+    orderQuantity: z.union([z.number().int().positive(), z.string()]).optional(),
+    styleId: z.string().uuid('Invalid style ID').optional(),
+  })
+  .passthrough();
 
 // ============================================================================
 // Type Exports

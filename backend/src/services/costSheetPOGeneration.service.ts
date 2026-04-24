@@ -6,9 +6,10 @@
 import prisma from '../config/database';
 import { randomUUID } from 'crypto';
 import { PurchaseOrderStatus, POCategory as PrismaPOCategory, POSource } from '@prisma/client';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { Decimal } from '@prisma/client/runtime/library';
 import { gstService } from './gst.service';
+import { processorRateValidationService } from './processor-rate-validation.service';
 import {
   POCategory,
   GenerationStatus,
@@ -856,6 +857,31 @@ class CostSheetPOGenerationService {
       throw new Error('Processor not found');
     }
 
+    // Validate processor rates have not changed significantly since cost sheet creation
+    // BLOCKS PO generation if rates have changed >=5%
+    const rateValidation = await processorRateValidationService.validateCostSheetRates(input.costSheetId);
+
+    if (rateValidation.requiresNewCostSheet) {
+      const blockingItemNames = rateValidation.blockingItems
+        .map((item) => `${item.itemName} (${item.percentageChange.toFixed(1)}% change)`)
+        .join(', ');
+
+      throw new Error(
+        `RATES_OUTDATED: Processor rates have changed significantly since this cost sheet was created. ` +
+          `${rateValidation.blockingItems.length} item(s) have rate changes ≥5%: ${blockingItemNames}. ` +
+          `Please create a new cost sheet version with current rates before generating PO.`
+      );
+    }
+
+    // Log warning if there are minor rate changes (but don't block)
+    if (rateValidation.warningItems.length > 0) {
+      logWarn('Processing PO generation proceeding with minor rate changes', {
+        costSheetId: input.costSheetId,
+        processorId: input.processorId,
+        warningCount: rateValidation.warningItems.length,
+      });
+    }
+
     const poNumber = await generatePONumber();
     const poId = randomUUID();
     let subtotal = 0;
@@ -1523,6 +1549,31 @@ class CostSheetPOGenerationService {
     });
     if (!processor) {
       throw new Error('Processor not found');
+    }
+
+    // Validate processor rates have not changed significantly since cost sheet creation
+    // BLOCKS PO generation if rates have changed >=5%
+    const rateValidation = await processorRateValidationService.validateCostSheetRates(input.costSheetId);
+
+    if (rateValidation.requiresNewCostSheet) {
+      const blockingItemNames = rateValidation.blockingItems
+        .map((item) => `${item.itemName} (${item.percentageChange.toFixed(1)}% change)`)
+        .join(', ');
+
+      throw new Error(
+        `RATES_OUTDATED: Processor rates have changed significantly since this cost sheet was created. ` +
+          `${rateValidation.blockingItems.length} item(s) have rate changes ≥5%: ${blockingItemNames}. ` +
+          `Please create a new cost sheet version with current rates before generating Lace Processing PO.`
+      );
+    }
+
+    // Log warning if there are minor rate changes (but don't block)
+    if (rateValidation.warningItems.length > 0) {
+      logWarn('Lace Processing PO generation proceeding with minor rate changes', {
+        costSheetId: input.costSheetId,
+        processorId: input.processorId,
+        warningCount: rateValidation.warningItems.length,
+      });
     }
 
     const poNumber = await generatePONumber();

@@ -436,3 +436,53 @@ export type BudgetSuggestionsResponse = {
   data: BudgetSuggestions;
   message: string;
 };
+
+// ============================================
+// RATE VALIDATION TYPES
+// ============================================
+
+export type RateChangeSeverity = 'INFO' | 'WARNING' | 'BLOCKING';
+export type RateValidationStatus = 'CURRENT' | 'OUTDATED' | 'RATE_CHANGED';
+export type SuggestedAction = 'PROCEED' | 'REFRESH_RATES' | 'CREATE_NEW_VERSION';
+
+export type ProcessorRateChangeWarning = {
+  itemType: 'FABRIC' | 'LACE';
+  itemId: string;
+  itemName: string;
+  processorId: string;
+  processorName: string;
+  greigeId?: string;
+  greigeName?: string;
+  laceId?: string;
+  laceName?: string;
+  costSheetRate: number;
+  currentRate: number;
+  difference: number;
+  percentageChange: number;
+  severity: RateChangeSeverity;
+  rateCardIdOld?: string;
+  rateCardIdNew?: string;
+  effectiveFromOld?: string;
+  effectiveFromNew?: string;
+};
+
+export type RateValidation = {
+  status: RateValidationStatus;
+  isValid: boolean;
+  requiresRefresh: boolean;
+  fabricWarnings: ProcessorRateChangeWarning[];
+  laceWarnings: ProcessorRateChangeWarning[];
+  blockingItems: ProcessorRateChangeWarning[];
+  warningItems: ProcessorRateChangeWarning[];
+  suggestedAction: SuggestedAction;
+  summary: {
+    totalItems: number;
+    currentItems: number;
+    warningItems: number;
+    blockingItems: number;
+  };
+};
+
+export type CostSheetWithRateValidation = CostSheet & {
+  rateValidation: RateValidation;
+};

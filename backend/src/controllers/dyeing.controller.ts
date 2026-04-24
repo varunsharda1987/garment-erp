@@ -14,7 +14,7 @@ const transformLabDip = (item: any) => ({
   style: item.style,
   fabric: item.fabric,
   targetColor: item.targetColor,
-  mill: item.mill,
+  processor: item.processor,
   approvedBy: item.approvedBy
     ? {
         id: item.approvedBy.id,
@@ -34,7 +34,7 @@ const transformJobWorkOrder = (item: any) => ({
   labDip: item.labDip ? transformLabDip(item.labDip) : null,
   style: item.style,
   fabric: item.fabric,
-  mill: item.mill,
+  processor: item.processor,
   finishedFabric: item.finishedFabric || null,
   fabricStockLot: item.fabricStockLot
     ? {
@@ -78,7 +78,7 @@ const labDipInclude = {
       colorCode: true,
     },
   },
-  mill: {
+  processor: {
     select: {
       id: true,
       name: true,
@@ -120,7 +120,7 @@ const jobWorkOrderInclude = {
       fabricName: true,
     },
   },
-  mill: {
+  processor: {
     select: {
       id: true,
       name: true,
@@ -176,7 +176,7 @@ const generateLabDipNumber = async (styleCode: string): Promise<string> => {
 
 // Get all lab dips
 export const getAllLabDips = async (req: Request, res: Response, _next: NextFunction) => {
-  const { page = '1', limit = '10', search, status, styleId, millId, fromDate, toDate } = req.query;
+  const { page = '1', limit = '10', search, status, styleId, processorId, fromDate, toDate } = req.query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
@@ -203,8 +203,8 @@ export const getAllLabDips = async (req: Request, res: Response, _next: NextFunc
     where.styleId = styleId as string;
   }
 
-  if (millId) {
-    where.millId = millId as string;
+  if (processorId) {
+    where.processorId = processorId as string;
   }
 
   if (fromDate || toDate) {
@@ -270,7 +270,8 @@ export const createLabDip = async (req: Request, res: Response, _next: NextFunct
     throw new ValidationError('User not authenticated');
   }
 
-  const { styleId, fabricId, targetColorId, colorReference, millId, submissionDate, expectedDate, remarks } = req.body;
+  const { styleId, fabricId, targetColorId, colorReference, processorId, submissionDate, expectedDate, remarks } =
+    req.body;
 
   // Get style for labDipNumber
   const style = await prisma.styles.findUnique({
@@ -292,7 +293,7 @@ export const createLabDip = async (req: Request, res: Response, _next: NextFunct
       fabricId,
       targetColorId,
       colorReference,
-      millId,
+      processorId,
       submissionDate: new Date(submissionDate),
       expectedDate: expectedDate ? new Date(expectedDate) : null,
       remarks,
@@ -308,7 +309,7 @@ export const createLabDip = async (req: Request, res: Response, _next: NextFunct
 // Update lab dip
 export const updateLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
-  const { targetColorId, colorReference, millId, submissionDate, expectedDate, receivedDate, remarks } = req.body;
+  const { targetColorId, colorReference, processorId, submissionDate, expectedDate, receivedDate, remarks } = req.body;
 
   const existing = await prisma.lab_dips.findUnique({
     where: { id },
@@ -326,7 +327,7 @@ export const updateLabDip = async (req: Request, res: Response, _next: NextFunct
 
   if (targetColorId !== undefined) updateData.targetColorId = targetColorId;
   if (colorReference !== undefined) updateData.colorReference = colorReference;
-  if (millId !== undefined) updateData.millId = millId;
+  if (processorId !== undefined) updateData.processorId = processorId;
   if (submissionDate !== undefined) updateData.submissionDate = new Date(submissionDate);
   if (expectedDate !== undefined) updateData.expectedDate = new Date(expectedDate);
   if (receivedDate !== undefined) {
@@ -537,7 +538,7 @@ const generateJobWorkNumber = async (styleCode: string): Promise<string> => {
 
 // Get all dye jobs
 export const getAllDyeJobs = async (req: Request, res: Response, _next: NextFunction) => {
-  const { page = '1', limit = '10', search, status, labDipId, styleId, millId, fromDate, toDate } = req.query;
+  const { page = '1', limit = '10', search, status, labDipId, styleId, processorId, fromDate, toDate } = req.query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
@@ -567,8 +568,8 @@ export const getAllDyeJobs = async (req: Request, res: Response, _next: NextFunc
     where.styleId = styleId as string;
   }
 
-  if (millId) {
-    where.millId = millId as string;
+  if (processorId) {
+    where.processorId = processorId as string;
   }
 
   if (fromDate || toDate) {
@@ -677,7 +678,7 @@ export const createDyeJob = async (req: Request, res: Response, _next: NextFunct
       labDipId,
       styleId: labDip.styleId,
       fabricId: labDip.fabricId,
-      millId: labDip.millId,
+      processorId: labDip.processorId,
       fabricStockLotId,
       fabricType,
       reprocessReason,
@@ -1184,7 +1185,7 @@ const processPOInclude = {
           fabricName: true,
         },
       },
-      mill: {
+      processor: {
         select: {
           id: true,
           name: true,
@@ -1399,7 +1400,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     include: {
       style: { select: { id: true, styleCode: true, styleName: true } },
       fabric: { select: { id: true, fabricCode: true, fabricName: true } },
-      mill: { select: { id: true, name: true, code: true } },
+      processor: { select: { id: true, name: true, code: true } },
     },
   });
 
@@ -1487,7 +1488,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       data: {
         id: poId,
         poNumber,
-        supplierId: labDip.millId,
+        supplierId: labDip.processorId,
         poDate: new Date(),
         expectedDeliveryDate: expectedReturnDate
           ? new Date(expectedReturnDate)
@@ -1530,7 +1531,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         labDipId,
         styleId: labDip.styleId,
         fabricId: labDip.fabricId,
-        millId: labDip.millId,
+        processorId: labDip.processorId,
         fabricStockLotId: validatedFabricStockLotId,
         greigeStockLotId: greigeStockLotId || null,
         purchaseOrderId: po.id,
@@ -2384,16 +2385,16 @@ export const getSummaryByStyle = async (req: Request, res: Response, _next: Next
 
 // Get summary by mill
 export const getSummaryByMill = async (req: Request, res: Response, _next: NextFunction) => {
-  const { millId } = req.params;
+  const { processorId } = req.params;
 
   const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
-    prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, millId } }),
-    prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, millId, status: 'PENDING' } }),
-    prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, millId, status: 'APPROVED' } }),
-    prisma.job_work_orders.count({ where: { processType: PROCESS_TYPE, millId } }),
+    prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, processorId } }),
+    prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, processorId, status: 'PENDING' } }),
+    prisma.lab_dips.count({ where: { processType: PROCESS_TYPE, processorId, status: 'APPROVED' } }),
+    prisma.job_work_orders.count({ where: { processType: PROCESS_TYPE, processorId } }),
     prisma.job_work_orders.groupBy({
       by: ['status'],
-      where: { processType: PROCESS_TYPE, millId },
+      where: { processType: PROCESS_TYPE, processorId },
       _count: true,
     }),
   ]);

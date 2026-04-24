@@ -22,9 +22,12 @@ const SlabDefinitionSchema = z.object({
  * Update Slabs
  * POST /api/rate-cards/processors/:processorId/slabs
  */
-export const updateSlabsSchema = z.object({
-  slabs: z.array(SlabDefinitionSchema).min(1, 'At least one slab is required'),
-});
+export const updateSlabsSchema = z
+  .object({
+    processingType: z.string().max(50).optional(),
+    slabs: z.array(SlabDefinitionSchema).min(1, 'At least one slab is required'),
+  })
+  .passthrough();
 
 // ============================================================================
 // MATRIX SCHEMAS
@@ -41,17 +44,26 @@ const RateCellSchema = z.object({
  * Save Matrix (Greige Fabric)
  * PUT /api/rate-cards/processors/:processorId/matrix
  */
-export const saveMatrixSchema = z.object({
-  rates: z.array(RateCellSchema).min(1, 'At least one rate is required'),
-});
+export const saveMatrixSchema = z
+  .object({
+    processingType: z.string().max(50).optional(),
+    printingType: z.string().max(50).optional(),
+    rates: z.array(RateCellSchema).min(1, 'At least one rate is required'),
+    slabs: z.array(SlabDefinitionSchema).optional(),
+    shrinkages: z.record(z.string(), z.number()).optional(),
+    deletedGreigeIds: z.array(z.string().uuid()).optional(),
+  })
+  .passthrough();
 
 /**
  * Save Lace Matrix
  * PUT /api/rate-cards/processors/:processorId/lace-matrix
  */
-export const saveLaceMatrixSchema = z.object({
-  rates: z.array(RateCellSchema).min(1, 'At least one rate is required'),
-});
+export const saveLaceMatrixSchema = z
+  .object({
+    rates: z.array(RateCellSchema).min(1, 'At least one rate is required'),
+  })
+  .passthrough();
 
 // ============================================================================
 // COPY RATES SCHEMA
@@ -61,13 +73,17 @@ export const saveLaceMatrixSchema = z.object({
  * Copy Rates
  * POST /api/rate-cards/copy
  */
-export const copyRatesSchema = z.object({
-  sourceProcessorId: z.string().uuid('Invalid source processor ID'),
-  targetProcessorId: z.string().uuid('Invalid target processor ID'),
-  copyGreige: z.boolean().optional().default(true),
-  copyLace: z.boolean().optional().default(true),
-  overwrite: z.boolean().optional().default(false),
-});
+export const copyRatesSchema = z
+  .object({
+    sourceProcessorId: z.string().uuid('Invalid source processor ID'),
+    targetProcessorId: z.string().uuid('Invalid target processor ID'),
+    processingType: z.string().max(50).optional(),
+    printingType: z.string().max(50).optional(),
+    copySlabs: z.boolean().optional().default(true),
+    copyRates: z.boolean().optional().default(true),
+    overwrite: z.boolean().optional().default(false),
+  })
+  .passthrough();
 
 // ============================================================================
 // LOOKUP SCHEMAS
@@ -77,21 +93,29 @@ export const copyRatesSchema = z.object({
  * Lookup Rate (Greige Fabric)
  * POST /api/rate-cards/lookup
  */
-export const lookupRateSchema = z.object({
-  processorId: z.string().uuid('Invalid processor ID'),
-  greigeId: z.string().uuid('Invalid greige ID'),
-  quantity: z.number().positive('Quantity must be positive'),
-});
+export const lookupRateSchema = z
+  .object({
+    processorId: z.string().uuid('Invalid processor ID'),
+    greigeId: z.string().uuid('Invalid greige ID'),
+    quantityMeters: z.number().positive('Quantity must be positive'),
+    processingType: z.string().max(50).optional(),
+    printingType: z.string().max(50).optional(),
+  })
+  .passthrough();
 
 /**
  * Lookup Lace Rate
  * POST /api/rate-cards/lookup-lace
  */
-export const lookupLaceRateSchema = z.object({
-  processorId: z.string().uuid('Invalid processor ID'),
-  laceId: z.string().uuid('Invalid lace ID'),
-  quantity: z.number().positive('Quantity must be positive'),
-});
+export const lookupLaceRateSchema = z
+  .object({
+    processorId: z.string().uuid('Invalid processor ID'),
+    laceId: z.string().uuid('Invalid lace ID'),
+    quantityMeters: z.number().positive('Quantity must be positive'),
+    processingType: z.string().max(50).optional(),
+    printingType: z.string().max(50).optional(),
+  })
+  .passthrough();
 
 // ============================================================================
 // Type Exports

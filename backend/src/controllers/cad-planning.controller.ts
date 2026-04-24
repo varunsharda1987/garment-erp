@@ -2205,6 +2205,7 @@ export async function getCADTableData(req: Request, res: Response) {
     partIds: string[];
     parts: Array<{ id: string; code: string; name: string; goesToEmbroidery: boolean }>;
     fabricFinishType: string | null;
+    designName: string | null;
     isEmbroidery: boolean;
     genericGreigeName: string | null;
     // Ready-fabric fields
@@ -2357,6 +2358,7 @@ export async function getCADTableData(req: Request, res: Response) {
           partIds: cadPartIds,
           parts: cadParts,
           fabricFinishType: styleFabric.fabricFinishType,
+          designName: styleFabric.printDesign || styleFabric.colorMaster?.colorName || null,
           isEmbroidery: cad.isEmbroidery,
           genericGreigeName: styleFabric.genericGreigeName || styleFabric.fabric?.genericGreigeName || null,
           // Ready-fabric fields: set when style_fabrics.fabricId is populated
@@ -2428,6 +2430,7 @@ export async function getCADTableData(req: Request, res: Response) {
       let componentName = cad.componentName || 'Unknown';
       let componentId = match?.componentId || '';
       let fabricFinishType: string | null = null;
+      let designName: string | null = null;
       let genericGreigeName: string | null = null;
       let readyFabricId: string | null = null;
       let readyFabricName: string | null = null;
@@ -2441,6 +2444,7 @@ export async function getCADTableData(req: Request, res: Response) {
           const sf = comp.style_fabrics.find((sf: any) => sf.id === match.styleFabricId);
           if (sf) {
             fabricFinishType = sf.fabricFinishType;
+            designName = sf.printDesign || sf.colorMaster?.colorName || null;
             genericGreigeName = sf.genericGreigeName || sf.fabric?.genericGreigeName || null;
             readyFabricId = sf.fabricId || null;
             readyFabricName = sf.fabric?.fabricName || null;
@@ -2522,6 +2526,7 @@ export async function getCADTableData(req: Request, res: Response) {
         partIds: orphanPartIds,
         parts: orphanParts,
         fabricFinishType,
+        designName,
         isEmbroidery: cad.isEmbroidery,
         genericGreigeName,
         readyFabricId,
@@ -3074,6 +3079,7 @@ export async function addCombinedCADRow(req: Request, res: Response) {
       cutableWidth: purpose === 'PRODUCTION' && stockCutableWidth !== null ? stockCutableWidth : 0,
       purpose,
       purposeEnum: purpose as any, // Sync enum field with string field for validation
+      approvalStatus: 'PENDING', // Explicit default to match regular CAD creation
       patternPartId: allPartsPatternPart?.id || undefined,
       isEmbroidery: hasEmbroidery,
       componentName: 'Combined: ' + combinedComponents,

@@ -11,11 +11,11 @@
  * - processingLossMeters (NOT wastagePercent)
  * - finishedFabricId (NOT targetFabricId)
  * - greigeId (links to greige_master)
- * - processingMillId (links to suppliers)
+ * - processorId (links to suppliers)
  *
  * Relations:
  * - greigeMaster (NOT greige)
- * - processingMill (relation to suppliers)
+ * - processor (relation to suppliers)
  * - finishedFabric (relation to fabric_master)
  * - procurement (relation to fabric_procurement)
  */
@@ -34,7 +34,7 @@ import { NotFoundError, UnauthorizedError } from '../errors';
 const sendForProcessingSchema = z.object({
   procurementId: z.string().uuid(),
   greigeId: z.string().uuid(),
-  processingMillId: z.string().uuid(),
+  processorId: z.string().uuid(),
   processingType: z.enum(['DYEING', 'PRINTING', 'CALENDERING', 'SANFORIZING', 'MERCERIZING']),
   greigeQuantitySent: z.number().positive(),
   greigeWidth: z.number().positive(),
@@ -63,7 +63,7 @@ const receiveFinishedFabricSchema = z.object({
 // Schema for listing with filters
 const listProcessingSchema = z.object({
   processingStatus: z.enum(['SENT', 'IN_PROCESS', 'COMPLETED', 'REJECTED', 'PARTIAL_COMPLETED']).optional(),
-  processingMillId: z.string().uuid().optional(),
+  processorId: z.string().uuid().optional(),
   greigeId: z.string().uuid().optional(),
   procurementId: z.string().uuid().optional(),
   page: z.number().int().positive().default(1),
@@ -77,7 +77,7 @@ const listProcessingSchema = z.object({
 export const listProcessingBatches = async (req: Request, res: Response): Promise<void> => {
   const query = listProcessingSchema.parse({
     processingStatus: req.query.processingStatus,
-    processingMillId: req.query.processingMillId,
+    processorId: req.query.processorId,
     greigeId: req.query.greigeId,
     procurementId: req.query.procurementId,
     page: req.query.page ? parseInt(req.query.page as string) : 1,
@@ -91,8 +91,8 @@ export const listProcessingBatches = async (req: Request, res: Response): Promis
   if (query.processingStatus) {
     where.processingStatus = query.processingStatus;
   }
-  if (query.processingMillId) {
-    where.processingMillId = query.processingMillId;
+  if (query.processorId) {
+    where.processorId = query.processorId;
   }
   if (query.greigeId) {
     where.greigeId = query.greigeId;
@@ -109,7 +109,7 @@ export const listProcessingBatches = async (req: Request, res: Response): Promis
       orderBy: { sentDate: 'desc' },
       include: {
         greigeMaster: true,
-        processingMill: true,
+        processor: true,
         finishedFabric: true,
         procurement: true,
         createdBy: {
@@ -148,7 +148,7 @@ export const getProcessingDetails = async (req: Request, res: Response): Promise
     where: { id },
     include: {
       greigeMaster: true,
-      processingMill: true,
+      processor: true,
       finishedFabric: true,
       procurement: true,
       createdBy: {
@@ -202,7 +202,7 @@ export const sendForProcessing = async (req: Request, res: Response): Promise<vo
     data: {
       procurementId: data.procurementId,
       greigeId: data.greigeId,
-      processingMillId: data.processingMillId,
+      processorId: data.processorId,
       processingType: data.processingType,
       greigeQuantitySent: data.greigeQuantitySent,
       greigeWidth: data.greigeWidth,
@@ -222,7 +222,7 @@ export const sendForProcessing = async (req: Request, res: Response): Promise<vo
     },
     include: {
       greigeMaster: true,
-      processingMill: true,
+      processor: true,
       procurement: true,
     },
   });
@@ -268,7 +268,7 @@ export const receiveFinishedFabric = async (req: Request, res: Response): Promis
   // Calculate mill performance (get historical average)
   const millHistoricalAvg = await prisma.fabric_processing.aggregate({
     where: {
-      processingMillId: existingBatch.processingMillId,
+      processorId: existingBatch.processorId,
       greigeId: existingBatch.greigeId,
       processingStatus: 'COMPLETED',
       actualShrinkagePercent: { not: null },
@@ -310,7 +310,7 @@ export const receiveFinishedFabric = async (req: Request, res: Response): Promis
     },
     include: {
       greigeMaster: true,
-      processingMill: true,
+      processor: true,
       finishedFabric: true,
       procurement: true,
     },
@@ -348,7 +348,7 @@ export const getMillPerformance = async (req: Request, res: Response): Promise<v
       actualShrinkagePercent: { not: null },
     },
     include: {
-      processingMill: true,
+      processor: true,
     },
   });
 
@@ -356,11 +356,11 @@ export const getMillPerformance = async (req: Request, res: Response): Promise<v
   const millPerformanceMap = new Map<string, any>();
 
   for (const batch of batches) {
-    const millId = batch.processingMillId;
+    const millId = batch.processorId;
 
     if (!millPerformanceMap.has(millId)) {
       millPerformanceMap.set(millId, {
-        mill: batch.processingMill,
+        mill: batch.processor,
         totalBatches: 0,
         totalShrinkage: 0,
         totalLoss: 0,

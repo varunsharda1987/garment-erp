@@ -240,7 +240,9 @@ export async function issueChallan(id: string, userId?: string) {
                   cutableWidth: originalStock.cutableWidth,
                   purchaseCost: originalStock.purchaseCost,
                   weightedAvgCost: originalStock.weightedAvgCost,
-                  supplierId: existing.toId,
+                  supplierId: originalStock.supplierId, // Preserve original supplier (who SOLD the greige)
+                  processorId: existing.toId, // Track processor currently holding the stock
+                  procurementId: originalStock.procurementId, // Preserve procurement link
                   sourceChallanId: existing.id,
                   sourceType: 'TRANSFER',
                   warehouseLocation: processorWarehouse.warehouseName,
@@ -859,7 +861,7 @@ export async function createGreigeOutwardChallan(input: CreateGreigeOutwardChall
     const processing = await tx.fabric_processing.findUnique({
       where: { id: input.fabricProcessingId },
       include: {
-        processingMill: { select: { id: true, name: true } },
+        processor: { select: { id: true, name: true } },
         greigeMaster: { select: { id: true, greigeCode: true, greigeName: true } },
       },
     });
@@ -922,8 +924,8 @@ export async function createGreigeOutwardChallan(input: CreateGreigeOutwardChall
         fromType: 'WAREHOUSE',
         fromName: 'Main Warehouse',
         toType: 'VENDOR',
-        toId: processing.processingMillId,
-        toName: processing.processingMill.name,
+        toId: processing.processorId,
+        toName: processing.processor.name,
         status: 'DRAFT',
         totalItems: itemsToCreate.length,
         totalQuantity,

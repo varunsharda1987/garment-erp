@@ -14,7 +14,7 @@ const transformLabDip = (item: any) => ({
   style: item.style,
   fabric: item.fabric,
   targetColor: item.targetColor,
-  mill: item.mill,
+  processor: item.processor,
   approvedBy: item.approvedBy
     ? {
         id: item.approvedBy.id,
@@ -34,7 +34,7 @@ const transformJobWorkOrder = (item: any) => ({
   labDip: item.labDip ? transformLabDip(item.labDip) : null,
   style: item.style,
   fabric: item.fabric,
-  mill: item.mill,
+  processor: item.processor,
   finishedFabric: item.finishedFabric || null,
   fabricStockLot: item.fabricStockLot
     ? {
@@ -78,7 +78,7 @@ const labDipInclude = {
       colorCode: true,
     },
   },
-  mill: {
+  processor: {
     select: {
       id: true,
       name: true,
@@ -120,7 +120,7 @@ const jobWorkOrderInclude = {
       fabricName: true,
     },
   },
-  mill: {
+  processor: {
     select: {
       id: true,
       name: true,
@@ -181,7 +181,7 @@ export const getAllLabDips = async (req: Request, res: Response, _next: NextFunc
     processType = 'PRINTING',
     status,
     styleId,
-    millId,
+    processorId,
     fromDate,
     toDate,
   } = req.query;
@@ -210,8 +210,8 @@ export const getAllLabDips = async (req: Request, res: Response, _next: NextFunc
     where.styleId = styleId as string;
   }
 
-  if (millId) {
-    where.millId = millId as string;
+  if (processorId) {
+    where.processorId = processorId as string;
   }
 
   if (fromDate || toDate) {
@@ -286,7 +286,7 @@ export const createLabDip = async (req: Request, res: Response, _next: NextFunct
     printChemistry,
     targetColorId,
     colorReference,
-    millId,
+    processorId,
     submissionDate,
     expectedDate,
     remarks,
@@ -315,7 +315,7 @@ export const createLabDip = async (req: Request, res: Response, _next: NextFunct
       printChemistry,
       targetColorId,
       colorReference,
-      millId,
+      processorId,
       submissionDate: new Date(submissionDate),
       expectedDate: expectedDate ? new Date(expectedDate) : null,
       remarks,
@@ -337,7 +337,7 @@ export const updateLabDip = async (req: Request, res: Response, _next: NextFunct
     printChemistry,
     targetColorId,
     colorReference,
-    millId,
+    processorId,
     submissionDate,
     expectedDate,
     receivedDate,
@@ -364,7 +364,7 @@ export const updateLabDip = async (req: Request, res: Response, _next: NextFunct
   if (printChemistry !== undefined) updateData.printChemistry = printChemistry;
   if (targetColorId !== undefined) updateData.targetColorId = targetColorId;
   if (colorReference !== undefined) updateData.colorReference = colorReference;
-  if (millId !== undefined) updateData.millId = millId;
+  if (processorId !== undefined) updateData.processorId = processorId;
   if (submissionDate !== undefined) updateData.submissionDate = new Date(submissionDate);
   if (expectedDate !== undefined) updateData.expectedDate = new Date(expectedDate);
   if (receivedDate !== undefined) {
@@ -584,7 +584,7 @@ export const getAllPrintJobs = async (req: Request, res: Response, _next: NextFu
     status,
     labDipId,
     styleId,
-    millId,
+    processorId,
     fromDate,
     toDate,
   } = req.query;
@@ -617,8 +617,8 @@ export const getAllPrintJobs = async (req: Request, res: Response, _next: NextFu
     where.styleId = styleId as string;
   }
 
-  if (millId) {
-    where.millId = millId as string;
+  if (processorId) {
+    where.processorId = processorId as string;
   }
 
   if (fromDate || toDate) {
@@ -728,7 +728,7 @@ export const createPrintJob = async (req: Request, res: Response, _next: NextFun
       labDipId,
       styleId: labDip.styleId,
       fabricId: labDip.fabricId,
-      millId: labDip.millId,
+      processorId: labDip.processorId,
       fabricStockLotId,
       fabricType,
       reprocessReason,
@@ -1232,7 +1232,7 @@ const processPOInclude = {
           fabricName: true,
         },
       },
-      mill: {
+      processor: {
         select: {
           id: true,
           name: true,
@@ -1447,7 +1447,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     include: {
       style: { select: { id: true, styleCode: true, styleName: true } },
       fabric: { select: { id: true, fabricCode: true, fabricName: true } },
-      mill: { select: { id: true, name: true, code: true } },
+      processor: { select: { id: true, name: true, code: true } },
     },
   });
 
@@ -1535,7 +1535,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       data: {
         id: poId,
         poNumber,
-        supplierId: labDip.millId,
+        supplierId: labDip.processorId,
         poDate: new Date(),
         expectedDeliveryDate: expectedReturnDate
           ? new Date(expectedReturnDate)
@@ -1578,7 +1578,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         labDipId,
         styleId: labDip.styleId,
         fabricId: labDip.fabricId,
-        millId: labDip.millId,
+        processorId: labDip.processorId,
         fabricStockLotId: validatedFabricStockLotId,
         greigeStockLotId: greigeStockLotId || null,
         purchaseOrderId: po.id,
@@ -2439,17 +2439,17 @@ export const getSummaryByStyle = async (req: Request, res: Response, _next: Next
 
 // Get summary by mill
 export const getSummaryByMill = async (req: Request, res: Response, _next: NextFunction) => {
-  const { millId } = req.params;
+  const { processorId } = req.params;
   const processType = 'PRINTING';
 
   const [totalLabDips, labDipsPending, labDipsApproved, totalJobs, jobsByStatus] = await Promise.all([
-    prisma.lab_dips.count({ where: { processType, millId } }),
-    prisma.lab_dips.count({ where: { processType, millId, status: 'PENDING' } }),
-    prisma.lab_dips.count({ where: { processType, millId, status: 'APPROVED' } }),
-    prisma.job_work_orders.count({ where: { processType, millId } }),
+    prisma.lab_dips.count({ where: { processType, processorId } }),
+    prisma.lab_dips.count({ where: { processType, processorId, status: 'PENDING' } }),
+    prisma.lab_dips.count({ where: { processType, processorId, status: 'APPROVED' } }),
+    prisma.job_work_orders.count({ where: { processType, processorId } }),
     prisma.job_work_orders.groupBy({
       by: ['status'],
-      where: { processType, millId },
+      where: { processType, processorId },
       _count: true,
     }),
   ]);

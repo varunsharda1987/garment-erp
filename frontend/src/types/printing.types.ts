@@ -40,7 +40,7 @@ export interface LabDip {
   targetColorId?: string;
   colorReference?: string;
 
-  millId: string;
+  processorId: string;
 
   submissionDate: string;
   expectedDate?: string;
@@ -80,7 +80,7 @@ export interface LabDip {
     colorName: string;
     colorCode: string;
   };
-  mill?: {
+  processor?: {
     id: string;
     name: string;
     code: string;
@@ -110,7 +110,7 @@ export interface CreateLabDipRequest {
   targetColorId?: string;
   colorReference?: string;
 
-  millId: string;
+  processorId: string;
   submissionDate: string;
   expectedDate?: string;
   remarks?: string;
@@ -147,7 +147,7 @@ export interface JobWorkOrder {
   labDipId: string;
   styleId: string;
   fabricId: string;
-  millId: string;
+  processorId: string;
 
   // Fabric Sent
   fabricStockLotId: string;
@@ -213,7 +213,7 @@ export interface JobWorkOrder {
     printDesign?: string | null;
     colorName?: string | null;
   };
-  mill?: {
+  processor?: {
     id: string;
     name: string;
     code: string;
@@ -241,7 +241,7 @@ export interface CreateJobWorkOrderRequest {
   labDipId: string;
   styleId: string;
   fabricId: string;
-  millId: string;
+  processorId: string;
 
   fabricStockLotId: string;
   fabricType: 'GREIGE' | 'RFD' | 'DYED' | 'FINISHED';
@@ -337,7 +337,7 @@ export interface LabDipQueryParams {
   processType?: 'PRINTING' | 'DYEING';
   status?: LabDipStatus;
   styleId?: string;
-  millId?: string;
+  processorId?: string;
   fromDate?: string;
   toDate?: string;
 }
@@ -350,7 +350,7 @@ export interface JobWorkOrderQueryParams {
   status?: JobWorkStatus;
   labDipId?: string;
   styleId?: string;
-  millId?: string;
+  processorId?: string;
   fromDate?: string;
   toDate?: string;
 }
@@ -474,7 +474,7 @@ export interface ProcessPOQueryParams {
   search?: string;
   status?: ProcessPOStatus;
   styleId?: string;
-  millId?: string;
+  processorId?: string;
   fromDate?: string;
   toDate?: string;
 }

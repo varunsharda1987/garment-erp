@@ -142,6 +142,7 @@ export interface GenericGreigeStock {
   qualityGrades: string[];
   warehouses: string[];
   suppliers: Array<{ id: string; name: string; code: string }>;
+  processors: Array<{ id: string; name: string; code: string }>;
   statuses: string[];
   entryCount: number;
 }
@@ -169,8 +170,11 @@ export interface GreigeStockDetail {
   agingDays: number;
   status: string;
   stockType: string;
+  sourceType: string | null;
   supplierId: string | null;
   supplier: { id: string; name: string; code: string } | null;
+  processorId: string | null;
+  processor: { id: string; name: string; code: string } | null;
 }
 
 export interface UpdateGreigeStockData {

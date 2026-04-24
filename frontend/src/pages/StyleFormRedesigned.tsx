@@ -1144,6 +1144,16 @@ export default function StyleFormRedesigned() {
       if (fabricsData.length > 0) {
         // Map component names to indices based on loaded components
         const loadedComponents = style.components || [];
+
+        // ID validation helpers - prevents invalid data from entering state
+        // UUID format (used by fabric_master)
+        const isValidUUID = (id: string | null | undefined): id is string =>
+          !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        // CUID format (used by color_master, embroidery_master)
+        const isValidCUID = (id: string | null | undefined): id is string => !!id && /^c[a-z0-9]{20,}$/i.test(id);
+        // Combined validator for fields that might be UUID or CUID
+        const isValidId = (id: string | null | undefined): id is string => isValidUUID(id) || isValidCUID(id);
+
         setFabrics(
           fabricsData.map((sf) => {
             // Try to find component index from name
@@ -1156,9 +1166,15 @@ export default function StyleFormRedesigned() {
                 componentIndex = foundIndex;
               }
             }
-            // Determine sourcing mode from fabricId presence
-            const fabricId = sf.fabricId || sf.fabric?.id || null;
+            // Determine sourcing mode from fabricId presence - validate UUIDs
+            const rawFabricId = sf.fabricId || sf.fabric?.id;
+            const fabricId = isValidUUID(rawFabricId) ? rawFabricId : null;
             const sourcingMode: 'GREIGE' | 'READY_FABRIC' = fabricId ? 'READY_FABRIC' : 'GREIGE';
+
+            // Validate ID fields to prevent corrupt data from entering state
+            const rawColorMasterId = sf.colorMasterId || sf.fabric?.colorMasterId;
+            const rawEmbroideryId = sf.embroideryId;
+
             return {
               id: sf.id || generateId(),
               componentIndex,
@@ -1169,13 +1185,13 @@ export default function StyleFormRedesigned() {
               fabricCode: sf.fabric?.fabricCode || null,
               fabricName: sf.fabric?.fabricName || null,
               fabricFinishType: (sf.fabricFinishType || sf.fabric?.finishType || '') as FabricFinishType | '',
-              // Design/Color identification
+              // Design/Color identification - use isValidId for CUID fields
               printDesign: sf.printDesign || sf.fabric?.printDesign || null,
-              colorMasterId: sf.colorMasterId || sf.fabric?.colorMasterId || null,
+              colorMasterId: isValidId(rawColorMasterId) ? rawColorMasterId : null,
               colorName: sf.colorMaster?.colorName || sf.fabric?.colorName || null,
-              // Embroidery support
+              // Embroidery support - use isValidId for CUID fields
               hasEmbroidery: sf.hasEmbroidery || false,
-              embroideryId: sf.embroideryId || null,
+              embroideryId: isValidId(rawEmbroideryId) ? rawEmbroideryId : null,
               embroideryName: sf.embroidery?.designName || null,
               embroideryCode: sf.embroidery?.embroideryCode || null,
               // Pattern parts (read-only display)
@@ -1768,13 +1784,14 @@ export default function StyleFormRedesigned() {
 
   const handleUpdateFabric = (id: string, field: keyof FabricEntry, value: FabricEntry[keyof FabricEntry]) => {
     fabricsModifiedRef.current = true; // Track modification for validation
-    setFabrics(fabrics.map((f) => (f.id === id ? { ...f, [field]: value } : f)));
+    // Use functional update to avoid stale closure when multiple calls happen in same event
+    setFabrics((prevFabrics) => prevFabrics.map((f) => (f.id === id ? { ...f, [field]: value } : f)));
   };
 
   const handleEmbroiderySelect = (fabricId: string, embroidery: EmbroiderySearchResult) => {
     fabricsModifiedRef.current = true; // Track modification for validation
-    setFabrics(
-      fabrics.map((f) =>
+    setFabrics((prevFabrics) =>
+      prevFabrics.map((f) =>
         f.id === fabricId
           ? {
               ...f,
@@ -1795,8 +1812,8 @@ export default function StyleFormRedesigned() {
 
   const handleClearEmbroidery = (fabricId: string) => {
     fabricsModifiedRef.current = true; // Track modification for validation
-    setFabrics(
-      fabrics.map((f) =>
+    setFabrics((prevFabrics) =>
+      prevFabrics.map((f) =>
         f.id === fabricId
           ? {
               ...f,
@@ -2047,17 +2064,27 @@ export default function StyleFormRedesigned() {
 
           // Find fabrics for this component using componentIndex (not name)
           // This ensures fabrics stay matched even if component selection changes
+          // UUID validation helper (for fabric_master which uses UUID)
+          const isValidUUID = (id: string | null | undefined): boolean =>
+            !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+          // CUID validation helper (for color_master and embroidery_master which use CUID)
+          const isValidCUID = (id: string | null | undefined): boolean => !!id && /^c[a-z0-9]{20,}$/i.test(id);
+          // Combined validator for IDs that could be either UUID or CUID
+          const isValidId = (id: string | null | undefined): boolean => isValidUUID(id) || isValidCUID(id);
+
           const componentFabrics = componentFabricsForIndex.map((f) => ({
             fabricName: f.sourcingMode === 'READY_FABRIC' ? f.fabricName || '' : f.genericGreigeName,
-            fabricId: f.sourcingMode === 'READY_FABRIC' ? f.fabricId || null : null,
+            fabricId: f.sourcingMode === 'READY_FABRIC' && isValidUUID(f.fabricId) ? f.fabricId : null,
             genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : f.genericGreigeName || null,
             fabricType: f.sourcingMode === 'READY_FABRIC' ? 'FABRIC' : 'GENERIC',
             fabricFinishType: f.fabricFinishType || null,
             // Design/Color identification
             printDesign: f.printDesign || null,
-            colorMasterId: f.colorMasterId || null,
+            // Use isValidId for colorMasterId (CUID format from color_master)
+            colorMasterId: isValidId(f.colorMasterId) ? f.colorMasterId : null,
             hasEmbroidery: f.hasEmbroidery || false,
-            embroideryId: f.embroideryId || null,
+            // Use isValidId for embroideryId (CUID format from embroidery_master)
+            embroideryId: isValidId(f.embroideryId) ? f.embroideryId : null,
             // Pass pattern part IDs so style_pattern_parts are created
             patternPartIds: f.patternParts?.map((pp) => pp.patternPartId).filter(Boolean) || [],
           }));
@@ -2214,7 +2241,21 @@ export default function StyleFormRedesigned() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-display font-medium">{isEditMode ? 'Edit Style' : 'Create New Style'}</h1>
+              <h1 className="text-3xl font-display font-medium">
+                {isEditMode ? (
+                  <>
+                    Edit Style
+                    {styleCode && (
+                      <span className="ml-3 text-xl font-mono text-primary">
+                        {styleCode}
+                        {styleName && <span className="text-muted-foreground font-normal"> - {styleName}</span>}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  'Create New Style'
+                )}
+              </h1>
               {/* Status Badge */}
               {(!isEditMode || styleStatus === 'DRAFT') && (
                 <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/25">
@@ -3423,7 +3464,7 @@ export default function StyleFormRedesigned() {
                 </p>
               </div>
 
-              <TrimSelector selectedTrims={selectedTrims} onChange={setSelectedTrims} />
+              <TrimSelector selectedTrims={selectedTrims} onChange={setSelectedTrims} styleCode={styleCode} />
             </Card>
 
             <div className="flex justify-between">
@@ -3570,6 +3611,7 @@ export default function StyleFormRedesigned() {
                 customerId={selectedCustomerId}
                 presetItemIds={presetItemIds}
                 styleSpecificIds={styleSpecificIds}
+                styleCode={styleCode}
               />
             </Card>
 

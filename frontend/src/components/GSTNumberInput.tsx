@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import api from '../lib/api';
 import StateSelector from './StateSelector';
 import CitySelector from './CitySelector';
 
@@ -53,17 +54,8 @@ export default function GSTNumberInput({
 
   const fetchStates = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/locations/states', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (response.ok) {
-        const result = await response.json();
-        setStates(result.data || []);
-      }
+      const { data: result } = await api.get('/locations/states');
+      setStates(result.data || []);
     } catch (err) {
       console.error('Error fetching states:', err);
     }
@@ -79,23 +71,14 @@ export default function GSTNumberInput({
       setIsValidating(true);
       setValidationError(null);
 
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/gst/validate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          gstNumber: value.gstNumber.toUpperCase(),
-          stateCode: value.stateCode,
-        }),
+      const { data: result } = await api.post('/gst/validate', {
+        gstNumber: value.gstNumber.toUpperCase(),
+        stateCode: value.stateCode,
       });
 
-      const result = await response.json();
       const data = result.data;
 
-      if (!response.ok || !data.isValid) {
+      if (!data.isValid) {
         setValidationError(data.message || 'Invalid GST number');
       }
     } catch (err) {

@@ -43,35 +43,49 @@ const procurementItemSchema = z.object({
  * Create Procurement
  * POST /api/procurement
  */
-export const createProcurementSchema = z.object({
-  supplierId: z.string().uuid('Invalid supplier ID'),
-  orderId: z.string().uuid('Invalid order ID').optional(),
-  expectedDeliveryDate: z.string().datetime().optional(),
-  remarks: z.string().max(500).optional(),
-  items: z.array(procurementItemSchema).min(1, 'At least one item is required'),
-});
+export const createProcurementSchema = z
+  .object({
+    supplierId: z.string().uuid('Invalid supplier ID'),
+    orderId: z.string().uuid('Invalid order ID').optional(),
+    expectedDeliveryDate: z.string().datetime().optional(),
+    remarks: z.string().max(500).optional(),
+    items: z.array(procurementItemSchema).min(1, 'At least one item is required'),
+  })
+  .passthrough();
 
 /**
  * Update Procurement
  * PUT /api/procurement/:id
  */
-export const updateProcurementSchema = z.object({
-  supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  expectedDeliveryDate: z.string().datetime().optional().nullable(),
-  status: ProcurementStatusEnum.optional(),
-  remarks: z.string().max(500).optional().nullable(),
-  items: z.array(procurementItemSchema).optional(),
-});
+export const updateProcurementSchema = z
+  .object({
+    supplierId: z.string().uuid('Invalid supplier ID').optional(),
+    expectedDeliveryDate: z.string().datetime().optional().nullable(),
+    status: ProcurementStatusEnum.optional(),
+    remarks: z.string().max(500).optional().nullable(),
+    items: z.array(procurementItemSchema).optional(),
+    receivedDate: z.string().datetime().optional().nullable(),
+    actualQuantityReceived: z.number().nonnegative('Quantity cannot be negative').optional(),
+    notes: z.string().max(500).optional().nullable(),
+  })
+  .passthrough();
 
 /**
  * Plan Procurement
  * POST /api/procurement/plan
+ * Controller expects: orderId, styleId, cadPlanningId, fabricCadIds, processorId, purpose, notes
  */
-export const planProcurementSchema = z.object({
-  orderIds: z.array(z.string().uuid()).min(1, 'At least one order is required'),
-  consolidate: z.boolean().optional().default(true),
-  autoCreatePO: z.boolean().optional().default(false),
-});
+export const planProcurementSchema = z
+  .object({
+    orderId: z.string().uuid('Invalid order ID').optional(),
+    styleId: z.string().uuid('Invalid style ID').optional(),
+    cadPlanningId: z.string().uuid('Invalid CAD planning ID').optional(),
+    fabricCadIds: z.array(z.string().uuid()).optional(),
+    processorId: z.string().uuid('Invalid processor ID').optional(),
+    purpose: z.string().max(100).optional(),
+    notes: z.string().max(500).optional(),
+  })
+  .passthrough();
 
 /**
  * Procurement Query Params

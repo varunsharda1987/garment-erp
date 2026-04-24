@@ -8,7 +8,11 @@ import {
   deliveryNoteActionSchema,
   createASNSchema,
   asnQuerySchema,
-  asnActionSchema,
+  assignTransportSchema,
+  recordPODSchema,
+  approveASNSchema,
+  rejectASNSchema,
+  rescheduleASNSchema,
 } from '../schemas/dispatch.schema';
 import {
   // Delivery Note endpoints
@@ -58,13 +62,9 @@ router.post('/delivery-notes', validateBody(createDeliveryNoteSchema), asyncHand
 router.delete('/delivery-notes/:id', asyncHandler(deleteDeliveryNote));
 
 // Workflow actions
-router.post(
-  '/delivery-notes/:id/assign-transport',
-  validateBody(deliveryNoteActionSchema),
-  asyncHandler(assignTransport)
-);
+router.post('/delivery-notes/:id/assign-transport', validateBody(assignTransportSchema), asyncHandler(assignTransport));
 router.post('/delivery-notes/:id/dispatch', validateBody(deliveryNoteActionSchema), asyncHandler(dispatchDeliveryNote));
-router.post('/delivery-notes/:id/record-pod', validateBody(deliveryNoteActionSchema), asyncHandler(recordPOD));
+router.post('/delivery-notes/:id/record-pod', validateBody(recordPODSchema), asyncHandler(recordPOD));
 
 // ============================================
 // ASN ROUTES
@@ -77,9 +77,9 @@ router.post('/asn', validateBody(createASNSchema), asyncHandler(createASN));
 router.delete('/asn/:id', asyncHandler(deleteASN));
 
 // Workflow actions
-router.post('/asn/:id/apply', validateBody(asnActionSchema), asyncHandler(applyASN));
-router.post('/asn/:id/approve', validateBody(asnActionSchema), asyncHandler(approveASN));
-router.post('/asn/:id/reject', validateBody(asnActionSchema), asyncHandler(rejectASN));
-router.post('/asn/:id/reschedule', validateBody(asnActionSchema), asyncHandler(rescheduleASN));
+router.post('/asn/:id/apply', validateBody(approveASNSchema), asyncHandler(applyASN));
+router.post('/asn/:id/approve', validateBody(approveASNSchema), asyncHandler(approveASN));
+router.post('/asn/:id/reject', validateBody(rejectASNSchema), asyncHandler(rejectASN));
+router.post('/asn/:id/reschedule', validateBody(rescheduleASNSchema), asyncHandler(rescheduleASN));
 
 export default router;

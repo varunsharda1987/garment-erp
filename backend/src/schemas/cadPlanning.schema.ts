@@ -62,42 +62,68 @@ export const selectGreigeForGroupSchema = z.object({
 /**
  * Add CAD Table Row
  * POST /api/cad-planning/:styleId/row
+ * Creates a new CAD row for a style fabric. Width is determined from stock (PRODUCTION)
+ * or set later via update (COSTING/RAW_MATERIAL_CALCULATION).
  */
 export const addCADTableRowSchema = z.object({
-  styleFabricId: z.string().uuid('Invalid style fabric ID').optional(),
-  fabricId: z.string().uuid('Invalid fabric ID').optional(),
-  greigeId: z.string().uuid('Invalid greige ID').optional(),
-  greigeWidth: z.number().positive(),
-  cadValue: z.number().positive().optional(),
+  styleFabricId: z.string().uuid('Invalid style fabric ID'),
+  componentId: z.string().optional(), // Derived from styleFabricId on backend if not provided
+  partId: z.string().uuid('Invalid part ID').optional(),
+  partIds: z.array(z.string().uuid()).optional(), // Multi-part selection
   purpose: CADPurposeEnum.optional().default('COSTING'),
-  isPreferred: z.boolean().optional().default(false),
-  remarks: z.string().max(500).optional(),
-  sizeBreakdown: z.record(z.string(), z.number().nonnegative()).optional(),
+  fabricStockId: z.string().uuid('Invalid fabric stock ID').optional(), // Required for PRODUCTION purpose
 });
 
 /**
  * Add Combined CAD Row
  * POST /api/cad-planning/:styleId/combined-row
+ * Creates a CAD row combining multiple style fabrics (e.g., combined cutting).
  */
 export const addCombinedCADRowSchema = z.object({
   styleFabricIds: z.array(z.string().uuid()).min(1, 'At least one style fabric is required'),
-  greigeId: z.string().uuid('Invalid greige ID'),
-  greigeWidth: z.number().positive(),
-  cadValue: z.number().positive().optional(),
   purpose: CADPurposeEnum.optional().default('COSTING'),
-  remarks: z.string().max(500).optional(),
+  fabricStockId: z.string().uuid('Invalid fabric stock ID').optional(), // Required for PRODUCTION purpose
 });
 
 /**
  * Update CAD Table Row
  * PUT /api/cad-planning/:styleId/row/:rowId
+ * Updates CAD row values including width, greige selection, size breakdowns, etc.
  */
 export const updateCADTableRowSchema = z.object({
-  greigeWidth: z.number().positive().optional(),
-  cadValue: z.number().positive().optional(),
-  isPreferred: z.boolean().optional(),
-  remarks: z.string().max(500).optional().nullable(),
-  sizeBreakdown: z.record(z.string(), z.number().nonnegative()).optional().nullable(),
+  // Purpose and part selection
+  purpose: CADPurposeEnum.optional(),
+  partId: z.string().uuid('Invalid part ID').optional().nullable(),
+  partIds: z.array(z.string().uuid()).optional(), // Multi-part selection
+  isEmbroidery: z.boolean().optional(),
+  // Greige/Fabric selection
+  greigeId: z.string().uuid('Invalid greige ID').optional().nullable(),
+  fabricId: z.string().uuid('Invalid fabric ID').optional().nullable(), // Ready fabric mode
+  // Width and measurements
+  cutableWidth: z.number().positive().optional().nullable(),
+  printDirection: z.string().max(50).optional().nullable(),
+  // CAD calculations
+  cadMeters: z.number().nonnegative().optional().nullable(), // Layer length
+  layerLengthMeters: z.number().nonnegative().optional().nullable(), // Alias for cadMeters
+  piecesPerMarker: z.number().int().positive().optional().nullable(),
+  markerEfficiency: z.number().min(0).max(100).optional().nullable(),
+  cadWastagePercent: z.number().min(0).max(100).optional().nullable(),
+  layerMarginMeters: z.number().nonnegative().optional().nullable(),
+  // Size breakdown
+  sizeBreakdowns: z
+    .array(
+      z.object({
+        sizeName: z.string(),
+        quantity: z.number().nonnegative(),
+      })
+    )
+    .optional()
+    .nullable(),
+  // Greige rate override
+  greigeCostOverride: z.number().nonnegative().optional().nullable(),
+  greigeCostOverrideReason: z.string().max(500).optional().nullable(),
+  // Notes
+  notes: z.string().max(500).optional().nullable(),
 });
 
 /**
@@ -260,7 +286,14 @@ export const updatePatternPartAssignmentSchema = z.object({
  * POST /api/cad-planning/:styleId/fabrics/:fabricId/embroidery-cad
  */
 export const createOrUpdateEmbroideryCadSchema = z.object({
-  embroideryId: z.string().uuid('Invalid embroidery ID'),
+  // embroideryId accepts CUID (embroidery_master uses @default(cuid()))
+  embroideryId: z
+    .string()
+    .refine(
+      (val) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val),
+      { message: 'Invalid embroidery ID (expected UUID or CUID)' }
+    ),
   repeatPattern: z.string().max(50).optional(),
   stitchCount: z.number().int().positive().optional(),
   threadConsumption: z.number().positive().optional(),

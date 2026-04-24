@@ -32,6 +32,143 @@ import {
   ProcessorSummary,
   ProcessorRateCardSummary,
 } from '../types/processor-rate-v2.types';
+import { Decimal } from '@prisma/client/runtime/library';
+
+// ============================================
+// Rate History Helper Functions
+// ============================================
+
+interface RateUpdateParams {
+  processorId: string;
+  processingType: string;
+  printingType?: PrintingType | null;
+  greigeId: string;
+  laceId?: string | null;
+  slabId: string;
+  newRatePerMeter: number;
+  userId: string;
+  changeReasonCode?: string;
+  changeNotes?: string;
+}
+
+/**
+ * Helper to convert Decimal to number
+ */
+function toNumber(value: Decimal | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  return value.toNumber();
+}
+
+/**
+ * Update a processor rate with history preservation
+ * Instead of overwriting, this closes the old rate and creates a new one
+ */
+async function updateRateWithHistory(
+  existingRateId: string,
+  newRatePerMeter: number,
+  userId: string,
+  changeReasonCode?: string,
+  changeNotes?: string
+): Promise<string> {
+  // Get the existing rate details
+  const existingRate = await prisma.processor_rate_card.findUnique({
+    where: { id: existingRateId },
+    include: {
+      processor: { select: { name: true } },
+      greige: { select: { greigeName: true } },
+      lace: { select: { laceName: true } },
+      slab: { select: { slabLabel: true } },
+    },
+  });
+
+  if (!existingRate) {
+    throw new Error(`Rate card not found: ${existingRateId}`);
+  }
+
+  const oldRate = toNumber(existingRate.ratePerMeter);
+
+  // If rate hasn't changed, just return the existing ID
+  if (Math.abs(oldRate - newRatePerMeter) < 0.001) {
+    return existingRateId;
+  }
+
+  // Calculate change metrics
+  const changeAmount = newRatePerMeter - oldRate;
+  const changePercent = oldRate > 0 ? (changeAmount / oldRate) * 100 : 100;
+
+  // Transaction: close old rate, create new rate, log change
+  const result = await prisma.$transaction(async (tx) => {
+    const now = new Date();
+
+    // 1. Close old rate
+    await tx.processor_rate_card.update({
+      where: { id: existingRateId },
+      data: {
+        effectiveTo: now,
+        isActive: false,
+      },
+    });
+
+    // 2. Create new rate
+    const newRate = await tx.processor_rate_card.create({
+      data: {
+        processorId: existingRate.processorId,
+        processingType: existingRate.processingType,
+        printingType: existingRate.printingType,
+        greigeId: existingRate.greigeId,
+        laceId: existingRate.laceId,
+        slabId: existingRate.slabId,
+        ratePerMeter: newRatePerMeter,
+        shrinkagePercent: existingRate.shrinkagePercent,
+        screenCostPerScreen: existingRate.screenCostPerScreen,
+        screenType: existingRate.screenType,
+        effectiveFrom: now,
+        effectiveTo: null,
+        previousRateValue: oldRate,
+        changeReasonCode: changeReasonCode || null,
+        changeNotes: changeNotes || null,
+        isActive: true,
+        createdById: userId,
+      },
+    });
+
+    // 3. Update old rate to point to new rate
+    await tx.processor_rate_card.update({
+      where: { id: existingRateId },
+      data: { supersededById: newRate.id },
+    });
+
+    // 4. Log the change
+    await tx.processor_rate_change_log.create({
+      data: {
+        oldRateCardId: existingRateId,
+        newRateCardId: newRate.id,
+        processorId: existingRate.processorId,
+        processorName: existingRate.processor?.name || 'Unknown',
+        processingType: existingRate.processingType,
+        printingType: existingRate.printingType || null,
+        greigeId: existingRate.greigeId,
+        greigeName: existingRate.greige?.greigeName || null,
+        laceId: existingRate.laceId,
+        laceName: existingRate.lace?.laceName || null,
+        slabId: existingRate.slabId,
+        slabLabel: existingRate.slab?.slabLabel || null,
+        previousRate: oldRate,
+        newRate: newRatePerMeter,
+        changeAmount,
+        changePercent,
+        changeReasonCode: changeReasonCode || null,
+        changeNotes: changeNotes || null,
+        changedById: userId,
+      },
+    });
+
+    return newRate;
+  });
+
+  return result.id;
+}
 
 /**
  * Get all processors that handle DYEING or PRINTING
@@ -416,6 +553,7 @@ export async function saveProcessorRateMatrix(
       // Prisma's compound unique constraint doesn't allow null values in the unique lookup
       if (processingType === 'PRINTING' && printingType) {
         // For PRINTING, use findFirst + create/update pattern (compound unique has nullable fields)
+        // Look for currently ACTIVE rate (effectiveTo is null)
         const existing = await prisma.processor_rate_card.findFirst({
           where: {
             processorId,
@@ -424,14 +562,19 @@ export async function saveProcessorRateMatrix(
             greigeId: rate.greigeId,
             laceId: null, // Greige fabric rate, not lace
             slabId: actualSlabId,
+            effectiveTo: null, // Only active rates
           },
         });
 
         if (existing) {
-          await prisma.processor_rate_card.update({
-            where: { id: existing.id },
-            data: { ratePerMeter: rate.ratePerMeter },
-          });
+          // Use history-preserving update instead of direct overwrite
+          await updateRateWithHistory(
+            existing.id,
+            rate.ratePerMeter,
+            userId,
+            'RATE_MATRIX_UPDATE',
+            'Updated via rate matrix save'
+          );
         } else {
           await prisma.processor_rate_card.create({
             data: {
@@ -447,6 +590,7 @@ export async function saveProcessorRateMatrix(
         }
       } else {
         // For DYEING (printingType is null), use findFirst + create/update pattern
+        // Look for currently ACTIVE rate (effectiveTo is null)
         const existing = await prisma.processor_rate_card.findFirst({
           where: {
             processorId,
@@ -454,14 +598,19 @@ export async function saveProcessorRateMatrix(
             printingType: null,
             greigeId: rate.greigeId,
             slabId: actualSlabId,
+            effectiveTo: null, // Only active rates
           },
         });
 
         if (existing) {
-          await prisma.processor_rate_card.update({
-            where: { id: existing.id },
-            data: { ratePerMeter: rate.ratePerMeter },
-          });
+          // Use history-preserving update instead of direct overwrite
+          await updateRateWithHistory(
+            existing.id,
+            rate.ratePerMeter,
+            userId,
+            'RATE_MATRIX_UPDATE',
+            'Updated via rate matrix save'
+          );
         } else {
           await prisma.processor_rate_card.create({
             data: {
@@ -1287,6 +1436,7 @@ export async function saveLaceRateMatrix(
     }
 
     // Use findFirst + create/update pattern since Prisma compound unique doesn't handle nulls well
+    // Look for currently ACTIVE rate (effectiveTo is null)
     const existing = await prisma.processor_rate_card.findFirst({
       where: {
         processorId,
@@ -1295,14 +1445,19 @@ export async function saveLaceRateMatrix(
         greigeId: null,
         laceId: rate.laceId,
         slabId: rate.slabId,
+        effectiveTo: null, // Only active rates
       },
     });
 
     if (existing) {
-      await prisma.processor_rate_card.update({
-        where: { id: existing.id },
-        data: { ratePerMeter: rate.ratePerMeter },
-      });
+      // Use history-preserving update instead of direct overwrite
+      await updateRateWithHistory(
+        existing.id,
+        rate.ratePerMeter,
+        userId,
+        'LACE_RATE_MATRIX_UPDATE',
+        'Updated via lace rate matrix save'
+      );
     } else {
       await prisma.processor_rate_card.create({
         data: {

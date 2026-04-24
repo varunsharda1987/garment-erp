@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import api from '../lib/api';
 import type { State } from '../types/location.types';
 
 interface StateSelectorProps {
@@ -45,18 +46,7 @@ export default function StateSelector({
         params.append('stateType', stateType);
       }
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/locations/states?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch states');
-      }
-
-      const result = await response.json();
+      const { data: result } = await api.get(`/locations/states?${params.toString()}`);
       setStates(result.data || []);
     } catch (err) {
       console.error('Error fetching states:', err);

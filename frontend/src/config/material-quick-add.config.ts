@@ -41,13 +41,18 @@ const BUTTON_CONFIG: MaterialTypeConfig = {
     { name: 'shape', label: 'Shape', type: 'text', required: false, placeholder: 'Round, Square' },
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
-  createService: async (data: MaterialFormData) => {
+  createService: async (data: MaterialFormData, styleCode?: string) => {
     // Don't force-set the name field; let backend auto-generate if not provided
-    const payload: Record<string, string | number | boolean | undefined> = { ...data };
+    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
 
     // Only set type-specific name field if name was provided
     if (data.name !== undefined) {
       payload.buttonName = data.name;
+    }
+
+    // Auto-associate with style if styleCode provided
+    if (styleCode) {
+      payload.styleCodes = [styleCode];
     }
 
     // Remove generic 'name' field and internal tracking flag
@@ -73,10 +78,13 @@ const THREAD_CONFIG: MaterialTypeConfig = {
     { name: 'metersPerUnit', label: 'Meters Per Unit', type: 'number', required: false, placeholder: '5000' },
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
-  createService: async (data: MaterialFormData) => {
-    const payload: Record<string, string | number | boolean | undefined> = { ...data };
+  createService: async (data: MaterialFormData, styleCode?: string) => {
+    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.threadName = data.name;
+    }
+    if (styleCode) {
+      payload.styleCodes = [styleCode];
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
@@ -100,10 +108,13 @@ const ZIPPER_CONFIG: MaterialTypeConfig = {
     { name: 'sliderType', label: 'Slider Type', type: 'text', required: false, placeholder: 'Auto Lock, Pin Lock' },
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
-  createService: async (data: MaterialFormData) => {
-    const payload: Record<string, string | number | boolean | undefined> = { ...data };
+  createService: async (data: MaterialFormData, styleCode?: string) => {
+    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.zipperName = data.name;
+    }
+    if (styleCode) {
+      payload.styleCodes = [styleCode];
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
@@ -126,10 +137,13 @@ const ELASTIC_CONFIG: MaterialTypeConfig = {
     { name: 'elasticType', label: 'Elastic Type', type: 'text', required: false, placeholder: 'Braided, Knit, Woven' },
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
-  createService: async (data: MaterialFormData) => {
-    const payload: Record<string, string | number | boolean | undefined> = { ...data };
+  createService: async (data: MaterialFormData, styleCode?: string) => {
+    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.elasticName = data.name;
+    }
+    if (styleCode) {
+      payload.styleCodes = [styleCode];
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
@@ -147,19 +161,64 @@ const LACE_CONFIG: MaterialTypeConfig = {
   codeField: 'laceCode',
   nameField: 'laceName',
   fields: [
+    // Greige toggle - determines if this is raw lace or finished lace
+    {
+      name: 'isGreige',
+      label: 'This is Greige (raw) lace that needs dyeing/processing',
+      type: 'boolean',
+      required: false,
+      helpText: 'Greige lace is raw material that will be sent for dyeing. Finished lace is ready to use.',
+    },
+    // Greige-specific fields (shown when isGreige=true)
+    {
+      name: 'expectedShrinkagePercent',
+      label: 'Expected Shrinkage %',
+      type: 'number',
+      required: false,
+      placeholder: '3-8',
+      showWhen: { field: 'isGreige', value: true },
+      helpText: 'Shrinkage during dyeing process (typically 3-8%)',
+    },
+    {
+      name: 'costPerMeterGreige',
+      label: 'Greige Cost (per meter)',
+      type: 'number',
+      required: false,
+      placeholder: '50',
+      showWhen: { field: 'isGreige', value: true },
+      helpText: 'Raw material cost before processing',
+    },
+    // Standard lace fields
     { name: 'laceType', label: 'Lace Type', type: 'text', required: false, placeholder: 'Crochet, Embroidered' },
     { name: 'width', label: 'Width (inches)', type: 'number', required: false, placeholder: '1, 2, 3' },
     { name: 'composition', label: 'Composition', type: 'text', required: false, placeholder: 'Cotton, Nylon' },
     { name: 'design', label: 'Design', type: 'text', required: false, placeholder: 'Floral, Geometric' },
-    { name: 'color', label: 'Color', type: 'text', required: false },
+    // Color only shown for finished lace (when isGreige=false or not set)
+    {
+      name: 'color',
+      label: 'Color',
+      type: 'text',
+      required: false,
+      showWhen: { field: 'isGreige', value: true, inverse: true },
+      helpText: 'Color is not applicable for greige lace - it will be applied during dyeing',
+    },
   ],
-  createService: async (data: MaterialFormData) => {
-    const payload: Record<string, string | number | boolean | undefined> = { ...data };
+  createService: async (data: MaterialFormData, styleCode?: string) => {
+    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.laceName = data.name;
     }
+    if (styleCode) {
+      payload.styleCodes = [styleCode];
+    }
     delete payload.name;
     delete payload._nameManuallyEdited;
+
+    // If greige lace, ensure color is not sent (backend sets it to null)
+    if (payload.isGreige) {
+      delete payload.color;
+    }
+
     const result = await createLace(payload as Parameters<typeof createLace>[0]);
     return result as unknown as MaterialCreateResult;
   },
@@ -207,13 +266,18 @@ const createGenericTrimConfig = (trimType: string): MaterialTypeConfig => {
       ...field,
       gridColumn: field.name === 'color' ? '1/3' : '1/2',
     })),
-    createService: async (data: MaterialFormData) => {
+    createService: async (data: MaterialFormData, styleCode?: string) => {
       // Prepare data with the correct field names
-      const payload: Record<string, string | number | boolean | undefined> = {};
+      const payload: Record<string, string | number | boolean | string[] | undefined> = {};
 
       // Only set name field if provided
       if (data.name !== undefined) {
         payload[config.nameField] = data.name;
+      }
+
+      // Auto-associate with style if styleCode provided
+      if (styleCode) {
+        payload.styleCodes = [styleCode];
       }
 
       // Copy other fields
@@ -254,17 +318,21 @@ const LABEL_CONFIG: MaterialTypeConfig = {
     { name: 'printMethod', label: 'Print Method', type: 'text', required: false, placeholder: 'Screen Print, Digital' },
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
-  createService: async (data: MaterialFormData) => {
+  createService: async (data: MaterialFormData, styleCode?: string) => {
     // Determine labelCategory based on labelType
     const labelCategory = data.labelType === 'Price Tag' ? 'PRICE_TAG' : 'HANGTAG';
 
-    const payload: Record<string, string | number | boolean | undefined> = {
+    const payload: Record<string, string | number | boolean | string[] | undefined> = {
       labelCategory,
       ...data,
     };
 
     if (data.name !== undefined) {
       payload.labelName = data.name;
+    }
+
+    if (styleCode) {
+      payload.styleCodes = [styleCode];
     }
 
     delete payload.name;
@@ -295,10 +363,13 @@ const PACKAGING_CONFIG: MaterialTypeConfig = {
     { name: 'material', label: 'Material', type: 'text', required: false, placeholder: 'LDPE, Cardboard' },
     { name: 'thickness', label: 'Thickness', type: 'text', required: false, placeholder: '40 microns, 3 ply' },
   ],
-  createService: async (data: MaterialFormData) => {
-    const payload: Record<string, string | number | boolean | undefined> = { ...data };
+  createService: async (data: MaterialFormData, styleCode?: string) => {
+    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
     if (data.name !== undefined) {
       payload.packagingName = data.name;
+    }
+    if (styleCode) {
+      payload.styleCodes = [styleCode];
     }
     delete payload.name;
     delete payload._nameManuallyEdited;

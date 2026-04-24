@@ -6,6 +6,16 @@
 // Material domain type
 export type MaterialDomain = 'TRIM' | 'ACCESSORY';
 
+// Conditional field configuration
+export interface ConditionalConfig {
+  /** Field name to check */
+  field: string;
+  /** Value that makes this field visible. Use true/false for booleans, or specific string values */
+  value: boolean | string;
+  /** If true, show when the condition is NOT met (inverse logic) */
+  inverse?: boolean;
+}
+
 // Field configuration for dynamic form rendering
 export interface MaterialFieldConfig {
   name: string;
@@ -15,6 +25,10 @@ export interface MaterialFieldConfig {
   required?: boolean;
   placeholder?: string;
   gridColumn?: '1/2' | '2/3' | '1/3'; // For responsive layout
+  /** Show this field only when condition is met */
+  showWhen?: ConditionalConfig;
+  /** Help text displayed below the field */
+  helpText?: string;
 }
 
 // Material type configuration
@@ -27,7 +41,12 @@ export interface MaterialTypeConfig {
   codeField: string;
   nameField: string;
   fields: MaterialFieldConfig[];
-  createService: (data: MaterialFormData) => Promise<MaterialCreateResult>;
+  /**
+   * Service function to create the material
+   * @param data - Form data
+   * @param styleCode - Optional style code to auto-associate the material with
+   */
+  createService: (data: MaterialFormData, styleCode?: string) => Promise<MaterialCreateResult>;
 }
 
 // Category configuration

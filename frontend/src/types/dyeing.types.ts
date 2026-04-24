@@ -31,7 +31,7 @@ export interface DyeLabDip {
   targetColorId?: string;
   colorReference?: string; // Pantone code
 
-  millId: string;
+  processorId: string;
 
   submissionDate: string;
   expectedDate?: string;
@@ -71,7 +71,7 @@ export interface DyeLabDip {
     colorName: string;
     colorCode: string;
   };
-  mill?: {
+  processor?: {
     id: string;
     name: string;
     code: string;
@@ -92,7 +92,7 @@ export interface CreateDyeLabDipRequest {
   fabricId: string;
   targetColorId?: string;
   colorReference?: string;
-  millId: string;
+  processorId: string;
   submissionDate: string;
   expectedDate?: string;
   remarks?: string;
@@ -128,7 +128,7 @@ export interface DyeJob {
   labDipId: string;
   styleId: string;
   fabricId: string;
-  millId: string;
+  processorId: string;
 
   // Fabric Sent
   fabricStockLotId: string;
@@ -203,7 +203,7 @@ export interface DyeJob {
     printDesign?: string | null;
     colorName?: string | null;
   };
-  mill?: {
+  processor?: {
     id: string;
     name: string;
     code: string;
@@ -319,7 +319,7 @@ export interface DyeLabDipQueryParams {
   search?: string;
   status?: 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'RESUBMIT';
   styleId?: string;
-  millId?: string;
+  processorId?: string;
   fromDate?: string;
   toDate?: string;
 }
@@ -331,7 +331,7 @@ export interface DyeJobQueryParams {
   status?: string;
   labDipId?: string;
   styleId?: string;
-  millId?: string;
+  processorId?: string;
   fromDate?: string;
   toDate?: string;
 }

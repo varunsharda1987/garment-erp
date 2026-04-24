@@ -1091,6 +1091,7 @@ class GRNService {
                   receivedDate: grn.receivingDate,
                   warehouseLocation: grn.warehouseId || undefined,
                   qualityGrade: 'A',
+                  sourceType: 'GRN', // Track that this stock came from GRN receipt
                 },
                 userId
               );
@@ -1539,7 +1540,7 @@ class GRNService {
       include: {
         style: { select: { id: true, styleCode: true, styleName: true } },
         fabric: { select: { id: true, fabricCode: true, fabricName: true } },
-        mill: { select: { id: true, name: true, code: true } },
+        processor: { select: { id: true, name: true, code: true } },
         greigeStockLot: { select: { id: true, quantityAvailable: true, purchaseCost: true } },
       },
     });
@@ -1559,7 +1560,7 @@ class GRNService {
       styleCode: job.style?.styleCode || '',
       fabricName: job.fabric?.fabricName || '',
       fabricCode: job.fabric?.fabricCode || '',
-      millName: job.mill?.name || '',
+      processorName: job.processor?.name || '',
       agreedRate: Number(job.agreedRatePerMeter),
       greigeStockLotId: job.greigeStockLotId,
       status: job.status,

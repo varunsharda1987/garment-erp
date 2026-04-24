@@ -55,6 +55,8 @@ interface AccessorySelectorProps {
   presetItemIds?: Set<string>;
   /** IDs of accessories that were manually added for this specific style (for visual distinction) */
   styleSpecificIds?: Set<string>;
+  /** Style code for auto-associating newly created accessories */
+  styleCode?: string;
 }
 
 const ACCESSORY_TABS: { type: AccessoryType; label: string; icon: string }[] = [
@@ -69,6 +71,7 @@ export function AccessorySelector({
   customerId,
   presetItemIds,
   styleSpecificIds,
+  styleCode,
 }: AccessorySelectorProps) {
   const [activeTab, setActiveTab] = useState<AccessoryType>('LABEL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -454,6 +457,7 @@ export function AccessorySelector({
         materialDomain="ACCESSORY"
         onMaterialCreated={handleMaterialCreated}
         initialType={activeTab}
+        styleCode={styleCode}
       />
     </div>
   );

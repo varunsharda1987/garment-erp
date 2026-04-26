@@ -15,6 +15,7 @@ import type { CADStatus, FabricEntry, ProcessType } from '../types';
 import type { BrandCategory } from '../../../../types/customer.types';
 import type { StyleFormState } from '../StyleFormContext';
 import type { MaterialType, MaterialUsageCategory } from '../../../../types/style-material-bom.types';
+import { Unit } from '../../../../types/material.types';
 
 export function useStyleFormData() {
   const navigate = useNavigate();
@@ -197,7 +198,7 @@ export function useStyleFormData() {
             genericGreigeName: sf.genericGreigeName || '',
             fabricFinishType: (sf.fabricFinishType || '') as FabricEntry['fabricFinishType'],
             estimatedConsumption: sf.estimatedConsumption || 0,
-            unit: (sf.unit || 'METER') as FabricEntry['unit'],
+            unit: (sf.unit || Unit.METER) as FabricEntry['unit'],
             notes: sf.notes || '',
           }));
         }
@@ -221,7 +222,7 @@ export function useStyleFormData() {
               materialCode: bom.material?.code || '',
               materialType: (bom.material?.type || 'THREAD') as MaterialType,
               quantityPerGarment: bom.estimatedConsumption || 0,
-              unit: bom.unit || 'PCS',
+              unit: bom.unit || Unit.PIECE,
               unitPrice: 0,
               usageCategory: 'GARMENT_TRIM' as MaterialUsageCategory,
               componentName: '',
@@ -236,7 +237,7 @@ export function useStyleFormData() {
               materialCode: bom.material?.code || '',
               materialType: (bom.material?.type || 'PACKAGING') as MaterialType,
               quantityPerGarment: bom.estimatedConsumption || 0,
-              unit: bom.unit || 'PCS',
+              unit: bom.unit || Unit.PIECE,
               unitPrice: 0,
               usageCategory: 'PACKAGING' as MaterialUsageCategory,
               componentName: '',

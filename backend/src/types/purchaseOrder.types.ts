@@ -65,6 +65,10 @@ export interface CreatePurchaseOrderDTO {
   remarks?: string | null;
   poCategory?: string; // POCategory enum value
   items: PurchaseOrderItemDTO[];
+  // Optional traceability links (for Manual POs)
+  styleId?: string | null;
+  orderId?: string | null;
+  cadId?: string | null;
 }
 
 /**
@@ -77,6 +81,10 @@ export interface UpdatePurchaseOrderDTO {
   paymentTerms?: string | null;
   remarks?: string | null;
   items?: PurchaseOrderItemDTO[]; // If provided, replaces all existing items
+  // Optional traceability links (for Manual POs)
+  styleId?: string | null;
+  orderId?: string | null;
+  cadId?: string | null;
 }
 
 /**

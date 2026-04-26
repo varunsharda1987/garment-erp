@@ -75,6 +75,84 @@ export const generateTrimsPOSchema = z.object({
 });
 
 // ============================================================================
+// LACE PO SCHEMAS
+// ============================================================================
+
+/**
+ * Lace PO Item schema
+ */
+const lacePOItemSchema = z.object({
+  materialId: z.string().uuid('Invalid material ID'),
+  orderQty: z.number().positive('Order quantity must be positive'),
+  unit: z.string().default('METER'),
+  unitPrice: z.number().nonnegative('Unit price cannot be negative'),
+  allowancePercent: z.number().nonnegative().default(3),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Greige Lace PO Item schema
+ */
+const greigeLacePOItemSchema = lacePOItemSchema.extend({
+  expectedShrinkagePercent: z.number().nonnegative().optional(),
+});
+
+/**
+ * Lace Processing PO Item schema
+ */
+const laceProcessingPOItemSchema = z.object({
+  materialId: z.string().uuid('Invalid material ID (finished lace)'),
+  greigeLaceId: z.string().uuid('Invalid greige lace ID'),
+  processType: z.string().default('DYEING'),
+  orderQty: z.number().positive('Order quantity must be positive'),
+  unit: z.string().default('METER'),
+  unitPrice: z.number().nonnegative('Unit price cannot be negative'),
+  labDipId: z.string().uuid('Invalid lab dip ID').optional(),
+  allowancePercent: z.number().nonnegative().default(3),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Generate Ready Lace PO
+ * POST /api/cost-sheet-po/generate/lace
+ */
+export const generateLacePOSchema = z.object({
+  costSheetId: z.string().uuid('Invalid cost sheet ID'),
+  totalOrderQty: z.number().int().positive('Total order quantity is required'),
+  supplierId: z.string().uuid('Invalid supplier ID'),
+  items: z.array(lacePOItemSchema).min(1, 'At least one item is required'),
+  expectedDeliveryDate: z.string().datetime().optional(),
+  notes: z.string().max(500).optional(),
+});
+
+/**
+ * Generate Greige Lace PO
+ * POST /api/cost-sheet-po/generate/greige-lace
+ */
+export const generateGreigeLacePOSchema = z.object({
+  costSheetId: z.string().uuid('Invalid cost sheet ID'),
+  totalOrderQty: z.number().int().positive('Total order quantity is required'),
+  supplierId: z.string().uuid('Invalid supplier ID'),
+  items: z.array(greigeLacePOItemSchema).min(1, 'At least one item is required'),
+  expectedDeliveryDate: z.string().datetime().optional(),
+  notes: z.string().max(500).optional(),
+});
+
+/**
+ * Generate Lace Processing PO
+ * POST /api/cost-sheet-po/generate/lace-processing
+ */
+export const generateLaceProcessingPOSchema = z.object({
+  costSheetId: z.string().uuid('Invalid cost sheet ID'),
+  totalOrderQty: z.number().int().positive('Total order quantity is required'),
+  processorId: z.string().uuid('Invalid processor ID'),
+  items: z.array(laceProcessingPOItemSchema).min(1, 'At least one item is required'),
+  linkedGreigeLacePOId: z.string().uuid('Invalid greige lace PO ID').optional(),
+  expectedDeliveryDate: z.string().datetime().optional(),
+  notes: z.string().max(500).optional(),
+});
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 
@@ -82,3 +160,6 @@ export type GenerateFabricPOInput = z.infer<typeof generateFabricPOSchema>;
 export type GenerateGreigePOInput = z.infer<typeof generateGreigePOSchema>;
 export type GenerateProcessingPOInput = z.infer<typeof generateProcessingPOSchema>;
 export type GenerateTrimsPOInput = z.infer<typeof generateTrimsPOSchema>;
+export type GenerateLacePOInput = z.infer<typeof generateLacePOSchema>;
+export type GenerateGreigeLacePOInput = z.infer<typeof generateGreigeLacePOSchema>;
+export type GenerateLaceProcessingPOInput = z.infer<typeof generateLaceProcessingPOSchema>;

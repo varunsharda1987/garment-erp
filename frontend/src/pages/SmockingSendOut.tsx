@@ -168,7 +168,7 @@ export default function SmockingSendOut() {
             fabricCode: s.fabricMaster?.fabricCode || '',
             fabricName: s.fabricMaster?.fabricName || '',
             quantityAvailable: parseFloat(s.quantityAvailable),
-            unit: s.unit || 'MTR',
+            unit: s.unit || 'METER',
           }));
         setFabricStocks(items);
       })
@@ -223,7 +223,7 @@ export default function SmockingSendOut() {
       fabricStockId: sourceType === 'FABRIC_STOCK' ? selectedFabricStockId : undefined,
       supplierId: selectedPO?.supplierId || '',
       quantitySent: parseFloat(quantitySent),
-      unit: sourceType === 'FABRIC_STOCK' ? 'MTR' : 'PCS',
+      unit: sourceType === 'FABRIC_STOCK' ? 'METER' : 'PIECE',
       agreedRate: parseFloat(agreedRate),
       sendDate,
       expectedReturnDate: expectedReturnDate || undefined,
@@ -462,7 +462,7 @@ export default function SmockingSendOut() {
                   <strong>Vendor:</strong> {selectedPO?.supplierName}
                 </p>
                 <p className="text-sm">
-                  <strong>Quantity:</strong> {quantitySent} {sourceType === 'FABRIC_STOCK' ? 'MTR' : 'PCS'}
+                  <strong>Quantity:</strong> {quantitySent} {sourceType === 'FABRIC_STOCK' ? 'METER' : 'PIECE'}
                 </p>
                 <p className="text-sm">
                   <strong>Rate:</strong> {formatCurrency(parseFloat(agreedRate))}

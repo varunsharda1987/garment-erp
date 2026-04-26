@@ -90,6 +90,10 @@ export const Unit = {
   GROSS: 'GROSS',
   TUBE: 'TUBE',
   CONE: 'CONE',
+  SPOOL: 'SPOOL',
+  BOX: 'BOX',
+  PAIR: 'PAIR',
+  PACK: 'PACK',
 } as const;
 
 export type Unit = (typeof Unit)[keyof typeof Unit];
@@ -104,6 +108,10 @@ export const UnitLabels: Record<Unit, string> = {
   GROSS: 'Gross',
   TUBE: 'Tube',
   CONE: 'Cone',
+  SPOOL: 'Spool',
+  BOX: 'Box',
+  PAIR: 'Pair',
+  PACK: 'Pack',
 };
 
 // ============================================

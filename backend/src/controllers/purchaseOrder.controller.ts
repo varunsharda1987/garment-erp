@@ -224,8 +224,8 @@ export const addPurchaseOrderItem = async (req: Request, res: Response) => {
   const { id } = req.params;
   const item: PurchaseOrderItemDTO = req.body;
 
-  if (!item.materialId) {
-    throw new ValidationError('Material ID is required');
+  if (!item.materialId && !item.serviceType) {
+    throw new ValidationError('Either Material ID or Service Type is required');
   }
 
   if (!item.orderedQuantity || item.orderedQuantity <= 0) {

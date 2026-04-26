@@ -12,19 +12,17 @@ import { z } from 'zod';
 // ============================================================================
 
 export const UnitEnum = z.enum([
-  'PIECE',
   'METER',
-  'YARD',
+  'PIECE',
   'KILOGRAM',
-  'GRAM',
-  'CONE',
-  'SPOOL',
-  'ROLL',
-  'BOX',
   'SET',
+  'YARD',
   'DOZEN',
   'GROSS',
-  'LITER',
+  'TUBE',
+  'CONE',
+  'SPOOL',
+  'BOX',
 ]);
 
 export const PurchaseOrderStatusEnum = z.enum([
@@ -41,22 +39,23 @@ export const PurchaseOrderStatusEnum = z.enum([
 export const POSourceEnum = z.enum(['MANUAL', 'COST_SHEET', 'MRP', 'SERVICE_REQUIREMENT', 'PRODUCTION_RUN']);
 
 export const POCategoryEnum = z.enum([
-  'GREIGE',
   'FABRIC',
-  'TRIM',
-  'BUTTON',
-  'ZIPPER',
-  'THREAD',
-  'ELASTIC',
-  'LACE',
-  'LABEL',
-  'PACKAGING',
+  'GREIGE',
   'PROCESSING',
-  'EMBROIDERY',
-  'OUTSOURCED_WORK',
-  'TESTING',
-  'TRANSPORT',
-  'OTHER',
+  'TRIMS',
+  'THREAD',
+  'LACE',
+  'GREIGE_LACE',
+  'LACE_PROCESSING',
+  'GENERAL',
+  'EMBROIDERY_SERVICE',
+  'WASHING_SERVICE',
+  'FINISHING_SERVICE',
+  'CUTTING_SERVICE',
+  'STITCHING_SERVICE',
+  'HANDWORK_SERVICE',
+  'SMOCKING_SERVICE',
+  'TRANSPORTATION_SERVICE',
 ]);
 
 // ============================================================================
@@ -101,6 +100,10 @@ export const createPurchaseOrderSchema = z.object({
   remarks: z.string().max(1000).nullish(),
   poCategory: POCategoryEnum.optional(),
   items: z.array(purchaseOrderItemSchema).min(1, 'At least one item required'),
+  // Optional traceability links (for Manual POs)
+  styleId: z.string().uuid('Invalid style ID').nullish(),
+  orderId: z.string().uuid('Invalid order ID').nullish(),
+  cadId: z.string().uuid('Invalid CAD ID').nullish(),
 });
 
 /**
@@ -113,6 +116,10 @@ export const updatePurchaseOrderSchema = z.object({
   paymentTerms: z.string().max(100).nullish(),
   remarks: z.string().max(1000).nullish(),
   items: z.array(purchaseOrderItemSchema).min(1).optional(),
+  // Optional traceability links (for Manual POs)
+  styleId: z.string().uuid('Invalid style ID').nullish(),
+  orderId: z.string().uuid('Invalid order ID').nullish(),
+  cadId: z.string().uuid('Invalid CAD ID').nullish(),
 });
 
 /**

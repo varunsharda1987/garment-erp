@@ -190,7 +190,7 @@ export default function EmbroideryPieceSendOut() {
       cuttingBatchId: selectedCuttingBatchId,
       supplierId: selectedPO?.supplierId || '',
       quantitySent: totalQty,
-      unit: 'PCS',
+      unit: 'PIECE',
       agreedRate: parseFloat(agreedRate),
       sendDate,
       expectedReturnDate: expectedReturnDate || undefined,

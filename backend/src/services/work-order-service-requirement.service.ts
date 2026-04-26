@@ -344,9 +344,9 @@ export async function calculateRequirementsFromWorkOrder(input: CalculateService
       continue;
     }
 
-    // Calculate quantity (typically PCS for most services)
+    // Calculate quantity (typically PIECE for most services)
     const quantityRequired = workOrderQuantity;
-    const unit = 'PCS'; // Can be customized based on service type
+    const unit = Unit.PIECE; // Can be customized based on service type
 
     // Find preferred processor from rate cards
     // Note: processor_rate_card doesn't have styleId, so we match by processingType only
@@ -523,6 +523,22 @@ export async function calculateServicesForOrder(
 // ============================================
 
 /**
+ * Map ServiceType to processingType for rate card lookup.
+ * Only DYEING and PRINTING have rate card support.
+ * Returns null for other service types (they use PO history instead).
+ */
+function mapServiceTypeToRateCardProcessingType(serviceType: ServiceType): string | null {
+  switch (serviceType) {
+    case ServiceType.DYEING:
+      return 'DYEING';
+    case ServiceType.PRINTING:
+      return 'PRINTING';
+    default:
+      return null;
+  }
+}
+
+/**
  * Suggest processor for a service type
  * Uses priority algorithm: Rate Card → Recent POs → None
  */
@@ -533,42 +549,45 @@ export async function suggestProcessorForService(
   logDebug('Suggesting processor for service', { serviceType, styleId });
 
   // Priority 1: Check for processor from rate card (HIGH confidence)
-  // Note: processor_rate_card doesn't have styleId, we search by processingType (mapped from serviceType)
-  const processingTypeForRateCard = serviceType.toString(); // Map service type to processing type
-  const rateCard = await prisma.processor_rate_card.findFirst({
-    where: {
-      processingType: processingTypeForRateCard,
-      isActive: true,
-      processor: {
+  // Only DYEING and PRINTING have rate card support
+  const processingTypeForRateCard = mapServiceTypeToRateCardProcessingType(serviceType);
+
+  if (processingTypeForRateCard) {
+    const rateCard = await prisma.processor_rate_card.findFirst({
+      where: {
+        processingType: processingTypeForRateCard,
         isActive: true,
-      },
-    },
-    include: {
-      processor: {
-        select: {
-          id: true,
-          name: true,
+        processor: {
           isActive: true,
         },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  if (rateCard && rateCard.processor) {
-    logInfo('Found processor from rate card', {
-      serviceType,
-      processorId: rateCard.processorId,
+      include: {
+        processor: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
-    return {
-      serviceType,
-      suggestedProcessorId: rateCard.processorId,
-      suggestedProcessorName: rateCard.processor.name,
-      confidence: 'high',
-      reason: 'Processor from rate card',
-      alternatives: [],
-    };
+    if (rateCard && rateCard.processor) {
+      logInfo('Found processor from rate card', {
+        serviceType,
+        processorId: rateCard.processorId,
+      });
+
+      return {
+        serviceType,
+        suggestedProcessorId: rateCard.processorId,
+        suggestedProcessorName: rateCard.processor.name,
+        confidence: 'high',
+        reason: 'Processor from rate card',
+        alternatives: [],
+      };
+    }
   }
 
   // Priority 2: Check recent service PO history (MEDIUM confidence)
@@ -986,6 +1005,10 @@ export async function generateServicePO(data: {
       subtotal += Number(req.estimatedTotal || 0);
     }
 
+    // Get workOrderId from requirements (all requirements should be from same work order ideally)
+    // Use the first requirement's workOrderId for the PO link
+    const serviceWorkOrderId = requirements[0].workOrderId;
+
     // Create Purchase Order (GST header totals updated after items)
     const po = await tx.purchase_orders.create({
       data: {
@@ -994,6 +1017,7 @@ export async function generateServicePO(data: {
         supplierId: processorId,
         poCategory: poCategory,
         poSource: POSource.SERVICE_REQUIREMENT,
+        serviceWorkOrderId, // Link PO back to work order for traceability
         expectedDeliveryDate: new Date(expectedDeliveryDate),
         status: 'DRAFT',
         totalAmount: subtotal,

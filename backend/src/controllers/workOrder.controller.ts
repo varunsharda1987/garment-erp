@@ -11,7 +11,7 @@ import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { NotFoundError, UnauthorizedError, ValidationError, ConflictError, BusinessError } from '../errors';
-import { PrismaClient, ChallanType } from '@prisma/client';
+import { PrismaClient, ChallanType, Unit } from '@prisma/client';
 import { buildCuttingChartData } from './cutting.controller';
 import { createChallan, issueChallan } from '../services/challan.service';
 
@@ -545,7 +545,7 @@ export const issueFabric = async (req: Request, res: Response) => {
       fabricStockId: lot.fabricStockId,
       fabricId: lot.fabricId,
       quantity: lot.quantity,
-      unit: 'MTR',
+      unit: Unit.METER,
       description: lot.description,
     })),
   });
@@ -653,7 +653,7 @@ async function getMaterialIssuanceData(workOrderId: string, materialTypes: strin
       materialName: item.material?.name || '',
       materialType: item.materialType,
       componentName: item.componentName || '',
-      unit: item.unit || item.material?.unit || 'PCS',
+      unit: item.unit || item.material?.unit || Unit.PIECE,
       qtyPerPiece,
       orderQty,
       wastagePercent,

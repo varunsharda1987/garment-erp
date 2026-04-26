@@ -243,7 +243,7 @@ export default function StockOutForm() {
     if (challanType === 'OUTWARD' && allowedMaterialTypes.length === 1) {
       newItem.materialType = allowedMaterialTypes[0];
       newItem.stockType = MATERIAL_TO_STOCK_TYPE[allowedMaterialTypes[0]];
-      newItem.unit = allowedMaterialTypes[0] === 'GREIGE' || allowedMaterialTypes[0] === 'FABRIC' ? 'MTR' : '';
+      newItem.unit = allowedMaterialTypes[0] === 'GREIGE' || allowedMaterialTypes[0] === 'FABRIC' ? 'METER' : '';
     }
     setLineItems((prev) => [...prev, newItem]);
   };
@@ -272,7 +272,7 @@ export default function StockOutForm() {
               materialId: '',
               materialDescription: '',
               quantity: '',
-              unit: stockType === 'GREIGE' || stockType === 'FABRIC' ? 'MTR' : '',
+              unit: stockType === 'GREIGE' || stockType === 'FABRIC' ? 'METER' : '',
               availableQty: null,
               rate: null,
               foldLengthCm: '',
@@ -299,7 +299,7 @@ export default function StockOutForm() {
               materialDescription: description,
               availableQty: Number(gs.quantityAvailable),
               rate: Number(gs.purchaseCost || gs.weightedAvgCost) || null,
-              unit: 'MTR',
+              unit: 'METER',
             }
           : item
       )
@@ -320,7 +320,7 @@ export default function StockOutForm() {
               materialDescription: description,
               availableQty: fs.quantityAvailable,
               rate: fs.purchaseCost,
-              unit: 'MTR',
+              unit: 'METER',
             }
           : item
       )
@@ -470,7 +470,7 @@ export default function StockOutForm() {
     if (allowed.length === 1) {
       newLineItem.materialType = allowed[0];
       newLineItem.stockType = MATERIAL_TO_STOCK_TYPE[allowed[0]];
-      newLineItem.unit = allowed[0] === 'GREIGE' || allowed[0] === 'FABRIC' ? 'MTR' : '';
+      newLineItem.unit = allowed[0] === 'GREIGE' || allowed[0] === 'FABRIC' ? 'METER' : '';
     }
 
     setLineItems([newLineItem]);
@@ -534,7 +534,7 @@ export default function StockOutForm() {
           greigeStockId: item.greigeStockId,
           description: item.materialDescription,
           quantity: qty,
-          unit: 'MTR',
+          unit: 'METER',
           foldLengthCm: itemFoldLengthCm,
           thanCount: itemThanCount,
         };
@@ -546,7 +546,7 @@ export default function StockOutForm() {
           fabricId: fs?.fabricId,
           description: item.materialDescription,
           quantity: qty,
-          unit: 'MTR',
+          unit: 'METER',
           foldLengthCm: itemFoldLengthCm,
           thanCount: itemThanCount,
         };
@@ -557,14 +557,14 @@ export default function StockOutForm() {
           materialId: item.materialId,
           description: item.materialDescription,
           quantity: qty,
-          unit: item.unit || 'PCS',
+          unit: item.unit || 'PIECE',
         };
       }
     });
 
     // Build challan input with all items
     // Derive header unit from items (use first item's unit, or PCS as fallback)
-    const headerUnit = challanItems.length > 0 ? challanItems[0].unit : 'PCS';
+    const headerUnit = challanItems.length > 0 ? challanItems[0].unit : 'PIECE';
 
     const input: CreateChallanInput = {
       challanType,

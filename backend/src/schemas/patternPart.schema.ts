@@ -21,7 +21,7 @@ export const createPatternPartSchema = z.object({
   description: z.string().max(500).optional(),
   category: z.string().max(50).optional(),
   defaultConsumption: z.number().positive().optional(),
-  unit: z.string().max(20).optional().default('PCS'),
+  unit: z.string().max(20).optional().default('PIECE'),
   sortOrder: z.number().int().nonnegative().optional(),
   isActive: z.boolean().optional().default(true),
   remarks: z.string().max(500).optional(),

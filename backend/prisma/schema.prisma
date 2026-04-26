@@ -1157,6 +1157,8 @@ model orders {
   // Challans linked to this order
   challans                         challans[]
   external_process_send_outs       external_process_send_outs[] @relation("ExternalProcessOrder")
+  // Purchase orders linked to this order (for Manual PO traceability)
+  purchaseOrders                   purchase_orders[]            @relation("PO_Order")
 
   @@index([customerId])
   @@index([orderNumber])
@@ -1290,6 +1292,10 @@ model purchase_orders {
   poSource                                  POSource?                         @default(MANUAL)
   mrpBatchId                                String? // Group MRP POs from same bulk operation
   serviceWorkOrderId                        String? // Link to work order for service POs
+  // Optional traceability links for Manual POs
+  styleId                                   String? // Link to style for cost tracking
+  orderId                                   String? // Link to customer order
+  cadId                                     String? // Link to CAD plan (for fabric POs)
   goods_receiving_notes                     goods_receiving_notes[]
   purchase_order_items                      purchase_order_items[]
   users_purchase_orders_approvedByIdTousers users?                            @relation("purchase_orders_approvedByIdTousers", fields: [approvedById], references: [id])
@@ -1310,6 +1316,10 @@ model purchase_orders {
   // Job Work Order linked to this PO (1:1 for Process POs)
   jobWorkOrder                              job_work_orders?                  @relation("JobWorkPurchaseOrder")
   external_process_send_outs                external_process_send_outs[]      @relation("ExternalProcessPO")
+  // Optional traceability relations
+  style                                     styles?                           @relation("PO_Style", fields: [styleId], references: [id])
+  order                                     orders?                           @relation("PO_Order", fields: [orderId], references: [id])
+  cad                                       fabric_width_cad?                 @relation("PO_CAD", fields: [cadId], references: [id])
 
   @@index([poNumber])
   @@index([supplierId])
@@ -1319,6 +1329,9 @@ model purchase_orders {
   @@index([poSource])
   @@index([mrpBatchId])
   @@index([serviceWorkOrderId])
+  @@index([styleId])
+  @@index([orderId])
+  @@index([cadId])
   // Performance: composite indexes for common query patterns
   @@index([supplierId, status])
   @@index([status, createdAt])
@@ -2428,6 +2441,8 @@ model styles {
   techSpecs                   style_tech_specs?
   invoice_items               invoice_items[]
   external_process_send_outs  external_process_send_outs[] @relation("ExternalProcessStyle")
+  // Purchase orders linked to this style (for Manual PO traceability)
+  purchaseOrders              purchase_orders[]            @relation("PO_Style")
 
   @@index([customerName])
   @@index([categoryId])
@@ -4236,6 +4251,8 @@ model fabric_width_cad {
   costingFabricItems          style_costing_fabric_items[]
   styleFabrics                style_fabrics[]
   costingRun                  fabric_costing_run?          @relation(fields: [costingRunId], references: [id])
+  // Purchase orders linked to this CAD (for Manual PO traceability)
+  purchaseOrders              purchase_orders[]            @relation("PO_CAD")
 
   @@unique([costingStyleId, componentName, styleFabricId, cutableWidth, purpose, approvalStatus])
   @@index([fabricId])
@@ -8458,8 +8475,10 @@ enum Unit {
   GROSS
   TUBE
   CONE
-  SPOOL // NEW - Thread spool
-  BOX // NEW - Box packaging
+  SPOOL
+  BOX
+  PAIR
+  PACK
 }
 
 enum MaterialType {

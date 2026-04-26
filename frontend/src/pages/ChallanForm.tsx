@@ -12,6 +12,7 @@ import type { CreateChallanInput, CreateChallanItemInput } from '@/types/challan
 import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, ArrowLeft, Save } from 'lucide-react';
+import { Unit, UnitLabels } from '@/types/material.types';
 
 export default function ChallanForm() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function ChallanForm() {
         itemType: 'FABRIC',
         description: '',
         quantity: 0,
-        unit: 'MTR',
+        unit: Unit.METER,
       },
     ],
   });
@@ -48,7 +49,7 @@ export default function ChallanForm() {
   function addItem() {
     setForm((prev) => ({
       ...prev,
-      items: [...prev.items, { itemType: 'FABRIC', description: '', quantity: 0, unit: 'MTR' }],
+      items: [...prev.items, { itemType: 'FABRIC', description: '', quantity: 0, unit: Unit.METER }],
     }));
   }
 
@@ -281,16 +282,16 @@ export default function ChallanForm() {
                 </div>
                 <div className="col-span-1">
                   <Label>Unit</Label>
-                  <Select value={item.unit || 'PCS'} onValueChange={(v) => updateItem(index, 'unit', v)}>
+                  <Select value={item.unit || Unit.PIECE} onValueChange={(v) => updateItem(index, 'unit', v)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PCS">PCS</SelectItem>
-                      <SelectItem value="MTR">MTR</SelectItem>
-                      <SelectItem value="KG">KG</SelectItem>
-                      <SelectItem value="SET">SET</SelectItem>
-                      <SelectItem value="GROSS">GROSS</SelectItem>
+                      {Object.values(Unit).map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {UnitLabels[unit]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

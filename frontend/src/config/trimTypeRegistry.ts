@@ -8,6 +8,8 @@
  * in the cost sheet or combobox.
  */
 
+import { Unit } from '@/types/material.types';
+
 export interface TrimTypeEntry {
   /** MaterialType enum value (e.g., 'DRAWSTRING') */
   value: string;
@@ -25,8 +27,8 @@ export interface TrimTypeEntry {
   codeField?: string;
   /** Price field on the master record (e.g., 'pricePerMeter') */
   priceField?: string;
-  /** Default unit (e.g., 'METER') */
-  defaultUnit?: string;
+  /** Default unit (e.g., Unit.METER) */
+  defaultUnit?: Unit;
 }
 
 // Legacy trim types — use dedicated services (thread.service, button.service, etc.)
@@ -51,7 +53,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'hookEyeName',
     codeField: 'hookEyeCode',
     priceField: 'pricePerPair',
-    defaultUnit: 'PAIR',
+    defaultUnit: Unit.PAIR,
   },
   {
     value: 'SNAP_BUTTON',
@@ -62,7 +64,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'snapButtonName',
     codeField: 'snapButtonCode',
     priceField: 'pricePerPiece',
-    defaultUnit: 'PCS',
+    defaultUnit: Unit.PIECE,
   },
   {
     value: 'BUCKLE',
@@ -73,7 +75,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'buckleName',
     codeField: 'buckleCode',
     priceField: 'pricePerPiece',
-    defaultUnit: 'PCS',
+    defaultUnit: Unit.PIECE,
   },
   {
     value: 'BELT',
@@ -84,7 +86,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'beltName',
     codeField: 'beltCode',
     priceField: 'pricePerPiece',
-    defaultUnit: 'PCS',
+    defaultUnit: Unit.PIECE,
   },
   {
     value: 'VELCRO',
@@ -95,7 +97,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'velcroName',
     codeField: 'velcroCode',
     priceField: 'pricePerMeter',
-    defaultUnit: 'MTR',
+    defaultUnit: Unit.METER,
   },
   {
     value: 'OTHER_FASTENER',
@@ -106,7 +108,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'otherFastenerName',
     codeField: 'otherFastenerCode',
     priceField: 'pricePerPiece',
-    defaultUnit: 'PCS',
+    defaultUnit: Unit.PIECE,
   },
   {
     value: 'DRAWSTRING',
@@ -117,7 +119,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'drawstringName',
     codeField: 'drawstringCode',
     priceField: 'pricePerMeter',
-    defaultUnit: 'MTR',
+    defaultUnit: Unit.METER,
   },
   {
     value: 'RIBBON',
@@ -128,7 +130,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'ribbonName',
     codeField: 'ribbonCode',
     priceField: 'pricePerMeter',
-    defaultUnit: 'MTR',
+    defaultUnit: Unit.METER,
   },
   {
     value: 'OTHER_TAPE',
@@ -139,7 +141,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'otherTapeName',
     codeField: 'otherTapeCode',
     priceField: 'pricePerMeter',
-    defaultUnit: 'MTR',
+    defaultUnit: Unit.METER,
   },
   {
     value: 'SEQUIN',
@@ -150,7 +152,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'sequinName',
     codeField: 'sequinCode',
     priceField: 'pricePerMeter',
-    defaultUnit: 'MTR',
+    defaultUnit: Unit.METER,
   },
   {
     value: 'BEAD',
@@ -161,7 +163,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'beadName',
     codeField: 'beadCode',
     priceField: 'pricePerPack',
-    defaultUnit: 'PACK',
+    defaultUnit: Unit.PACK,
   },
   {
     value: 'MOTIF',
@@ -172,7 +174,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'motifName',
     codeField: 'motifCode',
     priceField: 'pricePerPiece',
-    defaultUnit: 'PCS',
+    defaultUnit: Unit.PIECE,
   },
   {
     value: 'OTHER_DECORATIVE',
@@ -183,7 +185,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'otherDecorativeName',
     codeField: 'otherDecorativeCode',
     priceField: 'pricePerPiece',
-    defaultUnit: 'PCS',
+    defaultUnit: Unit.PIECE,
   },
   {
     value: 'INTERLINING',
@@ -194,7 +196,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'interliningName',
     codeField: 'interliningCode',
     priceField: 'pricePerMeter',
-    defaultUnit: 'MTR',
+    defaultUnit: Unit.METER,
   },
   {
     value: 'PADDING',
@@ -205,7 +207,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'paddingName',
     codeField: 'paddingCode',
     priceField: 'pricePerPair',
-    defaultUnit: 'PAIR',
+    defaultUnit: Unit.PAIR,
   },
   {
     value: 'OTHER_FUNCTIONAL',
@@ -216,7 +218,7 @@ const GENERIC_TRIM_TYPES: TrimTypeEntry[] = [
     nameField: 'otherFunctionalName',
     codeField: 'otherFunctionalCode',
     priceField: 'pricePerPiece',
-    defaultUnit: 'PCS',
+    defaultUnit: Unit.PIECE,
   },
 ];
 

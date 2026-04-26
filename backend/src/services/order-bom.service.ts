@@ -7,7 +7,7 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { Prisma, order_bom, OrderBOMStatus } from '@prisma/client';
+import { Prisma, order_bom, OrderBOMStatus, Unit } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { processorRateValidationService } from './processor-rate-validation.service';
@@ -382,7 +382,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               usageCategory: 'GARMENT_TRIM',
               componentName: trim.trimName,
               quantityPerGarment: trim.trimQuantity || 1,
-              unit: 'PCS',
+              unit: Unit.PIECE,
               unitPrice: trim.trimRate ?? 0, // NOTE: Zero rate = missing data in cost sheet
               notes: 'Auto-populated from cost sheet',
               sortOrder: sortOrder++,
@@ -430,7 +430,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               usageCategory: 'PACKAGING',
               componentName: acc.accessoryName,
               quantityPerGarment: acc.accessoryQuantity || 1,
-              unit: 'PCS',
+              unit: Unit.PIECE,
               unitPrice: acc.accessoryRate ?? 0, // NOTE: Zero rate = missing data in cost sheet
               notes: 'Auto-populated from cost sheet',
               sortOrder: sortOrder++,
@@ -685,7 +685,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         totalQuantity,
         wastagePercent,
         totalWithWastage,
-        unit: material.unit || 'PCS',
+        unit: material.unit || Unit.PIECE,
         unitPrice,
         totalCost,
         componentName: material.componentName,
@@ -725,7 +725,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           totalQuantity,
           wastagePercent,
           totalWithWastage,
-          unit: trim.unit || 'PCS',
+          unit: trim.unit || Unit.PIECE,
           unitPrice,
           totalCost,
           componentName: trim.trimName,
@@ -782,7 +782,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           totalQuantity,
           wastagePercent,
           totalWithWastage,
-          unit: 'PCS',
+          unit: Unit.PIECE,
           unitPrice,
           totalCost,
           componentName: acc.accessoryName,

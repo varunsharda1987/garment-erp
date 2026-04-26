@@ -4,7 +4,7 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { styles, ProductionStage, Gender, Prisma } from '@prisma/client';
+import { styles, ProductionStage, Gender, Prisma, Unit } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
@@ -403,7 +403,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                   : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
                     ? 1
                     : 0,
-              unit: bom.unit || 'PCS',
+              unit: bom.unit || Unit.PIECE,
               unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
               totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
               notes: bom.notes || null,
@@ -1246,7 +1246,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
                       ? 1
                       : 0,
-                unit: bom.unit || 'PCS',
+                unit: bom.unit || Unit.PIECE,
                 unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
                 totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
                 notes: bom.notes || null,
@@ -2161,7 +2161,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         usageCategory: bom.usageCategory || 'GARMENT_TRIM',
         componentName: bom.componentName || null,
         quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
-        unit: bom.unit || 'PCS',
+        unit: bom.unit || Unit.PIECE,
         unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
         totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
         notes: bom.notes || null,

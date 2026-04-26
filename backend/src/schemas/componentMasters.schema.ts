@@ -47,7 +47,7 @@ export const createComponentMasterSchema = z.object({
   sortOrder: z.number().int().optional(),
   category: ComponentCategoryEnum.optional(),
   subcategory: z.string().max(100).optional(),
-  unit: z.string().max(20).optional().default('PCS'),
+  unit: z.string().max(20).optional().default('PIECE'),
   hsnCode: z.string().max(20).optional(),
   gstRate: z.number().min(0).max(100).optional(),
   supplierId: z.string().uuid('Invalid supplier ID').optional(),

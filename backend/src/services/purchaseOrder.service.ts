@@ -186,6 +186,10 @@ class PurchaseOrderService {
         paymentTerms: data.paymentTerms || supplier.paymentTerms || null,
         remarks: data.remarks || null,
         createdById: userId,
+        // Optional traceability links (for Manual POs)
+        styleId: data.styleId || null,
+        orderId: data.orderId || null,
+        cadId: data.cadId || null,
         purchase_order_items: {
           create: itemsWithTotals,
         },
@@ -372,6 +376,10 @@ class PurchaseOrderService {
           expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : undefined,
           paymentTerms: data.paymentTerms,
           remarks: data.remarks,
+          // Optional traceability links (for Manual POs)
+          styleId: data.styleId !== undefined ? data.styleId : undefined,
+          orderId: data.orderId !== undefined ? data.orderId : undefined,
+          cadId: data.cadId !== undefined ? data.cadId : undefined,
         },
       });
 
@@ -522,13 +530,20 @@ class PurchaseOrderService {
       throw new Error('Can only add items to purchase orders in DRAFT status');
     }
 
-    // Validate material exists
-    const material = await prisma.materials.findUnique({
-      where: { id: item.materialId },
-    });
+    // Validate: either materialId OR serviceType is required
+    if (!item.materialId && !item.serviceType) {
+      throw new Error('Either material ID or service type is required');
+    }
 
-    if (!material) {
-      throw new Error('Material not found');
+    // Validate material exists if materialId is provided
+    if (item.materialId) {
+      const material = await prisma.materials.findUnique({
+        where: { id: item.materialId },
+      });
+
+      if (!material) {
+        throw new Error('Material not found');
+      }
     }
 
     const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
@@ -538,6 +553,7 @@ class PurchaseOrderService {
     const gst = await gstService.calculateLineItemGST({
       lineTotal: totalPrice,
       materialId: item.materialId,
+      serviceType: item.serviceType,
       isInterstate,
       unitPrice: item.unitPrice,
     });
@@ -546,7 +562,9 @@ class PurchaseOrderService {
       data: {
         id: randomUUID(),
         poId,
-        materialId: item.materialId,
+        materialId: item.materialId || null,
+        serviceType: item.serviceType || null,
+        serviceDescription: item.serviceDescription || null,
         orderedQuantity: item.orderedQuantity,
         receivedQuantity: 0,
         unit: item.unit,
@@ -972,6 +990,33 @@ class PurchaseOrderService {
                 },
               },
             },
+          },
+        },
+      },
+      // Optional traceability relations (for Manual POs)
+      style: {
+        select: {
+          id: true,
+          styleCode: true,
+          styleName: true,
+        },
+      },
+      order: {
+        select: {
+          id: true,
+          orderNumber: true,
+          customers: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+      cad: {
+        select: {
+          id: true,
+          cutableWidth: true,
+          cadMeters: true,
+          fabric: {
+            select: { id: true, name: true },
           },
         },
       },

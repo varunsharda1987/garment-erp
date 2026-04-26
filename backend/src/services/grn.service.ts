@@ -3,7 +3,7 @@
  * Business logic for goods receiving operations with stock integration
  */
 
-import { GRNStatus, PurchaseOrderStatus, Prisma, MovementType } from '@prisma/client';
+import { GRNStatus, PurchaseOrderStatus, Prisma, MovementType, Unit } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
   CreateGRNDTO,
@@ -282,7 +282,7 @@ class GRNService {
               toName: 'Main Warehouse',
               purchaseOrderId: po.id,
               issuedById: userId,
-              unit: 'MTR',
+              unit: Unit.METER,
               remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
               items: [
                 {
@@ -290,7 +290,7 @@ class GRNService {
                   fabricId: jobWorkOrder.finishedFabricId || jobWorkOrder.fabricId,
                   description: `Processed fabric received via GRN - ${jobWorkOrder.style?.styleCode || ''}`,
                   quantity: actualMeters,
-                  unit: 'MTR',
+                  unit: Unit.METER,
                 },
               ],
             });

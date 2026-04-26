@@ -189,7 +189,7 @@ export default function HandworkSendOut() {
       stitchingIssueId: selectedStitchingIssueId,
       supplierId: selectedPO?.supplierId || '',
       quantitySent: totalQty,
-      unit: 'PCS',
+      unit: 'PIECE',
       agreedRate: parseFloat(agreedRate),
       sendDate,
       expectedReturnDate: expectedReturnDate || undefined,

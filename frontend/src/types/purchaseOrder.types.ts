@@ -150,20 +150,19 @@ export interface POStats {
 }
 
 export const Unit = {
-  PCS: 'PCS',
-  METERS: 'METERS',
-  YARDS: 'YARDS',
-  KGS: 'KGS',
-  GRAMS: 'GRAMS',
-  ROLLS: 'ROLLS',
-  SETS: 'SETS',
-  DOZENS: 'DOZENS',
+  METER: 'METER',
+  PIECE: 'PIECE',
+  KILOGRAM: 'KILOGRAM',
+  SET: 'SET',
+  YARD: 'YARD',
+  DOZEN: 'DOZEN',
   GROSS: 'GROSS',
-  PAIRS: 'PAIRS',
-  BOXES: 'BOXES',
-  CONES: 'CONES',
-  SPOOLS: 'SPOOLS',
-  LITERS: 'LITERS',
+  TUBE: 'TUBE',
+  CONE: 'CONE',
+  SPOOL: 'SPOOL',
+  BOX: 'BOX',
+  PAIR: 'PAIR',
+  PACK: 'PACK',
 } as const;
 
 export type Unit = (typeof Unit)[keyof typeof Unit];
@@ -276,10 +275,24 @@ export interface PurchaseOrder {
   approvedById: string | null;
   createdAt: string;
 
+  // Optional traceability links (for Manual POs)
+  styleId?: string | null;
+  orderId?: string | null;
+  cadId?: string | null;
+
   // Relations (post-serializer names — RELATION_MAPPINGS renames these)
   supplier?: SupplierSummary;
   items?: PurchaseOrderItem[];
   createdBy?: UserSummary;
+  // Traceability relations
+  style?: { id: string; styleCode: string; styleName: string } | null;
+  order?: { id: string; orderNumber: string; customers?: { id: string; name: string } } | null;
+  cad?: {
+    id: string;
+    cutableWidth: number;
+    cadMeters: number | null;
+    fabric?: { id: string; name: string } | null;
+  } | null;
 
   // Computed by getReceivablePurchaseOrders (extracted from requirement_po_links)
   styleCodes?: string[];
@@ -321,6 +334,10 @@ export interface CreatePurchaseOrderRequest {
   remarks?: string;
   poCategory?: string; // POCategory enum value
   items: CreatePurchaseOrderItemRequest[];
+  // Optional traceability links (for Manual POs)
+  styleId?: string | null;
+  orderId?: string | null;
+  cadId?: string | null;
 }
 
 export interface UpdatePurchaseOrderRequest {
@@ -329,6 +346,10 @@ export interface UpdatePurchaseOrderRequest {
   paymentTerms?: string;
   remarks?: string;
   items?: CreatePurchaseOrderItemRequest[]; // If provided, replaces all existing items
+  // Optional traceability links (for Manual POs)
+  styleId?: string | null;
+  orderId?: string | null;
+  cadId?: string | null;
 }
 
 export interface UpdatePurchaseOrderItemRequest {

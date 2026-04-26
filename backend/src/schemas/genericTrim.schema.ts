@@ -42,7 +42,7 @@ export const createGenericTrimSchema = z
     material: z.string().max(100).optional(),
     color: z.string().max(50).optional(),
     size: z.string().max(50).optional(),
-    unit: z.string().max(20).optional().default('PCS'),
+    unit: z.string().max(20).optional().default('PIECE'),
     supplierId: z.string().uuid('Invalid supplier ID').optional(),
     price: z.number().nonnegative().optional(),
     minOrderQty: z.number().int().nonnegative().optional(),

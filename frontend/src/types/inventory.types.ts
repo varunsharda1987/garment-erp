@@ -58,19 +58,19 @@ export const CountStatus = {
 export type CountStatus = (typeof CountStatus)[keyof typeof CountStatus];
 
 export const Unit = {
-  PIECE: 'PIECE',
   METER: 'METER',
-  YARD: 'YARD',
+  PIECE: 'PIECE',
   KILOGRAM: 'KILOGRAM',
-  GRAM: 'GRAM',
-  CONE: 'CONE',
-  SPOOL: 'SPOOL',
-  ROLL: 'ROLL',
-  BOX: 'BOX',
   SET: 'SET',
+  YARD: 'YARD',
   DOZEN: 'DOZEN',
   GROSS: 'GROSS',
-  LITER: 'LITER',
+  TUBE: 'TUBE',
+  CONE: 'CONE',
+  SPOOL: 'SPOOL',
+  BOX: 'BOX',
+  PAIR: 'PAIR',
+  PACK: 'PACK',
 } as const;
 export type Unit = (typeof Unit)[keyof typeof Unit];
 

@@ -5,7 +5,7 @@
 
 import prisma from '../config/database';
 import { randomUUID } from 'crypto';
-import { PurchaseOrderStatus, POCategory as PrismaPOCategory, POSource } from '@prisma/client';
+import { PurchaseOrderStatus, POCategory as PrismaPOCategory, POSource, Unit } from '@prisma/client';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { Decimal } from '@prisma/client/runtime/library';
 import { gstService } from './gst.service';
@@ -155,7 +155,7 @@ class CostSheetPOGenerationService {
           materialName: fabricItem.fabricName || fabricItem.greige?.greigeName || '',
           materialType: 'GREIGE',
           consumptionPerUnit,
-          unit: 'MTR',
+          unit: Unit.METER,
           requiredQty,
           availableStock: greigeStockInfo.available,
           shortfall: Math.max(0, requiredQty - greigeStockInfo.available),
@@ -174,7 +174,7 @@ class CostSheetPOGenerationService {
             materialName: fabricItem.fabricName || fabricItem.greige?.greigeName || '',
             materialType: 'PROCESSING',
             consumptionPerUnit,
-            unit: 'MTR',
+            unit: Unit.METER,
             requiredQty,
             availableStock: 0,
             shortfall: requiredQty,
@@ -196,7 +196,7 @@ class CostSheetPOGenerationService {
           materialName: fabricItem.fabricName || fabricItem.fabric?.fabricName || '',
           materialType: 'FABRIC',
           consumptionPerUnit,
-          unit: 'MTR',
+          unit: Unit.METER,
           requiredQty,
           availableStock: stockInfo.available,
           shortfall: Math.max(0, requiredQty - stockInfo.available),
@@ -285,7 +285,7 @@ class CostSheetPOGenerationService {
         materialName: trim.trimName || trim.name || '',
         materialType: trim.materialType || trim.type || 'TRIMS',
         consumptionPerUnit,
-        unit: trim.unit || 'PCS',
+        unit: trim.unit || Unit.PIECE,
         requiredQty,
         availableStock: stockInfo.available,
         shortfall: Math.max(0, requiredQty - stockInfo.available),
@@ -341,7 +341,7 @@ class CostSheetPOGenerationService {
         materialName: laceItem.laceName || laceItem.lace?.laceName || '',
         materialType: 'LACE',
         consumptionPerUnit,
-        unit: 'MTR',
+        unit: Unit.METER,
         requiredQty,
         availableStock: stockInfo.available,
         shortfall: Math.max(0, requiredQty - stockInfo.available),
@@ -502,7 +502,7 @@ class CostSheetPOGenerationService {
       available,
       reserved,
       total: available - reserved,
-      unit: 'MTR',
+      unit: Unit.METER,
     };
   }
 
@@ -530,7 +530,7 @@ class CostSheetPOGenerationService {
       available,
       reserved,
       total: available + reserved,
-      unit: 'MTR',
+      unit: Unit.METER,
     };
   }
 

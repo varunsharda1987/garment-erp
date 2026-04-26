@@ -155,7 +155,7 @@ const initialState: StyleFormState = {
   productTaxRule: '',
   bulletPoints: '',
   accountingSKU: '',
-  accountingUnit: 'PCS',
+  accountingUnit: 'PIECE',
   imageUrl: '',
   uploadingImage: false,
 

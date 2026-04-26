@@ -6,13 +6,14 @@
  * Creates markdown reference and validates serializer conversions.
  *
  * Usage:
- *   node scripts/skills/api-docs.js [--generate|--validate|--list|--help]
+ *   node scripts/skills/api-docs.js [--generate|--validate|--list|--find <keyword>|--help]
  *
  * Modes:
- *   --generate  Generate API documentation (default)
- *   --validate  Validate routes and serializer mappings
- *   --list      List all API endpoints
- *   --help      Show usage information
+ *   --generate       Generate API documentation (default)
+ *   --validate       Validate routes and serializer mappings
+ *   --list           List all API endpoints
+ *   --find <keyword> Search endpoints by keyword (PREVENTS DUPLICATES)
+ *   --help           Show usage information
  */
 
 const fs = require('fs');
@@ -66,6 +67,118 @@ function scanRoutes() {
       routes,
     };
   });
+}
+
+/**
+ * Get base API path from route file name
+ */
+function getBasePath(fileName) {
+  const name = fileName.replace('.routes.ts', '').replace('.ts', '');
+  // Handle special cases where route registration differs from file name
+  const pathMap = {
+    'index': '',
+    'auth': 'auth',
+    'user': 'users',
+  };
+  return pathMap[name] || name;
+}
+
+/**
+ * Find endpoints by keyword - PREVENTS DUPLICATE ENDPOINT CREATION
+ * This should be run BEFORE proposing any new endpoint
+ */
+function findEndpoints(keyword) {
+  console.log(`\n${colors.bright}${colors.cyan}=== Searching Endpoints for: "${keyword}" ===${colors.reset}\n`);
+
+  const keywords = keyword.toLowerCase().split(/\s+/);
+  const routeFiles = scanRoutes();
+  const matches = [];
+
+  for (const file of routeFiles) {
+    const basePath = getBasePath(file.name);
+
+    for (const route of file.routes) {
+      // Search in path, file name, and base path
+      const searchText = `${route.path} ${file.name} ${basePath}`.toLowerCase();
+
+      // Check if ANY keyword matches
+      const matchedKeywords = keywords.filter(k => searchText.includes(k));
+
+      if (matchedKeywords.length > 0) {
+        matches.push({
+          method: route.method,
+          path: route.path,
+          file: file.name,
+          basePath,
+          fullPath: `/api/${basePath}${route.path}`,
+          matchedKeywords,
+          score: matchedKeywords.length, // Higher score = more keywords matched
+        });
+      }
+    }
+  }
+
+  // Sort by score (most matches first), then by path
+  matches.sort((a, b) => b.score - a.score || a.fullPath.localeCompare(b.fullPath));
+
+  if (matches.length === 0) {
+    console.log(`${colors.yellow}No endpoints found matching "${keyword}"${colors.reset}\n`);
+    console.log(`${colors.green}✓ Safe to create new endpoint for this functionality${colors.reset}\n`);
+    return true;
+  }
+
+  // Group by similarity to detect potential overlaps
+  const pathGroups = new Map();
+  for (const match of matches) {
+    // Extract core path pattern (remove :params)
+    const corePath = match.fullPath.replace(/:[^/]+/g, ':param').replace(/\/+$/, '');
+    if (!pathGroups.has(corePath)) {
+      pathGroups.set(corePath, []);
+    }
+    pathGroups.get(corePath).push(match);
+  }
+
+  console.log(`${colors.bright}Found ${matches.length} matching endpoint(s):${colors.reset}\n`);
+
+  // Display results
+  for (const match of matches) {
+    const methodColor = {
+      'GET': colors.cyan,
+      'POST': colors.green,
+      'PUT': colors.yellow,
+      'PATCH': colors.blue,
+      'DELETE': colors.red,
+    }[match.method] || colors.reset;
+
+    console.log(`  ${methodColor}${match.method.padEnd(7)}${colors.reset} ${match.fullPath}`);
+    console.log(`           ${colors.bright}File:${colors.reset} ${match.file}`);
+    if (match.matchedKeywords.length > 1) {
+      console.log(`           ${colors.bright}Matched:${colors.reset} ${match.matchedKeywords.join(', ')}`);
+    }
+    console.log('');
+  }
+
+  // Flag potential overlaps
+  const overlaps = Array.from(pathGroups.entries()).filter(([, endpoints]) => endpoints.length > 1);
+  if (overlaps.length > 0) {
+    console.log(`${colors.yellow}${colors.bright}⚠️  Potential Overlaps Detected:${colors.reset}\n`);
+    for (const [pattern, endpoints] of overlaps) {
+      console.log(`  Pattern: ${pattern}`);
+      for (const ep of endpoints) {
+        console.log(`    - ${ep.method} ${ep.fullPath} (${ep.file})`);
+      }
+      console.log('');
+    }
+  }
+
+  // Summary and recommendation
+  console.log(`${colors.bright}─────────────────────────────────────────${colors.reset}`);
+  console.log(`${colors.yellow}${colors.bright}⚠️  BEFORE creating a new endpoint:${colors.reset}`);
+  console.log(`   1. Check if any endpoint above serves your need`);
+  console.log(`   2. Consider extending existing endpoint if close match`);
+  console.log(`   3. Only create new if genuinely no overlap\n`);
+
+  return true;
 }
 
 /**
@@ -202,15 +315,21 @@ function showHelp() {
 ${colors.bright}API Documentation Generator Skill${colors.reset}
 
 ${colors.bright}Usage:${colors.reset}
-  node scripts/skills/api-docs.js [--generate|--validate|--list|--help]
+  node scripts/skills/api-docs.js [--generate|--validate|--list|--find <keyword>|--help]
 
 ${colors.bright}Modes:${colors.reset}
-  --generate  Generate API documentation markdown (default)
-  --validate  Validate routes and check for duplicates
-  --list      List all API endpoints
-  --help      Show this help message
+  --generate        Generate API documentation markdown (default)
+  --validate        Validate routes and check for duplicates
+  --list            List all API endpoints
+  --find <keyword>  ${colors.yellow}Search endpoints by keyword (USE BEFORE CREATING NEW!)${colors.reset}
+  --help            Show this help message
 
 ${colors.bright}Examples:${colors.reset}
+  ${colors.cyan}# Search before creating new endpoint${colors.reset}
+  node scripts/skills/api-docs.js --find "style fabric"
+  node scripts/skills/api-docs.js --find "greige"
+  node scripts/skills/api-docs.js --find "cad planning"
+
   ${colors.cyan}# Generate docs${colors.reset}
   node scripts/skills/api-docs.js --generate
 
@@ -226,10 +345,15 @@ ${colors.bright}Output:${colors.reset}
   - Validates: Serializer camelCase conversions
 
 ${colors.bright}What this provides:${colors.reset}
+  - ${colors.yellow}Duplicate prevention via --find${colors.reset}
   - Auto-generated API documentation
   - Endpoint listing with HTTP methods
   - Duplicate route detection
   - Serializer transformation notes
+
+${colors.bright}${colors.yellow}IMPORTANT:${colors.reset}
+  Always run ${colors.cyan}--find${colors.reset} before proposing new endpoints!
+  This prevents creating duplicate/overlapping functionality.
   `);
 }
 
@@ -250,6 +374,15 @@ function main() {
     case '--list':
       return listEndpoints() ? 0 : 1;
 
+    case '--find':
+      const keyword = args.slice(1).join(' ');
+      if (!keyword) {
+        console.error(`${colors.red}Error: --find requires a keyword${colors.reset}`);
+        console.error('Usage: node scripts/skills/api-docs.js --find "style fabric"');
+        return 1;
+      }
+      return findEndpoints(keyword) ? 0 : 1;
+
     case '--help':
       showHelp();
       return 0;
@@ -267,4 +400,4 @@ if (require.main === module) {
   process.exit(exitCode);
 }
 
-module.exports = { generateDocs, validateRoutes, listEndpoints, scanRoutes };
+module.exports = { generateDocs, validateRoutes, listEndpoints, findEndpoints, scanRoutes };

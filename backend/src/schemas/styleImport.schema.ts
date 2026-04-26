@@ -38,7 +38,7 @@ export const styleStockEntrySchema = z.object({
   receivedDate: z.coerce.date().optional(),
   patternPartId: z.string().uuid().optional(),
   fabricFinishType: z.enum(['DYED', 'PRINTED', 'YARN_DYED', 'RAW']).optional(),
-  unit: z.string().max(20).optional().default('MTR'),
+  unit: z.string().max(20).optional().default('METER'),
   lotNumber: z.string().max(50).optional(),
   greigeId: z.string().uuid('Invalid greige ID').optional(),
   supplierId: z.string().uuid('Invalid supplier ID').optional(),
@@ -71,7 +71,7 @@ export const bulkStockQuerySchema = z.object({
 export const createGreigeStockSchema = z.object({
   greigeId: z.string().uuid('Invalid greige ID'),
   quantity: z.number().positive('Quantity must be positive'),
-  unit: z.string().max(20).optional().default('MTR'),
+  unit: z.string().max(20).optional().default('METER'),
   lotNumber: z.string().max(50).optional(),
   supplierId: z.string().uuid('Invalid supplier ID').optional(),
   grnId: z.string().uuid('Invalid GRN ID').optional(),

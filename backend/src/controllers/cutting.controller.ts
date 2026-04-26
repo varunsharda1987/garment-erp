@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
-import { Prisma } from '@prisma/client';
+import { Prisma, Unit } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { transformCuttingBatch, generateBatchNumber, batchIncludeOptions } from './cutting.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
@@ -301,7 +301,7 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
           fabricStockId: stock.id,
           fabricId: stock.fabricId,
           quantity: Math.round(issueQty * 100) / 100, // Round to 2 decimals
-          unit: 'MTR',
+          unit: Unit.METER,
           description: desc,
         });
       }

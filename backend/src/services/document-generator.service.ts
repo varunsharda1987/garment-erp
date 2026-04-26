@@ -13,7 +13,7 @@
 
 import PDFDocument from 'pdfkit';
 import ExcelJS from 'exceljs';
-import { Prisma } from '@prisma/client';
+import { Prisma, Unit } from '@prisma/client';
 import prisma from '../config/database';
 import { COMPANY_CONFIG, amountToWords, INVOICE_TERMS, DEFAULT_HSN_CODES } from '../config/company.config';
 import path from 'path';
@@ -3935,7 +3935,7 @@ From ${COMPANY_CONFIG.name}
       xPos += colWidths.description;
       doc.text(qty.toString(), xPos + 3, y + 4, { width: colWidths.qty - 6, align: 'center' });
       xPos += colWidths.qty;
-      doc.text(item.unit || 'PCS', xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
+      doc.text(item.unit || Unit.PIECE, xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
       xPos += colWidths.unit;
       doc.text(rate > 0 ? `₹${rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, {
         width: colWidths.rate - 6,

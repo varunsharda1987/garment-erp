@@ -2068,7 +2068,9 @@ export async function generatePOFromRequirements(
 
     for (const req of requirements) {
       // PROCESSING requirements: never merge (each is a distinct processing job)
-      const key = req.requirementType === 'PROCESSING' ? req.id : req.materialId;
+      // For fabrics/greige: include width in key to prevent merging different widths
+      const widthKey = req.fabricWidth ? `-W${Number(req.fabricWidth)}` : '';
+      const key = req.requirementType === 'PROCESSING' ? req.id : `${req.materialId}${widthKey}`;
       // Priority: manual override → cost sheet / processing rate → supplier price → 0
       const price =
         itemPrices?.[key] ??

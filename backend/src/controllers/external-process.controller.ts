@@ -5,7 +5,7 @@
 
 import { Request, Response } from 'express';
 import { externalProcessService } from '../services/external-process.service';
-import { ExternalProcessType, ExternalProcessStatus } from '@prisma/client';
+import { ExternalProcessType, ExternalProcessStatus, Unit } from '@prisma/client';
 import { UnauthorizedError, ValidationError, NotFoundError } from '../errors';
 
 class ExternalProcessController {
@@ -66,7 +66,7 @@ class ExternalProcessController {
       stitchingIssueId,
       supplierId,
       quantitySent: parseFloat(quantitySent),
-      unit: unit || 'PCS',
+      unit: unit || Unit.PIECE,
       agreedRate: parseFloat(agreedRate),
       sendDate: new Date(sendDate),
       expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : undefined,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,10 @@ import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { getAllMaterials } from '@/services/material.service';
 import { getSupplierById } from '@/services/supplier.service';
+import { getAllStyles } from '@/services/style.service';
+import { getAllOrders } from '@/services/order.service';
+import { cadPlanningService } from '@/services/cad-planning.service';
+import type { CADTableData, CADSpreadsheetRow } from '@/types/cad-planning.types';
 import {
   createPurchaseOrder,
   getPurchaseOrderById,
@@ -34,6 +38,7 @@ import {
   PO_GROUP_CATEGORIES,
 } from '@/types/purchaseOrder.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrency } from '@/lib/currency';
 import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
 import type { GreigeForRateCard, PrintingTypeV2 } from '@/types/processorRateCardV2.types';
@@ -165,9 +170,18 @@ function isMaterialCategory(category: string): boolean {
 }
 
 function getDefaultUnit(category: string): Unit {
-  if (PO_GROUP_CATEGORIES.processing.includes(category)) return 'METERS';
-  if (PO_GROUP_CATEGORIES.service.includes(category)) return 'PCS';
-  return 'PCS';
+  if (PO_GROUP_CATEGORIES.processing.includes(category)) return 'METER';
+  if (PO_GROUP_CATEGORIES.service.includes(category)) return 'PIECE';
+  return 'PIECE';
+}
+
+// Get approved CAD rows that have greige info (for Processing PO creation)
+function getApprovedCADRowsWithGreige(cadData: CADTableData | null): CADSpreadsheetRow[] {
+  if (!cadData?.cadRows) return [];
+  return cadData.cadRows.filter(
+    (row) =>
+      row.greigeId && row.greigeName && row.approvalStatus === 'APPROVED' && row.purpose === 'RAW_MATERIAL_CALCULATION'
+  );
 }
 
 // ============================================
@@ -197,12 +211,35 @@ export default function PurchaseOrderForm() {
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [materialSearch, setMaterialSearch] = useState('');
   const [quickAddMaterialId, setQuickAddMaterialId] = useState('');
+  const [materialDisplayLimit, setMaterialDisplayLimit] = useState(50);
+
+  // AbortController for cancelling stale fetch requests
+  const fetchAbortControllerRef = useRef<AbortController | null>(null);
+  // Track current supplier for race condition protection
+  const currentSupplierIdRef = useRef<string>('');
 
   // Processing PO state
   const [processingType, setProcessingType] = useState<'DYEING' | 'PRINTING'>('DYEING');
   const [printingType, setPrintingType] = useState('');
   const [greigeFabrics, setGreigeFabrics] = useState<GreigeForRateCard[]>([]);
   const [isLoadingGreiges, setIsLoadingGreiges] = useState(false);
+
+  // Traceability state (optional links for Manual POs)
+  const [styleId, setStyleId] = useState<string>('');
+  const [orderId, setOrderId] = useState<string>('');
+  const [styles, setStyles] = useState<Array<{ id: string; styleCode: string; styleName: string; cadStatus?: string }>>(
+    []
+  );
+  const [orders, setOrders] = useState<Array<{ id: string; orderNumber: string; customerName?: string }>>([]);
+  const [isLoadingStyles, setIsLoadingStyles] = useState(false);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+
+  // CAD data for selected style (enables Processing PO creation from approved CAD)
+  const [styleCADData, setStyleCADData] = useState<CADTableData | null>(null);
+  const [isLoadingCAD, setIsLoadingCAD] = useState(false);
+
+  // Auth state for gating API calls
+  const token = useAuthStore((state) => state.token);
 
   const isProcessing = isProcessingCategory(poCategory);
   const isService = isServiceCategory(poCategory);
@@ -215,22 +252,111 @@ export default function PurchaseOrderForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
 
+  // Fetch styles on mount (for traceability) - only when authenticated
+  // Filter to ACTIVE styles only, include cadStatus for Processing PO detection
+  useEffect(() => {
+    if (!token) return; // Wait for auth
+    const fetchStyles = async () => {
+      setIsLoadingStyles(true);
+      try {
+        // Pass status='ACTIVE' to filter out DRAFT styles
+        const response = await getAllStyles(1, 500, undefined, undefined, undefined, undefined, 'ACTIVE');
+        setStyles(
+          response.data.map((s: { id: string; styleCode: string; styleName: string; cadStatus?: string }) => ({
+            id: s.id,
+            styleCode: s.styleCode,
+            styleName: s.styleName,
+            cadStatus: s.cadStatus,
+          }))
+        );
+      } catch {
+        // Silently fail - styles are optional for traceability
+        setStyles([]);
+      } finally {
+        setIsLoadingStyles(false);
+      }
+    };
+    fetchStyles();
+  }, [token]);
+
+  // Fetch CAD data when style is selected (for Processing PO creation from approved CAD)
+  useEffect(() => {
+    if (!styleId || !token) {
+      setStyleCADData(null);
+      return;
+    }
+    const fetchCADData = async () => {
+      setIsLoadingCAD(true);
+      try {
+        const response = await cadPlanningService.getCADTableData(styleId);
+        setStyleCADData(response.data);
+      } catch {
+        // Style may not have CAD data - that's OK
+        setStyleCADData(null);
+      } finally {
+        setIsLoadingCAD(false);
+      }
+    };
+    fetchCADData();
+  }, [styleId, token]);
+
+  // Fetch orders (for traceability) - only when authenticated
+  useEffect(() => {
+    if (!token) return; // Wait for auth
+    const fetchOrdersList = async () => {
+      setIsLoadingOrders(true);
+      try {
+        const response = await getAllOrders({ limit: 100 });
+        setOrders(
+          response.data.map((o: { id: string; orderNumber: string; customer?: { name: string } }) => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            customerName: o.customer?.name,
+          }))
+        );
+      } catch {
+        // Silently fail - orders are optional for traceability
+        setOrders([]);
+      } finally {
+        setIsLoadingOrders(false);
+      }
+    };
+    fetchOrdersList();
+  }, [token]);
+
   // Fetch materials when supplier changes (for material POs)
   // Uses OR logic: materials linked to supplier OR matching the PO category's material types
   const fetchMaterials = async (forSupplierId?: string, skipSupplierFilter = false) => {
+    // Cancel any previous fetch request to prevent race conditions
+    if (fetchAbortControllerRef.current) {
+      fetchAbortControllerRef.current.abort();
+    }
+    fetchAbortControllerRef.current = new AbortController();
+    const currentController = fetchAbortControllerRef.current;
+
     setIsLoadingMaterials(true);
+    setMaterialDisplayLimit(50); // Reset pagination when fetching new materials
     try {
       const types = PO_CATEGORY_TO_MATERIAL_TYPES[poCategory];
       const response = await getAllMaterials({
-        limit: 200,
+        limit: 500, // Increased limit to get more materials
         supplierId: skipSupplierFilter ? undefined : forSupplierId || undefined,
         materialTypes: types ? types.join(',') : undefined,
       });
-      setMaterials(response.data as unknown as Material[]);
+      // Only update state if this request wasn't aborted
+      if (!currentController.signal.aborted) {
+        setMaterials(response.data as unknown as Material[]);
+      }
     } catch (err) {
-      handleApiError(err, 'Failed to load materials', false);
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') return;
+      if (!currentController.signal.aborted) {
+        handleApiError(err, 'Failed to load materials', false);
+      }
     } finally {
-      setIsLoadingMaterials(false);
+      if (!currentController.signal.aborted) {
+        setIsLoadingMaterials(false);
+      }
     }
   };
 
@@ -264,6 +390,10 @@ export default function PurchaseOrderForm() {
       setExpectedDeliveryDate(po.expectedDeliveryDate.split('T')[0]);
       setPaymentTerms(po.paymentTerms || '');
       setRemarks(po.remarks || '');
+
+      // Load traceability links
+      if (po.styleId) setStyleId(po.styleId);
+      if (po.orderId) setOrderId(po.orderId);
 
       if (po.items && po.items.length > 0) {
         const loadedItems: POItemForm[] = po.items.map((item, index) => ({
@@ -308,6 +438,8 @@ export default function PurchaseOrderForm() {
   };
 
   const handleSupplierChange = async (newSupplierId: string) => {
+    // Update ref immediately for race condition protection
+    currentSupplierIdRef.current = newSupplierId;
     setSupplierId(newSupplierId);
     setItems([]);
     setMaterials([]);
@@ -317,12 +449,15 @@ export default function PurchaseOrderForm() {
       return;
     }
 
-    // Fetch supplier details
+    // Fetch supplier details with race condition protection
     try {
       const supplier = await getSupplierById(newSupplierId);
-      setSelectedSupplier(supplier as unknown as Supplier);
-      if (supplier.paymentTerms && !paymentTerms) {
-        setPaymentTerms(supplier.paymentTerms);
+      // Only update state if this supplier is still the selected one
+      if (currentSupplierIdRef.current === newSupplierId) {
+        setSelectedSupplier(supplier as unknown as Supplier);
+        if (supplier.paymentTerms && !paymentTerms) {
+          setPaymentTerms(supplier.paymentTerms);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch supplier details:', err);
@@ -350,7 +485,7 @@ export default function PurchaseOrderForm() {
       materialCode: material.code,
       materialName: material.name,
       orderedQuantity: '1',
-      unit: (material.unit as Unit) || 'PCS',
+      unit: (material.unit as Unit) || 'PIECE',
       unitPrice: String(material.costPerUnit || 0),
       totalPrice: material.costPerUnit || 0,
       remarks: '',
@@ -407,7 +542,7 @@ export default function PurchaseOrderForm() {
       serviceType: processingType,
       serviceDescription: '',
       orderedQuantity: '1',
-      unit: 'MTR',
+      unit: 'METER',
       unitPrice: '0',
       totalPrice: 0,
       remarks: '',
@@ -428,7 +563,7 @@ export default function PurchaseOrderForm() {
         quantity,
         processingType === 'PRINTING' ? (printingType as PrintingTypeV2) : undefined
       );
-      if (result) {
+      if (result && result.ratePerMeter > 0) {
         setItems((prev) =>
           prev.map((item) => {
             if (item.tempId !== tempId) return item;
@@ -441,10 +576,21 @@ export default function PurchaseOrderForm() {
             };
           })
         );
+      } else {
+        // No rate found in rate card - notify user
+        handleApiError(
+          new Error('No rate found for this processor/greige combination. Please enter the rate manually.'),
+          'Rate Lookup',
+          false
+        );
       }
     } catch (err) {
-      // Non-blocking — user can enter rate manually
-      console.error('Rate lookup failed:', err);
+      // Rate lookup failed - notify user to enter manually
+      handleApiError(
+        new Error('Could not fetch processor rate. Please enter the rate manually.'),
+        'Rate Lookup Failed',
+        false
+      );
     }
   };
 
@@ -560,6 +706,9 @@ export default function PurchaseOrderForm() {
         paymentTerms: paymentTerms || undefined,
         remarks: remarks || undefined,
         items: itemsData,
+        // Optional traceability links
+        styleId: styleId || null,
+        orderId: orderId || null,
       };
 
       let savedPO;
@@ -570,6 +719,9 @@ export default function PurchaseOrderForm() {
           paymentTerms: paymentTerms || undefined,
           remarks: remarks || undefined,
           items: itemsData,
+          // Optional traceability links
+          styleId: styleId || null,
+          orderId: orderId || null,
         });
         handleApiSuccess('Purchase order updated', `PO ${savedPO.poNumber} has been updated.`);
       } else {
@@ -797,6 +949,101 @@ export default function PurchaseOrderForm() {
               </div>
             </div>
           )}
+
+          {/* Traceability Links (Optional) */}
+          <div className="mt-4 pt-4 border-t">
+            <h4 className="font-medium mb-3 text-sm text-muted-foreground">Traceability (Optional)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Link to Style</Label>
+                <Combobox
+                  options={styles.map((s) => ({
+                    value: s.id,
+                    label: `${s.styleCode} - ${s.styleName}`,
+                    searchText: `${s.styleCode} ${s.styleName}`,
+                  }))}
+                  value={styleId}
+                  onValueChange={setStyleId}
+                  placeholder={isLoadingStyles ? 'Loading styles...' : 'Select style (optional)...'}
+                  searchPlaceholder="Search by code or name..."
+                  emptyText={isLoadingStyles ? 'Loading...' : 'No styles found.'}
+                  disabled={isLoadingStyles}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Link to Order</Label>
+                <Combobox
+                  options={orders.map((o) => ({
+                    value: o.id,
+                    label: `${o.orderNumber}${o.customerName ? ` - ${o.customerName}` : ''}`,
+                    searchText: `${o.orderNumber} ${o.customerName || ''}`,
+                  }))}
+                  value={orderId}
+                  onValueChange={setOrderId}
+                  placeholder={isLoadingOrders ? 'Loading orders...' : 'Select order (optional)...'}
+                  searchPlaceholder="Search by order number..."
+                  emptyText={isLoadingOrders ? 'Loading...' : 'No orders found.'}
+                  disabled={isLoadingOrders}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Linking to a style or order improves cost tracking and audit trails.
+            </p>
+
+            {/* Processing PO from CAD - shown when style has approved CAD with greige */}
+            {styleId &&
+              !isLoadingCAD &&
+              (() => {
+                const approvedRows = getApprovedCADRowsWithGreige(styleCADData);
+                if (approvedRows.length === 0) return null;
+
+                return (
+                  <div className="mt-4 p-3 bg-accent/10 border border-accent/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-accent">Processing Available</p>
+                        <p className="text-xs text-muted-foreground">
+                          This style has {approvedRows.length} approved CAD{approvedRows.length > 1 ? 's' : ''} with
+                          greige ready for dyeing/printing.
+                        </p>
+                      </div>
+                      {poCategory !== 'PROCESSING' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // Switch to PROCESSING category
+                            setPoCategory('PROCESSING');
+                            // Clear supplier to let user select processor
+                            setSupplierId('');
+                            setSelectedSupplier(null);
+                            // Clear items
+                            setItems([]);
+                          }}
+                        >
+                          Create Processing PO
+                        </Button>
+                      )}
+                    </div>
+                    {poCategory === 'PROCESSING' && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <p className="font-medium mb-1">Available greige fabrics:</p>
+                        <ul className="list-disc list-inside">
+                          {approvedRows.map((row) => (
+                            <li key={row.id}>
+                              {row.greigeName} - {row.cutableWidth}" width
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+            {isLoadingCAD && styleId && <p className="text-xs text-muted-foreground mt-2">Loading CAD data...</p>}
+          </div>
         </CardContent>
       </Card>
 
@@ -1062,36 +1309,49 @@ export default function PurchaseOrderForm() {
                 {filteredMaterials.length === 0 ? (
                   <div className="text-center py-4 text-muted-foreground">No materials found for this supplier</div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Unit</TableHead>
-                        <TableHead></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredMaterials.slice(0, 50).map((material) => (
-                        <TableRow key={material.id}>
-                          <TableCell className="font-medium">{material.code}</TableCell>
-                          <TableCell>{material.name}</TableCell>
-                          <TableCell>{material.materialType}</TableCell>
-                          <TableCell>{material.unit || '-'}</TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              onClick={() => addMaterialItem(material)}
-                              disabled={items.some((i) => i.materialId === material.id)}
-                            >
-                              {items.some((i) => i.materialId === material.id) ? 'Added' : 'Add'}
-                            </Button>
-                          </TableCell>
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Code</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Unit</TableHead>
+                          <TableHead></TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredMaterials.slice(0, materialDisplayLimit).map((material) => (
+                          <TableRow key={material.id}>
+                            <TableCell className="font-medium">{material.code}</TableCell>
+                            <TableCell>{material.name}</TableCell>
+                            <TableCell>{material.materialType}</TableCell>
+                            <TableCell>{material.unit || '-'}</TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                onClick={() => addMaterialItem(material)}
+                                disabled={items.some((i) => i.materialId === material.id)}
+                              >
+                                {items.some((i) => i.materialId === material.id) ? 'Added' : 'Add'}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {filteredMaterials.length > materialDisplayLimit && (
+                      <div className="flex justify-center py-3 border-t">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMaterialDisplayLimit((prev) => prev + 50)}
+                        >
+                          Load More ({filteredMaterials.length - materialDisplayLimit} remaining)
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>

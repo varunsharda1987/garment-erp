@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { BusinessError, NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import prisma from '../config/database';
-import { Prisma } from '@prisma/client';
+import { Prisma, Unit } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
@@ -1818,7 +1818,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
       purchaseOrderId: po.id,
       vehicleNumber,
       issuedById: userId,
-      unit: 'MTR',
+      unit: Unit.METER,
       remarks: challanNumber ? `Manual challan ref: ${challanNumber}` : undefined,
       items: [
         {
@@ -1827,7 +1827,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
           greigeStockId: job.greigeStockLotId || undefined,
           description: `Greige fabric for Printing - ${job.style?.styleCode || ''}`,
           quantity: Number(job.qtySentMeters),
-          unit: 'MTR',
+          unit: Unit.METER,
           rate: Number(job.agreedRatePerMeter),
         },
       ],
@@ -1970,7 +1970,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
       toName: 'Main Warehouse',
       purchaseOrderId: po.id,
       issuedById: userId,
-      unit: 'MTR',
+      unit: Unit.METER,
       remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
       items: [
         {
@@ -1978,7 +1978,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
           fabricId: job.finishedFabricId || job.fabricId,
           description: `Printed fabric received - ${job.style?.styleCode || ''}`,
           quantity: actualMeters,
-          unit: 'MTR',
+          unit: Unit.METER,
         },
       ],
     });
@@ -2296,7 +2296,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
       toName: 'Main Warehouse',
       purchaseOrderId: po.id,
       issuedById: userId,
-      unit: 'MTR',
+      unit: Unit.METER,
       remarks: `Unprocessed greige returned${remarks ? ': ' + remarks : ''}`,
       items: [
         {
@@ -2305,7 +2305,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
           greigeStockId: job.greigeStockLotId || undefined,
           description: `Unprocessed greige fabric returned - ${job.style?.styleCode || ''}`,
           quantity: returnedQtyMeters,
-          unit: 'MTR',
+          unit: Unit.METER,
         },
       ],
     });

@@ -6,7 +6,7 @@
 
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
-import { ChallanType } from '@prisma/client';
+import { ChallanType, Unit } from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { createChallan } from './challan.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
@@ -197,7 +197,7 @@ class EmbroideryStockService {
           {
             itemType: 'FABRIC',
             quantity: data.quantitySent,
-            unit: 'MTR',
+            unit: Unit.METER,
             description: `Fabric for embroidery — ${result.embroidery?.designName || 'Design'}`,
           },
         ],

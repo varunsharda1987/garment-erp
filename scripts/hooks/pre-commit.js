@@ -172,6 +172,41 @@ function checkSchemaControllerAlignment() {
 }
 
 /**
+ * Check for new routes being added - warns about duplicate prevention
+ */
+function checkNewRoutes() {
+  const stagedFiles = getStagedFiles();
+  const routeFiles = stagedFiles.filter(f =>
+    f.includes('backend/src/routes/') && f.endsWith('.ts')
+  );
+
+  if (routeFiles.length === 0) return { hasNewRoutes: false, files: [] };
+
+  const newRoutes = [];
+
+  for (const file of routeFiles) {
+    try {
+      // Get the diff for this file
+      const diff = execSync(`git diff --cached ${file}`, { encoding: 'utf-8' });
+
+      // Find new router.get/post/put/patch/delete lines
+      const addedRoutes = diff.match(/^\+.*router\.(get|post|put|patch|delete)\(['"][^'"]+['"]/gm);
+
+      if (addedRoutes && addedRoutes.length > 0) {
+        newRoutes.push({
+          file,
+          routes: addedRoutes.map(r => r.replace(/^\+\s*/, '').trim())
+        });
+      }
+    } catch (e) {
+      // File might not exist or git diff failed
+    }
+  }
+
+  return { hasNewRoutes: newRoutes.length > 0, files: newRoutes };
+}
+
+/**
  * Check for console.log statements
  */
 function checkForConsoleLogs() {
@@ -241,6 +276,23 @@ function main() {
     }
   }
 
+  // Check for new routes being added - warn about duplicate prevention
+  const { hasNewRoutes, files: routeChanges } = checkNewRoutes();
+  if (hasNewRoutes) {
+    console.log(`${colors.yellow}${colors.bright}⚠️  New API Routes Detected:${colors.reset}\n`);
+    for (const { file, routes } of routeChanges) {
+      console.log(`  ${colors.cyan}${file}${colors.reset}`);
+      for (const route of routes) {
+        console.log(`    + ${route}`);
+      }
+    }
+    console.log(`\n${colors.yellow}${colors.bright}BEFORE committing new endpoints:${colors.reset}`);
+    console.log(`  1. Search for existing similar endpoints:`);
+    console.log(`     ${colors.cyan}node scripts/skills/api-docs.js --find "<keyword>"${colors.reset}`);
+    console.log(`  2. Verify no duplicate functionality exists`);
+    console.log(`  3. Document in reference_endpoint_duplicates.md if needed\n`);
+  }
+
   if (!allPassed) {
     console.log(`${colors.red}✗ Pre-commit checks failed${colors.reset}`);
     console.log(`${colors.cyan}Fix the issues above before committing${colors.reset}\n`);
@@ -255,4 +307,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { main, checkConsoleLogs, getStagedFiles };
+module.exports = { main, checkConsoleLogs, getStagedFiles, checkNewRoutes };

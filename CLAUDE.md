@@ -391,13 +391,14 @@ Auto-generates API documentation from route files.
 
 **Usage:**
 ```bash
-node scripts/skills/api-docs.js [--generate|--validate|--list|--help]
+node scripts/skills/api-docs.js [--generate|--validate|--list|--find <keyword>|--help]
 ```
 
 **Modes:**
 - `--generate` (default) - Generate API documentation markdown
 - `--validate` - Validate routes and check for duplicates
 - `--list` - List all API endpoints with HTTP methods
+- `--find <keyword>` - **SEARCH existing endpoints (PREVENTS DUPLICATES)**
 
 **What it does:**
 - Scans 80+ route files automatically
@@ -405,6 +406,14 @@ node scripts/skills/api-docs.js [--generate|--validate|--list|--help]
 - Lists endpoints with HTTP methods
 - Validates for duplicate routes
 - Includes serializer transformation notes
+- **Searches 1174+ endpoints to prevent duplicate creation**
+
+**CRITICAL - Before proposing new endpoints:**
+```bash
+node scripts/skills/api-docs.js --find "style fabric"
+node scripts/skills/api-docs.js --find "greige"
+node scripts/skills/api-docs.js --find "cad planning"
+```
 
 **Hours → minutes** for API documentation
 
@@ -634,7 +643,7 @@ node scripts/hooks/post-docs-update.js
 | `/sync-types` | Type synchronization validation | 30x faster (30 min → <1 min) |
 | `/db-workflow` | Database operations automation | 5x speedup (4 cmds → 1) |
 | `/test-all` | Unified test orchestration | 8+ commands → 1 |
-| `/api-docs` | API documentation generation | Hours → minutes |
+| `/api-docs` | API docs + **--find prevents duplicates** | Hours → minutes + duplicate prevention |
 | `/commit-smart` | Intelligent commit messages + scope analysis | Consistent quality + split warnings |
 | `/validate-docs` | Documentation quality validation | Prevents drift, ensures accuracy |
 | `/scaffold-module` | CRUD module code generation | 45-60 min → 2 min per module |
@@ -647,7 +656,7 @@ node scripts/hooks/post-docs-update.js
 | Hook | Triggers | Blocks? | Purpose |
 |------|----------|---------|---------|
 | `post-type-change` | Type files change | No | Auto-validate type sync |
-| `pre-commit` | Before commit | Yes | Doc link validation + console.log |
+| `pre-commit` | Before commit | Yes | Doc links + console.log + **new route detection** |
 | `pre-migration` | Before migration | Yes | Schema validation + safety + auto-gen mappings |
 | `post-docs-update` | Docs change | No | Link validation + timestamps |
 

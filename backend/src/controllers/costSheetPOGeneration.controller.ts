@@ -187,6 +187,112 @@ export const generateTrimsPO = async (req: Request, res: Response) => {
 };
 
 /**
+ * @route POST /api/cost-sheet-po/generate/lace
+ * @desc Generate Ready Lace PO from cost sheet
+ * @access Private
+ */
+export const generateLacePO = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+
+  const { costSheetId, totalOrderQty, supplierId, items, notes } = req.body;
+
+  if (!costSheetId || !totalOrderQty || !supplierId || !items || items.length === 0) {
+    throw new ValidationError('Missing required fields: costSheetId, totalOrderQty, supplierId, items');
+  }
+
+  const result = await costSheetPOGenerationService.generateLacePO({
+    costSheetId,
+    totalOrderQty,
+    userId,
+    supplierId,
+    items,
+    notes,
+  });
+
+  logInfo(`Lace PO generated: ${result.poNumber}`);
+
+  res.status(201).json({
+    success: true,
+    data: result,
+    message: 'Lace PO generated successfully',
+  });
+};
+
+/**
+ * @route POST /api/cost-sheet-po/generate/greige-lace
+ * @desc Generate Greige Lace PO from cost sheet
+ * @access Private
+ */
+export const generateGreigeLacePO = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+
+  const { costSheetId, totalOrderQty, supplierId, items, notes } = req.body;
+
+  if (!costSheetId || !totalOrderQty || !supplierId || !items || items.length === 0) {
+    throw new ValidationError('Missing required fields: costSheetId, totalOrderQty, supplierId, items');
+  }
+
+  const result = await costSheetPOGenerationService.generateGreigeLacePO({
+    costSheetId,
+    totalOrderQty,
+    userId,
+    supplierId,
+    items,
+    notes,
+  });
+
+  logInfo(`Greige Lace PO generated: ${result.poNumber}`);
+
+  res.status(201).json({
+    success: true,
+    data: result,
+    message: 'Greige Lace PO generated successfully',
+  });
+};
+
+/**
+ * @route POST /api/cost-sheet-po/generate/lace-processing
+ * @desc Generate Lace Processing PO from cost sheet
+ * @access Private
+ */
+export const generateLaceProcessingPO = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+
+  const { costSheetId, totalOrderQty, processorId, items, linkedGreigeLacePOId, notes } = req.body;
+
+  if (!costSheetId || !totalOrderQty || !processorId || !items || items.length === 0) {
+    throw new ValidationError('Missing required fields: costSheetId, totalOrderQty, processorId, items');
+  }
+
+  const result = await costSheetPOGenerationService.generateLaceProcessingPO({
+    costSheetId,
+    totalOrderQty,
+    userId,
+    processorId,
+    items,
+    linkedGreigeLacePOId,
+    notes,
+  });
+
+  logInfo(`Lace Processing PO generated: ${result.poNumber}`);
+
+  res.status(201).json({
+    success: true,
+    data: result,
+    message: 'Lace Processing PO generated successfully',
+  });
+};
+
+/**
  * @route GET /api/cost-sheet-po/status/:costSheetId
  * @desc Get PO generation status for a cost sheet
  * @access Private

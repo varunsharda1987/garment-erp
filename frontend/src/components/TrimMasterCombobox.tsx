@@ -8,6 +8,7 @@ import { getAllLabels } from '@/services/label.service';
 import { getAllPackaging } from '@/services/packaging.service';
 import { getAll as getGenericTrims } from '@/services/genericTrim.service';
 import { TRIM_TYPE_REGISTRY } from '@/config/trimTypeRegistry';
+import { Unit } from '@/types/material.types';
 
 export interface TrimMasterSelection {
   masterId: string;
@@ -92,7 +93,7 @@ const MASTER_CONFIG: Record<
     getName: (item) => getStringField(item, 'threadName', 'name'),
     getCode: (item) => getStringField(item, 'threadCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerCone'),
-    getUnit: () => 'LOT',
+    getUnit: () => Unit.CONE,
     idField: 'threadId',
   },
   BUTTON: {
@@ -100,7 +101,7 @@ const MASTER_CONFIG: Record<
     getName: (item) => getStringField(item, 'buttonName', 'name'),
     getCode: (item) => getStringField(item, 'buttonCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerPiece'),
-    getUnit: () => 'PCS',
+    getUnit: () => Unit.PIECE,
     idField: 'buttonId',
   },
   ZIPPER: {
@@ -108,7 +109,7 @@ const MASTER_CONFIG: Record<
     getName: (item) => getStringField(item, 'zipperName', 'name'),
     getCode: (item) => getStringField(item, 'zipperCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerPiece'),
-    getUnit: () => 'PCS',
+    getUnit: () => Unit.PIECE,
     idField: 'zipperId',
   },
   ELASTIC: {
@@ -116,7 +117,7 @@ const MASTER_CONFIG: Record<
     getName: (item) => getStringField(item, 'elasticName', 'name'),
     getCode: (item) => getStringField(item, 'elasticCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerMeter'),
-    getUnit: () => 'MTR',
+    getUnit: () => Unit.METER,
     idField: 'elasticId',
   },
   LABEL: {
@@ -124,7 +125,7 @@ const MASTER_CONFIG: Record<
     getName: (item) => getStringField(item, 'labelName', 'name'),
     getCode: (item) => getStringField(item, 'labelCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerPiece'),
-    getUnit: () => 'PCS',
+    getUnit: () => Unit.PIECE,
     idField: 'labelId',
   },
   PACKAGING: {
@@ -132,7 +133,7 @@ const MASTER_CONFIG: Record<
     getName: (item) => getStringField(item, 'packagingName', 'name'),
     getCode: (item) => getStringField(item, 'packagingCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerPiece'),
-    getUnit: () => 'PCS',
+    getUnit: () => Unit.PIECE,
     idField: 'packagingId',
   },
   // Generic trim types — auto-generated from registry
@@ -149,7 +150,7 @@ const MASTER_CONFIG: Record<
           getName: (item: TrimMasterItem) => getStringField(item, entry.nameField!, 'name'),
           getCode: (item: TrimMasterItem) => getStringField(item, entry.codeField!, 'code'),
           getPrice: (item: TrimMasterItem) => getNumericField(item, entry.priceField!),
-          getUnit: () => entry.defaultUnit || 'PCS',
+          getUnit: () => entry.defaultUnit || Unit.PIECE,
           idField: entry.idField as keyof TrimMasterSelection,
         },
       ])

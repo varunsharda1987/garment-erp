@@ -20,7 +20,7 @@ export const createThreadRequirementSchema = z.object({
   styleId: z.string().uuid('Invalid style ID').optional(),
   quantityRequired: z.number().positive('Quantity required must be positive'),
   quantityAllocated: z.number().nonnegative().optional().default(0),
-  unit: z.string().max(20).optional().default('MTR'),
+  unit: z.string().max(20).optional().default('METER'),
   color: z.string().max(50).optional(),
   usage: z.string().max(100).optional(),
   remarks: z.string().max(500).optional(),

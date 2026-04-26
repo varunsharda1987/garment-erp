@@ -25,7 +25,7 @@ const sendOutItemSchema = z.object({
   // colorId accepts CUID (color_master uses @default(cuid()))
   colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID (expected UUID or CUID)' }).optional(),
   quantity: z.number().positive('Quantity must be positive'),
-  unit: z.string().max(20).optional().default('PCS'),
+  unit: z.string().max(20).optional().default('PIECE'),
   remarks: z.string().max(500).optional(),
 });
 

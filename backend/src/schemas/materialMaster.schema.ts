@@ -49,7 +49,7 @@ export const createMaterialSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   description: z.string().max(500).optional(),
   category: z.string().max(100).optional(),
-  unit: z.string().max(20).optional().default('PCS'),
+  unit: z.string().max(20).optional().default('PIECE'),
   supplierId: z.string().uuid('Invalid supplier ID').optional(),
   price: z.number().nonnegative().optional(),
   minOrderQty: z.number().int().nonnegative().optional(),

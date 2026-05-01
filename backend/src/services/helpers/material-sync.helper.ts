@@ -94,17 +94,19 @@ export async function ensureMaterialRecord(masterId: string, masterType: string)
 
 /**
  * Syncs stock_levels after a stock quantity change.
- * Uses updateMany so it's a no-op if no stock_levels entry exists yet.
+ * Uses updateMany for existing records, creates new record if needed.
  *
  * @param materialId - The materials.id (= masterId by convention)
  * @param change - Positive for increase, negative for decrease
  * @param warehouseId - Optional warehouse ID to scope the update (if omitted, updates all warehouses - use with caution)
+ * @param unit - Optional unit for new stock_levels records (default: PIECE)
  * @param tx - Optional Prisma transaction client for atomicity
  */
 export async function syncStockLevelQuantity(
   materialId: string,
   change: number,
   warehouseId?: string,
+  unit: string = 'PIECE',
   tx?: any
 ): Promise<void> {
   if (change === 0) return;
@@ -134,6 +136,7 @@ export async function syncStockLevelQuantity(
           materialId,
           warehouseId,
           quantity: change,
+          unit: unit as any,
           lastUpdated: new Date(),
         },
       });

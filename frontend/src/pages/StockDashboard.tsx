@@ -17,7 +17,7 @@ import greigeStockService from '../services/greigeStock.service';
 import type { Warehouse as WarehouseType, StockLevel } from '../types/inventory-exports';
 import type { FabricStockSummary } from '../types/fabricStock.types';
 import type { GreigeStockSummary } from '../types/greigeStock.types';
-import type { MaterialTypeSummary } from '../types/dashboard.types';
+import type { StockSummaryByType } from '../services/stockLevel.service';
 import { logError } from '../lib/logger';
 import { formatCurrencyWhole } from '@/lib/currency';
 import { formatMaterialType } from '@/lib/formatters';
@@ -29,9 +29,10 @@ export default function StockDashboard() {
 
   // Dashboard data
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
-  const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
+  const [stockSummary, setStockSummary] = useState<StockSummaryByType[]>([]);
   const [lowStockItems, setLowStockItems] = useState<StockLevel[]>([]);
   const [trimValue, setTrimValue] = useState(0);
+  const [totalTrimItems, setTotalTrimItems] = useState(0);
 
   // Fabric & Greige summaries
   const [fabricSummary, setFabricSummary] = useState<FabricStockSummary | null>(null);
@@ -46,10 +47,10 @@ export default function StockDashboard() {
       setLoading(true);
       setError(null);
 
-      // Load data in parallel
-      const [warehousesData, stockData, lowStockData, valuationData, fabricData, greigeData] = await Promise.all([
+      // Load data in parallel - use unified summary for efficiency
+      const [warehousesData, summaryData, lowStockData, valuationData, fabricData, greigeData] = await Promise.all([
         warehouseService.getAll({ isActive: true }),
-        stockLevelService.getAll(),
+        stockLevelService.getSummaryByType(),
         stockLevelService.getBelowReorderLevel(),
         stockLevelService.getValuationReport(),
         fabricStockService.getSummary().catch(() => null),
@@ -57,9 +58,10 @@ export default function StockDashboard() {
       ]);
 
       setWarehouses(warehousesData);
-      setStockLevels(stockData);
+      setStockSummary(summaryData);
       setLowStockItems(lowStockData);
       setTrimValue(valuationData.totalValue);
+      setTotalTrimItems(summaryData.reduce((sum, s) => sum + s.totalRecords, 0));
       setFabricSummary(fabricData);
       setGreigeSummary(greigeData);
     } catch (err: unknown) {
@@ -71,28 +73,9 @@ export default function StockDashboard() {
     }
   };
 
-  // Calculate trim metrics by material type
-  const trimsByType: MaterialTypeSummary[] = stockLevels.reduce((acc, item) => {
-    const materialType = item.materials?.materialType || 'OTHER';
-    const existing = acc.find((t) => t.materialType === materialType);
-    const itemValue = Number(item.quantity) * Number(item.valuationRate || 0);
-
-    if (existing) {
-      existing.count += 1;
-      existing.value += itemValue;
-    } else {
-      acc.push({
-        materialType,
-        count: 1,
-        value: itemValue,
-      });
-    }
-    return acc;
-  }, [] as MaterialTypeSummary[]);
-
-  // Calculate combined metrics
+  // Calculate combined metrics using unified summary data
   const totalInventoryValue = trimValue + (fabricSummary?.totalValue || 0) + (greigeSummary?.totalValue || 0);
-  const totalMaterials = stockLevels.length + (fabricSummary?.totalItems || 0) + (greigeSummary?.totalItems || 0);
+  const totalMaterials = totalTrimItems + (fabricSummary?.totalItems || 0) + (greigeSummary?.totalItems || 0);
   const totalAlerts =
     lowStockItems.length + (fabricSummary?.agingStockCount || 0) + (greigeSummary?.agingStockCount || 0);
 
@@ -140,7 +123,7 @@ export default function StockDashboard() {
         <StatCard
           title="Total Materials"
           value={totalMaterials.toString()}
-          description={`${fabricSummary?.totalItems || 0} Fabric + ${greigeSummary?.totalItems || 0} Greige + ${stockLevels.length} Trims`}
+          description={`${fabricSummary?.totalItems || 0} Fabric + ${greigeSummary?.totalItems || 0} Greige + ${totalTrimItems} Trims`}
           icon={Package}
           iconColor="text-success"
           iconBgColor="bg-success-muted"
@@ -262,7 +245,7 @@ export default function StockDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="bg-primary/10 rounded-lg p-4">
               <p className="text-sm text-muted-foreground mb-1">Total Materials</p>
-              <p className="text-2xl font-bold text-orange-900">{stockLevels.length}</p>
+              <p className="text-2xl font-bold text-orange-900">{totalTrimItems}</p>
             </div>
             <div className="bg-primary/10 rounded-lg p-4">
               <p className="text-sm text-muted-foreground mb-1">Total Value</p>
@@ -273,17 +256,17 @@ export default function StockDashboard() {
               <p className="text-2xl font-bold text-yellow-700">{lowStockItems.length}</p>
             </div>
           </div>
-          {trimsByType.length > 0 && (
+          {stockSummary.length > 0 && (
             <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground mb-2">By Material Type:</p>
+              <p className="text-sm font-medium text-muted-foreground mb-2">By Material Type (from unified view):</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {trimsByType.map((item) => (
+                {stockSummary.map((item) => (
                   <div
                     key={item.materialType}
                     className="flex justify-between items-center bg-muted rounded p-2 text-sm"
                   >
                     <span className="font-medium">{formatMaterialType(item.materialType)}</span>
-                    <Badge variant="secondary">{item.count} items</Badge>
+                    <Badge variant="secondary">{item.totalRecords} items</Badge>
                   </div>
                 ))}
               </div>

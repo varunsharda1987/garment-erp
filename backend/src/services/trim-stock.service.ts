@@ -168,7 +168,8 @@ class TrimStockService {
 
       // Ensure materials record exists + sync stock_levels
       const materialId = await ensureMaterialRecord(data.masterId, data.trimType);
-      await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId);
+      const unitForStockLevel = stockData.unit.toUpperCase() === 'PIECES' ? 'PIECE' : stockData.unit.toUpperCase();
+      await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId, unitForStockLevel);
 
       logInfo(
         `Created ${data.trimType.toLowerCase()}_stock for ${master[config.masterCodeField]}: ${data.quantity} ${stockData.unit}`

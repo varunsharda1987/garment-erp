@@ -4,6 +4,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import stockLevelService from './stockLevel.service';
+import { routeToSpecializedStock } from './helpers/stock-routing.helper';
 
 export interface CreateStockMovementDTO {
   movementType: MovementType;
@@ -247,6 +248,21 @@ class StockMovementService {
       // Update stock level inside transaction for atomicity (using ACTUAL quantity)
       await this.increaseStockInTx(tx, data.materialId, data.warehouseId, actualQty, data.unit, data.rate);
 
+      // Route to specialized stock table based on material type
+      await routeToSpecializedStock(
+        {
+          materialId: data.materialId,
+          quantity: Number(actualQty),
+          rate: data.rate ? Number(data.rate) : undefined,
+          warehouseId: data.warehouseId,
+          foldLengthCm: data.foldLengthCm ? Number(data.foldLengthCm) : undefined,
+          thanCount: data.thanCount,
+          invoiceNumber: data.invoiceNumber,
+          performedById: data.performedById,
+        },
+        tx
+      );
+
       return movement;
     });
   }
@@ -330,6 +346,21 @@ class StockMovementService {
 
         // Update stock level inside transaction for atomicity (using ACTUAL quantity)
         await this.increaseStockInTx(tx, item.materialId, data.warehouseId, actualQty, item.unit, item.rate);
+
+        // Route to specialized stock table based on material type
+        await routeToSpecializedStock(
+          {
+            materialId: item.materialId,
+            quantity: Number(actualQty),
+            rate: item.rate ? Number(item.rate) : undefined,
+            warehouseId: data.warehouseId,
+            foldLengthCm: item.foldLengthCm ? Number(item.foldLengthCm) : undefined,
+            thanCount: item.thanCount,
+            invoiceNumber: data.invoiceNumber,
+            performedById: data.performedById,
+          },
+          tx
+        );
 
         movements.push(movement);
       }

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { trimStockService } from '../services/trim-stock.service';
 
 // Type for supplier input
 interface OtherMaterialSupplierInput {
@@ -390,6 +391,7 @@ export const deleteOtherMaterial = async (req: Request, res: Response) => {
  */
 export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
+  const userId = (req as any).user?.id || 'system';
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     throw new ValidationError('No data provided for import');
@@ -462,19 +464,21 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
         },
       });
 
-      // Create stock if requested
+      // Create stock if requested - using specialized other_material_stock table
       let stockCreated = false;
       if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
-        await prisma.stock_levels.create({
-          data: {
-            warehouseId: defaultWarehouse.id,
-            materialId,
+        await trimStockService.createTrimStock(
+          {
+            trimType: 'OTHER_MATERIAL',
+            masterId: materialRecord.id,
             quantity: parseFloat(row.stockQuantity),
             unit: row.unit || 'PIECE',
-            reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
-            maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
+            purchaseCost: row.purchaseCost ? parseFloat(row.purchaseCost) : 0,
+            warehouseId: defaultWarehouse.id,
+            sourceType: 'IMPORT',
           },
-        });
+          userId
+        );
         stockCreated = true;
       }
 

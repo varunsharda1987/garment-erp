@@ -1,5 +1,5 @@
 // Stock Movement Service - API calls for stock transactions
-import axios from 'axios';
+import api from '@/lib/api';
 import type {
   StockMovement,
   CreateStockInDTO,
@@ -12,21 +12,7 @@ import type {
   ApiResponse,
 } from '../types/inventory.types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const BASE_URL = `${API_URL}/stock-movements`;
-
-const getAuthHeader = () => {
-  const authStorage = localStorage.getItem('auth-storage');
-  if (authStorage) {
-    try {
-      const { state } = JSON.parse(authStorage);
-      return state?.token ? { Authorization: `Bearer ${state.token}` } : {};
-    } catch {
-      return {};
-    }
-  }
-  return {};
-};
+const BASE_URL = '/stock-movements';
 
 export const stockMovementService = {
   /**
@@ -40,9 +26,8 @@ export const stockMovementService = {
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
 
-    const response = await axios.get<ApiResponse<StockMovement[]>>(
-      `${BASE_URL}${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<StockMovement[]>>(
+      `${BASE_URL}${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data || [];
   },
@@ -51,7 +36,7 @@ export const stockMovementService = {
    * Get stock movement by ID
    */
   async getById(id: string): Promise<StockMovement> {
-    const response = await axios.get<ApiResponse<StockMovement>>(`${BASE_URL}/${id}`, { headers: getAuthHeader() });
+    const response = await api.get<ApiResponse<StockMovement>>(`${BASE_URL}/${id}`);
     if (!response.data.data) throw new Error('Stock movement not found');
     return response.data.data;
   },
@@ -70,9 +55,8 @@ export const stockMovementService = {
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
 
-    const response = await axios.get<ApiResponse<StockMovement[]>>(
-      `${BASE_URL}/material/${materialId}/history${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<StockMovement[]>>(
+      `${BASE_URL}/material/${materialId}/history${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data || [];
   },
@@ -81,9 +65,8 @@ export const stockMovementService = {
    * Get movement summary for warehouse
    */
   async getMovementSummary(warehouseId: string, startDate: string, endDate: string): Promise<MovementSummary> {
-    const response = await axios.get<ApiResponse<MovementSummary>>(
-      `${BASE_URL}/summary/${warehouseId}?startDate=${startDate}&endDate=${endDate}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<MovementSummary>>(
+      `${BASE_URL}/summary/${warehouseId}?startDate=${startDate}&endDate=${endDate}`
     );
     return response.data.data || { totalIn: 0, totalOut: 0, totalTransfer: 0, netChange: 0 };
   },
@@ -101,9 +84,8 @@ export const stockMovementService = {
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
 
-    const response = await axios.get<ApiResponse<StockTransaction[]>>(
-      `${BASE_URL}/ledger/${materialId}/${warehouseId}${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<StockTransaction[]>>(
+      `${BASE_URL}/ledger/${materialId}/${warehouseId}${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data || [];
   },
@@ -112,9 +94,7 @@ export const stockMovementService = {
    * Create stock IN (receipt)
    */
   async createStockIn(data: CreateStockInDTO): Promise<StockMovement> {
-    const response = await axios.post<ApiResponse<StockMovement>>(`${BASE_URL}/stock-in`, data, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.post<ApiResponse<StockMovement>>(`${BASE_URL}/stock-in`, data);
     if (!response.data.data) throw new Error('Failed to create stock in');
     return response.data.data;
   },
@@ -140,11 +120,9 @@ export const stockMovementService = {
       remarks?: string;
     }>;
   }): Promise<{ batchId: string; movements: StockMovement[]; itemCount: number; totalQuantity: string }> {
-    const response = await axios.post<
+    const response = await api.post<
       ApiResponse<{ batchId: string; movements: StockMovement[]; itemCount: number; totalQuantity: string }>
-    >(`${BASE_URL}/bulk-stock-in`, data, {
-      headers: getAuthHeader(),
-    });
+    >(`${BASE_URL}/bulk-stock-in`, data);
     if (!response.data.data) throw new Error('Failed to create bulk stock in');
     return response.data.data;
   },
@@ -153,9 +131,7 @@ export const stockMovementService = {
    * Create stock OUT (issue)
    */
   async createStockOut(data: CreateStockOutDTO): Promise<StockMovement> {
-    const response = await axios.post<ApiResponse<StockMovement>>(`${BASE_URL}/stock-out`, data, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.post<ApiResponse<StockMovement>>(`${BASE_URL}/stock-out`, data);
     if (!response.data.data) throw new Error('Failed to create stock out');
     return response.data.data;
   },
@@ -166,10 +142,9 @@ export const stockMovementService = {
   async createTransfer(
     data: CreateStockTransferDTO
   ): Promise<{ transferOut: StockMovement; transferIn: StockMovement }> {
-    const response = await axios.post<ApiResponse<{ transferOut: StockMovement; transferIn: StockMovement }>>(
+    const response = await api.post<ApiResponse<{ transferOut: StockMovement; transferIn: StockMovement }>>(
       `${BASE_URL}/transfer`,
-      data,
-      { headers: getAuthHeader() }
+      data
     );
     if (!response.data.data) throw new Error('Failed to create stock transfer');
     return response.data.data;
@@ -179,9 +154,7 @@ export const stockMovementService = {
    * Create stock adjustment
    */
   async createAdjustment(data: CreateStockAdjustmentDTO): Promise<StockMovement> {
-    const response = await axios.post<ApiResponse<StockMovement>>(`${BASE_URL}/adjustment`, data, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.post<ApiResponse<StockMovement>>(`${BASE_URL}/adjustment`, data);
     if (!response.data.data) throw new Error('Failed to create stock adjustment');
     return response.data.data;
   },
@@ -195,14 +168,71 @@ export const stockMovementService = {
     warehouseId: string;
     remarks?: string;
   }): Promise<{ receivedQuantity: number; remainingAtProcessor: number }> {
-    const response = await axios.post<ApiResponse<{ receivedQuantity: number; remainingAtProcessor: number }>>(
+    const response = await api.post<ApiResponse<{ receivedQuantity: number; remainingAtProcessor: number }>>(
       `${BASE_URL}/processor-return`,
-      data,
-      { headers: getAuthHeader() }
+      data
     );
     if (!response.data.data) throw new Error('Failed to process processor return');
     return response.data.data;
   },
+
+  /**
+   * Get unified material movements from all sources
+   */
+  async getUnifiedMovements(filters?: {
+    supplierId?: string;
+    invoiceNumber?: string;
+    direction?: 'INWARD' | 'OUTWARD' | 'TRANSFER' | 'ADJUSTMENT';
+    materialType?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    data: UnifiedMovement[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }> {
+    const params = new URLSearchParams();
+    if (filters?.supplierId) params.append('supplierId', filters.supplierId);
+    if (filters?.invoiceNumber) params.append('invoiceNumber', filters.invoiceNumber);
+    if (filters?.direction) params.append('direction', filters.direction);
+    if (filters?.materialType) params.append('materialType', filters.materialType);
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.limit) params.append('limit', String(filters.limit));
+
+    const response = await api.get<{
+      success: boolean;
+      data: UnifiedMovement[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>(`${BASE_URL}/unified${params.toString() ? '?' + params.toString() : ''}`);
+    return {
+      data: response.data.data || [],
+      pagination: response.data.pagination || { page: 1, limit: 50, total: 0, totalPages: 0 },
+    };
+  },
 };
+
+// Unified Movement Type
+export interface UnifiedMovement {
+  id: string;
+  date: string;
+  direction: 'INWARD' | 'OUTWARD' | 'TRANSFER' | 'ADJUSTMENT';
+  supplierName: string | null;
+  supplierCode: string | null;
+  materialName: string;
+  materialCode: string;
+  quantity: number;
+  unit: string;
+  invoiceNumber: string | null;
+  rate: number | null;
+  totalValue: number | null;
+  sourceType: 'STOCK_MOVEMENT' | 'GREIGE_STOCK' | 'FABRIC_STOCK' | 'GRN' | 'PROCUREMENT' | 'CHALLAN';
+  sourceId: string;
+  sourceNumber: string;
+}
 
 export default stockMovementService;

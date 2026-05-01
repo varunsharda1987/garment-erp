@@ -27,7 +27,8 @@ export interface CreateLaceStockInput {
   originStyleCode?: string;
   procurementId?: string;
   processingBatchId?: string;
-  warehouseLocation?: string;
+  warehouseId?: string; // Preferred: proper FK to warehouses
+  warehouseLocation?: string; // Legacy: text location
   rackNumber?: string;
   quantityAvailable: number;
   weightedAvgCost: number;
@@ -115,6 +116,7 @@ export async function createLaceStock(input: CreateLaceStockInput) {
       originStyleCode: input.originStyleCode,
       procurementId: input.procurementId,
       processingBatchId: input.processingBatchId,
+      warehouseId: input.warehouseId,
       warehouseLocation: input.warehouseLocation,
       rackNumber: input.rackNumber,
       quantityAvailable: input.quantityAvailable,
@@ -155,7 +157,7 @@ export async function createLaceStock(input: CreateLaceStockInput) {
 
   // Ensure materials record exists + sync stock_levels
   await ensureMaterialRecord(input.laceId, 'LACE');
-  await syncStockLevelQuantity(input.laceId, Number(input.quantityAvailable));
+  await syncStockLevelQuantity(input.laceId, Number(input.quantityAvailable), input.warehouseId);
 
   return stock;
 }

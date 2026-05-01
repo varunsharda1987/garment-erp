@@ -29,6 +29,18 @@ const MASTER_CONFIG: Record<string, { table: string; codeField: string; nameFiel
     nameField: 'packagingName',
     fkField: 'packagingId',
   },
+  MACHINE_PART: {
+    table: 'machine_part_master',
+    codeField: 'partCode',
+    nameField: 'partName',
+    fkField: 'machinePartId',
+  },
+  OTHER_MATERIAL: {
+    table: 'other_material_master',
+    codeField: 'materialCode',
+    nameField: 'materialName',
+    fkField: 'otherMaterialId',
+  },
 };
 
 /**
@@ -86,28 +98,54 @@ export async function ensureMaterialRecord(masterId: string, masterType: string)
  *
  * @param materialId - The materials.id (= masterId by convention)
  * @param change - Positive for increase, negative for decrease
+ * @param warehouseId - Optional warehouse ID to scope the update (if omitted, updates all warehouses - use with caution)
  * @param tx - Optional Prisma transaction client for atomicity
  */
-export async function syncStockLevelQuantity(materialId: string, change: number, tx?: any): Promise<void> {
+export async function syncStockLevelQuantity(
+  materialId: string,
+  change: number,
+  warehouseId?: string,
+  tx?: any
+): Promise<void> {
   if (change === 0) return;
 
   const client = tx || prisma;
 
+  // Build where clause - scope to specific warehouse if provided
+  const where: { materialId: string; warehouseId?: string } = { materialId };
+  if (warehouseId) {
+    where.warehouseId = warehouseId;
+  }
+
   try {
-    if (change > 0) {
-      await client.stock_levels.updateMany({
-        where: { materialId },
-        data: { quantity: { increment: change }, lastUpdated: new Date() },
+    // First try to update existing record
+    const updateResult = await client.stock_levels.updateMany({
+      where,
+      data: {
+        quantity: change > 0 ? { increment: change } : { decrement: Math.abs(change) },
+        lastUpdated: new Date(),
+      },
+    });
+
+    // If no record was updated and we're adding stock, create one
+    if (updateResult.count === 0 && change > 0 && warehouseId) {
+      await client.stock_levels.create({
+        data: {
+          materialId,
+          warehouseId,
+          quantity: change,
+          lastUpdated: new Date(),
+        },
       });
-    } else {
-      await client.stock_levels.updateMany({
-        where: { materialId },
-        data: { quantity: { decrement: Math.abs(change) }, lastUpdated: new Date() },
-      });
+      logInfo(
+        `[MaterialSync] Created stock_levels for material ${materialId}, warehouse ${warehouseId}, qty: ${change}`
+      );
     }
   } catch (err) {
-    logError(`[MaterialSync] Failed to sync stock_levels for material ${materialId}, change: ${change}`, err);
+    logError(
+      `[MaterialSync] Failed to sync stock_levels for material ${materialId}, warehouse ${warehouseId || 'ALL'}, change: ${change}`,
+      err
+    );
     // Don't throw — stock_levels sync failure shouldn't block the primary operation
-    // The stock_levels entry might not exist yet (e.g., first stock entry before GRN)
   }
 }

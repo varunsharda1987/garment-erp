@@ -1235,6 +1235,7 @@ model purchase_order_items {
   componentName                String? // Garment component (Top, Shirt, Sleeve) — from BOM/MRP
   colorName                    String? // Dye/processing color (Burgundy, White) — from BOM/MRP
   fabricWidth                  Decimal?                       @db.Decimal(10, 2) // Expected cutable width (inches) — from CAD planning
+  foldLengthCm                 Decimal?                       @db.Decimal(5, 2) // "L" - fold length in cm (for greige/fabric)
   // Service PO fields (used when materialId is null)
   serviceType                  ServiceType?
   serviceDescription           String?
@@ -1320,6 +1321,16 @@ model purchase_orders {
   style                                     styles?                           @relation("PO_Style", fields: [styleId], references: [id])
   order                                     orders?                           @relation("PO_Order", fields: [orderId], references: [id])
   cad                                       fabric_width_cad?                 @relation("PO_CAD", fields: [cadId], references: [id])
+  // Delivery Location
+  deliveryLocationType                      DeliveryLocationType?
+  deliveryLocationId                        String? // Points to warehouses.id OR suppliers.id (processor)
+  // Amendment tracking
+  originalDeliveryLocationId                String? // Original location before any amendment
+  deliveryLocationAmendedAt                 DateTime? // When location was amended
+  deliveryLocationAmendedById               String? // Who amended it
+  // Delivery location relations
+  deliveryWarehouse                         warehouses?                       @relation("PO_DeliveryWarehouse", fields: [deliveryLocationId], references: [id])
+  deliveryLocationAmendedBy                 users?                            @relation("PO_DeliveryAmendedBy", fields: [deliveryLocationAmendedById], references: [id])
 
   @@index([poNumber])
   @@index([supplierId])
@@ -1332,6 +1343,7 @@ model purchase_orders {
   @@index([styleId])
   @@index([orderId])
   @@index([cadId])
+  @@index([deliveryLocationId])
   // Performance: composite indexes for common query patterns
   @@index([supplierId, status])
   @@index([status, createdAt])
@@ -1887,7 +1899,7 @@ model style_costing_lace_items {
 
   // Consumption
   quantityPerGarment Decimal @db.Decimal(10, 4) // Meters per garment
-  wastagePercent     Decimal @default(5) @db.Decimal(5, 2)
+  wastagePercent     Decimal @db.Decimal(5, 2)
   effectiveQuantity  Decimal @db.Decimal(10, 4) // With wastage
 
   // Sourcing Strategy
@@ -2571,6 +2583,13 @@ model suppliers {
   finishing_issues_contractor             finishing_issues[]                @relation("FinishingContractor")
   external_process_send_outs              external_process_send_outs[]      @relation("ExternalProcessSupplier")
   stock_movements                         stock_movements[]
+  button_stock                            button_stock[]                    @relation("button_stock_supplier")
+  zipper_stock                            zipper_stock[]                    @relation("zipper_stock_supplier")
+  elastic_stock                           elastic_stock[]                   @relation("elastic_stock_supplier")
+  label_stock                             label_stock[]                     @relation("label_stock_supplier")
+  packaging_stock                         packaging_stock[]                 @relation("packaging_stock_supplier")
+  machine_part_stock                      machine_part_stock[]              @relation("machine_part_stock_supplier")
+  other_material_stock                    other_material_stock[]            @relation("other_material_stock_supplier")
 
   @@index([code])
   @@index([name])
@@ -2931,6 +2950,16 @@ model users {
   external_process_send_outs_created                              external_process_send_outs[]      @relation("ExternalProcessCreatedBy")
   // Processor rate change history
   processorRateChanges                                            processor_rate_change_log[]       @relation("processor_rate_change_log_user")
+  // PO delivery location amendments
+  poDeliveryAmendments                                            purchase_orders[]                 @relation("PO_DeliveryAmendedBy")
+  // Trim stock relations
+  buttonStockCreated                                              button_stock[]                    @relation("button_stock_creator")
+  zipperStockCreated                                              zipper_stock[]                    @relation("zipper_stock_creator")
+  elasticStockCreated                                             elastic_stock[]                   @relation("elastic_stock_creator")
+  labelStockCreated                                               label_stock[]                     @relation("label_stock_creator")
+  packagingStockCreated                                           packaging_stock[]                 @relation("packaging_stock_creator")
+  machinePartStockCreated                                         machine_part_stock[]              @relation("machine_part_stock_creator")
+  otherMaterialStockCreated                                       other_material_stock[]            @relation("other_material_stock_creator")
 
   @@index([email])
 }
@@ -3269,33 +3298,48 @@ model service_requirement_po_links {
 
 /// Warehouse Master - Multiple warehouse/location management
 model warehouses {
-  id                    String                  @id @default(uuid())
-  warehouseCode         String
-  warehouseName         String
-  warehouseType         WarehouseType
-  address               String?
-  city                  String?
-  state                 String?
-  pincode               String?
-  contactPerson         String?
-  contactPhone          String?
-  capacity              Decimal?                @db.Decimal(10, 2)
-  isActive              Boolean                 @default(true)
-  createdById           String
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
-  contactEmail          String?
-  country               String?
-  isVirtual             Boolean                 @default(false)
-  supplierId            String?                 @db.VarChar(50)
-  goods_receiving_notes goods_receiving_notes[]
-  stock_counts          stock_counts[]
-  stock_levels          stock_levels[]
-  stock_movements       stock_movements[]
-  stock_reservations    stock_reservations[]
-  work_orders           work_orders[]
-  users                 users                   @relation(fields: [createdById], references: [id])
-  supplier              suppliers?              @relation("WarehouseSupplier", fields: [supplierId], references: [id])
+  id                     String                  @id @default(uuid())
+  warehouseCode          String
+  warehouseName          String
+  warehouseType          WarehouseType
+  address                String?
+  city                   String?
+  state                  String?
+  pincode                String?
+  contactPerson          String?
+  contactPhone           String?
+  capacity               Decimal?                @db.Decimal(10, 2)
+  isActive               Boolean                 @default(true)
+  createdById            String
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  contactEmail           String?
+  country                String?
+  isVirtual              Boolean                 @default(false)
+  supplierId             String?                 @db.VarChar(50)
+  goods_receiving_notes  goods_receiving_notes[]
+  stock_counts           stock_counts[]
+  stock_levels           stock_levels[]
+  stock_movements        stock_movements[]
+  stock_reservations     stock_reservations[]
+  work_orders            work_orders[]
+  users                  users                   @relation(fields: [createdById], references: [id])
+  supplier               suppliers?              @relation("WarehouseSupplier", fields: [supplierId], references: [id])
+  // POs to be delivered here
+  deliveryPurchaseOrders purchase_orders[]       @relation("PO_DeliveryWarehouse")
+
+  // Specialized stock relations
+  greigeStock        greige_stock[]         @relation("GreigeStockWarehouse")
+  fabricStock        fabric_stock[]         @relation("FabricStockWarehouse")
+  laceStock          lace_stock[]           @relation("LaceStockWarehouse")
+  threadStock        thread_stock[]         @relation("ThreadStockWarehouse")
+  buttonStock        button_stock[]         @relation("ButtonStockWarehouse")
+  zipperStock        zipper_stock[]         @relation("ZipperStockWarehouse")
+  elasticStock       elastic_stock[]        @relation("ElasticStockWarehouse")
+  labelStock         label_stock[]          @relation("LabelStockWarehouse")
+  packagingStock     packaging_stock[]      @relation("PackagingStockWarehouse")
+  machinePartStock   machine_part_stock[]   @relation("MachinePartStockWarehouse")
+  otherMaterialStock other_material_stock[] @relation("OtherMaterialStockWarehouse")
 
   @@index([warehouseCode])
   @@index([warehouseType])
@@ -3347,9 +3391,14 @@ model stock_movements {
   performedById   String
   movementDate    DateTime     @default(now())
   createdAt       DateTime     @default(now())
-  materials       materials    @relation(fields: [materialId], references: [id])
-  warehouses      warehouses   @relation(fields: [warehouseId], references: [id])
-  suppliers       suppliers?   @relation(fields: [supplierId], references: [id])
+
+  // Invoice tracking
+  invoiceNumber String?
+  invoiceDate   DateTime?
+
+  materials  materials  @relation(fields: [materialId], references: [id])
+  warehouses warehouses @relation(fields: [warehouseId], references: [id])
+  suppliers  suppliers? @relation(fields: [supplierId], references: [id])
 
   @@index([materialId])
   @@index([warehouseId])
@@ -3942,7 +3991,7 @@ model greige_master {
   greigeWidth              Decimal                      @db.Decimal(10, 2)
   expectedFinishedWidthMin Decimal?                     @db.Decimal(10, 2)
   expectedFinishedWidthMax Decimal?                     @db.Decimal(10, 2)
-  averageShrinkagePercent  Decimal?                     @default(8) @db.Decimal(5, 2)
+  averageShrinkagePercent  Decimal?                     @db.Decimal(5, 2)
   gsmRange                 String?
   costPerMeter             Decimal?                     @db.Decimal(10, 2)
   moq                      Int?
@@ -4005,6 +4054,7 @@ model greige_stock {
 
   // Warehouse
   warehouseLocation String? @db.VarChar(100)
+  warehouseId       String? @db.VarChar(50)
   rollNumbers       String? @db.Text
   qualityGrade      String  @default("A") @db.VarChar(10)
 
@@ -4012,6 +4062,16 @@ model greige_stock {
   receivedDate     DateTime  @db.Date
   lastConsumedDate DateTime? @db.Date
   agingDays        Int       @default(0)
+
+  // Invoice tracking
+  invoiceNumber String?   @db.VarChar(50)
+  invoiceDate   DateTime?
+
+  // Fold/Than tracking (lot-level property)
+  foldLengthCm           Decimal? @db.Decimal(5, 2) // "L" - fold length in cm
+  thanCount              Int? // Number of thans in this lot
+  nominalQuantity        Decimal? @db.Decimal(10, 2) // Supplier-measured quantity (before fold adjustment)
+  calculatedActualMeters Decimal? @db.Decimal(10, 2) // nominalQuantity × foldLengthCm / 100
 
   // Status
   status    StockStatus    @default(AVAILABLE)
@@ -4028,6 +4088,7 @@ model greige_stock {
   supplier      suppliers?                 @relation("GreigeStockSupplier", fields: [supplierId], references: [id])
   processor     suppliers?                 @relation("GreigeStockProcessor", fields: [processorId], references: [id])
   sourceChallan challans?                  @relation("GreigeStockSourceChallan", fields: [sourceChallanId], references: [id])
+  warehouse     warehouses?                @relation("GreigeStockWarehouse", fields: [warehouseId], references: [id])
   createdBy     users                      @relation("greige_stock_createdBy", fields: [createdById], references: [id])
   challanItems  challan_items[]
   jobWorkOrders job_work_orders[]
@@ -4035,6 +4096,7 @@ model greige_stock {
 
   @@unique([greigeId, procurementId, greigeWidth, qualityGrade, supplierId, processorId])
   @@index([greigeId])
+  @@index([warehouseId])
   @@index([status])
   @@index([receivedDate])
 }
@@ -4440,6 +4502,8 @@ model fabric_procurement {
   purchaseDate                    DateTime                     @default(now())
   expectedDelivery                DateTime?
   receivedDate                    DateTime?
+  invoiceNumber                   String?
+  invoiceDate                     DateTime?
   createdById                     String
   createdAt                       DateTime                     @default(now())
   updatedAt                       DateTime                     @updatedAt
@@ -4491,6 +4555,7 @@ model fabric_stock {
   defectMeters                 Decimal?                     @db.Decimal(10, 2)
   defectValue                  Decimal?                     @db.Decimal(10, 2)
   warehouseLocation            String?
+  warehouseId                  String?
   rackNumber                   String?
   rollNumbers                  String?
   receivedDate                 DateTime
@@ -4517,6 +4582,7 @@ model fabric_stock {
   originOrder                  orders?                      @relation("StockOriginOrder", fields: [originOrderId], references: [id])
   originStyle                  styles?                      @relation("StockOriginStyle", fields: [originStyleId], references: [id])
   procurement                  fabric_procurement?          @relation(fields: [procurementId], references: [id])
+  warehouse                    warehouses?                  @relation("FabricStockWarehouse", fields: [warehouseId], references: [id])
   stockAllocations             fabric_stock_allocation[]
   stockTransactions            fabric_stock_transaction[]
   cadProductionRecords         fabric_width_cad[]           @relation("cad_fabric_stock")
@@ -4530,6 +4596,7 @@ model fabric_stock {
   @@index([fabricId, finishedWidth, cutableWidth, status])
   @@index([originStyleId])
   @@index([originOrderId])
+  @@index([warehouseId])
   @@index([status])
   @@index([agingDays])
   @@index([qualityGrade])
@@ -4825,6 +4892,7 @@ model button_master {
   order_bom_items           order_bom_items[]
   style_material_bom        style_material_bom[]
   costingTrimItems          style_costing_trim_items[]  @relation("trim_costing_button")
+  button_stock              button_stock[]
 
   @@index([buttonCode])
   @@index([supplierId])
@@ -5042,6 +5110,7 @@ model zipper_master {
   suppliers          suppliers?                 @relation(fields: [supplierId], references: [id])
   zipperSuppliers    zipper_suppliers[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_zipper")
+  zipper_stock       zipper_stock[]
 
   @@index([zipperCode])
   @@index([supplierId])
@@ -5073,6 +5142,7 @@ model elastic_master {
   order_bom_items    order_bom_items[]
   style_material_bom style_material_bom[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_elastic")
+  elastic_stock      elastic_stock[]
 
   @@index([elasticCode])
   @@index([supplierId])
@@ -5116,6 +5186,7 @@ model label_master {
   style_material_bom    style_material_bom[]
   costingTrimItems      style_costing_trim_items[]          @relation("trim_costing_label")
   costingAccessoryItems style_costing_accessory_items[]     @relation("accessory_costing_label")
+  label_stock           label_stock[]
 
   @@index([labelCode])
   @@index([supplierId])
@@ -5188,6 +5259,7 @@ model packaging_master {
   style_material_bom    style_material_bom[]
   costingTrimItems      style_costing_trim_items[]      @relation("trim_costing_packaging")
   costingAccessoryItems style_costing_accessory_items[] @relation("accessory_costing_packaging")
+  packaging_stock       packaging_stock[]
 
   @@index([packagingCode])
   @@index([supplierId])
@@ -5235,6 +5307,7 @@ model machine_part_master {
   createdBy            users?                   @relation("machine_part_master_createdBy", fields: [createdById], references: [id])
   suppliers            suppliers?               @relation("machine_part_master_suppliers", fields: [supplierId], references: [id])
   machinePartSuppliers machine_part_suppliers[]
+  machinePartStock     machine_part_stock[]
   materials            materials[]
   style_material_bom   style_material_bom[]
 
@@ -5277,6 +5350,7 @@ model other_material_master {
   createdAt              DateTime                   @default(now())
   updatedAt              DateTime                   @updatedAt
   materials              materials[]
+  otherMaterialStock     other_material_stock[]
   createdBy              users?                     @relation("other_material_master_createdBy", fields: [createdById], references: [id])
   suppliers              suppliers?                 @relation("other_material_master_suppliers", fields: [supplierId], references: [id])
   otherMaterialSuppliers other_material_suppliers[]
@@ -7359,6 +7433,7 @@ model lace_stock {
 
   // Location
   warehouseLocation String?
+  warehouseId       String?
   rackNumber        String?
 
   // Stock details
@@ -7400,6 +7475,7 @@ model lace_stock {
   originStyle     styles?                    @relation("lace_stock_origin_style", fields: [originStyleId], references: [id])
   originOrder     orders?                    @relation("lace_stock_origin_order", fields: [originOrderId], references: [id])
   processingBatch processing_batch?          @relation("lace_stock_from_processing", fields: [processingBatchId], references: [id])
+  warehouse       warehouses?                @relation("LaceStockWarehouse", fields: [warehouseId], references: [id])
   createdBy       users?                     @relation("lace_stock_creator", fields: [createdById], references: [id])
   allocations     lace_stock_allocation[]
   transactions    lace_stock_transaction[]
@@ -7410,6 +7486,7 @@ model lace_stock {
   @@index([laceId])
   @@index([originStyleId])
   @@index([originOrderId])
+  @@index([warehouseId])
   @@index([processingBatchId])
   @@index([status])
   @@index([qualityGrade])
@@ -7531,6 +7608,7 @@ model thread_stock {
 
   // Location
   warehouseLocation String?
+  warehouseId       String?
   rackNumber        String?
 
   // Quality & Status
@@ -7549,12 +7627,14 @@ model thread_stock {
 
   // Relations
   threadMaster thread_master              @relation(fields: [threadId], references: [id])
+  warehouse    warehouses?                @relation("ThreadStockWarehouse", fields: [warehouseId], references: [id])
   createdBy    users?                     @relation("thread_stock_creator", fields: [createdById], references: [id])
   transactions thread_stock_transaction[]
   challanItems challan_items[]
 
   @@unique([threadId, procurementId, packagingType, ply])
   @@index([threadId, status])
+  @@index([warehouseId])
   @@index([status])
   @@index([packagingType, ply])
   @@index([receivedDate])
@@ -7583,6 +7663,377 @@ model thread_stock_transaction {
   @@index([stockId])
   @@index([transactionType])
   @@index([transactionDate])
+}
+
+/// Button Stock - Specialized inventory for buttons
+model button_stock {
+  id       String @id @default(uuid())
+  buttonId String // FK to button_master
+
+  // Quantity tracking
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("pieces")
+
+  // Source tracking
+  procurementId String?
+  supplierId    String?
+  batchNumber   String?
+  lotNumber     String?
+  sourceType    String? // GRN, MANUAL, ADJUSTMENT
+
+  // Cost tracking
+  purchaseCost    Decimal @db.Decimal(10, 2)
+  weightedAvgCost Decimal @db.Decimal(10, 2)
+
+  // Location
+  warehouseLocation String?
+  warehouseId       String?
+  rackNumber        String?
+
+  // Quality & Status
+  qualityGrade String         @default("A")
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(GENERIC)
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  button    button_master @relation(fields: [buttonId], references: [id])
+  supplier  suppliers?    @relation("button_stock_supplier", fields: [supplierId], references: [id])
+  warehouse warehouses?   @relation("ButtonStockWarehouse", fields: [warehouseId], references: [id])
+  createdBy users?        @relation("button_stock_creator", fields: [createdById], references: [id])
+
+  @@index([buttonId, status])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([receivedDate])
+}
+
+/// Zipper Stock - Specialized inventory for zippers
+model zipper_stock {
+  id       String @id @default(uuid())
+  zipperId String // FK to zipper_master
+
+  // Quantity tracking
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("pieces")
+
+  // Source tracking
+  procurementId String?
+  supplierId    String?
+  batchNumber   String?
+  lotNumber     String?
+  sourceType    String? // GRN, MANUAL, ADJUSTMENT
+
+  // Cost tracking
+  purchaseCost    Decimal @db.Decimal(10, 2)
+  weightedAvgCost Decimal @db.Decimal(10, 2)
+
+  // Location
+  warehouseLocation String?
+  warehouseId       String?
+  rackNumber        String?
+
+  // Quality & Status
+  qualityGrade String         @default("A")
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(GENERIC)
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  zipper    zipper_master @relation(fields: [zipperId], references: [id])
+  supplier  suppliers?    @relation("zipper_stock_supplier", fields: [supplierId], references: [id])
+  warehouse warehouses?   @relation("ZipperStockWarehouse", fields: [warehouseId], references: [id])
+  createdBy users?        @relation("zipper_stock_creator", fields: [createdById], references: [id])
+
+  @@index([zipperId, status])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([receivedDate])
+}
+
+/// Elastic Stock - Specialized inventory for elastics
+model elastic_stock {
+  id        String @id @default(uuid())
+  elasticId String // FK to elastic_master
+
+  // Quantity tracking
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("meters")
+
+  // Source tracking
+  procurementId String?
+  supplierId    String?
+  batchNumber   String?
+  lotNumber     String?
+  sourceType    String? // GRN, MANUAL, ADJUSTMENT
+
+  // Cost tracking
+  purchaseCost    Decimal @db.Decimal(10, 2)
+  weightedAvgCost Decimal @db.Decimal(10, 2)
+
+  // Location
+  warehouseLocation String?
+  warehouseId       String?
+  rackNumber        String?
+
+  // Quality & Status
+  qualityGrade String         @default("A")
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(GENERIC)
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  elastic   elastic_master @relation(fields: [elasticId], references: [id])
+  supplier  suppliers?     @relation("elastic_stock_supplier", fields: [supplierId], references: [id])
+  warehouse warehouses?    @relation("ElasticStockWarehouse", fields: [warehouseId], references: [id])
+  createdBy users?         @relation("elastic_stock_creator", fields: [createdById], references: [id])
+
+  @@index([elasticId, status])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([receivedDate])
+}
+
+/// Label Stock - Specialized inventory for labels
+model label_stock {
+  id      String @id @default(uuid())
+  labelId String // FK to label_master
+
+  // Quantity tracking
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("pieces")
+
+  // Source tracking
+  procurementId String?
+  supplierId    String?
+  batchNumber   String?
+  lotNumber     String?
+  sourceType    String? // GRN, MANUAL, ADJUSTMENT
+
+  // Cost tracking
+  purchaseCost    Decimal @db.Decimal(10, 2)
+  weightedAvgCost Decimal @db.Decimal(10, 2)
+
+  // Location
+  warehouseLocation String?
+  warehouseId       String?
+  rackNumber        String?
+
+  // Quality & Status
+  qualityGrade String         @default("A")
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(GENERIC)
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  label     label_master @relation(fields: [labelId], references: [id])
+  supplier  suppliers?   @relation("label_stock_supplier", fields: [supplierId], references: [id])
+  warehouse warehouses?  @relation("LabelStockWarehouse", fields: [warehouseId], references: [id])
+  createdBy users?       @relation("label_stock_creator", fields: [createdById], references: [id])
+
+  @@index([labelId, status])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([receivedDate])
+}
+
+/// Packaging Stock - Specialized inventory for packaging materials
+model packaging_stock {
+  id          String @id @default(uuid())
+  packagingId String // FK to packaging_master
+
+  // Quantity tracking
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("pieces")
+
+  // Source tracking
+  procurementId String?
+  supplierId    String?
+  batchNumber   String?
+  lotNumber     String?
+  sourceType    String? // GRN, MANUAL, ADJUSTMENT
+
+  // Cost tracking
+  purchaseCost    Decimal @db.Decimal(10, 2)
+  weightedAvgCost Decimal @db.Decimal(10, 2)
+
+  // Location
+  warehouseLocation String?
+  warehouseId       String?
+  rackNumber        String?
+
+  // Quality & Status
+  qualityGrade String         @default("A")
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(GENERIC)
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  packaging packaging_master @relation(fields: [packagingId], references: [id])
+  supplier  suppliers?       @relation("packaging_stock_supplier", fields: [supplierId], references: [id])
+  warehouse warehouses?      @relation("PackagingStockWarehouse", fields: [warehouseId], references: [id])
+  createdBy users?           @relation("packaging_stock_creator", fields: [createdById], references: [id])
+
+  @@index([packagingId, status])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([receivedDate])
+}
+
+/// Machine Part Stock - Specialized inventory for machine spare parts
+model machine_part_stock {
+  id            String @id @default(uuid())
+  machinePartId String // FK to machine_part_master
+
+  // Quantity tracking
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("PIECE")
+
+  // Source tracking
+  procurementId String?
+  supplierId    String?
+  batchNumber   String?
+  lotNumber     String?
+  sourceType    String? // GRN, MANUAL, ADJUSTMENT
+
+  // Cost tracking
+  purchaseCost    Decimal @db.Decimal(10, 2)
+  weightedAvgCost Decimal @db.Decimal(10, 2)
+
+  // Location
+  warehouseLocation String?
+  warehouseId       String?
+  rackNumber        String?
+
+  // Quality & Status
+  qualityGrade String         @default("A")
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(GENERIC)
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  machinePart machine_part_master @relation(fields: [machinePartId], references: [id])
+  supplier    suppliers?          @relation("machine_part_stock_supplier", fields: [supplierId], references: [id])
+  warehouse   warehouses?         @relation("MachinePartStockWarehouse", fields: [warehouseId], references: [id])
+  createdBy   users?              @relation("machine_part_stock_creator", fields: [createdById], references: [id])
+
+  @@index([machinePartId, status])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([receivedDate])
+}
+
+/// Other Material Stock - Specialized inventory for miscellaneous materials
+model other_material_stock {
+  id              String @id @default(uuid())
+  otherMaterialId String // FK to other_material_master
+
+  // Quantity tracking
+  quantityAvailable Decimal @db.Decimal(10, 2)
+  quantityReserved  Decimal @default(0) @db.Decimal(10, 2)
+  quantityConsumed  Decimal @default(0) @db.Decimal(10, 2)
+  unit              String  @default("PIECE")
+
+  // Source tracking
+  procurementId String?
+  supplierId    String?
+  batchNumber   String?
+  lotNumber     String?
+  sourceType    String? // GRN, MANUAL, ADJUSTMENT
+
+  // Cost tracking
+  purchaseCost    Decimal @db.Decimal(10, 2)
+  weightedAvgCost Decimal @db.Decimal(10, 2)
+
+  // Location
+  warehouseLocation String?
+  warehouseId       String?
+  rackNumber        String?
+
+  // Quality & Status
+  qualityGrade String         @default("A")
+  status       StockStatus    @default(AVAILABLE)
+  stockType    StockEntryType @default(GENERIC)
+
+  // Dates
+  receivedDate     DateTime
+  lastConsumedDate DateTime?
+  agingDays        Int       @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  // Relations
+  otherMaterial other_material_master @relation(fields: [otherMaterialId], references: [id])
+  supplier      suppliers?            @relation("other_material_stock_supplier", fields: [supplierId], references: [id])
+  warehouse     warehouses?           @relation("OtherMaterialStockWarehouse", fields: [warehouseId], references: [id])
+  createdBy     users?                @relation("other_material_stock_creator", fields: [createdById], references: [id])
+
+  @@index([otherMaterialId, status])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([receivedDate])
 }
 
 /// Lace Lab Dip - Lab dip approval workflow for greige lace dyeing
@@ -8035,6 +8486,11 @@ enum DeliveryStatus {
   DELIVERED
 }
 
+enum DeliveryLocationType {
+  WAREHOUSE
+  PROCESSOR
+}
+
 enum GRNStatus {
   PENDING_QC
   ACCEPTED
@@ -8264,12 +8720,20 @@ enum POCategory {
   FABRIC
   GREIGE
   PROCESSING
-  TRIMS
+  TRIMS // Generic trims (legacy, prefer specific type below)
   THREAD // Thread procurement (cones/spools)
   LACE // Ready lace procurement
   GREIGE_LACE // Greige lace procurement
   LACE_PROCESSING // Lace dyeing processing
   GENERAL // Default for non-cost-sheet POs
+  // Specific trim categories
+  BUTTON
+  ZIPPER
+  ELASTIC
+  LABEL
+  PACKAGING
+  MACHINE_PART
+  OTHER_MATERIAL
   // Service categories (PRINTING_SERVICE and DYEING_SERVICE removed — covered by PROCESSING at Order level)
   EMBROIDERY_SERVICE
   WASHING_SERVICE

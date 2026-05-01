@@ -5,8 +5,9 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { uploadStyleImage } from '../middleware/upload.middleware';
+import { styleIdParamSchema, styleIdAndImageIdParamSchema } from '../schemas/common.schema';
 import {
   uploadImage,
   getImages,
@@ -23,20 +24,33 @@ const router = Router();
 router.get('/images/types', authenticateToken, asyncHandler(getImageTypes));
 
 // Style-specific image routes
-router.get('/:styleId/images', authenticateToken, asyncHandler(getImages));
-router.post('/:styleId/images', authenticateToken, uploadStyleImage, asyncHandler(uploadImage));
+router.get('/:styleId/images', authenticateToken, validateParams(styleIdParamSchema), asyncHandler(getImages));
+router.post(
+  '/:styleId/images',
+  authenticateToken,
+  validateParams(styleIdParamSchema),
+  uploadStyleImage,
+  asyncHandler(uploadImage)
+);
 router.post(
   '/:styleId/images/reorder',
   authenticateToken,
+  validateParams(styleIdParamSchema),
   validateBody(reorderImagesSchema),
   asyncHandler(reorderImages)
 );
 router.patch(
   '/:styleId/images/:imageId',
   authenticateToken,
+  validateParams(styleIdAndImageIdParamSchema),
   validateBody(updateImageSchema),
   asyncHandler(updateImage)
 );
-router.delete('/:styleId/images/:imageId', authenticateToken, asyncHandler(deleteImage));
+router.delete(
+  '/:styleId/images/:imageId',
+  authenticateToken,
+  validateParams(styleIdAndImageIdParamSchema),
+  asyncHandler(deleteImage)
+);
 
 export default router;

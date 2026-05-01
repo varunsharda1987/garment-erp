@@ -12,18 +12,25 @@ import { z } from 'zod';
 // ============================================================================
 
 export const MaterialTypeEnum = z.enum([
-  'FABRIC',
-  'GREIGE',
+  'GENERIC',
+  'TRIMS',
   'LACE',
   'BUTTON',
-  'ZIPPER',
   'THREAD',
+  'ZIPPER',
   'ELASTIC',
   'LABEL',
   'PACKAGING',
+  'ACCESSORIES',
+  'SERVICE',
+  'MACHINE_PART',
+  'OTHER',
+  'FABRIC',
+  'GREIGE',
   'HOOK_EYE',
   'SNAP_BUTTON',
   'BUCKLE',
+  'BELT',
   'VELCRO',
   'DRAWSTRING',
   'RIBBON',
@@ -32,7 +39,11 @@ export const MaterialTypeEnum = z.enum([
   'MOTIF',
   'INTERLINING',
   'PADDING',
-  'OTHER',
+  'OTHER_FASTENER',
+  'OTHER_TAPE',
+  'OTHER_DECORATIVE',
+  'OTHER_FUNCTIONAL',
+  'OTHER_MATERIAL',
 ]);
 
 // ============================================================================
@@ -44,7 +55,7 @@ export const MaterialTypeEnum = z.enum([
  * POST /api/materials
  */
 export const createMaterialSchema = z.object({
-  type: MaterialTypeEnum,
+  materialType: MaterialTypeEnum,
   code: z.string().max(50).optional(),
   name: z.string().min(1, 'Name is required').max(200),
   description: z.string().max(500).optional(),
@@ -66,7 +77,7 @@ export const createMaterialSchema = z.object({
  * PUT /api/materials/:id
  */
 export const updateMaterialSchema = z.object({
-  type: MaterialTypeEnum.optional(),
+  materialType: MaterialTypeEnum.optional(),
   code: z.string().max(50).optional().nullable(),
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(500).optional().nullable(),
@@ -103,13 +114,25 @@ export const addMaterialSupplierSchema = z.object({
 export const materialQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
-  type: MaterialTypeEnum.optional(),
+  materialType: MaterialTypeEnum.optional(),
   active: z
     .string()
     .transform((val) => val === 'true')
     .optional(),
   supplierId: z.string().uuid().optional(),
   search: z.string().max(100).optional(),
+});
+
+// ============================================================================
+// Param Schemas
+// ============================================================================
+
+export const materialIdParamSchema = z.object({
+  id: z.string().regex(/^\d+$/, 'Invalid material ID format'),
+});
+
+export const materialTypeParamSchema = z.object({
+  type: MaterialTypeEnum,
 });
 
 // ============================================================================

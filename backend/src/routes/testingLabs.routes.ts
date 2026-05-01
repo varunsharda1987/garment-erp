@@ -9,8 +9,9 @@ import {
 } from '../controllers/testingLabs.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createTestingLabSchema, updateTestingLabSchema, testingLabQuerySchema } from '../schemas/testing.schemas';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -20,9 +21,9 @@ router.use(authenticateToken);
 // Routes
 router.post('/', validateBody(createTestingLabSchema), asyncHandler(createTestingLab));
 router.get('/', validateQuery(testingLabQuerySchema), asyncHandler(getAllTestingLabs));
-router.get('/:id', asyncHandler(getTestingLabById));
-router.get('/:id/stats', asyncHandler(getLabStats));
-router.put('/:id', validateBody(updateTestingLabSchema), asyncHandler(updateTestingLab));
-router.delete('/:id', asyncHandler(deleteTestingLab));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getTestingLabById));
+router.get('/:id/stats', validateParams(idParamSchema), asyncHandler(getLabStats));
+router.put('/:id', validateParams(idParamSchema), validateBody(updateTestingLabSchema), asyncHandler(updateTestingLab));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteTestingLab));
 
 export default router;

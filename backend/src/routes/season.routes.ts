@@ -16,13 +16,14 @@ import {
 } from '../controllers/season.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createSeasonSchema,
   updateSeasonSchema,
   generateSeasonsSchema,
   seasonQuerySchema,
 } from '../schemas/season.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -69,20 +70,20 @@ router.get('/', validateQuery(seasonQuerySchema), asyncHandler(getAllSeasons));
  * @desc    Get season by ID
  * @access  Private (Authenticated users)
  */
-router.get('/:id', asyncHandler(getSeasonById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getSeasonById));
 
 /**
  * @route   PUT /api/seasons/:id
  * @desc    Update season
  * @access  Private (Authenticated users)
  */
-router.put('/:id', validateBody(updateSeasonSchema), asyncHandler(updateSeason));
+router.put('/:id', validateParams(idParamSchema), validateBody(updateSeasonSchema), asyncHandler(updateSeason));
 
 /**
  * @route   DELETE /api/seasons/:id
  * @desc    Delete season (soft delete)
  * @access  Private (Authenticated users)
  */
-router.delete('/:id', asyncHandler(deleteSeason));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteSeason));
 
 export default router;

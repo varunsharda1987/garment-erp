@@ -384,8 +384,8 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         colorName: null,
         width: lace.laceWidth || null,
         quantityPerGarment: lace.laceAverage || 0,
-        wastagePercent: 5, // Default
-        effectiveQuantity: lace.laceAverage * 1.05, // With default wastage
+        wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
+        effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
         sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
         greigeCost: lace.greigeCost || null,
         processingCost: lace.processingCost || null,
@@ -1034,8 +1034,8 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
         colorName: null,
         width: lace.laceWidth || null,
         quantityPerGarment: lace.laceAverage || 0,
-        wastagePercent: 5,
-        effectiveQuantity: (lace.laceAverage || 0) * 1.05,
+        wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
+        effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
         sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
         greigeCost: lace.greigeCost || null,
         processingCost: lace.processingCost || null,

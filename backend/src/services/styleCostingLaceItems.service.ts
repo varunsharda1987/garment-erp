@@ -53,8 +53,11 @@ export async function addLaceItemToCostSheet(input: CreateLaceItemInput): Promis
     throw new Error(`Cost sheet not found: ${input.costingId}`);
   }
 
-  // Calculate effective quantity with wastage
-  const wastagePercent = input.wastagePercent ?? 5;
+  // Calculate effective quantity with wastage - wastagePercent is required, no default
+  if (input.wastagePercent === undefined || input.wastagePercent === null) {
+    throw new Error('wastagePercent is required - no hardcoded defaults allowed');
+  }
+  const wastagePercent = input.wastagePercent;
   const effectiveQuantity = input.quantityPerGarment * (1 + wastagePercent / 100);
   const totalCost = effectiveQuantity * input.costPerMeter;
 
@@ -358,8 +361,8 @@ export async function getLaceItemById(itemId: string): Promise<any> {
 export async function calculateLaceItemCostOptions(
   laceId: string,
   quantityPerGarment: number,
-  orderQuantity: number = 1,
-  wastagePercent: number = 5,
+  orderQuantity: number,
+  wastagePercent: number, // Required - no hardcoded defaults
   styleId?: string,
   costSheetId?: string
 ): Promise<LaceCostCalculationResult> {

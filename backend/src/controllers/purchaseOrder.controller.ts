@@ -345,3 +345,28 @@ export const cancelPurchaseOrder = async (req: Request, res: Response) => {
     message: 'Purchase order cancelled successfully',
   });
 };
+
+/**
+ * @route PATCH /api/purchase-orders/:id/delivery-location
+ * @desc Amend delivery location for a purchase order
+ * @access Private (PURCHASE, ADMIN)
+ */
+export const amendDeliveryLocation = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { deliveryLocationId } = req.body;
+  const userId = (req as any).user?.id;
+
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+
+  const purchaseOrder = await purchaseOrderService.amendDeliveryLocation(id, deliveryLocationId, userId);
+
+  logInfo(`Purchase order delivery location amended: ${purchaseOrder.poNumber}`);
+
+  res.json({
+    success: true,
+    data: purchaseOrder,
+    message: 'Delivery location amended successfully',
+  });
+};

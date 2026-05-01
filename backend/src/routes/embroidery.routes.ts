@@ -9,8 +9,9 @@ import {
 } from '../controllers/embroidery.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createEmbroiderySchema, updateEmbroiderySchema, embroideryQuerySchema } from '../schemas/embroidery.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -45,20 +46,20 @@ router.get('/search', asyncHandler(searchEmbroidery));
  * @desc    Get single embroidery design by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getEmbroideryById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getEmbroideryById));
 
 /**
  * @route   PUT /api/embroidery/:id
  * @desc    Update embroidery design
  * @access  Private
  */
-router.put('/:id', validateBody(updateEmbroiderySchema), asyncHandler(updateEmbroidery));
+router.put('/:id', validateParams(idParamSchema), validateBody(updateEmbroiderySchema), asyncHandler(updateEmbroidery));
 
 /**
  * @route   DELETE /api/embroidery/:id
  * @desc    Delete embroidery design (only if not used in any style)
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deleteEmbroidery));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteEmbroidery));
 
 export default router;

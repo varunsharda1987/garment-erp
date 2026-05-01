@@ -3,8 +3,9 @@ import express from 'express';
 import * as workOrderController from '../controllers/workOrder.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { createWorkOrderSchema, updateWorkOrderSchema } from '../schemas/workOrder.schema';
+import { idParamSchema, orderIdParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -16,32 +17,61 @@ router.get('/dashboard/summary', asyncHandler(workOrderController.getProductionD
 
 // GET routes
 router.get('/', asyncHandler(workOrderController.getAllWorkOrders));
-router.get('/order/:orderId', asyncHandler(workOrderController.getWorkOrdersByOrderId));
-router.get('/:id/material-readiness', asyncHandler(workOrderController.checkMaterialReadiness));
-router.get('/:id/fabric-issuance-data', asyncHandler(workOrderController.getFabricIssuanceData));
-router.get('/:id/trim-issuance-data', asyncHandler(workOrderController.getTrimIssuanceData));
-router.get('/:id/packaging-issuance-data', asyncHandler(workOrderController.getPackagingIssuanceData));
-router.get('/:id/thread-issuance-data', asyncHandler(workOrderController.getThreadIssuanceData));
-router.get('/:id/wip-summary', asyncHandler(workOrderController.getWipSummary));
-router.get('/:id', asyncHandler(workOrderController.getWorkOrderById));
+router.get(
+  '/order/:orderId',
+  validateParams(orderIdParamSchema),
+  asyncHandler(workOrderController.getWorkOrdersByOrderId)
+);
+router.get(
+  '/:id/material-readiness',
+  validateParams(idParamSchema),
+  asyncHandler(workOrderController.checkMaterialReadiness)
+);
+router.get(
+  '/:id/fabric-issuance-data',
+  validateParams(idParamSchema),
+  asyncHandler(workOrderController.getFabricIssuanceData)
+);
+router.get(
+  '/:id/trim-issuance-data',
+  validateParams(idParamSchema),
+  asyncHandler(workOrderController.getTrimIssuanceData)
+);
+router.get(
+  '/:id/packaging-issuance-data',
+  validateParams(idParamSchema),
+  asyncHandler(workOrderController.getPackagingIssuanceData)
+);
+router.get(
+  '/:id/thread-issuance-data',
+  validateParams(idParamSchema),
+  asyncHandler(workOrderController.getThreadIssuanceData)
+);
+router.get('/:id/wip-summary', validateParams(idParamSchema), asyncHandler(workOrderController.getWipSummary));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(workOrderController.getWorkOrderById));
 
 // POST routes
 router.post('/', validateBody(createWorkOrderSchema), asyncHandler(workOrderController.createWorkOrder));
-router.post('/:id/tracking', asyncHandler(workOrderController.addProductionTracking));
-router.post('/:id/split', asyncHandler(workOrderController.splitWorkOrder));
-router.post('/:id/push-to-cutting', asyncHandler(workOrderController.pushToCutting));
-router.post('/:id/issue-fabric', asyncHandler(workOrderController.issueFabric));
-router.post('/:id/issue-trims', asyncHandler(workOrderController.issueTrims));
-router.post('/:id/issue-packaging', asyncHandler(workOrderController.issuePackaging));
-router.post('/:id/issue-thread', asyncHandler(workOrderController.issueThread));
+router.post('/:id/tracking', validateParams(idParamSchema), asyncHandler(workOrderController.addProductionTracking));
+router.post('/:id/split', validateParams(idParamSchema), asyncHandler(workOrderController.splitWorkOrder));
+router.post('/:id/push-to-cutting', validateParams(idParamSchema), asyncHandler(workOrderController.pushToCutting));
+router.post('/:id/issue-fabric', validateParams(idParamSchema), asyncHandler(workOrderController.issueFabric));
+router.post('/:id/issue-trims', validateParams(idParamSchema), asyncHandler(workOrderController.issueTrims));
+router.post('/:id/issue-packaging', validateParams(idParamSchema), asyncHandler(workOrderController.issuePackaging));
+router.post('/:id/issue-thread', validateParams(idParamSchema), asyncHandler(workOrderController.issueThread));
 
 // PUT routes
-router.put('/:id', validateBody(updateWorkOrderSchema), asyncHandler(workOrderController.updateWorkOrder));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updateWorkOrderSchema),
+  asyncHandler(workOrderController.updateWorkOrder)
+);
 
 // PATCH routes
-router.patch('/:id/approve', asyncHandler(workOrderController.approveWorkOrder));
+router.patch('/:id/approve', validateParams(idParamSchema), asyncHandler(workOrderController.approveWorkOrder));
 
 // DELETE routes
-router.delete('/:id', asyncHandler(workOrderController.deleteWorkOrder));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(workOrderController.deleteWorkOrder));
 
 export default router;

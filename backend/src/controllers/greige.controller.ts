@@ -270,7 +270,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       greigeWidth: parseFloat(greigeWidth),
       expectedFinishedWidthMin: expectedFinishedWidthMin ? parseFloat(expectedFinishedWidthMin) : null,
       expectedFinishedWidthMax: expectedFinishedWidthMax ? parseFloat(expectedFinishedWidthMax) : null,
-      averageShrinkagePercent: averageShrinkagePercent ? parseFloat(averageShrinkagePercent) : 8.0,
+      averageShrinkagePercent: averageShrinkagePercent ? parseFloat(averageShrinkagePercent) : null,
       gsmRange,
       costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
       moq: moq ? parseInt(moq) : null,
@@ -642,7 +642,7 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
           expectedFinishedWidthMax: greige.expectedFinishedWidthMax
             ? parseFloat(greige.expectedFinishedWidthMax)
             : null,
-          averageShrinkagePercent: greige.averageShrinkagePercent ? parseFloat(greige.averageShrinkagePercent) : 8.0,
+          averageShrinkagePercent: greige.averageShrinkagePercent ? parseFloat(greige.averageShrinkagePercent) : null,
           gsmRange: greige.gsmRange || null,
           description: greige.description || null,
           notes: greige.notes || null,

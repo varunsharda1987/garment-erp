@@ -9,12 +9,13 @@ import {
 } from '../controllers/paymentTerms.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createPaymentTermSchema,
   updatePaymentTermSchema,
   paymentTermQuerySchema,
 } from '../schemas/paymentTerms.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -28,12 +29,17 @@ router.post('/', validateBody(createPaymentTermSchema), asyncHandler(createPayme
 router.get('/', validateQuery(paymentTermQuerySchema), asyncHandler(getAllPaymentTerms));
 
 // Get payment term by ID
-router.get('/:id', asyncHandler(getPaymentTermById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getPaymentTermById));
 
 // Update payment term
-router.put('/:id', validateBody(updatePaymentTermSchema), asyncHandler(updatePaymentTerm));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updatePaymentTermSchema),
+  asyncHandler(updatePaymentTerm)
+);
 
 // Delete payment term (soft delete)
-router.delete('/:id', asyncHandler(deletePaymentTerm));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deletePaymentTerm));
 
 export default router;

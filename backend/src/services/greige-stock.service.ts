@@ -7,16 +7,22 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 
 export interface CreateGreigeStockDTO {
   greigeId: string;
-  quantity: number;
+  quantity: number; // Nominal quantity (what supplier measured)
   width: number;
   cutableWidth?: number;
   rollNumbers?: string;
-  warehouseLocation?: string;
+  warehouseId?: string; // Preferred: proper FK to warehouses
+  warehouseLocation?: string; // Legacy: text location
   qualityGrade?: string;
   purchaseCost?: number;
   receivedDate?: Date;
   supplierId?: string;
   sourceType?: 'GRN' | 'MANUAL' | 'ADJUSTMENT';
+  invoiceNumber?: string;
+  invoiceDate?: Date;
+  // Fold/Than tracking - for calculating actual meters from nominal
+  foldLengthCm?: number; // "L" - fold length in cm (e.g., 97)
+  thanCount?: number; // Number of thans in this lot
 }
 
 export interface GreigeStockItem {
@@ -42,6 +48,8 @@ export interface GreigeStockItem {
   rollNumbers?: string | null;
   qualityGrade: string;
   receivedDate: Date;
+  invoiceNumber?: string | null;
+  invoiceDate?: Date | null;
   agingDays: number;
   status: string;
   stockType: string;
@@ -99,33 +107,45 @@ class GreigeStockService {
         procurementSupplierId = fallback.id;
       }
 
+      // Calculate actual quantity from fold length
+      // Nominal = what supplier measured, Actual = nominalQty × (foldLengthCm / 100)
+      const nominalQty = data.quantity;
+      const actualQty =
+        data.foldLengthCm && data.foldLengthCm > 0 && data.foldLengthCm < 100
+          ? nominalQty * (data.foldLengthCm / 100)
+          : nominalQty; // If no fold length or L=100, actual = nominal
+
       // Create procurement record for traceability
+      // Use ACTUAL quantity for financial calculation
       const procurement = await prisma.fabric_procurement.create({
         data: {
           id: `PROC-GRG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           procurementType: 'GREIGE',
           supplierId: procurementSupplierId,
           greigeId: data.greigeId,
-          quantityPurchased: new Prisma.Decimal(data.quantity),
+          quantityPurchased: new Prisma.Decimal(actualQty), // ACTUAL (billable)
           unit: 'meters',
           width: new Prisma.Decimal(data.width),
           ratePerUnit: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
-          totalCost: data.purchaseCost ? new Prisma.Decimal(data.quantity * data.purchaseCost) : new Prisma.Decimal(0),
+          totalCost: data.purchaseCost ? new Prisma.Decimal(actualQty * data.purchaseCost) : new Prisma.Decimal(0), // ACTUAL × rate
           orderedForStyleId: null, // Generic, not style-specific
           isStockPurchase: true,
           processingRequired: false,
           status: 'RECEIVED',
           purchaseDate: data.receivedDate || new Date(),
           receivedDate: data.receivedDate || new Date(),
+          invoiceNumber: data.invoiceNumber || null,
+          invoiceDate: data.invoiceDate || null,
           createdById: userId,
         },
       });
 
       // Create greige stock record directly (no more proxy fabric_master!)
+      // Store ACTUAL quantity as available, NOMINAL as reference
       const greigeStock = await prisma.greige_stock.create({
         data: {
           greigeId: data.greigeId,
-          quantityAvailable: new Prisma.Decimal(data.quantity),
+          quantityAvailable: new Prisma.Decimal(actualQty), // ACTUAL (what's really available)
           quantityReserved: new Prisma.Decimal(0),
           quantityConsumed: new Prisma.Decimal(0),
           unit: 'meters',
@@ -136,10 +156,18 @@ class GreigeStockService {
           procurementId: procurement.id,
           supplierId: userSupplierId,
           sourceType: data.sourceType || 'MANUAL', // Track source: GRN, MANUAL, or ADJUSTMENT
+          warehouseId: data.warehouseId || null,
           warehouseLocation: data.warehouseLocation || null,
           rollNumbers: data.rollNumbers || null,
           qualityGrade: data.qualityGrade || 'A',
           receivedDate: data.receivedDate || new Date(),
+          invoiceNumber: data.invoiceNumber || null,
+          invoiceDate: data.invoiceDate || null,
+          // Fold/Than tracking
+          foldLengthCm: data.foldLengthCm ? new Prisma.Decimal(data.foldLengthCm) : null,
+          thanCount: data.thanCount || null,
+          nominalQuantity: new Prisma.Decimal(nominalQty), // What supplier measured
+          calculatedActualMeters: new Prisma.Decimal(actualQty), // nominalQty × L/100
           agingDays: 0,
           status: 'AVAILABLE',
           stockType: 'GENERIC',
@@ -157,11 +185,13 @@ class GreigeStockService {
         },
       });
 
-      // Ensure materials record exists + sync stock_levels
+      // Ensure materials record exists + sync stock_levels with ACTUAL quantity
       await ensureMaterialRecord(data.greigeId, 'GREIGE');
-      await syncStockLevelQuantity(data.greigeId, data.quantity);
+      await syncStockLevelQuantity(data.greigeId, actualQty, data.warehouseId);
 
-      logInfo(`Created greige stock for ${greige.greigeCode}: ${data.quantity} meters`);
+      logInfo(
+        `Created greige stock for ${greige.greigeCode}: ${actualQty} meters (nominal: ${nominalQty}, L=${data.foldLengthCm || 100})`
+      );
 
       return greigeStock;
     } catch (error: unknown) {
@@ -452,7 +482,7 @@ class GreigeStockService {
       });
 
       // Sync stock_levels
-      await syncStockLevelQuantity(stock.greigeId, -quantity);
+      await syncStockLevelQuantity(stock.greigeId, -quantity, stock.warehouseId || undefined);
 
       logInfo(`Consumed ${quantity} meters of greige stock ${stockId}`);
 
@@ -662,7 +692,7 @@ class GreigeStockService {
 
     // Sync stock_levels
     const adjustChange = data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity;
-    await syncStockLevelQuantity(existing.greigeId, adjustChange);
+    await syncStockLevelQuantity(existing.greigeId, adjustChange, existing.warehouseId || undefined);
 
     logInfo(
       `Stock adjustment: ${data.adjustmentType} ${data.quantity}m on ${existing.greige.greigeCode} (${stockId}). ` +

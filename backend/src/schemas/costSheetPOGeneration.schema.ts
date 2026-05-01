@@ -85,7 +85,7 @@ const lacePOItemSchema = z.object({
   materialId: z.string().uuid('Invalid material ID'),
   orderQty: z.number().positive('Order quantity must be positive'),
   unit: z.string().default('METER'),
-  unitPrice: z.number().nonnegative('Unit price cannot be negative'),
+  unitPrice: z.number().positive('Unit price must be greater than 0'),
   allowancePercent: z.number().nonnegative().default(3),
   remarks: z.string().max(500).optional(),
 });
@@ -106,7 +106,7 @@ const laceProcessingPOItemSchema = z.object({
   processType: z.string().default('DYEING'),
   orderQty: z.number().positive('Order quantity must be positive'),
   unit: z.string().default('METER'),
-  unitPrice: z.number().nonnegative('Unit price cannot be negative'),
+  unitPrice: z.number().positive('Unit price must be greater than 0'),
   labDipId: z.string().uuid('Invalid lab dip ID').optional(),
   allowancePercent: z.number().nonnegative().default(3),
   remarks: z.string().max(500).optional(),
@@ -153,9 +153,23 @@ export const generateLaceProcessingPOSchema = z.object({
 });
 
 // ============================================================================
+// QUERY SCHEMAS
+// ============================================================================
+
+/**
+ * Calculate Requirements Query
+ * GET /api/cost-sheet-po/calculate
+ */
+export const calculateRequirementsQuerySchema = z.object({
+  costSheetId: z.string().uuid('Invalid cost sheet ID'),
+  totalOrderQty: z.string().transform(Number).pipe(z.number().int().positive('Total order quantity must be positive')),
+});
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 
+export type CalculateRequirementsQuery = z.infer<typeof calculateRequirementsQuerySchema>;
 export type GenerateFabricPOInput = z.infer<typeof generateFabricPOSchema>;
 export type GenerateGreigePOInput = z.infer<typeof generateGreigePOSchema>;
 export type GenerateProcessingPOInput = z.infer<typeof generateProcessingPOSchema>;

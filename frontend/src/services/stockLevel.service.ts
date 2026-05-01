@@ -1,5 +1,5 @@
 // Stock Level Service - API calls for stock inquiry
-import axios from 'axios';
+import api from '@/lib/api';
 import type {
   StockLevel,
   UpdateStockLevelDTO,
@@ -9,21 +9,7 @@ import type {
   ApiResponse,
 } from '../types/inventory.types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const BASE_URL = `${API_URL}/stock-levels`;
-
-const getAuthHeader = () => {
-  const authStorage = localStorage.getItem('auth-storage');
-  if (authStorage) {
-    try {
-      const { state } = JSON.parse(authStorage);
-      return state?.token ? { Authorization: `Bearer ${state.token}` } : {};
-    } catch {
-      return {};
-    }
-  }
-  return {};
-};
+const BASE_URL = '/stock-levels';
 
 export const stockLevelService = {
   /**
@@ -36,9 +22,8 @@ export const stockLevelService = {
     if (filters?.belowReorderLevel) params.append('belowReorderLevel', 'true');
     if (filters?.search) params.append('search', filters.search);
 
-    const response = await axios.get<ApiResponse<StockLevel[]>>(
-      `${BASE_URL}${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<StockLevel[]>>(
+      `${BASE_URL}${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data || [];
   },
@@ -47,7 +32,7 @@ export const stockLevelService = {
    * Get stock level by ID
    */
   async getById(id: string): Promise<StockLevel> {
-    const response = await axios.get<ApiResponse<StockLevel>>(`${BASE_URL}/${id}`, { headers: getAuthHeader() });
+    const response = await api.get<ApiResponse<StockLevel>>(`${BASE_URL}/${id}`);
     if (!response.data.data) throw new Error('Stock level not found');
     return response.data.data;
   },
@@ -56,9 +41,7 @@ export const stockLevelService = {
    * Get stock levels for a material (across all warehouses)
    */
   async getByMaterial(materialId: string): Promise<StockLevel[]> {
-    const response = await axios.get<ApiResponse<StockLevel[]>>(`${BASE_URL}/material/${materialId}`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<StockLevel[]>>(`${BASE_URL}/material/${materialId}`);
     return response.data.data || [];
   },
 
@@ -66,9 +49,7 @@ export const stockLevelService = {
    * Get stock levels for a warehouse
    */
   async getByWarehouse(warehouseId: string): Promise<StockLevel[]> {
-    const response = await axios.get<ApiResponse<StockLevel[]>>(`${BASE_URL}/warehouse/${warehouseId}`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<StockLevel[]>>(`${BASE_URL}/warehouse/${warehouseId}`);
     return response.data.data || [];
   },
 
@@ -77,9 +58,7 @@ export const stockLevelService = {
    */
   async getBelowReorderLevel(warehouseId?: string): Promise<StockLevel[]> {
     const params = warehouseId ? `?warehouseId=${warehouseId}` : '';
-    const response = await axios.get<ApiResponse<StockLevel[]>>(`${BASE_URL}/below-reorder${params}`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<StockLevel[]>>(`${BASE_URL}/below-reorder${params}`);
     return response.data.data || [];
   },
 
@@ -87,9 +66,7 @@ export const stockLevelService = {
    * Get stock aging report
    */
   async getAgingReport(warehouseId: string): Promise<StockAgingReport[]> {
-    const response = await axios.get<ApiResponse<StockAgingReport[]>>(`${BASE_URL}/aging/${warehouseId}`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<StockAgingReport[]>>(`${BASE_URL}/aging/${warehouseId}`);
     return response.data.data || [];
   },
 
@@ -101,9 +78,8 @@ export const stockLevelService = {
     if (warehouseId) params.append('warehouseId', warehouseId);
     if (materialId) params.append('materialId', materialId);
 
-    const response = await axios.get<ApiResponse<StockValuationReport>>(
-      `${BASE_URL}/valuation${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<StockValuationReport>>(
+      `${BASE_URL}/valuation${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data || { totalValue: 0, totalQuantity: 0, items: [] };
   },
@@ -112,7 +88,7 @@ export const stockLevelService = {
    * Update stock level (reorder levels only)
    */
   async update(id: string, data: UpdateStockLevelDTO): Promise<StockLevel> {
-    const response = await axios.put<ApiResponse<StockLevel>>(`${BASE_URL}/${id}`, data, { headers: getAuthHeader() });
+    const response = await api.put<ApiResponse<StockLevel>>(`${BASE_URL}/${id}`, data);
     if (!response.data.data) throw new Error('Failed to update stock level');
     return response.data.data;
   },
@@ -121,9 +97,7 @@ export const stockLevelService = {
    * Get stock levels filtered by material type
    */
   async getByMaterialType(materialType: string): Promise<StockLevel[]> {
-    const response = await axios.get<ApiResponse<StockLevel[]>>(`${BASE_URL}/by-type/${materialType}`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<StockLevel[]>>(`${BASE_URL}/by-type/${materialType}`);
     return response.data.data || [];
   },
 };

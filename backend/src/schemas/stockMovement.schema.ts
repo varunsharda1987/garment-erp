@@ -18,19 +18,19 @@ import { z } from 'zod';
 // ============================================================================
 
 export const UnitEnum = z.enum([
-  'PIECE',
   'METER',
-  'YARD',
+  'PIECE',
   'KILOGRAM',
-  'GRAM',
-  'CONE',
-  'SPOOL',
-  'ROLL',
-  'BOX',
   'SET',
+  'YARD',
   'DOZEN',
   'GROSS',
-  'LITER',
+  'TUBE',
+  'CONE',
+  'SPOOL',
+  'BOX',
+  'PAIR',
+  'PACK',
 ]);
 
 export const ItemTypeEnum = z.enum([
@@ -80,6 +80,10 @@ export const createStockInSchema = z.object({
   // Fabric/Greige specific
   foldLengthCm: z.number().positive().optional(),
   thanCount: z.number().int().positive().optional(),
+
+  // Invoice tracking
+  invoiceNumber: z.string().max(50).optional(),
+  invoiceDate: z.string().datetime().or(z.date()).optional(),
 });
 
 /**
@@ -108,6 +112,10 @@ export const createBulkStockInSchema = z.object({
   referenceNumber: z.string().max(100).optional(),
   remarks: z.string().max(500).optional(),
   items: z.array(bulkStockInItemSchema).min(1, 'At least one item required').max(50, 'Maximum 50 items allowed'),
+
+  // Invoice tracking
+  invoiceNumber: z.string().max(50).optional(),
+  invoiceDate: z.string().datetime().or(z.date()).optional(),
 });
 
 // ============================================================================
@@ -201,8 +209,40 @@ export const stockMovementQuerySchema = z.object({
   movementType: z
     .enum(['STOCK_IN', 'STOCK_OUT', 'TRANSFER_IN', 'TRANSFER_OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT'])
     .optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  referenceType: z.string().max(50).optional(),
+  referenceId: z.string().uuid().optional(),
+});
+
+/**
+ * Movement Summary Query Params
+ * GET /api/stock-movements/summary/:warehouseId
+ */
+export const movementSummaryQuerySchema = z.object({
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+});
+
+// ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const stockMovementIdParamSchema = z.object({
+  id: z.string().uuid('Invalid movement ID'),
+});
+
+export const materialIdParamSchema = z.object({
+  materialId: z.string().uuid('Invalid material ID'),
+});
+
+export const warehouseIdParamSchema = z.object({
+  warehouseId: z.string().uuid('Invalid warehouse ID'),
+});
+
+export const materialWarehouseParamSchema = z.object({
+  materialId: z.string().uuid('Invalid material ID'),
+  warehouseId: z.string().uuid('Invalid warehouse ID'),
 });
 
 // ============================================================================

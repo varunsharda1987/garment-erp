@@ -13,12 +13,13 @@ import {
 } from '../controllers/lace.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createLaceSchema,
   updateLaceSchema,
   bulkImportLaceSchema,
   trimMasterQuerySchema,
+  trimMasterIdParamSchema,
 } from '../schemas/trimMasters.schema';
 
 const router = Router();
@@ -78,21 +79,21 @@ router.get('/template', asyncHandler(downloadTemplate));
  * @desc    Get single lace item by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getLaceById));
+router.get('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(getLaceById));
 
 /**
  * @route   PUT /api/materials/lace/:id
  * @desc    Update lace item
  * @access  Private
  */
-router.put('/:id', validateBody(updateLaceSchema), asyncHandler(updateLace));
+router.put('/:id', validateParams(trimMasterIdParamSchema), validateBody(updateLaceSchema), asyncHandler(updateLace));
 
 /**
  * @route   DELETE /api/materials/lace/:id
  * @desc    Delete lace item
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deleteLace));
+router.delete('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(deleteLace));
 
 /**
  * @route   POST /api/materials/lace/bulk-import

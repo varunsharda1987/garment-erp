@@ -12,7 +12,7 @@
 import { Request, Response } from 'express';
 import { StockStatus, StockEntryType } from '@prisma/client';
 import {
-  createLaceStock,
+  createLaceStock as createLaceStockService,
   getLaceStockById,
   getAllLaceStock,
   getAvailableStockForLace,
@@ -60,7 +60,7 @@ export async function createLaceStock(req: Request, res: Response) {
     throw new ValidationError('Missing required fields: laceId, quantityAvailable, weightedAvgCost');
   }
 
-  const stock = await createLaceStock({
+  const stock = await createLaceStockService({
     laceId,
     lotNumber,
     dyeLotNumber,

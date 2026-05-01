@@ -24,7 +24,8 @@ import {
 } from '../controllers/fabric-costing.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { styleIdParamSchema, optionIdParamSchema } from '../schemas/common.schema';
 import {
   lookupRateSchema,
   saveFabricCostingSchema,
@@ -50,10 +51,10 @@ router.use(authenticateToken);
 router.get('/processors', asyncHandler(getProcessors));
 
 // GET /api/fabric-costing/style/:styleId - Get fabrics from a style with greige data
-router.get('/style/:styleId', asyncHandler(getStyleFabrics));
+router.get('/style/:styleId', validateParams(styleIdParamSchema), asyncHandler(getStyleFabrics));
 
 // GET /api/fabric-costing/style/:styleId/validate - Validate if style has CAD data
-router.get('/style/:styleId/validate', asyncHandler(validateStyleCADData));
+router.get('/style/:styleId/validate', validateParams(styleIdParamSchema), asyncHandler(validateStyleCADData));
 
 // POST /api/fabric-costing/lookup-rate - Lookup processor rate for greige+quantity
 router.post('/lookup-rate', validateBody(lookupRateSchema), asyncHandler(lookupProcessorRate));
@@ -67,23 +68,34 @@ router.post('/save', validateBody(saveFabricCostingSchema), asyncHandler(saveFab
 router.get('/options', validateQuery(costingOptionsQuerySchema), asyncHandler(getCostingOptions));
 
 // GET /api/fabric-costing/style/:styleId/options - Get all costing options for a specific style
-router.get('/style/:styleId/options', asyncHandler(getStyleCostingOptions));
+router.get('/style/:styleId/options', validateParams(styleIdParamSchema), asyncHandler(getStyleCostingOptions));
 
 // POST /api/fabric-costing/option/:optionId/approve - Approve a costing option
-router.post('/option/:optionId/approve', validateBody(approveCostingOptionSchema), asyncHandler(approveCostingOption));
+router.post(
+  '/option/:optionId/approve',
+  validateParams(optionIdParamSchema),
+  validateBody(approveCostingOptionSchema),
+  asyncHandler(approveCostingOption)
+);
 
 // PATCH /api/fabric-costing/option/:optionId/unapprove - Unapprove a costing option
 router.patch(
   '/option/:optionId/unapprove',
+  validateParams(optionIdParamSchema),
   validateBody(unapproveCostingOptionSchema),
   asyncHandler(unapproveCostingOption)
 );
 
 // POST /api/fabric-costing/option/:optionId/promote - Promote to next workflow stage
-router.post('/option/:optionId/promote', validateBody(promoteCostingOptionSchema), asyncHandler(promoteCostingOption));
+router.post(
+  '/option/:optionId/promote',
+  validateParams(optionIdParamSchema),
+  validateBody(promoteCostingOptionSchema),
+  asyncHandler(promoteCostingOption)
+);
 
 // DELETE /api/fabric-costing/option/:optionId - Delete a costing option
-router.delete('/option/:optionId', asyncHandler(deleteCostingOption));
+router.delete('/option/:optionId', validateParams(optionIdParamSchema), asyncHandler(deleteCostingOption));
 
 // POST /api/fabric-costing/styles/costing-status - Get costing status for multiple styles
 router.post('/styles/costing-status', validateBody(stylesCostingStatusSchema), asyncHandler(getStylesCostingStatus));

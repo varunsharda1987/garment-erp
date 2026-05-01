@@ -9,12 +9,13 @@ import {
 } from '../controllers/expenseTypes.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createExpenseTypeSchema,
   updateExpenseTypeSchema,
   expenseTypeQuerySchema,
 } from '../schemas/expenseTypes.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -28,12 +29,17 @@ router.post('/', validateBody(createExpenseTypeSchema), asyncHandler(createExpen
 router.get('/', validateQuery(expenseTypeQuerySchema), asyncHandler(getAllExpenseTypes));
 
 // Get expense type by ID
-router.get('/:id', asyncHandler(getExpenseTypeById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getExpenseTypeById));
 
 // Update expense type
-router.put('/:id', validateBody(updateExpenseTypeSchema), asyncHandler(updateExpenseType));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updateExpenseTypeSchema),
+  asyncHandler(updateExpenseType)
+);
 
 // Delete expense type (soft delete)
-router.delete('/:id', asyncHandler(deleteExpenseType));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteExpenseType));
 
 export default router;

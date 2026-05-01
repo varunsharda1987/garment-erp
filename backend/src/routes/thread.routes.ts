@@ -12,13 +12,14 @@ import {
 import * as threadConversionController from '../controllers/thread-conversion.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createThreadSchema,
   updateThreadSchema,
   convertThreadSchema,
   bulkImportThreadSchema,
   trimMasterQuerySchema,
+  trimMasterIdParamSchema,
 } from '../schemas/trimMasters.schema';
 
 const router = Router();
@@ -64,7 +65,7 @@ router.post('/bulk-import', validateBody(bulkImportThreadSchema), asyncHandler(b
  * @access  Private
  * @query   requiredUnits, warehouseId
  */
-router.get('/:id/stock', asyncHandler(getThreadStock));
+router.get('/:id/stock', validateParams(trimMasterIdParamSchema), asyncHandler(getThreadStock));
 
 // ============================================
 // COLLECTION ROUTES (generic, no params)
@@ -94,20 +95,25 @@ router.get('/', validateQuery(trimMasterQuerySchema), asyncHandler(getAllThreads
  * @desc    Get single thread item by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getThreadById));
+router.get('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(getThreadById));
 
 /**
  * @route   PUT /api/materials/thread/:id
  * @desc    Update thread item
  * @access  Private
  */
-router.put('/:id', validateBody(updateThreadSchema), asyncHandler(updateThread));
+router.put(
+  '/:id',
+  validateParams(trimMasterIdParamSchema),
+  validateBody(updateThreadSchema),
+  asyncHandler(updateThread)
+);
 
 /**
  * @route   DELETE /api/materials/thread/:id
  * @desc    Delete thread item
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deleteThread));
+router.delete('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(deleteThread));
 
 export default router;

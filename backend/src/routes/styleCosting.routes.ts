@@ -29,7 +29,13 @@ import {
 } from '../controllers/styleCostingLaceItems.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { idParamSchema, styleIdParamSchema } from '../schemas/common.schema';
+import {
+  costingIdParamSchema,
+  costingAndItemIdParamSchema,
+  compareCostSheetsParamSchema,
+} from '../schemas/style.schema';
 import {
   createCostSheetSchema,
   updateCostSheetSchema,
@@ -74,6 +80,7 @@ router.post(
   '/generate/:styleId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(styleIdParamSchema),
   validateBody(generateCostSheetSchema),
   asyncHandler(generateCostSheetFromStyle)
 );
@@ -96,6 +103,7 @@ router.get(
   '/budget-suggestions/:styleId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(styleIdParamSchema),
   asyncHandler(getBudgetSuggestions)
 );
 
@@ -104,21 +112,26 @@ router.get(
  * @desc    Get cost sheet by ID
  * @access  Private
  */
-router.get('/:id', authenticateToken, asyncHandler(getCostSheetById));
+router.get('/:id', authenticateToken, validateParams(idParamSchema), asyncHandler(getCostSheetById));
 
 /**
  * @route   GET /api/style-costing/style/:styleId
  * @desc    Get cost sheet by style ID
  * @access  Private
  */
-router.get('/style/:styleId', authenticateToken, asyncHandler(getCostSheetByStyle));
+router.get('/style/:styleId', authenticateToken, validateParams(styleIdParamSchema), asyncHandler(getCostSheetByStyle));
 
 /**
  * @route   GET /api/style-costing/style/:styleId/grouped
  * @desc    Get all cost sheets for a style grouped by width combination
  * @access  Private
  */
-router.get('/style/:styleId/grouped', authenticateToken, asyncHandler(getCostSheetsGroupedByWidth));
+router.get(
+  '/style/:styleId/grouped',
+  authenticateToken,
+  validateParams(styleIdParamSchema),
+  asyncHandler(getCostSheetsGroupedByWidth)
+);
 
 /**
  * @route   PUT /api/style-costing/:id
@@ -129,6 +142,7 @@ router.put(
   '/:id',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(idParamSchema),
   validateBody(updateCostSheetSchema),
   asyncHandler(updateCostSheet)
 );
@@ -142,6 +156,7 @@ router.patch(
   '/:id/approve',
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for cost sheet approval
+  validateParams(idParamSchema),
   validateBody(approveCostSheetSchema),
   asyncHandler(approveCostSheet)
 );
@@ -155,6 +170,7 @@ router.delete(
   '/:id',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER),
+  validateParams(idParamSchema),
   asyncHandler(deleteCostSheet)
 );
 
@@ -172,6 +188,7 @@ router.post(
   '/:id/create-version',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(idParamSchema),
   validateBody(createCostSheetVersionSchema),
   asyncHandler(createCostSheetVersion)
 );
@@ -181,14 +198,24 @@ router.post(
  * @desc    Get all cost sheet versions for a style
  * @access  Private
  */
-router.get('/style/:styleId/versions', authenticateToken, asyncHandler(getCostSheetVersions));
+router.get(
+  '/style/:styleId/versions',
+  authenticateToken,
+  validateParams(styleIdParamSchema),
+  asyncHandler(getCostSheetVersions)
+);
 
 /**
  * @route   GET /api/style-costing/compare/:id1/:id2
  * @desc    Compare two cost sheet versions
  * @access  Private
  */
-router.get('/compare/:id1/:id2', authenticateToken, asyncHandler(compareCostSheetVersions));
+router.get(
+  '/compare/:id1/:id2',
+  authenticateToken,
+  validateParams(compareCostSheetsParamSchema),
+  asyncHandler(compareCostSheetVersions)
+);
 
 // ============================================================================
 // PROCUREMENT & VARIANCE TRACKING ROUTES (Phase 2B)
@@ -218,6 +245,7 @@ router.patch(
   '/:id/actuals',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(idParamSchema),
   validateBody(updateActualsSchema),
   asyncHandler(updateActuals)
 );
@@ -232,6 +260,7 @@ router.post(
   '/variance/:id/approve',
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for variance approval
+  validateParams(idParamSchema),
   validateBody(approveVarianceSchema),
   asyncHandler(approveVariance)
 );
@@ -249,6 +278,7 @@ router.post(
   '/:costingId/lace-items',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(costingIdParamSchema),
   validateBody(addLaceItemSchema),
   asyncHandler(addLaceItem)
 );
@@ -262,6 +292,7 @@ router.post(
   '/:costingId/lace-items/bulk',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(costingIdParamSchema),
   validateBody(bulkAddLaceItemsSchema),
   asyncHandler(bulkAddLaceItemsController)
 );
@@ -274,6 +305,7 @@ router.post(
 router.post(
   '/:costingId/lace-items/calculate-options',
   authenticateToken,
+  validateParams(costingIdParamSchema),
   validateBody(calculateLaceOptionsSchema),
   asyncHandler(calculateLaceOptions)
 );
@@ -283,14 +315,24 @@ router.post(
  * @desc    Get all lace items for a cost sheet
  * @access  Private
  */
-router.get('/:costingId/lace-items', authenticateToken, asyncHandler(getLaceItems));
+router.get(
+  '/:costingId/lace-items',
+  authenticateToken,
+  validateParams(costingIdParamSchema),
+  asyncHandler(getLaceItems)
+);
 
 /**
  * @route   GET /api/style-costing/:costingId/lace-items/:itemId
  * @desc    Get single lace item by ID
  * @access  Private
  */
-router.get('/:costingId/lace-items/:itemId', authenticateToken, asyncHandler(getLaceItem));
+router.get(
+  '/:costingId/lace-items/:itemId',
+  authenticateToken,
+  validateParams(costingAndItemIdParamSchema),
+  asyncHandler(getLaceItem)
+);
 
 /**
  * @route   PUT /api/style-costing/:costingId/lace-items/:itemId
@@ -301,6 +343,7 @@ router.put(
   '/:costingId/lace-items/:itemId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(costingAndItemIdParamSchema),
   validateBody(updateLaceItemSchema),
   asyncHandler(updateLaceItemController)
 );
@@ -314,6 +357,7 @@ router.delete(
   '/:costingId/lace-items/:itemId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateParams(costingAndItemIdParamSchema),
   asyncHandler(deleteLaceItem)
 );
 

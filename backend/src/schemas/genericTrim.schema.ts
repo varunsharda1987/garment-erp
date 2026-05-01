@@ -98,6 +98,19 @@ export const genericTrimQuerySchema = z.object({
 });
 
 // ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const trimTypeParamSchema = z.object({
+  trimType: TrimTypeEnum,
+});
+
+export const genericTrimIdParamSchema = z.object({
+  trimType: TrimTypeEnum,
+  id: z.string().uuid('Invalid trim ID'),
+});
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 

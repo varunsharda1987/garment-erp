@@ -91,13 +91,17 @@ export const componentMasterQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
   search: z.string().max(100).optional(),
-  category: ComponentCategoryEnum.optional(),
-  subcategory: z.string().max(100).optional(),
-  supplierId: z.string().uuid().optional(),
-  isActive: z
-    .string()
-    .transform((val) => val === 'true')
-    .optional(),
+  componentCategory: z.string().max(100).optional(),
+  componentGroupId: z.string().uuid().optional(),
+  activeOnly: z.string().optional(),
+});
+
+// ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const componentMasterIdParamSchema = z.object({
+  id: z.string().uuid('Invalid component master ID'),
 });
 
 // ============================================================================

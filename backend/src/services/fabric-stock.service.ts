@@ -2,7 +2,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
-import { ensureMaterialRecord } from './helpers/material-sync.helper';
+import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 export interface CreateStyleStockDTO {
   styleId: string;
@@ -106,9 +106,9 @@ class FabricStockService {
         },
       });
 
-      // Ensure materials record exists, then update stock_levels
-      const materialId = await ensureMaterialRecord(data.fabricId, 'FABRIC');
-      await this.updateMaterialStockLevel(materialId, 'DEFAULT_WAREHOUSE', data.quantity, data.purchaseCost);
+      // Ensure materials record exists, then sync stock_levels
+      await ensureMaterialRecord(data.fabricId, 'FABRIC');
+      await syncStockLevelQuantity(data.fabricId, data.quantity);
 
       return fabricStock;
     } catch (error: unknown) {
@@ -704,44 +704,6 @@ class FabricStockService {
     } catch (error: unknown) {
       logError('Error getting generic greige stock:', error);
       throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Update material stock level (helper function)
-   * Uses upsert to prevent race condition duplicates (unique constraint on materialId + warehouseId)
-   */
-  private async updateMaterialStockLevel(
-    materialId: string,
-    warehouseId: string,
-    quantityChange: number,
-    valuationRate?: number
-  ) {
-    try {
-      // Use upsert with unique constraint to prevent race condition duplicates
-      await prisma.stock_levels.upsert({
-        where: {
-          materialId_warehouseId: { materialId, warehouseId },
-        },
-        update: {
-          quantity: { increment: quantityChange },
-          valuationRate: valuationRate ? new Prisma.Decimal(valuationRate) : undefined,
-          lastUpdated: new Date(),
-        },
-        create: {
-          id: `SL-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          materialId,
-          warehouseId,
-          quantity: new Prisma.Decimal(quantityChange),
-          unit: 'METER',
-          valuationRate: valuationRate ? new Prisma.Decimal(valuationRate) : null,
-          stockValue: valuationRate ? new Prisma.Decimal(quantityChange * valuationRate) : null,
-          lastUpdated: new Date(),
-        },
-      });
-    } catch (error: unknown) {
-      logError('Error updating material stock level:', error);
-      // Don't throw error, just log it
     }
   }
 

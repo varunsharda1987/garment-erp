@@ -216,11 +216,16 @@ export async function calculateLaceOptions(req: Request, res: Response) {
     throw new ValidationError('Missing required fields: laceId, quantityPerGarment');
   }
 
+  // wastagePercent is required - no hardcoded default
+  if (!wastagePercent) {
+    return res.status(400).json({ success: false, message: 'wastagePercent is required' });
+  }
+
   const options = await calculateLaceItemCostOptions(
     laceId,
     parseFloat(quantityPerGarment),
     orderQuantity ? parseInt(orderQuantity) : 1,
-    wastagePercent ? parseFloat(wastagePercent) : 5,
+    parseFloat(wastagePercent),
     styleId,
     costingId
   );

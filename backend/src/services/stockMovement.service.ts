@@ -22,6 +22,9 @@ export interface CreateStockMovementDTO {
   performedById: string;
   foldLengthCm?: Decimal;
   thanCount?: number;
+  // Invoice tracking
+  invoiceNumber?: string;
+  invoiceDate?: Date;
 }
 
 export interface StockTransferDTO {
@@ -72,6 +75,9 @@ export interface BulkStockInDTO {
   remarks?: string;
   performedById: string;
   items: BulkStockInItemDTO[];
+  // Invoice tracking
+  invoiceNumber?: string;
+  invoiceDate?: Date;
 }
 
 class StockMovementService {
@@ -174,24 +180,33 @@ class StockMovementService {
    */
   async createStockIn(data: CreateStockMovementDTO) {
     return await prisma.$transaction(async (tx) => {
-      // Create stock movement record
+      // Calculate actual quantity from fold length
+      // If foldLengthCm is provided and < 100, actual = nominal × (L/100)
+      const nominalQty = data.quantity;
+      const foldL = data.foldLengthCm ? Number(data.foldLengthCm) : null;
+      const actualQty =
+        foldL && foldL > 0 && foldL < 100 ? new Decimal(nominalQty.toString()).mul(foldL).div(100) : nominalQty;
+
+      // Create stock movement record with ACTUAL quantity
       const movement = await tx.stock_movements.create({
         data: {
           movementType: 'STOCK_IN',
           materialId: data.materialId,
           warehouseId: data.warehouseId,
           supplierId: data.supplierId,
-          quantity: data.quantity,
+          quantity: actualQty, // ACTUAL (adjusted for fold length)
           unit: data.unit,
           rate: data.rate,
-          value: data.rate ? new Decimal(data.quantity.toString()).mul(data.rate.toString()) : null,
+          value: data.rate ? new Decimal(actualQty.toString()).mul(data.rate.toString()) : null, // ACTUAL × rate
           referenceType: data.referenceType,
           referenceId: data.referenceId,
           referenceNumber: data.referenceNumber,
-          remarks: data.remarks,
+          remarks: foldL && foldL < 100 ? `Nominal: ${nominalQty} | ${data.remarks || ''}` : data.remarks,
           performedById: data.performedById,
           foldLengthCm: data.foldLengthCm,
           thanCount: data.thanCount,
+          invoiceNumber: data.invoiceNumber,
+          invoiceDate: data.invoiceDate,
         },
         include: {
           materials: {
@@ -209,19 +224,19 @@ class StockMovementService {
         },
       });
 
-      // Create stock transaction for valuation
+      // Create stock transaction for valuation (using ACTUAL quantity)
       if (data.rate) {
         await tx.stock_transactions.create({
           data: {
             materialId: data.materialId,
             warehouseId: data.warehouseId,
             transactionType: 'IN',
-            quantity: data.quantity,
+            quantity: actualQty,
             unit: data.unit,
             rate: data.rate,
-            value: new Decimal(data.quantity.toString()).mul(data.rate.toString()),
-            balanceQuantity: data.quantity,
-            balanceValue: new Decimal(data.quantity.toString()).mul(data.rate.toString()),
+            value: new Decimal(actualQty.toString()).mul(data.rate.toString()),
+            balanceQuantity: actualQty,
+            balanceValue: new Decimal(actualQty.toString()).mul(data.rate.toString()),
             referenceType: data.referenceType,
             referenceId: data.referenceId,
             referenceNumber: data.referenceNumber,
@@ -229,8 +244,8 @@ class StockMovementService {
         });
       }
 
-      // Update stock level inside transaction for atomicity
-      await this.increaseStockInTx(tx, data.materialId, data.warehouseId, data.quantity, data.unit, data.rate);
+      // Update stock level inside transaction for atomicity (using ACTUAL quantity)
+      await this.increaseStockInTx(tx, data.materialId, data.warehouseId, actualQty, data.unit, data.rate);
 
       return movement;
     });
@@ -247,24 +262,35 @@ class StockMovementService {
       const movements = [];
 
       for (const item of data.items) {
-        // Create stock movement record
+        // Calculate actual quantity from fold length
+        const nominalQty = item.quantity;
+        const foldL = item.foldLengthCm ? Number(item.foldLengthCm) : null;
+        const actualQty =
+          foldL && foldL > 0 && foldL < 100 ? new Decimal(nominalQty.toString()).mul(foldL).div(100) : nominalQty;
+
+        // Create stock movement record with ACTUAL quantity
         const movement = await tx.stock_movements.create({
           data: {
             movementType: 'STOCK_IN',
             materialId: item.materialId,
             warehouseId: data.warehouseId,
             supplierId: data.supplierId,
-            quantity: item.quantity,
+            quantity: actualQty, // ACTUAL (adjusted for fold length)
             unit: item.unit,
             rate: item.rate,
-            value: item.rate ? new Decimal(item.quantity.toString()).mul(item.rate.toString()) : null,
+            value: item.rate ? new Decimal(actualQty.toString()).mul(item.rate.toString()) : null, // ACTUAL × rate
             referenceType: data.referenceType || 'BULK_STOCK_IN',
             referenceId: batchId,
             referenceNumber: data.referenceNumber,
-            remarks: item.remarks || data.remarks,
+            remarks:
+              foldL && foldL < 100
+                ? `Nominal: ${nominalQty} | ${item.remarks || data.remarks || ''}`
+                : item.remarks || data.remarks,
             performedById: data.performedById,
             foldLengthCm: item.foldLengthCm,
             thanCount: item.thanCount,
+            invoiceNumber: data.invoiceNumber,
+            invoiceDate: data.invoiceDate,
           },
           include: {
             materials: {
@@ -282,19 +308,19 @@ class StockMovementService {
           },
         });
 
-        // Create stock transaction for valuation
+        // Create stock transaction for valuation (using ACTUAL quantity)
         if (item.rate) {
           await tx.stock_transactions.create({
             data: {
               materialId: item.materialId,
               warehouseId: data.warehouseId,
               transactionType: 'IN',
-              quantity: item.quantity,
+              quantity: actualQty,
               unit: item.unit,
               rate: item.rate,
-              value: new Decimal(item.quantity.toString()).mul(item.rate.toString()),
-              balanceQuantity: item.quantity,
-              balanceValue: new Decimal(item.quantity.toString()).mul(item.rate.toString()),
+              value: new Decimal(actualQty.toString()).mul(item.rate.toString()),
+              balanceQuantity: actualQty,
+              balanceValue: new Decimal(actualQty.toString()).mul(item.rate.toString()),
               referenceType: data.referenceType || 'BULK_STOCK_IN',
               referenceId: batchId,
               referenceNumber: data.referenceNumber,
@@ -302,19 +328,20 @@ class StockMovementService {
           });
         }
 
-        // Update stock level inside transaction for atomicity
-        await this.increaseStockInTx(tx, item.materialId, data.warehouseId, item.quantity, item.unit, item.rate);
+        // Update stock level inside transaction for atomicity (using ACTUAL quantity)
+        await this.increaseStockInTx(tx, item.materialId, data.warehouseId, actualQty, item.unit, item.rate);
 
         movements.push(movement);
       }
+
+      // Calculate total ACTUAL quantity for summary
+      const totalActualQty = movements.reduce((sum, m) => sum.add(new Decimal(m.quantity.toString())), new Decimal(0));
 
       return {
         batchId,
         movements,
         itemCount: movements.length,
-        totalQuantity: data.items
-          .reduce((sum, item) => sum.add(new Decimal(item.quantity.toString())), new Decimal(0))
-          .toString(),
+        totalQuantity: totalActualQty.toString(), // ACTUAL total
       };
     });
   }
@@ -930,6 +957,331 @@ class StockMovementService {
     });
 
     return movements;
+  }
+
+  /**
+   * Unified Movement - direction type for frontend display
+   */
+  private mapToDirection(movementType: string): 'INWARD' | 'OUTWARD' | 'TRANSFER' | 'ADJUSTMENT' {
+    if (movementType.includes('IN') || movementType === 'RECEIPT' || movementType === 'RECEIVED') {
+      return 'INWARD';
+    }
+    if (movementType.includes('OUT') || movementType === 'CONSUME' || movementType === 'CONSUMED') {
+      return 'OUTWARD';
+    }
+    if (movementType.includes('TRANSFER')) {
+      return 'TRANSFER';
+    }
+    return 'ADJUSTMENT';
+  }
+
+  /**
+   * Get unified material movements from all sources
+   * Aggregates: stock_movements, greige_stock_transaction, fabric_stock_transaction,
+   * goods_receiving_notes, fabric_procurement, challans
+   */
+  async getUnifiedMovements(filters: {
+    supplierId?: string;
+    invoiceNumber?: string;
+    direction?: 'INWARD' | 'OUTWARD' | 'TRANSFER' | 'ADJUSTMENT';
+    materialType?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const { page = 1, limit = 50 } = filters;
+    const skip = (page - 1) * limit;
+
+    // Build date filter
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+    if (filters.dateFrom) dateFilter.gte = filters.dateFrom;
+    if (filters.dateTo) dateFilter.lte = filters.dateTo;
+
+    interface UnifiedMovement {
+      id: string;
+      date: Date;
+      direction: 'INWARD' | 'OUTWARD' | 'TRANSFER' | 'ADJUSTMENT';
+      supplierName: string | null;
+      supplierCode: string | null;
+      materialName: string;
+      materialCode: string;
+      quantity: number;
+      unit: string;
+      invoiceNumber: string | null;
+      rate: number | null;
+      totalValue: number | null;
+      sourceType: 'STOCK_MOVEMENT' | 'GREIGE_STOCK' | 'FABRIC_STOCK' | 'GRN' | 'PROCUREMENT' | 'CHALLAN';
+      sourceId: string;
+      sourceNumber: string;
+    }
+
+    const results: UnifiedMovement[] = [];
+
+    // 1. Stock Movements (general)
+    const stockMovements = await prisma.stock_movements.findMany({
+      where: {
+        ...(filters.supplierId && { supplierId: filters.supplierId }),
+        ...(Object.keys(dateFilter).length > 0 && { movementDate: dateFilter }),
+      },
+      include: {
+        materials: { select: { code: true, name: true } },
+        suppliers: { select: { code: true, name: true } },
+      },
+      orderBy: { movementDate: 'desc' },
+      take: 500,
+    });
+
+    for (const mov of stockMovements) {
+      const direction = this.mapToDirection(mov.movementType);
+      if (filters.direction && direction !== filters.direction) continue;
+
+      results.push({
+        id: mov.id,
+        date: mov.movementDate,
+        direction,
+        supplierName: mov.suppliers?.name || null,
+        supplierCode: mov.suppliers?.code || null,
+        materialName: mov.materials?.name || 'Unknown',
+        materialCode: mov.materials?.code || '-',
+        quantity: Number(mov.quantity),
+        unit: mov.unit,
+        invoiceNumber: mov.invoiceNumber || null,
+        rate: mov.rate ? Number(mov.rate) : null,
+        totalValue: mov.value ? Number(mov.value) : null,
+        sourceType: 'STOCK_MOVEMENT',
+        sourceId: mov.id,
+        sourceNumber: mov.referenceNumber || mov.id.slice(0, 8),
+      });
+    }
+
+    // 2. Greige Stock with transactions
+    const greigeStocks = await prisma.greige_stock.findMany({
+      where: {
+        ...(filters.supplierId && { supplierId: filters.supplierId }),
+        ...(filters.invoiceNumber && {
+          invoiceNumber: { contains: filters.invoiceNumber, mode: 'insensitive' as const },
+        }),
+        ...(Object.keys(dateFilter).length > 0 && { receivedDate: dateFilter }),
+      },
+      include: {
+        greige: { select: { greigeCode: true, greigeName: true } },
+        supplier: { select: { code: true, name: true } },
+        processor: { select: { code: true, name: true } },
+      },
+      orderBy: { receivedDate: 'desc' },
+      take: 500,
+    });
+
+    for (const gs of greigeStocks) {
+      // Initial receipt
+      const totalQty = Number(gs.quantityAvailable) + Number(gs.quantityConsumed) + Number(gs.quantityReserved);
+      if (filters.direction && filters.direction !== 'INWARD') continue;
+
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const nameMatch = gs.greige?.greigeName?.toLowerCase().includes(searchLower);
+        const codeMatch = gs.greige?.greigeCode?.toLowerCase().includes(searchLower);
+        const supplierMatch = gs.supplier?.name?.toLowerCase().includes(searchLower);
+        if (!nameMatch && !codeMatch && !supplierMatch) continue;
+      }
+
+      results.push({
+        id: gs.id,
+        date: gs.receivedDate,
+        direction: 'INWARD',
+        supplierName: gs.supplier?.name || gs.processor?.name || null,
+        supplierCode: gs.supplier?.code || gs.processor?.code || null,
+        materialName: gs.greige?.greigeName || 'Greige',
+        materialCode: gs.greige?.greigeCode || '-',
+        quantity: totalQty,
+        unit: gs.unit,
+        invoiceNumber: gs.invoiceNumber,
+        rate: gs.purchaseCost ? Number(gs.purchaseCost) : null,
+        totalValue: gs.purchaseCost ? totalQty * Number(gs.purchaseCost) : null,
+        sourceType: 'GREIGE_STOCK',
+        sourceId: gs.id,
+        sourceNumber: gs.procurementId?.slice(0, 8) || gs.id.slice(0, 8),
+      });
+    }
+
+    // 3. Fabric Procurement (purchases)
+    const procurements = await prisma.fabric_procurement.findMany({
+      where: {
+        ...(filters.supplierId && { supplierId: filters.supplierId }),
+        ...(filters.invoiceNumber && {
+          invoiceNumber: { contains: filters.invoiceNumber, mode: 'insensitive' as const },
+        }),
+        ...(Object.keys(dateFilter).length > 0 && { purchaseDate: dateFilter }),
+      },
+      include: {
+        supplier: { select: { code: true, name: true } },
+        greigeMaster: { select: { greigeCode: true, greigeName: true } },
+        fabricMaster: { select: { fabricCode: true, fabricName: true } },
+      },
+      orderBy: { purchaseDate: 'desc' },
+      take: 500,
+    });
+
+    for (const proc of procurements) {
+      if (filters.direction && filters.direction !== 'INWARD') continue;
+
+      const materialName = proc.fabricMaster?.fabricName || proc.greigeMaster?.greigeName || 'Material';
+      const materialCode = proc.fabricMaster?.fabricCode || proc.greigeMaster?.greigeCode || '-';
+
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        if (
+          !materialName.toLowerCase().includes(searchLower) &&
+          !materialCode.toLowerCase().includes(searchLower) &&
+          !proc.supplier?.name?.toLowerCase().includes(searchLower)
+        ) {
+          continue;
+        }
+      }
+
+      results.push({
+        id: proc.id,
+        date: proc.purchaseDate,
+        direction: 'INWARD',
+        supplierName: proc.supplier?.name || null,
+        supplierCode: proc.supplier?.code || null,
+        materialName,
+        materialCode,
+        quantity: Number(proc.quantityPurchased),
+        unit: proc.unit,
+        invoiceNumber: proc.invoiceNumber,
+        rate: Number(proc.ratePerUnit),
+        totalValue: Number(proc.totalCost),
+        sourceType: 'PROCUREMENT',
+        sourceId: proc.id,
+        sourceNumber: proc.purchaseOrderNumber || proc.id.slice(0, 8),
+      });
+    }
+
+    // 4. GRN items (goods receiving)
+    const grns = await prisma.goods_receiving_notes.findMany({
+      where: {
+        ...(filters.supplierId && { supplierId: filters.supplierId }),
+        ...(filters.invoiceNumber && {
+          invoiceNumber: { contains: filters.invoiceNumber, mode: 'insensitive' as const },
+        }),
+        ...(Object.keys(dateFilter).length > 0 && { receivingDate: dateFilter }),
+      },
+      include: {
+        suppliers: { select: { code: true, name: true } },
+        grn_items: {
+          include: {
+            materials: { select: { code: true, name: true } },
+          },
+        },
+      },
+      orderBy: { receivingDate: 'desc' },
+      take: 200,
+    });
+
+    for (const grn of grns) {
+      if (filters.direction && filters.direction !== 'INWARD') continue;
+
+      for (const item of grn.grn_items) {
+        if (filters.search) {
+          const searchLower = filters.search.toLowerCase();
+          if (
+            !item.materials?.name?.toLowerCase().includes(searchLower) &&
+            !item.materials?.code?.toLowerCase().includes(searchLower) &&
+            !grn.suppliers?.name?.toLowerCase().includes(searchLower)
+          ) {
+            continue;
+          }
+        }
+
+        results.push({
+          id: item.id,
+          date: grn.receivingDate,
+          direction: 'INWARD',
+          supplierName: grn.suppliers?.name || null,
+          supplierCode: grn.suppliers?.code || null,
+          materialName: item.materials?.name || 'Material',
+          materialCode: item.materials?.code || '-',
+          quantity: Number(item.receivedQuantity),
+          unit: item.unit || 'PCS',
+          invoiceNumber: grn.invoiceNumber,
+          rate: item.unitPrice ? Number(item.unitPrice) : null,
+          totalValue: item.totalPrice ? Number(item.totalPrice) : null,
+          sourceType: 'GRN',
+          sourceId: grn.id,
+          sourceNumber: grn.grnNumber,
+        });
+      }
+    }
+
+    // 5. Challans (transfers)
+    if (!filters.direction || filters.direction === 'TRANSFER' || filters.direction === 'OUTWARD') {
+      const challans = await prisma.challans.findMany({
+        where: {
+          ...(Object.keys(dateFilter).length > 0 && { challanDate: dateFilter }),
+          status: { not: 'DRAFT' },
+        },
+        include: {
+          items: true,
+        },
+        orderBy: { challanDate: 'desc' },
+        take: 200,
+      });
+
+      for (const challan of challans) {
+        const direction =
+          challan.challanType === 'OUTWARD' ? 'OUTWARD' : challan.challanType === 'INWARD' ? 'INWARD' : 'TRANSFER';
+        if (filters.direction && direction !== filters.direction) continue;
+
+        for (const item of challan.items) {
+          if (filters.search) {
+            const searchLower = filters.search.toLowerCase();
+            if (!item.description?.toLowerCase().includes(searchLower)) {
+              continue;
+            }
+          }
+
+          const itemRate = item.rate ? Number(item.rate) : null;
+          const itemQty = Number(item.quantity);
+          results.push({
+            id: item.id,
+            date: challan.challanDate,
+            direction,
+            supplierName: challan.fromName || challan.toName || null,
+            supplierCode: null,
+            materialName: item.description || item.itemType || 'Item',
+            materialCode: item.itemType || '-',
+            quantity: itemQty,
+            unit: item.unit || 'PCS',
+            invoiceNumber: null,
+            rate: itemRate,
+            totalValue: itemRate ? itemRate * itemQty : null,
+            sourceType: 'CHALLAN',
+            sourceId: challan.id,
+            sourceNumber: challan.challanNumber,
+          });
+        }
+      }
+    }
+
+    // Sort all results by date descending
+    results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Apply pagination
+    const total = results.length;
+    const paginatedResults = results.slice(skip, skip + limit);
+
+    return {
+      data: paginatedResults,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }
 

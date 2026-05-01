@@ -1,22 +1,8 @@
 // Fabric Stock Service - API calls for fabric stock
-import axios from 'axios';
+import api from '@/lib/api';
 import type { FabricStockSummary } from '../types/fabricStock.types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const BASE_URL = `${API_URL}/stock`;
-
-const getAuthHeader = () => {
-  const authStorage = localStorage.getItem('auth-storage');
-  if (authStorage) {
-    try {
-      const { state } = JSON.parse(authStorage);
-      return state?.token ? { Authorization: `Bearer ${state.token}` } : {};
-    } catch {
-      return {};
-    }
-  }
-  return {};
-};
+const BASE_URL = '/stock';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -59,9 +45,7 @@ export const fabricStockService = {
    * Get fabric stock summary for unified dashboard
    */
   async getSummary(): Promise<FabricStockSummary> {
-    const response = await axios.get<ApiResponse<FabricStockSummary>>(`${BASE_URL}/summary`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<FabricStockSummary>>(`${BASE_URL}/summary`);
     return response.data.data;
   },
 
@@ -70,9 +54,8 @@ export const fabricStockService = {
    * Returns the most recent stock entries with weighted average cost
    */
   async getStockByFabricId(fabricId: string): Promise<FabricStock[]> {
-    const response = await axios.get<FabricStockListResponse>(
-      `${BASE_URL}?fabricId=${fabricId}&limit=10&status=AVAILABLE`,
-      { headers: getAuthHeader() }
+    const response = await api.get<FabricStockListResponse>(
+      `${BASE_URL}?fabricId=${fabricId}&limit=10&status=AVAILABLE`
     );
     return response.data.data;
   },
@@ -94,9 +77,7 @@ export const fabricStockService = {
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
 
-    const response = await axios.get<FabricStockListResponse>(`${BASE_URL}?${queryParams.toString()}`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<FabricStockListResponse>(`${BASE_URL}?${queryParams.toString()}`);
     return response.data;
   },
 };

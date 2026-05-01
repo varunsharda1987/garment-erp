@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Calculator, FileText, Package, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calculator, FileText, Package, AlertCircle, CheckCircle, Loader2, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,7 @@ import type {
   GeneratedPO,
   POType,
 } from '@/types/costSheetPOGeneration.types';
+import { COMPANY_CONFIG, getCompanyFullAddress } from '@/config/company.config';
 
 // ============================================
 // COMPONENT
@@ -68,8 +69,18 @@ export default function CostSheetPOGenerationPage() {
   // PO Type Selection (Fabric vs Greige - Mutually Exclusive)
   const [poType, setPOType] = useState<POType>('FABRIC');
 
-  // Supplier Selections
-  const [suppliers, setSuppliers] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  // Supplier Selections (include GST info for preview)
+  const [suppliers, setSuppliers] = useState<
+    Array<{
+      id: string;
+      name: string;
+      code: string;
+      address?: string | null;
+      city?: string | null;
+      pincode?: string | null;
+      gstNumbers?: Array<{ gstNumber?: string; isPrimary?: boolean }>;
+    }>
+  >([]);
   const [fabricSupplierId, setFabricSupplierId] = useState<string>('');
   const [greigeSupplierId, setGreigeSupplierId] = useState<string>('');
   const [processorId, setProcessorId] = useState<string>('');
@@ -427,6 +438,20 @@ export default function CostSheetPOGenerationPage() {
     }).format(amount);
   };
 
+  const getSupplierGstin = (supplierId: string): string => {
+    const supplier = suppliers.find((s) => s.id === supplierId);
+    if (!supplier) return 'N/A';
+    const primaryGst = supplier.gstNumbers?.find((g) => g.isPrimary);
+    return primaryGst?.gstNumber || supplier.gstNumbers?.[0]?.gstNumber || 'Not available';
+  };
+
+  const getSupplierInfo = (supplierId: string): string => {
+    const supplier = suppliers.find((s) => s.id === supplierId);
+    if (!supplier) return '';
+    const gstin = getSupplierGstin(supplierId);
+    return `${supplier.name} | GSTIN: ${gstin}`;
+  };
+
   // Computed values
   const hasFabricItems = useMemo(() => (requirements?.fabricItems?.length || 0) > 0, [requirements]);
   const hasGreigeItems = useMemo(() => (requirements?.greigeItems?.length || 0) > 0, [requirements]);
@@ -489,6 +514,23 @@ export default function CostSheetPOGenerationPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Company Info (Buyer) */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-4">
+          <div className="flex items-start gap-3">
+            <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+            <div className="flex-1">
+              <div className="text-sm text-muted-foreground mb-1">From (Buyer)</div>
+              <div className="font-semibold">{COMPANY_CONFIG.name}</div>
+              <div className="text-sm text-muted-foreground">{getCompanyFullAddress()}</div>
+              <div className="text-sm mt-1">
+                <span className="font-medium">GSTIN:</span> {COMPANY_CONFIG.gstin}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Total Order Quantity Input */}
       <Card>
@@ -574,7 +616,14 @@ export default function CostSheetPOGenerationPage() {
                 {poType === 'FABRIC' && hasFabricItems && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">Fabric Items</h4>
+                      <div>
+                        <h4 className="font-medium">Fabric Items</h4>
+                        {fabricSupplierId && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            To: {getSupplierInfo(fabricSupplierId)}
+                          </div>
+                        )}
+                      </div>
                       <Select value={fabricSupplierId} onValueChange={setFabricSupplierId}>
                         <SelectTrigger className="w-[250px]">
                           <SelectValue placeholder="Select Supplier" />
@@ -673,7 +722,14 @@ export default function CostSheetPOGenerationPage() {
                 {poType === 'GREIGE' && hasGreigeItems && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">Greige Items</h4>
+                      <div>
+                        <h4 className="font-medium">Greige Items</h4>
+                        {greigeSupplierId && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            To: {getSupplierInfo(greigeSupplierId)}
+                          </div>
+                        )}
+                      </div>
                       <Select value={greigeSupplierId} onValueChange={setGreigeSupplierId}>
                         <SelectTrigger className="w-[250px]">
                           <SelectValue placeholder="Select Greige Supplier" />
@@ -770,20 +826,27 @@ export default function CostSheetPOGenerationPage() {
                       </div>
 
                       {createProcessingPO && (
-                        <div className="flex items-center gap-4">
-                          <Label>Processor:</Label>
-                          <Select value={processorId} onValueChange={setProcessorId}>
-                            <SelectTrigger className="w-[250px]">
-                              <SelectValue placeholder="Select Processor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {suppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div>
+                          <div className="flex items-center gap-4">
+                            <Label>Processor:</Label>
+                            <Select value={processorId} onValueChange={setProcessorId}>
+                              <SelectTrigger className="w-[250px]">
+                                <SelectValue placeholder="Select Processor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {suppliers.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.code} - {s.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {processorId && (
+                            <div className="text-xs text-muted-foreground mt-2 ml-20">
+                              To: {getSupplierInfo(processorId)}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -823,7 +886,12 @@ export default function CostSheetPOGenerationPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Trim Items</h4>
+                  <div>
+                    <h4 className="font-medium">Trim Items</h4>
+                    {trimsSupplierId && (
+                      <div className="text-xs text-muted-foreground mt-1">To: {getSupplierInfo(trimsSupplierId)}</div>
+                    )}
+                  </div>
                   <Select value={trimsSupplierId} onValueChange={setTrimsSupplierId}>
                     <SelectTrigger className="w-[250px]">
                       <SelectValue placeholder="Select Supplier" />

@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { creditNoteController } from '../controllers/creditNote.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createCreditNoteSchema, creditNoteQuerySchema } from '../schemas/creditNote.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -18,7 +19,11 @@ router.get(
 );
 
 // GET /api/credit-notes/:id - Get credit note by ID
-router.get('/:id', asyncHandler(creditNoteController.getById.bind(creditNoteController)));
+router.get(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(creditNoteController.getById.bind(creditNoteController))
+);
 
 // POST /api/credit-notes - Create new credit note
 router.post(
@@ -28,12 +33,24 @@ router.post(
 );
 
 // PUT /api/credit-notes/:id/approve - Approve credit note
-router.put('/:id/approve', asyncHandler(creditNoteController.approve.bind(creditNoteController)));
+router.put(
+  '/:id/approve',
+  validateParams(idParamSchema),
+  asyncHandler(creditNoteController.approve.bind(creditNoteController))
+);
 
 // PUT /api/credit-notes/:id/cancel - Cancel credit note
-router.put('/:id/cancel', asyncHandler(creditNoteController.cancel.bind(creditNoteController)));
+router.put(
+  '/:id/cancel',
+  validateParams(idParamSchema),
+  asyncHandler(creditNoteController.cancel.bind(creditNoteController))
+);
 
 // DELETE /api/credit-notes/:id - Delete credit note
-router.delete('/:id', asyncHandler(creditNoteController.delete.bind(creditNoteController)));
+router.delete(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(creditNoteController.delete.bind(creditNoteController))
+);
 
 export default router;

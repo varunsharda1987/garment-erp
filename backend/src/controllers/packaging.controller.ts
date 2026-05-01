@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
 import { logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { trimStockService } from '../services/trim-stock.service';
 import {
   PackagingMasterRecord,
   CountResult,
@@ -569,6 +570,7 @@ export const deletePackaging = async (req: Request, res: Response) => {
  */
 export const bulkImportPackaging = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
+  const userId = (req as any).user?.id || 'system';
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');
@@ -650,26 +652,30 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
         } as Prisma.materialsUncheckedCreateInput,
       });
 
-      // Create stock if requested
+      // Create stock if requested - using specialized packaging_stock table
       let stockCreated = false;
       if (createStock && row.stockQuantity && row.stockQuantity > 0) {
         // Get default warehouse
         const locationCode = row.locationCode || 'DEFAULT';
         const warehouse = await prisma.$queryRaw<WarehouseRecord[]>`
           SELECT "id" FROM "warehouses"
-          WHERE "code" = ${locationCode} OR "name" = 'Default Warehouse'
+          WHERE "warehouseCode" = ${locationCode} OR "warehouseName" = 'Default Warehouse'
           LIMIT 1
         `;
 
         if (warehouse.length > 0) {
-          await prisma.stock_levels.create({
-            data: {
-              materialId: `mat-${packagingCode.toLowerCase()}`,
-              warehouseId: warehouse[0].id,
-              quantity: row.stockQuantity,
+          await trimStockService.createTrimStock(
+            {
+              trimType: 'PACKAGING',
+              masterId: packagingId,
+              quantity: parseFloat(row.stockQuantity),
               unit: 'PIECE',
+              purchaseCost: row.purchaseCost ? parseFloat(row.purchaseCost) : 0,
+              warehouseId: warehouse[0].id,
+              sourceType: 'IMPORT',
             },
-          });
+            userId
+          );
           stockCreated = true;
         }
       }

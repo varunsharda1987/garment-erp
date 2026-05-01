@@ -18,7 +18,7 @@ import {
 } from '../controllers/sample.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createSampleSchema,
   updateSampleSchema,
@@ -31,6 +31,7 @@ import {
   createRevisionSchema,
   sampleQuerySchema,
 } from '../schemas/sample.schema';
+import { idParamSchema, styleIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -58,7 +59,7 @@ router.get('/search', asyncHandler(searchSamples));
  * @desc    Check sample approval gate for work order creation
  * @access  Private
  */
-router.get('/approval-gate/:styleId', asyncHandler(checkApprovalGate));
+router.get('/approval-gate/:styleId', validateParams(styleIdParamSchema), asyncHandler(checkApprovalGate));
 
 /**
  * @route   POST /api/samples
@@ -80,35 +81,45 @@ router.get('/', validateQuery(sampleQuerySchema), asyncHandler(getAllSamples));
  * @desc    Get single sample by ID with all related data
  * @access  Private
  */
-router.get('/:id', asyncHandler(getSampleById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getSampleById));
 
 /**
  * @route   PUT /api/samples/:id
  * @desc    Update sample
  * @access  Private
  */
-router.put('/:id', validateBody(updateSampleSchema), asyncHandler(updateSample));
+router.put('/:id', validateParams(idParamSchema), validateBody(updateSampleSchema), asyncHandler(updateSample));
 
 /**
  * @route   PATCH /api/samples/:id/status
  * @desc    Update sample status (with feedback)
  * @access  Private
  */
-router.patch('/:id/status', validateBody(updateSampleStatusSchema), asyncHandler(updateSampleStatus));
+router.patch(
+  '/:id/status',
+  validateParams(idParamSchema),
+  validateBody(updateSampleStatusSchema),
+  asyncHandler(updateSampleStatus)
+);
 
 /**
  * @route   DELETE /api/samples/:id
  * @desc    Delete sample
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deleteSample));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteSample));
 
 /**
  * @route   PUT /api/samples/:id/measurements
  * @desc    Add or update measurements for a sample
  * @access  Private
  */
-router.put('/:id/measurements', validateBody(updateMeasurementsSchema), asyncHandler(updateMeasurements));
+router.put(
+  '/:id/measurements',
+  validateParams(idParamSchema),
+  validateBody(updateMeasurementsSchema),
+  asyncHandler(updateMeasurements)
+);
 
 /**
  * @route   PATCH /api/samples/:id/measurements/actual
@@ -117,6 +128,7 @@ router.put('/:id/measurements', validateBody(updateMeasurementsSchema), asyncHan
  */
 router.patch(
   '/:id/measurements/actual',
+  validateParams(idParamSchema),
   validateBody(recordActualMeasurementsSchema),
   asyncHandler(recordActualMeasurements)
 );
@@ -126,27 +138,42 @@ router.patch(
  * @desc    Mark sample as sent
  * @access  Private
  */
-router.post('/:id/send', validateBody(markAsSentSchema), asyncHandler(markAsSent));
+router.post('/:id/send', validateParams(idParamSchema), validateBody(markAsSentSchema), asyncHandler(markAsSent));
 
 /**
  * @route   POST /api/samples/:id/receive
  * @desc    Record buyer receipt
  * @access  Private
  */
-router.post('/:id/receive', validateBody(recordReceiptSchema), asyncHandler(recordReceipt));
+router.post(
+  '/:id/receive',
+  validateParams(idParamSchema),
+  validateBody(recordReceiptSchema),
+  asyncHandler(recordReceipt)
+);
 
 /**
  * @route   POST /api/samples/:id/feedback
  * @desc    Record buyer feedback
  * @access  Private
  */
-router.post('/:id/feedback', validateBody(recordFeedbackSchema), asyncHandler(recordFeedback));
+router.post(
+  '/:id/feedback',
+  validateParams(idParamSchema),
+  validateBody(recordFeedbackSchema),
+  asyncHandler(recordFeedback)
+);
 
 /**
  * @route   POST /api/samples/:id/revision
  * @desc    Create a revision of rejected FIT sample
  * @access  Private
  */
-router.post('/:id/revision', validateBody(createRevisionSchema), asyncHandler(createRevision));
+router.post(
+  '/:id/revision',
+  validateParams(idParamSchema),
+  validateBody(createRevisionSchema),
+  asyncHandler(createRevision)
+);
 
 export default router;

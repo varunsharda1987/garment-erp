@@ -298,7 +298,7 @@ export async function issueChallan(id: string, userId?: string) {
             where: { fabricId: fabricStock.fabricId },
             select: { id: true },
           });
-          if (fabMaterial) await syncStockLevelQuantity(fabMaterial.id, -qty, tx);
+          if (fabMaterial) await syncStockLevelQuantity(fabMaterial.id, -qty, undefined, tx);
         }
 
         // 3. Lace stock deduction
@@ -336,7 +336,7 @@ export async function issueChallan(id: string, userId?: string) {
           });
 
           // Sync stock_levels
-          if (laceStock.laceId) await syncStockLevelQuantity(laceStock.laceId, -qty, tx);
+          if (laceStock.laceId) await syncStockLevelQuantity(laceStock.laceId, -qty, undefined, tx);
         }
 
         // 4. Thread stock deduction
@@ -389,7 +389,7 @@ export async function issueChallan(id: string, userId?: string) {
           });
 
           // Sync stock_levels
-          if (threadStock.threadId) await syncStockLevelQuantity(threadStock.threadId, -qty, tx);
+          if (threadStock.threadId) await syncStockLevelQuantity(threadStock.threadId, -qty, undefined, tx);
         }
 
         // 5. General material (trims/accessories) — deduct via stock_movements + stock_levels
@@ -639,7 +639,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
               where: { fabricId: fabricStock.fabricId },
               select: { id: true },
             });
-            if (fabMat) await syncStockLevelQuantity(fabMat.id, receivedQty, tx);
+            if (fabMat) await syncStockLevelQuantity(fabMat.id, receivedQty, undefined, tx);
           }
         }
 
@@ -672,7 +672,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
           });
 
           // Sync stock_levels
-          if (laceStock?.laceId) await syncStockLevelQuantity(laceStock.laceId, receivedQty, tx);
+          if (laceStock?.laceId) await syncStockLevelQuantity(laceStock.laceId, receivedQty, undefined, tx);
         }
 
         // General material credit (trims/accessories) via stock_movements

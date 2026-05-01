@@ -84,13 +84,18 @@ export async function getFabricStockHistory(fabricId: string): Promise<FabricSto
  */
 export async function createGreigeStock(data: {
   greigeId: string;
-  quantity: number;
+  quantity: number; // Nominal quantity (what supplier measured)
   width: number;
   rollNumbers?: string;
   warehouseLocation?: string;
   purchaseCost?: number;
   receivedDate?: Date;
   supplierId?: string;
+  invoiceNumber?: string;
+  invoiceDate?: Date;
+  // Fold/Than tracking - for calculating actual meters from nominal
+  foldLengthCm?: number; // "L" - fold length in cm (e.g., 97)
+  thanCount?: number; // Number of thans in this lot
 }): Promise<GreigeStockCreateResponse> {
   const response = await api.post(`/greige/stock-entry`, data);
   return response.data;

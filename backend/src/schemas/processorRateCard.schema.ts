@@ -13,9 +13,10 @@ import { z } from 'zod';
 
 const SlabDefinitionSchema = z.object({
   id: z.string().uuid().optional(),
-  minQty: z.number().int().nonnegative(),
-  maxQty: z.number().int().positive().nullable(),
-  label: z.string().max(50).optional(),
+  slabOrder: z.number().int().nonnegative(),
+  minQuantity: z.number().int().nonnegative(),
+  maxQuantity: z.number().int().positive().nullable(),
+  slabLabel: z.string().max(50).optional(),
 });
 
 /**
@@ -95,7 +96,7 @@ export const copyRatesSchema = z
  */
 export const lookupRateSchema = z
   .object({
-    processorId: z.string().uuid('Invalid processor ID'),
+    processorId: z.string().uuid('Invalid processor ID').optional(),
     greigeId: z.string().uuid('Invalid greige ID'),
     quantityMeters: z.number().positive('Quantity must be positive'),
     processingType: z.string().max(50).optional(),
@@ -109,13 +110,31 @@ export const lookupRateSchema = z
  */
 export const lookupLaceRateSchema = z
   .object({
-    processorId: z.string().uuid('Invalid processor ID'),
+    processorId: z.string().uuid('Invalid processor ID').optional(),
     laceId: z.string().uuid('Invalid lace ID'),
     quantityMeters: z.number().positive('Quantity must be positive'),
     processingType: z.string().max(50).optional(),
     printingType: z.string().max(50).optional(),
   })
   .passthrough();
+
+// ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const processorIdParamSchema = z.object({
+  processorId: z.string().uuid('Invalid processor ID'),
+});
+
+export const processorGreigeParamSchema = z.object({
+  processorId: z.string().uuid('Invalid processor ID'),
+  greigeId: z.string().uuid('Invalid greige ID'),
+});
+
+export const processorLaceParamSchema = z.object({
+  processorId: z.string().uuid('Invalid processor ID'),
+  laceId: z.string().uuid('Invalid lace ID'),
+});
 
 // ============================================================================
 // Type Exports

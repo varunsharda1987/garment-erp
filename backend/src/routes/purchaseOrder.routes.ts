@@ -19,10 +19,11 @@ import {
   sendPurchaseOrder,
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
+  amendDeliveryLocation,
 } from '../controllers/purchaseOrder.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createPurchaseOrderSchema,
   updatePurchaseOrderSchema,
@@ -30,7 +31,14 @@ import {
   updatePurchaseOrderItemSchema,
   cancelPurchaseOrderSchema,
   purchaseOrderQuerySchema,
+  amendDeliveryLocationSchema,
 } from '../schemas/purchaseOrder.schema';
+import {
+  idParamSchema,
+  supplierIdParamSchema,
+  sourceParamSchema,
+  idAndItemIdParamSchema,
+} from '../schemas/common.schema';
 import { getPOStatsController, getPOsBySourceController } from '../controllers/unified-po.controller';
 
 const router = Router();
@@ -61,7 +69,7 @@ router.get('/receivable', asyncHandler(getReceivablePurchaseOrders));
  * @desc    Get purchase orders by supplier
  * @access  Private
  */
-router.get('/supplier/:supplierId', asyncHandler(getPurchaseOrdersBySupplier));
+router.get('/supplier/:supplierId', validateParams(supplierIdParamSchema), asyncHandler(getPurchaseOrdersBySupplier));
 
 /**
  * @route   GET /api/purchase-orders/stats
@@ -82,6 +90,7 @@ router.get(
 router.get(
   '/by-source/:source',
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
+  validateParams(sourceParamSchema),
   asyncHandler(getPOsBySourceController)
 );
 
@@ -90,14 +99,14 @@ router.get(
  * @desc    Get purchase order by ID with all relations
  * @access  Private
  */
-router.get('/:id', asyncHandler(getPurchaseOrderById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getPurchaseOrderById));
 
 /**
  * @route   GET /api/purchase-orders/:id/pending-items
  * @desc    Get pending items for a PO (for GRN creation)
  * @access  Private
  */
-router.get('/:id/pending-items', asyncHandler(getPendingItemsForPO));
+router.get('/:id/pending-items', validateParams(idParamSchema), asyncHandler(getPendingItemsForPO));
 
 // ============================================
 // CRUD Routes
@@ -115,14 +124,19 @@ router.post('/', validateBody(createPurchaseOrderSchema), asyncHandler(createPur
  * @desc    Update a purchase order (DRAFT only)
  * @access  Private (PURCHASE, ADMIN)
  */
-router.put('/:id', validateBody(updatePurchaseOrderSchema), asyncHandler(updatePurchaseOrder));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updatePurchaseOrderSchema),
+  asyncHandler(updatePurchaseOrder)
+);
 
 /**
  * @route   DELETE /api/purchase-orders/:id
  * @desc    Delete a purchase order (DRAFT only)
  * @access  Private (PURCHASE, ADMIN)
  */
-router.delete('/:id', asyncHandler(deletePurchaseOrder));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deletePurchaseOrder));
 
 // ============================================
 // Item Management Routes
@@ -133,21 +147,31 @@ router.delete('/:id', asyncHandler(deletePurchaseOrder));
  * @desc    Add an item to a purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.post('/:id/items', validateBody(addPurchaseOrderItemSchema), asyncHandler(addPurchaseOrderItem));
+router.post(
+  '/:id/items',
+  validateParams(idParamSchema),
+  validateBody(addPurchaseOrderItemSchema),
+  asyncHandler(addPurchaseOrderItem)
+);
 
 /**
  * @route   PUT /api/purchase-orders/:id/items/:itemId
  * @desc    Update a purchase order item
  * @access  Private (PURCHASE, ADMIN)
  */
-router.put('/:id/items/:itemId', validateBody(updatePurchaseOrderItemSchema), asyncHandler(updatePurchaseOrderItem));
+router.put(
+  '/:id/items/:itemId',
+  validateParams(idAndItemIdParamSchema),
+  validateBody(updatePurchaseOrderItemSchema),
+  asyncHandler(updatePurchaseOrderItem)
+);
 
 /**
  * @route   DELETE /api/purchase-orders/:id/items/:itemId
  * @desc    Remove an item from a purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.delete('/:id/items/:itemId', asyncHandler(removePurchaseOrderItem));
+router.delete('/:id/items/:itemId', validateParams(idAndItemIdParamSchema), asyncHandler(removePurchaseOrderItem));
 
 // ============================================
 // Status Transition Routes
@@ -158,20 +182,37 @@ router.delete('/:id/items/:itemId', asyncHandler(removePurchaseOrderItem));
  * @desc    Send purchase order to supplier (DRAFT -> SENT)
  * @access  Private (PURCHASE, ADMIN)
  */
-router.patch('/:id/send', asyncHandler(sendPurchaseOrder));
+router.patch('/:id/send', validateParams(idParamSchema), asyncHandler(sendPurchaseOrder));
 
 /**
  * @route   PATCH /api/purchase-orders/:id/acknowledge
  * @desc    Acknowledge purchase order (SENT -> ACKNOWLEDGED)
  * @access  Private
  */
-router.patch('/:id/acknowledge', asyncHandler(acknowledgePurchaseOrder));
+router.patch('/:id/acknowledge', validateParams(idParamSchema), asyncHandler(acknowledgePurchaseOrder));
 
 /**
  * @route   PATCH /api/purchase-orders/:id/cancel
  * @desc    Cancel purchase order
  * @access  Private (PURCHASE, ADMIN)
  */
-router.patch('/:id/cancel', validateBody(cancelPurchaseOrderSchema), asyncHandler(cancelPurchaseOrder));
+router.patch(
+  '/:id/cancel',
+  validateParams(idParamSchema),
+  validateBody(cancelPurchaseOrderSchema),
+  asyncHandler(cancelPurchaseOrder)
+);
+
+/**
+ * @route   PATCH /api/purchase-orders/:id/delivery-location
+ * @desc    Amend delivery location for a purchase order
+ * @access  Private (PURCHASE, ADMIN)
+ */
+router.patch(
+  '/:id/delivery-location',
+  validateParams(idParamSchema),
+  validateBody(amendDeliveryLocationSchema),
+  asyncHandler(amendDeliveryLocation)
+);
 
 export default router;

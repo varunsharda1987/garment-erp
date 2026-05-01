@@ -10,8 +10,9 @@ import {
 } from '../controllers/other-material.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { bulkImportOtherMaterialSchema } from '../schemas/otherMaterial.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -22,9 +23,9 @@ router.use(authenticateToken);
 router.post('/', asyncHandler(createOtherMaterial));
 router.get('/', asyncHandler(getAllOtherMaterials));
 router.get('/template', asyncHandler(downloadTemplate));
-router.get('/:id', asyncHandler(getOtherMaterialById));
-router.put('/:id', asyncHandler(updateOtherMaterial));
-router.delete('/:id', asyncHandler(deleteOtherMaterial));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getOtherMaterialById));
+router.put('/:id', validateParams(idParamSchema), asyncHandler(updateOtherMaterial));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteOtherMaterial));
 
 // Bulk operations
 router.post('/bulk-import', validateBody(bulkImportOtherMaterialSchema), asyncHandler(bulkImportOtherMaterials));

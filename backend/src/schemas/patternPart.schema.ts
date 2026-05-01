@@ -67,6 +67,18 @@ export const patternPartQuerySchema = z.object({
 });
 
 // ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const patternPartIdParamSchema = z.object({
+  id: z.string().uuid('Invalid pattern part ID'),
+});
+
+export const patternPartCodeParamSchema = z.object({
+  code: z.string().min(1, 'Code is required').max(50),
+});
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 

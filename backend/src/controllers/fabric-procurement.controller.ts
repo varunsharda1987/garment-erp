@@ -341,7 +341,7 @@ export const planProcurement = async (req: Request, res: Response) => {
 
           // Calculate quantity needed
           const quantityPerUnit = Number(bomItem.quantityPerGarment);
-          const wastagePercent = Number(bomItem.wastagePercent) || 5;
+          const wastagePercent = Number(bomItem.wastagePercent) || 0; // No hardcoded default - 0 indicates not configured
           const orderQuantity = item.totalQuantity;
 
           const rawQuantity = quantityPerUnit * orderQuantity;

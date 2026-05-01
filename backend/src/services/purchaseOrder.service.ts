@@ -3,7 +3,7 @@
  * Business logic for purchase order operations
  */
 
-import { PurchaseOrderStatus, Prisma, POSource, ServiceType, POCategory } from '@prisma/client';
+import { PurchaseOrderStatus, Prisma, POSource, ServiceType, POCategory, DeliveryLocationType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -166,6 +166,18 @@ class PurchaseOrderService {
     const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
     const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
 
+    // Derive delivery location type from warehouse if provided
+    let deliveryLocationType: 'WAREHOUSE' | 'PROCESSOR' | null = null;
+    if (data.deliveryLocationId) {
+      const warehouse = await prisma.warehouses.findUnique({
+        where: { id: data.deliveryLocationId },
+      });
+      if (warehouse) {
+        // JOB_WORK warehouses are processor locations
+        deliveryLocationType = warehouse.warehouseType === 'JOB_WORK' ? 'PROCESSOR' : 'WAREHOUSE';
+      }
+    }
+
     // Create PO with items in transaction
     const purchaseOrder = await prisma.purchase_orders.create({
       data: {
@@ -190,6 +202,10 @@ class PurchaseOrderService {
         styleId: data.styleId || null,
         orderId: data.orderId || null,
         cadId: data.cadId || null,
+        // Delivery location (type derived from warehouse)
+        deliveryLocationType,
+        deliveryLocationId: data.deliveryLocationId || null,
+        originalDeliveryLocationId: data.deliveryLocationId || null, // Same as initial
         purchase_order_items: {
           create: itemsWithTotals,
         },
@@ -456,6 +472,7 @@ class PurchaseOrderService {
                 igstAmount: gst.igstAmount,
                 taxAmount: gst.taxAmount,
                 remarks: item.remarks || null,
+                foldLengthCm: item.foldLengthCm ?? null,
               },
             });
           }
@@ -553,7 +570,6 @@ class PurchaseOrderService {
     const gst = await gstService.calculateLineItemGST({
       lineTotal: totalPrice,
       materialId: item.materialId,
-      serviceType: item.serviceType,
       isInterstate,
       unitPrice: item.unitPrice,
     });
@@ -563,7 +579,7 @@ class PurchaseOrderService {
         id: randomUUID(),
         poId,
         materialId: item.materialId || null,
-        serviceType: item.serviceType || null,
+        serviceType: (item.serviceType as ServiceType) || null,
         serviceDescription: item.serviceDescription || null,
         orderedQuantity: item.orderedQuantity,
         receivedQuantity: 0,
@@ -580,6 +596,7 @@ class PurchaseOrderService {
         igstAmount: gst.igstAmount,
         taxAmount: gst.taxAmount,
         remarks: item.remarks || null,
+        foldLengthCm: item.foldLengthCm ?? null,
       },
       include: {
         materials: {
@@ -894,6 +911,19 @@ class PurchaseOrderService {
           email: true,
           phone: true,
           paymentTerms: true,
+          address: true,
+          billingPincode: true,
+          billing_city: { select: { cityName: true } },
+          billing_state: { select: { stateName: true } },
+          gst_numbers: {
+            select: {
+              id: true,
+              gstNumber: true,
+              stateName: true,
+              stateCode: true,
+              isPrimary: true,
+            },
+          },
         },
       },
       purchase_order_items: {
@@ -1018,6 +1048,29 @@ class PurchaseOrderService {
           fabric: {
             select: { id: true, name: true },
           },
+        },
+      },
+      // Delivery location
+      deliveryWarehouse: {
+        select: {
+          id: true,
+          warehouseCode: true,
+          warehouseName: true,
+          warehouseType: true,
+          address: true,
+          city: true,
+          state: true,
+          pincode: true,
+          contactPerson: true,
+          contactPhone: true,
+        },
+      },
+      deliveryLocationAmendedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
         },
       },
     };
@@ -1149,6 +1202,52 @@ class PurchaseOrderService {
       pendingQuantity: Number(item.orderedQuantity) - Number(item.receivedQuantity),
       unitPrice: Number(item.unitPrice),
     }));
+  }
+
+  /**
+   * Amend delivery location for a PO
+   * Tracks original location for amendment history
+   * All locations are warehouses (including processor locations which are JOB_WORK type)
+   */
+  async amendDeliveryLocation(poId: string, deliveryLocationId: string, amendedById: string) {
+    const existingPO = await prisma.purchase_orders.findUnique({
+      where: { id: poId },
+    });
+
+    if (!existingPO) {
+      throw new Error('Purchase order not found');
+    }
+
+    // Cannot amend cancelled or received POs
+    if (existingPO.status === PurchaseOrderStatus.CANCELLED || existingPO.status === PurchaseOrderStatus.RECEIVED) {
+      throw new Error('Cannot amend delivery location for cancelled or fully received POs');
+    }
+
+    // Validate the warehouse exists
+    const warehouse = await prisma.warehouses.findUnique({
+      where: { id: deliveryLocationId },
+    });
+    if (!warehouse) {
+      throw new Error('Warehouse not found');
+    }
+
+    // Derive type from warehouse: JOB_WORK = PROCESSOR location, anything else = WAREHOUSE
+    const deliveryLocationType = warehouse.warehouseType === 'JOB_WORK' ? 'PROCESSOR' : 'WAREHOUSE';
+
+    const purchaseOrder = await prisma.purchase_orders.update({
+      where: { id: poId },
+      data: {
+        deliveryLocationType,
+        deliveryLocationId,
+        // Only set original if this is the first amendment (preserve the very first location)
+        originalDeliveryLocationId: existingPO.originalDeliveryLocationId || existingPO.deliveryLocationId,
+        deliveryLocationAmendedAt: new Date(),
+        deliveryLocationAmendedById: amendedById,
+      },
+      include: this.getFullInclude(),
+    });
+
+    return purchaseOrder;
   }
 }
 

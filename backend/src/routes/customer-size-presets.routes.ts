@@ -11,6 +11,8 @@ import {
 } from '../controllers/customer-size-presets.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { validateParams } from '../middleware/validation.middleware';
+import { customerIdParamSchema, customerIdAndPresetIdParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -18,27 +20,59 @@ const router = express.Router();
 router.use('/customers', authenticateToken);
 
 // Get all size category presets for a customer
-router.get('/customers/:customerId/size-category-presets', asyncHandler(getAllPresetsForCustomer));
+router.get(
+  '/customers/:customerId/size-category-presets',
+  validateParams(customerIdParamSchema),
+  asyncHandler(getAllPresetsForCustomer)
+);
 
 // Get default size category preset for a customer
-router.get('/customers/:customerId/size-category-presets/default', asyncHandler(getDefaultPreset));
+router.get(
+  '/customers/:customerId/size-category-presets/default',
+  validateParams(customerIdParamSchema),
+  asyncHandler(getDefaultPreset)
+);
 
 // Get a specific size category preset
-router.get('/customers/:customerId/size-category-presets/:presetId', asyncHandler(getPresetById));
+router.get(
+  '/customers/:customerId/size-category-presets/:presetId',
+  validateParams(customerIdAndPresetIdParamSchema),
+  asyncHandler(getPresetById)
+);
 
 // Create a new size category preset
-router.post('/customers/:customerId/size-category-presets', asyncHandler(createPreset));
+router.post(
+  '/customers/:customerId/size-category-presets',
+  validateParams(customerIdParamSchema),
+  asyncHandler(createPreset)
+);
 
 // Update a size category preset
-router.put('/customers/:customerId/size-category-presets/:presetId', asyncHandler(updatePreset));
+router.put(
+  '/customers/:customerId/size-category-presets/:presetId',
+  validateParams(customerIdAndPresetIdParamSchema),
+  asyncHandler(updatePreset)
+);
 
 // Delete a size category preset
-router.delete('/customers/:customerId/size-category-presets/:presetId', asyncHandler(deletePreset));
+router.delete(
+  '/customers/:customerId/size-category-presets/:presetId',
+  validateParams(customerIdAndPresetIdParamSchema),
+  asyncHandler(deletePreset)
+);
 
 // Set a preset as default
-router.post('/customers/:customerId/size-category-presets/:presetId/set-default', asyncHandler(setAsDefault));
+router.post(
+  '/customers/:customerId/size-category-presets/:presetId/set-default',
+  validateParams(customerIdAndPresetIdParamSchema),
+  asyncHandler(setAsDefault)
+);
 
 // Clone a size category preset
-router.post('/customers/:customerId/size-category-presets/:presetId/clone', asyncHandler(clonePreset));
+router.post(
+  '/customers/:customerId/size-category-presets/:presetId/clone',
+  validateParams(customerIdAndPresetIdParamSchema),
+  asyncHandler(clonePreset)
+);
 
 export default router;

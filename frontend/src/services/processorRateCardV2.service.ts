@@ -3,7 +3,7 @@
  * API calls for matrix-based processor rate card management
  */
 
-import axios from 'axios';
+import api from '@/lib/api';
 import type {
   ProcessingTypeV2,
   PrintingTypeV2,
@@ -23,21 +23,7 @@ import type {
 } from '../types/processorRateCardV2.types';
 import { convertGreigeFromAPI, convertLaceFromAPI } from '../types/processorRateCardV2.types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const BASE_URL = `${API_URL}/processor-rate-cards/v2`;
-
-const getAuthHeader = () => {
-  const authStorage = localStorage.getItem('auth-storage');
-  if (authStorage) {
-    try {
-      const { state } = JSON.parse(authStorage);
-      return state?.token ? { Authorization: `Bearer ${state.token}` } : {};
-    } catch {
-      return {};
-    }
-  }
-  return {};
-};
+const BASE_URL = '/processor-rate-cards/v2';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -50,9 +36,7 @@ export const processorRateCardV2Service = {
    * Get summary dashboard data for all processors
    */
   async getSummary(): Promise<ProcessorRateCardSummary> {
-    const response = await axios.get<ApiResponse<ProcessorRateCardSummary>>(`${BASE_URL}/summary`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<ProcessorRateCardSummary>>(`${BASE_URL}/summary`);
     return response.data.data;
   },
 
@@ -60,9 +44,7 @@ export const processorRateCardV2Service = {
    * Get all DYEING/PRINTING processors
    */
   async getProcessors(): Promise<ProcessorInfo[]> {
-    const response = await axios.get<ApiResponse<ProcessorInfo[]>>(`${BASE_URL}/processors`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<ProcessorInfo[]>>(`${BASE_URL}/processors`);
     return response.data.data;
   },
 
@@ -80,9 +62,8 @@ export const processorRateCardV2Service = {
     if (processingType === 'PRINTING' && printingType) {
       url += `&printingType=${printingType}`;
     }
-    const response = await axios.get<ApiResponse<ProcessorRateMatrixFromAPI>>(url, { headers: getAuthHeader() });
+    const response = await api.get<ApiResponse<ProcessorRateMatrixFromAPI>>(url);
 
-    // Convert API format to local format
     const apiMatrix = response.data.data;
     return {
       ...apiMatrix,
@@ -94,9 +75,7 @@ export const processorRateCardV2Service = {
    * Get all greige fabrics for row population
    */
   async getGreigeFabrics(): Promise<GreigeForRateCard[]> {
-    const response = await axios.get<ApiResponse<GreigeForRateCard[]>>(`${BASE_URL}/greiges`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<GreigeForRateCard[]>>(`${BASE_URL}/greiges`);
     return response.data.data;
   },
 
@@ -108,11 +87,10 @@ export const processorRateCardV2Service = {
     processingType: ProcessingTypeV2,
     slabs: SlabInput[]
   ): Promise<SlabDefinition[]> {
-    const response = await axios.post<ApiResponse<SlabDefinition[]>>(
-      `${BASE_URL}/processors/${processorId}/slabs`,
-      { processingType, slabs },
-      { headers: getAuthHeader() }
-    );
+    const response = await api.post<ApiResponse<SlabDefinition[]>>(`${BASE_URL}/processors/${processorId}/slabs`, {
+      processingType,
+      slabs,
+    });
     return response.data.data;
   },
 
@@ -120,14 +98,14 @@ export const processorRateCardV2Service = {
    * Bulk save rate matrix
    */
   async saveMatrix(processorId: string, request: SaveMatrixRequest): Promise<void> {
-    await axios.put(`${BASE_URL}/processors/${processorId}/matrix`, request, { headers: getAuthHeader() });
+    await api.put(`${BASE_URL}/processors/${processorId}/matrix`, request);
   },
 
   /**
    * Copy rates between processors
    */
   async copyRates(input: CopyRatesInput): Promise<void> {
-    await axios.post(`${BASE_URL}/copy`, input, { headers: getAuthHeader() });
+    await api.post(`${BASE_URL}/copy`, input);
   },
 
   /**
@@ -144,7 +122,7 @@ export const processorRateCardV2Service = {
     if (processingType === 'PRINTING' && printingType) {
       body.printingType = printingType;
     }
-    await axios.post(`${BASE_URL}/processors/${processorId}/greiges/${greigeId}`, body, { headers: getAuthHeader() });
+    await api.post(`${BASE_URL}/processors/${processorId}/greiges/${greigeId}`, body);
   },
 
   /**
@@ -161,7 +139,7 @@ export const processorRateCardV2Service = {
     if (processingType === 'PRINTING' && printingType) {
       url += `&printingType=${printingType}`;
     }
-    await axios.delete(url, { headers: getAuthHeader() });
+    await api.delete(url);
   },
 
   /**
@@ -191,14 +169,14 @@ export const processorRateCardV2Service = {
       if (processingType === 'PRINTING' && printingType) {
         body.printingType = printingType;
       }
-      const response = await axios.post<
+      const response = await api.post<
         ApiResponse<{
           id: string;
           ratePerMeter: number;
           totalCost: number;
           slabLabel: string;
         }>
-      >(`${BASE_URL}/lookup`, body, { headers: getAuthHeader() });
+      >(`${BASE_URL}/lookup`, body);
       return response.data.data;
     } catch (error: unknown) {
       const axiosErr = error as { response?: { status?: number } };
@@ -217,9 +195,7 @@ export const processorRateCardV2Service = {
    * Get all greige laces for rate card row population
    */
   async getGreigeLaces(): Promise<GreigeLaceForRateCard[]> {
-    const response = await axios.get<ApiResponse<GreigeLaceForRateCard[]>>(`${BASE_URL}/laces`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<GreigeLaceForRateCard[]>>(`${BASE_URL}/laces`);
     return response.data.data;
   },
 
@@ -227,9 +203,8 @@ export const processorRateCardV2Service = {
    * Get lace rate matrix for a processor
    */
   async getLaceProcessorMatrix(processorId: string): Promise<LaceRateMatrix> {
-    const response = await axios.get<ApiResponse<LaceRateMatrixFromAPI>>(
-      `${BASE_URL}/processors/${processorId}/lace-matrix`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<LaceRateMatrixFromAPI>>(
+      `${BASE_URL}/processors/${processorId}/lace-matrix`
     );
 
     const apiMatrix = response.data.data;
@@ -243,21 +218,21 @@ export const processorRateCardV2Service = {
    * Bulk save lace rate matrix
    */
   async saveLaceMatrix(processorId: string, request: SaveLaceMatrixRequest): Promise<void> {
-    await axios.put(`${BASE_URL}/processors/${processorId}/lace-matrix`, request, { headers: getAuthHeader() });
+    await api.put(`${BASE_URL}/processors/${processorId}/lace-matrix`, request);
   },
 
   /**
    * Add lace row to processor's matrix
    */
   async addLace(processorId: string, laceId: string): Promise<void> {
-    await axios.post(`${BASE_URL}/processors/${processorId}/laces/${laceId}`, {}, { headers: getAuthHeader() });
+    await api.post(`${BASE_URL}/processors/${processorId}/laces/${laceId}`, {});
   },
 
   /**
    * Remove lace row from processor's matrix
    */
   async removeLace(processorId: string, laceId: string): Promise<void> {
-    await axios.delete(`${BASE_URL}/processors/${processorId}/laces/${laceId}`, { headers: getAuthHeader() });
+    await api.delete(`${BASE_URL}/processors/${processorId}/laces/${laceId}`);
   },
 
   /**
@@ -276,7 +251,7 @@ export const processorRateCardV2Service = {
     lace: { id: string; name: string; costPerMeterGreige: number | null };
   } | null> {
     try {
-      const response = await axios.post<
+      const response = await api.post<
         ApiResponse<{
           ratePerMeter: number;
           totalCost: number;
@@ -285,7 +260,7 @@ export const processorRateCardV2Service = {
           processor: { id: string; name: string };
           lace: { id: string; name: string; costPerMeterGreige: number | null };
         }>
-      >(`${BASE_URL}/lookup-lace`, { processorId, laceId, quantityMeters }, { headers: getAuthHeader() });
+      >(`${BASE_URL}/lookup-lace`, { processorId, laceId, quantityMeters });
       return response.data.data;
     } catch (error: unknown) {
       const axiosErr = error as { response?: { status?: number } };

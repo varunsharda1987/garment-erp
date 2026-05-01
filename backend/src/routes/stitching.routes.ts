@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createStitchingIssueSchema,
   updateStitchingIssueSchema,
@@ -10,6 +10,7 @@ import {
   disposeDefectsSchema,
   stitchingIssueQuerySchema,
 } from '../schemas/production.schema';
+import { idParamSchema, workOrderIdParamSchema, managerIdParamSchema } from '../schemas/common.schema';
 import {
   // Stitching Issue endpoints
   getAllStitchingIssues,
@@ -43,8 +44,12 @@ router.use(authenticateToken);
 // SUMMARY ROUTES (must be before parameterized routes)
 // ============================================
 router.get('/summary', asyncHandler(getSummary));
-router.get('/summary/work-order/:workOrderId', asyncHandler(getSummaryByWorkOrder));
-router.get('/summary/manager/:managerId', asyncHandler(getSummaryByManager));
+router.get(
+  '/summary/work-order/:workOrderId',
+  validateParams(workOrderIdParamSchema),
+  asyncHandler(getSummaryByWorkOrder)
+);
+router.get('/summary/manager/:managerId', validateParams(managerIdParamSchema), asyncHandler(getSummaryByManager));
 router.get('/style-size-summary', asyncHandler(getStyleSizeSummary));
 router.get('/pending-transfer-slips', asyncHandler(getAvailableTransferSlips));
 router.get('/available-managers', asyncHandler(getAvailableManagers));
@@ -55,18 +60,38 @@ router.get('/available-managers', asyncHandler(getAvailableManagers));
 
 // List and CRUD
 router.get('/issues', validateQuery(stitchingIssueQuerySchema), asyncHandler(getAllStitchingIssues));
-router.get('/issues/:id', asyncHandler(getStitchingIssueById));
+router.get('/issues/:id', validateParams(idParamSchema), asyncHandler(getStitchingIssueById));
 router.post('/issues', validateBody(createStitchingIssueSchema), asyncHandler(createStitchingIssue));
-router.put('/issues/:id', validateBody(updateStitchingIssueSchema), asyncHandler(updateStitchingIssue));
-router.delete('/issues/:id', asyncHandler(deleteStitchingIssue));
+router.put(
+  '/issues/:id',
+  validateParams(idParamSchema),
+  validateBody(updateStitchingIssueSchema),
+  asyncHandler(updateStitchingIssue)
+);
+router.delete('/issues/:id', validateParams(idParamSchema), asyncHandler(deleteStitchingIssue));
 
 // Workflow actions
-router.post('/issues/:id/receive', validateBody(receiveFromCuttingSchema), asyncHandler(receiveFromCutting));
-router.post('/issues/:id/start', asyncHandler(startStitchingIssue));
-router.post('/issues/:id/daily-output', validateBody(recordStitchingOutputSchema), asyncHandler(recordDailyOutput));
-router.post('/issues/:id/complete', asyncHandler(completeStitchingIssue));
-router.post('/issues/:id/reopen', asyncHandler(reopenStitchingIssue));
-router.post('/issues/:id/generate-transfer-slip', asyncHandler(generateTransferSlip));
-router.post('/issues/:id/dispose-defects', validateBody(disposeDefectsSchema), asyncHandler(disposeDefects));
+router.post(
+  '/issues/:id/receive',
+  validateParams(idParamSchema),
+  validateBody(receiveFromCuttingSchema),
+  asyncHandler(receiveFromCutting)
+);
+router.post('/issues/:id/start', validateParams(idParamSchema), asyncHandler(startStitchingIssue));
+router.post(
+  '/issues/:id/daily-output',
+  validateParams(idParamSchema),
+  validateBody(recordStitchingOutputSchema),
+  asyncHandler(recordDailyOutput)
+);
+router.post('/issues/:id/complete', validateParams(idParamSchema), asyncHandler(completeStitchingIssue));
+router.post('/issues/:id/reopen', validateParams(idParamSchema), asyncHandler(reopenStitchingIssue));
+router.post('/issues/:id/generate-transfer-slip', validateParams(idParamSchema), asyncHandler(generateTransferSlip));
+router.post(
+  '/issues/:id/dispose-defects',
+  validateParams(idParamSchema),
+  validateBody(disposeDefectsSchema),
+  asyncHandler(disposeDefects)
+);
 
 export default router;

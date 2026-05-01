@@ -3,12 +3,15 @@ import { Router, Request, Response } from 'express';
 import StyleStockController from '../controllers/style-stock.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createGreigeStockSchema,
   updateGreigeStockSchema,
   adjustGreigeStockSchema,
   greigeStockQuerySchema,
+  greigeStockIdParamSchema,
+  stockIdParamSchema,
+  processorIdParamSchema,
 } from '../schemas/fabricStock.schema';
 import { UserRole } from '@prisma/client';
 
@@ -35,6 +38,7 @@ router.post(
 router.get(
   '/stock',
   authenticateToken,
+  validateQuery(greigeStockQuerySchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.getAvailableGreigeStock(req, res))
 );
 
@@ -46,6 +50,7 @@ router.get(
 router.get(
   '/generic-stock',
   authenticateToken,
+  validateQuery(greigeStockQuerySchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.getGenericGreigeStock(req, res))
 );
 
@@ -57,6 +62,7 @@ router.get(
 router.get(
   '/stock-entries/:greigeId',
   authenticateToken,
+  validateParams(greigeStockIdParamSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.getGreigeStockByGreigeId(req, res))
 );
 
@@ -80,6 +86,7 @@ router.patch(
   '/stock/:stockId',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  validateParams(stockIdParamSchema),
   validateBody(updateGreigeStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.updateGreigeStockEntry(req, res))
 );
@@ -93,6 +100,7 @@ router.post(
   '/stock/:stockId/adjust',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  validateParams(stockIdParamSchema),
   validateBody(adjustGreigeStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.adjustGreigeStockEntry(req, res))
 );
@@ -116,6 +124,7 @@ router.get(
 router.get(
   '/processor-stock/:processorId',
   authenticateToken,
+  validateParams(processorIdParamSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.getProcessorGreigeStock(req, res))
 );
 

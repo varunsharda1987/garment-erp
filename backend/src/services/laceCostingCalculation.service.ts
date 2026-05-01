@@ -25,7 +25,7 @@ export interface LaceCostOptions {
   laceName?: string;
   quantityPerGarment: number; // Meters per garment
   orderQuantity?: number; // Number of garments
-  wastagePercent?: number; // Default 5%
+  wastagePercent: number; // Required - no hardcoded defaults
   styleId?: string;
   costSheetId?: string;
 }
@@ -119,7 +119,12 @@ export interface LaceCostCalculationResult {
  * Calculate lace cost with all sourcing options
  */
 export async function calculateLaceCost(options: LaceCostOptions): Promise<LaceCostCalculationResult> {
-  const { laceId, quantityPerGarment, orderQuantity = 1, wastagePercent = 5, styleId, costSheetId } = options;
+  const { laceId, quantityPerGarment, orderQuantity = 1, wastagePercent, styleId, costSheetId } = options;
+
+  // Wastage percent is required - no hardcoded defaults
+  if (wastagePercent === undefined || wastagePercent === null) {
+    throw new Error('wastagePercent is required - no hardcoded defaults allowed');
+  }
 
   // Get lace details
   const lace = await prisma.lace_master.findUnique({
@@ -534,16 +539,11 @@ async function calculateGreigeLaceProcessingCost(
     };
   }
 
-  // Get shrinkage percent — MUST be configured in Lace Master, not guessed
-  if (!greigeLace.expectedShrinkagePercent && greigeLace.expectedShrinkagePercent !== 0) {
-    logWarn(
-      `[LaceCosting] Shrinkage % not configured for greige lace "${greigeLace.laceName || greigeLaceId}". Using 5% default — this may cause over/under-ordering.`
-    );
-  }
-  const shrinkagePercent = greigeLace.expectedShrinkagePercent ? Number(greigeLace.expectedShrinkagePercent) : 5;
-
-  const shrinkageFactor = 1 - shrinkagePercent / 100;
-  const greigeQuantityNeeded = quantityNeeded / shrinkageFactor;
+  // Shrinkage will be determined from processor rate card (set below after rate lookup)
+  // Initial estimate for rate lookup quantity (will be recalculated after getting actual shrinkage)
+  let shrinkagePercent: number | null = null;
+  let shrinkageFactor = 1; // Default: no shrinkage for initial quantity estimate
+  let greigeQuantityNeeded = quantityNeeded; // Will be recalculated after getting shrinkage from rate card
 
   // Check for approved lab dip
   const approvedLabDips = await getApprovedLabDipsForLace(greigeLaceId);
@@ -563,7 +563,7 @@ async function calculateGreigeLaceProcessingCost(
     processorName = labDip.processor?.name || null;
   }
 
-  // Try to find processing rate
+  // Try to find processing rate and shrinkage from processor rate card
   let processingCostPerMeter: number | null = null;
   let slabLabel: string | null = null;
 
@@ -578,6 +578,12 @@ async function calculateGreigeLaceProcessingCost(
     if (rate) {
       processingCostPerMeter = rate.ratePerMeter;
       slabLabel = rate.slab.label;
+      // Get shrinkage from processor rate card (ONLY source)
+      if (rate.shrinkagePercent !== null) {
+        shrinkagePercent = rate.shrinkagePercent;
+        shrinkageFactor = 1 - shrinkagePercent / 100;
+        greigeQuantityNeeded = quantityNeeded / shrinkageFactor;
+      }
     }
   }
 
@@ -601,6 +607,12 @@ async function calculateGreigeLaceProcessingCost(
       if (rate && (!processingCostPerMeter || rate.ratePerMeter < processingCostPerMeter)) {
         processingCostPerMeter = rate.ratePerMeter;
         slabLabel = rate.slab.label;
+        // Get shrinkage from processor rate card (ONLY source)
+        if (rate.shrinkagePercent !== null) {
+          shrinkagePercent = rate.shrinkagePercent;
+          shrinkageFactor = 1 - shrinkagePercent / 100;
+          greigeQuantityNeeded = quantityNeeded / shrinkageFactor;
+        }
         if (!labDipApproved) {
           // Only override processor if no approved lab dip
           processorId = processor.id;
@@ -608,6 +620,37 @@ async function calculateGreigeLaceProcessingCost(
         }
       }
     }
+  }
+
+  // Shrinkage MUST be configured in processor rate card
+  if (shrinkagePercent === null) {
+    return {
+      available: false,
+      greigeLaceId,
+      greigeLaceName: greigeLace.laceName,
+      greigeCost: null,
+      processingCost: null,
+      processorId,
+      processorName,
+      slabLabel: null,
+      shrinkagePercent: null,
+      greigeQuantityNeeded: null,
+      totalCost: null,
+      costBreakdown: {
+        greigeCostPerMeter,
+        processingCostPerMeter: null,
+        shrinkageFactor: null,
+        effectiveCostPerMeter: null,
+      },
+      details: `Shrinkage % not configured in processor rate card for lace "${greigeLace.laceName}". Configure shrinkage in the processor rate card.`,
+      labDipRequired: true,
+      labDipId,
+      labDipStatus,
+      labDipApproved,
+      greigeRateSource: null,
+      processingRateSource: null,
+      lastUpdated: null,
+    };
   }
 
   if (!processingCostPerMeter) {
@@ -711,7 +754,7 @@ export async function calculateBatchLaceCost(items: LaceCostOptions[]): Promise<
         laceId: item.laceId,
         laceName: item.laceName || 'Unknown',
         quantityPerGarment: item.quantityPerGarment,
-        wastagePercent: item.wastagePercent || 5,
+        wastagePercent: item.wastagePercent ?? 0, // No hardcoded default - 0 indicates not configured
         effectiveQuantity: 0,
         totalQuantityNeeded: 0,
         stockReuse: {

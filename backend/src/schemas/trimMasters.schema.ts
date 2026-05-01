@@ -28,6 +28,13 @@ export const supplierAssociationSchema = z.object({
 });
 
 /**
+ * Param Validation (shared by all trim masters)
+ */
+export const trimMasterIdParamSchema = z.object({
+  id: z.string().uuid('Invalid trim master ID'),
+});
+
+/**
  * Common Query Params (shared by all trim masters)
  */
 export const trimMasterQuerySchema = z.object({

@@ -2594,6 +2594,7 @@ From ${COMPANY_CONFIG.name}
       where: { id: poId },
       include: {
         suppliers: true,
+        deliveryWarehouse: true,
         purchase_order_items: {
           include: {
             materials: true,
@@ -2730,7 +2731,36 @@ From ${COMPANY_CONFIG.name}
 
     // ── Horizontal Line ──
     doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
-    y += 8;
+    y += 12;
+
+    // ── Deliver To Section ──
+    if (po.deliveryWarehouse) {
+      doc.fontSize(10).font('Helvetica-Bold');
+      doc.text('Deliver To:', marginLeft, y);
+      y += 14;
+
+      doc.fontSize(9).font('Helvetica');
+      const wh = po.deliveryWarehouse;
+      doc.text(wh.warehouseName || 'N/A', marginLeft, y, { width: pageWidth - 60 });
+      y += 12;
+      if (wh.address) {
+        doc.text(wh.address, marginLeft, y, { width: pageWidth - 60 });
+        y += 12;
+      }
+      const cityState = [wh.city, wh.state].filter(Boolean).join(', ');
+      if (cityState || wh.pincode) {
+        doc.text(`${cityState}${wh.pincode ? ' - ' + wh.pincode : ''}`, marginLeft, y, { width: pageWidth - 60 });
+        y += 12;
+      }
+      if (wh.gstNumber) {
+        doc.text(`GSTIN: ${wh.gstNumber}`, marginLeft, y, { width: pageWidth - 60 });
+        y += 12;
+      }
+
+      y += 6;
+      doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+      y += 8;
+    }
 
     // ── Items Table ──
     y = this.drawPurchaseOrderItemsTable(doc, po, y);

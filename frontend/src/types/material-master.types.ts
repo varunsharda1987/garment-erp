@@ -6,8 +6,8 @@
  */
 
 export const MaterialType = {
-  FABRIC: 'FABRIC',
-  GREIGE: 'GREIGE',
+  GENERIC: 'GENERIC',
+  TRIMS: 'TRIMS',
   LACE: 'LACE',
   BUTTON: 'BUTTON',
   THREAD: 'THREAD',
@@ -15,7 +15,12 @@ export const MaterialType = {
   ELASTIC: 'ELASTIC',
   LABEL: 'LABEL',
   PACKAGING: 'PACKAGING',
+  ACCESSORIES: 'ACCESSORIES',
+  SERVICE: 'SERVICE',
   MACHINE_PART: 'MACHINE_PART',
+  OTHER: 'OTHER',
+  FABRIC: 'FABRIC',
+  GREIGE: 'GREIGE',
   HOOK_EYE: 'HOOK_EYE',
   SNAP_BUTTON: 'SNAP_BUTTON',
   BUCKLE: 'BUCKLE',
@@ -261,8 +266,8 @@ export type MaterialSpecifications =
 
 // Helper type for material type labels
 export const MaterialTypeLabels: Record<MaterialType, string> = {
-  [MaterialType.FABRIC]: 'Fabric',
-  [MaterialType.GREIGE]: 'Greige',
+  [MaterialType.GENERIC]: 'Generic',
+  [MaterialType.TRIMS]: 'Trims',
   [MaterialType.LACE]: 'Lace',
   [MaterialType.BUTTON]: 'Button',
   [MaterialType.THREAD]: 'Thread',
@@ -270,7 +275,12 @@ export const MaterialTypeLabels: Record<MaterialType, string> = {
   [MaterialType.ELASTIC]: 'Elastic',
   [MaterialType.LABEL]: 'Label',
   [MaterialType.PACKAGING]: 'Packaging',
+  [MaterialType.ACCESSORIES]: 'Accessories',
+  [MaterialType.SERVICE]: 'Service',
   [MaterialType.MACHINE_PART]: 'Machine Part',
+  [MaterialType.OTHER]: 'Other',
+  [MaterialType.FABRIC]: 'Fabric',
+  [MaterialType.GREIGE]: 'Greige',
   [MaterialType.HOOK_EYE]: 'Hook & Eye',
   [MaterialType.SNAP_BUTTON]: 'Snap Button',
   [MaterialType.BUCKLE]: 'Buckle',

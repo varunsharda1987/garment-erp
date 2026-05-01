@@ -35,6 +35,8 @@ import laceIssueNoteRoutes from './laceIssueNote.routes';
 import laceDefectRoutes from './laceDefect.routes';
 import buttonRoutes from './button.routes';
 import threadRoutes from './thread.routes';
+import threadStockRoutes from './thread-stock.routes';
+import trimStockRoutes from './trim-stock.routes';
 import orderThreadRequirementRoutes from './order-thread-requirement.routes';
 import zipperRoutes from './zipper.routes';
 import elasticRoutes from './elastic.routes';
@@ -296,6 +298,12 @@ export function createApiRouter(): Router {
 
   // Lace Stock Management (allocation, transfer, consumption, returns)
   router.use('/lace-stock', laceStockRoutes);
+
+  // Thread Stock Management (manual entry, consumption)
+  router.use('/thread-stock', threadStockRoutes);
+
+  // Trim Stock Management (button, zipper, elastic, label, packaging)
+  router.use('/trim-stock', trimStockRoutes);
 
   // Embroidery Master
   router.use('/embroidery', embroideryRoutes);

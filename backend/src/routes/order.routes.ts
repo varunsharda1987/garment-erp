@@ -15,13 +15,14 @@ import {
 } from '../controllers/order.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createOrderSchema,
   updateOrderSchema,
   updateOrderStatusSchema,
   orderQuerySchema,
 } from '../schemas/order.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -34,17 +35,22 @@ router.get('/statistics/by-customer', asyncHandler(getOrderStatisticsByCustomer)
 // Order CRUD routes - with Zod validation
 router.post('/', validateBody(createOrderSchema), asyncHandler(createOrder));
 router.get('/', validateQuery(orderQuerySchema), asyncHandler(getAllOrders));
-router.get('/:id', asyncHandler(getOrderById));
-router.put('/:id', validateBody(updateOrderSchema), asyncHandler(updateOrder));
-router.patch('/:id/status', validateBody(updateOrderStatusSchema), asyncHandler(updateOrderStatus));
-router.delete('/:id', asyncHandler(deleteOrder));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getOrderById));
+router.put('/:id', validateParams(idParamSchema), validateBody(updateOrderSchema), asyncHandler(updateOrder));
+router.patch(
+  '/:id/status',
+  validateParams(idParamSchema),
+  validateBody(updateOrderStatusSchema),
+  asyncHandler(updateOrderStatus)
+);
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteOrder));
 
 // Hard delete routes (for unprocessed orders)
-router.get('/:id/can-delete', asyncHandler(canDeleteOrder));
-router.delete('/:id/hard-delete', asyncHandler(hardDeleteOrder));
+router.get('/:id/can-delete', validateParams(idParamSchema), asyncHandler(canDeleteOrder));
+router.delete('/:id/hard-delete', validateParams(idParamSchema), asyncHandler(hardDeleteOrder));
 
 // Cancellation with options (handles lace allocations)
-router.post('/:id/cancel', asyncHandler(cancelOrderWithOptions));
-router.get('/:id/lace-allocations', asyncHandler(getOrderLaceAllocations));
+router.post('/:id/cancel', validateParams(idParamSchema), asyncHandler(cancelOrderWithOptions));
+router.get('/:id/lace-allocations', validateParams(idParamSchema), asyncHandler(getOrderLaceAllocations));
 
 export default router;

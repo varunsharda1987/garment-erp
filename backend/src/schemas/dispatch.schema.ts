@@ -15,16 +15,11 @@ const isValidIdFormat = (val: string) =>
 // Enums
 // ============================================================================
 
-export const DeliveryNoteStatusEnum = z.enum([
-  'DRAFT',
-  'CONFIRMED',
-  'DISPATCHED',
-  'IN_TRANSIT',
-  'DELIVERED',
-  'CANCELLED',
-]);
+// Matches Prisma DeliveryStatus enum
+export const DeliveryNoteStatusEnum = z.enum(['PENDING', 'IN_TRANSIT', 'DELIVERED']);
 
-export const ASNStatusEnum = z.enum(['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'RESCHEDULED', 'CANCELLED']);
+// Matches Prisma ASNStatus enum (note: RESCHEDULE not RESCHEDULED)
+export const ASNStatusEnum = z.enum(['PENDING', 'APPLIED', 'APPROVED', 'REJECTED', 'RESCHEDULE']);
 
 // ============================================================================
 // DELIVERY NOTE SCHEMAS

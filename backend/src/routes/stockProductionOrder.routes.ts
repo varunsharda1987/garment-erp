@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { stockProductionOrderController } from '../controllers/stockProductionOrder.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { authenticateToken } from '../middleware/auth.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createSPOSchema,
   updateSPOSchema,
@@ -10,6 +10,7 @@ import {
   generateWorkOrdersSchema,
   spoQuerySchema,
 } from '../schemas/stockProductionOrder.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -27,7 +28,11 @@ router.get(
 );
 
 // GET /api/stock-production-orders/:id - Get by ID
-router.get('/:id', asyncHandler(stockProductionOrderController.getById.bind(stockProductionOrderController)));
+router.get(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(stockProductionOrderController.getById.bind(stockProductionOrderController))
+);
 
 // POST /api/stock-production-orders - Create new
 router.post(
@@ -39,16 +44,22 @@ router.post(
 // PUT /api/stock-production-orders/:id - Update
 router.put(
   '/:id',
+  validateParams(idParamSchema),
   validateBody(updateSPOSchema),
   asyncHandler(stockProductionOrderController.update.bind(stockProductionOrderController))
 );
 
 // DELETE /api/stock-production-orders/:id - Delete
-router.delete('/:id', asyncHandler(stockProductionOrderController.delete.bind(stockProductionOrderController)));
+router.delete(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(stockProductionOrderController.delete.bind(stockProductionOrderController))
+);
 
 // POST /api/stock-production-orders/:id/approve - Approve SPO
 router.post(
   '/:id/approve',
+  validateParams(idParamSchema),
   validateBody(approveSPOSchema),
   asyncHandler(stockProductionOrderController.approve.bind(stockProductionOrderController))
 );
@@ -56,6 +67,7 @@ router.post(
 // POST /api/stock-production-orders/:id/generate-work-orders - Generate work orders
 router.post(
   '/:id/generate-work-orders',
+  validateParams(idParamSchema),
   validateBody(generateWorkOrdersSchema),
   asyncHandler(stockProductionOrderController.generateWorkOrders.bind(stockProductionOrderController))
 );

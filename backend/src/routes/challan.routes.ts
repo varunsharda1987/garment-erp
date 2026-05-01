@@ -13,8 +13,9 @@ import {
   splitProductionRunController,
 } from '../controllers/challan.controller';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { createChallanSchema } from '../schemas/challan.schema';
+import { idParamSchema } from '../schemas/common.schema';
 import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -31,15 +32,15 @@ router.post('/challans/greige-outward', asyncHandler(createGreigeOutwardChallanC
 router.post('/challans/quick-issue', asyncHandler(quickIssueChallanController));
 router.get('/challans', asyncHandler(getChallansController));
 router.post('/challans', validateBody(createChallanSchema), asyncHandler(createChallanController));
-router.get('/challans/:id', asyncHandler(getChallanByIdController));
-router.put('/challans/:id/issue', asyncHandler(issueChallanController));
-router.put('/challans/:id/receive', asyncHandler(receiveChallanController));
-router.put('/challans/:id/cancel', asyncHandler(cancelChallanController));
+router.get('/challans/:id', validateParams(idParamSchema), asyncHandler(getChallanByIdController));
+router.put('/challans/:id/issue', validateParams(idParamSchema), asyncHandler(issueChallanController));
+router.put('/challans/:id/receive', validateParams(idParamSchema), asyncHandler(receiveChallanController));
+router.put('/challans/:id/cancel', validateParams(idParamSchema), asyncHandler(cancelChallanController));
 
 // PO rate resolution
 router.get('/po-rates/resolve', asyncHandler(resolveRateController));
 
 // Production run split
-router.post('/production-runs/:id/split', asyncHandler(splitProductionRunController));
+router.post('/production-runs/:id/split', validateParams(idParamSchema), asyncHandler(splitProductionRunController));
 
 export default router;

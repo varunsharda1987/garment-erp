@@ -113,6 +113,7 @@ router.post(
 router.put(
   '/:id/accessory-presets/:presetId',
   authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
+  validateParams(customerIdParamSchema),
   asyncHandler(updateAccessoryPreset)
 );
 
@@ -121,6 +122,11 @@ router.put(
  * @desc    Delete (deactivate) accessory preset
  * @access  Protected - Admin only
  */
-router.delete('/:id/accessory-presets/:presetId', authorize(UserRole.ADMIN), asyncHandler(deleteAccessoryPreset));
+router.delete(
+  '/:id/accessory-presets/:presetId',
+  authorize(UserRole.ADMIN),
+  validateParams(customerIdParamSchema),
+  asyncHandler(deleteAccessoryPreset)
+);
 
 export default router;

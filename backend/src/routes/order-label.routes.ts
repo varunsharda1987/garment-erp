@@ -9,6 +9,12 @@ import {
 } from '../controllers/order-label.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
+import {
+  createLabelOverrideSchema,
+  labelOverrideIdParamSchema,
+  orderItemIdParamSchema,
+} from '../schemas/orderLabel.schema';
 
 const router = Router();
 
@@ -20,7 +26,7 @@ router.use(authenticateToken);
 // ============================================
 
 // Delete a label override
-router.delete('/:id', asyncHandler(deleteLabelOverride));
+router.delete('/:id', validateParams(labelOverrideIdParamSchema), asyncHandler(deleteLabelOverride));
 
 export default router;
 
@@ -34,13 +40,26 @@ export const orderItemLabelRouter = Router({ mergeParams: true });
 orderItemLabelRouter.use(authenticateToken);
 
 // Get label requirements for an order item (calculated from breakup)
-orderItemLabelRouter.get('/label-requirements', asyncHandler(getOrderLabelRequirements));
+orderItemLabelRouter.get(
+  '/label-requirements',
+  validateParams(orderItemIdParamSchema),
+  asyncHandler(getOrderLabelRequirements)
+);
 
 // Get all label overrides for an order item
-orderItemLabelRouter.get('/label-overrides', asyncHandler(getOrderLabelOverrides));
+orderItemLabelRouter.get(
+  '/label-overrides',
+  validateParams(orderItemIdParamSchema),
+  asyncHandler(getOrderLabelOverrides)
+);
 
 // Create or update a label override for an order item
-orderItemLabelRouter.post('/label-overrides', asyncHandler(createLabelOverride));
+orderItemLabelRouter.post(
+  '/label-overrides',
+  validateParams(orderItemIdParamSchema),
+  validateBody(createLabelOverrideSchema),
+  asyncHandler(createLabelOverride)
+);
 
 // ============================================
 // Order-Scoped Routes (to be mounted under /orders/:orderId)

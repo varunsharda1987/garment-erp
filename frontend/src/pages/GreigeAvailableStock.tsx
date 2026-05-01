@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -490,13 +490,9 @@ export default function GreigeAvailableStock() {
                   </thead>
                   <tbody className="bg-card divide-y divide-gray-200">
                     {paginatedStock.map((stock) => (
-                      <>
+                      <Fragment key={stock.greigeId}>
                         {/* Aggregated row */}
-                        <tr
-                          key={stock.greigeId}
-                          className="hover:bg-muted cursor-pointer"
-                          onClick={() => toggleRowExpand(stock.greigeId)}
-                        >
+                        <tr className="hover:bg-muted cursor-pointer" onClick={() => toggleRowExpand(stock.greigeId)}>
                           <td className="px-2 py-3 text-center">
                             {expandedRows.has(stock.greigeId) ? (
                               <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -600,6 +596,7 @@ export default function GreigeAvailableStock() {
                                         <th className="px-3 py-2 text-left">Warehouse</th>
                                         <th className="px-3 py-2 text-left">Roll Numbers</th>
                                         <th className="px-3 py-2 text-left">Received</th>
+                                        <th className="px-3 py-2 text-left">Invoice#</th>
                                         <th className="px-3 py-2 text-center">Age</th>
                                         <th className="px-3 py-2 text-center">Status</th>
                                         <th className="px-3 py-2 text-left">Supplier</th>
@@ -640,6 +637,9 @@ export default function GreigeAvailableStock() {
                                             {entry.receivedDate
                                               ? new Date(entry.receivedDate).toLocaleDateString('en-IN')
                                               : '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-muted-foreground">
+                                            {entry.invoiceNumber || '-'}
                                           </td>
                                           <td className="px-3 py-2 text-center">{getAgeBadge(entry.agingDays)}</td>
                                           <td className="px-3 py-2 text-center">
@@ -695,7 +695,7 @@ export default function GreigeAvailableStock() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -770,13 +770,14 @@ export default function GreigeAvailableStock() {
             <div className="space-y-2">
               <Label>Warehouse Location</Label>
               <Select
-                value={editForm.warehouseLocation || ''}
-                onValueChange={(v) => setEditForm({ ...editForm, warehouseLocation: v })}
+                value={editForm.warehouseLocation ?? ''}
+                onValueChange={(v) => setEditForm({ ...editForm, warehouseLocation: v || undefined })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="">Select warehouse</SelectItem>
                   {warehouses.map((wh) => (
                     <SelectItem key={wh.id} value={wh.warehouseName}>
                       {wh.warehouseCode} - {wh.warehouseName}

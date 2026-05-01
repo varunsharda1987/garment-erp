@@ -7,7 +7,7 @@ import { greigeService } from '../services/fabricGreigeService';
 import type { GreigeMasterFormData } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
 import { notify } from '../lib/notify';
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
 
 interface GreigeFormProps {
@@ -74,28 +74,10 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
   const generateGreigeCode = async () => {
     try {
-      // Get token from Zustand auth store
-      const authStorage = localStorage.getItem('auth-storage');
-      let token = null;
-      if (authStorage) {
-        try {
-          const parsed = JSON.parse(authStorage);
-          token = parsed.state?.token || null;
-        } catch (e) {
-          logError('Error parsing auth storage:', e);
-        }
-      }
-
-      // Fetch next code from backend (uses MAX code, not count — immune to soft-deletes)
-      const response = await fetch(`${API_URL}/fabric-management/greige/next-code`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-
-      setFormData((prev) => ({ ...prev, greigeCode: data.code }));
+      const response = await api.get<{ code: string }>('/fabric-management/greige/next-code');
+      setFormData((prev) => ({ ...prev, greigeCode: response.data.code }));
     } catch (error) {
       logError('Error generating greige code:', error);
-      // Fallback to manual entry if auto-generation fails
     }
   };
 
@@ -156,23 +138,10 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
 
   const loadSuppliers = async () => {
     try {
-      // Get token from Zustand auth store
-      const authStorage = localStorage.getItem('auth-storage');
-      let token = null;
-      if (authStorage) {
-        try {
-          const parsed = JSON.parse(authStorage);
-          token = parsed.state?.token || null;
-        } catch (e) {
-          logError('Error parsing auth storage:', e);
-        }
-      }
-
-      const response = await fetch(`${API_URL}/suppliers?limit=100&category=FABRIC_SUPPLIER`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setSuppliers(data.data || []);
+      const response = await api.get<{ data: { id: string; code: string; name: string }[] }>(
+        '/suppliers?limit=100&category=FABRIC_SUPPLIER'
+      );
+      setSuppliers(response.data.data || []);
     } catch (error) {
       logError('Error loading suppliers:', error);
     }

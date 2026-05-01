@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { createLaceStock } from '../services/laceStock.service';
 
 // Type for supplier input
 interface LaceSupplierInput {
@@ -694,6 +695,7 @@ export const deleteLace = async (req: Request, res: Response) => {
  */
 export const bulkImportLace = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
+  const userId = (req as any).user?.id || 'system';
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');
@@ -770,18 +772,17 @@ export const bulkImportLace = async (req: Request, res: Response) => {
         },
       });
 
-      // Create stock if requested
+      // Create stock if requested - using specialized lace_stock table
       let stockCreated = false;
       if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
-        await prisma.stock_levels.create({
-          data: {
-            warehouseId: defaultWarehouse.id,
-            materialId,
-            quantity: parseFloat(row.stockQuantity),
-            unit: 'METER',
-            reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
-            maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
-          },
+        await createLaceStock({
+          laceId: laceRecord.id,
+          quantityAvailable: parseFloat(row.stockQuantity),
+          purchaseCost: row.purchaseCost ? parseFloat(row.purchaseCost) : 0,
+          weightedAvgCost: row.purchaseCost ? parseFloat(row.purchaseCost) : 0,
+          warehouseId: defaultWarehouse.id,
+          stockType: 'GENERIC',
+          createdById: userId,
         });
         stockCreated = true;
       }

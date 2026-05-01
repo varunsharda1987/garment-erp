@@ -11,7 +11,7 @@ import {
 } from '../controllers/garmentPhysicalTests.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createGarmentPhysicalTestSchema,
   updateGarmentPhysicalTestSchema,
@@ -20,6 +20,7 @@ import {
   buyerApproveGarmentTestSchema,
   garmentPhysicalTestQuerySchema,
 } from '../schemas/testing.schemas';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -29,15 +30,26 @@ router.use(authenticateToken);
 // Routes
 router.post('/', validateBody(createGarmentPhysicalTestSchema), asyncHandler(createGarmentPhysicalTest));
 router.get('/', validateQuery(garmentPhysicalTestQuerySchema), asyncHandler(getAllGarmentPhysicalTests));
-router.get('/:id', asyncHandler(getGarmentPhysicalTestById));
-router.put('/:id', validateBody(updateGarmentPhysicalTestSchema), asyncHandler(updateGarmentPhysicalTest));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getGarmentPhysicalTestById));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updateGarmentPhysicalTestSchema),
+  asyncHandler(updateGarmentPhysicalTest)
+);
 router.post('/retest', validateBody(retestGarmentSchema), asyncHandler(createRetestGarmentPhysicalTest));
-router.post('/:id/approve', validateBody(approveGarmentTestSchema), asyncHandler(approveGarmentPhysicalTest));
+router.post(
+  '/:id/approve',
+  validateParams(idParamSchema),
+  validateBody(approveGarmentTestSchema),
+  asyncHandler(approveGarmentPhysicalTest)
+);
 router.post(
   '/:id/buyer-approve',
+  validateParams(idParamSchema),
   validateBody(buyerApproveGarmentTestSchema),
   asyncHandler(buyerApproveGarmentPhysicalTest)
 );
-router.delete('/:id', asyncHandler(deleteGarmentPhysicalTest));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteGarmentPhysicalTest));
 
 export default router;

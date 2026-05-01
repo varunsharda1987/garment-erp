@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createFinishingIssueSchema,
   updateFinishingIssueSchema,
@@ -11,6 +11,7 @@ import {
   cartonPackingSchema,
   finishingIssueQuerySchema,
 } from '../schemas/production.schema';
+import { idParamSchema, workOrderIdParamSchema } from '../schemas/common.schema';
 import {
   // Finishing Issue endpoints
   getAllFinishingIssues,
@@ -45,7 +46,11 @@ router.use(authenticateToken);
 // SUMMARY ROUTES (must be before parameterized routes)
 // ============================================
 router.get('/summary', asyncHandler(getSummary));
-router.get('/summary/work-order/:workOrderId', asyncHandler(getSummaryByWorkOrder));
+router.get(
+  '/summary/work-order/:workOrderId',
+  validateParams(workOrderIdParamSchema),
+  asyncHandler(getSummaryByWorkOrder)
+);
 router.get('/available-transfer-slips', asyncHandler(getAvailableTransferSlips));
 router.get('/available-managers', asyncHandler(getAvailableManagers));
 router.get('/style-size-summary', asyncHandler(getStyleSizeSummary));
@@ -56,21 +61,46 @@ router.get('/style-size-summary', asyncHandler(getStyleSizeSummary));
 
 // List and CRUD
 router.get('/issues', validateQuery(finishingIssueQuerySchema), asyncHandler(getAllFinishingIssues));
-router.get('/issues/:id', asyncHandler(getFinishingIssueById));
+router.get('/issues/:id', validateParams(idParamSchema), asyncHandler(getFinishingIssueById));
 router.post('/issues', validateBody(createFinishingIssueSchema), asyncHandler(createFinishingIssue));
-router.put('/issues/:id', validateBody(updateFinishingIssueSchema), asyncHandler(updateFinishingIssue));
-router.delete('/issues/:id', asyncHandler(deleteFinishingIssue));
+router.put(
+  '/issues/:id',
+  validateParams(idParamSchema),
+  validateBody(updateFinishingIssueSchema),
+  asyncHandler(updateFinishingIssue)
+);
+router.delete('/issues/:id', validateParams(idParamSchema), asyncHandler(deleteFinishingIssue));
 
 // Workflow actions
-router.post('/issues/:id/receive', validateBody(receiveFromStitchingSchema), asyncHandler(receiveFromStitching));
-router.post('/issues/:id/start', asyncHandler(startFinishingIssue));
-router.post('/issues/:id/record-output', validateBody(recordFinishingOutputSchema), asyncHandler(recordDailyOutput));
-router.post('/issues/:id/move-to-packing', asyncHandler(moveToPackingFinishingIssue));
-router.post('/issues/:id/complete', asyncHandler(completeFinishingIssue));
-router.post('/issues/:id/generate-transfer-slip', asyncHandler(generateTransferSlip));
+router.post(
+  '/issues/:id/receive',
+  validateParams(idParamSchema),
+  validateBody(receiveFromStitchingSchema),
+  asyncHandler(receiveFromStitching)
+);
+router.post('/issues/:id/start', validateParams(idParamSchema), asyncHandler(startFinishingIssue));
+router.post(
+  '/issues/:id/record-output',
+  validateParams(idParamSchema),
+  validateBody(recordFinishingOutputSchema),
+  asyncHandler(recordDailyOutput)
+);
+router.post('/issues/:id/move-to-packing', validateParams(idParamSchema), asyncHandler(moveToPackingFinishingIssue));
+router.post('/issues/:id/complete', validateParams(idParamSchema), asyncHandler(completeFinishingIssue));
+router.post('/issues/:id/generate-transfer-slip', validateParams(idParamSchema), asyncHandler(generateTransferSlip));
 
 // Packing
-router.post('/issues/:id/polybag-entry', validateBody(polybagEntrySchema), asyncHandler(createPolybagEntry));
-router.post('/issues/:id/carton-packing', validateBody(cartonPackingSchema), asyncHandler(createCartonPacking));
+router.post(
+  '/issues/:id/polybag-entry',
+  validateParams(idParamSchema),
+  validateBody(polybagEntrySchema),
+  asyncHandler(createPolybagEntry)
+);
+router.post(
+  '/issues/:id/carton-packing',
+  validateParams(idParamSchema),
+  validateBody(cartonPackingSchema),
+  asyncHandler(createCartonPacking)
+);
 
 export default router;

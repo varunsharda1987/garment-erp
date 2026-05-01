@@ -40,6 +40,9 @@ export const createProductCategorySchema = z.object({
     .min(0, 'Sort order must be non-negative')
     .optional()
     .default(0),
+
+  minComponents: z.number().int().min(1, 'Min components must be at least 1').optional(),
+  maxComponents: z.number().int().min(1, 'Max components must be at least 1').optional(),
 });
 
 /**
@@ -76,6 +79,9 @@ export const updateProductCategorySchema = z.object({
   sortOrder: z.number().int('Sort order must be an integer').min(0, 'Sort order must be non-negative').optional(),
 
   isActive: z.boolean().optional(),
+
+  minComponents: z.number().int().min(1).optional(),
+  maxComponents: z.number().int().min(1).optional(),
 });
 
 /**
@@ -118,6 +124,23 @@ export const productCategoryIdParamSchema = z.object({
 });
 
 /**
+ * Level parameter schema
+ * For validating :level route parameters
+ */
+export const levelParamSchema = z.object({
+  level: z.string().transform(Number).pipe(z.number().int().min(1).max(5)),
+});
+
+/**
+ * Category component default parameter schema
+ * For validating /:categoryId/default-components/:componentId routes
+ */
+export const categoryComponentParamSchema = z.object({
+  categoryId: z.string().uuid('Invalid category ID format'),
+  componentId: z.string().uuid('Invalid component ID format'),
+});
+
+/**
  * Reorder categories schema
  * POST /api/product-categories/reorder
  */
@@ -135,4 +158,6 @@ export type CreateProductCategoryInput = z.infer<typeof createProductCategorySch
 export type UpdateProductCategoryInput = z.infer<typeof updateProductCategorySchema>;
 export type ProductCategoryQueryInput = z.infer<typeof productCategoryQuerySchema>;
 export type ProductCategoryIdParam = z.infer<typeof productCategoryIdParamSchema>;
+export type LevelParam = z.infer<typeof levelParamSchema>;
+export type CategoryComponentParam = z.infer<typeof categoryComponentParamSchema>;
 export type ReorderCategoriesInput = z.infer<typeof reorderCategoriesSchema>;

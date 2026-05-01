@@ -111,6 +111,22 @@ export const laceStockQuerySchema = z.object({
 });
 
 // ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const laceStockIdParamSchema = z.object({
+  id: z.string().uuid('Invalid lace stock ID'),
+});
+
+export const laceIdParamSchema = z.object({
+  laceId: z.string().uuid('Invalid lace ID'),
+});
+
+export const allocationIdParamSchema = z.object({
+  allocationId: z.string().uuid('Invalid allocation ID'),
+});
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 

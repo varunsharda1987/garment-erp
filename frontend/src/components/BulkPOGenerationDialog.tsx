@@ -33,6 +33,7 @@ import {
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { groupRequirementsBySupplier, bulkGeneratePOs, previewPOs } from '@/services/mrp.service';
 import type { MaterialRequirement, POPreviewGroup, POPreviewItem } from '@/types/mrp.types';
+import { COMPANY_CONFIG } from '@/config/company.config';
 
 interface POGenerationResult {
   totalPOs: number;
@@ -553,12 +554,21 @@ export default function BulkPOGenerationDialog({
                 return (
                   <Card key={group.supplierId}>
                     <CardHeader className="pb-3">
+                      {/* Company (Buyer) info - compact */}
+                      <div className="text-xs text-muted-foreground mb-2 pb-2 border-b">
+                        <span className="font-medium">From:</span> {COMPANY_CONFIG.name} | GSTIN: {COMPANY_CONFIG.gstin}
+                      </div>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-primary" />
-                          {group.supplierName}
-                          <span className="text-xs font-normal text-muted-foreground">({group.supplierCode})</span>
-                        </CardTitle>
+                        <div>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            {group.supplierName}
+                            <span className="text-xs font-normal text-muted-foreground">({group.supplierCode})</span>
+                          </CardTitle>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            GSTIN: {group.supplierGstin || 'N/A'} | {group.supplierAddress || 'Address not available'}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
                           {group.isInterstate ? (
                             <span className="text-xs bg-info-muted text-info px-2 py-0.5 rounded">

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import type { EmbroiderySendOut, EmbroideredFabricStock } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
 
 export default function EmbroideryAvailableStock() {
@@ -62,18 +62,6 @@ export default function EmbroideryAvailableStock() {
     try {
       setIsLoading(true);
 
-      // Get token from localStorage
-      const authStorage = localStorage.getItem('auth-storage');
-      let token = null;
-      if (authStorage) {
-        try {
-          const parsed = JSON.parse(authStorage);
-          token = parsed.state?.token;
-        } catch (e) {
-          logError('Error parsing auth storage:', e);
-        }
-      }
-
       // Load send-outs
       const sendOutData = await embroideryService.getSendOuts();
       setSendOuts(sendOutData);
@@ -87,16 +75,17 @@ export default function EmbroideryAvailableStock() {
       }
 
       // Load embroidered stock
-      const stockResponse = await fetch(`${API_URL}/stock?status=AVAILABLE&stockType=EMBROIDERED`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (stockResponse.ok) {
-        const stockData = await stockResponse.json();
-        // Filter to only embroidered stock (has embroideryId)
-        const embStock = (stockData.data || stockData || []).filter(
-          (s: EmbroideredFabricStock & { embroideryId?: string }) => s.embroideryId
+      try {
+        const stockResponse = await api.get<{ data: EmbroideredFabricStock[] } | EmbroideredFabricStock[]>(
+          '/stock?status=AVAILABLE&stockType=EMBROIDERED'
         );
+        const stockData = stockResponse.data;
+        const stockArray =
+          (stockData as { data: EmbroideredFabricStock[] }).data || (stockData as EmbroideredFabricStock[]) || [];
+        const embStock = stockArray.filter((s: EmbroideredFabricStock & { embroideryId?: string }) => s.embroideryId);
         setEmbroideredStock(embStock);
+      } catch {
+        setEmbroideredStock([]);
       }
     } catch (err) {
       logError('Failed to load data:', err);

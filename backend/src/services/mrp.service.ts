@@ -3021,28 +3021,45 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
   for (const group of request.groups) {
     const { supplierId, requirementIds } = group;
 
-    // Fetch supplier info
+    // Fetch supplier info with address
     const supplier = await prisma.suppliers.findUnique({
       where: { id: supplierId },
-      select: { id: true, code: true, name: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        address: true,
+        billingPincode: true,
+        billing_city: { select: { cityName: true } },
+        billing_state: { select: { stateName: true } },
+      },
     });
     if (!supplier) continue;
+
+    // Build supplier address string
+    const supplierAddress = [
+      supplier.address,
+      supplier.billing_city?.cityName,
+      supplier.billing_state?.stateName,
+      supplier.billingPincode,
+    ]
+      .filter(Boolean)
+      .join(', ');
 
     // Get supplier's primary GST number to determine state
     const supplierGst = await prisma.supplier_gst_numbers.findFirst({
       where: { supplierId, isPrimary: true },
-      select: { stateCode: true },
+      select: { stateCode: true, gstNumber: true },
     });
     // Fallback: try any GST number for this supplier
-    const supplierStateCode =
-      supplierGst?.stateCode ||
-      (
-        await prisma.supplier_gst_numbers.findFirst({
+    const fallbackGst = supplierGst
+      ? null
+      : await prisma.supplier_gst_numbers.findFirst({
           where: { supplierId },
-          select: { stateCode: true },
-        })
-      )?.stateCode ||
-      null;
+          select: { stateCode: true, gstNumber: true },
+        });
+    const supplierStateCode = supplierGst?.stateCode || fallbackGst?.stateCode || null;
+    const supplierGstin = supplierGst?.gstNumber || fallbackGst?.gstNumber || null;
 
     const isInterstate = supplierStateCode ? supplierStateCode !== COMPANY_CONFIG.stateCode : false;
 
@@ -3259,6 +3276,8 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       supplierId,
       supplierName: supplier.name,
       supplierCode: supplier.code,
+      supplierGstin,
+      supplierAddress,
       isInterstate,
       supplierStateCode,
       items,

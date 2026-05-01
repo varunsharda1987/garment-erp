@@ -6,7 +6,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import {
   calculateRequirements,
   generateFabricPO,
@@ -27,7 +27,9 @@ import {
   generateLacePOSchema,
   generateGreigeLacePOSchema,
   generateLaceProcessingPOSchema,
+  calculateRequirementsQuerySchema,
 } from '../schemas/costSheetPOGeneration.schema';
+import { costSheetIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -35,7 +37,7 @@ const router = Router();
 router.use(authenticateToken);
 
 // Calculate requirements from cost sheet
-router.get('/calculate', asyncHandler(calculateRequirements));
+router.get('/calculate', validateQuery(calculateRequirementsQuerySchema), asyncHandler(calculateRequirements));
 
 // Generate POs
 router.post('/generate/fabric', validateBody(generateFabricPOSchema), asyncHandler(generateFabricPO));
@@ -51,7 +53,7 @@ router.post(
 );
 
 // Get status and history
-router.get('/status/:costSheetId', asyncHandler(getGenerationStatus));
-router.get('/history/:costSheetId', asyncHandler(getGenerationHistory));
+router.get('/status/:costSheetId', validateParams(costSheetIdParamSchema), asyncHandler(getGenerationStatus));
+router.get('/history/:costSheetId', validateParams(costSheetIdParamSchema), asyncHandler(getGenerationHistory));
 
 export default router;

@@ -7,15 +7,20 @@
 import { Router } from 'express';
 import documentController from '../controllers/document.controller';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { generateCatalogueSchema, generateLineSheetSchema } from '../schemas/document.schema';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { idParamSchema, styleIdParamSchema, workOrderIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
 // Public route - temp catalogue download link (for WhatsApp sharing)
 // Must be defined BEFORE router.use(authenticateToken)
-router.get('/catalogue/:id/download', asyncHandler(documentController.getTempCataloguePDF.bind(documentController)));
+router.get(
+  '/catalogue/:id/download',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.getTempCataloguePDF.bind(documentController))
+);
 
 // All other routes require authentication
 router.use(authenticateToken);
@@ -30,14 +35,22 @@ router.use(authenticateToken);
  * @query   includeImages (boolean) - Include style images as subsequent pages
  * @access  Private
  */
-router.get('/invoices/:id/pdf', asyncHandler(documentController.generateInvoicePDF.bind(documentController)));
+router.get(
+  '/invoices/:id/pdf',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generateInvoicePDF.bind(documentController))
+);
 
 /**
  * @route   GET /api/documents/invoices/:id/excel
  * @desc    Generate and download Tax Invoice Excel
  * @access  Private
  */
-router.get('/invoices/:id/excel', asyncHandler(documentController.generateInvoiceExcel.bind(documentController)));
+router.get(
+  '/invoices/:id/excel',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generateInvoiceExcel.bind(documentController))
+);
 
 /**
  * @route   GET /api/documents/invoices/:id/whatsapp-link
@@ -47,6 +60,7 @@ router.get('/invoices/:id/excel', asyncHandler(documentController.generateInvoic
  */
 router.get(
   '/invoices/:id/whatsapp-link',
+  validateParams(idParamSchema),
   asyncHandler(documentController.getInvoiceWhatsAppLink.bind(documentController))
 );
 
@@ -60,7 +74,11 @@ router.get(
  * @query   includeImages (boolean) - Include style images
  * @access  Private
  */
-router.get('/quotations/:id/proforma', asyncHandler(documentController.generateProformaPDF.bind(documentController)));
+router.get(
+  '/quotations/:id/proforma',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generateProformaPDF.bind(documentController))
+);
 
 /**
  * @route   GET /api/documents/quotations/:id/whatsapp-link
@@ -70,6 +88,7 @@ router.get('/quotations/:id/proforma', asyncHandler(documentController.generateP
  */
 router.get(
   '/quotations/:id/whatsapp-link',
+  validateParams(idParamSchema),
   asyncHandler(documentController.getQuotationWhatsAppLink.bind(documentController))
 );
 
@@ -83,7 +102,11 @@ router.get(
  * @query   includeImages (boolean) - Include style images
  * @access  Private
  */
-router.get('/orders/:id/order-form', asyncHandler(documentController.generateOrderFormPDF.bind(documentController)));
+router.get(
+  '/orders/:id/order-form',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generateOrderFormPDF.bind(documentController))
+);
 
 // ────────────────────────────────────────────────────────────────
 // Style Catalogue Endpoints
@@ -135,6 +158,7 @@ router.post(
  */
 router.get(
   '/catalogue/:id/whatsapp-link',
+  validateParams(idParamSchema),
   asyncHandler(documentController.getCatalogueWhatsAppLink.bind(documentController))
 );
 
@@ -149,6 +173,7 @@ router.get(
  */
 router.get(
   '/styles/:styleId/tech-pack-pdf',
+  validateParams(styleIdParamSchema),
   asyncHandler(documentController.generateTechPackPDF.bind(documentController))
 );
 
@@ -199,6 +224,7 @@ router.post(
  */
 router.get(
   '/purchase-orders/:id/pdf',
+  validateParams(idParamSchema),
   asyncHandler(documentController.generatePurchaseOrderPDF.bind(documentController))
 );
 
@@ -210,6 +236,7 @@ router.get(
  */
 router.get(
   '/purchase-orders/:id/whatsapp-link',
+  validateParams(idParamSchema),
   asyncHandler(documentController.getPurchaseOrderWhatsAppLink.bind(documentController))
 );
 
@@ -222,6 +249,7 @@ router.get(
  */
 router.get(
   '/cutting-chart/:workOrderId/pdf',
+  validateParams(workOrderIdParamSchema),
   asyncHandler(documentController.generateCuttingChartPDF.bind(documentController))
 );
 
@@ -236,6 +264,7 @@ router.get(
  */
 router.get(
   '/transfer-slips/:id/pdf',
+  validateParams(idParamSchema),
   asyncHandler(documentController.generateTransferSlipPDF.bind(documentController))
 );
 
@@ -248,6 +277,10 @@ router.get(
  * @desc    Generate and download Challan PDF
  * @access  Private
  */
-router.get('/challans/:id/pdf', asyncHandler(documentController.generateChallanPDF.bind(documentController)));
+router.get(
+  '/challans/:id/pdf',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generateChallanPDF.bind(documentController))
+);
 
 export default router;

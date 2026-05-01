@@ -11,13 +11,14 @@ import {
 } from '../controllers/customer-accessories.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createAccessoryPresetSchema,
   updateAccessoryPresetSchema,
   cloneAccessoryPresetSchema,
   accessoryPresetQuerySchema,
 } from '../schemas/customerAccessories.schema';
+import { customerIdParamSchema, customerIdAndPresetIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -32,6 +33,7 @@ router.use(authenticate);
  */
 router.get(
   '/:customerId/accessory-presets',
+  validateParams(customerIdParamSchema),
   validateQuery(accessoryPresetQuerySchema),
   asyncHandler(getCustomerAccessoryPresets)
 );
@@ -41,14 +43,22 @@ router.get(
  * @desc    Get the default accessory preset for a customer
  * @access  All authenticated users
  */
-router.get('/:customerId/accessory-presets/default', asyncHandler(getDefaultAccessoryPreset));
+router.get(
+  '/:customerId/accessory-presets/default',
+  validateParams(customerIdParamSchema),
+  asyncHandler(getDefaultAccessoryPreset)
+);
 
 /**
  * @route   GET /api/customers/:customerId/accessory-presets/:presetId
  * @desc    Get a specific accessory preset by ID
  * @access  All authenticated users
  */
-router.get('/:customerId/accessory-presets/:presetId', asyncHandler(getCustomerAccessoryPresetById));
+router.get(
+  '/:customerId/accessory-presets/:presetId',
+  validateParams(customerIdAndPresetIdParamSchema),
+  asyncHandler(getCustomerAccessoryPresetById)
+);
 
 /**
  * @route   POST /api/customers/:customerId/accessory-presets
@@ -58,6 +68,7 @@ router.get('/:customerId/accessory-presets/:presetId', asyncHandler(getCustomerA
  */
 router.post(
   '/:customerId/accessory-presets',
+  validateParams(customerIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(createAccessoryPresetSchema),
   asyncHandler(createAccessoryPreset)
@@ -70,6 +81,7 @@ router.post(
  */
 router.put(
   '/:customerId/accessory-presets/:presetId',
+  validateParams(customerIdAndPresetIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(updateAccessoryPresetSchema),
   asyncHandler(updateAccessoryPreset)
@@ -80,7 +92,12 @@ router.put(
  * @desc    Delete an accessory preset
  * @access  ADMIN
  */
-router.delete('/:customerId/accessory-presets/:presetId', authorize('ADMIN'), asyncHandler(deleteAccessoryPreset));
+router.delete(
+  '/:customerId/accessory-presets/:presetId',
+  validateParams(customerIdAndPresetIdParamSchema),
+  authorize('ADMIN'),
+  asyncHandler(deleteAccessoryPreset)
+);
 
 /**
  * @route   POST /api/customers/:customerId/accessory-presets/:presetId/set-default
@@ -89,6 +106,7 @@ router.delete('/:customerId/accessory-presets/:presetId', authorize('ADMIN'), as
  */
 router.post(
   '/:customerId/accessory-presets/:presetId/set-default',
+  validateParams(customerIdAndPresetIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   asyncHandler(setDefaultPreset)
 );
@@ -101,6 +119,7 @@ router.post(
  */
 router.post(
   '/:customerId/accessory-presets/:presetId/clone',
+  validateParams(customerIdAndPresetIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(cloneAccessoryPresetSchema),
   asyncHandler(cloneAccessoryPreset)

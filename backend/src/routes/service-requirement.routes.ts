@@ -6,7 +6,8 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { idParamSchema, workOrderIdParamSchema, orderIdParamSchema } from '../schemas/common.schema';
 import * as serviceRequirementController from '../controllers/service-requirement.controller';
 import {
   calculateServicesSchema,
@@ -42,6 +43,7 @@ router.use('/service-requirements', authenticateToken);
  */
 router.post(
   '/work-orders/:workOrderId/calculate-services',
+  validateParams(workOrderIdParamSchema),
   validateBody(calculateServicesSchema),
   asyncHandler(serviceRequirementController.calculateServices)
 );
@@ -54,6 +56,7 @@ router.post(
  */
 router.get(
   '/work-orders/:workOrderId/service-requirements',
+  validateParams(workOrderIdParamSchema),
   validateQuery(serviceRequirementQuerySchema),
   asyncHandler(serviceRequirementController.getServiceRequirementsForWorkOrder)
 );
@@ -65,6 +68,7 @@ router.get(
  */
 router.get(
   '/work-orders/:workOrderId/service-requirements/summary',
+  validateParams(workOrderIdParamSchema),
   asyncHandler(serviceRequirementController.getServiceRequirementsSummaryController)
 );
 
@@ -75,6 +79,7 @@ router.get(
  */
 router.get(
   '/orders/:orderId/service-requirements/summary',
+  validateParams(orderIdParamSchema),
   asyncHandler(serviceRequirementController.getOrderServiceSummary)
 );
 
@@ -209,6 +214,7 @@ router.post(
  */
 router.patch(
   '/service-requirements/:id/execution',
+  validateParams(idParamSchema),
   validateBody(updateExecutionSchema),
   asyncHandler(serviceRequirementController.updateExecution)
 );

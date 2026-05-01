@@ -183,6 +183,8 @@ export interface POPreviewGroup {
   supplierId: string;
   supplierName: string;
   supplierCode: string;
+  supplierGstin: string | null;
+  supplierAddress: string;
   isInterstate: boolean;
   supplierStateCode: string | null;
   items: POPreviewItem[];

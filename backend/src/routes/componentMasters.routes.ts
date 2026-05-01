@@ -10,11 +10,12 @@ import {
 } from '../controllers/componentMasters.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createComponentMasterSchema,
   updateComponentMasterSchema,
   componentMasterQuerySchema,
+  componentMasterIdParamSchema,
 } from '../schemas/componentMasters.schema';
 
 const router = express.Router();
@@ -32,12 +33,17 @@ router.get('/', validateQuery(componentMasterQuerySchema), asyncHandler(getAllCo
 router.get('/categories', asyncHandler(getCategories));
 
 // Get component master by ID
-router.get('/:id', asyncHandler(getComponentMasterById));
+router.get('/:id', validateParams(componentMasterIdParamSchema), asyncHandler(getComponentMasterById));
 
 // Update component master
-router.put('/:id', validateBody(updateComponentMasterSchema), asyncHandler(updateComponentMaster));
+router.put(
+  '/:id',
+  validateParams(componentMasterIdParamSchema),
+  validateBody(updateComponentMasterSchema),
+  asyncHandler(updateComponentMaster)
+);
 
 // Delete component master (soft delete)
-router.delete('/:id', asyncHandler(deleteComponentMaster));
+router.delete('/:id', validateParams(componentMasterIdParamSchema), asyncHandler(deleteComponentMaster));
 
 export default router;

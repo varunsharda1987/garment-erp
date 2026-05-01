@@ -10,13 +10,14 @@ import {
 } from '../controllers/machine-part.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createMachinePartSchema,
   updateMachinePartSchema,
   bulkImportMachinePartsSchema,
   machinePartQuerySchema,
 } from '../schemas/machinePart.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -27,9 +28,14 @@ router.use(authenticateToken);
 router.post('/', validateBody(createMachinePartSchema), asyncHandler(createMachinePart));
 router.get('/', validateQuery(machinePartQuerySchema), asyncHandler(getAllMachineParts));
 router.get('/template', asyncHandler(downloadTemplate));
-router.get('/:id', asyncHandler(getMachinePartById));
-router.put('/:id', validateBody(updateMachinePartSchema), asyncHandler(updateMachinePart));
-router.delete('/:id', asyncHandler(deleteMachinePart));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getMachinePartById));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updateMachinePartSchema),
+  asyncHandler(updateMachinePart)
+);
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteMachinePart));
 
 // Bulk operations
 router.post('/bulk-import', validateBody(bulkImportMachinePartsSchema), asyncHandler(bulkImportMachineParts));

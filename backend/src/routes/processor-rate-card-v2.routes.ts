@@ -6,7 +6,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
   getProcessors,
   getProcessorMatrix,
@@ -33,6 +33,9 @@ import {
   copyRatesSchema,
   lookupRateSchema,
   lookupLaceRateSchema,
+  processorIdParamSchema,
+  processorGreigeParamSchema,
+  processorLaceParamSchema,
 } from '../schemas/processorRateCard.schema';
 
 const router = Router();
@@ -47,25 +50,43 @@ router.get('/summary', asyncHandler(getSummary));
 router.get('/processors', asyncHandler(getProcessors));
 
 // Get rate matrix for a processor (greige fabric)
-router.get('/processors/:processorId/matrix', asyncHandler(getProcessorMatrix));
+router.get('/processors/:processorId/matrix', validateParams(processorIdParamSchema), asyncHandler(getProcessorMatrix));
 
 // Get all greiges for row population
 router.get('/greiges', asyncHandler(getGreigesForRateCard));
 
 // Update slab definitions
-router.post('/processors/:processorId/slabs', validateBody(updateSlabsSchema), asyncHandler(updateSlabs));
+router.post(
+  '/processors/:processorId/slabs',
+  validateParams(processorIdParamSchema),
+  validateBody(updateSlabsSchema),
+  asyncHandler(updateSlabs)
+);
 
 // Bulk save rate matrix (greige fabric)
-router.put('/processors/:processorId/matrix', validateBody(saveMatrixSchema), asyncHandler(saveMatrix));
+router.put(
+  '/processors/:processorId/matrix',
+  validateParams(processorIdParamSchema),
+  validateBody(saveMatrixSchema),
+  asyncHandler(saveMatrix)
+);
 
 // Copy rates between processors
 router.post('/copy', validateBody(copyRatesSchema), asyncHandler(copyRates));
 
 // Add greige row to processor's matrix
-router.post('/processors/:processorId/greiges/:greigeId', asyncHandler(addGreige));
+router.post(
+  '/processors/:processorId/greiges/:greigeId',
+  validateParams(processorGreigeParamSchema),
+  asyncHandler(addGreige)
+);
 
 // Remove greige row from processor's matrix
-router.delete('/processors/:processorId/greiges/:greigeId', asyncHandler(removeGreige));
+router.delete(
+  '/processors/:processorId/greiges/:greigeId',
+  validateParams(processorGreigeParamSchema),
+  asyncHandler(removeGreige)
+);
 
 // Lookup rate for fabric costing
 router.post('/lookup', validateBody(lookupRateSchema), asyncHandler(lookupRate));
@@ -78,16 +99,29 @@ router.post('/lookup', validateBody(lookupRateSchema), asyncHandler(lookupRate))
 router.get('/laces', asyncHandler(getGreigeLacesForRateCard));
 
 // Get lace rate matrix for a processor
-router.get('/processors/:processorId/lace-matrix', asyncHandler(getLaceProcessorMatrix));
+router.get(
+  '/processors/:processorId/lace-matrix',
+  validateParams(processorIdParamSchema),
+  asyncHandler(getLaceProcessorMatrix)
+);
 
 // Bulk save lace rate matrix
-router.put('/processors/:processorId/lace-matrix', validateBody(saveLaceMatrixSchema), asyncHandler(saveLaceMatrix));
+router.put(
+  '/processors/:processorId/lace-matrix',
+  validateParams(processorIdParamSchema),
+  validateBody(saveLaceMatrixSchema),
+  asyncHandler(saveLaceMatrix)
+);
 
 // Add greige lace row to processor's matrix
-router.post('/processors/:processorId/laces/:laceId', asyncHandler(addLace));
+router.post('/processors/:processorId/laces/:laceId', validateParams(processorLaceParamSchema), asyncHandler(addLace));
 
 // Remove greige lace row from processor's matrix
-router.delete('/processors/:processorId/laces/:laceId', asyncHandler(removeLace));
+router.delete(
+  '/processors/:processorId/laces/:laceId',
+  validateParams(processorLaceParamSchema),
+  asyncHandler(removeLace)
+);
 
 // Lookup rate for lace costing
 router.post('/lookup-lace', validateBody(lookupLaceRateSchema), asyncHandler(lookupLaceRate));

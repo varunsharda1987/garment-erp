@@ -45,6 +45,10 @@ export default function GreigeStockEntry() {
     warehouseLocation: '',
     purchaseCost: '',
     receivedDate: new Date().toISOString().split('T')[0],
+    invoiceNumber: '',
+    invoiceDate: '',
+    foldLengthCm: '',
+    thanCount: '',
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +65,7 @@ export default function GreigeStockEntry() {
     try {
       setIsLoading(true);
       const [greigeResponse, warehouseData, suppliersResponse] = await Promise.all([
-        greigeService.getAll({ limit: 500 }),
+        greigeService.getAll({ limit: 100 }),
         warehouseService.getAll({ isActive: true }),
         api.get('/suppliers', { params: { limit: 200, category: 'GREIGE_SUPPLIER' } }),
       ]);
@@ -132,6 +136,10 @@ export default function GreigeStockEntry() {
         purchaseCost: formData.purchaseCost ? parseFloat(formData.purchaseCost) : undefined,
         receivedDate: formData.receivedDate ? new Date(formData.receivedDate) : undefined,
         supplierId: selectedSupplierId || undefined,
+        invoiceNumber: formData.invoiceNumber || undefined,
+        invoiceDate: formData.invoiceDate ? new Date(formData.invoiceDate) : undefined,
+        foldLengthCm: formData.foldLengthCm ? parseFloat(formData.foldLengthCm) : undefined,
+        thanCount: formData.thanCount ? parseInt(formData.thanCount, 10) : undefined,
       });
 
       setSuccess(true);
@@ -348,6 +356,58 @@ export default function GreigeStockEntry() {
                   </div>
 
                   <div>
+                    <Label>Invoice Number</Label>
+                    <Input
+                      type="text"
+                      value={formData.invoiceNumber}
+                      onChange={(e) => handleFieldChange('invoiceNumber', e.target.value)}
+                      placeholder="Supplier invoice number"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Invoice Date</Label>
+                    <Input
+                      type="date"
+                      value={formData.invoiceDate}
+                      onChange={(e) => handleFieldChange('invoiceDate', e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>
+                      Fold Length (L)
+                      <span className="ml-2 text-xs text-muted-foreground">cm</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      max="100"
+                      value={formData.foldLengthCm}
+                      onChange={(e) => handleFieldChange('foldLengthCm', e.target.value)}
+                      placeholder="e.g., 97"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">If L &lt; 100, actual meters = nominal × L/100</p>
+                  </div>
+
+                  <div>
+                    <Label>Than Count</Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={formData.thanCount}
+                      onChange={(e) => handleFieldChange('thanCount', e.target.value)}
+                      placeholder="Number of thans"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
                     <Label>Supplier</Label>
                     <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
                       <SelectTrigger className="mt-1">
@@ -394,15 +454,49 @@ export default function GreigeStockEntry() {
                   </div>
                 </div>
 
-                {/* Stock Value Calculation */}
+                {/* Stock Value Calculation with Fold Length */}
                 {formData.quantity && formData.purchaseCost && (
                   <div className="mt-6 p-4 bg-accent/10 rounded-lg border border-accent/20">
-                    <div className="flex justify-between items-center">
-                      <span className="text-accent font-medium">Total Stock Value:</span>
-                      <span className="text-2xl font-bold text-accent">
-                        {formatCurrency(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost))}
-                      </span>
-                    </div>
+                    {formData.foldLengthCm &&
+                    parseFloat(formData.foldLengthCm) > 0 &&
+                    parseFloat(formData.foldLengthCm) < 100 ? (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Nominal Quantity:</span>
+                          <span className="font-medium">{parseFloat(formData.quantity).toLocaleString()} MTR</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground">Fold Length:</span>
+                          <span className="font-medium">L = {formData.foldLengthCm} cm</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm border-t pt-2">
+                          <span className="text-accent font-medium">Actual Quantity:</span>
+                          <span className="font-bold text-accent">
+                            {((parseFloat(formData.quantity) * parseFloat(formData.foldLengthCm)) / 100).toLocaleString(
+                              undefined,
+                              { maximumFractionDigits: 2 }
+                            )}{' '}
+                            MTR
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-accent font-medium">Total Value (Actual × Rate):</span>
+                          <span className="text-2xl font-bold text-accent">
+                            {formatCurrency(
+                              ((parseFloat(formData.quantity) * parseFloat(formData.foldLengthCm)) / 100) *
+                                parseFloat(formData.purchaseCost)
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center">
+                        <span className="text-accent font-medium">Total Stock Value:</span>
+                        <span className="text-2xl font-bold text-accent">
+                          {formatCurrency(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost))}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -435,9 +529,31 @@ export default function GreigeStockEntry() {
                 <span className="font-medium">{selectedGreige?.greigeName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Quantity:</span>
+                <span className="text-muted-foreground">Nominal Quantity:</span>
                 <span className="font-medium">{formData.quantity} meters</span>
               </div>
+              {formData.foldLengthCm &&
+                parseFloat(formData.foldLengthCm) > 0 &&
+                parseFloat(formData.foldLengthCm) < 100 && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Fold Length:</span>
+                      <span className="font-medium">L = {formData.foldLengthCm} cm</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Actual Quantity:</span>
+                      <span className="font-medium text-accent">
+                        {((parseFloat(formData.quantity) * parseFloat(formData.foldLengthCm)) / 100).toFixed(2)} meters
+                      </span>
+                    </div>
+                  </>
+                )}
+              {formData.thanCount && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Than Count:</span>
+                  <span className="font-medium">{formData.thanCount}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Width:</span>
                 <span className="font-medium">{formData.width}"</span>
@@ -452,7 +568,14 @@ export default function GreigeStockEntry() {
                 <div className="flex justify-between border-t pt-2 mt-2">
                   <span className="text-muted-foreground font-medium">Total Value:</span>
                   <span className="font-bold text-accent">
-                    {formatCurrency(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost))}
+                    {formData.foldLengthCm &&
+                    parseFloat(formData.foldLengthCm) > 0 &&
+                    parseFloat(formData.foldLengthCm) < 100
+                      ? formatCurrency(
+                          ((parseFloat(formData.quantity) * parseFloat(formData.foldLengthCm)) / 100) *
+                            parseFloat(formData.purchaseCost)
+                        )
+                      : formatCurrency(parseFloat(formData.quantity) * parseFloat(formData.purchaseCost))}
                   </span>
                 </div>
               )}

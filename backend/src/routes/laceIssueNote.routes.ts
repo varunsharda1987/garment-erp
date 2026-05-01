@@ -10,7 +10,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createIssueNote,
   recordConsumptionController,
@@ -26,6 +26,7 @@ import {
   returnToStockSchema,
   issueNoteQuerySchema,
 } from '../schemas/laceIssueNote.schema';
+import { idParamSchema, orderIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -49,14 +50,14 @@ router.get('/', validateQuery(issueNoteQuerySchema), asyncHandler(getIssueNotesC
  * @desc    Get issue notes for a specific order
  * @access  Private
  */
-router.get('/order/:orderId', asyncHandler(getIssueNotesByOrderController));
+router.get('/order/:orderId', validateParams(orderIdParamSchema), asyncHandler(getIssueNotesByOrderController));
 
 /**
  * @route   GET /api/lace-issue-notes/:id
  * @desc    Get issue note by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getIssueNoteByIdController));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getIssueNoteByIdController));
 
 // ============================================================================
 // COMMANDS
@@ -76,7 +77,12 @@ router.post('/', validateBody(createIssueNoteSchema), asyncHandler(createIssueNo
  * @access  Private
  * @body    consumedQuantity, notes?
  */
-router.post('/:id/consume', validateBody(recordConsumptionSchema), asyncHandler(recordConsumptionController));
+router.post(
+  '/:id/consume',
+  validateParams(idParamSchema),
+  validateBody(recordConsumptionSchema),
+  asyncHandler(recordConsumptionController)
+);
 
 /**
  * @route   POST /api/lace-issue-notes/:id/return
@@ -84,13 +90,18 @@ router.post('/:id/consume', validateBody(recordConsumptionSchema), asyncHandler(
  * @access  Private
  * @body    returnQuantity, notes?
  */
-router.post('/:id/return', validateBody(returnToStockSchema), asyncHandler(returnToStockController));
+router.post(
+  '/:id/return',
+  validateParams(idParamSchema),
+  validateBody(returnToStockSchema),
+  asyncHandler(returnToStockController)
+);
 
 /**
  * @route   POST /api/lace-issue-notes/:id/close
  * @desc    Close an issue note (finalize - all material accounted for)
  * @access  Private
  */
-router.post('/:id/close', asyncHandler(closeIssueNoteController));
+router.post('/:id/close', validateParams(idParamSchema), asyncHandler(closeIssueNoteController));
 
 export default router;

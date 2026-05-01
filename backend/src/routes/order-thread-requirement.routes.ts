@@ -6,7 +6,13 @@ import { Router } from 'express';
 import * as controller from '../controllers/order-thread-requirement.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { authenticateToken } from '../middleware/auth.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import {
+  idParamSchema,
+  orderIdParamSchema,
+  orderIdAndIdParamSchema,
+  orderIdAndThreadIdParamSchema,
+} from '../schemas/common.schema';
 import {
   createThreadRequirementSchema,
   updateThreadRequirementSchema,
@@ -45,26 +51,45 @@ router.post(
 // Order-specific CRUD routes
 router.post(
   '/orders/:orderId/thread-requirements',
+  validateParams(orderIdParamSchema),
   validateBody(createThreadRequirementSchema),
   asyncHandler(controller.createThreadRequirement)
 );
-router.get('/orders/:orderId/thread-requirements', asyncHandler(controller.getThreadRequirements));
-router.get('/orders/:orderId/thread-requirements/:id', asyncHandler(controller.getThreadRequirement));
+router.get(
+  '/orders/:orderId/thread-requirements',
+  validateParams(orderIdParamSchema),
+  asyncHandler(controller.getThreadRequirements)
+);
+router.get(
+  '/orders/:orderId/thread-requirements/:id',
+  validateParams(orderIdAndIdParamSchema),
+  asyncHandler(controller.getThreadRequirement)
+);
 router.put(
   '/orders/:orderId/thread-requirements/:id',
+  validateParams(orderIdAndIdParamSchema),
   validateBody(updateThreadRequirementSchema),
   asyncHandler(controller.updateThreadRequirement)
 );
-router.delete('/orders/:orderId/thread-requirements/:id', asyncHandler(controller.deleteThreadRequirement));
+router.delete(
+  '/orders/:orderId/thread-requirements/:id',
+  validateParams(orderIdAndIdParamSchema),
+  asyncHandler(controller.deleteThreadRequirement)
+);
 
 // Shortage detection
 router.post(
   '/orders/:orderId/thread-requirements/check-shortage',
+  validateParams(orderIdParamSchema),
   validateBody(checkShortageSchema),
   asyncHandler(controller.checkShortages)
 );
 
 // SKU generation
-router.get('/orders/:orderId/thread-requirements/:threadId/sku', asyncHandler(controller.generateStyleSpecificSKU));
+router.get(
+  '/orders/:orderId/thread-requirements/:threadId/sku',
+  validateParams(orderIdAndThreadIdParamSchema),
+  asyncHandler(controller.generateStyleSpecificSKU)
+);
 
 export default router;

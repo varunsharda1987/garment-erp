@@ -13,6 +13,8 @@ import {
 } from '../controllers/notification.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateParams } from '../middleware/validation.middleware';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -39,7 +41,7 @@ router.get('/unread-count', asyncHandler(getUnreadCount));
  * @desc    Mark a notification as read
  * @access  All authenticated users (own notifications only)
  */
-router.patch('/:id/read', asyncHandler(markAsRead));
+router.patch('/:id/read', validateParams(idParamSchema), asyncHandler(markAsRead));
 
 /**
  * @route   POST /api/notifications/mark-all-read
@@ -53,6 +55,6 @@ router.post('/mark-all-read', asyncHandler(markAllAsRead));
  * @desc    Delete a notification
  * @access  All authenticated users (own notifications only)
  */
-router.delete('/:id', asyncHandler(deleteNotification));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteNotification));
 
 export default router;

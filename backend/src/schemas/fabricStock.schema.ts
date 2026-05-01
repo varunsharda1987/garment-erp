@@ -15,7 +15,15 @@ import { z } from 'zod';
 export const FabricStockStatusEnum = z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']);
 
 // Stock type enum for fabric stock entries (matches controller usage)
-export const FabricStockTypeEnum = z.enum(['GENERIC', 'EXCESS', 'PLANNED_STOCK', 'RETURNED', 'VARIANCE_UNUSED']);
+export const FabricStockTypeEnum = z.enum([
+  'GENERIC',
+  'PLANNED_STOCK',
+  'EXCESS',
+  'EXCESS_MOQ',
+  'CROSS_STYLE_REUSE',
+  'RETURNED',
+  'VARIANCE_UNUSED',
+]);
 
 // Quality grade enum
 export const QualityGradeEnum = z.enum(['A', 'B', 'DEFECT']);
@@ -115,7 +123,8 @@ export const fabricStockQuerySchema = z.object({
   fabricId: z.string().uuid().optional(),
   warehouseId: z.string().uuid().optional(),
   supplierId: z.string().uuid().optional(),
-  status: StockStatusEnum.optional(),
+  status: FabricStockStatusEnum.optional(),
+  embroideryId: z.string().uuid().optional(),
   minQuantity: z.string().transform(Number).pipe(z.number().nonnegative()).optional(),
 });
 
@@ -145,6 +154,12 @@ export const createGreigeStockSchema = z.object({
   // Greige-specific fields
   greigeWidth: z.number().positive().optional(),
   qualityGrade: z.string().max(20).optional(),
+  // Invoice tracking
+  invoiceNumber: z.string().max(50).optional(),
+  invoiceDate: z.string().datetime().or(z.date()).optional(),
+  // Fold/Than tracking - for calculating actual meters from nominal
+  foldLengthCm: z.number().positive().max(100).optional(), // "L" - fold length in cm
+  thanCount: z.number().int().positive().optional(), // Number of thans in this lot
 });
 
 /**
@@ -168,9 +183,8 @@ export const updateGreigeStockSchema = z.object({
  * POST /api/greige/stock/:stockId/adjust
  */
 export const adjustGreigeStockSchema = z.object({
-  adjustmentQuantity: z.number().refine((val) => val !== 0, {
-    message: 'Adjustment quantity cannot be zero',
-  }),
+  adjustmentType: z.enum(['INCREASE', 'DECREASE']),
+  quantity: z.number().positive('Quantity must be positive'),
   reason: AdjustmentReasonEnum,
   remarks: z.string().max(500).optional(),
 });
@@ -188,6 +202,27 @@ export const greigeStockQuerySchema = z.object({
   supplierId: z.string().uuid().optional(),
   status: StockStatusEnum.optional(),
   processorId: z.string().uuid().optional(),
+  invoiceNumber: z.string().max(50).optional(),
+});
+
+// ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const fabricStockIdParamSchema = z.object({
+  id: z.string().uuid('Invalid fabric stock ID'),
+});
+
+export const stockIdParamSchema = z.object({
+  stockId: z.string().uuid('Invalid stock ID'),
+});
+
+export const greigeStockIdParamSchema = z.object({
+  greigeId: z.string().uuid('Invalid greige ID'),
+});
+
+export const processorIdParamSchema = z.object({
+  processorId: z.string().uuid('Invalid processor ID'),
 });
 
 // ============================================================================

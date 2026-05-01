@@ -2,6 +2,8 @@ import express from 'express';
 import { componentGroupController } from '../controllers/componentGroup.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateParams } from '../middleware/validation.middleware';
+import { idParamSchema, codeParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -20,22 +22,36 @@ router.get('/', asyncHandler(componentGroupController.getComponentGroups.bind(co
 // Get component group by code
 router.get(
   '/code/:code',
+  validateParams(codeParamSchema),
   asyncHandler(componentGroupController.getComponentGroupByCode.bind(componentGroupController))
 );
 
 // Get components in a specific group
 router.get(
   '/:id/components',
+  validateParams(idParamSchema),
   asyncHandler(componentGroupController.getComponentsByGroup.bind(componentGroupController))
 );
 
 // Get component group by ID
-router.get('/:id', asyncHandler(componentGroupController.getComponentGroupById.bind(componentGroupController)));
+router.get(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(componentGroupController.getComponentGroupById.bind(componentGroupController))
+);
 
 // Update component group
-router.put('/:id', asyncHandler(componentGroupController.updateComponentGroup.bind(componentGroupController)));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(componentGroupController.updateComponentGroup.bind(componentGroupController))
+);
 
 // Delete component group (soft delete)
-router.delete('/:id', asyncHandler(componentGroupController.deleteComponentGroup.bind(componentGroupController)));
+router.delete(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(componentGroupController.deleteComponentGroup.bind(componentGroupController))
+);
 
 export default router;

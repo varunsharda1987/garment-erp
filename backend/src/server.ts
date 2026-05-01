@@ -49,12 +49,13 @@ async function startServer() {
       logInfo('⚠️ Redis cache not available - using direct queries');
     }
 
-    // Start Express server
-    const server = app.listen(PORT, () => {
+    // Start Express server - bind to 0.0.0.0 for LAN access
+    const server = app.listen(PORT, '0.0.0.0', () => {
       logInfo('');
       logInfo('🏭 Kashaya Fabs ERP - Backend Server');
       logInfo('================================');
       logInfo(`🚀 Server running on: http://localhost:${PORT}`);
+      logInfo(`🌐 LAN access: http://YOUR_IP:${PORT} (accessible from other machines)`);
       logInfo(`📋 Health check: http://localhost:${PORT}/health`);
       logInfo(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
       logInfo('================================');

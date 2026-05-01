@@ -3,7 +3,7 @@ import { Router } from 'express';
 import * as processingStageController from '../controllers/processingStage.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createProcessingStageSchema,
   updateProcessingStageSchema,
@@ -11,6 +11,9 @@ import {
   completeStageSchema,
   markForReworkSchema,
   processingStageQuerySchema,
+  processingStageIdParamSchema,
+  batchIdParamSchema,
+  processorIdParamSchema,
 } from '../schemas/processing.schema';
 
 const router = Router();
@@ -21,18 +24,50 @@ router.use(authenticateToken);
 // Stage management
 router.post('/', validateBody(createProcessingStageSchema), asyncHandler(processingStageController.createStage));
 router.get('/', validateQuery(processingStageQuerySchema), asyncHandler(processingStageController.getAllStages));
-router.get('/batch/:batchId', asyncHandler(processingStageController.getStagesByBatch));
-router.get('/processor/:processorId', asyncHandler(processingStageController.getStagesByProcessor));
-router.get('/processor/:processorId/summary', asyncHandler(processingStageController.getProcessorSummary));
-router.get('/:id', asyncHandler(processingStageController.getStageById));
-router.put('/:id', validateBody(updateProcessingStageSchema), asyncHandler(processingStageController.updateStage));
+router.get(
+  '/batch/:batchId',
+  validateParams(batchIdParamSchema),
+  asyncHandler(processingStageController.getStagesByBatch)
+);
+router.get(
+  '/processor/:processorId',
+  validateParams(processorIdParamSchema),
+  asyncHandler(processingStageController.getStagesByProcessor)
+);
+router.get(
+  '/processor/:processorId/summary',
+  validateParams(processorIdParamSchema),
+  asyncHandler(processingStageController.getProcessorSummary)
+);
+router.get('/:id', validateParams(processingStageIdParamSchema), asyncHandler(processingStageController.getStageById));
+router.put(
+  '/:id',
+  validateParams(processingStageIdParamSchema),
+  validateBody(updateProcessingStageSchema),
+  asyncHandler(processingStageController.updateStage)
+);
 router.patch(
   '/:id/status',
+  validateParams(processingStageIdParamSchema),
   validateBody(updateStageStatusSchema),
   asyncHandler(processingStageController.updateStageStatus)
 );
-router.post('/:id/complete', validateBody(completeStageSchema), asyncHandler(processingStageController.completeStage));
-router.post('/:id/rework', validateBody(markForReworkSchema), asyncHandler(processingStageController.markForRework));
-router.delete('/:id', asyncHandler(processingStageController.deleteStage));
+router.post(
+  '/:id/complete',
+  validateParams(processingStageIdParamSchema),
+  validateBody(completeStageSchema),
+  asyncHandler(processingStageController.completeStage)
+);
+router.post(
+  '/:id/rework',
+  validateParams(processingStageIdParamSchema),
+  validateBody(markForReworkSchema),
+  asyncHandler(processingStageController.markForRework)
+);
+router.delete(
+  '/:id',
+  validateParams(processingStageIdParamSchema),
+  asyncHandler(processingStageController.deleteStage)
+);
 
 export default router;

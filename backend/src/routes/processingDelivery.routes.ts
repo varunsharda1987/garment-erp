@@ -3,7 +3,7 @@ import { Router } from 'express';
 import * as processingDeliveryController from '../controllers/processingDelivery.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createProcessingDeliverySchema,
   updateProcessingDeliverySchema,
@@ -11,6 +11,9 @@ import {
   acceptDeliverySchema,
   rejectDeliverySchema,
   processingDeliveryQuerySchema,
+  processingDeliveryIdParamSchema,
+  batchIdParamSchema,
+  stageIdParamSchema,
 } from '../schemas/processing.schema';
 
 const router = Router();
@@ -31,25 +34,49 @@ router.get(
 );
 router.get('/pending-qc', asyncHandler(processingDeliveryController.getPendingQCDeliveries));
 router.get('/summary', asyncHandler(processingDeliveryController.getDeliverySummary));
-router.get('/batch/:batchId', asyncHandler(processingDeliveryController.getDeliveriesByBatch));
-router.get('/stage/:stageId', asyncHandler(processingDeliveryController.getDeliveriesByStage));
-router.get('/:id', asyncHandler(processingDeliveryController.getDeliveryById));
+router.get(
+  '/batch/:batchId',
+  validateParams(batchIdParamSchema),
+  asyncHandler(processingDeliveryController.getDeliveriesByBatch)
+);
+router.get(
+  '/stage/:stageId',
+  validateParams(stageIdParamSchema),
+  asyncHandler(processingDeliveryController.getDeliveriesByStage)
+);
+router.get(
+  '/:id',
+  validateParams(processingDeliveryIdParamSchema),
+  asyncHandler(processingDeliveryController.getDeliveryById)
+);
 router.put(
   '/:id',
+  validateParams(processingDeliveryIdParamSchema),
   validateBody(updateProcessingDeliverySchema),
   asyncHandler(processingDeliveryController.updateDelivery)
 );
-router.post('/:id/qc', validateBody(performQCSchema), asyncHandler(processingDeliveryController.performQC));
+router.post(
+  '/:id/qc',
+  validateParams(processingDeliveryIdParamSchema),
+  validateBody(performQCSchema),
+  asyncHandler(processingDeliveryController.performQC)
+);
 router.post(
   '/:id/accept',
+  validateParams(processingDeliveryIdParamSchema),
   validateBody(acceptDeliverySchema),
   asyncHandler(processingDeliveryController.acceptDelivery)
 );
 router.post(
   '/:id/reject',
+  validateParams(processingDeliveryIdParamSchema),
   validateBody(rejectDeliverySchema),
   asyncHandler(processingDeliveryController.rejectDelivery)
 );
-router.delete('/:id', asyncHandler(processingDeliveryController.deleteDelivery));
+router.delete(
+  '/:id',
+  validateParams(processingDeliveryIdParamSchema),
+  asyncHandler(processingDeliveryController.deleteDelivery)
+);
 
 export default router;

@@ -14,8 +14,9 @@ import {
 } from '../controllers/agent.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createAgentSchema, updateAgentSchema, agentQuerySchema } from '../schemas/agent.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -48,20 +49,20 @@ router.get('/', validateQuery(agentQuerySchema), asyncHandler(getAllAgents));
  * @desc    Get agent by ID
  * @access  Private (Authenticated users)
  */
-router.get('/:id', asyncHandler(getAgentById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getAgentById));
 
 /**
  * @route   PUT /api/agents/:id
  * @desc    Update agent
  * @access  Private (Authenticated users)
  */
-router.put('/:id', validateBody(updateAgentSchema), asyncHandler(updateAgent));
+router.put('/:id', validateParams(idParamSchema), validateBody(updateAgentSchema), asyncHandler(updateAgent));
 
 /**
  * @route   DELETE /api/agents/:id
  * @desc    Delete agent (soft delete)
  * @access  Private (Authenticated users)
  */
-router.delete('/:id', asyncHandler(deleteAgent));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteAgent));
 
 export default router;

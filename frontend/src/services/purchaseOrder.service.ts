@@ -15,6 +15,7 @@ import type {
   CreatePurchaseOrderItemRequest,
   UpdatePurchaseOrderItemRequest,
   CancelPurchaseOrderRequest,
+  AmendDeliveryLocationRequest,
   PendingItemsResponse,
   PurchaseOrderItem,
   POStats,
@@ -188,6 +189,17 @@ export const cancelPurchaseOrder = async (id: string, request: CancelPurchaseOrd
   return data.data;
 };
 
+/**
+ * Amend delivery location for a purchase order
+ */
+export const amendDeliveryLocation = async (
+  id: string,
+  request: AmendDeliveryLocationRequest
+): Promise<PurchaseOrder> => {
+  const { data } = await api.patch<PurchaseOrderResponse>(`${BASE_URL}/${id}/delivery-location`, request);
+  return data.data;
+};
+
 // ============================================
 // Export all functions as default object
 // ============================================
@@ -208,4 +220,5 @@ export default {
   sendPurchaseOrder,
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
+  amendDeliveryLocation,
 };

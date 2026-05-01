@@ -20,13 +20,14 @@ import {
 } from '../controllers/fabric-stock.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createFabricStockSchema,
   updateFabricStockSchema,
   transferFabricStockSchema,
   adjustFabricStockSchema,
   fabricStockQuerySchema,
+  fabricStockIdParamSchema,
 } from '../schemas/fabricStock.schema';
 
 const router = Router();
@@ -43,16 +44,21 @@ router.get('/dashboard', asyncHandler(getStockDashboard));
 router.get('/summary', asyncHandler(getFabricStockSummary));
 router.get('/aging', asyncHandler(getAgingStock));
 router.get('/valuation', asyncHandler(getStockValuation));
-router.get('/:id', asyncHandler(getStockById));
+router.get('/:id', validateParams(fabricStockIdParamSchema), asyncHandler(getStockById));
 
 // Stock operations
 router.post('/transfer', validateBody(transferFabricStockSchema), asyncHandler(transferStock));
 router.post('/adjust', validateBody(adjustFabricStockSchema), asyncHandler(adjustStock));
 
 // Stock update
-router.patch('/:id', validateBody(updateFabricStockSchema), asyncHandler(updateStock));
+router.patch(
+  '/:id',
+  validateParams(fabricStockIdParamSchema),
+  validateBody(updateFabricStockSchema),
+  asyncHandler(updateStock)
+);
 
 // Stock deletion
-router.delete('/:id', asyncHandler(deleteStock));
+router.delete('/:id', validateParams(fabricStockIdParamSchema), asyncHandler(deleteStock));
 
 export default router;

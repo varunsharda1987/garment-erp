@@ -346,8 +346,24 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
     const additionalFilters: AdditionalFilters = {};
 
     if (options.category) {
-      // Use 'has' to check if the array contains the specified category
-      additionalFilters.supplierCategories = { has: options.category };
+      // PROCESSOR is a meta-category matching all processing-related suppliers
+      if (options.category === 'PROCESSOR') {
+        const processorCategories = [
+          'DYEING_PRINTING',
+          'EMBROIDERY',
+          'HAND_WORK',
+          'SMOCKING',
+          'CMT_UNIT',
+          'FINISHING_CONTRACTOR',
+          'STITCHING_CONTRACTOR',
+          'WASHING',
+          'DORI_PIPING_CONTRACTOR',
+        ];
+        additionalFilters.supplierCategories = { hasSome: processorCategories };
+      } else {
+        // Use 'has' to check if the array contains the specified category
+        additionalFilters.supplierCategories = { has: options.category };
+      }
     }
 
     if (options.rating !== undefined && !isNaN(options.rating)) {

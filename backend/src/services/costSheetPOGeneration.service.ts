@@ -66,6 +66,24 @@ function isSizeIndependentTrim(materialType: string): boolean {
   return SIZE_INDEPENDENT_TRIM_TYPES.includes(materialType.toUpperCase() as any);
 }
 
+/**
+ * Validate that all items have positive prices
+ * @throws Error if any item has unitPrice <= 0
+ */
+function validatePositivePrices(
+  items: Array<{ unitPrice: number; materialId?: string; materialName?: string }>,
+  poCategory: string
+): void {
+  const zeroPriceItems = items.filter((item) => item.unitPrice <= 0);
+  if (zeroPriceItems.length > 0) {
+    const names = zeroPriceItems.map((i) => i.materialName || i.materialId || 'Unknown').join(', ');
+    throw new Error(
+      `Cannot generate ${poCategory} PO: ${zeroPriceItems.length} item(s) have invalid price (must be > 0): ${names}. ` +
+        `Please set prices for all items before generating PO.`
+    );
+  }
+}
+
 // ============================================
 // Service Class
 // ============================================
@@ -592,6 +610,9 @@ class CostSheetPOGenerationService {
     // Determine interstate status
     const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
 
+    // Validate all items have positive prices
+    validatePositivePrices(input.items as any, 'FABRIC');
+
     const itemsData = await Promise.all(
       input.items.map(async (item) => {
         const totalPrice = item.orderQty * item.unitPrice;
@@ -728,6 +749,9 @@ class CostSheetPOGenerationService {
     let poTotalIgst = 0;
 
     const { isInterstate } = await gstService.isInterstatePO(input.supplierId);
+
+    // Validate all items have positive prices
+    validatePositivePrices(input.items as any, 'GREIGE');
 
     const itemsData = await Promise.all(
       input.items.map(async (item) => {
@@ -891,6 +915,9 @@ class CostSheetPOGenerationService {
 
     const { isInterstate } = await gstService.isInterstatePO(input.processorId);
 
+    // Validate all items have positive prices
+    validatePositivePrices(input.items as any, 'PROCESSING');
+
     const itemsData = await Promise.all(
       input.items.map(async (item) => {
         const totalPrice = item.orderQty * item.unitPrice;
@@ -1023,6 +1050,9 @@ class CostSheetPOGenerationService {
     if (validItems.length === 0) {
       throw new Error('No size-independent trims to order');
     }
+
+    // Validate all items have positive prices
+    validatePositivePrices(validItems as any, 'TRIMS');
 
     // Validate supplier
     const supplier = await prisma.suppliers.findUnique({
@@ -1256,6 +1286,9 @@ class CostSheetPOGenerationService {
   async generateLacePO(input: GenerateLacePOInput): Promise<GeneratedPO> {
     logInfo('Generating Lace PO', { costSheetId: input.costSheetId });
 
+    // Validate all items have positive prices
+    validatePositivePrices(input.items as any, 'LACE');
+
     // Validate supplier
     const supplier = await prisma.suppliers.findUnique({
       where: { id: input.supplierId },
@@ -1391,6 +1424,9 @@ class CostSheetPOGenerationService {
    */
   async generateGreigeLacePO(input: GenerateGreigeLacePOInput): Promise<GeneratedPO> {
     logInfo('Generating Greige Lace PO', { costSheetId: input.costSheetId });
+
+    // Validate all items have positive prices
+    validatePositivePrices(input.items as any, 'GREIGE_LACE');
 
     // Validate supplier
     const supplier = await prisma.suppliers.findUnique({
@@ -1530,6 +1566,9 @@ class CostSheetPOGenerationService {
    */
   async generateLaceProcessingPO(input: GenerateLaceProcessingPOInput): Promise<GeneratedPO> {
     logInfo('Generating Lace Processing PO', { costSheetId: input.costSheetId });
+
+    // Validate all items have positive prices
+    validatePositivePrices(input.items as any, 'LACE_PROCESSING');
 
     // Validate all lab dips are approved
     for (const item of input.items) {

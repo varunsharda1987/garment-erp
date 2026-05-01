@@ -7,6 +7,8 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateParams } from '../middleware/validation.middleware';
+import { entityTypeAndEntityIdParamSchema, userIdParamSchema } from '../schemas/common.schema';
 import { getAuditLogsForEntity, getAuditLogsByUser, getRecentAuditLogs } from '../services/audit.service';
 
 const router = Router();
@@ -94,6 +96,7 @@ router.get(
   '/entity/:entityType/:entityId',
   authenticateToken,
   authorize('ADMIN', 'PRODUCTION_MANAGER'),
+  validateParams(entityTypeAndEntityIdParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { entityType, entityId } = req.params;
     const limit = parseInt(req.query.limit as string) || 50;
@@ -145,6 +148,7 @@ router.get(
   '/user/:userId',
   authenticateToken,
   authorize('ADMIN'),
+  validateParams(userIdParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
     const limit = parseInt(req.query.limit as string) || 50;

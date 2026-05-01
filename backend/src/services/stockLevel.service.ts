@@ -18,9 +18,83 @@ export interface UpdateStockLevelDTO {
   valuationRate?: Decimal;
 }
 
+/**
+ * Unified stock view row shape (from unified_stock_view)
+ */
+interface UnifiedStockRow {
+  materialId: string;
+  warehouseId: string | null;
+  materialType: string;
+  quantity: number;
+  unit: string;
+  lastUpdated: Date | null;
+  stockValue: number;
+}
+
 class StockLevelService {
   /**
+   * Get stock levels from unified_stock_view (aggregated from all specialized tables)
+   * Use this for dashboards and reports - it's the true source of truth
+   */
+  async getUnifiedStockLevels(filters?: {
+    warehouseId?: string;
+    materialType?: string;
+    materialId?: string;
+  }): Promise<UnifiedStockRow[]> {
+    let query = `SELECT * FROM unified_stock_view WHERE 1=1`;
+    const params: any[] = [];
+
+    if (filters?.warehouseId) {
+      params.push(filters.warehouseId);
+      query += ` AND "warehouseId" = $${params.length}`;
+    }
+
+    if (filters?.materialType) {
+      params.push(filters.materialType);
+      query += ` AND "materialType" = $${params.length}`;
+    }
+
+    if (filters?.materialId) {
+      params.push(filters.materialId);
+      query += ` AND "materialId" = $${params.length}`;
+    }
+
+    query += ` ORDER BY "materialType", quantity DESC`;
+
+    const results = await prisma.$queryRawUnsafe<UnifiedStockRow[]>(query, ...params);
+    return results;
+  }
+
+  /**
+   * Get stock summary by material type from unified view
+   */
+  async getStockSummaryByType(): Promise<
+    Array<{ materialType: string; totalRecords: number; totalQuantity: number; totalValue: number }>
+  > {
+    const results = await prisma.$queryRaw<
+      Array<{ materialType: string; totalRecords: bigint; totalQuantity: number; totalValue: number }>
+    >`
+      SELECT
+        "materialType",
+        COUNT(*) as "totalRecords",
+        SUM(quantity) as "totalQuantity",
+        SUM("stockValue") as "totalValue"
+      FROM unified_stock_view
+      GROUP BY "materialType"
+      ORDER BY "materialType"
+    `;
+
+    return results.map((r) => ({
+      materialType: r.materialType,
+      totalRecords: Number(r.totalRecords),
+      totalQuantity: Number(r.totalQuantity) || 0,
+      totalValue: Number(r.totalValue) || 0,
+    }));
+  }
+
+  /**
    * Get all stock levels with filters
+   * @deprecated Use getUnifiedStockLevels() for accurate quantities from specialized tables
    */
   async getAllStockLevels(filters?: StockLevelFilters) {
     const where: Prisma.stock_levelsWhereInput = {};

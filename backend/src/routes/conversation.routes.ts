@@ -8,7 +8,8 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { idParamSchema } from '../schemas/common.schema';
 import { conversationService } from '../services/ai/conversation.service';
 import { NotFoundError, UnauthorizedError } from '../errors';
 import {
@@ -84,6 +85,7 @@ router.post(
  */
 router.get(
   '/:id',
+  validateParams(idParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) {
@@ -108,6 +110,7 @@ router.get(
  */
 router.patch(
   '/:id',
+  validateParams(idParamSchema),
   validateBody(updateConversationSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
@@ -130,6 +133,7 @@ router.patch(
  */
 router.delete(
   '/:id',
+  validateParams(idParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) {
@@ -150,6 +154,7 @@ router.delete(
  */
 router.get(
   '/:id/messages',
+  validateParams(idParamSchema),
   validateQuery(messageQuerySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;

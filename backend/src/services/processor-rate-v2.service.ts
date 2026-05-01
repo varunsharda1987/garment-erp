@@ -293,12 +293,8 @@ export async function getProcessorRateMatrix(
 
     const greigeId = rc.greigeId;
     if (!greigeMap.has(greigeId)) {
-      // Shrinkage fallback: Use rate card shrinkage if set, otherwise fall back to greige master average
-      const shrinkagePercent = rc.shrinkagePercent
-        ? Number(rc.shrinkagePercent)
-        : rc.greige.averageShrinkagePercent
-          ? Number(rc.greige.averageShrinkagePercent)
-          : null;
+      // Shrinkage: ONLY from processor rate card (no fallback to greige master)
+      const shrinkagePercent = rc.shrinkagePercent ? Number(rc.shrinkagePercent) : null;
 
       greigeMap.set(greigeId, {
         id: rc.greige.id,
@@ -980,15 +976,8 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
   const ratePerMeter = Number(rateCard.ratePerMeter);
   const totalCost = quantityMeters * ratePerMeter;
 
-  // Shrinkage Priority Logic (as per user requirements):
-  // 1. If processor rate card has shrinkagePercent → use it (processor-specific shrinkage)
-  // 2. Otherwise, fall back to greige_master.averageShrinkagePercent (default greige shrinkage)
-  // 3. If neither exists → return null
-  const shrinkagePercent = rateCard.shrinkagePercent
-    ? Number(rateCard.shrinkagePercent)
-    : rateCard.greige.averageShrinkagePercent
-      ? Number(rateCard.greige.averageShrinkagePercent)
-      : null;
+  // Shrinkage: ONLY from processor rate card (no fallback to greige master)
+  const shrinkagePercent = rateCard.shrinkagePercent ? Number(rateCard.shrinkagePercent) : null;
 
   return {
     id: rateCard.id,
@@ -1636,11 +1625,8 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
 
   const ratePerMeter = Number(rateCard.ratePerMeter);
   const totalCost = quantityMeters * ratePerMeter;
-  const shrinkagePercent = rateCard.shrinkagePercent
-    ? Number(rateCard.shrinkagePercent)
-    : rateCard.lace.expectedShrinkagePercent
-      ? Number(rateCard.lace.expectedShrinkagePercent)
-      : null;
+  // Shrinkage: ONLY from processor rate card (no fallback to lace master)
+  const shrinkagePercent = rateCard.shrinkagePercent ? Number(rateCard.shrinkagePercent) : null;
 
   return {
     ratePerMeter,

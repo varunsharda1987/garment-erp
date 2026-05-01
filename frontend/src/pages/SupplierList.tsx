@@ -142,6 +142,7 @@ export default function SupplierList() {
   const getCategoryBadgeColor = (category: SupplierCategory) => {
     const colors: Record<string, string> = {
       FABRIC_SUPPLIER: 'bg-info-muted text-info',
+      GREIGE_SUPPLIER: 'bg-amber-100 text-amber-800',
       TRIMS_SUPPLIER: 'bg-accent/10 text-accent',
       THREAD_SUPPLIER: 'bg-success-muted text-success',
       PACKAGING_SUPPLIER: 'bg-teal-100 text-teal-800',

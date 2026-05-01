@@ -2,12 +2,14 @@ import express from 'express';
 import * as materialMasterController from '../controllers/material-master.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { authenticateToken } from '../middleware/auth.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createMaterialSchema,
   updateMaterialSchema,
   addMaterialSupplierSchema,
   materialQuerySchema,
+  materialIdParamSchema,
+  materialTypeParamSchema,
 } from '../schemas/materialMaster.schema';
 
 const router = express.Router();
@@ -30,24 +32,38 @@ router.get('/', validateQuery(materialQuerySchema), asyncHandler(materialMasterC
 router.get('/types', asyncHandler(materialMasterController.getMaterialTypes));
 
 // Get material count by type
-router.get('/types/:type/count', asyncHandler(materialMasterController.getMaterialCountByType));
+router.get(
+  '/types/:type/count',
+  validateParams(materialTypeParamSchema),
+  asyncHandler(materialMasterController.getMaterialCountByType)
+);
 
 // Get single material by ID
-router.get('/:id', asyncHandler(materialMasterController.getMaterialById));
+router.get('/:id', validateParams(materialIdParamSchema), asyncHandler(materialMasterController.getMaterialById));
 
 // Create new material
 router.post('/', validateBody(createMaterialSchema), asyncHandler(materialMasterController.createMaterial));
 
 // Update material
-router.put('/:id', validateBody(updateMaterialSchema), asyncHandler(materialMasterController.updateMaterial));
+router.put(
+  '/:id',
+  validateParams(materialIdParamSchema),
+  validateBody(updateMaterialSchema),
+  asyncHandler(materialMasterController.updateMaterial)
+);
 
 // Soft delete material
-router.delete('/:id', asyncHandler(materialMasterController.deleteMaterial));
+router.delete('/:id', validateParams(materialIdParamSchema), asyncHandler(materialMasterController.deleteMaterial));
 
 // Supplier management
-router.get('/:id/suppliers', asyncHandler(materialMasterController.getMaterialSuppliers));
+router.get(
+  '/:id/suppliers',
+  validateParams(materialIdParamSchema),
+  asyncHandler(materialMasterController.getMaterialSuppliers)
+);
 router.post(
   '/:id/suppliers',
+  validateParams(materialIdParamSchema),
   validateBody(addMaterialSupplierSchema),
   asyncHandler(materialMasterController.addMaterialSupplier)
 );

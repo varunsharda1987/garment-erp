@@ -167,7 +167,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
         defaultCutableWidth: data.defaultCutableWidth || null,
         expectedFinishedWidthMin: data.expectedFinishedWidthMin || null,
         expectedFinishedWidthMax: data.expectedFinishedWidthMax || null,
-        averageShrinkagePercent: data.averageShrinkagePercent ?? 8.0,
+        averageShrinkagePercent: data.averageShrinkagePercent ?? null,
         gsmRange: data.gsmRange || null,
         description: data.description || null,
         notes: data.notes || null,
@@ -684,7 +684,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
               : null,
             averageShrinkagePercent: greige.averageShrinkagePercent
               ? parseFloat(String(greige.averageShrinkagePercent))
-              : 8.0,
+              : null,
             gsmRange: greige.gsmRange || null,
             description: greige.description || null,
             notes: greige.notes || null,

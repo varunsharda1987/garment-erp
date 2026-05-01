@@ -12,7 +12,7 @@ import { warehouseService } from '../services/warehouse.service';
 import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FabricMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 
@@ -121,57 +121,20 @@ export default function FabricStockEntry() {
         return;
       }
 
-      // Get token from localStorage
-      const authStorage = localStorage.getItem('auth-storage');
-      let token = null;
-      if (authStorage) {
-        try {
-          const parsed = JSON.parse(authStorage);
-          token = parsed.state?.token;
-        } catch (e) {
-          logError('Error parsing auth storage:', e);
-        }
-      }
-
-      if (!token) {
-        const errorMsg = 'Authentication token not found. Please log in again.';
-        setError(errorMsg);
-        toast.error(errorMsg);
-        return;
-      }
-
       // Call the fabric stock API
-      const response = await fetch(`${API_URL}/stock`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          fabricId: selectedFabricId,
-          width: parseFloat(formData.width),
-          quantityAvailable: parseFloat(formData.quantity),
-          rollNumbers: formData.rollNumbers || undefined,
-          warehouseLocation: formData.warehouseLocation || undefined,
-          rackNumber: formData.rackNumber || undefined,
-          purchaseCost: formData.purchaseCost ? parseFloat(formData.purchaseCost) : undefined,
-          qualityGrade: formData.qualityGrade,
-          stockType: formData.stockType,
-          receivedDate: formData.receivedDate ? new Date(formData.receivedDate) : new Date(),
-          status: 'AVAILABLE',
-        }),
+      await api.post('/stock', {
+        fabricId: selectedFabricId,
+        width: parseFloat(formData.width),
+        quantityAvailable: parseFloat(formData.quantity),
+        rollNumbers: formData.rollNumbers || undefined,
+        warehouseLocation: formData.warehouseLocation || undefined,
+        rackNumber: formData.rackNumber || undefined,
+        purchaseCost: formData.purchaseCost ? parseFloat(formData.purchaseCost) : undefined,
+        qualityGrade: formData.qualityGrade,
+        stockType: formData.stockType,
+        receivedDate: formData.receivedDate ? new Date(formData.receivedDate) : new Date(),
+        status: 'AVAILABLE',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Stock entry failed:', errorData);
-        const errorMsg = errorData.error || errorData.message || 'Failed to save stock entry';
-        setError(errorMsg);
-        toast.error(errorMsg);
-        throw new Error(errorMsg);
-      }
-
-      await response.json();
       setSuccess(true);
       toast.success('Fabric stock entry saved successfully!');
 

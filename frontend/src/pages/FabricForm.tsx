@@ -28,7 +28,7 @@ import type {
 import type { Embroidery } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
 import { notify } from '../lib/notify';
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 import { FABRIC_FINISH_TYPES, getFinishTypeLabel } from '../constants/fabric-finish-types';
 import ColorPicker from '../components/ColorPicker';
 import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
@@ -149,33 +149,15 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     suppliers: [],
   });
 
-  // Helper function to get auth token
-  const getAuthToken = useCallback(() => {
-    const authStorage = localStorage.getItem('auth-storage');
-    if (authStorage) {
-      try {
-        const parsed = JSON.parse(authStorage);
-        return parsed.state?.token || null;
-      } catch (e) {
-        logError('Error parsing auth storage:', e);
-      }
-    }
-    return null;
-  }, []);
-
   // Load styles for style_linked source
   const loadStyles = useCallback(async () => {
     try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_URL}/styles?limit=200&isActive=true`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setStyles(data.data || []);
+      const response = await api.get<{ data: Style[] }>('/styles?limit=200&isActive=true');
+      setStyles(response.data.data || []);
     } catch (error) {
       logError('Error loading styles:', error);
     }
-  }, [getAuthToken]);
+  }, []);
 
   // Load embroidery designs
   const loadEmbroideryDesigns = useCallback(async () => {
@@ -192,26 +174,19 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   }, []);
 
   // Fetch next fabric code from backend
-  const fetchNextFabricCode = useCallback(
-    async (source: FabricSource, styleCode?: string) => {
-      try {
-        const token = getAuthToken();
-        let url = `${API_URL}/fabric-management/fabric/next-code?source=${source}`;
-        if (source === 'style_linked' && styleCode) {
-          url += `&styleCode=${styleCode}`;
-        }
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json();
-        return data.nextCode || '';
-      } catch (error) {
-        logError('Error fetching next fabric code:', error);
-        return '';
+  const fetchNextFabricCode = useCallback(async (source: FabricSource, styleCode?: string) => {
+    try {
+      let url = `/fabric-management/fabric/next-code?source=${source}`;
+      if (source === 'style_linked' && styleCode) {
+        url += `&styleCode=${styleCode}`;
       }
-    },
-    [getAuthToken]
-  );
+      const response = await api.get<{ nextCode: string }>(url);
+      return response.data.nextCode || '';
+    } catch (error) {
+      logError('Error fetching next fabric code:', error);
+      return '';
+    }
+  }, []);
 
   // Generate fabric name based on selected fields
   const generateFabricName = useCallback(() => {
@@ -513,12 +488,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
   const loadSuppliers = async () => {
     try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_URL}/suppliers?limit=100&category=FABRIC_SUPPLIER`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      setSuppliers(data.data || []);
+      const response = await api.get<{ data: { id: string; code: string; name: string }[] }>(
+        '/suppliers?limit=100&category=FABRIC_SUPPLIER'
+      );
+      setSuppliers(response.data.data || []);
     } catch (error) {
       logError('Error loading suppliers:', error);
     }
@@ -602,12 +575,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
 
     // Fetch full style detail (with components) for component dropdown
     try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_URL}/styles/${styleId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      const fullStyle = data.data || data;
+      const response = await api.get<{ data: Style } | Style>(`/styles/${styleId}`);
+      const fullStyle = (response.data as { data: Style }).data || (response.data as Style);
       setSelectedStyle(fullStyle);
       setSelectedStyleCode(fullStyle.styleCode || '');
       setFormData((prev) => ({

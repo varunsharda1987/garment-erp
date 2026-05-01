@@ -10,6 +10,9 @@ import {
 } from '../controllers/style-material-bom.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateParams } from '../middleware/validation.middleware';
+import { styleIdParamSchema, materialCodeParamSchema } from '../schemas/common.schema';
+import { styleAndBomIdParamSchema } from '../schemas/style.schema';
 
 const router = Router();
 
@@ -18,12 +21,16 @@ router.use(authenticateToken);
 
 // Material search endpoints
 router.get('/materials/search', asyncHandler(searchMaterials));
-router.get('/materials/by-code/:materialCode', asyncHandler(getMaterialByCode));
+router.get(
+  '/materials/by-code/:materialCode',
+  validateParams(materialCodeParamSchema),
+  asyncHandler(getMaterialByCode)
+);
 
 // Style BOM management
-router.get('/:styleId/bom', asyncHandler(getStyleBOM));
-router.post('/:styleId/materials', asyncHandler(addMaterialToBOM));
-router.put('/:styleId/materials/:bomId', asyncHandler(updateBOMItem));
-router.delete('/:styleId/materials/:bomId', asyncHandler(deleteBOMItem));
+router.get('/:styleId/bom', validateParams(styleIdParamSchema), asyncHandler(getStyleBOM));
+router.post('/:styleId/materials', validateParams(styleIdParamSchema), asyncHandler(addMaterialToBOM));
+router.put('/:styleId/materials/:bomId', validateParams(styleAndBomIdParamSchema), asyncHandler(updateBOMItem));
+router.delete('/:styleId/materials/:bomId', validateParams(styleAndBomIdParamSchema), asyncHandler(deleteBOMItem));
 
 export default router;

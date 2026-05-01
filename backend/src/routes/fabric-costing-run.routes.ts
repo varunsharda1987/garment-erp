@@ -6,7 +6,8 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
+import { styleIdParamSchema, runIdParamSchema } from '../schemas/common.schema';
 import {
   getRunsByStyle,
   getRunById,
@@ -22,18 +23,28 @@ const router = Router();
 router.use(authenticateToken);
 
 // GET /api/fabric-costing-runs/style/:styleId - Get all runs for a style
-router.get('/style/:styleId', asyncHandler(getRunsByStyle));
+router.get('/style/:styleId', validateParams(styleIdParamSchema), asyncHandler(getRunsByStyle));
 
 // POST /api/fabric-costing-runs/style/:styleId - Create new run
-router.post('/style/:styleId', validateBody(createCostingRunSchema), asyncHandler(createRun));
+router.post(
+  '/style/:styleId',
+  validateParams(styleIdParamSchema),
+  validateBody(createCostingRunSchema),
+  asyncHandler(createRun)
+);
 
 // GET /api/fabric-costing-runs/:runId - Get single run with details
-router.get('/:runId', asyncHandler(getRunById));
+router.get('/:runId', validateParams(runIdParamSchema), asyncHandler(getRunById));
 
 // DELETE /api/fabric-costing-runs/:runId - Delete run
-router.delete('/:runId', asyncHandler(deleteRun));
+router.delete('/:runId', validateParams(runIdParamSchema), asyncHandler(deleteRun));
 
 // PATCH /api/fabric-costing-runs/:runId/recalculate - Recalculate totals
-router.patch('/:runId/recalculate', validateBody(recalculateRunSchema), asyncHandler(updateRunTotals));
+router.patch(
+  '/:runId/recalculate',
+  validateParams(runIdParamSchema),
+  validateBody(recalculateRunSchema),
+  asyncHandler(updateRunTotals)
+);
 
 export default router;

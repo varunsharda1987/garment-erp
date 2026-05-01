@@ -10,12 +10,13 @@ import {
 } from '../controllers/zipper.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createZipperSchema,
   updateZipperSchema,
   bulkImportZipperSchema,
   trimMasterQuerySchema,
+  trimMasterIdParamSchema,
 } from '../schemas/trimMasters.schema';
 
 const router = Router();
@@ -50,21 +51,26 @@ router.get('/template', asyncHandler(downloadTemplate));
  * @desc    Get single zipper item by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getZipperById));
+router.get('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(getZipperById));
 
 /**
  * @route   PUT /api/materials/zipper/:id
  * @desc    Update zipper item
  * @access  Private
  */
-router.put('/:id', validateBody(updateZipperSchema), asyncHandler(updateZipper));
+router.put(
+  '/:id',
+  validateParams(trimMasterIdParamSchema),
+  validateBody(updateZipperSchema),
+  asyncHandler(updateZipper)
+);
 
 /**
  * @route   DELETE /api/materials/zipper/:id
  * @desc    Delete zipper item
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deleteZipper));
+router.delete('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(deleteZipper));
 
 /**
  * @route   POST /api/materials/zipper/bulk-import

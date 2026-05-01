@@ -17,7 +17,7 @@ import { CheckCircle, XCircle, ArrowLeft, Sparkles, ChevronDown, ChevronUp } fro
 import type { Embroidery, EmbroiderySendOutRequest } from '../types/embroidery.types';
 import type { Supplier } from '../types/supplier.types';
 import { logError } from '../lib/logger';
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
 
 interface FabricStock {
@@ -89,29 +89,17 @@ export default function EmbroideryStockSendOut() {
       setIsLoading(true);
       setError(null);
 
-      // Get token from localStorage
-      const authStorage = localStorage.getItem('auth-storage');
-      let token = null;
-      if (authStorage) {
-        try {
-          const parsed = JSON.parse(authStorage);
-          token = parsed.state?.token;
-        } catch (e) {
-          logError('Error parsing auth storage:', e);
-        }
-      }
-
       // Load fabric stock (available, non-embroidered)
-      const stockResponse = await fetch(`${API_URL}/stock?status=AVAILABLE&stockType=GENERIC`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (stockResponse.ok) {
-        const stockData = await stockResponse.json();
-        // Filter out already embroidered stock
-        const plainStock = (stockData.data || stockData || []).filter(
-          (s: FabricStock & { embroideryId?: string }) => !s.embroideryId
+      try {
+        const stockResponse = await api.get<{ data: FabricStock[] } | FabricStock[]>(
+          '/stock?status=AVAILABLE&stockType=GENERIC'
         );
+        const stockData = stockResponse.data;
+        const stockArray = (stockData as { data: FabricStock[] }).data || (stockData as FabricStock[]) || [];
+        const plainStock = stockArray.filter((s: FabricStock & { embroideryId?: string }) => !s.embroideryId);
         setFabricStockList(plainStock);
+      } catch {
+        setFabricStockList([]);
       }
 
       // Load embroidery designs

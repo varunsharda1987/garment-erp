@@ -12,13 +12,14 @@ import {
 } from '../controllers/currencies.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createCurrencySchema,
   updateCurrencySchema,
   createExchangeRateSchema,
   currencyQuerySchema,
 } from '../schemas/currencies.schema';
+import { codeParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -32,22 +33,27 @@ router.post('/', validateBody(createCurrencySchema), asyncHandler(createCurrency
 router.get('/', validateQuery(currencyQuerySchema), asyncHandler(getAllCurrencies));
 
 // Get currency by code
-router.get('/:code', asyncHandler(getCurrencyByCode));
+router.get('/:code', validateParams(codeParamSchema), asyncHandler(getCurrencyByCode));
 
 // Update currency
-router.put('/:code', validateBody(updateCurrencySchema), asyncHandler(updateCurrency));
+router.put('/:code', validateParams(codeParamSchema), validateBody(updateCurrencySchema), asyncHandler(updateCurrency));
 
 // Delete currency (soft delete)
-router.delete('/:code', asyncHandler(deleteCurrency));
+router.delete('/:code', validateParams(codeParamSchema), asyncHandler(deleteCurrency));
 
 // Exchange rates sub-routes
 // Get latest exchange rate for currency
-router.get('/:code/exchange-rates/latest', asyncHandler(getLatestExchangeRate));
+router.get('/:code/exchange-rates/latest', validateParams(codeParamSchema), asyncHandler(getLatestExchangeRate));
 
 // Add exchange rate
-router.post('/:code/exchange-rates', validateBody(createExchangeRateSchema), asyncHandler(addExchangeRate));
+router.post(
+  '/:code/exchange-rates',
+  validateParams(codeParamSchema),
+  validateBody(createExchangeRateSchema),
+  asyncHandler(addExchangeRate)
+);
 
 // Get exchange rates for currency
-router.get('/:code/exchange-rates', asyncHandler(getExchangeRates));
+router.get('/:code/exchange-rates', validateParams(codeParamSchema), asyncHandler(getExchangeRates));
 
 export default router;

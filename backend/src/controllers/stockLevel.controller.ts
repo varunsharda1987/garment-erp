@@ -179,3 +179,40 @@ export const getStockLevelsByMaterialType = async (req: Request, res: Response) 
     count: stockLevels.length,
   });
 };
+
+/**
+ * @route GET /api/stock-levels/unified
+ * @desc Get unified stock levels from all specialized tables (via database VIEW)
+ * @access Private
+ */
+export const getUnifiedStockLevels = async (req: Request, res: Response) => {
+  const { warehouseId, materialType, materialId } = req.query;
+
+  const filters = {
+    warehouseId: warehouseId as string | undefined,
+    materialType: materialType as string | undefined,
+    materialId: materialId as string | undefined,
+  };
+
+  const stockLevels = await stockLevelService.getUnifiedStockLevels(filters);
+
+  res.json({
+    success: true,
+    data: stockLevels,
+    count: stockLevels.length,
+  });
+};
+
+/**
+ * @route GET /api/stock-levels/summary-by-type
+ * @desc Get stock summary aggregated by material type (via database VIEW)
+ * @access Private
+ */
+export const getStockSummaryByType = async (_req: Request, res: Response) => {
+  const summary = await stockLevelService.getStockSummaryByType();
+
+  res.json({
+    success: true,
+    data: summary,
+  });
+};

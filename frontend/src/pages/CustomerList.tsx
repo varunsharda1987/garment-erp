@@ -327,7 +327,8 @@ export default function CustomerList() {
                 <SelectItem value="ALL">All Categories</SelectItem>
                 <SelectItem value="DOMESTIC">Domestic</SelectItem>
                 <SelectItem value="EXPORT">Export</SelectItem>
-                <SelectItem value="LOCAL">Local</SelectItem>
+                <SelectItem value="WHOLESALER">Wholesaler</SelectItem>
+                <SelectItem value="RETAILER">Retailer</SelectItem>
               </SelectContent>
             </Select>
           </div>

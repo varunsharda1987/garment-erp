@@ -21,7 +21,7 @@ import { DialogFooter } from '../components/ui/dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { StyleCombobox } from '../components/StyleCombobox';
 import { logError } from '../lib/logger';
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
 import { EditStockModal } from '../components/fabric/EditStockModal';
 import { ConfirmDeleteDialog } from '../components/dialogs/ConfirmDeleteDialog';
@@ -114,30 +114,12 @@ export default function FabricAvailableStock() {
   const loadFabricStock = async () => {
     try {
       setIsLoading(true);
-
-      // Get token from localStorage
-      const authStorage = localStorage.getItem('auth-storage');
-      let token = null;
-      if (authStorage) {
-        try {
-          const parsed = JSON.parse(authStorage);
-          token = parsed.state?.token;
-        } catch (e) {
-          logError('Error parsing auth storage:', e);
-        }
-      }
-
       const statusParam = statusFilter === 'ALL' ? '' : `status=${statusFilter}`;
-      const response = await fetch(`${API_URL}/stock${statusParam ? `?${statusParam}` : ''}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to load fabric stock');
-      }
-
-      const data = await response.json();
-      setFabricStock(data.data || data || []);
+      const response = await api.get<{ data: FabricStock[] } | FabricStock[]>(
+        `/stock${statusParam ? `?${statusParam}` : ''}`
+      );
+      const data = response.data;
+      setFabricStock((data as { data: FabricStock[] }).data || (data as FabricStock[]) || []);
     } catch (err) {
       logError('Failed to load fabric stock:', err);
     } finally {

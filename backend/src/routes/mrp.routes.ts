@@ -6,7 +6,8 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { idParamSchema, orderIdParamSchema } from '../schemas/common.schema';
 import mrpController from '../controllers/mrp.controller';
 import * as vendorSuggestionController from '../controllers/vendor-suggestion.controller';
 import {
@@ -93,14 +94,14 @@ router.post(
  * @desc    Get a single requirement by ID
  * @access  Private
  */
-router.get('/requirements/:id', asyncHandler(mrpController.getRequirementById));
+router.get('/requirements/:id', validateParams(idParamSchema), asyncHandler(mrpController.getRequirementById));
 
 /**
  * @route   DELETE /api/mrp/requirements/:id
  * @desc    Cancel a requirement
  * @access  Private
  */
-router.delete('/requirements/:id', asyncHandler(mrpController.cancelRequirement));
+router.delete('/requirements/:id', validateParams(idParamSchema), asyncHandler(mrpController.cancelRequirement));
 
 // ============================================
 // REQUIREMENT ACTIONS
@@ -114,6 +115,7 @@ router.delete('/requirements/:id', asyncHandler(mrpController.cancelRequirement)
  */
 router.post(
   '/requirements/:id/allocate-stock',
+  validateParams(idParamSchema),
   validateBody(allocateStockSchema),
   asyncHandler(mrpController.allocateStock)
 );
@@ -124,7 +126,12 @@ router.post(
  * @access  Private
  * @body    { purchaseOrderId: string, purchaseOrderItemId: string, allocatedQuantity: number }
  */
-router.post('/requirements/:id/link-po', validateBody(linkToPOSchema), asyncHandler(mrpController.linkToPO));
+router.post(
+  '/requirements/:id/link-po',
+  validateParams(idParamSchema),
+  validateBody(linkToPOSchema),
+  asyncHandler(mrpController.linkToPO)
+);
 
 /**
  * @route   POST /api/mrp/requirements/:id/convert-to-greige
@@ -134,6 +141,7 @@ router.post('/requirements/:id/link-po', validateBody(linkToPOSchema), asyncHand
  */
 router.post(
   '/requirements/:id/convert-to-greige',
+  validateParams(idParamSchema),
   validateBody(convertToGreigeSchema),
   asyncHandler(mrpController.convertToGreigeProcessing)
 );
@@ -146,6 +154,7 @@ router.post(
  */
 router.patch(
   '/requirements/:id/status',
+  validateParams(idParamSchema),
   validateBody(updateRequirementStatusSchema),
   asyncHandler(mrpController.updateStatus)
 );
@@ -203,7 +212,11 @@ router.post('/validate-bulk-po', validateBody(validateBulkPOSchema), asyncHandle
  * @desc    Get requirements summary for an order
  * @access  Private
  */
-router.get('/orders/:orderId/summary', asyncHandler(mrpController.getOrderRequirementsSummary));
+router.get(
+  '/orders/:orderId/summary',
+  validateParams(orderIdParamSchema),
+  asyncHandler(mrpController.getOrderRequirementsSummary)
+);
 
 // ============================================
 // VENDOR SUGGESTIONS

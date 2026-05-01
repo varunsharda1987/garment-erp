@@ -1,5 +1,19 @@
 import { z } from 'zod';
 
+/**
+ * Sanitize supplier/company names:
+ * - Trim whitespace
+ * - Remove trailing punctuation (commas, periods, etc.)
+ * - Normalize multiple spaces to single space
+ */
+const sanitizeName = (name: string): string => {
+  return name
+    .trim()
+    .replace(/\s+/g, ' ') // Normalize multiple spaces
+    .replace(/[,.\-_'"]+$/g, '') // Remove trailing punctuation
+    .trim();
+};
+
 // Enum for supplier categories
 export const SupplierCategoryEnum = z.enum([
   'FABRIC_SUPPLIER',
@@ -41,7 +55,7 @@ const bankAccountRegex = /^[0-9]{9,18}$/;
 export const createSupplierSchema = z
   .object({
     code: z.string().min(2).max(50),
-    name: z.string().min(2).max(200),
+    name: z.string().min(2).max(200).transform(sanitizeName),
     supplierCategories: z.array(SupplierCategoryEnum).min(1, 'At least one category is required'),
     contactPerson: z.string().max(100).optional().or(z.literal('')),
     email: z.union([z.string().email(), z.literal('')]).optional(),
@@ -103,7 +117,7 @@ export const createSupplierSchema = z
 export const updateSupplierSchema = z
   .object({
     code: z.string().min(2).max(50).optional(),
-    name: z.string().min(2).max(200).optional(),
+    name: z.string().min(2).max(200).transform(sanitizeName).optional(),
     supplierCategories: z.array(SupplierCategoryEnum).min(1, 'At least one category is required').optional(),
     contactPerson: z.string().max(100).optional().or(z.literal('')),
     email: z.union([z.string().email(), z.literal('')]).optional(),

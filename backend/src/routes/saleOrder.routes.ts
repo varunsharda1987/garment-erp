@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { saleOrderController } from '../controllers/saleOrder.controller';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createSaleOrderSchema,
   updateSaleOrderSchema,
@@ -10,6 +10,7 @@ import {
   saleOrderQuerySchema,
 } from '../schemas/saleOrder.schema';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.get(
 );
 
 // GET /api/sale-orders/:id - Get by ID
-router.get('/:id', asyncHandler(saleOrderController.getById.bind(saleOrderController)));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(saleOrderController.getById.bind(saleOrderController)));
 
 // POST /api/sale-orders - Create new
 router.post(
@@ -42,16 +43,22 @@ router.post(
 // PUT /api/sale-orders/:id - Update
 router.put(
   '/:id',
+  validateParams(idParamSchema),
   validateBody(updateSaleOrderSchema),
   asyncHandler(saleOrderController.update.bind(saleOrderController))
 );
 
 // DELETE /api/sale-orders/:id - Delete
-router.delete('/:id', asyncHandler(saleOrderController.delete.bind(saleOrderController)));
+router.delete(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(saleOrderController.delete.bind(saleOrderController))
+);
 
 // POST /api/sale-orders/:id/confirm - Confirm sale order
 router.post(
   '/:id/confirm',
+  validateParams(idParamSchema),
   validateBody(confirmSaleOrderSchema),
   asyncHandler(saleOrderController.confirm.bind(saleOrderController))
 );

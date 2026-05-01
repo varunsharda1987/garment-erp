@@ -8,10 +8,8 @@ import {
   type FabricStockHistoryEntry,
 } from '../services/style-stock.service';
 import { Search, ChevronDown, ChevronRight } from 'lucide-react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { logError } from '../lib/logger';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 interface Fabric {
   id: string;
@@ -48,7 +46,7 @@ export default function FabricUsageReport() {
   const loadFabrics = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/fabric-management/fabric`);
+      const response = await api.get<{ data: Fabric[] }>('/fabric-management/fabric');
       const fabricsData = response.data.data.map((fabric: Fabric) => ({
         ...fabric,
         isExpanded: false,

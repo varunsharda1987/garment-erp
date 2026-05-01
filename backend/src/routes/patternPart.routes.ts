@@ -2,12 +2,14 @@ import express from 'express';
 import { patternPartController } from '../controllers/patternPart.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createPatternPartSchema,
   updatePatternPartSchema,
   reorderPatternPartsSchema,
   patternPartQuerySchema,
+  patternPartIdParamSchema,
+  patternPartCodeParamSchema,
 } from '../schemas/patternPart.schema';
 
 const router = express.Router();
@@ -37,19 +39,32 @@ router.get(
 );
 
 // Get pattern part by code
-router.get('/code/:code', asyncHandler(patternPartController.getPatternPartByCode.bind(patternPartController)));
+router.get(
+  '/code/:code',
+  validateParams(patternPartCodeParamSchema),
+  asyncHandler(patternPartController.getPatternPartByCode.bind(patternPartController))
+);
 
 // Get pattern part by ID
-router.get('/:id', asyncHandler(patternPartController.getPatternPartById.bind(patternPartController)));
+router.get(
+  '/:id',
+  validateParams(patternPartIdParamSchema),
+  asyncHandler(patternPartController.getPatternPartById.bind(patternPartController))
+);
 
 // Update pattern part
 router.put(
   '/:id',
+  validateParams(patternPartIdParamSchema),
   validateBody(updatePatternPartSchema),
   asyncHandler(patternPartController.updatePatternPart.bind(patternPartController))
 );
 
 // Delete pattern part (soft delete)
-router.delete('/:id', asyncHandler(patternPartController.deletePatternPart.bind(patternPartController)));
+router.delete(
+  '/:id',
+  validateParams(patternPartIdParamSchema),
+  asyncHandler(patternPartController.deletePatternPart.bind(patternPartController))
+);
 
 export default router;

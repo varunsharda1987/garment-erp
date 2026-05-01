@@ -7,8 +7,9 @@ import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { togglePermissionSchema, bulkUpdatePermissionsSchema } from '../schemas/permission.schema';
+import { roleParamSchema, roleAndPermissionParamSchema } from '../schemas/common.schema';
 import {
   getPermissionMatrix,
   getRoles,
@@ -51,7 +52,7 @@ router.get('/roles', asyncHandler(getRoles));
  * @route GET /api/permissions/roles/:role
  * @desc Get permissions for a specific role
  */
-router.get('/roles/:role', asyncHandler(getRolePermissions));
+router.get('/roles/:role', validateParams(roleParamSchema), asyncHandler(getRolePermissions));
 
 /**
  * @route GET /api/permissions/modules
@@ -69,7 +70,7 @@ router.get('/definitions', asyncHandler(getPermissionDefinitions));
  * @route GET /api/permissions/check/:role/:permission
  * @desc Check if a role has a specific permission
  */
-router.get('/check/:role/:permission', asyncHandler(checkPermission));
+router.get('/check/:role/:permission', validateParams(roleAndPermissionParamSchema), asyncHandler(checkPermission));
 
 /**
  * @route GET /api/permissions/audit-log

@@ -95,6 +95,8 @@ export const createStockIn = async (req: Request, res: Response) => {
     remarks,
     foldLengthCm,
     thanCount,
+    invoiceNumber,
+    invoiceDate,
   } = req.body;
 
   // Resolve materialId from polymorphic itemType/itemId if not provided directly
@@ -132,6 +134,8 @@ export const createStockIn = async (req: Request, res: Response) => {
     performedById: userId,
     foldLengthCm: foldLengthCm ? new Decimal(foldLengthCm) : undefined,
     thanCount: thanCount ? parseInt(thanCount) : undefined,
+    invoiceNumber,
+    invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined,
   };
 
   const movement = await stockMovementService.createStockIn(movementData);
@@ -155,7 +159,8 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { warehouseId, supplierId, referenceType, referenceNumber, remarks, items } = req.body;
+  const { warehouseId, supplierId, referenceType, referenceNumber, remarks, items, invoiceNumber, invoiceDate } =
+    req.body;
 
   // Validate basic fields
   if (!warehouseId || !items || !Array.isArray(items) || items.length === 0) {
@@ -215,6 +220,8 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
     remarks,
     performedById: userId,
     items: resolvedItems,
+    invoiceNumber,
+    invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined,
   };
 
   const result = await stockMovementService.createBulkStockIn(bulkData);
@@ -429,6 +436,35 @@ export const getStockLedger = async (req: Request, res: Response) => {
     success: true,
     data: ledger,
     count: ledger.length,
+  });
+};
+
+/**
+ * @route GET /api/stock-movements/unified
+ * @desc Get unified material movements from all sources (stock_movements, greige_stock, fabric_stock, GRN, procurement, challans)
+ * @access Private
+ */
+export const getUnifiedMovements = async (req: Request, res: Response) => {
+  const { supplierId, invoiceNumber, direction, materialType, dateFrom, dateTo, search, page, limit } = req.query;
+
+  const filters = {
+    supplierId: supplierId as string | undefined,
+    invoiceNumber: invoiceNumber as string | undefined,
+    direction: direction as 'INWARD' | 'OUTWARD' | 'TRANSFER' | 'ADJUSTMENT' | undefined,
+    materialType: materialType as string | undefined,
+    dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+    dateTo: dateTo ? new Date(dateTo as string) : undefined,
+    search: search as string | undefined,
+    page: page ? parseInt(page as string) : 1,
+    limit: limit ? parseInt(limit as string) : 50,
+  };
+
+  const result = await stockMovementService.getUnifiedMovements(filters);
+
+  res.json({
+    success: true,
+    data: result.data,
+    pagination: result.pagination,
   });
 };
 

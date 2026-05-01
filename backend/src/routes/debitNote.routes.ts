@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { debitNoteController } from '../controllers/debitNote.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createDebitNoteSchema, debitNoteQuerySchema } from '../schemas/debitNote.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get(
 );
 
 // GET /api/debit-notes/:id - Get debit note by ID
-router.get('/:id', asyncHandler(debitNoteController.getById.bind(debitNoteController)));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(debitNoteController.getById.bind(debitNoteController)));
 
 // POST /api/debit-notes - Create new debit note
 router.post(
@@ -28,12 +29,24 @@ router.post(
 );
 
 // PUT /api/debit-notes/:id/approve - Approve debit note
-router.put('/:id/approve', asyncHandler(debitNoteController.approve.bind(debitNoteController)));
+router.put(
+  '/:id/approve',
+  validateParams(idParamSchema),
+  asyncHandler(debitNoteController.approve.bind(debitNoteController))
+);
 
 // PUT /api/debit-notes/:id/cancel - Cancel debit note
-router.put('/:id/cancel', asyncHandler(debitNoteController.cancel.bind(debitNoteController)));
+router.put(
+  '/:id/cancel',
+  validateParams(idParamSchema),
+  asyncHandler(debitNoteController.cancel.bind(debitNoteController))
+);
 
 // DELETE /api/debit-notes/:id - Delete debit note
-router.delete('/:id', asyncHandler(debitNoteController.delete.bind(debitNoteController)));
+router.delete(
+  '/:id',
+  validateParams(idParamSchema),
+  asyncHandler(debitNoteController.delete.bind(debitNoteController))
+);
 
 export default router;

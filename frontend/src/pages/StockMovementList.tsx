@@ -1,7 +1,7 @@
-// Stock Movement List - View all stock transactions
+// Stock Movement List - Unified view of all material movements
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, ArrowDown, ArrowUp, ArrowLeftRight, Package } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Plus, ArrowDown, ArrowUp, ArrowLeftRight, Package, Search, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,14 +13,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError } from '@/lib/api-error-handler';
-import stockMovementService from '../services/stockMovement.service';
-import type { StockMovement, MovementType } from '../types/inventory.types';
+import stockMovementService, { type UnifiedMovement } from '../services/stockMovement.service';
+import { getAllSuppliers } from '../services/supplier.service';
+import type { Supplier } from '../types/supplier.types';
 
-// Local type definition to avoid import issues
 type Column<T> = {
   key: string;
   header: string;
@@ -29,71 +30,130 @@ type Column<T> = {
   headerClassName?: string;
 };
 
+type DirectionFilter = 'ALL' | 'INWARD' | 'OUTWARD' | 'TRANSFER' | 'ADJUSTMENT';
+
 export default function StockMovementList() {
   const navigate = useNavigate();
-  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [movements, setMovements] = useState<UnifiedMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
 
   // Filters
-  const [typeFilter, setTypeFilter] = useState<MovementType | ''>('');
+  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [materialSearch, setMaterialSearch] = useState('');
+  const [supplierId, setSupplierId] = useState('');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
+  // Load suppliers for filter dropdown
+  useEffect(() => {
+    getAllSuppliers({ limit: 200 }).then((response) => {
+      setSuppliers(response.data || []);
+    });
+  }, []);
 
   useEffect(() => {
     loadMovements();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter, startDate, endDate]);
+  }, [directionFilter, startDate, endDate, invoiceSearch, materialSearch, supplierId, pagination.page]);
 
   const loadMovements = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await stockMovementService.getAll({
-        movementType: typeFilter || undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
+      const result = await stockMovementService.getUnifiedMovements({
+        direction: directionFilter === 'ALL' ? undefined : directionFilter,
+        dateFrom: startDate || undefined,
+        dateTo: endDate || undefined,
+        invoiceNumber: invoiceSearch || undefined,
+        search: materialSearch || undefined,
+        supplierId: supplierId || undefined,
+        page: pagination.page,
+        limit: pagination.limit,
       });
-      setMovements(data);
+      setMovements(result.data);
+      setPagination(result.pagination);
     } catch (err: unknown) {
-      const errorMessage = handleApiError(err, 'Failed to load stock movements', false);
+      const errorMessage = handleApiError(err, 'Failed to load movements', false);
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const getMovementIcon = (type: MovementType) => {
-    if (type.includes('IN')) return <ArrowDown className="h-3 w-3" />;
-    if (type.includes('OUT')) return <ArrowUp className="h-3 w-3" />;
-    return <ArrowLeftRight className="h-3 w-3" />;
+  const getDirectionIcon = (direction: UnifiedMovement['direction']) => {
+    switch (direction) {
+      case 'INWARD':
+        return <ArrowDown className="h-3 w-3 text-green-600" />;
+      case 'OUTWARD':
+        return <ArrowUp className="h-3 w-3 text-red-600" />;
+      case 'TRANSFER':
+        return <ArrowLeftRight className="h-3 w-3 text-blue-600" />;
+      default:
+        return <Package className="h-3 w-3 text-yellow-600" />;
+    }
   };
 
-  const getMovementVariant = (type: MovementType) => {
-    if (type.includes('IN')) return 'success' as const;
-    if (type.includes('OUT')) return 'destructive' as const;
-    if (type.includes('ADJUSTMENT')) return 'warning' as const;
-    return 'info' as const;
+  const getDirectionVariant = (direction: UnifiedMovement['direction']) => {
+    switch (direction) {
+      case 'INWARD':
+        return 'success' as const;
+      case 'OUTWARD':
+        return 'destructive' as const;
+      case 'TRANSFER':
+        return 'info' as const;
+      default:
+        return 'warning' as const;
+    }
   };
 
-  // Define columns for DataTable
-  const columns: Column<StockMovement>[] = [
+  const getSourceLink = (mov: UnifiedMovement): string | null => {
+    switch (mov.sourceType) {
+      case 'GRN':
+        return `/grn/${mov.sourceId}`;
+      case 'CHALLAN':
+        return `/challans/${mov.sourceId}`;
+      case 'GREIGE_STOCK':
+        return `/greige-stock`;
+      case 'PROCUREMENT':
+        return `/fabric-procurement/${mov.sourceId}`;
+      default:
+        return null;
+    }
+  };
+
+  const columns: Column<UnifiedMovement>[] = [
     {
-      key: 'performedAt',
+      key: 'date',
       header: 'Date',
+      render: (mov) => <div className="text-sm text-foreground">{new Date(mov.date).toLocaleDateString()}</div>,
+    },
+    {
+      key: 'direction',
+      header: 'Direction',
       render: (mov) => (
-        <div className="text-sm text-foreground">
-          {new Date(mov.movementDate || mov.createdAt).toLocaleDateString()}
+        <div className="flex items-center gap-1">
+          {getDirectionIcon(mov.direction)}
+          <StatusBadge status={mov.direction} variant={getDirectionVariant(mov.direction)} />
         </div>
       ),
     },
     {
-      key: 'movementType',
-      header: 'Type',
+      key: 'supplier',
+      header: 'Supplier/Party',
       render: (mov) => (
-        <div className="flex items-center gap-1">
-          {getMovementIcon(mov.movementType)}
-          <StatusBadge status={mov.movementType.replace(/_/g, ' ')} variant={getMovementVariant(mov.movementType)} />
+        <div className="text-sm text-foreground">
+          {mov.supplierName ? (
+            <>
+              <div className="font-medium">{mov.supplierCode || ''}</div>
+              <div className="text-xs text-muted-foreground">{mov.supplierName}</div>
+            </>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
         </div>
       ),
     },
@@ -102,31 +162,10 @@ export default function StockMovementList() {
       header: 'Material',
       render: (mov) => (
         <div>
-          <div className="text-sm font-medium text-foreground">{mov.materials?.code}</div>
-          <div className="text-xs text-muted-foreground">{mov.materials?.name}</div>
+          <div className="text-sm font-medium text-foreground">{mov.materialCode}</div>
+          <div className="text-xs text-muted-foreground">{mov.materialName}</div>
         </div>
       ),
-    },
-    {
-      key: 'supplier',
-      header: 'Supplier',
-      render: (mov) => (
-        <div className="text-sm text-foreground">
-          {mov.supplier ? (
-            <>
-              <div className="font-medium">{mov.supplier.code}</div>
-              <div className="text-xs text-muted-foreground">{mov.supplier.name}</div>
-            </>
-          ) : (
-            '-'
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'warehouse',
-      header: 'Warehouse',
-      render: (mov) => <div className="text-sm text-foreground">{mov.warehouses?.warehouseName || '-'}</div>,
     },
     {
       key: 'quantity',
@@ -134,40 +173,76 @@ export default function StockMovementList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (mov) => {
-        const isInbound = mov.movementType.includes('IN');
+        const isInbound = mov.direction === 'INWARD';
         return (
-          <div className={`font-medium ${isInbound ? 'text-success' : 'text-destructive'}`}>
+          <div className={`font-medium ${isInbound ? 'text-green-600' : 'text-red-600'}`}>
             {isInbound ? '+' : '-'}
-            {Number(mov.quantity).toFixed(2)}
+            {mov.quantity.toFixed(2)} {mov.unit}
           </div>
         );
       },
     },
     {
-      key: 'unit',
-      header: 'Unit',
-      render: (mov) => <div className="text-sm text-foreground">{mov.unit}</div>,
+      key: 'invoiceNumber',
+      header: 'Invoice#',
+      render: (mov) => (
+        <div className="text-sm text-foreground">
+          {mov.invoiceNumber ? (
+            <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{mov.invoiceNumber}</span>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+        </div>
+      ),
     },
     {
-      key: 'reference',
-      header: 'Reference',
-      render: (mov) => <div className="text-sm text-foreground">{mov.referenceNumber || '-'}</div>,
+      key: 'rate',
+      header: 'Rate',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (mov) => (
+        <div className="text-sm text-foreground">{mov.rate !== null ? `Rs ${mov.rate.toFixed(2)}` : '-'}</div>
+      ),
     },
     {
-      key: 'performedBy',
-      header: 'Performed By',
+      key: 'totalValue',
+      header: 'Value',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (mov) => (
+        <div className="text-sm font-medium text-foreground">
+          {mov.totalValue !== null ? `Rs ${mov.totalValue.toFixed(2)}` : '-'}
+        </div>
+      ),
+    },
+    {
+      key: 'source',
+      header: 'Source Doc',
       render: (mov) => {
-        const name = mov.performedBy
-          ? `${mov.performedBy.firstName || ''} ${mov.performedBy.lastName || ''}`.trim()
-          : null;
-        return <div className="text-sm text-foreground">{name || '-'}</div>;
+        const link = getSourceLink(mov);
+        return (
+          <div className="text-sm">
+            <div className="flex items-center gap-1">
+              <FileText className="h-3 w-3 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{mov.sourceType}</span>
+            </div>
+            {link ? (
+              <Link to={link} className="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
+                {mov.sourceNumber}
+                <ExternalLink className="h-2.5 w-2.5" />
+              </Link>
+            ) : (
+              <span className="text-xs text-muted-foreground">{mov.sourceNumber}</span>
+            )}
+          </div>
+        );
       },
     },
   ];
 
   return (
     <>
-      <PageHeader title="Stock Movements">
+      <PageHeader title="Material Movements (Unified View)">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button>
@@ -188,34 +263,113 @@ export default function StockMovementList() {
         </DropdownMenu>
       </PageHeader>
 
+      {/* Direction Tabs */}
+      <Tabs
+        value={directionFilter}
+        onValueChange={(v) => {
+          setDirectionFilter(v as DirectionFilter);
+          setPagination((p) => ({ ...p, page: 1 }));
+        }}
+        className="mb-4"
+      >
+        <TabsList>
+          <TabsTrigger value="ALL">All</TabsTrigger>
+          <TabsTrigger value="INWARD" className="text-green-600">
+            <ArrowDown className="h-3 w-3 mr-1" /> Inward
+          </TabsTrigger>
+          <TabsTrigger value="OUTWARD" className="text-red-600">
+            <ArrowUp className="h-3 w-3 mr-1" /> Outward
+          </TabsTrigger>
+          <TabsTrigger value="TRANSFER" className="text-blue-600">
+            <ArrowLeftRight className="h-3 w-3 mr-1" /> Transfer
+          </TabsTrigger>
+          <TabsTrigger value="ADJUSTMENT" className="text-yellow-600">
+            Adjustment
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4">
             <div className="w-48">
-              <Label htmlFor="typeFilter">Movement Type</Label>
-              <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as MovementType | '')}>
-                <SelectTrigger id="typeFilter">
-                  <SelectValue placeholder="All" />
+              <Label htmlFor="supplierFilter">Supplier</Label>
+              <Select
+                value={supplierId}
+                onValueChange={(v) => {
+                  setSupplierId(v === 'all' ? '' : v);
+                  setPagination((p) => ({ ...p, page: 1 }));
+                }}
+              >
+                <SelectTrigger id="supplierFilter">
+                  <SelectValue placeholder="All Suppliers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="STOCK_IN">Stock IN</SelectItem>
-                  <SelectItem value="STOCK_OUT">Stock OUT</SelectItem>
-                  <SelectItem value="TRANSFER_IN">Transfer IN</SelectItem>
-                  <SelectItem value="TRANSFER_OUT">Transfer OUT</SelectItem>
-                  <SelectItem value="ADJUSTMENT_IN">Adjustment IN</SelectItem>
-                  <SelectItem value="ADJUSTMENT_OUT">Adjustment OUT</SelectItem>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {suppliers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.code} - {s.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="w-40">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Label htmlFor="invoiceSearch">Invoice#</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="invoiceSearch"
+                  placeholder="Search..."
+                  className="pl-8"
+                  value={invoiceSearch}
+                  onChange={(e) => {
+                    setInvoiceSearch(e.target.value);
+                    setPagination((p) => ({ ...p, page: 1 }));
+                  }}
+                />
+              </div>
+            </div>
+            <div className="w-48">
+              <Label htmlFor="materialSearch">Material</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="materialSearch"
+                  placeholder="Name or code..."
+                  className="pl-8"
+                  value={materialSearch}
+                  onChange={(e) => {
+                    setMaterialSearch(e.target.value);
+                    setPagination((p) => ({ ...p, page: 1 }));
+                  }}
+                />
+              </div>
             </div>
             <div className="w-40">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Label htmlFor="startDate">From Date</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setPagination((p) => ({ ...p, page: 1 }));
+                }}
+              />
+            </div>
+            <div className="w-40">
+              <Label htmlFor="endDate">To Date</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setPagination((p) => ({ ...p, page: 1 }));
+                }}
+              />
             </div>
           </div>
         </CardContent>
@@ -231,19 +385,40 @@ export default function StockMovementList() {
           error={error}
           emptyState={{
             icon: <Package className="h-16 w-16" />,
-            title: 'No stock movements found',
+            title: 'No movements found',
             description:
-              typeFilter || startDate || endDate
+              directionFilter !== 'ALL' || startDate || endDate || invoiceSearch || materialSearch
                 ? 'Try adjusting your filter criteria'
-                : 'Stock movements will appear here once materials are moved',
+                : 'Material movements will appear here',
           }}
         />
       </Card>
 
-      {/* Summary */}
-      {!loading && movements.length > 0 && (
-        <div className="mt-4 text-sm text-muted-foreground">
-          Showing {movements.length} stock movement{movements.length !== 1 ? 's' : ''}
+      {/* Pagination */}
+      {!loading && pagination.total > 0 && (
+        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+          <div>
+            Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
+            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} movements
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page <= 1}
+              onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
     </>

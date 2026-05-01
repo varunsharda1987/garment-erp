@@ -9,6 +9,8 @@ import { StateType, CityTier } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { ValidationError } from '../errors';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { validateParams } from '../middleware/validation.middleware';
+import { idParamSchema, stateCodeParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -71,6 +73,7 @@ router.get(
  */
 router.get(
   '/states/code/:stateCode',
+  validateParams(stateCodeParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { stateCode } = req.params;
 
@@ -96,6 +99,7 @@ router.get(
  */
 router.get(
   '/states/:id',
+  validateParams(idParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -202,6 +206,7 @@ router.get(
  */
 router.get(
   '/cities/:id',
+  validateParams(idParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -231,6 +236,7 @@ router.get(
  */
 router.get(
   '/validate/state/:id',
+  validateParams(idParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -249,6 +255,7 @@ router.get(
  */
 router.get(
   '/validate/city/:id',
+  validateParams(idParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 

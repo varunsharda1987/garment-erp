@@ -10,12 +10,13 @@ import {
 } from '../controllers/button.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createButtonSchema,
   updateButtonSchema,
   bulkImportButtonSchema,
   trimMasterQuerySchema,
+  trimMasterIdParamSchema,
 } from '../schemas/trimMasters.schema';
 
 const router = Router();
@@ -50,21 +51,26 @@ router.get('/template', asyncHandler(downloadTemplate));
  * @desc    Get single button item by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getButtonById));
+router.get('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(getButtonById));
 
 /**
  * @route   PUT /api/materials/button/:id
  * @desc    Update button item
  * @access  Private
  */
-router.put('/:id', validateBody(updateButtonSchema), asyncHandler(updateButton));
+router.put(
+  '/:id',
+  validateParams(trimMasterIdParamSchema),
+  validateBody(updateButtonSchema),
+  asyncHandler(updateButton)
+);
 
 /**
  * @route   DELETE /api/materials/button/:id
  * @desc    Delete button item
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deleteButton));
+router.delete('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(deleteButton));
 
 /**
  * @route   POST /api/materials/button/bulk-import

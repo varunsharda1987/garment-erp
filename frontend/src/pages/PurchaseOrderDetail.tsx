@@ -9,6 +9,7 @@ import {
   sendPurchaseOrder,
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
+  amendDeliveryLocation,
 } from '@/services/purchaseOrder.service';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
 import {
@@ -22,8 +23,19 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, Edit, Send, CheckCircle, XCircle, PackageOpen } from 'lucide-react';
+import { ArrowLeft, Edit, Send, CheckCircle, XCircle, PackageOpen, Building2, MapPin, PenLine } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
+import { COMPANY_CONFIG, getCompanyFullAddress } from '@/config/company.config';
 
 // Extended types for PO relations not yet in the base PurchaseOrder type
 interface POSourceLink {
@@ -81,6 +93,9 @@ export default function PurchaseOrderDetail() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [acknowledgeDialogOpen, setAcknowledgeDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [amendLocationDialogOpen, setAmendLocationDialogOpen] = useState(false);
+  const [amendLocationId, setAmendLocationId] = useState<string>('');
+  const [isAmending, setIsAmending] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -137,6 +152,35 @@ export default function PurchaseOrderDetail() {
       setCancelDialogOpen(false);
     }
   };
+
+  const handleAmendLocation = async () => {
+    if (!amendLocationId) {
+      handleApiError(new Error('Please select a delivery location'), 'Validation Error');
+      return;
+    }
+    try {
+      setIsAmending(true);
+      await amendDeliveryLocation(id!, {
+        deliveryLocationId: amendLocationId,
+      });
+      handleApiSuccess('Delivery location amended', 'The delivery location has been updated.');
+      fetchPurchaseOrder();
+    } catch (err) {
+      handleApiError(err, 'Failed to amend delivery location');
+    } finally {
+      setIsAmending(false);
+      setAmendLocationDialogOpen(false);
+    }
+  };
+
+  // Check if location is amended
+  const isDeliveryLocationAmended =
+    purchaseOrder?.originalDeliveryLocationId &&
+    purchaseOrder?.deliveryLocationId &&
+    purchaseOrder.originalDeliveryLocationId !== purchaseOrder.deliveryLocationId;
+
+  // Check if PO can have its delivery location amended (not received/cancelled)
+  const canAmendLocation = purchaseOrder?.status !== 'RECEIVED' && purchaseOrder?.status !== 'CANCELLED';
 
   const getStatusVariant = (status: PurchaseOrderStatus) => {
     switch (status) {
@@ -369,39 +413,142 @@ export default function PurchaseOrderDetail() {
         </Card>
       )}
 
-      {/* Supplier Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Supplier Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div>
-              <div className="text-sm text-muted-foreground">Supplier Name</div>
-              <div className="font-medium">{purchaseOrder.supplier?.name || '-'}</div>
-              <div className="text-sm text-muted-foreground">{purchaseOrder.supplier?.code}</div>
+      {/* Company & Supplier Info - Side by Side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Company (Buyer) */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              From (Buyer)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <div className="font-semibold text-lg">{COMPANY_CONFIG.name}</div>
+            <div className="text-sm text-muted-foreground">{getCompanyFullAddress()}</div>
+            <div className="text-sm">
+              <span className="font-medium">GSTIN:</span> {COMPANY_CONFIG.gstin}
             </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Contact Person</div>
-              <div className="font-medium">{purchaseOrder.supplier?.contactPerson || '-'}</div>
+            <div className="text-sm">
+              <span className="font-medium">Phone:</span> {COMPANY_CONFIG.phone}
             </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Email</div>
-              <div className="font-medium">{purchaseOrder.supplier?.email || '-'}</div>
+            <div className="text-sm">
+              <span className="font-medium">Email:</span> {COMPANY_CONFIG.email}
             </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Phone</div>
-              <div className="font-medium">{purchaseOrder.supplier?.phone || '-'}</div>
+          </CardContent>
+        </Card>
+
+        {/* Supplier (To) */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              To (Supplier)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <div className="font-semibold text-lg">{purchaseOrder.supplier?.name || '-'}</div>
+            <div className="text-sm text-muted-foreground">{purchaseOrder.supplier?.code}</div>
+            <div className="text-sm text-muted-foreground">
+              {[
+                purchaseOrder.supplier?.address,
+                purchaseOrder.supplier?.billingCity?.cityName,
+                purchaseOrder.supplier?.billingState?.stateName,
+                purchaseOrder.supplier?.billingPincode,
+              ]
+                .filter(Boolean)
+                .join(', ') || 'Address not available'}
             </div>
-          </div>
-          {purchaseOrder.paymentTerms && (
-            <div className="mt-4 pt-4 border-t">
-              <div className="text-sm text-muted-foreground">Payment Terms</div>
-              <div className="font-medium">{purchaseOrder.paymentTerms}</div>
+            <div className="text-sm">
+              <span className="font-medium">GSTIN:</span>{' '}
+              {purchaseOrder.supplier?.gstNumbers?.find((g) => g.isPrimary)?.gstNumber ||
+                purchaseOrder.supplier?.gstNumbers?.[0]?.gstNumber ||
+                'Not available'}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="text-sm">
+              <span className="font-medium">Phone:</span> {purchaseOrder.supplier?.phone || '-'}
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Email:</span> {purchaseOrder.supplier?.email || '-'}
+            </div>
+            {purchaseOrder.supplier?.contactPerson && (
+              <div className="text-sm">
+                <span className="font-medium">Contact:</span> {purchaseOrder.supplier.contactPerson}
+              </div>
+            )}
+            {purchaseOrder.paymentTerms && (
+              <div className="text-sm pt-2 border-t mt-2">
+                <span className="font-medium">Payment Terms:</span> {purchaseOrder.paymentTerms}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Delivery Location */}
+      {purchaseOrder.deliveryWarehouse && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Deliver To
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                {isDeliveryLocationAmended && (
+                  <Badge variant="warning" className="text-xs">
+                    Amended
+                  </Badge>
+                )}
+                {canAmendLocation && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setAmendLocationId(purchaseOrder.deliveryLocationId || '');
+                      setAmendLocationDialogOpen(true);
+                    }}
+                  >
+                    <PenLine className="h-3.5 w-3.5 mr-1" />
+                    Change
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <div className="font-semibold text-lg">{purchaseOrder.deliveryWarehouse.warehouseName}</div>
+            <div className="text-sm text-muted-foreground">{purchaseOrder.deliveryWarehouse.warehouseCode}</div>
+            <div className="text-sm text-muted-foreground">
+              {[
+                purchaseOrder.deliveryWarehouse.address,
+                purchaseOrder.deliveryWarehouse.city,
+                purchaseOrder.deliveryWarehouse.state,
+                purchaseOrder.deliveryWarehouse.pincode,
+              ]
+                .filter(Boolean)
+                .join(', ') || 'Address not available'}
+            </div>
+            {purchaseOrder.deliveryWarehouse.contactPerson && (
+              <div className="text-sm">
+                <span className="font-medium">Contact:</span> {purchaseOrder.deliveryWarehouse.contactPerson}
+                {purchaseOrder.deliveryWarehouse.contactPhone && ` (${purchaseOrder.deliveryWarehouse.contactPhone})`}
+              </div>
+            )}
+            {isDeliveryLocationAmended && purchaseOrder.deliveryLocationAmendedAt && (
+              <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                Amended on {new Date(purchaseOrder.deliveryLocationAmendedAt).toLocaleDateString()}{' '}
+                {purchaseOrder.deliveryLocationAmendedBy && (
+                  <>
+                    by {purchaseOrder.deliveryLocationAmendedBy.firstName}{' '}
+                    {purchaseOrder.deliveryLocationAmendedBy.lastName}
+                  </>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Items */}
       <Card>
@@ -637,6 +784,36 @@ export default function PurchaseOrderDetail() {
         onConfirm={handleCancel}
         variant="destructive"
       />
+
+      {/* Amend Delivery Location Dialog */}
+      <Dialog open={amendLocationDialogOpen} onOpenChange={setAmendLocationDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Change Delivery Location</DialogTitle>
+            <DialogDescription>
+              Update where this order should be delivered. The original location will be recorded for tracking.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Delivery Location</Label>
+              <WarehouseCombobox
+                value={amendLocationId}
+                onValueChange={setAmendLocationId}
+                placeholder="Select delivery location..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAmendLocationDialogOpen(false)} disabled={isAmending}>
+              Cancel
+            </Button>
+            <Button onClick={handleAmendLocation} disabled={isAmending || !amendLocationId}>
+              {isAmending ? 'Updating...' : 'Update Location'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

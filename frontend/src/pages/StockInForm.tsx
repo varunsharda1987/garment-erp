@@ -1897,6 +1897,37 @@ export default function StockInForm() {
                                 min="0"
                               />
                             </div>
+                            {/* Show calculated actual when fold length is entered */}
+                            {item.foldLengthCm &&
+                              Number(item.foldLengthCm) > 0 &&
+                              Number(item.foldLengthCm) < 100 &&
+                              item.quantity && (
+                                <div className="col-span-full bg-amber-50 border border-amber-200 rounded-md p-2 text-sm">
+                                  <div className="font-medium text-amber-800">Fold Length Adjustment:</div>
+                                  <div className="text-amber-700">
+                                    Nominal: {Number(item.quantity).toLocaleString()} {item.unit} × L=
+                                    {item.foldLengthCm}cm ={' '}
+                                    <strong>
+                                      Actual:{' '}
+                                      {((Number(item.quantity) * Number(item.foldLengthCm)) / 100).toLocaleString(
+                                        undefined,
+                                        { maximumFractionDigits: 2 }
+                                      )}{' '}
+                                      {item.unit}
+                                    </strong>
+                                    {item.rate && (
+                                      <span className="ml-2">
+                                        (Value: ₹
+                                        {(
+                                          ((Number(item.quantity) * Number(item.foldLengthCm)) / 100) *
+                                          Number(item.rate)
+                                        ).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                        )
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                           </>
                         )}
                       </div>

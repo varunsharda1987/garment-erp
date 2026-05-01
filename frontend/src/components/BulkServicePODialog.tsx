@@ -17,11 +17,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, ShoppingCart, Package, Users, AlertCircle, AlertTriangle, Sparkles, DollarSign } from 'lucide-react';
+import {
+  Loader2,
+  ShoppingCart,
+  Package,
+  Users,
+  AlertCircle,
+  AlertTriangle,
+  Sparkles,
+  DollarSign,
+  Building2,
+} from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { groupRequirementsByProcessor, bulkGenerateServicePOs } from '@/services/serviceRequirement.service';
 import type { ServiceRequirement } from '@/types/serviceRequirement.types';
 import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
+import { COMPANY_CONFIG } from '@/config/company.config';
 
 interface BulkServicePODialogProps {
   open: boolean;
@@ -33,6 +44,9 @@ interface BulkServicePODialogProps {
 interface ProcessorGroup {
   processorId: string;
   processorName: string;
+  processorCode?: string;
+  processorGstin?: string;
+  processorAddress?: string;
   requirements: ServiceRequirement[];
   deliveryDate: string;
   remarks: string;
@@ -77,14 +91,17 @@ export default function BulkServicePODialog({
       defaultDate.setDate(defaultDate.getDate() + 14); // 2 weeks from now
       const dateString = defaultDate.toISOString().split('T')[0];
 
-      const groups: ProcessorGroup[] = Object.entries(result.groups).map(([processorId, requirements]) => ({
-        processorId,
-        processorName:
-          requirements[0]?.assignedProcessor?.name || requirements[0]?.preferredProcessor?.name || 'Unknown Processor',
-        requirements,
-        deliveryDate: dateString,
-        remarks: '',
-      }));
+      const groups: ProcessorGroup[] = Object.entries(result.groups).map(([processorId, requirements]) => {
+        const processor = requirements[0]?.assignedProcessor || requirements[0]?.preferredProcessor;
+        return {
+          processorId,
+          processorName: processor?.name || 'Unknown Processor',
+          processorCode: processor?.code,
+          requirements,
+          deliveryDate: dateString,
+          remarks: '',
+        };
+      });
 
       setProcessorGroups(groups);
     } catch (err) {
@@ -174,6 +191,16 @@ export default function BulkServicePODialog({
           </div>
         </DialogHeader>
 
+        {/* Company (Buyer) Info */}
+        <div className="bg-muted/30 rounded-lg p-3 mb-4">
+          <div className="flex items-center gap-2 text-sm">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium">From:</span> {COMPANY_CONFIG.name}
+            <span className="text-muted-foreground">|</span>
+            <span>GSTIN: {COMPANY_CONFIG.gstin}</span>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -245,10 +272,16 @@ export default function BulkServicePODialog({
                   <Card key={group.processorId}>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-primary" />
-                          {group.processorName}
-                        </CardTitle>
+                        <div>
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            {group.processorName}
+                            {group.processorCode && (
+                              <span className="text-xs font-normal text-muted-foreground">({group.processorCode})</span>
+                            )}
+                          </CardTitle>
+                          <div className="text-xs text-muted-foreground mt-1">To (Processor)</div>
+                        </div>
                         <div className="text-sm text-muted-foreground">{group.requirements.length} service(s)</div>
                       </div>
                     </CardHeader>

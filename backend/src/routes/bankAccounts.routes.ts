@@ -9,12 +9,13 @@ import {
 } from '../controllers/bankAccounts.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createBankAccountSchema,
   updateBankAccountSchema,
   bankAccountQuerySchema,
 } from '../schemas/bankAccounts.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -28,12 +29,17 @@ router.post('/', validateBody(createBankAccountSchema), asyncHandler(createBankA
 router.get('/', validateQuery(bankAccountQuerySchema), asyncHandler(getAllBankAccounts));
 
 // Get bank account by ID
-router.get('/:id', asyncHandler(getBankAccountById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getBankAccountById));
 
 // Update bank account
-router.put('/:id', validateBody(updateBankAccountSchema), asyncHandler(updateBankAccount));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updateBankAccountSchema),
+  asyncHandler(updateBankAccount)
+);
 
 // Delete bank account (soft delete)
-router.delete('/:id', asyncHandler(deleteBankAccount));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteBankAccount));
 
 export default router;

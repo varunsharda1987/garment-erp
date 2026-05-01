@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { logDebug, logError } from '../lib/logger';
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 
 interface ImportResult {
   success: number;
@@ -319,35 +319,17 @@ export default function GreigeBulkImport() {
             }
           );
 
-          // Get auth token
-          const authStorage = localStorage.getItem('auth-storage');
-          let token = null;
-          if (authStorage) {
-            const parsed = JSON.parse(authStorage);
-            token = parsed.state?.token || null;
-          }
-
           // Send to backend
-          const response = await fetch(`${API_URL}/fabric-management/greige/bulk-import`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ greiges: greigeData }),
+          const response = await api.post<{
+            summary: { created: number; failed: number };
+            errors?: string[];
+          }>('/fabric-management/greige/bulk-import', { greiges: greigeData });
+
+          setResult({
+            success: response.data.summary.created,
+            failed: response.data.summary.failed,
+            errors: response.data.errors || [],
           });
-
-          const resultData = await response.json();
-
-          if (response.ok) {
-            setResult({
-              success: resultData.summary.created,
-              failed: resultData.summary.failed,
-              errors: resultData.errors || [],
-            });
-          } else {
-            throw new Error(resultData.error || 'Import failed');
-          }
         } catch (error: unknown) {
           logError('Import error:', error);
           alert((error as Error).message || 'Failed to import greige data');

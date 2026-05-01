@@ -10,12 +10,13 @@ import {
 } from '../controllers/elastic.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createElasticSchema,
   updateElasticSchema,
   bulkImportElasticSchema,
   trimMasterQuerySchema,
+  trimMasterIdParamSchema,
 } from '../schemas/trimMasters.schema';
 
 const router = Router();
@@ -50,21 +51,26 @@ router.get('/template', asyncHandler(downloadTemplate));
  * @desc    Get single elastic item by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getElasticById));
+router.get('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(getElasticById));
 
 /**
  * @route   PUT /api/materials/elastic/:id
  * @desc    Update elastic item
  * @access  Private
  */
-router.put('/:id', validateBody(updateElasticSchema), asyncHandler(updateElastic));
+router.put(
+  '/:id',
+  validateParams(trimMasterIdParamSchema),
+  validateBody(updateElasticSchema),
+  asyncHandler(updateElastic)
+);
 
 /**
  * @route   DELETE /api/materials/elastic/:id
  * @desc    Delete elastic item
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deleteElastic));
+router.delete('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(deleteElastic));
 
 /**
  * @route   POST /api/materials/elastic/bulk-import

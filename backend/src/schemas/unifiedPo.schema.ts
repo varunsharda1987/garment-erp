@@ -81,7 +81,7 @@ export const unifiedPOItemSchema = z.object({
   serviceDescription: z.string().max(500).optional(),
   orderedQuantity: z.number().positive('Quantity must be positive'),
   unit: UnitEnum,
-  unitPrice: z.number().nonnegative('Unit price cannot be negative'),
+  unitPrice: z.number().positive('Unit price must be greater than 0'),
   remarks: z.string().max(500).optional(),
 });
 

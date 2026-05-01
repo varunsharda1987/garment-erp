@@ -9,13 +9,14 @@ import {
 } from '../controllers/lookup.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createLookupSchema,
   updateLookupSchema,
   bulkCreateLookupsSchema,
   lookupQuerySchema,
 } from '../schemas/lookup.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -35,9 +36,9 @@ router.post('/', validateBody(createLookupSchema), asyncHandler(createLookup));
 router.post('/bulk', validateBody(bulkCreateLookupsSchema), asyncHandler(bulkCreateLookups));
 
 // PUT /api/lookups/:id - Update lookup value
-router.put('/:id', validateBody(updateLookupSchema), asyncHandler(updateLookup));
+router.put('/:id', validateParams(idParamSchema), validateBody(updateLookupSchema), asyncHandler(updateLookup));
 
 // DELETE /api/lookups/:id - Delete lookup value
-router.delete('/:id', asyncHandler(deleteLookup));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteLookup));
 
 export default router;

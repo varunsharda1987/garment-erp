@@ -3,7 +3,7 @@
  * Frontend service for fabric stock operations
  */
 
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 
 // Type definitions for stock operations
 export interface UpdateStockData {
@@ -53,31 +53,9 @@ export interface FabricStockForCAD {
   originStyleId?: string;
   originOrderId?: string;
   status: string;
-  // Embroidery fields for CAD planning stock filtering
   embroideryId?: string | null;
   embroideryCode?: string | null;
   embroideryName?: string | null;
-}
-
-/**
- * Get authentication token from localStorage
- */
-function getAuthToken(): string {
-  const authStorage = localStorage.getItem('auth-storage');
-  if (!authStorage) {
-    throw new Error('Not authenticated. Please log in again.');
-  }
-
-  try {
-    const parsed = JSON.parse(authStorage);
-    const token = parsed.state?.token;
-    if (!token) {
-      throw new Error('Authentication token not found. Please log in again.');
-    }
-    return token;
-  } catch {
-    throw new Error('Failed to parse authentication data. Please log in again.');
-  }
 }
 
 /**
@@ -88,23 +66,8 @@ export const fabricStockService = {
    * Update fabric stock record
    */
   updateStock: async (id: string, data: UpdateStockData) => {
-    const token = getAuthToken();
-
-    const response = await fetch(`${API_URL}/stock/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || error.message || 'Failed to update stock');
-    }
-
-    return response.json();
+    const response = await api.patch(`/stock/${id}`, data);
+    return response.data;
   },
 
   /**
@@ -129,36 +92,17 @@ export const fabricStockService = {
       embroideryId?: string | null;
     }
   ): Promise<FabricStockForCAD[]> => {
-    const token = getAuthToken();
-
     const queryParams = new URLSearchParams();
     if (params?.fabricId) queryParams.append('fabricId', params.fabricId);
     if (params?.status) queryParams.append('status', params.status);
     if (params?.qualityGrade) queryParams.append('qualityGrade', params.qualityGrade);
-    // Handle embroideryId filter for CAD planning
-    // - null or '' means filter for plain (non-embroidered) stock
-    // - specific ID means filter for that embroidery design
     if (params?.embroideryId !== undefined) {
       queryParams.append('embroideryId', params.embroideryId ?? 'null');
     }
 
-    const url = `${API_URL}/styles/${styleId}/fabric-stock${queryParams.toString() ? `?${queryParams}` : ''}`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || error.message || 'Failed to fetch fabric stock');
-    }
-
-    const result = await response.json();
-    return result.data || [];
+    const url = `/styles/${styleId}/fabric-stock${queryParams.toString() ? `?${queryParams}` : ''}`;
+    const response = await api.get<{ data: FabricStockForCAD[] }>(url);
+    return response.data.data || [];
   },
 
   /**
@@ -169,23 +113,8 @@ export const fabricStockService = {
     stockId: string,
     data: { adjustmentType: 'INCREASE' | 'DECREASE'; quantity: number; reason: string; notes?: string }
   ) => {
-    const token = getAuthToken();
-
-    const response = await fetch(`${API_URL}/stock/adjust`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ stockId, ...data }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || error.message || 'Failed to adjust stock');
-    }
-
-    return response.json();
+    const response = await api.post('/stock/adjust', { stockId, ...data });
+    return response.data;
   },
 
   /**
@@ -193,35 +122,7 @@ export const fabricStockService = {
    * Will block if dependencies exist
    */
   deleteStock: async (id: string) => {
-    const token = getAuthToken();
-
-    const response = await fetch(`${API_URL}/stock/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-
-      // Enhanced error formatting for dependency errors
-      if (error.dependencies && Array.isArray(error.dependencies)) {
-        const formattedDeps = error.dependencies.map((dep: string) => `• ${dep}`).join('\n');
-        const fullMessage = `${error.error}\n\n${error.details}\n\n${formattedDeps}`;
-
-        if (error.suggestions && Array.isArray(error.suggestions)) {
-          const formattedSuggestions = error.suggestions.map((s: string) => `• ${s}`).join('\n');
-          throw new Error(`${fullMessage}\n\nSuggestions:\n${formattedSuggestions}`);
-        }
-
-        throw new Error(fullMessage);
-      }
-
-      throw new Error(error.error || error.message || 'Failed to delete stock');
-    }
-
-    return response.json();
+    const response = await api.delete(`/stock/${id}`);
+    return response.data;
   },
 };

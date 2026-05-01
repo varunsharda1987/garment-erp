@@ -491,12 +491,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
             greigeCostPerMeterSaved: cadRow.greigeCostPerMeter ? Number(cadRow.greigeCostPerMeter) : null,
             transportCostPerMeter: cadRow.transportCostPerMeter ? Number(cadRow.transportCostPerMeter) : null,
             processingPricePerMeter: cadRow.processingPricePerMeter ? Number(cadRow.processingPricePerMeter) : null,
-            // Use saved shrinkagePercent, fallback to greige master's averageShrinkagePercent
-            shrinkagePercent: cadRow.shrinkagePercent
-              ? Number(cadRow.shrinkagePercent)
-              : greige?.averageShrinkagePercent
-                ? Number(greige.averageShrinkagePercent)
-                : null,
+            // Shrinkage: ONLY from processor rate card (no fallback to greige master)
+            shrinkagePercent: cadRow.shrinkagePercent ? Number(cadRow.shrinkagePercent) : null,
             shrinkageCostPerMeter: cadRow.shrinkageCostPerMeter ? Number(cadRow.shrinkageCostPerMeter) : null,
             screenCostPerMeter: cadRow.screenCostPerMeter ? Number(cadRow.screenCostPerMeter) : null,
             screenType: cadRow.screenType || null,

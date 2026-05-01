@@ -3,8 +3,14 @@ import express from 'express';
 import * as stockLevelController from '../controllers/stockLevel.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { updateStockLevelSchema, stockLevelQuerySchema } from '../schemas/stockLevel.schema';
+import {
+  idParamSchema,
+  warehouseIdParamSchema,
+  materialIdParamSchema,
+  materialTypeParamSchema,
+} from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -15,13 +21,37 @@ router.use(authenticateToken);
 router.get('/', validateQuery(stockLevelQuerySchema), asyncHandler(stockLevelController.getAllStockLevels));
 router.get('/below-reorder', asyncHandler(stockLevelController.getMaterialsBelowReorderLevel));
 router.get('/valuation', asyncHandler(stockLevelController.getStockValuationReport));
-router.get('/aging/:warehouseId', asyncHandler(stockLevelController.getStockAgingReport));
-router.get('/by-type/:materialType', asyncHandler(stockLevelController.getStockLevelsByMaterialType));
-router.get('/material/:materialId', asyncHandler(stockLevelController.getStockLevelsByMaterial));
-router.get('/warehouse/:warehouseId', asyncHandler(stockLevelController.getStockLevelsByWarehouse));
-router.get('/:id', asyncHandler(stockLevelController.getStockLevelById));
+// Unified stock view endpoints (aggregated from specialized tables - single source of truth)
+router.get('/unified', asyncHandler(stockLevelController.getUnifiedStockLevels));
+router.get('/summary-by-type', asyncHandler(stockLevelController.getStockSummaryByType));
+router.get(
+  '/aging/:warehouseId',
+  validateParams(warehouseIdParamSchema),
+  asyncHandler(stockLevelController.getStockAgingReport)
+);
+router.get(
+  '/by-type/:materialType',
+  validateParams(materialTypeParamSchema),
+  asyncHandler(stockLevelController.getStockLevelsByMaterialType)
+);
+router.get(
+  '/material/:materialId',
+  validateParams(materialIdParamSchema),
+  asyncHandler(stockLevelController.getStockLevelsByMaterial)
+);
+router.get(
+  '/warehouse/:warehouseId',
+  validateParams(warehouseIdParamSchema),
+  asyncHandler(stockLevelController.getStockLevelsByWarehouse)
+);
+router.get('/:id', validateParams(idParamSchema), asyncHandler(stockLevelController.getStockLevelById));
 
 // PUT routes
-router.put('/:id', validateBody(updateStockLevelSchema), asyncHandler(stockLevelController.updateStockLevel));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updateStockLevelSchema),
+  asyncHandler(stockLevelController.updateStockLevel)
+);
 
 export default router;

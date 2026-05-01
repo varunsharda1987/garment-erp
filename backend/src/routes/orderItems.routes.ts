@@ -14,8 +14,9 @@ import {
 } from '../controllers/orderProductionStatus.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { selectCadSchema, updateInheritanceSchema, recalculateCostingSchema } from '../schemas/orderItems.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -26,27 +27,42 @@ router.use(authenticateToken);
 // CAD Selection
 // ============================================
 // Select CAD width for an order item
-router.patch('/:id/select-cad', validateBody(selectCadSchema), asyncHandler(selectCadForOrder));
+router.patch(
+  '/:id/select-cad',
+  validateParams(idParamSchema),
+  validateBody(selectCadSchema),
+  asyncHandler(selectCadForOrder)
+);
 
 // ============================================
 // Inheritance Settings
 // ============================================
 // Toggle sample/inspection inheritance
-router.patch('/:id/inheritance', validateBody(updateInheritanceSchema), asyncHandler(updateInheritanceSettings));
+router.patch(
+  '/:id/inheritance',
+  validateParams(idParamSchema),
+  validateBody(updateInheritanceSchema),
+  asyncHandler(updateInheritanceSettings)
+);
 
 // ============================================
 // Costing
 // ============================================
 // Get order item costing
-router.get('/:id/costing', asyncHandler(getOrderItemCosting));
+router.get('/:id/costing', validateParams(idParamSchema), asyncHandler(getOrderItemCosting));
 
 // Recalculate costing based on selected CAD
-router.post('/:id/recalculate-costing', validateBody(recalculateCostingSchema), asyncHandler(recalculateOrderCosting));
+router.post(
+  '/:id/recalculate-costing',
+  validateParams(idParamSchema),
+  validateBody(recalculateCostingSchema),
+  asyncHandler(recalculateOrderCosting)
+);
 
 // Get costing comparison (base style vs order-specific)
-router.get('/:id/costing-comparison', asyncHandler(getCostingComparison));
+router.get('/:id/costing-comparison', validateParams(idParamSchema), asyncHandler(getCostingComparison));
 
 // Delete order item costing (revert to style costing)
-router.delete('/:id/costing', asyncHandler(deleteOrderItemCosting));
+router.delete('/:id/costing', validateParams(idParamSchema), asyncHandler(deleteOrderItemCosting));
 
 export default router;

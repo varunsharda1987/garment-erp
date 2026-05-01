@@ -22,7 +22,7 @@ export const createGreigeMasterSchema = z.object({
   genericGreigeName: z.string().max(200).optional(),
   yarnCount: z.string().max(50).optional(),
   construction: z.string().max(200).optional(),
-  composition: z.string().max(500).optional(),
+  composition: z.string().min(1, 'Composition is required').max(500),
   weaveType: z.string().max(50).optional(),
   greigeQuality: z.enum(['PRINTING', 'DYEING', 'SUPER_DYEING']).optional().nullable(),
   weaver: z.string().max(200).optional(),
@@ -30,7 +30,7 @@ export const createGreigeMasterSchema = z.object({
   defaultCutableWidth: z.number().positive().optional(),
   expectedFinishedWidthMin: z.number().positive().optional(),
   expectedFinishedWidthMax: z.number().positive().optional(),
-  averageShrinkagePercent: z.number().min(0).max(100).optional().default(8),
+  averageShrinkagePercent: z.number().min(0).max(100).optional().nullable(),
   gsmRange: z.string().max(50).optional(),
   costPerMeter: z.number().nonnegative().optional(),
   moq: z.number().positive().optional(),
@@ -103,8 +103,9 @@ export const bulkImportGreigeSchema = z.object({
         greigeName: z.string().min(1).max(200),
         greigeCode: z.string().max(50).optional(),
         genericGreigeName: z.string().max(200).optional(),
-        composition: z.string().max(500).optional(),
-        greigeWidth: z.number().positive().optional(),
+        composition: z.string().min(1, 'Composition is required').max(500),
+        greigeWidth: z.number().positive('Greige width is required'),
+        defaultCutableWidth: z.number().positive('Default cutable width is required'),
         gsmRange: z.string().max(50).optional(),
         costPerMeter: z.number().nonnegative().optional(),
       })
@@ -121,11 +122,9 @@ export const greigeQuerySchema = z.object({
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
   search: z.string().max(100).optional(),
   supplierId: z.string().uuid().optional(),
-  genericName: z.string().max(200).optional(),
-  isActive: z
-    .string()
-    .transform((val) => val === 'true')
-    .optional(),
+  composition: z.string().max(500).optional(),
+  weaveType: z.string().max(50).optional(),
+  isActive: z.string().optional(),
 });
 
 // ============================================================================
@@ -237,8 +236,13 @@ export const bulkImportFabricSchema = z.object({
         fabricCode: z.string().max(50).optional(),
         genericGreigeName: z.string().max(200).optional(),
         greigeCode: z.string().max(50).optional(),
+        greigeId: z.string().uuid().optional(),
         composition: z.string().max(500).optional(),
-        actualWidth: z.number().positive().optional(),
+        colorName: z.string().max(50).optional(),
+        colorCode: z.string().max(20).optional(),
+        finishType: z.string().min(1, 'Finish type is required').max(50),
+        actualWidth: z.number().positive('Actual width is required'),
+        cutableWidth: z.number().positive().optional(),
         actualGSM: z.number().positive().optional(),
         costPerMeter: z.number().nonnegative().optional(),
       })
@@ -290,11 +294,9 @@ export const fabricQuerySchema = z.object({
   search: z.string().max(100).optional(),
   supplierId: z.string().uuid().optional(),
   greigeId: z.string().uuid().optional(),
-  genericName: z.string().max(200).optional(),
-  isActive: z
-    .string()
-    .transform((val) => val === 'true')
-    .optional(),
+  colorName: z.string().max(50).optional(),
+  finishType: z.string().max(50).optional(),
+  isActive: z.string().optional(),
 });
 
 // ============================================================================
@@ -334,6 +336,40 @@ export const updateCADSchema = z.object({
  */
 export const setPreferredWidthSchema = z.object({
   isPreferred: z.literal(true),
+});
+
+// ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const greigeIdParamSchema = z.object({
+  id: z.string().uuid('Invalid greige ID'),
+});
+
+export const fabricIdParamSchema = z.object({
+  id: z.string().uuid('Invalid fabric ID'),
+});
+
+export const greigeIdRouteParamSchema = z.object({
+  greigeId: z.string().uuid('Invalid greige ID'),
+});
+
+export const fabricIdRouteParamSchema = z.object({
+  fabricId: z.string().uuid('Invalid fabric ID'),
+});
+
+export const cadIdParamSchema = z.object({
+  id: z.string().uuid('Invalid CAD ID'),
+});
+
+export const allocationIdParamSchema = z.object({
+  id: z.string().uuid('Invalid fabric ID'),
+  allocationId: z.string().uuid('Invalid allocation ID'),
+});
+
+export const styleFabricIdParamSchema = z.object({
+  id: z.string().uuid('Invalid fabric ID'),
+  styleFabricId: z.string().uuid('Invalid style fabric ID'),
 });
 
 // ============================================================================

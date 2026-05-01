@@ -166,6 +166,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: 'Fabric Stock', path: '/fabric-stock', iconName: 'Package', permission: 'greigeFabricStock' },
       'divider',
       {
+        title: 'Material Movements',
+        path: '/inventory/movements',
+        iconName: 'Shuffle',
+        permission: 'stockMovements',
+        keywords: ['unified', 'all movements', 'inward', 'outward', 'transfer', 'invoice'],
+      },
+      {
         title: 'Stock In',
         path: '/inventory/movements/stock-in',
         iconName: 'PackagePlus',

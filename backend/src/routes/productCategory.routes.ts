@@ -35,6 +35,8 @@ import {
   productCategoryQuerySchema,
   productCategoryIdParamSchema,
   reorderCategoriesSchema,
+  levelParamSchema,
+  categoryComponentParamSchema,
 } from '../schemas/productCategory.schema';
 import { UserRole } from '@prisma/client';
 
@@ -48,7 +50,7 @@ router.use(authenticateToken);
  * @desc    Get full category hierarchy tree
  * @access  Protected - All authenticated users
  */
-router.get('/hierarchy', asyncHandler(getProductCategoryHierarchy));
+router.get('/hierarchy', validateQuery(productCategoryQuerySchema), asyncHandler(getProductCategoryHierarchy));
 
 /**
  * @route   GET /api/product-categories/main
@@ -62,7 +64,7 @@ router.get('/main', asyncHandler(getMainCategories));
  * @desc    Get categories by level
  * @access  Protected - All authenticated users
  */
-router.get('/level/:level', asyncHandler(getCategoriesByLevel));
+router.get('/level/:level', validateParams(levelParamSchema), asyncHandler(getCategoriesByLevel));
 
 /**
  * @route   POST /api/product-categories/reorder
@@ -166,6 +168,7 @@ router.post(
 router.put(
   '/:categoryId/default-components/:componentId',
   authorize(UserRole.ADMIN),
+  validateParams(categoryComponentParamSchema),
   asyncHandler(updateDefaultComponent)
 );
 
@@ -177,6 +180,7 @@ router.put(
 router.delete(
   '/:categoryId/default-components/:componentId',
   authorize(UserRole.ADMIN),
+  validateParams(categoryComponentParamSchema),
   asyncHandler(removeDefaultComponent)
 );
 

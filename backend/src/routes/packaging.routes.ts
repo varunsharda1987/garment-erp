@@ -10,12 +10,13 @@ import {
 } from '../controllers/packaging.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createPackagingSchema,
   updatePackagingSchema,
   bulkImportPackagingSchema,
   trimMasterQuerySchema,
+  trimMasterIdParamSchema,
 } from '../schemas/trimMasters.schema';
 
 const router = Router();
@@ -50,21 +51,26 @@ router.get('/template', asyncHandler(downloadTemplate));
  * @desc    Get single packaging item by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getPackagingById));
+router.get('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(getPackagingById));
 
 /**
  * @route   PUT /api/materials/packaging/:id
  * @desc    Update packaging item
  * @access  Private
  */
-router.put('/:id', validateBody(updatePackagingSchema), asyncHandler(updatePackaging));
+router.put(
+  '/:id',
+  validateParams(trimMasterIdParamSchema),
+  validateBody(updatePackagingSchema),
+  asyncHandler(updatePackaging)
+);
 
 /**
  * @route   DELETE /api/materials/packaging/:id
  * @desc    Delete packaging item
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deletePackaging));
+router.delete('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(deletePackaging));
 
 /**
  * @route   POST /api/materials/packaging/bulk-import

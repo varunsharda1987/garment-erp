@@ -168,8 +168,46 @@ export const Unit = {
 export type Unit = (typeof Unit)[keyof typeof Unit];
 
 // ============================================
+// DELIVERY LOCATION TYPE
+// ============================================
+
+export const DeliveryLocationType = {
+  WAREHOUSE: 'WAREHOUSE',
+  PROCESSOR: 'PROCESSOR',
+} as const;
+
+export type DeliveryLocationType = (typeof DeliveryLocationType)[keyof typeof DeliveryLocationType];
+
+export const DeliveryLocationTypeLabels: Record<DeliveryLocationType, string> = {
+  WAREHOUSE: 'Own Warehouse',
+  PROCESSOR: 'Processor',
+};
+
+// Warehouse summary for delivery location
+export interface WarehouseSummary {
+  id: string;
+  warehouseCode: string;
+  warehouseName: string;
+  warehouseType: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  contactPerson?: string | null;
+  contactPhone?: string | null;
+}
+
+// ============================================
 // SUPPLIER SUMMARY
 // ============================================
+
+export interface SupplierGSTSummary {
+  id: string;
+  gstNumber: string;
+  stateName: string;
+  stateCode: string;
+  isPrimary: boolean;
+}
 
 export interface SupplierSummary {
   id: string;
@@ -179,6 +217,11 @@ export interface SupplierSummary {
   email: string | null;
   phone: string | null;
   paymentTerms: string | null;
+  address?: string | null;
+  billingPincode?: string | null;
+  billingCity?: { cityName: string } | null;
+  billingState?: { stateName: string } | null;
+  gstNumbers?: SupplierGSTSummary[];
 }
 
 // ============================================
@@ -280,8 +323,17 @@ export interface PurchaseOrder {
   orderId?: string | null;
   cadId?: string | null;
 
+  // Delivery location
+  deliveryLocationType?: DeliveryLocationType | null;
+  deliveryLocationId?: string | null;
+  originalDeliveryLocationId?: string | null;
+  deliveryLocationAmendedAt?: string | null;
+  deliveryLocationAmendedById?: string | null;
+
   // Relations (post-serializer names — RELATION_MAPPINGS renames these)
   supplier?: SupplierSummary;
+  deliveryWarehouse?: WarehouseSummary | null;
+  deliveryLocationAmendedBy?: UserSummary | null;
   items?: PurchaseOrderItem[];
   createdBy?: UserSummary;
   // Traceability relations
@@ -325,6 +377,7 @@ export interface CreatePurchaseOrderItemRequest {
   unit: Unit;
   unitPrice: number;
   remarks?: string;
+  foldLengthCm?: number; // "L" - fold length in cm (for greige/fabric)
 }
 
 export interface CreatePurchaseOrderRequest {
@@ -338,6 +391,9 @@ export interface CreatePurchaseOrderRequest {
   styleId?: string | null;
   orderId?: string | null;
   cadId?: string | null;
+  // Delivery location
+  deliveryLocationType?: DeliveryLocationType | null;
+  deliveryLocationId?: string | null;
 }
 
 export interface UpdatePurchaseOrderRequest {
@@ -350,6 +406,9 @@ export interface UpdatePurchaseOrderRequest {
   styleId?: string | null;
   orderId?: string | null;
   cadId?: string | null;
+  // Delivery location
+  deliveryLocationType?: DeliveryLocationType | null;
+  deliveryLocationId?: string | null;
 }
 
 export interface UpdatePurchaseOrderItemRequest {
@@ -365,6 +424,10 @@ export interface UpdatePurchaseOrderItemRequest {
 
 export interface CancelPurchaseOrderRequest {
   reason: string;
+}
+
+export interface AmendDeliveryLocationRequest {
+  deliveryLocationId: string;
 }
 
 // ============================================

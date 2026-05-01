@@ -1,5 +1,5 @@
 // Template Service - API client for template management
-import axios from 'axios';
+import api from '@/lib/api';
 import { logApiError } from '../lib/logger';
 import type {
   ExportTemplate,
@@ -9,28 +9,13 @@ import type {
   AvailableColumn,
 } from '../types/template.types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-
 class TemplateService {
-  private getAuthHeaders() {
-    const token = localStorage.getItem('token');
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  }
-
   /**
    * Create a new export template
    */
   async createTemplate(data: CreateTemplateDTO): Promise<ExportTemplate> {
     try {
-      const response = await axios.post<{ success: boolean; template: ExportTemplate }>(
-        `${API_URL}/api/templates`,
-        data,
-        { headers: this.getAuthHeaders() }
-      );
-
+      const response = await api.post<{ success: boolean; template: ExportTemplate }>('/templates', data);
       return response.data.template;
     } catch (error: unknown) {
       logApiError('Create template error:', error);
@@ -46,11 +31,9 @@ class TemplateService {
    */
   async getTemplatesByModule(moduleName: string): Promise<ExportTemplate[]> {
     try {
-      const response = await axios.get<{ success: boolean; templates: ExportTemplate[] }>(`${API_URL}/api/templates`, {
+      const response = await api.get<{ success: boolean; templates: ExportTemplate[] }>('/templates', {
         params: { module: moduleName },
-        headers: this.getAuthHeaders(),
       });
-
       return response.data.templates;
     } catch (error: unknown) {
       logApiError('Get templates error:', error);
@@ -66,11 +49,7 @@ class TemplateService {
    */
   async getTemplateById(id: string): Promise<ExportTemplate> {
     try {
-      const response = await axios.get<{ success: boolean; template: ExportTemplate }>(
-        `${API_URL}/api/templates/${id}`,
-        { headers: this.getAuthHeaders() }
-      );
-
+      const response = await api.get<{ success: boolean; template: ExportTemplate }>(`/templates/${id}`);
       return response.data.template;
     } catch (error: unknown) {
       logApiError('Get template error:', error);
@@ -86,12 +65,7 @@ class TemplateService {
    */
   async updateTemplate(id: string, data: UpdateTemplateDTO): Promise<ExportTemplate> {
     try {
-      const response = await axios.put<{ success: boolean; template: ExportTemplate }>(
-        `${API_URL}/api/templates/${id}`,
-        data,
-        { headers: this.getAuthHeaders() }
-      );
-
+      const response = await api.put<{ success: boolean; template: ExportTemplate }>(`/templates/${id}`, data);
       return response.data.template;
     } catch (error: unknown) {
       logApiError('Update template error:', error);
@@ -107,7 +81,7 @@ class TemplateService {
    */
   async deleteTemplate(id: string): Promise<void> {
     try {
-      await axios.delete(`${API_URL}/api/templates/${id}`, { headers: this.getAuthHeaders() });
+      await api.delete(`/templates/${id}`);
     } catch (error: unknown) {
       logApiError('Delete template error:', error);
       const axiosError = error as { response?: { data?: { message?: string; error?: string } } };
@@ -122,11 +96,7 @@ class TemplateService {
    */
   async getAvailableModules(): Promise<ModuleInfo[]> {
     try {
-      const response = await axios.get<{ success: boolean; modules: ModuleInfo[] }>(
-        `${API_URL}/api/templates/modules`,
-        { headers: this.getAuthHeaders() }
-      );
-
+      const response = await api.get<{ success: boolean; modules: ModuleInfo[] }>('/templates/modules');
       return response.data.modules;
     } catch (error: unknown) {
       logApiError('Get modules error:', error);
@@ -142,11 +112,9 @@ class TemplateService {
    */
   async getAvailableColumns(moduleName: string): Promise<AvailableColumn[]> {
     try {
-      const response = await axios.get<{ success: boolean; columns: AvailableColumn[] }>(
-        `${API_URL}/api/templates/columns/${moduleName}`,
-        { headers: this.getAuthHeaders() }
+      const response = await api.get<{ success: boolean; columns: AvailableColumn[] }>(
+        `/templates/columns/${moduleName}`
       );
-
       return response.data.columns;
     } catch (error: unknown) {
       logApiError('Get columns error:', error);

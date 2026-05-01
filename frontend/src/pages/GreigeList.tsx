@@ -15,7 +15,7 @@ import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { usePagination } from '../hooks/usePagination';
 import { greigeService } from '../services/fabricGreigeService';
 import type { GreigeMaster, PaginatedResponse } from '../types/fabric-greige.types';
-import { API_URL } from '../config/api.config';
+import api from '@/lib/api';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -97,27 +97,11 @@ export default function GreigeList() {
 
   const handleExport = async () => {
     try {
-      // Get token
-      const authStorage = localStorage.getItem('auth-storage');
-      let token = null;
-      if (authStorage) {
-        const parsed = JSON.parse(authStorage);
-        token = parsed.state?.token || null;
-      }
-
       // Fetch export data
-      const response = await fetch(`${API_URL}/fabric-management/greige/export`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Export failed');
-      }
+      const response = await api.get<{ data: unknown[] }>('/fabric-management/greige/export');
 
       // Convert to Excel
-      const ws = XLSX.utils.json_to_sheet(result.data);
+      const ws = XLSX.utils.json_to_sheet(response.data.data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Greige Masters');
 

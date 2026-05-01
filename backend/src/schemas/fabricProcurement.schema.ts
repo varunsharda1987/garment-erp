@@ -67,6 +67,8 @@ export const updateProcurementSchema = z
     receivedDate: z.string().datetime().optional().nullable(),
     actualQuantityReceived: z.number().nonnegative('Quantity cannot be negative').optional(),
     notes: z.string().max(500).optional().nullable(),
+    invoiceNumber: z.string().max(50).optional().nullable(),
+    invoiceDate: z.string().datetime().or(z.date()).optional().nullable(),
   })
   .passthrough();
 

@@ -346,6 +346,38 @@ export const styleIdParamSchema = z.object({
   id: z.string().uuid('Invalid style ID format'),
 });
 
+export const styleIdAsStyleIdParamSchema = z.object({
+  styleId: z.string().uuid('Invalid style ID'),
+});
+
+export const componentIdParamSchema = z.object({
+  componentId: z.string().uuid('Invalid component ID'),
+});
+
+export const styleAndBomIdParamSchema = z.object({
+  styleId: z.string().uuid('Invalid style ID'),
+  bomId: z.string().uuid('Invalid BOM ID'),
+});
+
+export const styleAndCommentIdParamSchema = z.object({
+  styleId: z.string().uuid('Invalid style ID'),
+  commentId: z.string().uuid('Invalid comment ID'),
+});
+
+export const costingIdParamSchema = z.object({
+  costingId: z.string().uuid('Invalid costing ID'),
+});
+
+export const costingAndItemIdParamSchema = z.object({
+  costingId: z.string().uuid('Invalid costing ID'),
+  itemId: z.string().uuid('Invalid item ID'),
+});
+
+export const compareCostSheetsParamSchema = z.object({
+  id1: z.string().uuid('Invalid cost sheet ID'),
+  id2: z.string().uuid('Invalid cost sheet ID'),
+});
+
 // ============================================================================
 // STYLE VARIANTS SCHEMA (for POST /api/styles/:id/variants)
 // ============================================================================

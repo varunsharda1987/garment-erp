@@ -167,6 +167,8 @@ export interface GreigeStockDetail {
   rollNumbers: string | null;
   qualityGrade: string;
   receivedDate: string;
+  invoiceNumber: string | null;
+  invoiceDate: string | null;
   agingDays: number;
   status: string;
   stockType: string;

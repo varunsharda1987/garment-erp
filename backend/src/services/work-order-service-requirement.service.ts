@@ -990,6 +990,20 @@ export async function generateServicePO(data: {
   // Determine interstate status for the processor
   const { isInterstate } = await gstService.isInterstatePO(processorId);
 
+  // Validate: all service groups must have positive total price (no zero-price PO items)
+  for (const [serviceType, reqs] of serviceGroups.entries()) {
+    const totalQuantity = reqs.reduce((sum, req) => sum + Number(req.quantityRequired), 0);
+    const totalPrice = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal || 0), 0);
+    const avgUnitPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
+
+    if (avgUnitPrice <= 0) {
+      throw new BusinessError(
+        `Cannot generate PO: ${serviceType} service has no valid pricing. ` +
+          `Please ensure estimated rates are set for all requirements.`
+      );
+    }
+  }
+
   // Create PO with items in a transaction
   const result = await prisma.$transaction(async (tx) => {
     // Generate PO number

@@ -666,6 +666,10 @@ class GRNService {
                 createdById: userId,
               },
             });
+
+            // Sync to stock_levels for unified inventory view
+            await ensureMaterialRecord(jobWorkOrder.finishedFabricId, 'FABRIC');
+            await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, goodQty, undefined, tx);
           }
 
           // Defect fabric_stock at 50% cost
@@ -695,6 +699,10 @@ class GRNService {
                 createdById: userId,
               },
             });
+
+            // Sync defect fabric to stock_levels
+            await ensureMaterialRecord(jobWorkOrder.finishedFabricId, 'FABRIC');
+            await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, defectMetersNum, undefined, tx);
           }
 
           // Consume from processor's greige_stock (created when outward challan was issued)
@@ -776,6 +784,25 @@ class GRNService {
         return approved; // Skip normal stock_movements/stock_levels
       }
 
+      // PO categories that have specialized stock tables - their stock_levels
+      // are managed by the specialized flow (greige_stock, fabric_stock, etc.)
+      // to avoid double-incrementing stock_levels
+      const specializedCategories = [
+        'GREIGE',
+        'FABRIC',
+        'LACE',
+        'GREIGE_LACE',
+        'THREAD',
+        'BUTTON',
+        'ZIPPER',
+        'ELASTIC',
+        'LABEL',
+        'PACKAGING',
+        'MACHINE_PART',
+        'OTHER_MATERIAL',
+      ];
+      const hasSpecializedHandling = specializedCategories.includes(po?.poCategory || '');
+
       // Create stock movements and update stock levels for accepted items
       for (const item of grn.grn_items) {
         const acceptedQty = Number(item.acceptedQuantity);
@@ -785,7 +812,7 @@ class GRNService {
 
           const totalValue = acceptedQty * unitPrice;
 
-          // Create stock movement record
+          // Create stock movement record (audit trail - always created)
           await tx.stock_movements.create({
             data: {
               id: randomUUID(),
@@ -806,34 +833,37 @@ class GRNService {
             },
           });
 
-          // Update or create stock level
-          const existingStock = await tx.stock_levels.findFirst({
-            where: {
-              materialId: item.materialId,
-              warehouseId: targetWarehouseId,
-            },
-          });
-
-          if (existingStock) {
-            await tx.stock_levels.update({
-              where: { id: existingStock.id },
-              data: {
-                quantity: { increment: acceptedQty },
-                lastUpdated: new Date(),
-              },
-            });
-          } else {
-            await tx.stock_levels.create({
-              data: {
-                id: randomUUID(),
+          // Update stock_levels only for POs WITHOUT specialized handling
+          // (GREIGE, FABRIC, LACE, THREAD have their own *_stock tables that sync to stock_levels)
+          if (!hasSpecializedHandling) {
+            const existingStock = await tx.stock_levels.findFirst({
+              where: {
                 materialId: item.materialId,
                 warehouseId: targetWarehouseId,
-                quantity: acceptedQty,
-                unit: item.unit,
-                minLevel: 0,
-                reorderLevel: 0,
               },
             });
+
+            if (existingStock) {
+              await tx.stock_levels.update({
+                where: { id: existingStock.id },
+                data: {
+                  quantity: { increment: acceptedQty },
+                  lastUpdated: new Date(),
+                },
+              });
+            } else {
+              await tx.stock_levels.create({
+                data: {
+                  id: randomUUID(),
+                  materialId: item.materialId,
+                  warehouseId: targetWarehouseId,
+                  quantity: acceptedQty,
+                  unit: item.unit,
+                  minLevel: 0,
+                  reorderLevel: 0,
+                },
+              });
+            }
           }
 
           // Update MRP requirement status via PO item link
@@ -979,12 +1009,13 @@ class GRNService {
                     weightedAvgCost: actualRate,
                     purchaseCost: actualRate,
                     receivedDate: grn.receivingDate || new Date(),
+                    warehouseId: grn.warehouseId || undefined,
                     createdById: userId,
                   },
                 });
 
                 // Sync stock_levels for the fabric
-                await syncStockLevelQuantity(fabric.id, acceptedQty);
+                await syncStockLevelQuantity(fabric.id, acceptedQty, grn.warehouseId || undefined);
 
                 // Create fabric_procurement record for audit trail
                 await prisma.fabric_procurement.create({
@@ -1084,14 +1115,17 @@ class GRNService {
               await greigeStockService.createGreigeStock(
                 {
                   greigeId: greige.id,
-                  quantity: acceptedQty,
+                  quantity: acceptedQty, // This is nominal quantity from supplier
                   width: greigeWidth,
                   purchaseCost: unitPrice,
                   supplierId: grn.supplierId,
                   receivedDate: grn.receivingDate,
-                  warehouseLocation: grn.warehouseId || undefined,
+                  warehouseId: grn.warehouseId || undefined,
                   qualityGrade: 'A',
                   sourceType: 'GRN', // Track that this stock came from GRN receipt
+                  // Pass fold length for actual quantity calculation
+                  foldLengthCm: item.foldLengthCm ? Number(item.foldLengthCm) : undefined,
+                  thanCount: item.thanCount || undefined,
                 },
                 userId
               );
@@ -1156,13 +1190,14 @@ class GRNService {
                 weightedAvgCost: unitPrice,
                 purchaseCost: unitPrice,
                 receivedDate: grn.receivingDate || new Date(),
+                warehouseId: grn.warehouseId || undefined,
                 createdById: userId,
               },
             });
 
             // Ensure materials record + sync stock_levels
             await ensureMaterialRecord(fabric.id, 'FABRIC');
-            await syncStockLevelQuantity(fabric.id, acceptedQty);
+            await syncStockLevelQuantity(fabric.id, acceptedQty, grn.warehouseId || undefined);
 
             logInfo(
               `Auto-created fabric_stock from FABRIC GRN ${grn.grnNumber}: ${acceptedQty}m of fabricId=${fabric.id}`,
@@ -1217,7 +1252,7 @@ class GRNService {
                 weightedAvgCost: unitPrice,
                 purchaseCost: unitPrice,
                 receivedDate: grn.receivingDate || new Date(),
-                warehouseLocation: grn.warehouseId || undefined,
+                warehouseId: grn.warehouseId || undefined,
                 procurementId: grn.poId || undefined,
                 createdById: userId,
               },
@@ -1225,7 +1260,7 @@ class GRNService {
 
             // Ensure materials record + sync stock_levels
             await ensureMaterialRecord(material.lace_master.id, 'LACE');
-            await syncStockLevelQuantity(material.lace_master.id, acceptedQty);
+            await syncStockLevelQuantity(material.lace_master.id, acceptedQty, grn.warehouseId || undefined);
 
             logInfo(
               `Auto-created lace_stock from LACE GRN ${grn.grnNumber}: ${acceptedQty}m of laceId=${material.lace_master.id}`,
@@ -1310,7 +1345,7 @@ class GRNService {
                 stockType: 'PLANNED_STOCK',
                 qualityGrade: 'A',
                 receivedDate: grn.receivingDate || new Date(),
-                warehouseLocation: grn.warehouseId || undefined,
+                warehouseId: grn.warehouseId || undefined,
                 procurementId: grn.poId || undefined,
                 createdById: userId,
               },
@@ -1347,7 +1382,7 @@ class GRNService {
 
             // Ensure materials record + sync stock_levels
             await ensureMaterialRecord(thread.id, 'THREAD');
-            await syncStockLevelQuantity(thread.id, acceptedQty);
+            await syncStockLevelQuantity(thread.id, acceptedQty, grn.warehouseId || undefined);
 
             logInfo(
               `Auto-created thread_stock from THREAD GRN ${grn.grnNumber}: ${acceptedQty} ${poUnit} of threadId=${thread.id}`,
@@ -1355,6 +1390,367 @@ class GRNService {
             );
           } catch (threadErr) {
             logError(`Failed to auto-create thread_stock for GRN item ${item.id}`, threadErr);
+          }
+        }
+      }
+
+      // Auto-create button_stock for BUTTON PO GRNs
+      if (po?.poCategory === 'BUTTON') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              include: { button_master: true },
+            });
+
+            if (!material?.buttonId || !material.button_master) {
+              logInfo(`GRN item ${item.id}: no button link, skipping button_stock`);
+              continue;
+            }
+
+            const button = material.button_master;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            await prisma.button_stock.create({
+              data: {
+                buttonId: button.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: item.unit || 'pieces',
+                purchaseCost: unitPrice,
+                weightedAvgCost: unitPrice,
+                supplierId: grn.supplierId,
+                sourceType: 'GRN',
+                procurementId: grn.poId,
+                qualityGrade: 'A',
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseId: grn.warehouseId || undefined,
+                createdById: userId,
+              },
+            });
+
+            await ensureMaterialRecord(button.id, 'BUTTON');
+            await syncStockLevelQuantity(button.id, acceptedQty, grn.warehouseId || undefined);
+
+            logInfo(`Auto-created button_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${button.buttonCode}`);
+          } catch (err) {
+            logError(`Failed to auto-create button_stock for GRN item ${item.id}`, err);
+          }
+        }
+      }
+
+      // Auto-create zipper_stock for ZIPPER PO GRNs
+      if (po?.poCategory === 'ZIPPER') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              include: { zipper_master: true },
+            });
+
+            if (!material?.zipperId || !material.zipper_master) {
+              logInfo(`GRN item ${item.id}: no zipper link, skipping zipper_stock`);
+              continue;
+            }
+
+            const zipper = material.zipper_master;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            await prisma.zipper_stock.create({
+              data: {
+                zipperId: zipper.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: item.unit || 'pieces',
+                purchaseCost: unitPrice,
+                weightedAvgCost: unitPrice,
+                supplierId: grn.supplierId,
+                sourceType: 'GRN',
+                procurementId: grn.poId,
+                qualityGrade: 'A',
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseId: grn.warehouseId || undefined,
+                createdById: userId,
+              },
+            });
+
+            await ensureMaterialRecord(zipper.id, 'ZIPPER');
+            await syncStockLevelQuantity(zipper.id, acceptedQty, grn.warehouseId || undefined);
+
+            logInfo(`Auto-created zipper_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${zipper.zipperCode}`);
+          } catch (err) {
+            logError(`Failed to auto-create zipper_stock for GRN item ${item.id}`, err);
+          }
+        }
+      }
+
+      // Auto-create elastic_stock for ELASTIC PO GRNs
+      if (po?.poCategory === 'ELASTIC') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              include: { elastic_master: true },
+            });
+
+            if (!material?.elasticId || !material.elastic_master) {
+              logInfo(`GRN item ${item.id}: no elastic link, skipping elastic_stock`);
+              continue;
+            }
+
+            const elastic = material.elastic_master;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            await prisma.elastic_stock.create({
+              data: {
+                elasticId: elastic.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: item.unit || 'meters',
+                purchaseCost: unitPrice,
+                weightedAvgCost: unitPrice,
+                supplierId: grn.supplierId,
+                sourceType: 'GRN',
+                procurementId: grn.poId,
+                qualityGrade: 'A',
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseId: grn.warehouseId || undefined,
+                createdById: userId,
+              },
+            });
+
+            await ensureMaterialRecord(elastic.id, 'ELASTIC');
+            await syncStockLevelQuantity(elastic.id, acceptedQty, grn.warehouseId || undefined);
+
+            logInfo(`Auto-created elastic_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${elastic.elasticCode}`);
+          } catch (err) {
+            logError(`Failed to auto-create elastic_stock for GRN item ${item.id}`, err);
+          }
+        }
+      }
+
+      // Auto-create label_stock for LABEL PO GRNs
+      if (po?.poCategory === 'LABEL') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              include: { label_master: true },
+            });
+
+            if (!material?.labelId || !material.label_master) {
+              logInfo(`GRN item ${item.id}: no label link, skipping label_stock`);
+              continue;
+            }
+
+            const label = material.label_master;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            await prisma.label_stock.create({
+              data: {
+                labelId: label.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: item.unit || 'pieces',
+                purchaseCost: unitPrice,
+                weightedAvgCost: unitPrice,
+                supplierId: grn.supplierId,
+                sourceType: 'GRN',
+                procurementId: grn.poId,
+                qualityGrade: 'A',
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseId: grn.warehouseId || undefined,
+                createdById: userId,
+              },
+            });
+
+            await ensureMaterialRecord(label.id, 'LABEL');
+            await syncStockLevelQuantity(label.id, acceptedQty, grn.warehouseId || undefined);
+
+            logInfo(`Auto-created label_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${label.labelCode}`);
+          } catch (err) {
+            logError(`Failed to auto-create label_stock for GRN item ${item.id}`, err);
+          }
+        }
+      }
+
+      // Auto-create packaging_stock for PACKAGING PO GRNs
+      if (po?.poCategory === 'PACKAGING') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              include: { packaging_master: true },
+            });
+
+            if (!material?.packagingId || !material.packaging_master) {
+              logInfo(`GRN item ${item.id}: no packaging link, skipping packaging_stock`);
+              continue;
+            }
+
+            const packaging = material.packaging_master;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            await prisma.packaging_stock.create({
+              data: {
+                packagingId: packaging.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: item.unit || 'pieces',
+                purchaseCost: unitPrice,
+                weightedAvgCost: unitPrice,
+                supplierId: grn.supplierId,
+                sourceType: 'GRN',
+                procurementId: grn.poId,
+                qualityGrade: 'A',
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseId: grn.warehouseId || undefined,
+                createdById: userId,
+              },
+            });
+
+            await ensureMaterialRecord(packaging.id, 'PACKAGING');
+            await syncStockLevelQuantity(packaging.id, acceptedQty, grn.warehouseId || undefined);
+
+            logInfo(
+              `Auto-created packaging_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${packaging.packagingCode}`
+            );
+          } catch (err) {
+            logError(`Failed to auto-create packaging_stock for GRN item ${item.id}`, err);
+          }
+        }
+      }
+
+      // Auto-create machine_part_stock for MACHINE_PART PO GRNs
+      if (po?.poCategory === 'MACHINE_PART') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              include: { machine_part_master: true },
+            });
+
+            if (!material?.machinePartId || !material.machine_part_master) {
+              logInfo(`GRN item ${item.id}: no machine part link, skipping machine_part_stock`);
+              continue;
+            }
+
+            const machinePart = material.machine_part_master;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            await prisma.machine_part_stock.create({
+              data: {
+                machinePartId: machinePart.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: item.unit || 'pieces',
+                purchaseCost: unitPrice,
+                weightedAvgCost: unitPrice,
+                supplierId: grn.supplierId,
+                sourceType: 'GRN',
+                qualityGrade: 'A',
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseId: grn.warehouseId || undefined,
+                createdById: userId,
+              },
+            });
+
+            await ensureMaterialRecord(machinePart.id, 'MACHINE_PART');
+            await syncStockLevelQuantity(machinePart.id, acceptedQty, grn.warehouseId || undefined);
+
+            logInfo(
+              `Auto-created machine_part_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${machinePart.partCode}`
+            );
+          } catch (err) {
+            logError(`Failed to auto-create machine_part_stock for GRN item ${item.id}`, err);
+          }
+        }
+      }
+
+      // Auto-create other_material_stock for OTHER_MATERIAL PO GRNs
+      if (po?.poCategory === 'OTHER_MATERIAL') {
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+          if (acceptedQty <= 0) continue;
+
+          try {
+            const material = await prisma.materials.findUnique({
+              where: { id: item.materialId },
+              include: { other_material_master: true },
+            });
+
+            if (!material?.otherMaterialId || !material.other_material_master) {
+              logInfo(`GRN item ${item.id}: no other material link, skipping other_material_stock`);
+              continue;
+            }
+
+            const otherMaterial = material.other_material_master;
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+
+            await prisma.other_material_stock.create({
+              data: {
+                otherMaterialId: otherMaterial.id,
+                quantityAvailable: acceptedQty,
+                quantityReserved: 0,
+                quantityConsumed: 0,
+                unit: item.unit || 'pieces',
+                purchaseCost: unitPrice,
+                weightedAvgCost: unitPrice,
+                supplierId: grn.supplierId,
+                sourceType: 'GRN',
+                qualityGrade: 'A',
+                status: 'AVAILABLE',
+                stockType: 'PLANNED_STOCK',
+                receivedDate: grn.receivingDate || new Date(),
+                warehouseId: grn.warehouseId || undefined,
+                createdById: userId,
+              },
+            });
+
+            await ensureMaterialRecord(otherMaterial.id, 'OTHER_MATERIAL');
+            await syncStockLevelQuantity(otherMaterial.id, acceptedQty, grn.warehouseId || undefined);
+
+            logInfo(
+              `Auto-created other_material_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${otherMaterial.materialCode}`
+            );
+          } catch (err) {
+            logError(`Failed to auto-create other_material_stock for GRN item ${item.id}`, err);
           }
         }
       }

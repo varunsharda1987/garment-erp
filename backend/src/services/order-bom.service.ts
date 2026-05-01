@@ -291,8 +291,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         `Processor rates have changed significantly since this cost sheet was created. ` +
           `${rateValidation.blockingItems.length} item(s) have rate changes ≥5%: ${blockingItemNames}. ` +
           `Please create a new cost sheet version with current rates before creating Order BOM.`,
-        'RATES_OUTDATED',
         {
+          code: 'RATES_OUTDATED',
           blockingItems: rateValidation.blockingItems,
           warningItems: rateValidation.warningItems,
           suggestedAction: rateValidation.suggestedAction,

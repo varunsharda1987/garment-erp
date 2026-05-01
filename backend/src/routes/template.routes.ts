@@ -3,8 +3,9 @@ import { Router } from 'express';
 import * as templateController from '../controllers/template.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createTemplateSchema, updateTemplateSchema, templateQuerySchema } from '../schemas/template.schema';
+import { idParamSchema, moduleNameParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -38,21 +39,29 @@ router.get('/modules', asyncHandler(templateController.getAvailableModules));
  * @desc    Get available columns for a module
  * @access  Private
  */
-router.get('/columns/:moduleName', asyncHandler(templateController.getAvailableColumns));
+router.get(
+  '/columns/:moduleName',
+  validateParams(moduleNameParamSchema),
+  asyncHandler(templateController.getAvailableColumns)
+);
 
 /**
  * @route   GET /api/templates/module/:moduleName
  * @desc    Get all templates for a specific module (via path param)
  * @access  Private
  */
-router.get('/module/:moduleName', asyncHandler(templateController.getModuleTemplates));
+router.get(
+  '/module/:moduleName',
+  validateParams(moduleNameParamSchema),
+  asyncHandler(templateController.getModuleTemplates)
+);
 
 /**
  * @route   GET /api/templates/:id
  * @desc    Get a single template by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(templateController.getTemplateById));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(templateController.getTemplateById));
 
 /**
  * @route   PUT /api/templates/:id
@@ -60,13 +69,18 @@ router.get('/:id', asyncHandler(templateController.getTemplateById));
  * @access  Private (Admin)
  * @body    { templateName?, description?, columnConfig?, isDefault? }
  */
-router.put('/:id', validateBody(updateTemplateSchema), asyncHandler(templateController.updateTemplate));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updateTemplateSchema),
+  asyncHandler(templateController.updateTemplate)
+);
 
 /**
  * @route   DELETE /api/templates/:id
  * @desc    Delete a template (soft delete)
  * @access  Private (Admin)
  */
-router.delete('/:id', asyncHandler(templateController.deleteTemplate));
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(templateController.deleteTemplate));
 
 export default router;

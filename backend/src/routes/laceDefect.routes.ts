@@ -10,7 +10,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   logDefect,
   submitClaimController,
@@ -28,6 +28,7 @@ import {
   recordReplacementSchema,
   laceDefectQuerySchema,
 } from '../schemas/laceDefect.schema';
+import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -69,7 +70,7 @@ router.get('/', validateQuery(laceDefectQuerySchema), asyncHandler(getDefectsCon
  * @desc    Get defect by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getDefectByIdController));
+router.get('/:id', validateParams(idParamSchema), asyncHandler(getDefectByIdController));
 
 // ============================================================================
 // COMMANDS
@@ -90,7 +91,12 @@ router.post('/', validateBody(logDefectSchema), asyncHandler(logDefect));
  * @access  Private
  * @body    claimReference, claimAmount, notes?
  */
-router.post('/:id/claim/submit', validateBody(submitClaimSchema), asyncHandler(submitClaimController));
+router.post(
+  '/:id/claim/submit',
+  validateParams(idParamSchema),
+  validateBody(submitClaimSchema),
+  asyncHandler(submitClaimController)
+);
 
 /**
  * @route   PUT /api/lace-defects/:id/claim/status
@@ -98,7 +104,12 @@ router.post('/:id/claim/submit', validateBody(submitClaimSchema), asyncHandler(s
  * @access  Private
  * @body    status, resolution?
  */
-router.put('/:id/claim/status', validateBody(updateClaimStatusSchema), asyncHandler(updateClaimStatusController));
+router.put(
+  '/:id/claim/status',
+  validateParams(idParamSchema),
+  validateBody(updateClaimStatusSchema),
+  asyncHandler(updateClaimStatusController)
+);
 
 /**
  * @route   POST /api/lace-defects/:id/replacement
@@ -106,6 +117,11 @@ router.put('/:id/claim/status', validateBody(updateClaimStatusSchema), asyncHand
  * @access  Private
  * @body    replacementStockId, replacementQuantity
  */
-router.post('/:id/replacement', validateBody(recordReplacementSchema), asyncHandler(recordReplacementController));
+router.post(
+  '/:id/replacement',
+  validateParams(idParamSchema),
+  validateBody(recordReplacementSchema),
+  asyncHandler(recordReplacementController)
+);
 
 export default router;

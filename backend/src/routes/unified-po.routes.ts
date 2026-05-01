@@ -18,13 +18,14 @@
 import { Router } from 'express';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
   createUnifiedPOSchema,
   validatePOInputSchema,
   checkDuplicatesSchema,
   cancelUnifiedPOSchema,
 } from '../schemas/unifiedPo.schema';
+import { idParamSchema, materialTypeParamSchema, serviceTypeParamSchema } from '../schemas/common.schema';
 import {
   createUnifiedPOController,
   validatePOInputController,
@@ -86,7 +87,12 @@ router.post(
  * PATCH /api/purchase-orders/:id/send
  * Send PO to supplier (DRAFT/READY_FOR_PROCESSING -> SENT)
  */
-router.patch('/:id/send', authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'), asyncHandler(sendPOController));
+router.patch(
+  '/:id/send',
+  validateParams(idParamSchema),
+  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
+  asyncHandler(sendPOController)
+);
 
 /**
  * PATCH /api/purchase-orders/:id/acknowledge
@@ -94,6 +100,7 @@ router.patch('/:id/send', authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'), 
  */
 router.patch(
   '/:id/acknowledge',
+  validateParams(idParamSchema),
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
   asyncHandler(acknowledgePOController)
 );
@@ -104,6 +111,7 @@ router.patch(
  */
 router.patch(
   '/:id/cancel',
+  validateParams(idParamSchema),
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER'),
   validateBody(cancelUnifiedPOSchema),
   asyncHandler(cancelPOController)
@@ -119,6 +127,7 @@ router.patch(
  */
 router.get(
   '/category-mapping/material/:materialType',
+  validateParams(materialTypeParamSchema),
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
   asyncHandler(getMaterialCategoryMappingController)
 );
@@ -129,6 +138,7 @@ router.get(
  */
 router.get(
   '/category-mapping/service/:serviceType',
+  validateParams(serviceTypeParamSchema),
   authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
   asyncHandler(getServiceCategoryMappingController)
 );

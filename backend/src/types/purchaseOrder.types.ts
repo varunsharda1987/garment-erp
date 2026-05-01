@@ -3,7 +3,7 @@
  * Type definitions for purchase order operations
  */
 
-import { PurchaseOrderStatus, Unit, POSource } from '@prisma/client';
+import { PurchaseOrderStatus, Unit, POSource, DeliveryLocationType } from '@prisma/client';
 
 // Re-export Prisma types for use in controllers
 export { PurchaseOrderStatus, POSource };
@@ -23,6 +23,7 @@ export interface PurchaseOrderItemDTO {
   unit: Unit;
   unitPrice: number;
   remarks?: string | null;
+  foldLengthCm?: number | null; // "L" - fold length in cm (for greige/fabric)
 }
 
 /**
@@ -69,6 +70,8 @@ export interface CreatePurchaseOrderDTO {
   styleId?: string | null;
   orderId?: string | null;
   cadId?: string | null;
+  // Delivery location (warehouse ID - type is derived from warehouse)
+  deliveryLocationId?: string | null;
 }
 
 /**
@@ -85,6 +88,8 @@ export interface UpdatePurchaseOrderDTO {
   styleId?: string | null;
   orderId?: string | null;
   cadId?: string | null;
+  // Delivery location (warehouse ID - type is derived from warehouse)
+  deliveryLocationId?: string | null;
 }
 
 /**

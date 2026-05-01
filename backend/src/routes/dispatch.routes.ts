@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createDeliveryNoteSchema,
   deliveryNoteQuerySchema,
@@ -14,6 +14,7 @@ import {
   rejectASNSchema,
   rescheduleASNSchema,
 } from '../schemas/dispatch.schema';
+import { idParamSchema } from '../schemas/common.schema';
 import {
   // Delivery Note endpoints
   getAllDeliveryNotes,
@@ -57,14 +58,29 @@ router.get('/orders-ready', asyncHandler(getOrdersReadyForDispatch));
 
 // List and CRUD
 router.get('/delivery-notes', validateQuery(deliveryNoteQuerySchema), asyncHandler(getAllDeliveryNotes));
-router.get('/delivery-notes/:id', asyncHandler(getDeliveryNoteById));
+router.get('/delivery-notes/:id', validateParams(idParamSchema), asyncHandler(getDeliveryNoteById));
 router.post('/delivery-notes', validateBody(createDeliveryNoteSchema), asyncHandler(createDeliveryNote));
-router.delete('/delivery-notes/:id', asyncHandler(deleteDeliveryNote));
+router.delete('/delivery-notes/:id', validateParams(idParamSchema), asyncHandler(deleteDeliveryNote));
 
 // Workflow actions
-router.post('/delivery-notes/:id/assign-transport', validateBody(assignTransportSchema), asyncHandler(assignTransport));
-router.post('/delivery-notes/:id/dispatch', validateBody(deliveryNoteActionSchema), asyncHandler(dispatchDeliveryNote));
-router.post('/delivery-notes/:id/record-pod', validateBody(recordPODSchema), asyncHandler(recordPOD));
+router.post(
+  '/delivery-notes/:id/assign-transport',
+  validateParams(idParamSchema),
+  validateBody(assignTransportSchema),
+  asyncHandler(assignTransport)
+);
+router.post(
+  '/delivery-notes/:id/dispatch',
+  validateParams(idParamSchema),
+  validateBody(deliveryNoteActionSchema),
+  asyncHandler(dispatchDeliveryNote)
+);
+router.post(
+  '/delivery-notes/:id/record-pod',
+  validateParams(idParamSchema),
+  validateBody(recordPODSchema),
+  asyncHandler(recordPOD)
+);
 
 // ============================================
 // ASN ROUTES
@@ -72,14 +88,24 @@ router.post('/delivery-notes/:id/record-pod', validateBody(recordPODSchema), asy
 
 // List and CRUD
 router.get('/asn', validateQuery(asnQuerySchema), asyncHandler(getAllASN));
-router.get('/asn/:id', asyncHandler(getASNById));
+router.get('/asn/:id', validateParams(idParamSchema), asyncHandler(getASNById));
 router.post('/asn', validateBody(createASNSchema), asyncHandler(createASN));
-router.delete('/asn/:id', asyncHandler(deleteASN));
+router.delete('/asn/:id', validateParams(idParamSchema), asyncHandler(deleteASN));
 
 // Workflow actions
-router.post('/asn/:id/apply', validateBody(approveASNSchema), asyncHandler(applyASN));
-router.post('/asn/:id/approve', validateBody(approveASNSchema), asyncHandler(approveASN));
-router.post('/asn/:id/reject', validateBody(rejectASNSchema), asyncHandler(rejectASN));
-router.post('/asn/:id/reschedule', validateBody(rescheduleASNSchema), asyncHandler(rescheduleASN));
+router.post('/asn/:id/apply', validateParams(idParamSchema), validateBody(approveASNSchema), asyncHandler(applyASN));
+router.post(
+  '/asn/:id/approve',
+  validateParams(idParamSchema),
+  validateBody(approveASNSchema),
+  asyncHandler(approveASN)
+);
+router.post('/asn/:id/reject', validateParams(idParamSchema), validateBody(rejectASNSchema), asyncHandler(rejectASN));
+router.post(
+  '/asn/:id/reschedule',
+  validateParams(idParamSchema),
+  validateBody(rescheduleASNSchema),
+  asyncHandler(rescheduleASN)
+);
 
 export default router;

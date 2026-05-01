@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { trimStockService } from '../services/trim-stock.service';
 
 // Type for supplier input
 interface ElasticSupplierInput {
@@ -427,6 +428,7 @@ export const deleteElastic = async (req: Request, res: Response) => {
  */
 export const bulkImportElastic = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
+  const userId = (req as any).user?.id || 'system';
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');
@@ -503,19 +505,21 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
         },
       });
 
-      // Create stock if requested
+      // Create stock if requested - using specialized elastic_stock table
       let stockCreated = false;
       if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
-        await prisma.stock_levels.create({
-          data: {
-            warehouseId: defaultWarehouse.id,
-            materialId,
+        await trimStockService.createTrimStock(
+          {
+            trimType: 'ELASTIC',
+            masterId: elasticRecord.id,
             quantity: parseFloat(row.stockQuantity),
             unit: 'METER',
-            reorderLevel: row.reorderLevel ? parseFloat(row.reorderLevel) : 0,
-            maxLevel: row.maxLevel ? parseFloat(row.maxLevel) : 0,
+            purchaseCost: row.purchaseCost ? parseFloat(row.purchaseCost) : 0,
+            warehouseId: defaultWarehouse.id,
+            sourceType: 'IMPORT',
           },
-        });
+          userId
+        );
         stockCreated = true;
       }
 

@@ -1,5 +1,5 @@
 // Stock Count Service - API calls for physical inventory counts
-import axios from 'axios';
+import api from '@/lib/api';
 import type {
   StockCount,
   CreateStockCountDTO,
@@ -11,21 +11,7 @@ import type {
   StockMovement,
 } from '../types/inventory.types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const BASE_URL = `${API_URL}/stock-counts`;
-
-const getAuthHeader = () => {
-  const authStorage = localStorage.getItem('auth-storage');
-  if (authStorage) {
-    try {
-      const { state } = JSON.parse(authStorage);
-      return state?.token ? { Authorization: `Bearer ${state.token}` } : {};
-    } catch {
-      return {};
-    }
-  }
-  return {};
-};
+const BASE_URL = '/stock-counts';
 
 export const stockCountService = {
   /**
@@ -39,9 +25,8 @@ export const stockCountService = {
     if (filters?.startDate) params.append('startDate', filters.startDate);
     if (filters?.endDate) params.append('endDate', filters.endDate);
 
-    const response = await axios.get<ApiResponse<StockCount[]>>(
-      `${BASE_URL}${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<StockCount[]>>(
+      `${BASE_URL}${params.toString() ? '?' + params.toString() : ''}`
     );
     return response.data.data || [];
   },
@@ -50,7 +35,7 @@ export const stockCountService = {
    * Get stock count by ID (with items)
    */
   async getById(id: string): Promise<StockCount> {
-    const response = await axios.get<ApiResponse<StockCount>>(`${BASE_URL}/${id}`, { headers: getAuthHeader() });
+    const response = await api.get<ApiResponse<StockCount>>(`${BASE_URL}/${id}`);
     if (!response.data.data) throw new Error('Stock count not found');
     return response.data.data;
   },
@@ -59,9 +44,7 @@ export const stockCountService = {
    * Get variance report
    */
   async getVarianceReport(id: string): Promise<VarianceReport> {
-    const response = await axios.get<ApiResponse<VarianceReport>>(`${BASE_URL}/${id}/variance`, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.get<ApiResponse<VarianceReport>>(`${BASE_URL}/${id}/variance`);
     return response.data.data || { totalVariance: 0, positiveVariance: 0, negativeVariance: 0, items: [] };
   },
 
@@ -73,9 +56,8 @@ export const stockCountService = {
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
 
-    const response = await axios.get<ApiResponse<CountSummary>>(
-      `${BASE_URL}/summary/${warehouseId}${params.toString() ? '?' + params.toString() : ''}`,
-      { headers: getAuthHeader() }
+    const response = await api.get<ApiResponse<CountSummary>>(
+      `${BASE_URL}/summary/${warehouseId}${params.toString() ? '?' + params.toString() : ''}`
     );
     return (
       response.data.data || {
@@ -92,7 +74,7 @@ export const stockCountService = {
    * Create new stock count
    */
   async create(data: CreateStockCountDTO): Promise<StockCount> {
-    const response = await axios.post<ApiResponse<StockCount>>(BASE_URL, data, { headers: getAuthHeader() });
+    const response = await api.post<ApiResponse<StockCount>>(BASE_URL, data);
     if (!response.data.data) throw new Error('Failed to create stock count');
     return response.data.data;
   },
@@ -101,11 +83,7 @@ export const stockCountService = {
    * Start counting (DRAFT → IN_PROGRESS)
    */
   async startCounting(id: string): Promise<StockCount> {
-    const response = await axios.post<ApiResponse<StockCount>>(
-      `${BASE_URL}/${id}/start`,
-      {},
-      { headers: getAuthHeader() }
-    );
+    const response = await api.post<ApiResponse<StockCount>>(`${BASE_URL}/${id}/start`, {});
     if (!response.data.data) throw new Error('Failed to start counting');
     return response.data.data;
   },
@@ -114,9 +92,7 @@ export const stockCountService = {
    * Update count item (enter physical quantity)
    */
   async updateCountItem(countId: string, itemId: string, data: UpdateCountItemDTO): Promise<StockCount> {
-    const response = await axios.put<ApiResponse<StockCount>>(`${BASE_URL}/${countId}/items/${itemId}`, data, {
-      headers: getAuthHeader(),
-    });
+    const response = await api.put<ApiResponse<StockCount>>(`${BASE_URL}/${countId}/items/${itemId}`, data);
     if (!response.data.data) throw new Error('Failed to update count item');
     return response.data.data;
   },
@@ -125,11 +101,7 @@ export const stockCountService = {
    * Verify stock count (COUNTED → VERIFIED)
    */
   async verifyCount(id: string): Promise<StockCount> {
-    const response = await axios.post<ApiResponse<StockCount>>(
-      `${BASE_URL}/${id}/verify`,
-      {},
-      { headers: getAuthHeader() }
-    );
+    const response = await api.post<ApiResponse<StockCount>>(`${BASE_URL}/${id}/verify`, {});
     if (!response.data.data) throw new Error('Failed to verify count');
     return response.data.data;
   },
@@ -138,9 +110,9 @@ export const stockCountService = {
    * Approve stock count (VERIFIED → APPROVED, creates adjustments)
    */
   async approveCount(id: string): Promise<{ stockCount: StockCount; adjustmentCount: number }> {
-    const response = await axios.post<
+    const response = await api.post<
       ApiResponse<{ stockCount: StockCount; adjustments: StockMovement[]; adjustmentCount: number }>
-    >(`${BASE_URL}/${id}/approve`, {}, { headers: getAuthHeader() });
+    >(`${BASE_URL}/${id}/approve`, {});
     if (!response.data.data) throw new Error('Failed to approve count');
     return {
       stockCount: response.data.data.stockCount,
@@ -152,11 +124,7 @@ export const stockCountService = {
    * Cancel stock count
    */
   async cancelCount(id: string): Promise<StockCount> {
-    const response = await axios.post<ApiResponse<StockCount>>(
-      `${BASE_URL}/${id}/cancel`,
-      {},
-      { headers: getAuthHeader() }
-    );
+    const response = await api.post<ApiResponse<StockCount>>(`${BASE_URL}/${id}/cancel`, {});
     if (!response.data.data) throw new Error('Failed to cancel count');
     return response.data.data;
   },

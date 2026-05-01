@@ -243,6 +243,38 @@ export const processingDeliveryQuerySchema = z.object({
 });
 
 // ============================================================================
+// Param Validation Schemas
+// ============================================================================
+
+export const processingMovementIdParamSchema = z.object({
+  id: z.string().uuid('Invalid movement ID'),
+});
+
+export const processingStageIdParamSchema = z.object({
+  id: z.string().uuid('Invalid stage ID'),
+});
+
+export const processingDeliveryIdParamSchema = z.object({
+  id: z.string().uuid('Invalid delivery ID'),
+});
+
+export const batchIdParamSchema = z.object({
+  batchId: z.string().uuid('Invalid batch ID'),
+});
+
+export const stageIdParamSchema = z.object({
+  stageId: z.string().uuid('Invalid stage ID'),
+});
+
+export const processorIdParamSchema = z.object({
+  processorId: z.string().uuid('Invalid processor ID'),
+});
+
+export const processingBatchIdParamSchema = z.object({
+  id: z.string().uuid('Invalid batch ID'),
+});
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 

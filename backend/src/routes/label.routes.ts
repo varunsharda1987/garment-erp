@@ -10,12 +10,13 @@ import {
 } from '../controllers/label.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createLabelSchema,
   updateLabelSchema,
   bulkImportLabelSchema,
   trimMasterQuerySchema,
+  trimMasterIdParamSchema,
 } from '../schemas/trimMasters.schema';
 
 const router = Router();
@@ -50,21 +51,21 @@ router.get('/template', asyncHandler(downloadTemplate));
  * @desc    Get single label item by ID
  * @access  Private
  */
-router.get('/:id', asyncHandler(getLabelById));
+router.get('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(getLabelById));
 
 /**
  * @route   PUT /api/materials/label/:id
  * @desc    Update label item
  * @access  Private
  */
-router.put('/:id', validateBody(updateLabelSchema), asyncHandler(updateLabel));
+router.put('/:id', validateParams(trimMasterIdParamSchema), validateBody(updateLabelSchema), asyncHandler(updateLabel));
 
 /**
  * @route   DELETE /api/materials/label/:id
  * @desc    Delete label item
  * @access  Private
  */
-router.delete('/:id', asyncHandler(deleteLabel));
+router.delete('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(deleteLabel));
 
 /**
  * @route   POST /api/materials/label/bulk-import

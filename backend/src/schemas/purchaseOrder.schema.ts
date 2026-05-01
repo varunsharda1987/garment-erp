@@ -58,6 +58,8 @@ export const POCategoryEnum = z.enum([
   'TRANSPORTATION_SERVICE',
 ]);
 
+export const DeliveryLocationTypeEnum = z.enum(['WAREHOUSE', 'PROCESSOR']);
+
 // ============================================================================
 // Purchase Order Item Schemas
 // ============================================================================
@@ -71,8 +73,9 @@ export const purchaseOrderItemSchema = z.object({
   serviceDescription: z.string().max(500).optional(),
   orderedQuantity: z.number().positive('Quantity must be positive'),
   unit: UnitEnum,
-  unitPrice: z.number().nonnegative('Unit price cannot be negative'),
+  unitPrice: z.number().positive('Unit price must be greater than 0'),
   remarks: z.string().max(500).nullish(),
+  foldLengthCm: z.number().positive().max(999.99).nullish(), // "L" - fold length in cm
 });
 
 /**
@@ -81,7 +84,7 @@ export const purchaseOrderItemSchema = z.object({
 export const updatePurchaseOrderItemSchema = z.object({
   orderedQuantity: z.number().positive('Quantity must be positive').optional(),
   unit: UnitEnum.optional(),
-  unitPrice: z.number().nonnegative('Unit price cannot be negative').optional(),
+  unitPrice: z.number().positive('Unit price must be greater than 0').optional(),
   remarks: z.string().max(500).nullish(),
 });
 
@@ -104,6 +107,8 @@ export const createPurchaseOrderSchema = z.object({
   styleId: z.string().uuid('Invalid style ID').nullish(),
   orderId: z.string().uuid('Invalid order ID').nullish(),
   cadId: z.string().uuid('Invalid CAD ID').nullish(),
+  // Delivery location (warehouse ID - type is derived from warehouse)
+  deliveryLocationId: z.string().uuid('Invalid delivery location ID').nullish(),
 });
 
 /**
@@ -120,6 +125,8 @@ export const updatePurchaseOrderSchema = z.object({
   styleId: z.string().uuid('Invalid style ID').nullish(),
   orderId: z.string().uuid('Invalid order ID').nullish(),
   cadId: z.string().uuid('Invalid CAD ID').nullish(),
+  // Delivery location (warehouse ID - type is derived from warehouse)
+  deliveryLocationId: z.string().uuid('Invalid delivery location ID').nullish(),
 });
 
 /**
@@ -188,3 +195,18 @@ export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>
 export type UpdatePurchaseOrderInput = z.infer<typeof updatePurchaseOrderSchema>;
 export type CancelPurchaseOrderInput = z.infer<typeof cancelPurchaseOrderSchema>;
 export type PurchaseOrderQueryInput = z.infer<typeof purchaseOrderQuerySchema>;
+
+// ============================================================================
+// Amendment Schemas
+// ============================================================================
+
+/**
+ * Amend Delivery Location
+ * PATCH /api/purchase-orders/:id/delivery-location
+ * Now simplified - only needs warehouse ID (all locations are warehouses)
+ */
+export const amendDeliveryLocationSchema = z.object({
+  deliveryLocationId: z.string().uuid('Invalid delivery location ID'),
+});
+
+export type AmendDeliveryLocationInput = z.infer<typeof amendDeliveryLocationSchema>;

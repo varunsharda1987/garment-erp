@@ -64,7 +64,17 @@ import {
 import { approveCADPlan, rejectCADPlan } from '../controllers/style.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
+import {
+  styleIdParamSchema,
+  greigeIdParamSchema,
+  cadIdParamSchema,
+  styleIdAndRowIdParamSchema,
+  styleIdAndFabricIdParamSchema,
+  styleIdAndPartIdParamSchema,
+  styleIdAndComponentIdParamSchema,
+  styleIdAndGroupKeyParamSchema,
+} from '../schemas/common.schema';
 import {
   generateCADOptionsSchema,
   calculateCADCostSchema,
@@ -133,7 +143,7 @@ router.get('/greige-options', asyncHandler(getGreigeOptionsForGeneric));
  * @desc    Get available widths for a greige
  * @access  All authenticated users
  */
-router.get('/greige/:greigeId/widths', asyncHandler(getGreigeWidths));
+router.get('/greige/:greigeId/widths', validateParams(greigeIdParamSchema), asyncHandler(getGreigeWidths));
 
 /**
  * @route   GET /api/cad-planning/pending-variance
@@ -152,42 +162,46 @@ router.get('/pending-variance', authorize('ADMIN'), asyncHandler(getPendingVaria
  * @desc    Get enhanced CAD planning data for a style
  * @access  All authenticated users
  */
-router.get('/:styleId', asyncHandler(getEnhancedCADPlanning));
+router.get('/:styleId', validateParams(styleIdParamSchema), asyncHandler(getEnhancedCADPlanning));
 
 /**
  * @route   GET /api/cad-planning/:styleId/summary
  * @desc    Get CAD planning summary for a style
  * @access  All authenticated users
  */
-router.get('/:styleId/summary', asyncHandler(getStyleCADSummary));
+router.get('/:styleId/summary', validateParams(styleIdParamSchema), asyncHandler(getStyleCADSummary));
 
 /**
  * @route   GET /api/cad-planning/:styleId/history
  * @desc    Get all CAD history for a style
  * @access  All authenticated users
  */
-router.get('/:styleId/history', asyncHandler(getStyleCADHistory));
+router.get('/:styleId/history', validateParams(styleIdParamSchema), asyncHandler(getStyleCADHistory));
 
 /**
  * @route   GET /api/cad-planning/:styleId/table
  * @desc    Get CAD spreadsheet table data for a style
  * @access  All authenticated users
  */
-router.get('/:styleId/table', asyncHandler(getCADTableData));
+router.get('/:styleId/table', validateParams(styleIdParamSchema), asyncHandler(getCADTableData));
 
 /**
  * @route   GET /api/cad-planning/:styleId/order-history
  * @desc    Get CAD order usage history for a style
  * @access  All authenticated users
  */
-router.get('/:styleId/order-history', asyncHandler(getCADOrderHistory));
+router.get('/:styleId/order-history', validateParams(styleIdParamSchema), asyncHandler(getCADOrderHistory));
 
 /**
  * @route   GET /api/cad-planning/:styleId/group/:groupKey/details
  * @desc    Get CAD group details for CAD Edit page
  * @access  All authenticated users
  */
-router.get('/:styleId/group/:groupKey/details', asyncHandler(getCADGroupDetails));
+router.get(
+  '/:styleId/group/:groupKey/details',
+  validateParams(styleIdAndGroupKeyParamSchema),
+  asyncHandler(getCADGroupDetails)
+);
 
 // ============================================
 // CAD GENERATION & CALCULATION
@@ -224,6 +238,7 @@ router.post(
  */
 router.post(
   '/:styleId/select-greige',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(selectGreigeForGroupSchema),
   asyncHandler(selectGreigeForGroup)
@@ -240,6 +255,7 @@ router.post(
  */
 router.post(
   '/:styleId/row',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(addCADTableRowSchema),
   asyncHandler(addCADTableRow)
@@ -252,6 +268,7 @@ router.post(
  */
 router.post(
   '/:styleId/combined-row',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(addCombinedCADRowSchema),
   asyncHandler(addCombinedCADRow)
@@ -264,6 +281,7 @@ router.post(
  */
 router.post(
   '/:styleId/sync-bom-fabric',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   asyncHandler(syncBomFabricFromCAD)
 );
@@ -275,6 +293,7 @@ router.post(
  */
 router.put(
   '/:styleId/row/:rowId',
+  validateParams(styleIdAndRowIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(updateCADTableRowSchema),
   asyncHandler(updateCADTableRow)
@@ -285,7 +304,12 @@ router.put(
  * @desc    Delete a CAD row from the spreadsheet table
  * @access  ADMIN, MERCHANDISER
  */
-router.delete('/:styleId/row/:rowId', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(deleteCADTableRow));
+router.delete(
+  '/:styleId/row/:rowId',
+  validateParams(styleIdAndRowIdParamSchema),
+  authorize('ADMIN', 'MERCHANDISER'),
+  asyncHandler(deleteCADTableRow)
+);
 
 /**
  * @route   POST /api/cad-planning/:styleId/add-width
@@ -294,6 +318,7 @@ router.delete('/:styleId/row/:rowId', authorize('ADMIN', 'MERCHANDISER'), asyncH
  */
 router.post(
   '/:styleId/add-width',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(addCADWidthSchema),
   asyncHandler(addCADWidth)
@@ -304,7 +329,12 @@ router.post(
  * @desc    Delete a CAD width entry (legacy)
  * @access  ADMIN, MERCHANDISER
  */
-router.delete('/cad/:cadId', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(deleteCADWidth));
+router.delete(
+  '/cad/:cadId',
+  validateParams(cadIdParamSchema),
+  authorize('ADMIN', 'MERCHANDISER'),
+  asyncHandler(deleteCADWidth)
+);
 
 /**
  * @route   PUT /api/cad-planning/cad/:cadId
@@ -313,6 +343,7 @@ router.delete('/cad/:cadId', authorize('ADMIN', 'MERCHANDISER'), asyncHandler(de
  */
 router.put(
   '/cad/:cadId',
+  validateParams(cadIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(updateCADValuesWithBreakdownSchema),
   asyncHandler(updateCADValuesWithBreakdown)
@@ -325,6 +356,7 @@ router.put(
  */
 router.put(
   '/update-cad/:cadId',
+  validateParams(cadIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(updateCADValuesSchema),
   asyncHandler(updateCADValues)
@@ -337,6 +369,7 @@ router.put(
  */
 router.put(
   '/cad/:cadId/set-preferred',
+  validateParams(cadIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   asyncHandler(setPreferredCAD)
 );
@@ -359,6 +392,7 @@ router.post('/approve', authorize('ADMIN', 'MERCHANDISER'), validateBody(approve
  */
 router.post(
   '/:styleId/row/:rowId/approve',
+  validateParams(styleIdAndRowIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(cadPurposeActionSchema),
   asyncHandler(approveCADPurpose)
@@ -371,6 +405,7 @@ router.post(
  */
 router.post(
   '/:styleId/row/:rowId/reject',
+  validateParams(styleIdAndRowIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(cadPurposeActionSchema),
   asyncHandler(rejectCADPurpose)
@@ -383,6 +418,7 @@ router.post(
  */
 router.post(
   '/:styleId/planning/:rowId/create-version',
+  validateParams(styleIdAndRowIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(createPlanningVersionSchema),
   asyncHandler(createPlanningVersion)
@@ -395,6 +431,7 @@ router.post(
  */
 router.post(
   '/:styleId/copy',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(copyCADPurposeSchema),
   asyncHandler(copyCADPurpose)
@@ -405,7 +442,7 @@ router.post(
  * @desc    Get copy lineage for a CAD record (source -> current -> children)
  * @access  All authenticated users
  */
-router.get('/:styleId/row/:rowId/lineage', asyncHandler(getCADLineage));
+router.get('/:styleId/row/:rowId/lineage', validateParams(styleIdAndRowIdParamSchema), asyncHandler(getCADLineage));
 
 /**
  * @route   POST /api/cad-planning/:styleId/link-stock
@@ -414,6 +451,7 @@ router.get('/:styleId/row/:rowId/lineage', asyncHandler(getCADLineage));
  */
 router.post(
   '/:styleId/link-stock',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(linkCADToStockSchema),
   asyncHandler(linkCADToStock)
@@ -426,6 +464,7 @@ router.post(
  */
 router.put(
   '/:styleId/approve-cad',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(cadPlanActionSchema),
   asyncHandler(approveCADPlan)
@@ -438,6 +477,7 @@ router.put(
  */
 router.put(
   '/:styleId/reject-cad',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   validateBody(cadPlanActionSchema),
   asyncHandler(rejectCADPlan)
@@ -454,6 +494,7 @@ router.put(
  */
 router.post(
   '/:styleId/production-from-stock',
+  validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(createProductionCADFromStockSchema),
   asyncHandler(createProductionCADFromStock)
@@ -468,7 +509,11 @@ router.post(
  * @desc    Get pattern parts assigned to a style fabric
  * @access  All authenticated users
  */
-router.get('/:styleId/fabrics/:fabricId/pattern-parts', asyncHandler(getStyleFabricPatternParts));
+router.get(
+  '/:styleId/fabrics/:fabricId/pattern-parts',
+  validateParams(styleIdAndFabricIdParamSchema),
+  asyncHandler(getStyleFabricPatternParts)
+);
 
 /**
  * @route   POST /api/cad-planning/:styleId/fabrics/:fabricId/pattern-parts
@@ -477,6 +522,7 @@ router.get('/:styleId/fabrics/:fabricId/pattern-parts', asyncHandler(getStyleFab
  */
 router.post(
   '/:styleId/fabrics/:fabricId/pattern-parts',
+  validateParams(styleIdAndFabricIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(assignPatternPartsSchema),
   asyncHandler(assignPatternParts)
@@ -489,6 +535,7 @@ router.post(
  */
 router.post(
   '/:styleId/fabrics/:fabricId/pattern-parts/from-component',
+  validateParams(styleIdAndFabricIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(assignPatternPartsFromComponentSchema),
   asyncHandler(assignPatternPartsFromComponent)
@@ -501,6 +548,7 @@ router.post(
  */
 router.put(
   '/:styleId/pattern-parts/:partId',
+  validateParams(styleIdAndPartIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(updatePatternPartAssignmentSchema),
   asyncHandler(updatePatternPartAssignment)
@@ -513,6 +561,7 @@ router.put(
  */
 router.delete(
   '/:styleId/pattern-parts/:partId',
+  validateParams(styleIdAndPartIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   asyncHandler(deletePatternPartAssignment)
 );
@@ -522,7 +571,11 @@ router.delete(
  * @desc    Get pattern parts for a component
  * @access  All authenticated users
  */
-router.get('/:styleId/components/:componentId/pattern-parts', asyncHandler(getCADPatternPartsForComponent));
+router.get(
+  '/:styleId/components/:componentId/pattern-parts',
+  validateParams(styleIdAndComponentIdParamSchema),
+  asyncHandler(getCADPatternPartsForComponent)
+);
 
 // ============================================
 // EMBROIDERY CAD
@@ -533,7 +586,11 @@ router.get('/:styleId/components/:componentId/pattern-parts', asyncHandler(getCA
  * @desc    Get embroidery CAD for a style fabric
  * @access  All authenticated users
  */
-router.get('/:styleId/fabrics/:fabricId/embroidery-cad', asyncHandler(getEmbroideryCad));
+router.get(
+  '/:styleId/fabrics/:fabricId/embroidery-cad',
+  validateParams(styleIdAndFabricIdParamSchema),
+  asyncHandler(getEmbroideryCad)
+);
 
 /**
  * @route   POST /api/cad-planning/:styleId/fabrics/:fabricId/embroidery-cad
@@ -542,6 +599,7 @@ router.get('/:styleId/fabrics/:fabricId/embroidery-cad', asyncHandler(getEmbroid
  */
 router.post(
   '/:styleId/fabrics/:fabricId/embroidery-cad',
+  validateParams(styleIdAndFabricIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
   validateBody(createOrUpdateEmbroideryCadSchema),
   asyncHandler(createOrUpdateEmbroideryCad)
@@ -554,6 +612,7 @@ router.post(
  */
 router.delete(
   '/:styleId/fabrics/:fabricId/embroidery-cad',
+  validateParams(styleIdAndFabricIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER'),
   asyncHandler(deleteEmbroideryCad)
 );
@@ -563,7 +622,11 @@ router.delete(
  * @desc    Get total CAD for a style fabric (Main CAD + Embroidery CAD)
  * @access  All authenticated users
  */
-router.get('/:styleId/fabrics/:fabricId/total-cad', asyncHandler(getTotalFabricCad));
+router.get(
+  '/:styleId/fabrics/:fabricId/total-cad',
+  validateParams(styleIdAndFabricIdParamSchema),
+  asyncHandler(getTotalFabricCad)
+);
 
 /**
  * @route   POST /api/cad-planning/:styleId/row/:rowId/approve-variance
@@ -573,6 +636,7 @@ router.get('/:styleId/fabrics/:fabricId/total-cad', asyncHandler(getTotalFabricC
  */
 router.post(
   '/:styleId/row/:rowId/approve-variance',
+  validateParams(styleIdAndRowIdParamSchema),
   authorize('ADMIN'),
   validateBody(approveProductionVarianceSchema),
   asyncHandler(approveProductionVariance)

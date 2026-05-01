@@ -9,7 +9,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createFromCostSheetSchema,
   copyFromPreviousOrderSchema,
@@ -20,6 +20,7 @@ import {
   orderBOMQuerySchema,
 } from '../schemas/orderBom.schema';
 import * as orderBomController from '../controllers/order-bom.controller';
+import { orderIdParamSchema, idParamSchema, orderIdAndSourceOrderIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.use(authenticateToken);
  */
 router.post(
   '/:orderId/bom',
+  validateParams(orderIdParamSchema),
   validateBody(createFromCostSheetSchema),
   asyncHandler(orderBomController.createFromCostSheet)
 );
@@ -48,7 +50,7 @@ router.post(
  * @access  Private
  * @query   styleId (optional - filter by style if order has multiple styles)
  */
-router.get('/:orderId/bom', asyncHandler(orderBomController.getByOrderId));
+router.get('/:orderId/bom', validateParams(orderIdParamSchema), asyncHandler(orderBomController.getByOrderId));
 
 /**
  * @route   PUT /api/orders/:orderId/bom
@@ -57,7 +59,12 @@ router.get('/:orderId/bom', asyncHandler(orderBomController.getByOrderId));
  * @query   styleId (optional)
  * @body    { items: OrderBOMItemInput[] }
  */
-router.put('/:orderId/bom', validateBody(updateOrderBOMSchema), asyncHandler(orderBomController.updateOrderBOM));
+router.put(
+  '/:orderId/bom',
+  validateParams(orderIdParamSchema),
+  validateBody(updateOrderBOMSchema),
+  asyncHandler(orderBomController.updateOrderBOM)
+);
 
 /**
  * @route   PATCH /api/orders/:orderId/bom/approve
@@ -65,7 +72,11 @@ router.put('/:orderId/bom', validateBody(updateOrderBOMSchema), asyncHandler(ord
  * @access  Private
  * @query   styleId (optional)
  */
-router.patch('/:orderId/bom/approve', asyncHandler(orderBomController.approveOrderBOM));
+router.patch(
+  '/:orderId/bom/approve',
+  validateParams(orderIdParamSchema),
+  asyncHandler(orderBomController.approveOrderBOM)
+);
 
 /**
  * @route   POST /api/orders/:orderId/bom/approve-and-calculate
@@ -75,6 +86,7 @@ router.patch('/:orderId/bom/approve', asyncHandler(orderBomController.approveOrd
  */
 router.post(
   '/:orderId/bom/approve-and-calculate',
+  validateParams(orderIdParamSchema),
   validateBody(approveAndCalculateMRPSchema),
   asyncHandler(orderBomController.approveAndCalculateMRP)
 );
@@ -87,6 +99,7 @@ router.post(
  */
 router.post(
   '/:orderId/bom/calculate-mrp',
+  validateParams(orderIdParamSchema),
   validateBody(calculateMRPStandaloneSchema),
   asyncHandler(orderBomController.calculateMRPStandalone)
 );
@@ -97,7 +110,7 @@ router.post(
  * @access  Private
  * @query   styleId (optional)
  */
-router.patch('/:orderId/bom/lock', asyncHandler(orderBomController.lockOrderBOM));
+router.patch('/:orderId/bom/lock', validateParams(orderIdParamSchema), asyncHandler(orderBomController.lockOrderBOM));
 
 /**
  * @route   POST /api/orders/:orderId/bom/copy/:sourceOrderId
@@ -107,6 +120,7 @@ router.patch('/:orderId/bom/lock', asyncHandler(orderBomController.lockOrderBOM)
  */
 router.post(
   '/:orderId/bom/copy/:sourceOrderId',
+  validateParams(orderIdAndSourceOrderIdParamSchema),
   validateBody(copyFromPreviousOrderSchema),
   asyncHandler(orderBomController.copyFromPreviousOrder)
 );
@@ -117,7 +131,11 @@ router.post(
  * @access  Private
  * @query   styleId (optional)
  */
-router.get('/:orderId/bom/requirements', asyncHandler(orderBomController.calculateRequirements));
+router.get(
+  '/:orderId/bom/requirements',
+  validateParams(orderIdParamSchema),
+  asyncHandler(orderBomController.calculateRequirements)
+);
 
 /**
  * @route   DELETE /api/orders/:orderId/bom
@@ -125,7 +143,7 @@ router.get('/:orderId/bom/requirements', asyncHandler(orderBomController.calcula
  * @access  Private
  * @query   styleId (optional)
  */
-router.delete('/:orderId/bom', asyncHandler(orderBomController.deactivateOrderBOM));
+router.delete('/:orderId/bom', validateParams(orderIdParamSchema), asyncHandler(orderBomController.deactivateOrderBOM));
 
 // ============================================
 // STANDALONE ORDER BOM ROUTES (mounted under /api/order-bom)
@@ -156,7 +174,7 @@ orderBomStandaloneRouter.post('/cleanup-cancelled', asyncHandler(orderBomControl
  * @desc    Get Order BOM by ID with full details
  * @access  Private
  */
-orderBomStandaloneRouter.get('/:id', asyncHandler(orderBomController.getById));
+orderBomStandaloneRouter.get('/:id', validateParams(idParamSchema), asyncHandler(orderBomController.getById));
 
 /**
  * @route   POST /api/order-bom/:id/change-width
@@ -166,6 +184,7 @@ orderBomStandaloneRouter.get('/:id', asyncHandler(orderBomController.getById));
  */
 orderBomStandaloneRouter.post(
   '/:id/change-width',
+  validateParams(idParamSchema),
   validateBody(changeWidthSchema),
   asyncHandler(orderBomController.changeWidth)
 );
